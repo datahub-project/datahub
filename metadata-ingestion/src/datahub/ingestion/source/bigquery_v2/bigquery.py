@@ -698,6 +698,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             conn, table_identifier, column_limit=self.config.column_limit
         )
 
+        if dataset_name not in self.db_views[project_id]:
+            self.db_views[project_id][dataset_name] = []
+
+        self.db_views[project_id][dataset_name].append(view)
+
         view_workunits = self.gen_view_dataset_workunits(view, project_id, dataset_name)
         for wu in view_workunits:
             self.report.report_workunit(wu)
@@ -1142,8 +1147,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         views = self.db_views.get(project_id)
 
-        # get all views for database failed,
-        # falling back to get views for schema
         if not views:
             return BigQueryDataDictionary.get_views_for_dataset(
                 conn, project_id, dataset_name, self.config.profiling.enabled

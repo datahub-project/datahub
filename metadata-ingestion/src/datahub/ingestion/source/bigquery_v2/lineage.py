@@ -431,7 +431,9 @@ timestamp < "{end_time}"
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
                 try:
-                    parser = BigQuerySQLParser(e.query)
+                    parser = BigQuerySQLParser(
+                        e.query, self.config.sql_parser_use_external_process
+                    )
                     referenced_objs = set(
                         map(lambda x: x.split(".")[-1], parser.get_tables())
                     )
@@ -468,7 +470,9 @@ timestamp < "{end_time}"
         parsed_tables = set()
         if view.ddl:
             try:
-                parser = BigQuerySQLParser(view.ddl)
+                parser = BigQuerySQLParser(
+                    view.ddl, self.config.sql_parser_use_external_process
+                )
                 tables = parser.get_tables()
             except Exception as ex:
                 logger.debug(
