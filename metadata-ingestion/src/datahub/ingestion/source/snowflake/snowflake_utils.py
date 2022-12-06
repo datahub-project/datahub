@@ -7,6 +7,7 @@ from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 from typing_extensions import Protocol
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -136,7 +137,12 @@ class SnowflakeCommonMixin:
 
         if not self.config.database_pattern.allowed(
             dataset_params[0].strip('"')
-        ) or not self.config.schema_pattern.allowed(dataset_params[1].strip('"')):
+        ) or not is_schema_allowed(
+            self.config.schema_pattern,
+            dataset_params[1].strip('"'),
+            dataset_params[0].strip('"'),
+            self.config.match_fully_qualified_names,
+        ):
             return False
 
         if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(

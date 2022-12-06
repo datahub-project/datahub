@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { AutoComplete, Divider, Form, FormInstance } from 'antd';
+import { AutoComplete, Divider, Form } from 'antd';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
@@ -52,7 +52,7 @@ interface SecretFieldProps {
     secrets: Secret[];
     removeMargin?: boolean;
     refetchSecrets: () => void;
-    form: FormInstance<any>;
+    updateFormValue: (field, value) => void;
 }
 
 function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {
@@ -84,7 +84,7 @@ const encodeSecret = (secretName: string) => {
     return `\${${secretName}}`;
 };
 
-function SecretField({ field, secrets, removeMargin, form, refetchSecrets }: SecretFieldProps) {
+function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSecrets }: SecretFieldProps) {
     const options = secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name }));
 
     return (
@@ -108,9 +108,7 @@ function SecretField({ field, secrets, removeMargin, form, refetchSecrets }: Sec
                             {menu}
                             <StyledDivider />
                             <CreateSecretButton
-                                onSubmit={(state) =>
-                                    form.setFields([{ name: field.name, value: encodeSecret(state.name as string) }])
-                                }
+                                onSubmit={(state) => updateFormValue(field.name, encodeSecret(state.name as string))}
                                 refetchSecrets={refetchSecrets}
                             />
                         </>
