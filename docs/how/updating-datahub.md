@@ -12,6 +12,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
+- #6611 - Snowflake `schema_pattern` now accepts pattern for fully qualified schema name in format `<catalog_name>.<schema_name>` by setting config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+
 ## 0.9.3
 
 ### Breaking Changes

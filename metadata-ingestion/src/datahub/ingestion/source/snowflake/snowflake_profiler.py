@@ -6,6 +6,7 @@ from snowflake.sqlalchemy import snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.sql import sqltypes
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import WorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
@@ -61,7 +62,12 @@ class SnowflakeProfiler(SnowflakeCommonMixin, GenericProfiler, SnowflakeCommonPr
                 continue
             profile_requests = []
             for schema in db.schemas:
-                if not config.schema_pattern.allowed(schema.name):
+                if not is_schema_allowed(
+                    self.config.schema_pattern,
+                    schema.name,
+                    db.name,
+                    self.config.match_fully_qualified_names,
+                ):
                     continue
                 for table in schema.tables:
 
