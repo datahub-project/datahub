@@ -6,10 +6,7 @@ from typing import Counter, Dict, List, Optional
 
 import pydantic
 
-from datahub.ingestion.source.sql.sql_generic_profiler import (
-    DetailedProfilerReportMixin,
-    ProfilingSqlReport,
-)
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.stats_collections import TopKDict
 
