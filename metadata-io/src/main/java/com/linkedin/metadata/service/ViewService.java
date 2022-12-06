@@ -12,7 +12,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubViewKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
