@@ -288,7 +288,7 @@ module.exports = {
       {
         "Advanced Guides": [
           "docs/how/delete-metadata",
-          "datahub-ranger-plugin/README",
+          "docs/how/configuring-authorization-with-apache-ranger",
           "docs/how/backup-datahub",
           "docs/how/restore-indices",
           "docs/advanced/db-retention",
