@@ -7785,7 +7785,37 @@
         "checksum": "691757217fdc0ad849160f0b24bff8fa09385b51f9f5605dda388a6d47d1ab28",
         "name": "sha256"
       },
-      "columns": {},
+      "columns": {
+        "amount": {
+          "data_type": null,
+          "description": "",
+          "meta": {},
+          "name": "amount",
+          "quote": null,
+          "tags": []
+        },
+        "billing_month": {
+          "data_type": null,
+          "description": "",
+          "meta": {},
+          "name": "billing_month",
+          "quote": null,
+          "tags": []
+        },
+        "customer_id": {
+          "data_type": null,
+          "description": "description for customer_id from dbt",
+          "meta": {
+            "is_sensitive": true,
+            "terms": "pii, customer_id"
+          },
+          "name": "customer_id",
+          "quote": null,
+          "tags": [
+            "tag_from_dbt"
+          ]
+        }
+      },
       "compiled": true,
       "compiled_code": "\n\nSELECT\n    date_trunc('month', payment_date) as \"billing_month\",\n    customer_id,\n    sum(amount) as \"amount\"\nFROM\n    \"pagila\".\"dbt_postgres\".\"an-aliased-view-for-payments\"\nGROUP BY\n    billing_month,\n    customer_id",
       "compiled_path": "target/compiled/sample_dbt/models/transform/payments_by_customer_by_month.sql",
