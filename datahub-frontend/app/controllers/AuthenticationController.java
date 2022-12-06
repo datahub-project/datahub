@@ -56,6 +56,8 @@ public class AuthenticationController extends Controller {
     private static final String ERROR_MESSAGE_URI_PARAM = "error_msg";
     private static final String SSO_DISABLED_ERROR_MESSAGE = "SSO is not configured";
 
+    private static final String SSO_NO_REDIRECT_MESSAGE = "SSO is configured, however missing redirect from idp";
+
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
     private final JAASConfigs _jaasConfigs;
@@ -100,7 +102,9 @@ public class AuthenticationController extends Controller {
 
         // 1. If SSO is enabled, redirect to IdP if not authenticated.
         if (_ssoManager.isSsoEnabled()) {
-            return redirectToIdentityProvider(request);
+            return redirectToIdentityProvider(request).orElse(
+                    Results.redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE))
+            );
         }
 
         // 2. If either JAAS auth or Native auth is enabled, fallback to it
@@ -124,7 +128,9 @@ public class AuthenticationController extends Controller {
     @Nonnull
     public Result sso(Http.Request request) {
         if (_ssoManager.isSsoEnabled()) {
-            return redirectToIdentityProvider(request);
+            return redirectToIdentityProvider(request).orElse(
+                Results.redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE))
+            );
         }
         return Results.redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_DISABLED_ERROR_MESSAGE));
     }
@@ -265,7 +271,7 @@ public class AuthenticationController extends Controller {
         return createSession(userUrnString, accessToken);
     }
 
-    private Result redirectToIdentityProvider(Http.RequestHeader request) {
+    private Optional<Result> redirectToIdentityProvider(Http.RequestHeader request) {
         final PlayWebContext playWebContext = new PlayWebContext(request, _playSessionStore);
         final Client client = _ssoManager.getSsoProvider().client();
 
@@ -278,13 +284,13 @@ public class AuthenticationController extends Controller {
 
         try {
             final Optional<RedirectionAction> action = client.getRedirectionAction(playWebContext);
-            return new PlayHttpActionAdapter().adapt(action.get(), playWebContext);
+            return action.map(act -> new PlayHttpActionAdapter().adapt(act, playWebContext));
         } catch (Exception e) {
             _logger.error("Caught exception while attempting to redirect to SSO identity provider! It's likely that SSO integration is mis-configured", e);
-            return Results.redirect(
+            return Optional.of(Results.redirect(
                 String.format("/login?error_msg=%s",
                 URLEncoder.encode("Failed to redirect to Single Sign-On provider. Please contact your DataHub Administrator, "
-                    + "or refer to server logs for more information.", StandardCharsets.UTF_8)));
+                    + "or refer to server logs for more information.", StandardCharsets.UTF_8))));
         }
     }
 
