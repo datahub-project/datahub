@@ -354,7 +354,7 @@ class DBTNode:
     alias: Optional[str]  # alias if present
     comment: str
     description: str
-    language: str
+    language: Optional[str]
     raw_code: Optional[str]
 
     dbt_adapter: str

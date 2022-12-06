@@ -369,6 +369,7 @@ class DBTCloudSource(DBTSourceBase):
             query_tag={},  # TODO: Get this from the dbt API.
             tags=tags,
             owner=owner,
+            language="sql",  # TODO: dbt Cloud doesn't surface this
             raw_code=raw_code,
             compiled_code=compiled_code,
             columns=columns,
