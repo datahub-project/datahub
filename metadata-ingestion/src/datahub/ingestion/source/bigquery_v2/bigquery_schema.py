@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Generic, List, Optional, Sequence, cast
+from typing import Dict, List, Optional, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import RowIterator, TableListItem, TimePartitioning
