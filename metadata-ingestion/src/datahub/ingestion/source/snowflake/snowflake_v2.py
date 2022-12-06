@@ -3,9 +3,11 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
+import pandas as pd
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -41,6 +43,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
     SnowflakeLineageExtractor,
@@ -175,6 +178,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     supported=True,
 )
 class SnowflakeV2Source(
+    ClassificationMixin,
     SnowflakeQueryMixin,
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
@@ -221,6 +225,8 @@ class SnowflakeV2Source(
             # For profiling
             self.profiler = SnowflakeProfiler(config, self.report)
 
+        if self.is_classification_enabled():
+            self.classifiers = self.get_classifiers()
         # Currently caching using instance variables
         # TODO - rewrite cache for readability or use out of the box solution
         self.db_tables: Dict[str, Optional[Dict[str, List[SnowflakeTable]]]] = {}
@@ -503,7 +509,12 @@ class SnowflakeV2Source(
 
             self.report.report_entity_scanned(snowflake_schema.name, "schema")
 
-            if not self.config.schema_pattern.allowed(snowflake_schema.name):
+            if not is_schema_allowed(
+                self.config.schema_pattern,
+                snowflake_schema.name,
+                db_name,
+                self.config.match_fully_qualified_names,
+            ):
                 self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
                 continue
 
@@ -559,6 +570,18 @@ class SnowflakeV2Source(
             conn, table.name, schema_name, db_name
         )
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
+
+        if self.is_classification_enabled_for_table(dataset_name):
+            try:
+                table.sample_data = self.get_sample_values_for_table(
+                    conn, table.name, schema_name, db_name
+                )
+            except Exception as e:
+                self.warn(
+                    self.logger,
+                    dataset_name,
+                    f"unable to get table sample data due to error -> {e}",
+                )
 
         lineage_info = None
         if self.config.include_table_lineage:
@@ -629,6 +652,14 @@ class SnowflakeV2Source(
             description=table.comment,
             qualifiedName=dataset_name,
             customProperties={**upstream_column_props},
+            externalUrl=self.get_external_url_for_table(
+                table.name,
+                schema_name,
+                db_name,
+                "table" if isinstance(table, SnowflakeTable) else "view",
+            )
+            if self.config.include_external_url
+            else None,
         )
         yield self.wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
@@ -736,6 +767,33 @@ class SnowflakeV2Source(
             ],
             foreignKeys=foreign_keys,
         )
+
+        # TODO: classification is only run for snowflake tables.
+        # Should we run classification for snowflake views as well?
+        if isinstance(
+            table, SnowflakeTable
+        ) and self.is_classification_enabled_for_table(dataset_name):
+            if table.sample_data is not None:
+                table.sample_data.columns = [
+                    self.snowflake_identifier(col) for col in table.sample_data.columns
+                ]
+            logger.debug(f"Classifying Table {dataset_name}")
+
+            try:
+                self.classify_schema_fields(
+                    dataset_name,
+                    schema_metadata,
+                    table.sample_data.to_dict(orient="list")
+                    if table.sample_data is not None
+                    else {},
+                )
+            except Exception as e:
+                self.warn(
+                    self.logger,
+                    dataset_name,
+                    f"unable to classify table columns due to error -> {e}",
+                )
+
         return schema_metadata
 
     def get_report(self) -> SourceReport:
@@ -845,6 +903,9 @@ class SnowflakeV2Source(
             description=database.comment,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+            external_url=self.get_external_url_for_database(database.name)
+            if self.config.include_external_url
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -878,6 +939,9 @@ class SnowflakeV2Source(
             description=schema.comment,
             sub_types=[SqlContainerSubTypes.SCHEMA],
             parent_container_key=database_container_key,
+            external_url=self.get_external_url_for_schema(schema.name, db_name)
+            if self.config.include_external_url
+            else None,
         )
 
         for wu in container_workunits:
@@ -1014,3 +1078,45 @@ class SnowflakeV2Source(
     # Stateful Ingestion Overrides.
     def get_platform_instance_id(self) -> str:
         return self.config.get_account()
+
+    # Ideally we do not want null values in sample data for a column.
+    # However that would require separate query per column and
+    # that would be expensive, hence not done.
+    def get_sample_values_for_table(self, conn, table_name, schema_name, db_name):
+
+        # Create a cursor object.
+        cur = conn.cursor()
+        NUM_SAMPLED_ROWS = 1000
+        # Execute a statement that will generate a result set.
+        sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
+
+        cur.execute(sql)
+        # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
+
+        dat = cur.fetchall()
+        df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
+
+        return df
+
+    # domain is either "view" or "table"
+    def get_external_url_for_table(
+        self, table_name: str, schema_name: str, db_name: str, domain: str
+    ) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+        return None
+
+    def get_external_url_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
+        return None
+
+    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/"
+        return None

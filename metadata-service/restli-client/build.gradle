@@ -7,7 +7,8 @@ dependencies {
   compile project(':metadata-events:mxe-schemas')
   compile project(':metadata-utils')
 
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
   compile spec.product.pegasus.restliClient

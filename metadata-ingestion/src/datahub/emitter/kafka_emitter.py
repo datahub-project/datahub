@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, Optional, Union
 
 import pydantic
 from confluent_kafka import SerializingProducer
@@ -113,12 +113,12 @@ class DatahubKafkaEmitter:
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
         ],
-        callback: Callable[[Exception, str], None],
+        callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         if isinstance(item, (MetadataChangeProposal, MetadataChangeProposalWrapper)):
-            return self.emit_mcp_async(item, callback)
+            return self.emit_mcp_async(item, callback or _error_reporting_callback)
         else:
-            return self.emit_mce_async(item, callback)
+            return self.emit_mce_async(item, callback or _error_reporting_callback)
 
     def emit_mce_async(
         self,
@@ -153,3 +153,8 @@ class DatahubKafkaEmitter:
     def flush(self) -> None:
         for producer in self.producers.values():
             producer.flush()
+
+
+def _error_reporting_callback(err: Exception, msg: str) -> None:
+    if err:
+        logger.error(f"Failed to emit to kafka: {err} {msg}")
