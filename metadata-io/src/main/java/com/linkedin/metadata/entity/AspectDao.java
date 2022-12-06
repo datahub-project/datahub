@@ -53,9 +53,10 @@ public interface AspectDao {
         @Nonnull final Timestamp timestamp,
         @Nonnull final String systemMetadata,
         final long version,
-        final boolean insert);
+        final boolean insert,
+        @Nullable final Long updateIfCreatedOn);
 
-    void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert);
+    void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert, final Long updateIfCreatedOn);
 
     long saveLatestAspect(
         @Nonnull final String urn,
@@ -70,7 +71,8 @@ public interface AspectDao {
         @Nullable final String newImpersonator,
         @Nonnull final Timestamp newTime,
         @Nullable final String newSystemMetadata,
-        final Long nextVersion);
+        final Long nextVersion,
+        @Nullable final Long updateIfCreatedOn);
 
     void deleteAspect(@Nonnull final EntityAspect aspect);
 
@@ -116,4 +118,6 @@ public interface AspectDao {
 
     @Nonnull
     <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry);
+
+    boolean supportTransactions();
 }

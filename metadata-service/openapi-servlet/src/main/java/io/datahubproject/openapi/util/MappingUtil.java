@@ -234,7 +234,12 @@ public class MappingUtil {
   }
 
   public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, String actorUrn, EntityService entityService,
-      ObjectMapper objectMapper) {
+                                                     ObjectMapper objectMapper) {
+    return ingestProposal(metadataChangeProposal, actorUrn, entityService, objectMapper, null);
+  }
+
+  public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, String actorUrn, EntityService entityService,
+      ObjectMapper objectMapper, Long updateIfCreatedOn) {
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
@@ -294,9 +299,9 @@ public class MappingUtil {
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false);
+      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false, updateIfCreatedOn);
       Urn urn = proposalResult.getUrn();
-      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false));
+      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false, updateIfCreatedOn));
       return new Pair<>(urn.toString(), proposalResult.isDidUpdate());
     } catch (ValidationException ve) {
       exceptionally = ve;

@@ -148,9 +148,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert) {
+  public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert, @Nullable Long updateIfCreatedOn) {
     validateConnection();
-    SimpleStatement statement = generateSaveStatement(aspect, insert);
+    SimpleStatement statement = generateSaveStatement(aspect, insert, updateIfCreatedOn);
     _cqlSession.execute(statement);
   }
 
@@ -487,7 +487,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable final String newImpersonator,
       @Nonnull final Timestamp newTime,
       @Nullable final String newSystemMetadata,
-      final Long nextVersion
+      final Long nextVersion,
+      @Nullable final Long updateIfCreatedOn
   ) {
 
     validateConnection();
@@ -509,7 +510,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               oldActor,
               oldImpersonator
       );
-      batch = batch.add(generateSaveStatement(aspect, true));
+      batch = batch.add(generateSaveStatement(aspect, true, updateIfCreatedOn));
     }
 
     // Save newValue as the latest version (v0)
@@ -523,12 +524,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             newActor,
             newImpersonator
     );
-    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null));
+    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null, updateIfCreatedOn));
     _cqlSession.execute(batch);
     return largestVersion;
   }
 
-  private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert) {
+  private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert, Long updateIfCreatedOn) {
     String entity;
     try {
       entity = (new Urn(aspect.getUrn())).getEntityType();
@@ -545,8 +546,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               .value(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
               .value(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()))
               .value(CassandraAspect.ENTITY_COLUMN, literal(entity))
-              .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()))
-              .ifNotExists();
+              .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()));
+      if (updateIfCreatedOn != null && updateIfCreatedOn == 0) {
+        ri = ri.ifNotExists();
+      }
       return ri.build();
     } else {
 
@@ -559,8 +562,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
       Update u = uwa.whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
               .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
-              .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()))
-              .ifExists();
+              .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()));
+
+      if (updateIfCreatedOn != null) {
+        u = u.ifColumn(CassandraAspect.CREATED_ON_COLUMN).isEqualTo(literal(updateIfCreatedOn));
+      } else {
+        u = u.ifExists();
+      }
 
       return u.build();
     }
@@ -581,7 +589,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Timestamp timestamp,
       @Nonnull final String systemMetadata,
       final long version,
-      final boolean insert) {
+      final boolean insert,
+      @Nullable final Long updateIfCreatedOn) {
 
     validateConnection();
     final EntityAspect aspect = new EntityAspect(
@@ -595,7 +604,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         impersonator
     );
 
-    saveAspect(aspect, insert);
+    saveAspect(aspect, insert, updateIfCreatedOn);
   }
 
   @Override
@@ -618,5 +627,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   private Iterable<Term> aspectNamesToLiterals(Set<String> aspectNames) {
     return aspectNames.stream().map(QueryBuilder::literal).collect(Collectors.toSet());
+  }
+
+  @Override
+  public boolean supportTransactions() {
+    return false;
   }
 }

@@ -944,6 +944,47 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
     }
 
+    @Test
+    public void testConditionalUpdates() throws Exception {
+        Urn entityUrn1 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo1,bar1,PROD)");
+        Urn entityUrn2 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo2,bar2,PROD)");
+        String aspectName = "datasetProperties";
+        String propName1 = "propName1";
+        String propName2 = "propName2";
+
+        _entityService.ingestProposal(generateProposal(entityUrn1, aspectName, propName1), TEST_AUDIT_STAMP, false);
+        _entityService.ingestProposal(generateProposal(entityUrn2, aspectName, propName1), TEST_AUDIT_STAMP, false, 0L);
+        assertEquals(_entityService.getAspect(entityUrn1, aspectName, 0).data().getString("name"), propName1);
+        assertEquals(_entityService.getAspect(entityUrn2, aspectName, 0).data().getString("name"), propName1);
+
+        _entityService.ingestProposal(generateProposal(entityUrn1, aspectName, propName2), TEST_AUDIT_STAMP, false);
+        _entityService.ingestProposal(generateProposal(entityUrn2, aspectName, propName2), TEST_AUDIT_STAMP, false, 555L);
+        assertEquals(_entityService.getAspect(entityUrn1, aspectName, 0).data().getString("name"), propName2);
+        assertEquals(_entityService.getAspect(entityUrn1, aspectName, 1).data().getString("name"), propName1);
+        assertEquals(_entityService.getAspect(entityUrn2, aspectName, 0).data().getString("name"), propName1);
+
+        _entityService.ingestProposal(generateProposal(entityUrn2, aspectName, propName2), TEST_AUDIT_STAMP, false, 123L);
+        assertEquals(_entityService.getAspect(entityUrn2, aspectName, 0).data().getString("name"), propName2);
+        assertEquals(_entityService.getAspect(entityUrn2, aspectName, 1).data().getString("name"), propName1);
+    }
+
+    private MetadataChangeProposal generateProposal(Urn urn, String aspectName, String propName) throws Exception {
+        DatasetProperties datasetProperties = new DatasetProperties();
+        datasetProperties.setName(propName);
+        MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(urn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType("dataset");
+        gmce.setAspectName(aspectName);
+        JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+        byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+        GenericAspect genericAspect = new GenericAspect();
+        genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+        genericAspect.setContentType("application/json");
+        gmce.setAspect(genericAspect);
+        return gmce;
+    }
+
     @Nonnull
     protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
         CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);

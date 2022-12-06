@@ -15,6 +15,8 @@ public class Constants {
 
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
+  public static final String IN_UNMODIFIED_SINCE = "If-Unmodified-Since";
+
   /**
    * Entities
    */

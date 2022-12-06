@@ -112,7 +112,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable final String newImpersonator,
       @Nonnull final Timestamp newTime,
       @Nullable final String newSystemMetadata,
-      final Long nextVersion
+      final Long nextVersion,
+      @Nullable final Long updateIfCreatedOn
   ) {
 
     validateConnection();
@@ -123,11 +124,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     long largestVersion = ASPECT_LATEST_VERSION;
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
-      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
+      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true, updateIfCreatedOn);
     }
 
     // Save newValue as the latest version (v0)
-    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION, oldAspectMetadata == null);
+    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION,
+            oldAspectMetadata == null, updateIfCreatedOn);
 
     return largestVersion;
   }
@@ -142,7 +144,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Timestamp timestamp,
       @Nonnull final String systemMetadata,
       final long version,
-      final boolean insert) {
+      final boolean insert,
+      @Nullable final Long updateIfCreatedOn) {
 
     validateConnection();
 
@@ -160,7 +163,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert) {
+  public void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert, @Nullable final Long updateIfCreatedOn) {
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
     saveEbeanAspect(ebeanAspect, insert);
   }
@@ -639,5 +642,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         .inRange(EbeanAspectV2.CREATED_ON_COLUMN, new Timestamp(startTimeMillis), new Timestamp(endTimeMillis))
         .findList();
     return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
+  }
+
+  @Override
+  public boolean supportTransactions() {
+    return true;
   }
 }
