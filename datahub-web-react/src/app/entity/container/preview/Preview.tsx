@@ -67,6 +67,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Container, urn)}
             name={name || ''}
+            urn={urn}
             platform={platformName}
             platformInstanceId={platformInstanceId}
             description={description || ''}

@@ -67,7 +67,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             entityType={EntityType.MlfeatureTable}
             useEntityQuery={useGetMlFeatureTableQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Features',

@@ -1,9 +1,7 @@
 describe("domains", () => {
   it("can see elements inside the domain", () => {
     cy.login();
-    cy.visit(
-      "http://localhost:9002/domain/urn:li:domain:marketing/Entities?is_lineage_mode=false"
-    );
+    cy.goToDomain("urn:li:domain:marketing");
 
     cy.contains("Marketing");
     cy.contains("SampleCypressKafkaDataset");

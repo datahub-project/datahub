@@ -101,5 +101,5 @@ Domains are a set of top-level categories usually aligned to business units/disc
 
 ### Related Features
 
-* [Glossary Terms](./how/business-glossary-guide.md)
+* [Glossary Terms](./glossary/business-glossary.md)
 * [Domains](./domains.md)

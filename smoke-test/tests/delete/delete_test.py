@@ -23,7 +23,7 @@ def test_healthchecks(wait_for_healthchecks):
     pass
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def test_setup():
     """Fixture to execute asserts before and after a test is run"""
 
@@ -40,8 +40,6 @@ def test_setup():
 
     ingested_dataset_run_id = ingest_file_via_rest("tests/delete/cli_test_data.json").config.run_id
 
-    sleep(3)
-
     assert "browsePaths" in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
 
     yield
@@ -55,7 +53,7 @@ def test_setup():
 
 
 @pytest.mark.dependency()
-def test_delete_reference(depends=["test_healthchecks"]):
+def test_delete_reference(test_setup, depends=["test_healthchecks"]):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-delete"
 

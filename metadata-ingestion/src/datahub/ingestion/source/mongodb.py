@@ -433,3 +433,4 @@ class MongoDBSource(Source):
 
     def close(self):
         self.mongo_client.close()
+        super().close()

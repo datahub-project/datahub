@@ -86,6 +86,7 @@ public class TestSparkJobsLineage {
   private static final FabricType DATASET_ENV = FabricType.DEV;
   private static final String PIPELINE_PLATFORM_INSTANCE = "test_machine";
   private static final String DATASET_PLATFORM_INSTANCE = "test_dev_dataset";
+  private static final String TABLE_PLATFORM = "hive";
 
   @ClassRule
   public static PostgreSQLContainer<?> db;
@@ -221,7 +222,7 @@ public class TestSparkJobsLineage {
   }
 
   private static HdfsPathDataset hdfsDs(String fileName) {
-    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), DATASET_PLATFORM_INSTANCE, DATASET_ENV);
+    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), DATASET_PLATFORM_INSTANCE, "hdfs", DATASET_ENV);
   }
 
   private static JdbcDataset pgDs(String tbl) {
@@ -229,7 +230,7 @@ public class TestSparkJobsLineage {
   }
 
   private static CatalogTableDataset catTblDs(String tbl) {
-    return new CatalogTableDataset(tbl(tbl), DATASET_PLATFORM_INSTANCE, DATASET_ENV);
+    return new CatalogTableDataset(tbl(tbl), DATASET_PLATFORM_INSTANCE, TABLE_PLATFORM, DATASET_ENV);
   }
 
   private static String tbl(String tbl) {

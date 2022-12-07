@@ -7,12 +7,7 @@ DataHub ingestion pipeline within an Airflow DAG.
 from datetime import timedelta
 
 from airflow import DAG
-
-try:
-    from airflow.operators.python import PythonOperator
-except ModuleNotFoundError:
-    from airflow.operators.python_operator import PythonOperator
-
+from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
 
 from datahub.configuration.config_loader import load_config_file
@@ -31,6 +26,7 @@ default_args = {
 
 
 def datahub_recipe():
+    # Note that this will also resolve environment variables in the recipe.
     config = load_config_file("path/to/recipe.yml")
 
     pipeline = Pipeline.create(config)

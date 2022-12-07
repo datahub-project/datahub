@@ -241,6 +241,7 @@ def delete(
             search_query=query,
             force=force,
             include_removed=include_removed,
+            aspect_name=aspect_name,
             only_soft_deleted=only_soft_deleted,
         )
 
@@ -272,6 +273,7 @@ def delete_with_filters(
     soft: bool,
     force: bool,
     include_removed: bool,
+    aspect_name: Optional[str] = None,
     search_query: str = "*",
     entity_type: str = "dataset",
     env: Optional[str] = None,
@@ -339,6 +341,7 @@ def delete_with_filters(
             one_result = _delete_one_urn(
                 urn,
                 soft=soft,
+                aspect_name=aspect_name,
                 entity_type=entity_type,
                 dry_run=dry_run,
                 cached_session_host=(session, gms_host),
@@ -388,6 +391,10 @@ def _delete_one_urn(
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
 
     if soft:
+        if aspect_name:
+            raise click.UsageError(
+                "Please provide --hard flag, as aspect values cannot be soft deleted."
+            )
         # Add removed aspect
         if cached_emitter:
             emitter = cached_emitter

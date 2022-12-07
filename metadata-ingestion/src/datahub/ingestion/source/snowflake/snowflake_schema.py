@@ -3,10 +3,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
+import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
+from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -27,13 +29,8 @@ class SnowflakeFK:
     referred_column_names: List[str]
 
 
-@dataclass
-class SnowflakeColumn:
-    name: str
-    ordinal_position: int
-    is_nullable: bool
-    data_type: str
-    comment: Optional[str]
+@dataclass(frozen=True, eq=True)
+class SnowflakeColumn(BaseColumn):
     character_maximum_length: Optional[int]
     numeric_precision: Optional[int]
     numeric_scale: Optional[int]
@@ -59,26 +56,16 @@ class SnowflakeColumn:
 
 
 @dataclass
-class SnowflakeTable:
-    name: str
-    created: datetime
-    last_altered: datetime
-    size_in_bytes: int
-    rows_count: int
-    comment: Optional[str]
-    clustering_key: str
+class SnowflakeTable(BaseTable):
+    clustering_key: Optional[str] = None
     pk: Optional[SnowflakePK] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
+    sample_data: Optional[pd.DataFrame] = None
 
 
 @dataclass
-class SnowflakeView:
-    name: str
-    created: datetime
-    comment: Optional[str]
-    view_definition: str
-    last_altered: Optional[datetime] = None
+class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
 
 
@@ -223,6 +210,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     # last_altered=table["last_altered"],
                     comment=table["comment"],
                     view_definition=table["text"],
+                    last_altered=table["created_on"],
                 )
             )
         return views
@@ -243,6 +231,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     # last_altered=table["last_altered"],
                     comment=table["comment"],
                     view_definition=table["text"],
+                    last_altered=table["created_on"],
                 )
             )
         return views
