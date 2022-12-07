@@ -27,6 +27,7 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.exception.PreconditionFailedException;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
@@ -151,7 +152,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert, @Nullable Long updateIfCreatedOn) {
     validateConnection();
     SimpleStatement statement = generateSaveStatement(aspect, insert, updateIfCreatedOn);
-    _cqlSession.execute(statement);
+    ResultSet resultSet = _cqlSession.execute(statement);
+    if (!resultSet.wasApplied()) {
+      throw new PreconditionFailedException("Condition for Conditional Update is not met");
+    }
   }
 
   // TODO: can further improve by running the sub queries in parallel
@@ -510,7 +514,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               oldActor,
               oldImpersonator
       );
-      batch = batch.add(generateSaveStatement(aspect, true, updateIfCreatedOn));
+      batch = batch.add(generateSaveStatement(aspect, true, updateIfCreatedOn != null ? 0L : null));
     }
 
     // Save newValue as the latest version (v0)
@@ -525,7 +529,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             newImpersonator
     );
     batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null, updateIfCreatedOn));
-    _cqlSession.execute(batch);
+    ResultSet resultSet = _cqlSession.execute(batch);
+    if (!resultSet.wasApplied()) {
+      throw new PreconditionFailedException("Condition for Conditional Update is not met");
+    }
     return largestVersion;
   }
 
@@ -547,7 +554,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               .value(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()))
               .value(CassandraAspect.ENTITY_COLUMN, literal(entity))
               .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()));
-      if (updateIfCreatedOn != null && updateIfCreatedOn == 0) {
+      if (updateIfCreatedOn != null) {
+        if (updateIfCreatedOn != 0) {
+          throw new PreconditionFailedException("Conditional Update value must be 0 for insert operation");
+        }
         ri = ri.ifNotExists();
       }
       return ri.build();
@@ -565,6 +575,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()));
 
       if (updateIfCreatedOn != null) {
+        if (updateIfCreatedOn == 0) {
+          throw new PreconditionFailedException("Conditional Update value must be greater then 0 for update operation");
+        }
         u = u.ifColumn(CassandraAspect.CREATED_ON_COLUMN).isEqualTo(literal(updateIfCreatedOn));
       } else {
         u = u.ifExists();

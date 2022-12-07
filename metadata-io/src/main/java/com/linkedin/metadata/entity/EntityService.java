@@ -39,6 +39,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.exception.PreconditionFailedException;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
@@ -1898,13 +1899,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
     final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
-    // 2. If the condition update is not met we return the original one
-    if (!checkConditionalUpdate(latest, updateIfCreatedOn)) {
-      return new UpdateAspectResult(urn, oldValue, oldValue,
-              latest != null ? EntityUtils.parseSystemMetadata(latest.getSystemMetadata()) : new SystemMetadata(),
-              latest != null ? EntityUtils.parseSystemMetadata(latest.getSystemMetadata()) : new SystemMetadata(),
-              MetadataAuditOperation.UPDATE, auditStamp, 0);
-    }
+    // 2. Check if the condition update is met
+    checkConditionalUpdate(latest, updateIfCreatedOn);
 
     // 3. If there is no difference between existing and new, we just update
     // the lastObserved in system metadata. RunId should stay as the original runId
@@ -2047,16 +2043,18 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return null;
   }
 
-  private boolean checkConditionalUpdate(EntityAspect oldAspect, Long updateIfCreatedOn) {
+  private void checkConditionalUpdate(EntityAspect oldAspect, Long updateIfCreatedOn) {
     if (_aspectDao.supportTransactions() && updateIfCreatedOn != null) {
       long updateIfCreatedOnValue = updateIfCreatedOn.longValue();
-      if (updateIfCreatedOnValue == 0 && oldAspect != null) {
-        return false;
+      if (oldAspect != null && updateIfCreatedOnValue == 0) {
+        throw new PreconditionFailedException("Conditional Update value must be greater then 0 for update operation");
       }
-      if (updateIfCreatedOnValue != 0 && (oldAspect == null || oldAspect.getCreatedOn().getTime() != updateIfCreatedOnValue)) {
-        return false;
+      if (oldAspect == null && updateIfCreatedOnValue != 0) {
+        throw new PreconditionFailedException("Conditional Update value must be 0 for insert operation");
+      }
+      if (updateIfCreatedOnValue != 0 && oldAspect != null && oldAspect.getCreatedOn().getTime() != updateIfCreatedOnValue) {
+        throw new PreconditionFailedException("Condition for Conditional Update is not met");
       }
     }
-    return true;
   }
 }

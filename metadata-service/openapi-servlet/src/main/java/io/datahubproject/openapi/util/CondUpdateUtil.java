@@ -9,7 +9,7 @@ import java.util.Map;
 @Slf4j
 public class CondUpdateUtil {
 
-    // condUpdate String format: "urn1=createdOn1;urn2=createdOn2;...;urnN=createdOnN"
+    // condUpdate String format: "urn1+AspectName1=createdOn1;urn2+AspectName2=createdOn2;...;urnN+AspectNameN=createdOnN"
 
     public static Map<String, Long> extractCondUpdate(String condUpdate) {
         Map<String, Long> createdOnMap = new HashMap<>();
@@ -21,7 +21,7 @@ public class CondUpdateUtil {
                             try {
                                 createdOnMap.put(values[0], Long.parseLong(values[1]));
                             } catch (Exception e) {
-                                log.warn("Invalid eTag: " + item);
+                                log.warn("Invalid condition: " + item);
                             }
                         }
                     });
