@@ -36,6 +36,9 @@ from datahub.metadata.schema_classes import (
     CorpUserSnapshotClass,
     GroupMembershipClass,
 )
+from datahub.utilities.source_helpers import (
+    auto_status_aspect,
+)
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
@@ -272,7 +275,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
             cookie = set_cookie(self.lc, pctrls)
         # Clean up stale entities at the end
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+        yield from auto_status_aspect(self.stale_entity_removal_handler.gen_removed_entity_workunits())
 
     def get_platform_instance_id(self) -> str:
         """
@@ -389,7 +392,6 @@ class LDAPSource(StatefulIngestionSourceBase):
                     title=title,
                     managerUrn=manager_urn,
                 ),
-                StatusClass(removed=False),
             ],
         )
 
@@ -437,7 +439,6 @@ class LDAPSource(StatefulIngestionSourceBase):
                         description=description,
                         displayName=displayName,
                     ),
-                    StatusClass(removed=False),
                 ],
             )
 
