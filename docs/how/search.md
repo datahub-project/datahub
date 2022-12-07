@@ -125,7 +125,7 @@ BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/S
 **What can you do with DataHub?**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/watch?v=dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </p> 
 
 

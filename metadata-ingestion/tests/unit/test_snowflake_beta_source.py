@@ -91,6 +91,20 @@ def test_account_id_is_added_when_host_port_is_present():
     assert config.account_id == "acctname"
 
 
+def test_account_id_with_snowflake_host_suffix():
+    config = SnowflakeV2Config.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "account_id": "https://acctname.snowflakecomputing.com",
+            "database_pattern": {"allow": {"^demo$"}},
+            "warehouse": "COMPUTE_WH",
+            "role": "sysadmin",
+        }
+    )
+    config.account_id == "acctname"
+
+
 def test_snowflake_uri_default_authentication():
 
     config = SnowflakeV2Config.parse_obj(

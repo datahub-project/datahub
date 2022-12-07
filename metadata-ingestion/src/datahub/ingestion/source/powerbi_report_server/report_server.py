@@ -5,7 +5,7 @@
 #########################################################
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 import pydantic
 import requests
@@ -68,7 +68,9 @@ class PowerBiReportServerAPIConfig(EnvBasedSourceConfigBase):
     server_alias: str = pydantic.Field(
         default="", description="Alias for Power BI Report Server host URL"
     )
-    graphql_url: str = pydantic.Field(description="GraphQL API URL")
+    graphql_url: Optional[str] = pydantic.Field(
+        default=None, description="[deprecated] Not used"
+    )
     report_virtual_directory_name: str = pydantic.Field(
         description="Report Virtual Directory URL name"
     )

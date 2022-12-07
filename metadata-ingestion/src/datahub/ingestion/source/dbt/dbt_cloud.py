@@ -278,11 +278,11 @@ class DBTCloudSource(DBTSourceBase):
                 )
 
             # The code fields are new in dbt 1.3, and replace the sql ones.
-            raw_sql = node["rawCode"] or node["rawSql"]
-            compiled_sql = node["compiledCode"] or node["compiledSql"]
+            raw_code = node["rawCode"] or node["rawSql"]
+            compiled_code = node["compiledCode"] or node["compiledSql"]
         else:
-            raw_sql = None
-            compiled_sql = None
+            raw_code = None
+            compiled_code = None
 
         max_loaded_at = None
         if node["resourceType"] == "source":
@@ -369,8 +369,9 @@ class DBTCloudSource(DBTSourceBase):
             query_tag={},  # TODO: Get this from the dbt API.
             tags=tags,
             owner=owner,
-            raw_sql=raw_sql,
-            compiled_sql=compiled_sql,
+            language="sql",  # TODO: dbt Cloud doesn't surface this
+            raw_code=raw_code,
+            compiled_code=compiled_code,
             columns=columns,
             test_info=test_info,
             test_result=test_result,
