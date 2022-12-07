@@ -24,11 +24,12 @@
                             "node_type": "model",
                             "materialization": "ephemeral",
                             "dbt_file_path": "models/transform/customer_details.sql",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "customer_details",
                         "description": "",
@@ -133,11 +134,12 @@
                             "materialization": "table",
                             "dbt_file_path": "models/billing/monthly_billing_with_cust.sql",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "an-aliased-view-for-monthly-billing",
                         "description": "",
@@ -283,11 +285,12 @@
                             "materialization": "view",
                             "dbt_file_path": "models/base/payments_base.sql",
                             "catalog_type": "VIEW",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "an-aliased-view-for-payments",
                         "description": "",
@@ -489,11 +492,12 @@
                             "materialization": "table",
                             "dbt_file_path": "models/transform/payments_by_customer_by_month.sql",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "payments_by_customer_by_month",
                         "description": "",
@@ -551,8 +555,8 @@
                             },
                             {
                                 "fieldPath": "customer_id",
-                                "nullable": false,
                                 "description": "description for customer_id from dbt",
+                                "nullable": false,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -646,11 +650,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "actor",
                         "description": "description for actor table from dbt",
@@ -800,11 +805,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "address",
                         "description": "a user's address",
@@ -982,11 +988,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "category",
                         "description": "a user's category",
@@ -1104,11 +1111,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "city",
                         "description": "",
@@ -1241,11 +1249,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "country",
                         "description": "",
@@ -1380,11 +1389,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "customer",
                         "description": "description for customer table from dbt",
@@ -1586,11 +1596,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "payment_p2020_01",
                         "description": "",
@@ -1748,11 +1759,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "payment_p2020_02",
                         "description": "",
@@ -1923,11 +1935,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "payment_p2020_03",
                         "description": "",
@@ -2081,11 +2094,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "payment_p2020_04",
                         "description": "",
@@ -2239,11 +2253,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "payment_p2020_05",
                         "description": "a payment",
@@ -2397,11 +2412,12 @@
                             "node_type": "source",
                             "dbt_file_path": "models/base.yml",
                             "catalog_type": "BASE TABLE",
-                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v6.json",
-                            "manifest_version": "1.2.1",
+                            "language": "sql",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v7.json",
+                            "manifest_version": "1.3.0",
                             "manifest_adapter": "postgres",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-                            "catalog_version": "1.2.1"
+                            "catalog_version": "1.3.0"
                         },
                         "name": "payment_p2020_06",
                         "description": "",
