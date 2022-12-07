@@ -122,7 +122,7 @@ function IngestionSourceTable({
             source.executions?.total &&
             source.executions?.total > 0 &&
             source.executions?.executionRequests[0].result?.status,
-        cliIngestion: source.config.executorId === CLI_EXECUTOR_ID,
+        cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
     }));
 
     return (

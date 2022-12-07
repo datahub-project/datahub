@@ -7,6 +7,7 @@ import { SimpleSearchFilter } from './SimpleSearchFilter';
 const TOP_FILTERS = ['degree', 'entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
 export const SearchFilterWrapper = styled.div`
+    padding-top: 10px;
     max-height: 100%;
     overflow: auto;
 

@@ -735,7 +735,7 @@ class SalesforceSource(Source):
         return self.report
 
 
-def get_tags(params: List[str] = None) -> GlobalTagsClass:
+def get_tags(params: Optional[List[str]] = None) -> GlobalTagsClass:
     if params is None:
         params = []
     tags = [TagAssociationClass(tag=builder.make_tag_urn(tag)) for tag in params if tag]

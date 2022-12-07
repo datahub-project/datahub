@@ -10,16 +10,14 @@ yarn install
 
 ## Local Development
 
-```console
+```sh
+# This command starts a local development server and open up a browser window.
 ../gradlew yarnStart
 
-# You may also have success running the underlying commands manually.
-yarn run lint
-yarn run generate
-yarn run start
+# Every time a markdown file is changed, update the site:
+# If a more complex docs site change is made, you'll need to restart the server.
+../gradlew fastReload
 ```
-
-This command starts a local development server and open up a browser window.
 
 ## Build
 

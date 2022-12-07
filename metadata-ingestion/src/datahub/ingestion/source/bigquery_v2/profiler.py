@@ -165,6 +165,16 @@ WHERE
                     continue
 
                 for table in tables[project][dataset]:
+                    for column in table.columns:
+                        # Profiler has issues with complex types (array, struct, geography, json), so we deny those types from profiling
+                        # We also filter columns without data type as it means that column is part of a complex type.
+                        if not column.data_type or any(
+                            word in column.data_type.lower()
+                            for word in ["array", "struct", "geography", "json"]
+                        ):
+                            self.config.profile_pattern.deny.append(
+                                f"^{project}.{dataset}.{table.name}.{column.field_path}$"
+                            )
                     # Emit the profile work unit
                     profile_request = self.get_bigquery_profile_request(
                         project=project, dataset=dataset, table=table

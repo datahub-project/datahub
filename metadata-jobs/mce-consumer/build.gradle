@@ -30,6 +30,7 @@ dependencies {
     compile externalDependency.springKafka
     compile externalDependency.springActuator
 
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok

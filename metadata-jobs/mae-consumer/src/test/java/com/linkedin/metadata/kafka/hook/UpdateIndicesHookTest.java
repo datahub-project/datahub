@@ -89,7 +89,7 @@ public class UpdateIndicesHookTest {
     MetadataChangeLog event = createUpstreamLineageMCL(upstreamUrn, downstreamUrn);
     _updateIndicesHook.invoke(event);
 
-    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF);
+    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null);
     Mockito.verify(_mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(_mockGraphService, Mockito.times(1)).removeEdgesFromNode(
         Mockito.eq(downstreamUrn),
@@ -117,7 +117,7 @@ public class UpdateIndicesHookTest {
 
     Urn downstreamUrn = UrnUtils.getUrn(String.format("urn:li:schemaField:(%s,%s)", TEST_CHART_URN, downstreamFieldPath));
 
-    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF);
+    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null);
     Mockito.verify(_mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
     Mockito.verify(_mockGraphService, Mockito.times(1)).removeEdgesFromNode(
         Mockito.eq(downstreamUrn),

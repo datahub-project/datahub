@@ -188,7 +188,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   public void testRemoveEdge() throws Exception {
     DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
     TagUrn tagUrn = new TagUrn("newTag");
-    Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP);
+    Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null);
     getGraphService().addEdge(edge);
     syncAfterWrite();
     RelatedEntitiesResult result = getGraphService().findRelatedEntities(Collections.singletonList(datasetType),

@@ -186,10 +186,12 @@ class TableauConnectionConfig(ConfigModel):
             return server
         except ServerResponseError as e:
             raise ValueError(
-                f"Unable to login with credentials provided: {str(e)}"
+                f"Unable to login (invalid credentials or missing permissions): {str(e)}"
             ) from e
         except Exception as e:
-            raise ValueError(f"Unable to login: {str(e)}") from e
+            raise ValueError(
+                f"Unable to login (check your Tableau connection and credentials): {str(e)}"
+            ) from e
 
 
 class TableauConfig(
@@ -990,7 +992,10 @@ class TableauSource(StatefulIngestionSourceBase):
         return mcp_workunit
 
     def emit_datasource(
-        self, datasource: dict, workbook: dict = None, is_embedded_ds: bool = False
+        self,
+        datasource: dict,
+        workbook: Optional[dict] = None,
+        is_embedded_ds: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
         datasource_info = workbook
         if not is_embedded_ds:
