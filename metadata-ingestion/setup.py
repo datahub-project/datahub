@@ -329,12 +329,6 @@ plugins: Dict[str, Set[str]] = {
     "s3": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake-legacy": snowflake_common,
-    "snowflake-usage-legacy": snowflake_common
-    | usage_common
-    | {
-        "more-itertools>=8.12.0",
-    },
     "snowflake": snowflake_common | usage_common,
     "snowflake-beta": (
         snowflake_common | usage_common
@@ -532,8 +526,6 @@ entry_points = {
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
         "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
-        "snowflake-legacy = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
-        "snowflake-usage-legacy = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",

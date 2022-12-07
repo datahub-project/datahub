@@ -31,23 +31,12 @@ SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 # Required only for mypy, since we are using mixin classes, and not inheritance.
 # Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
 class SnowflakeLoggingProtocol(Protocol):
-    @property
-    def logger(self) -> logging.Logger:
-        ...
+    logger: logging.Logger
 
 
-class SnowflakeCommonProtocol(Protocol):
-    @property
-    def logger(self) -> logging.Logger:
-        ...
-
-    @property
-    def config(self) -> SnowflakeV2Config:
-        ...
-
-    @property
-    def report(self) -> SnowflakeV2Report:
-        ...
+class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
+    config: SnowflakeV2Config
+    report: SnowflakeV2Report
 
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
