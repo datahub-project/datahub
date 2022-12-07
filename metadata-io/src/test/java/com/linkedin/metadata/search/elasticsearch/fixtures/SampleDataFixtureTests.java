@@ -109,6 +109,14 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
+    public void testExactTable() {
+        SearchResult results = search(searchService, "stg_customers");
+        assertEquals(results.getEntities().size(), 1, "Unexpected single urn result for `stg_customers`");
+        assertEquals(results.getEntities().get(0).getEntity().toString(),
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)");
+    }
+
+    @Test
     public void testStemming() {
         List<Set<String>> testSets = List.of(
                 Set.of("log", "logs", "logging"),
