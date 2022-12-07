@@ -34,6 +34,7 @@ COPY ./metadata-service ./datahub-src/metadata-service
 COPY ./metadata-io ./datahub-src/metadata-io
 COPY ./datahub-graphql-core ./datahub-src/datahub-graphql-core
 COPY ./metadata-auth ./datahub-src/metadata-auth
+COPY ./metadata-integrations ./datahub-src/metadata-integrations
 COPY ./gradle ./datahub-src/gradle
 COPY repositories.gradle gradle.properties gradlew settings.gradle build.gradle ./datahub-src/
 
