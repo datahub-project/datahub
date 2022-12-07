@@ -7,6 +7,7 @@ import pandas as pd
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -508,7 +509,12 @@ class SnowflakeV2Source(
 
             self.report.report_entity_scanned(snowflake_schema.name, "schema")
 
-            if not self.config.schema_pattern.allowed(snowflake_schema.name):
+            if not is_schema_allowed(
+                self.config.schema_pattern,
+                snowflake_schema.name,
+                db_name,
+                self.config.match_fully_qualified_names,
+            ):
                 self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
                 continue
 
@@ -566,9 +572,16 @@ class SnowflakeV2Source(
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
 
         if self.is_classification_enabled_for_table(dataset_name):
-            table.sample_data = self.get_sample_values_for_table(
-                conn, table.name, schema_name, db_name
-            )
+            try:
+                table.sample_data = self.get_sample_values_for_table(
+                    conn, table.name, schema_name, db_name
+                )
+            except Exception as e:
+                self.warn(
+                    self.logger,
+                    dataset_name,
+                    f"unable to get table sample data due to error -> {e}",
+                )
 
         lineage_info = None
         if self.config.include_table_lineage:
@@ -639,6 +652,14 @@ class SnowflakeV2Source(
             description=table.comment,
             qualifiedName=dataset_name,
             customProperties={**upstream_column_props},
+            externalUrl=self.get_external_url_for_table(
+                table.name,
+                schema_name,
+                db_name,
+                "table" if isinstance(table, SnowflakeTable) else "view",
+            )
+            if self.config.include_external_url
+            else None,
         )
         yield self.wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
@@ -757,9 +778,21 @@ class SnowflakeV2Source(
                     self.snowflake_identifier(col) for col in table.sample_data.columns
                 ]
             logger.debug(f"Classifying Table {dataset_name}")
-            self.classify_schema_fields(
-                dataset_name, schema_metadata, table.sample_data.to_dict(orient="list")
-            )
+
+            try:
+                self.classify_schema_fields(
+                    dataset_name,
+                    schema_metadata,
+                    table.sample_data.to_dict(orient="list")
+                    if table.sample_data is not None
+                    else {},
+                )
+            except Exception as e:
+                self.warn(
+                    self.logger,
+                    dataset_name,
+                    f"unable to classify table columns due to error -> {e}",
+                )
 
         return schema_metadata
 
@@ -870,6 +903,9 @@ class SnowflakeV2Source(
             description=database.comment,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+            external_url=self.get_external_url_for_database(database.name)
+            if self.config.include_external_url
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -886,6 +922,8 @@ class SnowflakeV2Source(
     def gen_schema_containers(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(f"{db_name}.{schema.name}")
+
         schema_container_key = self.gen_schema_key(
             self.snowflake_identifier(db_name),
             self.snowflake_identifier(schema.name),
@@ -903,6 +941,10 @@ class SnowflakeV2Source(
             description=schema.comment,
             sub_types=[SqlContainerSubTypes.SCHEMA],
             parent_container_key=database_container_key,
+            domain_urn=domain_urn,
+            external_url=self.get_external_url_for_schema(schema.name, db_name)
+            if self.config.include_external_url
+            else None,
         )
 
         for wu in container_workunits:
@@ -1058,3 +1100,26 @@ class SnowflakeV2Source(
         df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
 
         return df
+
+    # domain is either "view" or "table"
+    def get_external_url_for_table(
+        self, table_name: str, schema_name: str, db_name: str, domain: str
+    ) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+        return None
+
+    def get_external_url_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
+        return None
+
+    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/"
+        return None

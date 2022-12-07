@@ -43,7 +43,7 @@ framework_common = {
     "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
-    "termcolor>=2.0.0",
+    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
     "Deprecated",
@@ -174,6 +174,12 @@ snowflake_common = {
     # Required for all Snowflake sources.
     # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
     "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
+    # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
+    # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
+    # because it may break Airflow users that need SQLAlchemy 1.3.x.
+    "SQLAlchemy<1.4.42",
+    # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
+    "snowflake-connector-python!=2.8.2",
     "pandas",
     "cryptography",
     "msal",
@@ -215,7 +221,7 @@ data_lake_profiling = {
 
 delta_lake = {
     *s3_base,
-    "deltalake>=0.6.3",
+    "deltalake>=0.6.3, != 0.6.4",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
@@ -275,7 +281,6 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
-    "feast-legacy": {"docker"},
     "feast": {"feast~=0.26.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -324,12 +329,6 @@ plugins: Dict[str, Set[str]] = {
     "s3": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake-legacy": snowflake_common,
-    "snowflake-usage-legacy": snowflake_common
-    | usage_common
-    | {
-        "more-itertools>=8.12.0",
-    },
     "snowflake": snowflake_common | usage_common,
     "snowflake-beta": (
         snowflake_common | usage_common
@@ -379,8 +378,7 @@ mypy_stubs = {
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",
-    # Mypy complains with 4.21.0.0 => error: Library stubs not installed for "google.protobuf.descriptor"
-    "types-protobuf<4.21.0.0",
+    "types-protobuf>=4.21.0.1",
 }
 
 base_dev_requirements = {
@@ -393,10 +391,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    # mypy 0.990 enables namespace packages by default and sets
-    # no implicit optional to True.
-    # FIXME: Enable mypy 0.990 when our codebase is fixed.
-    "mypy>=0.981,<0.990",
+    "mypy==0.991",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # Restricting top version to <1.10 until we can fix our types.
@@ -459,8 +454,9 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
+    # Extra requirements for Airflow.
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
+    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {
@@ -472,7 +468,6 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast-legacy",
             "hana",
             "hive",
             "iceberg",
@@ -508,7 +503,6 @@ entry_points = {
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
-        "feast-legacy = datahub.ingestion.source.feast_legacy:FeastSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
@@ -532,8 +526,6 @@ entry_points = {
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
         "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
-        "snowflake-legacy = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
-        "snowflake-usage-legacy = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
@@ -550,6 +542,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
     ],
     "datahub.ingestion.sink.plugins": [
@@ -612,7 +605,6 @@ setuptools.setup(
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
-        "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
     },
     entry_points=entry_points,
     # Dependencies.

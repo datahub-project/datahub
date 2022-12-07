@@ -43,7 +43,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.io.UnsupportedEncodingException;
-import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -170,9 +169,9 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
     // Step 2. For all aspects, attempt to update Graph
     if (_diffMode) {
-      updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect);
+      updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
     } else {
-      updateGraphService(urn, aspectSpec, aspect);
+      updateGraphService(urn, aspectSpec, aspect, event);
     }
   }
 
@@ -212,11 +211,12 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
     if (!aspectSpec.isTimeseries()) {
       deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
-      deleteGraphData(urn, aspectSpec, aspect, isDeletingKey);
+      deleteGraphData(urn, aspectSpec, aspect, isDeletingKey, event);
       deleteSearchData(urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
     }
   }
 
+  // TODO: remove this method once we implement sourceOverride when creating graph edges
   private void updateFineGrainedEdgesAndRelationships(
           RecordTemplate aspect,
           List<Edge> edgesToAdd,
@@ -231,7 +231,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         // for every downstream, create an edge with each of the upstreams
         for (Urn downstream : fineGrainedLineage.getDownstreams()) {
           for (Urn upstream : fineGrainedLineage.getUpstreams()) {
-            edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF));
+            // TODO: add edges uniformly across aspects
+            edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF, null, null, null, null));
             Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(downstream, new HashSet<>());
             relationshipTypes.add(DOWNSTREAM_OF);
             urnToRelationshipTypesBeingAdded.put(downstream, relationshipTypes);
@@ -248,6 +249,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.SCHEMA_FIELD_ENTITY_NAME);
   }
 
+  // TODO: remove this method once we implement sourceOverride and update inputFields aspect
   private void updateInputFieldEdgesAndRelationships(
           @Nonnull final Urn urn,
           @Nonnull final InputFields inputFields,
@@ -258,7 +260,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       for (final InputField field : inputFields.getFields()) {
         if (field.hasSchemaFieldUrn() && field.hasSchemaField() && field.getSchemaField().hasFieldPath()) {
           final Urn sourceFieldUrn = generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
-          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF));
+          // TODO: add edges uniformly across aspects
+          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF, null, null, null, null));
           final Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
           relationshipTypes.add(DOWNSTREAM_OF);
           urnToRelationshipTypesBeingAdded.put(sourceFieldUrn, relationshipTypes);
@@ -267,7 +270,12 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, @Nonnull RecordTemplate aspect) {
+  private Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate aspect,
+      @Nonnull final MetadataChangeLog event
+  ) {
     final List<Edge> edgesToAdd = new ArrayList<>();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
 
@@ -288,14 +296,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(urn, new HashSet<>());
       relationshipTypes.add(entry.getKey().getRelationshipName());
       urnToRelationshipTypesBeingAdded.put(urn, relationshipTypes);
-      for (Object fieldValue : entry.getValue()) {
-        try {
-          edgesToAdd.add(
-              new Edge(urn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
-        } catch (URISyntaxException e) {
-          log.error("Invalid destination urn: {}", fieldValue.toString(), e);
-        }
-      }
+      final List<Edge> newEdges = GraphIndexUtils.extractGraphEdges(entry, aspect, urn, event);
+      edgesToAdd.addAll(newEdges);
     }
     return Pair.of(edgesToAdd, urnToRelationshipTypesBeingAdded);
   }
@@ -303,9 +305,14 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   /**
    * Process snapshot and update graph index
    */
-  private void updateGraphService(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
+  private void updateGraphService(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate aspect,
+      @Nonnull final MetadataChangeLog event
+  ) {
     Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect);
+        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event);
 
     final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
@@ -320,17 +327,23 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private void updateGraphServiceDiff(Urn urn, AspectSpec aspectSpec, @Nullable RecordTemplate oldAspect, @Nonnull RecordTemplate newAspect) {
+  private void updateGraphServiceDiff(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final RecordTemplate oldAspect,
+      @Nonnull final RecordTemplate newAspect,
+      @Nonnull final MetadataChangeLog event
+  ) {
     Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
     if (oldAspect != null) {
-      oldEdgeAndRelationTypes = getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, oldAspect);
+      oldEdgeAndRelationTypes = getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, oldAspect, event);
     }
 
     final List<Edge> oldEdges = oldEdgeAndRelationTypes != null ? oldEdgeAndRelationTypes.getFirst() : Collections.emptyList();
     final Set<Edge> oldEdgeSet = new HashSet<>(oldEdges);
 
     Pair<List<Edge>, HashMap<Urn, Set<String>>> newEdgeAndRelationTypes =
-            getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, newAspect);
+            getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, newAspect, event);
 
     final List<Edge> newEdges = newEdgeAndRelationTypes.getFirst();
     final Set<Edge> newEdgeSet = new HashSet<>(newEdges);
@@ -419,14 +432,20 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private void deleteGraphData(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {
+  private void deleteGraphData(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate aspect,
+      @Nonnull final Boolean isKeyAspect,
+      @Nonnull final MetadataChangeLog event
+  ) {
     if (isKeyAspect) {
       _graphService.removeNode(urn);
       return;
     }
 
     Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect);
+        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event);
 
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
     if (urnToRelationshipTypesBeingAdded.size() > 0) {

@@ -1,30 +1,37 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField } from './common';
 
 export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
-    tooltip: 'Snowflake account. e.g. abc48144',
+    tooltip:
+        'The Snowflake Account Identifier e.g. myorg-account123, account123-eu-central-1, account123.west-us-2.azure',
     type: FieldType.TEXT,
     fieldPath: 'source.config.account_id',
+    placeholder: 'xyz123',
     rules: null,
+    required: true,
 };
 
 export const SNOWFLAKE_WAREHOUSE: RecipeField = {
     name: 'warehouse',
     label: 'Warehouse',
-    tooltip: 'Snowflake warehouse.',
+    tooltip: 'The name of the Snowflake Warehouse to extract metadata from.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.warehouse',
+    placeholder: 'COMPUTE_WH',
     rules: null,
+    required: true,
 };
 
 export const SNOWFLAKE_USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
     tooltip: 'Snowflake username.',
-    type: FieldType.SECRET,
+    type: FieldType.TEXT,
     fieldPath: 'source.config.username',
+    placeholder: 'snowflake',
     rules: null,
+    required: true,
 };
 
 export const SNOWFLAKE_PASSWORD: RecipeField = {
@@ -33,104 +40,18 @@ export const SNOWFLAKE_PASSWORD: RecipeField = {
     tooltip: 'Snowflake password.',
     type: FieldType.SECRET,
     fieldPath: 'source.config.password',
+    placeholder: 'password',
     rules: null,
+    required: true,
 };
 
 export const SNOWFLAKE_ROLE: RecipeField = {
     name: 'role',
     label: 'Role',
-    tooltip: 'Snowflake role.',
+    tooltip: 'The Role to use when extracting metadata from Snowflake.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.role',
+    placeholder: 'datahub_role',
     rules: null,
-};
-
-const schemaAllowFieldPath = 'source.config.schema_pattern.allow';
-export const SNOWFLAKE_SCHEMA_ALLOW: RecipeField = {
-    name: 'schema_pattern.allow',
-    label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
-    placeholder: '^my_schema$',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: schemaAllowFieldPath,
-    rules: null,
-    section: 'Schemas',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
-};
-
-const schemaDenyFieldPath = 'source.config.schema_pattern.deny';
-export const SNOWFLAKE_SCHEMA_DENY: RecipeField = {
-    name: 'schema_pattern.deny',
-    label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
-    placeholder: '^my_schema$',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: schemaDenyFieldPath,
-    rules: null,
-    section: 'Schemas',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
-};
-
-const tableAllowFieldPath = 'source.config.table_pattern.allow';
-export const SNOWFLAKE_TABLE_ALLOW: RecipeField = {
-    name: 'table_pattern.allow',
-    label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
-    placeholder: '^my_db\\.my_schema\\.table_name$',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: tableAllowFieldPath,
-    rules: null,
-    section: 'Tables',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, tableAllowFieldPath),
-};
-
-const tableDenyFieldPath = 'source.config.table_pattern.deny';
-export const SNOWFLAKE_TABLE_DENY: RecipeField = {
-    name: 'table_pattern.deny',
-    label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
-    placeholder: '^my_db\\.my_schema\\.table_name$',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: tableDenyFieldPath,
-    rules: null,
-    section: 'Tables',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
-};
-
-const viewAllowFieldPath = 'source.config.view_pattern.allow';
-export const SNOWFLAKE_VIEW_ALLOW: RecipeField = {
-    name: 'view_pattern.allow',
-    label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
-    placeholder: '^my_db\\.my_schema\\.view_name$',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: viewAllowFieldPath,
-    rules: null,
-    section: 'Views',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, viewAllowFieldPath),
-};
-
-const viewDenyFieldPath = 'source.config.view_pattern.deny';
-export const SNOWFLAKE_VIEW_DENY: RecipeField = {
-    name: 'view_pattern.deny',
-    label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
-    placeholder: '^my_db\\.my_schema\\.view_name$',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: viewDenyFieldPath,
-    rules: null,
-    section: 'Views',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, viewDenyFieldPath),
+    required: true,
 };
