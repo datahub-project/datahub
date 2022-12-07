@@ -461,7 +461,7 @@ public class ViewServiceTest {
   }
 
   @Test
-  private void testGetViewInfoNoViewExists() throws Exception{
+  private void testGetViewInfoNoViewExists() throws Exception {
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Mockito.when(mockClient.getV2(
