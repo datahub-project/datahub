@@ -831,7 +831,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             name=datahub_dataset_name.get_table_display_name(),
             description=table.comment,
             qualifiedName=str(datahub_dataset_name),
-            created=TimeStamp(time=int(table.created.timestamp() * 1000)),
+            created=TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
+            else None,
             lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
             if table.last_altered is not None
             else None,
