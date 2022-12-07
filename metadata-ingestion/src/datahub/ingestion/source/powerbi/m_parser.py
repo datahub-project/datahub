@@ -5,11 +5,11 @@ import importlib.resources as pkg_resource
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 import logging
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Union
 
 from lark import Lark, Tree, Token
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -87,11 +87,36 @@ def parse_expression(expression: str) -> Tree:
 
     parse_tree: Tree = lark_parser.parse(expression)
 
-    logger.debug("Parse Tree")
-    if logger.level == logging.DEBUG:  # Guard condition to avoid heavy pretty() function call
-        logger.debug(parse_tree.pretty())
+    LOGGER.debug("Parse Tree")
+    if LOGGER.level == logging.DEBUG:  # Guard condition to avoid heavy pretty() function call
+        LOGGER.debug(parse_tree.pretty())
 
     return parse_tree
+
+
+def get_resolver(parse_tree: Tree) -> Optional[AbstractMQueryResolver]:
+    #import pdb; pdb.set_trace()
+
+    _filter: Any = parse_tree.find_data("invoke_expression")
+
+    def print_leaf(node: Tree):
+        print(node.pretty())
+        # if isinstance(node, Tree) and isinstance(tree.children[0], Token):
+        #     print("It is token")
+        #     return
+        #
+        # for child in tree.children:
+        #     print_leaf(child)
+
+    #print(next(next(_filter).children[0].find_data("letter_character")))
+    _filter = next(_filter).children[0].find_data("letter_character")
+    for node in _filter:
+        print('======')
+        print(node)
+        print('======')
+
+
+    return None
 
 
 def get_upstream_tables(table: PowerBiAPI.Table, reporter: PowerBiDashboardSourceReport) -> List[DataPlatformTable]:
@@ -99,11 +124,24 @@ def get_upstream_tables(table: PowerBiAPI.Table, reporter: PowerBiDashboardSourc
 
     output_variable = get_output_variable(parse_tree)
 
-    filter: Any = parse_tree.find_data("invoke_expression")
-    tokens: List[Any] = list(filter)
-    print("Length = {}".format(len(tokens)))
-    for tree in tokens:
-        print(tree.pretty())
+    _filter: Any = parse_tree.find_data("invoke_expression")
+    trees: List[Tree] = list(_filter)
+    if len(trees) > 1:
+        reporter.report_warning(table.full_name, f"{table.full_name} has more than one invoke expression")
+        return []
+
+    #print(trees[0])
+
+    resolver: AbstractMQueryResolver = get_resolver(parse_tree)
+    if resolver is None:
+        LOGGER.debug("Table full-name = %s", table.full_name)
+        LOGGER.debug("Expression = %s", table.expression)
+        reporter.report_warning(
+            table.full_name,
+            f"{table.full_name} M-Query resolver not found for the table expression"
+        )
+        return []
+
 
     # filter: Any = parse_tree.find_data("variable")
     # def find_variable(node: Tree, variable: str) -> bool:
