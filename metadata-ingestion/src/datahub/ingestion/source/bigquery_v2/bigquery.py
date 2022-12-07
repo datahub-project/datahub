@@ -792,7 +792,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         view = cast(BigqueryView, table)
-        view_definition_string = view.ddl
+        view_definition_string = view.view_definition
         view_properties_aspect = ViewProperties(
             materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
         )

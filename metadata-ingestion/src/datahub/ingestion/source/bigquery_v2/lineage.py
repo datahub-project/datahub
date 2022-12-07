@@ -468,15 +468,15 @@ timestamp < "{end_time}"
         self, project: str, dataset: str, view: BigqueryView
     ) -> List[BigqueryTableIdentifier]:
         parsed_tables = set()
-        if view.ddl:
+        if view.view_definition:
             try:
                 parser = BigQuerySQLParser(
-                    view.ddl, self.config.sql_parser_use_external_process
+                    view.view_definition, self.config.sql_parser_use_external_process
                 )
                 tables = parser.get_tables()
             except Exception as ex:
                 logger.debug(
-                    f"View {view.name} definination sql parsing failed on query: {view.ddl}. Edge from physical table to view won't be added. The error was {ex}."
+                    f"View {view.name} definination sql parsing failed on query: {view.view_definition}. Edge from physical table to view won't be added. The error was {ex}."
                 )
                 return []
 
