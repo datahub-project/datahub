@@ -231,8 +231,11 @@ WHERE
             dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
         ):
             profile_table_level_only = True
-            self.report.num_tables_not_eligible_profiling[dataset] = (
-                self.report.num_tables_not_eligible_profiling.get(dataset, 0) + 1
+            self.report.num_tables_not_eligible_profiling[f"{project}.{dataset}"] = (
+                self.report.num_tables_not_eligible_profiling.get(
+                    f"{project}.{dataset}", 0
+                )
+                + 1
             )
 
         if not table.columns:

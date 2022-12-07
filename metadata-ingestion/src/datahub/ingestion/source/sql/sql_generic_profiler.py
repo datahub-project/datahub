@@ -130,7 +130,7 @@ class GenericProfiler:
         ) or not self.config.profile_pattern.allowed(dataset_name):
             return False
 
-        schema_name = dataset_name.rsplit(".", 1)[1]
+        schema_name = dataset_name.rsplit(".", 1)[0]
         if (threshold_time is not None) and (
             last_altered is not None and last_altered < threshold_time
         ):
