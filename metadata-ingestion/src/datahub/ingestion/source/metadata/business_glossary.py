@@ -26,7 +26,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
-from datahub.ingestion.source.metadata import urn_encoder
+from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
 
     id_: str = ".".join(path)
 
-    if urn_encoder.check_reserved_char(id_):
+    if UrnEncoder.contains_reserved_char(id_):
         enable_auto_id = True
 
     if enable_auto_id:
