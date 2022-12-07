@@ -320,7 +320,7 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common,
-    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "vertica": sql_common | {"sqlalchemy-vertica-dialect[vertica-python]==0.0.3"},
 }
 
 all_exclude_plugins: Set[str] = {
