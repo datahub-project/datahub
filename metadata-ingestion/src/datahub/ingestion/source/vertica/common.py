@@ -274,11 +274,11 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     )
     models_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for views to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns for Models to filter in ingestion. Note: Defaults to Model_pattern if not specified. Specify regex to match the entire Models name in database.schema.view format. ",
     )
     oauth_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for views to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns for oauth to filter in ingestion. Note: Defaults to oauth_pattern if not specified. Specify regex to match the entire oauth name in database.schema.",
     )
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
