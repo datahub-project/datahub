@@ -1,6 +1,7 @@
 from lark import Tree
 
 from datahub.ingestion.source.powerbi import m_parser
+from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -97,4 +98,9 @@ M_QUERIES = [
 #     assert m_parser.get_output_variable(parse_tree) == 'two_source_table'
 
 def test_get_upstream():
-    m_parser.get_upstream_tables(M_QUERIES[0], None)
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=M_QUERIES[0],
+        name="table-name",
+        full_name="db-name.schema-name.table-name",
+    )
+    m_parser.get_upstream_tables(table, None)

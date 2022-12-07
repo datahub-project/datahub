@@ -9,6 +9,57 @@ from datahub.configuration.source_common import EnvBasedSourceConfigBase, DEFAUL
 from typing import Dict, Union
 from datahub.ingestion.api.source import SourceReport
 
+class Constant:
+    """
+    keys used in powerbi plugin
+    """
+
+    PBIAccessToken = "PBIAccessToken"
+    DASHBOARD_LIST = "DASHBOARD_LIST"
+    TILE_LIST = "TILE_LIST"
+    REPORT_LIST = "REPORT_LIST"
+    PAGE_BY_REPORT = "PAGE_BY_REPORT"
+    DATASET_GET = "DATASET_GET"
+    REPORT_GET = "REPORT_GET"
+    DATASOURCE_GET = "DATASOURCE_GET"
+    TILE_GET = "TILE_GET"
+    ENTITY_USER_LIST = "ENTITY_USER_LIST"
+    SCAN_CREATE = "SCAN_CREATE"
+    SCAN_GET = "SCAN_GET"
+    SCAN_RESULT_GET = "SCAN_RESULT_GET"
+    Authorization = "Authorization"
+    WorkspaceId = "WorkspaceId"
+    DashboardId = "DashboardId"
+    DatasetId = "DatasetId"
+    ReportId = "ReportId"
+    SCAN_ID = "ScanId"
+    Dataset_URN = "DatasetURN"
+    CHART_URN = "ChartURN"
+    CHART = "chart"
+    CORP_USER = "corpuser"
+    CORP_USER_INFO = "corpUserInfo"
+    CORP_USER_KEY = "corpUserKey"
+    CHART_INFO = "chartInfo"
+    STATUS = "status"
+    CHART_ID = "powerbi.linkedin.com/charts/{}"
+    CHART_KEY = "chartKey"
+    DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
+    DASHBOARD = "dashboard"
+    DASHBOARD_KEY = "dashboardKey"
+    OWNERSHIP = "ownership"
+    BROWSERPATH = "browsePaths"
+    DASHBOARD_INFO = "dashboardInfo"
+    DATAPLATFORM_INSTANCE = "dataPlatformInstance"
+    DATASET = "dataset"
+    DATASET_ID = "powerbi.linkedin.com/datasets/{}"
+    DATASET_KEY = "datasetKey"
+    DATASET_PROPERTIES = "datasetProperties"
+    VALUE = "value"
+    ENTITY = "ENTITY"
+    ID = "ID"
+    HTTP_RESPONSE_TEXT = "HttpResponseText"
+    HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
+
 
 @dataclass
 class PowerBiDashboardSourceReport(SourceReport):
