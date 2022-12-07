@@ -9,11 +9,11 @@ from datahub.utilities.sql_parser import SqlLineageSQLParser, SQLParser
 class BigQuerySQLParser(SQLParser):
     parser: SQLParser
 
-    def __init__(self, sql_query: str) -> None:
+    def __init__(self, sql_query: str, use_external_process: bool = False) -> None:
         super().__init__(sql_query)
 
         self._parsed_sql_query = self.parse_sql_query(sql_query)
-        self.parser = SqlLineageSQLParser(self._parsed_sql_query)
+        self.parser = SqlLineageSQLParser(self._parsed_sql_query, use_external_process)
 
     def parse_sql_query(self, sql_query: str) -> str:
         sql_query = BigQuerySQLParser._parse_bigquery_comment_sign(sql_query)

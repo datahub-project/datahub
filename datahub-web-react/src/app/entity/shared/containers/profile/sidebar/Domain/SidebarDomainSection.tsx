@@ -46,38 +46,40 @@ export const SidebarDomainSection = () => {
 
     return (
         <div>
-            <SidebarHeader title="Domain" />
-            <div>
-                {domain && (
-                    <DomainLink
-                        domain={domain}
-                        closable
-                        onClose={(e) => {
-                            e.preventDefault();
-                            onRemoveDomain(entityData?.domain?.associatedUrn);
+            <div className="sidebar-domain-section">
+                <SidebarHeader title="Domain" />
+                <div>
+                    {domain && (
+                        <DomainLink
+                            domain={domain}
+                            closable
+                            onClose={(e) => {
+                                e.preventDefault();
+                                onRemoveDomain(entityData?.domain?.associatedUrn);
+                            }}
+                        />
+                    )}
+                    {!domain && (
+                        <>
+                            <Typography.Paragraph type="secondary">
+                                {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
+                            </Typography.Paragraph>
+                            <Button type="default" onClick={() => setShowModal(true)}>
+                                <EditOutlined /> Set Domain
+                            </Button>
+                        </>
+                    )}
+                </div>
+                {showModal && (
+                    <SetDomainModal
+                        urns={[urn]}
+                        refetch={refetch}
+                        onCloseModal={() => {
+                            setShowModal(false);
                         }}
                     />
                 )}
-                {!domain && (
-                    <>
-                        <Typography.Paragraph type="secondary">
-                            {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
-                        </Typography.Paragraph>
-                        <Button type="default" onClick={() => setShowModal(true)}>
-                            <EditOutlined /> Set Domain
-                        </Button>
-                    </>
-                )}
             </div>
-            {showModal && (
-                <SetDomainModal
-                    urns={[urn]}
-                    refetch={refetch}
-                    onCloseModal={() => {
-                        setShowModal(false);
-                    }}
-                />
-            )}
         </div>
     );
 };
