@@ -24,7 +24,7 @@ def wait_for_port(
     docker_services: pytest_docker.plugin.Services,
     container_name: str,
     container_port: int,
-    hostname: str = None,
+    hostname: Optional[str] = None,
     timeout: float = 30.0,
     pause: float = 0.5,
     checker: Optional[Callable[[], bool]] = None,

@@ -11,11 +11,9 @@ import { FIELDS_THAT_USE_CONTAINS_OPERATOR, UnionType } from './utils/constants'
 import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
 
 export const SearchFilterWrapper = styled.div`
-    min-height: 100%;
+    flex: 1;
+    padding: 6px 12px 10px 12px;
     overflow: auto;
-    margin-top: 6px;
-    margin-left: 12px;
-    margin-right: 12px;
 
     &::-webkit-scrollbar {
         height: 12px;

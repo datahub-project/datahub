@@ -222,7 +222,12 @@ def extract_dbt_entities(
             max_loaded_at=max_loaded_at,
             comment=comment,
             description=manifest_node.get("description", ""),
-            raw_sql=manifest_node.get("raw_sql"),
+            raw_code=manifest_node.get(
+                "raw_code", manifest_node.get("raw_sql")
+            ),  # Backward compatibility dbt <=v1.2
+            language=manifest_node.get(
+                "language", "sql"
+            ),  # Backward compatibility dbt <=v1.2
             upstream_nodes=upstream_nodes,
             materialization=materialization,
             catalog_type=catalog_type,
@@ -230,7 +235,9 @@ def extract_dbt_entities(
             query_tag=query_tag_props,
             tags=tags,
             owner=owner,
-            compiled_sql=manifest_node.get("compiled_sql"),
+            compiled_code=manifest_node.get(
+                "compiled_code", manifest_node.get("compiled_sql")
+            ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
         )
 

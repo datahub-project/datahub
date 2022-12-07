@@ -1,7 +1,9 @@
 package com.datahub.authorization;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.List;
 import lombok.Data;
+
 
 /**
  * POJO representing the "authentication" configuration block in application.yml.
