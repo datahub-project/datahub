@@ -31,7 +31,7 @@ class UUID(String):
     __visit_name__ = "UUID"
 
 
-class TIMESTAMPWP(TIMESTAMP):
+class TIMESTAMP_WITH_PRECISION(TIMESTAMP):
     """The SQL TIMESTAMP With Precision type.
 
     Since Vertica supports precision values for timestamp this allows ingestion
@@ -44,7 +44,7 @@ class TIMESTAMPWP(TIMESTAMP):
     __visit_name__ = "TIMESTAMP"
 
     def __init__(self, timezone=False, precision=None):
-        """Construct a new :class:`_types.TIMESTAMPWP`.
+        """Construct a new :class:`_types.TIMESTAMP_WITH_PRECISION`.
 
         :param timezone: boolean.  Indicates that the TIMESTAMP type should
          enable timezone support, if available on the target database.
@@ -59,13 +59,9 @@ class TIMESTAMPWP(TIMESTAMP):
         self.precision = precision
 
 
-def TIMESTAMP_WITH_PRECISION(*args, **kwargs):
-    return TIMESTAMPWP(*args, **kwargs)
-
-
 def TIMESTAMP_WITH_TIMEZONE(*args, **kwargs):
     kwargs["timezone"] = True
-    return TIMESTAMPWP(*args, **kwargs)
+    return TIMESTAMP_WITH_PRECISION(*args, **kwargs)
 
 
 def TIME_WITH_TIMEZONE(*args, **kwargs):
