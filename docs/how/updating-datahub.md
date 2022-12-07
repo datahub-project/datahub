@@ -10,6 +10,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/factories/src/main/resources/application.yml). Refer documentation [Migration Of Plugins From application.yml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins. 
 - `datahub check graph-consistency` command has been removed. It was a beta API that we had considered but decided there are better solutions for this. So removing this.
 
+- `graphql_url` option of `powerbi-report-server` source deprecated as the options is not used.
+
 ### Potential Downtime
 
 ### Deprecations
