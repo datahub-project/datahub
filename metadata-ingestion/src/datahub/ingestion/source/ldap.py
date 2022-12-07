@@ -36,9 +36,7 @@ from datahub.metadata.schema_classes import (
     CorpUserSnapshotClass,
     GroupMembershipClass,
 )
-from datahub.utilities.source_helpers import (
-    auto_status_aspect,
-)
+from datahub.utilities.source_helpers import auto_status_aspect
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
