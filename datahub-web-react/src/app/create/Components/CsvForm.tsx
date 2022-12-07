@@ -71,6 +71,7 @@ export const CsvForm = () => {
         setConfirmLoading(true);
         const values = form.getFieldsValue();
         const finalValue = { ...values, dataset_owner: user?.corpUser?.username, user_token: userToken };
+        delete finalValue.parentContainerProps;
         axios
             .post(publishUrl, finalValue)
             .then((response) => printSuccessMsg(response.status))
@@ -124,17 +125,14 @@ export const CsvForm = () => {
     //     'If dataset is not from an existing database, use FILE. For databases not in list, refer to admin';
     const onSelectMember = (urn: string) => {
         setSelectedPlatform(urn);
-        //  todo remove form.setFieldsValue({ parentContainer: '' });
-        form.setFieldsValue({ parentContainer: '' });
-        // set the field value so that the SetParentContainer component will trigger a rerender
-        // to remove the select option set in SetParentContainer component
         form.setFieldsValue({ parentContainerProps: { platformType: urn, platformContainer: '' } });
-    };
-    const removeOption = () => {
-        setSelectedPlatform('');
-        //  todo why do we need this line?
         form.setFieldsValue({ parentContainer: '' });
     };
+    // const removeOption = () => {
+    //     setSelectedPlatform('');
+    //     //  todo why do we need this line?
+    //     form.setFieldsValue({ parentContainer: '' });
+    // };
     const popupMsg = `Confirm Dataset Name: ${form.getFieldValue('dataset_name')}? 
     This permanently affects the dataset URL`;
     const { TextArea } = Input;
@@ -155,7 +153,6 @@ export const CsvForm = () => {
                     dataset_origin: '',
                     dataset_location: '',
                     platformSelect: 'urn:li:dataPlatform:file',
-                    parentContainer: '',
                     parentContainerProps: {
                         platformType: 'urn:li:dataPlatform:file',
                         platformContainer: '',
@@ -194,9 +191,6 @@ export const CsvForm = () => {
                             showArrow
                             placeholder="Search for a type.."
                             onSelect={(platform: string) => onSelectMember(platform)}
-                            allowClear
-                            onClear={removeOption}
-                            onDeselect={removeOption}
                             style={{ width: '20%' }}
                         >
                             {platformSelection?.map((platform) => (

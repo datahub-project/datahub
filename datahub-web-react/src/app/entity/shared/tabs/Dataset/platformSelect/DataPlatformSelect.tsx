@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import Select from 'antd/lib/select';
 import styled from 'styled-components';
 import { Form } from 'antd';
-// import { SetParentContainer } from '../containerEdit/SetParentContainer';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
 import { EntityType, SearchResult } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -145,7 +144,6 @@ export const DataPlatformSelect = () => {
                     ))}
                 </Select>
             </Form.Item>
-            {/* <SetParentContainer platformType={selectedPlatform} compulsory={false} /> */}
         </>
     );
 };

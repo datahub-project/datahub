@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Col, Row, Select } from 'antd';
+import { Col, Row, Select, Form } from 'antd';
 import PropTypes from 'prop-types';
 import { useGetContainerLazyQuery } from '../../../../../../graphql/container.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../graphql/search.generated';
@@ -87,23 +87,26 @@ export const SetParentContainerRevised: React.FC<ContainerInputProps> = ({ value
     return (
         <Row>
             <Col span={6}>
-                <Select
-                    value={selectedContainerUrn}
-                    onSelect={(container: any) => {
-                        setSelectedContainerUrn(container);
-                    }}
-                    filterOption
-                    showArrow
-                    placeholder="Search for a parent container.."
-                    onChange={handleChange}
-                >
-                    {containerPool.map((result) => (
-                        <Select.Option key={result?.entity?.urn} value={result?.entity?.urn}>
-                            {renderSearchResult(result)}
-                        </Select.Option>
-                    ))}
-                </Select>
+                <Form.Item name="parentContainer" style={{ marginBottom: '0px' }}>
+                    <Select
+                        value={selectedContainerUrn}
+                        onSelect={(container: any) => {
+                            setSelectedContainerUrn(container);
+                        }}
+                        filterOption
+                        showArrow
+                        placeholder="Search for a parent container.."
+                        onChange={handleChange}
+                    >
+                        {containerPool.map((result) => (
+                            <Select.Option key={result?.entity?.urn} value={result?.entity?.urn}>
+                                {renderSearchResult(result)}
+                            </Select.Option>
+                        ))}
+                    </Select>
+                </Form.Item>
             </Col>
+            &nbsp;
             <Col>{containerPath}</Col>
         </Row>
     );
