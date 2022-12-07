@@ -281,7 +281,6 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
-    "feast-legacy": {"docker"},
     "feast": {"feast~=0.26.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -330,12 +329,6 @@ plugins: Dict[str, Set[str]] = {
     "s3": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake-legacy": snowflake_common,
-    "snowflake-usage-legacy": snowflake_common
-    | usage_common
-    | {
-        "more-itertools>=8.12.0",
-    },
     "snowflake": snowflake_common | usage_common,
     "snowflake-beta": (
         snowflake_common | usage_common
@@ -475,7 +468,6 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast-legacy",
             "hana",
             "hive",
             "iceberg",
@@ -511,7 +503,6 @@ entry_points = {
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
-        "feast-legacy = datahub.ingestion.source.feast_legacy:FeastSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
@@ -535,8 +526,6 @@ entry_points = {
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
         "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
-        "snowflake-legacy = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
-        "snowflake-usage-legacy = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
@@ -616,7 +605,6 @@ setuptools.setup(
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
-        "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
     },
     entry_points=entry_points,
     # Dependencies.
