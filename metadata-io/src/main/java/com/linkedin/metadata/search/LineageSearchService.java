@@ -84,7 +84,7 @@ public class LineageSearchService {
       @Nullable SortCriterion sortCriterion, int from, int size) {
     // Cache multihop result for faster performance
     CachedEntityLineageResult cachedLineageResult = cacheEnabled
-        ? cache.get(Pair.of(sourceUrn, direction), CachedEntityLineageResult.class) : null;
+        ? cache.get(Pair.of(sourceUrn.toString(), direction), CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;
     if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;

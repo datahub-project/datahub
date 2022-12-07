@@ -5,6 +5,10 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.spring.cache.HazelcastCacheManager;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
@@ -12,10 +16,15 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
+import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import java.util.List;
+import org.apache.commons.lang3.tuple.Pair;
 import org.javatuples.Quintet;
+import org.springframework.cache.Cache;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import static com.datahub.util.RecordUtils.*;
 
 
 public class CacheTest extends JetTestSupport {
@@ -60,5 +69,36 @@ public class CacheTest extends JetTestSupport {
         Assert.assertEquals(instance1.getMap("test").get(quintet), instance2.getMap("test").get(quintet));
         Assert.assertEquals(cacheableSearcher1.getSearchResults(0, 1), searchResult);
         Assert.assertEquals(cacheableSearcher1.getSearchResults(0, 1), cacheableSearcher2.getSearchResults(0, 1));
+    }
+
+    @Test
+    public void testLineageCaching() {
+        Config config = new Config();
+
+        HazelcastInstance instance1 = createHazelcastInstance(config);
+        HazelcastInstance instance2 = createHazelcastInstance(config);
+
+        HazelcastCacheManager cacheManager1 = new HazelcastCacheManager(instance1);
+        HazelcastCacheManager cacheManager2 = new HazelcastCacheManager(instance2);
+
+        CorpuserUrn corpuserUrn = new CorpuserUrn("user");
+        EntityLineageResult lineageResult = new EntityLineageResult();
+        lineageResult.setRelationships(new LineageRelationshipArray(
+            new LineageRelationship().setEntity(corpuserUrn)
+                .setType("type"))).setCount(1).setStart(0).setTotal(1);
+        CachedEntityLineageResult cachedEntityLineageResult = new CachedEntityLineageResult(toJsonString(lineageResult),
+            System.currentTimeMillis());
+
+        Cache cache1 = cacheManager1.getCache("relationshipSearchService");
+        Cache cache2 = cacheManager2.getCache("relationshipSearchService");
+
+        Pair<String, LineageDirection> pair = Pair.of(corpuserUrn.toString(), LineageDirection.DOWNSTREAM);
+
+        cache1.put(pair, cachedEntityLineageResult);
+
+        Assert.assertEquals(instance1.getMap("relationshipSearchService").get(pair),
+            instance2.getMap("relationshipSearchService").get(pair));
+        Assert.assertEquals(cache1.get(pair, CachedEntityLineageResult.class), cache2.get(pair, CachedEntityLineageResult.class));
+        Assert.assertEquals(cache1.get(pair, CachedEntityLineageResult.class), cachedEntityLineageResult);
     }
 }
