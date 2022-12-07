@@ -49,6 +49,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
+    match_fully_qualified_names = bool = Field(
+        default=False,
+        description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
+    )
+
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
 
@@ -70,11 +75,26 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
                 "include_read_operational_stats is not supported. Set `include_read_operational_stats` to False.",
             )
 
+        match_fully_qualified_names = values.get("match_fully_qualified_names")
+
+        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
+
+        if (
+            schema_pattern is not None
+            and schema_pattern != AllowDenyPattern.allow_all()
+            and match_fully_qualified_names is not None
+            and not match_fully_qualified_names
+        ):
+            logger.warning(
+                "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+            )
+
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
-        schema_pattern = values.get("schema_pattern")
         if schema_pattern is not None and schema_pattern:
             logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
-            cast(AllowDenyPattern, schema_pattern).deny.append(r"^INFORMATION_SCHEMA$")
+            cast(AllowDenyPattern, schema_pattern).deny.append(r".*INFORMATION_SCHEMA$")
 
         include_technical_schema = values.get("include_technical_schema")
         include_profiles = (

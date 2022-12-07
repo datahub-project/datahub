@@ -2,7 +2,7 @@ apply plugin: 'java'
 
 dependencies {
   compile project(':datahub-graphql-core')
-  compile project(':metadata-service:auth-api')
+  compile project(':metadata-auth:auth-api')
   compile project(':metadata-service:factories')
 
   compile externalDependency.springCore

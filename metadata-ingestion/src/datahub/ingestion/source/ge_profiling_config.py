@@ -102,12 +102,12 @@ class GEProfilingConfig(ConfigModel):
     )
 
     profile_table_size_limit: Optional[int] = Field(
-        default=1,
+        default=5,
         description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`",
     )
 
     profile_table_row_limit: Optional[int] = Field(
-        default=50000,
+        default=5000000,
         description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`",
     )
 
@@ -142,7 +142,6 @@ class GEProfilingConfig(ConfigModel):
         if "bigquery_temp_table_schema" in values:
             logger.warning(
                 "The bigquery_temp_table_schema config is no longer required. Please remove it from your config.",
-                DeprecationWarning,
             )
             del values["bigquery_temp_table_schema"]
         return values

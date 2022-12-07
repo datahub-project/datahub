@@ -55,7 +55,13 @@ def default_query_results(query):
                 "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
-            }
+            },
+            {
+                "SCHEMA_NAME": "TEST2_SCHEMA",
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
+            },
         ]
     elif query == SnowflakeQuery.tables_for_database("TEST_DB"):
         return [
@@ -339,7 +345,8 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         username="TST_USR",
                         password="TST_PWD",
                         include_views=False,
-                        table_pattern=AllowDenyPattern(allow=["test_db.test_schema.*"]),
+                        match_fully_qualified_names=True,
+                        schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_view_lineage=False,
@@ -408,7 +415,7 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         username="TST_USR",
                         password="TST_PWD",
                         include_views=False,
-                        table_pattern=AllowDenyPattern(allow=["test_db.test_schema.*"]),
+                        schema_pattern=AllowDenyPattern(allow=["test_schema"]),
                         include_technical_schema=True,
                         include_table_lineage=False,
                         include_view_lineage=False,
