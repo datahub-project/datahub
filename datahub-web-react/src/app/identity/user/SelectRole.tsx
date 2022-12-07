@@ -60,7 +60,7 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
         setIsViewingAssignRole(false);
         setTimeout(function () {
             refetch?.();
-        }, 3000);
+        }, 2000);
     };
 
     // wait for available roles to load

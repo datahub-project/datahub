@@ -23,6 +23,7 @@ import {
     USERS_SSO_ID,
 } from '../../onboarding/config/UsersOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
+import { removeUserFromListUsesCache } from './cacheUtils';
 
 const UserContainer = styled.div``;
 
@@ -50,7 +51,6 @@ export const UserList = () => {
 
     const [page, setPage] = useState(1);
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
-    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
     const authenticatedUser = useGetAuthenticatedUser();
     const canManagePolicies = authenticatedUser?.platformPrivileges.managePolicies || false;
@@ -62,6 +62,7 @@ export const UserList = () => {
         loading: usersLoading,
         error: usersError,
         data: usersData,
+        client,
         refetch: usersRefetch,
     } = useListUsersQuery({
         variables: {
@@ -71,12 +72,11 @@ export const UserList = () => {
                 query,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
     });
 
     const totalUsers = usersData?.listUsers?.total || 0;
     const users = usersData?.listUsers?.users || [];
-    const filteredUsers = users.filter((user) => !removedUrns.includes(user.urn));
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
@@ -84,12 +84,8 @@ export const UserList = () => {
     };
 
     const handleDelete = (urn: string) => {
-        // Hack to deal with eventual consistency.
-        const newRemovedUrns = [...removedUrns, urn];
-        setRemovedUrns(newRemovedUrns);
-        setTimeout(function () {
-            usersRefetch?.();
-        }, 3000);
+        removeUserFromListUsesCache(urn, client, page, pageSize, query);
+        setTimeout(() => usersRefetch(), 4000);
     };
 
     const {
@@ -97,7 +93,7 @@ export const UserList = () => {
         error: rolesError,
         data: rolesData,
     } = useListRolesQuery({
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         variables: {
             input: {},
         },
@@ -149,7 +145,7 @@ export const UserList = () => {
                     locale={{
                         emptyText: <Empty description="No Users!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
-                    dataSource={filteredUsers}
+                    dataSource={users}
                     renderItem={(item: any) => (
                         <UserListItem
                             onDelete={() => handleDelete(item.urn as string)}
