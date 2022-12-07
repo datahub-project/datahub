@@ -684,6 +684,8 @@ class SnowflakeV2Source(
             else None,
             lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
             if table.last_altered is not None
+            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
             else None,
             description=table.comment,
             qualifiedName=dataset_name,
@@ -947,6 +949,8 @@ class SnowflakeV2Source(
             else None,
             last_modified=int(database.last_altered.timestamp() * 1000)
             if database.last_altered is not None
+            else int(database.created.timestamp() * 1000)
+            if database.created is not None
             else None,
         )
 
@@ -992,6 +996,8 @@ class SnowflakeV2Source(
             else None,
             last_modified=int(schema.last_altered.timestamp() * 1000)
             if schema.last_altered is not None
+            else int(schema.created.timestamp() * 1000)
+            if schema.created is not None
             else None,
         )
 
