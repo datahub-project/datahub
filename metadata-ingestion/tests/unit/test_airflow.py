@@ -1,3 +1,5 @@
+from datahub_provider._airflow_compat import MARKUPSAFE_PATCHED
+
 import datetime
 import json
 import os
@@ -13,18 +15,18 @@ import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
+from airflow.operators.dummy import DummyOperator
 from airflow.utils.dates import days_ago
-
-try:
-    from airflow.operators.dummy import DummyOperator
-except ModuleNotFoundError:
-    from airflow.operators.dummy_operator import DummyOperator
 
 import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
 from datahub_provider.entities import Dataset
-from datahub_provider.hooks.datahub import AIRFLOW_1, DatahubKafkaHook, DatahubRestHook
+from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_provider.operators.datahub import DatahubEmitterOperator
+
+assert MARKUPSAFE_PATCHED
+
+pytestmark = pytest.mark.airflow
 
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
 AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
@@ -73,25 +75,18 @@ def test_airflow_provider_info():
     assert get_provider_info()
 
 
-def test_dags_load_with_no_errors(pytestconfig):
+def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_provider/example_dags"
     )
 
+    # Note: the .airflowignore file skips the snowflake DAG.
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
 
     import_errors = dag_bag.import_errors
-    if AIRFLOW_1:
-        # The TaskFlow API is new in Airflow 2.x, so we don't expect that demo DAG
-        # to work on earlier versions.
-        import_errors = {
-            dag_filename: dag_errors
-            for dag_filename, dag_errors in import_errors.items()
-            if "taskflow" not in dag_filename
-        }
 
-    assert import_errors == {}
-    assert len(dag_bag.dag_ids) > 0
+    assert len(import_errors) == 0
+    assert dag_bag.size() > 0
 
 
 @contextmanager
@@ -107,6 +102,7 @@ def patch_airflow_connection(conn: Connection) -> Iterator[Connection]:
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter", autospec=True)
 def test_datahub_rest_hook(mock_emitter):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
+        assert config.conn_id
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
@@ -120,6 +116,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
     with patch_airflow_connection(
         datahub_rest_connection_config_with_timeout
     ) as config:
+        assert config.conn_id
         hook = DatahubRestHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
@@ -131,6 +128,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
 @mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
 def test_datahub_kafka_hook(mock_emitter):
     with patch_airflow_connection(datahub_kafka_connection_config) as config:
+        assert config.conn_id
         hook = DatahubKafkaHook(config.conn_id)
         hook.emit_mces([lineage_mce])
 
@@ -143,6 +141,7 @@ def test_datahub_kafka_hook(mock_emitter):
 @mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.emit_mces")
 def test_datahub_lineage_operator(mock_emit):
     with patch_airflow_connection(datahub_rest_connection_config) as config:
+        assert config.conn_id
         task = DatahubEmitterOperator(
             task_id="emit_lineage",
             datahub_conn_id=config.conn_id,
@@ -180,22 +179,9 @@ def test_hook_airflow_ui(hook):
     ["inlets", "outlets"],
     [
         pytest.param(
-            # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
-            # We want the lineage backend to support this structure for backwards
-            # compatability reasons, so this test is not conditional.
-            {"datasets": [Dataset("snowflake", "mydb.schema.tableConsumed")]},
-            {"datasets": [Dataset("snowflake", "mydb.schema.tableProduced")]},
-            id="airflow-1-10-lineage-syntax",
-        ),
-        pytest.param(
-            # Airflow 2.x also supports a flattened list for inlets and outlets.
-            # We want to test this capability.
+            # Airflow 2.x uses a flattened list for inlets and outlets.
             [Dataset("snowflake", "mydb.schema.tableConsumed")],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
-            marks=pytest.mark.skipif(
-                AIRFLOW_VERSION < packaging.version.parse("2.0.0"),
-                reason="list-style lineage is only supported in Airflow 2.x",
-            ),
             id="airflow-2-lineage-syntax",
         ),
     ],
@@ -344,28 +330,15 @@ def test_lineage_backend(mock_emit, inlets, outlets):
     ["inlets", "outlets"],
     [
         pytest.param(
-            # Airflow 1.10.x uses a dictionary structure for inlets and outlets.
-            # We want the lineage backend to support this structure for backwards
-            # compatability reasons, so this test is not conditional.
-            {"datasets": [Dataset("snowflake", "mydb.schema.tableConsumed")]},
-            {"datasets": [Dataset("snowflake", "mydb.schema.tableProduced")]},
-            id="airflow-1-10-lineage-syntax",
-        ),
-        pytest.param(
-            # Airflow 2.x also supports a flattened list for inlets and outlets.
-            # We want to test this capability.
             [Dataset("snowflake", "mydb.schema.tableConsumed")],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
-            marks=pytest.mark.skipif(
-                AIRFLOW_VERSION < packaging.version.parse("2.0.0"),
-                reason="list-style lineage is only supported in Airflow 2.x",
-            ),
             id="airflow-2-lineage-syntax",
         ),
     ],
 )
 @mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.make_emitter")
 def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
+    # TODO: Merge this code into the test above to reduce duplication.
     DEFAULT_DATE = datetime.datetime(2020, 5, 17)
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
@@ -410,10 +383,6 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
             # Ignoring type here because DagRun state is just a sring at Airflow 1
             dag_run = DagRun(state="success", run_id=f"scheduled_{DEFAULT_DATE}")  # type: ignore
-            ti.dag_run = dag_run
-            ti.start_date = datetime.datetime.utcnow()
-            ti.execution_date = DEFAULT_DATE
-
         else:
             from airflow.utils.state import DagRunState
 
@@ -421,9 +390,10 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
             dag_run = DagRun(
                 state=DagRunState.SUCCESS, run_id=f"scheduled_{DEFAULT_DATE}"
             )
-            ti.dag_run = dag_run
-            ti.start_date = datetime.datetime.utcnow()
-            ti.execution_date = DEFAULT_DATE
+
+        ti.dag_run = dag_run  # type: ignore
+        ti.start_date = datetime.datetime.utcnow()
+        ti.execution_date = DEFAULT_DATE
 
         ctx1 = {
             "dag": dag,

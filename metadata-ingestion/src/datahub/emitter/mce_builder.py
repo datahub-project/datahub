@@ -36,6 +36,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect as AspectAbstract,
 )
+from datahub.utilities.urn_encoder import UrnEncoder
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
@@ -99,9 +100,11 @@ def make_dataset_urn_with_platform_instance(
     )
 
 
+# Schema Field Urns url-encode reserved characters.
+# TODO: This needs to be handled on consumer (UI) side well.
 def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
     assert parent_urn.startswith("urn:li:"), "Schema field's parent must be an urn"
-    return f"urn:li:schemaField:({parent_urn},{field_path})"
+    return f"urn:li:schemaField:({parent_urn},{UrnEncoder.encode_string(field_path)})"
 
 
 def schema_field_urn_to_key(schema_field_urn: str) -> Optional[SchemaFieldKeyClass]:
@@ -120,6 +123,12 @@ def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
     if results is not None:
         return DatasetKeyClass(platform=results[1], name=results[2], origin=results[3])
     return None
+
+
+def dataset_key_to_urn(key: DatasetKeyClass) -> str:
+    return (
+        f"urn:li:dataset:(urn:li:dataPlatform:{key.platform},{key.name},{key.origin})"
+    )
 
 
 def make_container_new_urn(guid: str) -> str:
@@ -333,21 +342,25 @@ def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> b
 
     constructor_annotations = get_type_hints(SnapshotType.__init__)
     aspect_list_union = typing_inspect.get_args(constructor_annotations["aspects"])[0]
-    if not isinstance(aspect_list_union, tuple):
-        supported_aspect_types = typing_inspect.get_args(aspect_list_union)
-    else:
-        # On Python 3.6, the union type is represented as a tuple, where
-        # the first item is typing.Union and the subsequent elements are
-        # the types within the union.
-        supported_aspect_types = aspect_list_union[1:]
+
+    supported_aspect_types = typing_inspect.get_args(aspect_list_union)
 
     return issubclass(AspectType, supported_aspect_types)
+
+
+def assert_can_add_aspect(
+    mce: MetadataChangeEventClass, AspectType: Type[Aspect]
+) -> None:
+    if not can_add_aspect(mce, AspectType):
+        raise AssertionError(
+            f"Cannot add aspect {AspectType} to {type(mce.proposedSnapshot)}"
+        )
 
 
 def get_aspect_if_available(
     mce: MetadataChangeEventClass, AspectType: Type[Aspect]
 ) -> Optional[Aspect]:
-    assert can_add_aspect(mce, AspectType)
+    assert_can_add_aspect(mce, AspectType)
 
     all_aspects = mce.proposedSnapshot.aspects
     aspects: List[Aspect] = [
@@ -366,7 +379,7 @@ def get_aspect_if_available(
 def remove_aspect_if_available(
     mce: MetadataChangeEventClass, aspect_type: Type[Aspect]
 ) -> bool:
-    assert can_add_aspect(mce, aspect_type)
+    assert_can_add_aspect(mce, aspect_type)
     # loose type annotations since we checked before
     aspects: List[Any] = [
         aspect

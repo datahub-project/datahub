@@ -65,9 +65,8 @@ def test_athena_get_table_properties():
 
     mock_cursor = mock.MagicMock()
     mock_inspector = mock.MagicMock()
-    mock_inspector.engine.return_value = mock.MagicMock()
-    mock_inspector.dialect._raw_connection.return_value = mock_cursor
-    mock_inspector.dialect._raw_connection().cursor()._get_table_metadata.return_value = AthenaTableMetadata(
+    mock_inspector.engine.raw_connection().cursor.return_value = mock_cursor
+    mock_cursor._get_table_metadata.return_value = AthenaTableMetadata(
         response=table_metadata
     )
 

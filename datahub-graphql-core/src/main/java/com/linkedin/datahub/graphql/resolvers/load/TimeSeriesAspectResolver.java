@@ -110,7 +110,7 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
       return null;
     }
     return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(maybeFilters.getAnd().stream()
-        .map(filter -> criterionFromFilter(filter))
+        .map(filter -> criterionFromFilter(filter, true))
         .collect(Collectors.toList())))));
   }
 }

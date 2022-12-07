@@ -22,6 +22,7 @@ export enum EventType {
     RecommendationImpressionEvent,
     RecommendationClickEvent,
     HomePageRecommendationClickEvent,
+    HomePageExploreAllClickEvent,
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
@@ -47,6 +48,7 @@ export enum EventType {
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
     ExecuteIngestionSourceEvent,
+    SsoEvent,
 }
 
 /**
@@ -337,6 +339,10 @@ export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
 }
 
+export interface HomePageExploreAllClickEvent extends BaseEvent {
+    type: EventType.HomePageExploreAllClickEvent;
+}
+
 // Business glossary events
 
 export interface CreateGlossaryEntityEvent extends BaseEvent {
@@ -348,6 +354,8 @@ export interface CreateGlossaryEntityEvent extends BaseEvent {
 export interface CreateDomainEvent extends BaseEvent {
     type: EventType.CreateDomainEvent;
 }
+
+// Managed Ingestion Events
 
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
@@ -369,6 +377,11 @@ export interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
 }
 
+// TODO: Find a way to use this event
+export interface SsoEvent extends BaseEvent {
+    type: EventType.SsoEvent;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -381,6 +394,7 @@ export type Event =
     | ResetCredentialsEvent
     | SearchEvent
     | HomePageSearchEvent
+    | HomePageExploreAllClickEvent
     | SearchResultsViewEvent
     | SearchResultClickEvent
     | BrowseResultClickEvent
@@ -414,4 +428,6 @@ export type Event =
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
-    | ExecuteIngestionSourceEvent;
+    | ExecuteIngestionSourceEvent
+    | ShowStandardHomepageEvent
+    | SsoEvent;

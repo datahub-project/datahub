@@ -90,6 +90,18 @@ class ProjectIdKey(PlatformKey):
     project_id: str
 
 
+class MetastoreKey(PlatformKey):
+    metastore: str
+
+
+class CatalogKey(MetastoreKey):
+    catalog: str
+
+
+class UnitySchemaKey(CatalogKey):
+    unity_schema: str
+
+
 class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 

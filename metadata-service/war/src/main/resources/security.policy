@@ -1,0 +1,21 @@
+// Allow DataHub GMS runtime all access
+grant codeBase "file:${datahub.gms.home}/-" {
+  permission java.security.AllPermission;
+  permission java.io.FilePermission "/tmp/jetty-0_0_0_0-8080-war_war-_-any-11061940556061128854/webapp/WEB-INF/lib/auth-impl.jar", "read";
+};
+
+// Allow all access for Jetty as Jetty at runtime extract and loads the jar from tmp directory
+grant codeBase "file:/tmp/-" {
+  permission java.security.AllPermission;
+  permission java.io.FilePermission "/tmp/jetty-0_0_0_0-8080-war_war-_-any-11061940556061128854/webapp/WEB-INF/lib/auth-impl.jar", "read";
+};
+
+// Allow gradle build to work as normal
+grant codeBase "file:${datahub.project.root.dir}/-" {
+        permission java.security.AllPermission;
+};
+
+// Allow gradle to work as normal
+grant codeBase "file:${user.home}/.gradle/-" {
+        permission java.security.AllPermission;
+};

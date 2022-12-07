@@ -2,55 +2,39 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import RowIterator, TableListItem, TimePartitioning
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, eq=True)
-class BigqueryColumn:
-    name: str
-    ordinal_position: int
+class BigqueryColumn(BaseColumn):
     field_path: str
-    is_nullable: bool
     is_partition_column: bool
-    data_type: str
-    comment: str
 
 
 @dataclass
-class BigqueryTable:
-    name: str
-    created: datetime
-    last_altered: Optional[datetime]
-    size_in_bytes: Optional[int]
-    rows_count: Optional[int]
-    expires: Optional[datetime]
-    clustering_fields: Optional[List[str]]
-    labels: Optional[Dict[str, str]]
-    num_partitions: Optional[int]
-    max_partition_id: Optional[str]
-    max_shard_id: Optional[str]
-    active_billable_bytes: Optional[int]
-    long_term_billable_bytes: Optional[int]
-    comment: str
-    ddl: str
-    time_partitioning: TimePartitioning
+class BigqueryTable(BaseTable):
+    expires: Optional[datetime] = None
+    clustering_fields: Optional[List[str]] = None
+    labels: Optional[Dict[str, str]] = None
+    num_partitions: Optional[int] = None
+    max_partition_id: Optional[str] = None
+    max_shard_id: Optional[str] = None
+    active_billable_bytes: Optional[int] = None
+    long_term_billable_bytes: Optional[int] = None
+    time_partitioning: Optional[TimePartitioning] = None
     columns: List[BigqueryColumn] = field(default_factory=list)
 
 
 @dataclass
-class BigqueryView:
-    name: str
-    created: datetime
-    last_altered: datetime
-    comment: str
-    ddl: str
+class BigqueryView(BaseView):
     columns: List[BigqueryColumn] = field(default_factory=list)
 
 
@@ -280,6 +264,8 @@ class BigQueryDataDictionary:
     def get_datasets_for_project_id(
         conn: bigquery.Client, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
+        # FIXME: Due to a bug in BigQuery's type annotations, we need to cast here.
+        maxResults = cast(int, maxResults)
         datasets = conn.list_datasets(project_id, max_results=maxResults)
 
         return [BigqueryDataset(name=d.dataset_id) for d in datasets]
@@ -348,9 +334,9 @@ class BigQueryDataDictionary:
                     table.last_altered / 1000, tz=timezone.utc
                 )
                 if "last_altered" in table
-                else None,
-                size_in_bytes=table.bytes if "bytes" in table else None,
-                rows_count=table.row_count if "row_count" in table else None,
+                else table.created,
+                size_in_bytes=table.get("bytes"),
+                rows_count=table.get("row_count"),
                 comment=table.comment,
                 ddl=table.ddl,
                 expires=tables[table.table_name].expires if tables else None,
@@ -361,24 +347,16 @@ class BigQueryDataDictionary:
                 clustering_fields=tables[table.table_name].clustering_fields
                 if tables
                 else None,
-                max_partition_id=table.max_partition_id
-                if "max_partition_id" in table
-                else None,
+                max_partition_id=table.get("max_partition_id"),
                 max_shard_id=BigqueryTableIdentifier.get_table_and_shard(
                     table.table_name
                 )[1]
                 if len(BigqueryTableIdentifier.get_table_and_shard(table.table_name))
                 == 2
                 else None,
-                num_partitions=table.num_partitions
-                if "num_partitions" in table
-                else None,
-                active_billable_bytes=table.active_billable_bytes
-                if "active_billable_bytes" in table
-                else None,
-                long_term_billable_bytes=table.long_term_billable_bytes
-                if "long_term_billable_bytes" in table
-                else None,
+                num_partitions=table.get("num_partitions"),
+                active_billable_bytes=table.get("active_billable_bytes"),
+                long_term_billable_bytes=table.get("long_term_billable_bytes"),
             )
             for table in cur
         ]
@@ -410,9 +388,11 @@ class BigQueryDataDictionary:
             BigqueryView(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.last_altered if "last_altered" in table else None,
+                last_altered=table.last_altered
+                if "last_altered" in table
+                else table.created,
                 comment=table.comment,
-                ddl=table.view_definition,
+                view_definition=table.view_definition,
             )
             for table in cur
         ]

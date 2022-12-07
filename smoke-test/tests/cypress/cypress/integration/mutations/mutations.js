@@ -2,17 +2,14 @@ describe("mutations", () => {
   before(() => {
     // warm up elastic by issuing a `*` search
     cy.login();
-    cy.visit("http://localhost:9002/search?query=%2A");
+    cy.goToStarSearchList();
     cy.wait(5000);
   });
 
   it("can create and add a tag to dataset and visit new tag page", () => {
     cy.deleteUrn("urn:li:tag:CypressTestAddTag");
     cy.login();
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)"
-    );
-    cy.contains("cypress_logging_events");
+    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
 
     cy.contains("Add Tag").click({ force: true });
 
@@ -62,25 +59,11 @@ describe("mutations", () => {
 
   it("can add and remove terms from a dataset", () => {
     cy.login();
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)"
-    );
-    cy.contains("cypress_logging_events");
-
-    cy.contains("Add Term").click();
-
-    cy.focused().type("CypressTerm");
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("CypressTerm").click({ force: true })
-    );
-
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-      force: true,
-    });
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').should("not.exist");
-
-    cy.contains("CypressTerm");
+    cy.addTermToDataset(
+      "urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)",
+      "cypress_logging_events",
+      "CypressTerm"
+    )
 
     cy.get(
       'a[href="/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTerm"]'
@@ -93,13 +76,8 @@ describe("mutations", () => {
   it("can add and remove tags from a dataset field", () => {
     cy.login();
     cy.viewport(2000, 800);
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)"
-    );
-    cy.get('[data-testid="schema-field-event_name-tags"]').trigger(
-      "mouseover",
-      { force: true }
-    );
+    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
+    cy.mouseover('[data-testid="schema-field-event_name-tags"]');
     cy.get('[data-testid="schema-field-event_name-tags"]').within(() =>
       cy.contains("Add Tag").click()
     );
@@ -155,9 +133,7 @@ describe("mutations", () => {
     cy.login();
     // make space for the glossary term column
     cy.viewport(2000, 800);
-    cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)"
-    );
+    cy.goToDataset("urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)", "cypress_logging_events");
     cy.get('[data-testid="schema-field-event_name-terms"]').trigger(
       "mouseover",
       { force: true }
