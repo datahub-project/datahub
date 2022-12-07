@@ -72,7 +72,7 @@ const user1 = {
             },
         ],
     },
-    settings: { appearance: { showSimplifiedHomepage: false } },
+    settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
 const user2 = {
@@ -116,7 +116,7 @@ const user2 = {
             },
         ],
     },
-    settings: { appearance: { showSimplifiedHomepage: false } },
+    settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
 const dataPlatform = {
