@@ -8,7 +8,7 @@ from freezegun import freeze_time
 from tableauserverclient.models import ViewItem
 
 from datahub.configuration.source_common import DEFAULT_ENV
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.tableau_state import TableauCheckpointState
 from datahub.ingestion.source.tableau import TableauSource
@@ -386,3 +386,25 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
     ]
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
+
+
+def test_tableau_no_verify():
+    # This test ensures that we can connect to a self-signed certificate
+    # when ssl_verify is set to False.
+
+    source = TableauSource.create(
+        {
+            "connect_uri": "https://self-signed.badssl.com/",
+            "ssl_verify": False,
+            "site": "bogus",
+            # Credentials
+            "username": "bogus",
+            "password": "bogus",
+        },
+        PipelineContext(run_id="0"),
+    )
+    list(source.get_workunits())
+
+    report = source.get_report().as_string()
+    assert "SSL" not in report
+    assert "Unable to login" in report

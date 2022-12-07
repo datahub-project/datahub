@@ -176,7 +176,11 @@ class TableauConnectionConfig(ConfigModel):
             )
 
         try:
-            server = Server(self.connect_uri, use_server_version=True)
+            server = Server(
+                self.connect_uri,
+                use_server_version=True,
+                http_options={"verify": self.ssl_verify},
+            )
 
             # From https://stackoverflow.com/a/50159273/5004662.
             server._session.verify = self.ssl_verify
