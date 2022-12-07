@@ -479,9 +479,6 @@ module.exports = {
       "docs/CONTRIBUTING",
       "docs/links",
       "docs/rfc",
-      {
-        RFCs: list_ids_in_directory("docs/rfc/active"),
-      },
     ],
 
     "Release History": ["releases"],

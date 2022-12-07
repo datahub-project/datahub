@@ -142,7 +142,6 @@ class GEProfilingConfig(ConfigModel):
         if "bigquery_temp_table_schema" in values:
             logger.warning(
                 "The bigquery_temp_table_schema config is no longer required. Please remove it from your config.",
-                DeprecationWarning,
             )
             del values["bigquery_temp_table_schema"]
         return values
