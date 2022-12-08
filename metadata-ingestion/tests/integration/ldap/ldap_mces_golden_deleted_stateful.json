@@ -14,11 +14,6 @@
                         "lastName": "Simpson",
                         "fullName": "Bart Simpson"
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
