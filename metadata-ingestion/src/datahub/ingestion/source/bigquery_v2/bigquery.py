@@ -500,12 +500,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             projects = [project]
         else:
-            projects = BigQueryDataDictionary.get_projects(conn)
-            if len(projects) == 0:
-                logger.warning(
-                    "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+            try:
+                projects = BigQueryDataDictionary.get_projects(conn)
+                if len(projects) == 0:
+                    logger.error(
+                        "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+                    )
+                    self.report.report_failure(
+                        "metadata-extraction",
+                        "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+                    )
+                    return
+            except Exception as e:
+                logger.error(
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
                 )
-                return
+                self.report.report_failure(
+                    "metadata-extraction",
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}",
+                )
+                return None
 
         for project_id in projects:
             if not self.config.project_id_pattern.allowed(project_id.id):
@@ -540,8 +554,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BigQueryDataDictionary.get_datasets_for_project_id(conn, project_id)
             )
         except Exception as e:
-            logger.error(
-                f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
+            error_message = f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
+            if self.config.profiling.enabled:
+                error_message = f"Unable to get datasets for project {project_id}, skipping. Does your service account has bigquery.datasets.get permission? The error was: {e}"
+            logger.error(error_message)
+            self.report.report_failure(
+                "metadata-extraction",
+                f"{project_id} - {error_message}",
             )
             return None
 
@@ -562,10 +581,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from self._process_schema(conn, project_id, bigquery_dataset)
             except Exception as e:
+                error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission? The error was: {e}"
+                if self.config.profiling.enabled:
+                    error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission? The error was: {e}"
+
                 trace = traceback.format_exc()
                 logger.error(trace)
-                logger.error(
-                    f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. The error was: {e}"
+                logger.error(error_message)
+                self.report.report_failure(
+                    "metadata-extraction",
+                    f"{project_id}.{bigquery_dataset.name} - {error_message}",
                 )
                 continue
 

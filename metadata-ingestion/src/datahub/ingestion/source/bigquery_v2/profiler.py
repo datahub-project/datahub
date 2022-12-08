@@ -4,8 +4,6 @@ import logging
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
@@ -22,8 +20,6 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
-from datahub.metadata.schema_classes import DatasetProfileClass
 
 logger = logging.getLogger(__name__)
 
