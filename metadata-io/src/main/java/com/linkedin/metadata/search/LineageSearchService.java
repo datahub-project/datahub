@@ -21,6 +21,10 @@ import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +35,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -38,9 +44,11 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.javatuples.Triplet;
 import org.springframework.cache.Cache;
 
 import static com.datahub.util.RecordUtils.*;
+import static com.linkedin.metadata.search.utils.GZIPUtil.*;
 
 
 @RequiredArgsConstructor
@@ -83,7 +91,7 @@ public class LineageSearchService {
       @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     // Cache multihop result for faster performance
-    Pair<String, LineageDirection> cacheKey = Pair.of(sourceUrn.toString(), direction);
+    Triplet<String, LineageDirection, Integer> cacheKey = Triplet.with(sourceUrn.toString(), direction, maxHops);
     CachedEntityLineageResult cachedLineageResult = cacheEnabled
         ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;
@@ -91,10 +99,12 @@ public class LineageSearchService {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
       if (cacheEnabled) {
-        cache.put(cacheKey, new CachedEntityLineageResult(toJsonString(lineageResult), System.currentTimeMillis()));
+        byte[] gzipped = gzipCompress(toJsonString(lineageResult));
+
+        cache.put(cacheKey, new CachedEntityLineageResult(gzipped, System.currentTimeMillis()));
       }
     } else {
-      lineageResult = toRecordTemplate(EntityLineageResult.class, cachedLineageResult.getEntityLineageResult());
+      lineageResult = toRecordTemplate(EntityLineageResult.class, gzipDecompress(cachedLineageResult.getEntityLineageResult()));
       if (System.currentTimeMillis() - cachedLineageResult.getTimestamp() > DAY_IN_MS) {
         log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
       }

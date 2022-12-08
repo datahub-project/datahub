@@ -18,27 +18,35 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import java.util.List;
-import org.apache.commons.lang3.tuple.Pair;
 import org.javatuples.Quintet;
+import org.javatuples.Triplet;
 import org.springframework.cache.Cache;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import static com.datahub.util.RecordUtils.*;
+import static com.linkedin.metadata.search.utils.GZIPUtil.*;
 
 
 public class CacheTest extends JetTestSupport {
 
-    @Test
-    public void hazelcastTest() {
+    HazelcastCacheManager cacheManager1;
+    HazelcastCacheManager cacheManager2;
+    HazelcastInstance instance1;
+    HazelcastInstance instance2;
+
+    public CacheTest() {
         Config config = new Config();
 
-        HazelcastInstance instance1 = createHazelcastInstance(config);
-        HazelcastInstance instance2 = createHazelcastInstance(config);
+        instance1 = createHazelcastInstance(config);
+        instance2 = createHazelcastInstance(config);
 
-        HazelcastCacheManager cacheManager1 = new HazelcastCacheManager(instance1);
-        HazelcastCacheManager cacheManager2 = new HazelcastCacheManager(instance2);
+        cacheManager1 = new HazelcastCacheManager(instance1);
+        cacheManager2 = new HazelcastCacheManager(instance2);
+    }
 
+    @Test
+    public void hazelcastTest() {
         CorpuserUrn corpuserUrn = new CorpuserUrn("user");
         SearchEntity searchEntity = new SearchEntity().setEntity(corpuserUrn);
         SearchResult searchResult = new SearchResult()
@@ -73,32 +81,31 @@ public class CacheTest extends JetTestSupport {
 
     @Test
     public void testLineageCaching() {
-        Config config = new Config();
-
-        HazelcastInstance instance1 = createHazelcastInstance(config);
-        HazelcastInstance instance2 = createHazelcastInstance(config);
-
-        HazelcastCacheManager cacheManager1 = new HazelcastCacheManager(instance1);
-        HazelcastCacheManager cacheManager2 = new HazelcastCacheManager(instance2);
-
         CorpuserUrn corpuserUrn = new CorpuserUrn("user");
         EntityLineageResult lineageResult = new EntityLineageResult();
-        lineageResult.setRelationships(new LineageRelationshipArray(
-            new LineageRelationship().setEntity(corpuserUrn)
-                .setType("type"))).setCount(1).setStart(0).setTotal(1);
-        CachedEntityLineageResult cachedEntityLineageResult = new CachedEntityLineageResult(toJsonString(lineageResult),
+        LineageRelationshipArray array = new LineageRelationshipArray();
+        LineageRelationship lineageRelationship = new LineageRelationship().setEntity(corpuserUrn).setType("type");
+        for (int i = 0; i < 1000000; i++) {
+            array.add(lineageRelationship);
+        }
+        lineageResult.setRelationships(array).setCount(1).setStart(0).setTotal(1);
+        CachedEntityLineageResult cachedEntityLineageResult = new CachedEntityLineageResult(gzipCompress(toJsonString(lineageResult)),
             System.currentTimeMillis());
 
         Cache cache1 = cacheManager1.getCache("relationshipSearchService");
         Cache cache2 = cacheManager2.getCache("relationshipSearchService");
 
-        Pair<String, LineageDirection> pair = Pair.of(corpuserUrn.toString(), LineageDirection.DOWNSTREAM);
+        Triplet<String, LineageDirection, Integer> triplet = Triplet.with(corpuserUrn.toString(), LineageDirection.DOWNSTREAM, 3);
 
-        cache1.put(pair, cachedEntityLineageResult);
+        cache1.put(triplet, cachedEntityLineageResult);
 
-        Assert.assertEquals(instance1.getMap("relationshipSearchService").get(pair),
-            instance2.getMap("relationshipSearchService").get(pair));
-        Assert.assertEquals(cache1.get(pair, CachedEntityLineageResult.class), cache2.get(pair, CachedEntityLineageResult.class));
-        Assert.assertEquals(cache1.get(pair, CachedEntityLineageResult.class), cachedEntityLineageResult);
+        Assert.assertEquals(instance1.getMap("relationshipSearchService").get(triplet),
+            instance2.getMap("relationshipSearchService").get(triplet));
+        CachedEntityLineageResult cachedResult1 = cache1.get(triplet, CachedEntityLineageResult.class);
+        CachedEntityLineageResult cachedResult2 = cache2.get(triplet, CachedEntityLineageResult.class);
+        Assert.assertEquals(cachedResult1, cachedResult2);
+        Assert.assertEquals(cache1.get(triplet, CachedEntityLineageResult.class), cachedEntityLineageResult);
+        Assert.assertEquals(toRecordTemplate(EntityLineageResult.class,
+            gzipDecompress(cache2.get(triplet, CachedEntityLineageResult.class).getEntityLineageResult())), lineageResult);
     }
 }
