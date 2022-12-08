@@ -255,6 +255,12 @@ public class PoliciesConfig {
       "Manage Glossary Children",
       "The ability to create and delete the children of this entity.");
 
+  // Glossary Node Privileges
+  public static final Privilege MANAGE_GLOSSARY_CHILDREN_RECURSIVELY_PRIVILEGE = Privilege.of(
+    "MANAGE_GLOSSARY_CHILDREN_RECURSIVELY",
+    "Manage Glossary Children Recursively",
+    "The ability to create and delete the children of this entity recusively.");
+
   public static final ResourcePrivileges DATASET_PRIVILEGES = ResourcePrivileges.of(
       "dataset",
       "Datasets",
@@ -363,7 +369,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE,
-          MANAGE_GLOSSARY_CHILDREN_PRIVILEGE)
+          MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
+          MANAGE_GLOSSARY_CHILDREN_RECURSIVELY_PRIVILEGE)
   );
 
   // Group Privileges

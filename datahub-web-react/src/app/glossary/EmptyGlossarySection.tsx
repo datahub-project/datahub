@@ -3,6 +3,7 @@ import { Button, Empty, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { EntityType } from '../../types.generated';
+import { useEntityData } from '../entity/shared/EntityContext';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 
 const StyledEmpty = styled(Empty)`
@@ -31,6 +32,9 @@ function EmptyGlossarySection(props: Props) {
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
+    const { entityData } = useEntityData();
+    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+
     return (
         <>
             <StyledEmpty
@@ -41,10 +45,10 @@ function EmptyGlossarySection(props: Props) {
                     </>
                 }
             >
-                <StyledButton onClick={() => setIsCreateTermModalVisible(true)}>
+                <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateTermModalVisible(true)}>
                     <PlusOutlined /> Add Term
                 </StyledButton>
-                <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
+                <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateNodeModalVisible(true)}>
                     <PlusOutlined /> Add Term Group
                 </StyledButton>
             </StyledEmpty>

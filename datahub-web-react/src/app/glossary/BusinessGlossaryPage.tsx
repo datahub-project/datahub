@@ -15,6 +15,7 @@ import { Message } from '../shared/Message';
 import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -70,6 +71,9 @@ function BusinessGlossaryPage() {
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
+    const user = useGetAuthenticatedUser();
+    const allowAdd = user?.platformPrivileges?.manageGlossaries;
+
     return (
         <>
             <GlossaryWrapper>
@@ -94,10 +98,10 @@ function BusinessGlossaryPage() {
                     <HeaderWrapper>
                         <Typography.Title level={3}>Business Glossary</Typography.Title>
                         <div>
-                            <Button type="text" onClick={() => setIsCreateTermModalVisible(true)}>
+                            <Button type="text" hidden={!allowAdd} onClick={() => setIsCreateTermModalVisible(true)}>
                                 <PlusOutlined /> Add Term
                             </Button>
-                            <Button type="text" onClick={() => setIsCreateNodeModalVisible(true)}>
+                            <Button type="text" hidden={!allowAdd} onClick={() => setIsCreateNodeModalVisible(true)}>
                                 <PlusOutlined /> Add Term Group
                             </Button>
                         </div>
