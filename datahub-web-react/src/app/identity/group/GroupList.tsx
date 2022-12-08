@@ -13,6 +13,8 @@ import CreateGroupModal from './CreateGroupModal';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { scrollToTop } from '../../shared/searchUtils';
+import { GROUPS_CREATE_GROUP_ID, GROUPS_INTRO_ID } from '../../onboarding/config/GroupsOnboardingConfig';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
 
 const GroupContainer = styled.div``;
 
@@ -77,12 +79,13 @@ export const GroupList = () => {
 
     return (
         <>
+            <OnboardingTour stepIds={[GROUPS_INTRO_ID, GROUPS_CREATE_GROUP_ID]} />
             {!data && loading && <Message type="loading" content="Loading groups..." />}
             {error && <Message type="error" content="Failed to load groups! An unexpected error occurred." />}
             <GroupContainer>
                 <TabToolbar>
                     <div>
-                        <Button type="text" onClick={() => setIsCreatingGroup(true)}>
+                        <Button id={GROUPS_CREATE_GROUP_ID} type="text" onClick={() => setIsCreatingGroup(true)}>
                             <UsergroupAddOutlined /> Create group
                         </Button>
                     </div>

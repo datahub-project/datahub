@@ -49,6 +49,7 @@ public class Constants {
   public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
   public static final String POST_ENTITY_NAME = "post";
   public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
+  public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
 
 
   /**
@@ -268,6 +269,9 @@ public class Constants {
   // Telemetry
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
+
+  // Step
+  public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME = "dataHubStepStateProperties";
 
   // Metadata Change Event Parameter Names
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Empty, List, Pagination } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
@@ -15,6 +15,14 @@ import ViewInviteTokenModal from './ViewInviteTokenModal';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { useListRolesQuery } from '../../../graphql/role.generated';
 import { scrollToTop } from '../../shared/searchUtils';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import {
+    USERS_ASSIGN_ROLE_ID,
+    USERS_INTRO_ID,
+    USERS_INVITE_LINK_ID,
+    USERS_SSO_ID,
+} from '../../onboarding/config/UsersOnboardingConfig';
+import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
 
 const UserContainer = styled.div``;
 
@@ -99,14 +107,22 @@ export const UserList = () => {
     const error = usersError || rolesError;
     const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
 
+    useUpdateEducationStepIdsAllowlist(canManagePolicies, USERS_INVITE_LINK_ID);
+
     return (
         <>
+            <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
             {!usersData && loading && <Message type="loading" content="Loading users..." />}
             {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
             <UserContainer>
                 <TabToolbar>
                     <div>
-                        <Button disabled={!canManagePolicies} type="text" onClick={() => setIsViewingInviteToken(true)}>
+                        <Button
+                            id={USERS_INVITE_LINK_ID}
+                            disabled={!canManagePolicies}
+                            type="text"
+                            onClick={() => setIsViewingInviteToken(true)}
+                        >
                             <UsergroupAddOutlined /> Invite Users
                         </Button>
                     </div>
