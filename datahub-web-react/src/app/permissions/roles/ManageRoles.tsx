@@ -72,7 +72,7 @@ export const ManageRoles = () => {
         data: rolesData,
         refetch: rolesRefetch,
     } = useListRolesQuery({
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         variables: {
             input: {
                 start,

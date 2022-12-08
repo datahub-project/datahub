@@ -2230,6 +2230,17 @@
                     "type" : "string",
                     "doc" : "Slack channel for the group",
                     "optional" : true
+                  }, {
+                    "name" : "created",
+                    "type" : "com.linkedin.common.AuditStamp",
+                    "doc" : "Created Audit stamp",
+                    "optional" : true,
+                    "Searchable" : {
+                      "/time" : {
+                        "fieldName" : "createdTime",
+                        "fieldType" : "DATETIME"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],

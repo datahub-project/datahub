@@ -1,13 +1,14 @@
 import { ListUsersDocument, ListUsersQuery } from '../../../graphql/user.generated';
 
-export const removeUserFromListUsesCache = (urn, client, page, pageSize, query) => {
+export const DEFAULT_USER_LIST_PAGE_SIZE = 25;
+
+export const removeUserFromListUsersCache = (urn, client) => {
     const currData: ListUsersQuery | null = client.readQuery({
         query: ListUsersDocument,
         variables: {
             input: {
-                start: (page - 1) * pageSize,
-                count: pageSize,
-                query,
+                start: 0,
+                count: DEFAULT_USER_LIST_PAGE_SIZE,
             },
         },
     });
@@ -19,9 +20,8 @@ export const removeUserFromListUsesCache = (urn, client, page, pageSize, query) 
         query: ListUsersDocument,
         variables: {
             input: {
-                start: (page - 1) * pageSize,
-                count: pageSize,
-                query,
+                start: 0,
+                count: DEFAULT_USER_LIST_PAGE_SIZE,
             },
         },
         data: {
@@ -35,14 +35,7 @@ export const removeUserFromListUsesCache = (urn, client, page, pageSize, query) 
     });
 };
 
-const DEFAULT_LIST_SIZE = 25;
-
 export const clearUserListCache = (client) => {
-    client.cache.evict({
-        input: {
-            start: 0,
-            count: DEFAULT_LIST_SIZE,
-            query: undefined,
-        },
-    });
+    // Remove any caching of 'listUsers'
+    client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'listUsers' });
 };

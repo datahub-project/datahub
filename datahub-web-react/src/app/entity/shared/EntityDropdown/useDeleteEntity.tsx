@@ -38,7 +38,7 @@ function useDeleteEntity(
                     entityUrn: urn,
                     entityType: type,
                 });
-                if (!hideMessage) {
+                if (!hideMessage && !skipWait) {
                     message.loading({
                         content: 'Deleting...',
                         duration: 2,

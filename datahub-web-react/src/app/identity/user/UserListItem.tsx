@@ -60,7 +60,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as DataHubRole);
     const userRoleUrn = userRole && userRole.urn;
 
-    const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete, true, true);
+    const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete, false, true);
 
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {

@@ -23,7 +23,7 @@ import {
     USERS_SSO_ID,
 } from '../../onboarding/config/UsersOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
-import { removeUserFromListUsesCache } from './cacheUtils';
+import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cacheUtils';
 
 const UserContainer = styled.div``;
 
@@ -39,8 +39,6 @@ const UserPaginationContainer = styled.div`
     justify-content: center;
 `;
 
-const DEFAULT_PAGE_SIZE = 25;
-
 export const UserList = () => {
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -55,7 +53,7 @@ export const UserList = () => {
     const authenticatedUser = useGetAuthenticatedUser();
     const canManagePolicies = authenticatedUser?.platformPrivileges.managePolicies || false;
 
-    const pageSize = DEFAULT_PAGE_SIZE;
+    const pageSize = DEFAULT_USER_LIST_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
     const {
@@ -69,10 +67,10 @@ export const UserList = () => {
             input: {
                 start,
                 count: pageSize,
-                query,
+                query: (query?.length && query) || undefined,
             },
         },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
     const totalUsers = usersData?.listUsers?.total || 0;
@@ -84,8 +82,7 @@ export const UserList = () => {
     };
 
     const handleDelete = (urn: string) => {
-        removeUserFromListUsesCache(urn, client, page, pageSize, query);
-        setTimeout(() => usersRefetch(), 4000);
+        removeUserFromListUsersCache(urn, client);
     };
 
     const {
@@ -95,7 +92,10 @@ export const UserList = () => {
     } = useListRolesQuery({
         fetchPolicy: 'cache-first',
         variables: {
-            input: {},
+            input: {
+                start: 0,
+                count: 10,
+            },
         },
     });
 
