@@ -136,6 +136,8 @@ public class AllEntitiesSearchAggregator {
 
     postProcessTimer.stop();
     return new SearchResult().setEntities(new SearchEntityArray(rankedResult))
+    /* Pages will not show beyond the maximum search results allowed by elastic search. This fix will not allow
+    users to traverse to higher pages when searching without selecting any entity type */ 
         .setNumEntities(numEntities)
         .setFrom(from)
         .setPageSize(size)
