@@ -199,9 +199,10 @@ public class LineageService {
     }
 
     inputEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
-    inputs.removeIf(upstreamUrnsToRemove::contains);
+    inputs.removeIf(input ->  upstreamUrnsToRemove.contains(input.getDatasetUrn()));
 
     chartInfo.setInputEdges(inputEdges);
+    chartInfo.setInputs(inputs);
 
     return buildMetadataChangeProposal(downstreamUrn, Constants.CHART_INFO_ASPECT_NAME, chartInfo);
   }

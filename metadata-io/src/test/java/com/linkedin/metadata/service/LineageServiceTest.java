@@ -4,7 +4,12 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.chart.ChartDataSourceType;
+import com.linkedin.chart.ChartDataSourceTypeArray;
+import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Edge;
+import com.linkedin.common.EdgeArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -45,12 +50,14 @@ public class LineageServiceTest {
   private static final String DATASET_URN_2 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test2,DEV)";
   private static final String DATASET_URN_3 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test3,DEV)";
   private static final String DATASET_URN_4 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test4,DEV)";
-  private static final String CHART_URN_1 = "urn:li:dataset:(looker,baz1)";
+  private static final String CHART_URN_1 = "urn:li:chart:(looker,baz1)";
+  private static final String CHART_URN_2 = "urn:li:chart:(looker,baz2)";
   private Urn actorUrn;
   private Urn datasetUrn1;
   private Urn datasetUrn2;
   private Urn datasetUrn3;
   private Urn chartUrn1;
+  private Urn chartUrn2;
 
   @BeforeMethod
   public void setupTest() {
@@ -62,6 +69,7 @@ public class LineageServiceTest {
     datasetUrn2 = UrnUtils.getUrn(DATASET_URN_2);
     datasetUrn3 = UrnUtils.getUrn(DATASET_URN_3);
     chartUrn1 = UrnUtils.getUrn(CHART_URN_1);
+    chartUrn2 = UrnUtils.getUrn(CHART_URN_2);
 
     _lineageService = new LineageService(_mockClient);
   }
@@ -130,7 +138,73 @@ public class LineageServiceTest {
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
     assertThrows(RuntimeException.class, () ->
         _lineageService.updateDatasetLineage(datasetUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+  }
 
+  // Adds upstream for chart1 to dataset3 and removes edge to dataset1 while keeping edge to dataset2
+  @Test
+  public void testUpdateChartLineage() throws Exception {
+    Mockito.when(_mockClient.exists(chartUrn1, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datasetUrn1, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datasetUrn3, AUTHENTICATION)).thenReturn(true);
+
+    ChartInfo chartInfo = createChartInfo(chartUrn1, Arrays.asList(datasetUrn1, datasetUrn2), Collections.emptyList());
+
+    Mockito.when(_mockClient.getV2(
+            Mockito.eq(Constants.CHART_ENTITY_NAME),
+            Mockito.eq(chartUrn1),
+            Mockito.eq(ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME)),
+            Mockito.eq(AUTHENTICATION)
+        ))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(chartUrn1)
+                .setEntityName(Constants.CHART_ENTITY_NAME)
+                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
+                    Constants.CHART_INFO_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(chartInfo.data()))
+                )))
+        );
+
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn3);
+    final List<Urn> upstreamUrnsToRemove = Collections.singletonList(datasetUrn2);
+    _lineageService.updateChartLineage(chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION);
+
+    // chartInfo with dataset1 in inputs and dataset3 in inputEdges
+    ChartInfo updatedChartInfo = createChartInfo(chartUrn1, Collections.singletonList(datasetUrn1), Collections.singletonList(datasetUrn3));
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(chartUrn1);
+    proposal.setEntityType(Constants.CHART_ENTITY_NAME);
+    proposal.setAspectName(Constants.CHART_INFO_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updatedChartInfo));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1)).ingestProposal(
+        Mockito.eq(proposal),
+        Mockito.eq(AUTHENTICATION),
+        Mockito.eq(false)
+    );
+  }
+
+  @Test
+  public void testFailUpdateChartWithMissingDataset() throws Exception {
+    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(false);
+
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn2);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(IllegalArgumentException.class, () ->
+        _lineageService.updateDatasetLineage(chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+  }
+
+  @Test
+  public void testFailUpdateChartWithInvalidEdge() throws Exception {
+    Mockito.when(_mockClient.exists(chartUrn2, AUTHENTICATION)).thenReturn(true);
+
+    // charts can't have charts upstream of them
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(chartUrn2);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(RuntimeException.class, () ->
+        _lineageService.updateDatasetLineage(chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
   }
 
   private UpstreamLineage createUpstreamLineage(List<String> upstreamUrns) throws Exception {
@@ -146,5 +220,28 @@ public class LineageServiceTest {
     }
     upstreamLineage.setUpstreams(upstreams);
     return upstreamLineage;
+  }
+
+  private ChartInfo createChartInfo(Urn entityUrn, List<Urn> inputsToAdd, List<Urn> inputEdgesToAdd) throws Exception {
+    ChartInfo chartInfo = new ChartInfo();
+    ChartDataSourceTypeArray inputs = new ChartDataSourceTypeArray();
+    for (Urn input : inputsToAdd) {
+      DatasetUrn datasetUrn = DatasetUrn.createFromUrn(input);
+      inputs.add((ChartDataSourceType.create(datasetUrn)));
+    }
+    chartInfo.setInputs(inputs);
+
+    EdgeArray inputEdges = new EdgeArray();
+    for (Urn inputEdgeToAdd : inputEdgesToAdd) {
+      Edge edge = new Edge();
+      edge.setSourceUrn(entityUrn);
+      edge.setDestinationUrn(inputEdgeToAdd);
+      edge.setCreated(_auditStamp);
+      edge.setLastModified(_auditStamp);
+      inputEdges.add(edge);
+    }
+    chartInfo.setInputEdges(inputEdges);
+
+    return chartInfo;
   }
 }

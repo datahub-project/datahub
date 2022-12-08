@@ -32,6 +32,7 @@ public class UpdateLineageResolverTest {
   private static final String DATASET_URN_2 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test2,DEV)";
   private static final String DATASET_URN_3 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test3,DEV)";
   private static final String DATASET_URN_4 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test4,DEV)";
+  private static final String CHART_URN = "urn:li:chart:(looker,baz)";
 
   @BeforeMethod
   public void setupTest() {
@@ -44,7 +45,6 @@ public class UpdateLineageResolverTest {
   // TODO: Add tests for permissions once we add permissions for updating lineage
 
   // Adds upstream for dataset1 to dataset2 and removes edge to dataset3
-  // Adds upstream for dataset3 to dataset4
   @Test
   public void testUpdateDatasetLineage() throws Exception {
     List<LineageEdge> edgesToAdd = Arrays.asList(createLineageEdge(DATASET_URN_1, DATASET_URN_2), createLineageEdge(DATASET_URN_3, DATASET_URN_4));
@@ -68,6 +68,20 @@ public class UpdateLineageResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(_mockEnv).join());
   }
+
+  // Adds upstream for chart1 to dataset2 and removes edge to dataset1
+  @Test
+  public void testUpdateChartLineage() throws Exception {
+    List<LineageEdge> edgesToAdd = Arrays.asList(createLineageEdge(CHART_URN, DATASET_URN_2));
+    List<LineageEdge> edgesToRemove = Arrays.asList(createLineageEdge(CHART_URN, DATASET_URN_1));
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(Urn.createFromString(CHART_URN))).thenReturn(true);
+
+    assertTrue(resolver.get(_mockEnv).get());
+  }
+
 
   private void mockInputAndContext(List<LineageEdge> edgesToAdd, List<LineageEdge> edgesToRemove) {
     QueryContext mockContext = getMockAllowContext();
