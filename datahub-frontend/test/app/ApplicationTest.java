@@ -91,8 +91,8 @@ public class ApplicationTest extends WithBrowser {
     // Discovery url to authorization server metadata
     _wellKnownUrl = _oauthServer.wellKnownUrl(ISSUER_ID).toString();
 
-    createBrowser();
     startServer();
+    createBrowser();
     Thread.sleep(5000);
   }
 

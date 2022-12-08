@@ -47,6 +47,6 @@ public class CentralLogoutController extends LogoutController {
       }
     }
     return Results.redirect(DEFAULT_BASE_URL_PATH)
-            .removingFromSession(request);
+            .withNewSession();
   }
 }
