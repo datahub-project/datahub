@@ -106,6 +106,15 @@ module.exports = {
         ],
       },
     ],
+    "Integration Guides": [
+      {
+        Snowflake: [
+          "docs/quick-ingestion-guides/Snowflake/Overview",
+          "docs/quick-ingestion-guides/Snowflake/Setup",
+          "docs/quick-ingestion-guides/Snowflake/Configuration",
+        ],
+      },
+    ],
     "Ingest Metadata": [
       // The purpose of this section is to provide a deeper understanding of how ingestion works.
       // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
