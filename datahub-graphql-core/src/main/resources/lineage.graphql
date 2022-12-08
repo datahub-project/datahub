@@ -8,7 +8,8 @@ input UpdateLineageInput {
     edgesToAdd: [LineageEdge]!
 
     """
-    Lineage edges to remove. Takes precedence over edgesToAdd.
+    Lineage edges to remove. Takes precedence over edgesToAdd - so edges existing both edgesToAdd
+    and edgesToRemove will be removed.
     """
     edgesToRemove: [LineageEdge]!
 }

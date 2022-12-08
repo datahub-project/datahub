@@ -26,6 +26,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -128,6 +129,10 @@ public class GraphQLEngineFactory {
   @Qualifier("postService")
   private PostService _postService;
 
+  @Autowired
+  @Qualifier("lineageService")
+  private LineageService _lineageService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -163,6 +168,7 @@ public class GraphQLEngineFactory {
           _roleService,
           _inviteTokenService,
           _postService,
+          _lineageService,
           _configProvider.getFeatureFlags()
           ).builder().build();
     }
@@ -193,6 +199,7 @@ public class GraphQLEngineFactory {
         _roleService,
         _inviteTokenService,
         _postService,
+        _lineageService,
         _configProvider.getFeatureFlags()
     ).builder().build();
   }

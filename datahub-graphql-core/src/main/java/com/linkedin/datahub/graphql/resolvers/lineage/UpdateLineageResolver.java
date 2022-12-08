@@ -7,7 +7,7 @@ import com.linkedin.datahub.graphql.generated.LineageEdge;
 import com.linkedin.datahub.graphql.generated.UpdateLineageInput;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.metadata.service.LineageService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.RequiredArgsConstructor;
@@ -24,13 +24,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getAuditStamp;
 
 @Slf4j
 @RequiredArgsConstructor
 public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final LineageService _lineageService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -58,20 +58,11 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
         final List<Urn> upstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(downstreamUrn, new ArrayList<>());
 
         if (downstreamUrn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
-          // need to filter out upstream dataJob entities as we take care of outputDatasets for DataJobInputOutput separately
-          final List<Urn> filteredUpstreamUrnsToAdd = upstreamUrnsToAdd.stream().filter(
-              upstreamUrn -> !upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
-          ).collect(Collectors.toList());
-          final List<Urn> filteredUpstreamUrnsToRemove = upstreamUrnsToRemove.stream().filter(
-              upstreamUrn -> !upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
-          ).collect(Collectors.toList());
+          final List<Urn> filteredUpstreamUrnsToAdd = filterUrnsForDatasetLineage(upstreamUrnsToAdd);
+          final List<Urn> filteredUpstreamUrnsToRemove = filterUrnsForDatasetLineage(upstreamUrnsToRemove);
 
-          LineageUtils.validateDatasetUrns(filteredUpstreamUrnsToAdd, _entityService);
-          // TODO: add permissions check here for entity type - or have one overall permissions check above
           try {
-            MetadataChangeProposal changeProposal = LineageUtils.buildDatasetLineageProposal(
-                downstreamUrn, filteredUpstreamUrnsToAdd, filteredUpstreamUrnsToRemove, actor, _entityService);
-            _entityService.ingestProposal(changeProposal, getAuditStamp(actor), false);
+            _lineageService.updateDatasetLineage(downstreamUrn, filteredUpstreamUrnsToAdd, filteredUpstreamUrnsToRemove, actor, context.getAuthentication());
           } catch (Exception e) {
             throw new RuntimeException(String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
           }
@@ -80,6 +71,17 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
 
       return true;
     });
+  }
+
+  /**
+   * Filter out upstream dataJob entities as we take care of outputDatasets for DataJobInputOutput separately.
+   * This is necessary since a downstream dataset and upstream data job is valid for DataJobInputOutput.
+   * If the upstream is anything else, it is invalid (check in the LineageService).
+   */
+  private List<Urn> filterUrnsForDatasetLineage(List<Urn> urns) {
+    return urns.stream().filter(
+        upstreamUrn -> !upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
+    ).collect(Collectors.toList());
   }
 
   private Map<Urn, List<Urn>> getDownstreamToUpstreamsMap(@Nonnull List<LineageEdge> edges) {

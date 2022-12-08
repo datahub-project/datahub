@@ -264,6 +264,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -323,6 +324,7 @@ public class GmsGraphQLEngine {
     private final RoleService roleService;
     private final InviteTokenService inviteTokenService;
     private final PostService postService;
+    private final LineageService lineageService;
 
     private final FeatureFlags featureFlags;
 
@@ -398,9 +400,10 @@ public class GmsGraphQLEngine {
         final AuthorizationConfiguration authorizationConfiguration, final GitVersion gitVersion,
         final TimelineService timelineService, final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
-        final TestsConfiguration testsConfiguration, final DataHubConfiguration datahubConfiguration,
+        final TestsConfiguration testsConfiguration, final DatahubConfiguration datahubConfiguration,
         final SiblingGraphService siblingGraphService, final GroupService groupService, final RoleService roleService,
-        final InviteTokenService inviteTokenService, final PostService postService, final FeatureFlags featureFlags) {
+        final InviteTokenService inviteTokenService, final PostService postService, final LineageService lineageService,
+        final FeatureFlags featureFlags) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -422,6 +425,7 @@ public class GmsGraphQLEngine {
         this.roleService = roleService;
         this.inviteTokenService = inviteTokenService;
         this.postService = postService;
+        this.lineageService = lineageService;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
         this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
@@ -823,7 +827,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
             .dataFetcher("createPost", new CreatePostResolver(this.postService))
             .dataFetcher("batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
-            .dataFetcher("updateLineage", new UpdateLineageResolver(this.entityService))
+            .dataFetcher("updateLineage", new UpdateLineageResolver(this.entityService, this.lineageService))
         );
     }
 
