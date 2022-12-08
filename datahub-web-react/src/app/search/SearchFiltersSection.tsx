@@ -30,7 +30,7 @@ const FiltersContainer = styled.div`
     overflow-wrap: break-word;
     border-right: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
-    max-height: 100%;
+    height: 100%;
 `;
 
 const FiltersHeader = styled.div`

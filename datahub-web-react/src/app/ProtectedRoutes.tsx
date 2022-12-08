@@ -4,7 +4,7 @@ import { Layout } from 'antd';
 import { HomePage } from './home/HomePage';
 import AppConfigProvider from '../AppConfigProvider';
 import { SearchRoutes } from './SearchRoutes';
-import { EducationStepsProvider } from '../providers/EducationStepsProvider';=
+import { EducationStepsProvider } from '../providers/EducationStepsProvider';
 import UserContextProvider from './context/UserContextProvider';
 
 /**
@@ -14,16 +14,16 @@ export const ProtectedRoutes = (): JSX.Element => {
     return (
         <AppConfigProvider>
             <UserContextProvider>
-              <EducationStepsProvider>
-                  <Layout style={{ height: '100%', width: '100%' }}>
-                      <Layout>
-                          <Switch>
-                              <Route exact path="/" render={() => <HomePage />} />
-                              <Route path="/*" render={() => <SearchRoutes />} />
-                          </Switch>
-                      </Layout>
-                  </Layout>
-              </EducationStepsProvider>
+                <EducationStepsProvider>
+                    <Layout style={{ height: '100%', width: '100%' }}>
+                        <Layout>
+                            <Switch>
+                                <Route exact path="/" render={() => <HomePage />} />
+                                <Route path="/*" render={() => <SearchRoutes />} />
+                            </Switch>
+                        </Layout>
+                    </Layout>
+                </EducationStepsProvider>
             </UserContextProvider>
         </AppConfigProvider>
     );
