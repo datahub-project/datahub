@@ -277,7 +277,12 @@ export default function LineageEntityNode({
                     height={20}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <ManageLineageMenu entityUrn={node.data.urn || ''} />
+                    <ManageLineageMenu
+                        entityUrn={node.data.urn || ''}
+                        disableUpstream={!isCenterNode && direction === Direction.Downstream}
+                        disableDownstream={!isCenterNode && direction === Direction.Upstream}
+                        centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
+                    />
                 </foreignObject>
                 <Group>
                     <UnselectableText
