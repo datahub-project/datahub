@@ -226,8 +226,8 @@ class LDAPSource(StatefulIngestionSourceBase):
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
             auto_status_aspect(self.get_workunits_internal()),
-    )
-        
+        )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Returns an Iterable containing the workunits to ingest LDAP users or groups."""
         cookie = True
