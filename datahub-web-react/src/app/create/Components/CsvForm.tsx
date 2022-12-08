@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
 import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row, Tooltip } from 'antd';
@@ -9,8 +9,8 @@ import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
 import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
-import { SetParentContainer } from '../../entity/shared/tabs/Dataset/containerEdit/SetParentContainer';
 import { SpecifyBrowsePath } from './SpecifyBrowsePath';
+import { SetParentContainer } from '../../entity/shared/tabs/Dataset/containerEdit/SetParentContainer';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -71,6 +71,7 @@ export const CsvForm = () => {
         setConfirmLoading(true);
         const values = form.getFieldsValue();
         const finalValue = { ...values, dataset_owner: user?.corpUser?.username, user_token: userToken };
+        delete finalValue.parentContainerProps;
         axios
             .post(publishUrl, finalValue)
             .then((response) => printSuccessMsg(response.status))
@@ -108,9 +109,7 @@ export const CsvForm = () => {
         });
     };
     const [selectedPlatform, setSelectedPlatform] = useState('urn:li:dataPlatform:file');
-    useEffect(() => {
-        form.setFieldsValue({ browsepathList: [{ browsepath: `/${selectedPlatform.split(':').pop()}/` }] });
-    }, [selectedPlatform, form]);
+
     const renderSearchResult = (result: string) => {
         const displayName = result.split(':').pop()?.toUpperCase();
         return (
@@ -126,16 +125,19 @@ export const CsvForm = () => {
     //     'If dataset is not from an existing database, use FILE. For databases not in list, refer to admin';
     const onSelectMember = (urn: string) => {
         setSelectedPlatform(urn);
+        form.setFieldsValue({ parentContainerProps: { platformType: urn, platformContainer: '' } });
         form.setFieldsValue({ parentContainer: '' });
     };
-    const removeOption = () => {
-        setSelectedPlatform('');
-        form.setFieldsValue({ parentContainer: '' });
-        form.setFieldsValue({ browsepathList: [{ browsepath: '' }] });
-    };
+    // const removeOption = () => {
+    //     setSelectedPlatform('');
+    //     //  todo why do we need this line?
+    //     form.setFieldsValue({ parentContainer: '' });
+    // };
     const popupMsg = `Confirm Dataset Name: ${form.getFieldValue('dataset_name')}? 
     This permanently affects the dataset URL`;
     const { TextArea } = Input;
+    const formIsUpdating = () => {};
+    // todo: remove similar variables like parentContainer and platformSelect since we have parentContainerProps object
     return (
         <>
             <Form
@@ -145,13 +147,18 @@ export const CsvForm = () => {
                 initialValues={{
                     dataset_name: '',
                     fields: [{ field_description: '', field_type: 'string', field_name: '' }],
-                    browsepathList: [{ browsepath: `/file/` }],
+                    browsepathList: [{ browsepath: `/STAGING/` }],
                     frequency: 'Unknown',
                     dataset_frequency_details: '',
                     dataset_origin: '',
                     dataset_location: '',
                     platformSelect: 'urn:li:dataPlatform:file',
+                    parentContainerProps: {
+                        platformType: 'urn:li:dataPlatform:file',
+                        platformContainer: '',
+                    },
                 }}
+                onFieldsChange={formIsUpdating}
             >
                 <Row>
                     <Col span={4} />
@@ -184,9 +191,6 @@ export const CsvForm = () => {
                             showArrow
                             placeholder="Search for a type.."
                             onSelect={(platform: string) => onSelectMember(platform)}
-                            allowClear
-                            onClear={removeOption}
-                            onDeselect={removeOption}
                             style={{ width: '20%' }}
                         >
                             {platformSelection?.map((platform) => (
@@ -195,7 +199,20 @@ export const CsvForm = () => {
                         </Select>
                     </Form.Item>
                 </Tooltip>
-                <SetParentContainer platformType={selectedPlatform} compulsory={false} />
+                <Form.Item
+                    label="Specify a Container(Optional)"
+                    rules={[
+                        {
+                            required: false,
+                            message: 'A container must be specified.',
+                        },
+                    ]}
+                    style={{ marginBottom: '0px' }}
+                >
+                    <Form.Item name="parentContainerProps">
+                        <SetParentContainer />
+                    </Form.Item>
+                </Form.Item>
                 <CommonFields />
                 <SpecifyBrowsePath />
                 <Form.Item label="Dataset Fields" name="fields">

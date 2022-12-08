@@ -1,8 +1,8 @@
 # flake8: noqa
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional
 import re
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, SecretStr
 
 log = logging.getLogger("ingest")
 logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
@@ -36,7 +36,7 @@ class create_dataset_params(BaseModel):
     hasHeader: str = "n/a"
     headerLine: int = 1
     browsepathList: List[Dict[str,str]]
-    user_token: str
+    user_token: SecretStr
     platformSelect: str
     parentContainer: str = ""
     frequency: str = ""
@@ -47,21 +47,21 @@ class create_dataset_params(BaseModel):
 class dataset_status_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token: str
+    user_token: SecretStr
     desired_state: bool
 
 
 class browsepath_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token: str
+    user_token: SecretStr
     browsePaths: List[Dict[str,str]]
 
 
 class add_sample_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token: str
+    user_token: SecretStr
     samples: Dict
     timestamp: int
 
@@ -69,34 +69,34 @@ class add_sample_params(BaseModel):
 class delete_sample_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token: str
+    user_token: SecretStr
     timestamp: int
 
 
 class schema_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token: str
+    user_token: SecretStr
     dataset_fields: List[FieldParamEdited]
 
 
 class prop_params(BaseModel):
     dataset_name: str
     requestor: str
-    user_token: str
+    user_token: SecretStr
     properties: List[Dict]
 
 
 class container_param(BaseModel):
     dataset_name: str
     requestor: str
-    user_token: str
+    user_token: SecretStr
     container: str    
 
 class name_param(BaseModel):
     dataset_name: str
     requestor: str
-    user_token: str
+    user_token: SecretStr
     displayName: str 
 # class echo_param(BaseModel):
 #     user_input: Any

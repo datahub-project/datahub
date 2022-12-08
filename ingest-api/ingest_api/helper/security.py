@@ -16,10 +16,6 @@ log.setLevel(logging.DEBUG)
 
 datahub_url = os.environ["DATAHUB_FRONTEND"]
 CLI_MODE = False if os.environ.get("RUNNING_IN_DOCKER") else True
-if CLI_MODE:
-    os.environ["JWT_SECRET"] = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94="
-    os.environ["DATAHUB_AUTHENTICATE_INGEST"] = "True"
-    os.environ["DATAHUB_FRONTEND"] = "http://172.19.0.1:9002"
 
 
 def verify_token(token: str, user: str):

@@ -188,6 +188,9 @@ describe('EntityProfile Edit', () => {
         userEvent.click(getByText('Dataset Administration'));
         userEvent.click(getByText('Edit Dataset Container'));
         // should see more than 1 instance of container name - the default place next to the platform icon
-        await waitFor(() => expect(screen.getByText('Specify a Container(Optional)')).toBeInTheDocument());
+        // const display = screen.getByTestId("select");
+        // console.log(`display is ${display.innerText}`);
+        // suspect container name is not shown cos the entityregistry is not correctly configured.
+        await waitFor(() => expect(screen.getByText('urn:li:container:customContainer')).toBeInTheDocument());
     });
 });
