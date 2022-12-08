@@ -41,7 +41,7 @@ Navigate to the `docker` directory and run the following to spin up the react ap
 ```
 at `http://localhost:9002`.
 
-If you want to make changes to the UI see them live without having to rebuild the `datahub-frontend-react` docker image, you
+If you want to make changes to the UI see them live without having to rebuild the `datahub-frontend` docker image, you
 can run the following in this directory:
 
 `yarn install && yarn run start`
