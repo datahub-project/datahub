@@ -7,6 +7,9 @@ url: "https://github.com/datahub-project/datahub/"
 nodes:
   - name: Classification
     description: A set of terms related to Data Classification
+    knowledge_links:
+      - label: Wiki link for classification
+        url: "https://en.wikipedia.org/wiki/Classification"
     terms:
       - name: Sensitive
         description: Sensitive Data
@@ -110,3 +113,6 @@ nodes:
         source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
         related_terms:
           - House.Kitchen
+        knowledge_links:
+          - url: "https://en.wikipedia.org/wiki/Spoon"
+            label: Wiki link

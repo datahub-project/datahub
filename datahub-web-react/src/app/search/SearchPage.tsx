@@ -14,6 +14,11 @@ import { GetSearchResultsParams } from '../entity/shared/components/styled/searc
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
 import { generateOrFilters } from './utils/generateOrFilters';
+import { OnboardingTour } from '../onboarding/OnboardingTour';
+import {
+    SEARCH_RESULTS_ADVANCED_SEARCH_ID,
+    SEARCH_RESULTS_FILTERS_ID,
+} from '../onboarding/config/SearchOnboardingConfig';
 
 type SearchPageParams = {
     type?: string;
@@ -147,6 +152,7 @@ export const SearchPage = () => {
 
     return (
         <>
+            {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
             <SearchResults
                 unionType={unionType}
                 entityFilters={entityFilters}
