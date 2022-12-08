@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.util;
+package com.linkedin.metadata.params;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
-public class CondUpdateUtil {
+public class ExtraIngestParamsHelper {
 
     // condUpdate String format: "urn1+AspectName1=createdOn1;urn2+AspectName2=createdOn2;...;urnN+AspectNameN=createdOnN"
 
@@ -29,5 +29,5 @@ public class CondUpdateUtil {
         return createdOnMap;
     }
 
-    private CondUpdateUtil() {}
+    private ExtraIngestParamsHelper() { }
 }

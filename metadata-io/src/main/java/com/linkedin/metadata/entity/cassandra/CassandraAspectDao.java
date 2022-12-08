@@ -29,6 +29,7 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.exception.PreconditionFailedException;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -149,9 +150,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert, @Nullable Long updateIfCreatedOn) {
+  public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert, @Nullable ExtraIngestParams extraIngestParams) {
     validateConnection();
-    SimpleStatement statement = generateSaveStatement(aspect, insert, updateIfCreatedOn);
+    SimpleStatement statement = generateSaveStatement(aspect, insert, extraIngestParams);
     ResultSet resultSet = _cqlSession.execute(statement);
     if (!resultSet.wasApplied()) {
       throw new PreconditionFailedException("Condition for Conditional Update is not met");
@@ -492,7 +493,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Timestamp newTime,
       @Nullable final String newSystemMetadata,
       final Long nextVersion,
-      @Nullable final Long updateIfCreatedOn
+      @Nullable final ExtraIngestParams extraIngestParams
   ) {
 
     validateConnection();
@@ -514,7 +515,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               oldActor,
               oldImpersonator
       );
-      batch = batch.add(generateSaveStatement(aspect, true, updateIfCreatedOn != null ? 0L : null));
+      batch = batch.add(generateSaveStatement(aspect, true, extraIngestParams));
     }
 
     // Save newValue as the latest version (v0)
@@ -528,7 +529,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             newActor,
             newImpersonator
     );
-    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null, updateIfCreatedOn));
+    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null, extraIngestParams));
     ResultSet resultSet = _cqlSession.execute(batch);
     if (!resultSet.wasApplied()) {
       throw new PreconditionFailedException("Condition for Conditional Update is not met");
@@ -536,8 +537,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return largestVersion;
   }
 
-  private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert, Long updateIfCreatedOn) {
+  private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert, ExtraIngestParams extraIngestParams) {
     String entity;
+    Long updateIfCreatedOn = extraIngestParams != null ? extraIngestParams.getCreatedOn(aspect.getUrn(), aspect.getAspect()) : null;
     try {
       entity = (new Urn(aspect.getUrn())).getEntityType();
     } catch (URISyntaxException e) {
@@ -603,7 +605,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final String systemMetadata,
       final long version,
       final boolean insert,
-      @Nullable final Long updateIfCreatedOn) {
+      @Nullable final ExtraIngestParams extraIngestParams) {
 
     validateConnection();
     final EntityAspect aspect = new EntityAspect(
@@ -617,7 +619,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         impersonator
     );
 
-    saveAspect(aspect, insert, updateIfCreatedOn);
+    saveAspect(aspect, insert, extraIngestParams);
   }
 
   @Override

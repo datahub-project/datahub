@@ -10,6 +10,7 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -113,7 +114,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final Timestamp newTime,
       @Nullable final String newSystemMetadata,
       final Long nextVersion,
-      @Nullable final Long updateIfCreatedOn
+      @Nullable final ExtraIngestParams extraIngestParams
   ) {
 
     validateConnection();
@@ -124,12 +125,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     long largestVersion = ASPECT_LATEST_VERSION;
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
-      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true, updateIfCreatedOn);
+      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true, extraIngestParams);
     }
 
     // Save newValue as the latest version (v0)
     saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION,
-            oldAspectMetadata == null, updateIfCreatedOn);
+            oldAspectMetadata == null, extraIngestParams);
 
     return largestVersion;
   }
@@ -145,7 +146,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final String systemMetadata,
       final long version,
       final boolean insert,
-      @Nullable final Long updateIfCreatedOn) {
+      @Nullable final ExtraIngestParams extraIngestParams) {
 
     validateConnection();
 
@@ -163,7 +164,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert, @Nullable final Long updateIfCreatedOn) {
+  public void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert, @Nullable final ExtraIngestParams extraIngestParams) {
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
     saveEbeanAspect(ebeanAspect, insert);
   }

@@ -5,15 +5,14 @@ import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.exception.PreconditionFailedException;
+import com.linkedin.metadata.params.ExtraIngestParamsHelper;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
-import io.datahubproject.openapi.util.CondUpdateUtil;
 import io.datahubproject.openapi.util.MappingUtil;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
@@ -52,24 +51,20 @@ public class PlatformEntitiesController {
       @RequestHeader(name = Constants.IF_UNMODIFIED_SINCE) String condUpdate) {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposals);
 
-    try {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      String actorUrnStr = authentication.getActor().toUrnStr();
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
 
-      Map<String, Long> createdOnMap = CondUpdateUtil.extractCondUpdate(condUpdate);
-      List<Pair<String, Boolean>> responses = metadataChangeProposals.stream()
-              .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper,
-                      createdOnMap.get(actorUrnStr + "+" + proposal.getAspectName())))
-              .collect(Collectors.toList());
-      if (responses.stream().anyMatch(Pair::getSecond)) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(responses.stream().filter(Pair::getSecond).map(Pair::getFirst).collect(Collectors.toList()));
-      } else {
-        return ResponseEntity.ok(Collections.emptyList());
-      }
-    } catch (PreconditionFailedException e) {
-      log.error("Precondition failed exception: " + e.getMessage());
-      return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(Collections.emptyList());
+    ExtraIngestParams extraIngestParams = ExtraIngestParams.builder()
+            .createdOnMap(ExtraIngestParamsHelper.extractCondUpdate(condUpdate))
+            .build();
+    List<Pair<String, Boolean>> responses = metadataChangeProposals.stream()
+            .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper, extraIngestParams))
+            .collect(Collectors.toList());
+    if (responses.stream().anyMatch(Pair::getSecond)) {
+      return ResponseEntity.status(HttpStatus.CREATED)
+              .body(responses.stream().filter(Pair::getSecond).map(Pair::getFirst).collect(Collectors.toList()));
+    } else {
+      return ResponseEntity.ok(Collections.emptyList());
     }
   }
 }

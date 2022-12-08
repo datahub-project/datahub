@@ -6,12 +6,15 @@ import com.datahub.authentication.AuthenticationContext;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.params.ExtraIngestParamsHelper;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -23,6 +26,7 @@ import com.linkedin.restli.internal.server.methods.AnyRecord;
 import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
+import com.linkedin.restli.server.annotations.HeaderParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
@@ -139,7 +143,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @WithSpan
   public Task<String> ingestProposal(
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal,
-      @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async) throws URISyntaxException {
+      @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async,
+      @HeaderParam(value = Constants.IF_UNMODIFIED_SINCE) String condUpdate) throws URISyntaxException {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
     boolean asyncBool;
@@ -159,8 +164,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool).getUrn();
-        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
+        ExtraIngestParams extraIngestParams = ExtraIngestParams.builder()
+                .createdOnMap(ExtraIngestParamsHelper.extractCondUpdate(condUpdate))
+                .build();
+        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool, extraIngestParams).getUrn();
+        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool, extraIngestParams));
         tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         return urn.toString();
       } catch (ValidationException e) {

@@ -35,6 +35,8 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.params.ExtraIngestParamsHelper;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -959,7 +961,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
         String aspectName = "datasetProperties";
         String propName = "propName";
-        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false, 0L);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 0L));
         assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
     }
 
@@ -968,7 +971,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
         String aspectName = "datasetProperties";
         String propName = "propName";
-        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false, 5L);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 5L));
         assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
     }
 
@@ -991,9 +995,11 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         String aspectName = "datasetProperties";
         String propName = "propName";
         String propNameUpdated = "propNameUpdated";
-        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false, 0L);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 0L));
         assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
-        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propNameUpdated), TEST_AUDIT_STAMP, false, 123L);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propNameUpdated), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 123L));
         assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propNameUpdated);
         assertEquals(_entityService.getAspect(entityUrn, aspectName, 1).data().getString("name"), propName);
     }
@@ -1004,9 +1010,11 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         String aspectName = "datasetProperties";
         String propName = "propName";
         String propNameUpdated = "propNameUpdated";
-        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false, 0L);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 0L));
         assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
-        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propNameUpdated), TEST_AUDIT_STAMP, false, 5L);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propNameUpdated), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 5L));
     }
 
     private MetadataChangeProposal generateProposal(Urn urn, String aspectName, String propName) throws Exception {
@@ -1024,6 +1032,12 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         genericAspect.setContentType("application/json");
         gmce.setAspect(genericAspect);
         return gmce;
+    }
+
+    private ExtraIngestParams generateExtraParams(String urn, String aspectName, Long value) {
+        return ExtraIngestParams.builder()
+                .createdOnMap(ExtraIngestParamsHelper.extractCondUpdate(urn + "+" + aspectName + "=" + value))
+                .build();
     }
 
     @Nonnull
