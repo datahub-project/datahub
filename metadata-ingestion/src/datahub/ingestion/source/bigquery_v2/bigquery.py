@@ -55,6 +55,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     BigqueryView,
 )
+from datahub.ingestion.source.bigquery_v2.common import get_bigquery_client
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
@@ -228,10 +229,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         config = BigQueryV2Config.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_bigquery_client(self) -> bigquery.Client:
-        client_options = self.config.extra_client_options
-        return bigquery.Client(**client_options)
-
     @staticmethod
     def connectivity_test(client: bigquery.Client) -> CapabilityReport:
         ret = client.query("select 1")
@@ -244,12 +241,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def metada_read_capability_test(
-        project_ids: List[str], profiling_enabled: bool
+        project_ids: List[str], config: BigQueryV2Config
     ) -> CapabilityReport:
         for project_id in project_ids:
             try:
                 logger.info((f"Metadata read capability test for project {project_id}"))
-                client: bigquery.Client = bigquery.Client(project_id)
+                client: bigquery.Client = get_bigquery_client(config)
                 assert client
                 result = BigQueryDataDictionary.get_datasets_for_project_id(
                     client, project_id, 10
@@ -264,7 +261,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=profiling_enabled,
+                    with_data_read_permission=config.profiling.enabled,
                 )
                 if len(tables) == 0:
                     return CapabilityReport(
@@ -333,7 +330,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 pydantic.Extra.allow
             )  # we are okay with extra fields during this stage
             connection_conf = BigQueryV2Config.parse_obj(config_dict)
-            client: bigquery.Client = bigquery.Client()
+            client: bigquery.Client = get_bigquery_client(connection_conf)
             assert client
 
             test_report.basic_connectivity = BigqueryV2Source.connectivity_test(client)
@@ -350,7 +347,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_ids.append(project.project_id)
 
             metada_read_capability = BigqueryV2Source.metada_read_capability_test(
-                project_ids, connection_conf.profiling.enabled
+                project_ids, connection_conf
             )
             if SourceCapability.SCHEMA_METADATA not in _report:
                 _report[SourceCapability.SCHEMA_METADATA] = metada_read_capability
@@ -493,7 +490,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits(self) -> Iterable[WorkUnit]:
         logger.info("Getting projects")
-        conn: bigquery.Client = self.get_bigquery_client()
+        conn: bigquery.Client = get_bigquery_client(self.config)
         self.add_config_to_report()
 
         projects: List[BigqueryProject]
@@ -503,12 +500,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             projects = [project]
         else:
-            projects = BigQueryDataDictionary.get_projects(conn)
-            if len(projects) == 0:
-                logger.warning(
-                    "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+            try:
+                projects = BigQueryDataDictionary.get_projects(conn)
+                if len(projects) == 0:
+                    logger.error(
+                        "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
+                    )
+                    self.report.report_failure(
+                        "metadata-extraction",
+                        "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+                    )
+                    return
+            except Exception as e:
+                logger.error(
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
                 )
-                return
+                self.report.report_failure(
+                    "metadata-extraction",
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}",
+                )
+                return None
 
         for project_id in projects:
             if not self.config.project_id_pattern.allowed(project_id.id):
@@ -543,8 +554,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BigQueryDataDictionary.get_datasets_for_project_id(conn, project_id)
             )
         except Exception as e:
-            logger.error(
-                f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
+            error_message = f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
+            if self.config.profiling.enabled:
+                error_message = f"Unable to get datasets for project {project_id}, skipping. Does your service account has bigquery.datasets.get permission? The error was: {e}"
+            logger.error(error_message)
+            self.report.report_failure(
+                "metadata-extraction",
+                f"{project_id} - {error_message}",
             )
             return None
 
@@ -565,60 +581,66 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             try:
                 yield from self._process_schema(conn, project_id, bigquery_dataset)
             except Exception as e:
+                error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission? The error was: {e}"
+                if self.config.profiling.enabled:
+                    error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission? The error was: {e}"
+
                 trace = traceback.format_exc()
                 logger.error(trace)
-                logger.error(
-                    f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. The error was: {e}"
+                logger.error(error_message)
+                self.report.report_failure(
+                    "metadata-extraction",
+                    f"{project_id}.{bigquery_dataset.name} - {error_message}",
                 )
                 continue
 
         if self.config.include_table_lineage:
-            logger.info(f"Generate lineage for {project_id}")
-            for dataset in self.db_tables[project_id]:
-                for table in self.db_tables[project_id][dataset]:
-                    dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)
-                    lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                        project_id=project_id,
-                        dataset_name=dataset,
-                        table=table,
-                        platform=self.platform,
-                    )
-                    if lineage_info:
-                        yield from self.gen_lineage(dataset_urn, lineage_info)
-
-            for dataset in self.db_views[project_id]:
-                for view in self.db_views[project_id][dataset]:
-                    dataset_urn = self.gen_dataset_urn(dataset, project_id, view.name)
-                    lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                        project_id=project_id,
-                        dataset_name=dataset,
-                        table=view,
-                        platform=self.platform,
-                    )
-                    yield from self.gen_lineage(dataset_urn, lineage_info)
+            yield from self.generate_lineage(project_id)
 
         if self.config.include_usage_statistics:
-            logger.info(f"Generate usage for {project_id}")
-            tables: Dict[str, List[str]] = {}
+            yield from self.generate_usage_statistics(project_id)
 
-            for dataset in self.db_tables[project_id]:
+    def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+        logger.info(f"Generate lineage for {project_id}")
+        for dataset in self.db_tables[project_id]:
+            for table in self.db_tables[project_id][dataset]:
+                dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)
+                lineage_info = self.lineage_extractor.get_upstream_lineage_info(
+                    project_id=project_id,
+                    dataset_name=dataset,
+                    table=table,
+                    platform=self.platform,
+                )
+                if lineage_info:
+                    yield from self.gen_lineage(dataset_urn, lineage_info)
+        for dataset in self.db_views[project_id]:
+            for view in self.db_views[project_id][dataset]:
+                dataset_urn = self.gen_dataset_urn(dataset, project_id, view.name)
+                lineage_info = self.lineage_extractor.get_upstream_lineage_info(
+                    project_id=project_id,
+                    dataset_name=dataset,
+                    table=view,
+                    platform=self.platform,
+                )
+                yield from self.gen_lineage(dataset_urn, lineage_info)
+
+    def generate_usage_statistics(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+        logger.info(f"Generate usage for {project_id}")
+        tables: Dict[str, List[str]] = {}
+        for dataset in self.db_tables[project_id]:
+            tables[dataset] = [
+                table.name for table in self.db_tables[project_id][dataset]
+            ]
+        for dataset in self.db_views[project_id]:
+            if not tables[dataset]:
                 tables[dataset] = [
-                    table.name for table in self.db_tables[project_id][dataset]
+                    table.name for table in self.db_views[project_id][dataset]
                 ]
-
-            for dataset in self.db_views[project_id]:
-                if not tables[dataset]:
-                    tables[dataset] = [
-                        table.name for table in self.db_views[project_id][dataset]
-                    ]
-                else:
-                    tables[dataset].extend(
-                        [table.name for table in self.db_views[project_id][dataset]]
-                    )
-
-            yield from self.usage_extractor.generate_usage_for_project(
-                project_id, tables
-            )
+            else:
+                tables[dataset].extend(
+                    [table.name for table in self.db_views[project_id][dataset]]
+                )
+        yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
 
     def _process_schema(
         self, conn: bigquery.Client, project_id: str, bigquery_dataset: BigqueryDataset
