@@ -595,52 +595,52 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 continue
 
         if self.config.include_table_lineage:
-            logger.info(f"Generate lineage for {project_id}")
-            for dataset in self.db_tables[project_id]:
-                for table in self.db_tables[project_id][dataset]:
-                    dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)
-                    lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                        project_id=project_id,
-                        dataset_name=dataset,
-                        table=table,
-                        platform=self.platform,
-                    )
-                    if lineage_info:
-                        yield from self.gen_lineage(dataset_urn, lineage_info)
-
-            for dataset in self.db_views[project_id]:
-                for view in self.db_views[project_id][dataset]:
-                    dataset_urn = self.gen_dataset_urn(dataset, project_id, view.name)
-                    lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                        project_id=project_id,
-                        dataset_name=dataset,
-                        table=view,
-                        platform=self.platform,
-                    )
-                    yield from self.gen_lineage(dataset_urn, lineage_info)
+            yield from self.generate_lineage(project_id)
 
         if self.config.include_usage_statistics:
-            logger.info(f"Generate usage for {project_id}")
-            tables: Dict[str, List[str]] = {}
+            yield from self.generate_usage_statistics(project_id)
 
-            for dataset in self.db_tables[project_id]:
+    def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+        logger.info(f"Generate lineage for {project_id}")
+        for dataset in self.db_tables[project_id]:
+            for table in self.db_tables[project_id][dataset]:
+                dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)
+                lineage_info = self.lineage_extractor.get_upstream_lineage_info(
+                    project_id=project_id,
+                    dataset_name=dataset,
+                    table=table,
+                    platform=self.platform,
+                )
+                if lineage_info:
+                    yield from self.gen_lineage(dataset_urn, lineage_info)
+        for dataset in self.db_views[project_id]:
+            for view in self.db_views[project_id][dataset]:
+                dataset_urn = self.gen_dataset_urn(dataset, project_id, view.name)
+                lineage_info = self.lineage_extractor.get_upstream_lineage_info(
+                    project_id=project_id,
+                    dataset_name=dataset,
+                    table=view,
+                    platform=self.platform,
+                )
+                yield from self.gen_lineage(dataset_urn, lineage_info)
+
+    def generate_usage_statistics(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+        logger.info(f"Generate usage for {project_id}")
+        tables: Dict[str, List[str]] = {}
+        for dataset in self.db_tables[project_id]:
+            tables[dataset] = [
+                table.name for table in self.db_tables[project_id][dataset]
+            ]
+        for dataset in self.db_views[project_id]:
+            if not tables[dataset]:
                 tables[dataset] = [
-                    table.name for table in self.db_tables[project_id][dataset]
+                    table.name for table in self.db_views[project_id][dataset]
                 ]
-
-            for dataset in self.db_views[project_id]:
-                if not tables[dataset]:
-                    tables[dataset] = [
-                        table.name for table in self.db_views[project_id][dataset]
-                    ]
-                else:
-                    tables[dataset].extend(
-                        [table.name for table in self.db_views[project_id][dataset]]
-                    )
-
-            yield from self.usage_extractor.generate_usage_for_project(
-                project_id, tables
-            )
+            else:
+                tables[dataset].extend(
+                    [table.name for table in self.db_views[project_id][dataset]]
+                )
+        yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
 
     def _process_schema(
         self, conn: bigquery.Client, project_id: str, bigquery_dataset: BigqueryDataset
