@@ -79,7 +79,6 @@ export default function PolicyPrivilegeForm({
     // Search for resources
     const [searchResources, { data: resourcesSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const resourceSearchResults = resourcesSearchData?.searchAcrossEntities?.searchResults;
-    console.warn('resourceSearchResults', resourceSearchResults);
 
     // Same for domains
     const domains = getFieldValues(resources.filter, 'DOMAIN') || [];
