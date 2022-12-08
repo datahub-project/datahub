@@ -83,14 +83,15 @@ public class LineageSearchService {
       @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     // Cache multihop result for faster performance
+    Pair<String, LineageDirection> cacheKey = Pair.of(sourceUrn.toString(), direction);
     CachedEntityLineageResult cachedLineageResult = cacheEnabled
-        ? cache.get(Pair.of(sourceUrn.toString(), direction), CachedEntityLineageResult.class) : null;
+        ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;
     if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
       lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
       if (cacheEnabled) {
-        cache.put(Pair.of(sourceUrn, direction), new CachedEntityLineageResult(toJsonString(lineageResult), System.currentTimeMillis()));
+        cache.put(cacheKey, new CachedEntityLineageResult(toJsonString(lineageResult), System.currentTimeMillis()));
       }
     } else {
       lineageResult = toRecordTemplate(EntityLineageResult.class, cachedLineageResult.getEntityLineageResult());
