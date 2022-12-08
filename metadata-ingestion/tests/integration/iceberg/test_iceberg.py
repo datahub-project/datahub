@@ -156,7 +156,7 @@ def test_iceberg_stateful_ingest(pytestconfig, tmp_path, mock_time, mock_datahub
         state1 = cast(IcebergCheckpointState, checkpoint1.state)
         state2 = cast(IcebergCheckpointState, checkpoint2.state)
         difference_urns = list(
-            state1.get_urns_not_in(type="table", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
         )
 
         assert len(difference_urns) == 1
