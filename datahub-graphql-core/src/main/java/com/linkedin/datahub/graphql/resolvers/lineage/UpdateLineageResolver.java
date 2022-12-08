@@ -66,6 +66,12 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           } catch (Exception e) {
             throw new RuntimeException(String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
           }
+        } else if (downstreamUrn.getEntityType().equals(Constants.CHART_ENTITY_NAME)) {
+          try {
+            _lineageService.updateChartLineage(downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, context.getAuthentication());
+          } catch (Exception e) {
+            throw new RuntimeException(String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
+          }
         }
       }
 

@@ -2,6 +2,10 @@ package com.linkedin.metadata.service;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.chart.ChartDataSourceTypeArray;
+import com.linkedin.chart.ChartInfo;
+import com.linkedin.common.Edge;
+import com.linkedin.common.EdgeArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -119,5 +123,86 @@ public class LineageService {
     return buildMetadataChangeProposal(
         downstreamUrn, Constants.UPSTREAM_LINEAGE_ASPECT_NAME, upstreamLineage
     );
+  }
+
+  /**
+   * Updates Chart lineage by building and ingesting an MCP based on inputs.
+   */
+  public void updateChartLineage(
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor,
+      @Nonnull final Authentication authentication
+  ) throws Exception {
+    // ensure all upstream urns are dataset urns and they exist
+    validateDatasetUrns(upstreamUrnsToAdd, authentication);
+    // TODO: add permissions check here for entity type - or have one overall permissions check above
+
+    try {
+      MetadataChangeProposal changeProposal = buildChartLineageProposal(
+          downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, authentication);
+      _entityClient.ingestProposal(changeProposal, authentication, false);
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
+    }
+  }
+
+  /**
+   * Builds an MCP of ChartInfo for chart entities.
+   */
+  @Nonnull
+  public MetadataChangeProposal buildChartLineageProposal(
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor,
+      @Nonnull final Authentication authentication
+  ) throws Exception {
+    EntityResponse entityResponse =
+        _entityClient.getV2(Constants.CHART_ENTITY_NAME, downstreamUrn, ImmutableSet.of(Constants.CHART_INFO_ASPECT_NAME), authentication);
+
+    if (entityResponse == null || !entityResponse.getAspects().containsKey(Constants.CHART_INFO_ASPECT_NAME)) {
+      throw new RuntimeException(String.format("Failed to update chart lineage for urn %s as chart info doesn't exist", downstreamUrn));
+    }
+
+    DataMap dataMap = entityResponse.getAspects().get(Constants.CHART_INFO_ASPECT_NAME).getValue().data();
+    ChartInfo chartInfo = new ChartInfo(dataMap);
+    if (!chartInfo.hasInputEdges()) {
+      chartInfo.setInputEdges(new EdgeArray());
+    }
+    if (!chartInfo.hasInputs()) {
+      chartInfo.setInputs(new ChartDataSourceTypeArray());
+    }
+
+    final ChartDataSourceTypeArray inputs = chartInfo.getInputs();
+    final EdgeArray inputEdges = chartInfo.getInputEdges();
+    final List<Urn> upstreamsToAdd = new ArrayList<>();
+    for (Urn upstreamUrn : upstreamUrnsToAdd) {
+      if (
+          inputEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
+              || inputs.stream().anyMatch(input -> input.equals(upstreamUrn))
+      ) {
+        continue;
+      }
+      upstreamsToAdd.add(upstreamUrn);
+    }
+
+    for (final Urn upstreamUrn : upstreamsToAdd) {
+      final Edge newEdge = new Edge();
+      newEdge.setDestinationUrn(upstreamUrn);
+      newEdge.setSourceUrn(downstreamUrn);
+      newEdge.setCreated(getAuditStamp(actor));
+      newEdge.setLastModified(getAuditStamp(actor));
+      newEdge.setSourceUrn(downstreamUrn);
+      inputEdges.add(newEdge);
+    }
+
+    inputEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
+    inputs.removeIf(upstreamUrnsToRemove::contains);
+
+    chartInfo.setInputEdges(inputEdges);
+
+    return buildMetadataChangeProposal(downstreamUrn, Constants.CHART_INFO_ASPECT_NAME, chartInfo);
   }
 }

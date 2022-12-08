@@ -421,10 +421,48 @@
         "type" : "array",
         "items" : "ChartDataSourceType"
       },
-      "doc" : "Data sources for the chart",
+      "doc" : "Data sources for the chart\nDeprecated! Use inputEdges instead.",
       "optional" : true,
       "Relationship" : {
         "/*/string" : {
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "name" : "Consumes"
+        }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "inputEdges",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "Edge",
+          "namespace" : "com.linkedin.common",
+          "doc" : "Information about a relatonship edge.",
+          "fields" : [ {
+            "name" : "sourceUrn",
+            "type" : "Urn",
+            "doc" : "Urn of the source of this relationship edge."
+          }, {
+            "name" : "destinationUrn",
+            "type" : "Urn",
+            "doc" : "Urn of the destination of this relationship edge."
+          }, {
+            "name" : "created",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp containing who created this relationship edge and when"
+          }, {
+            "name" : "lastModified",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp containing who last modified this relationship edge and when"
+          } ]
+        }
+      },
+      "doc" : "Data sources for the chart",
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
           "name" : "Consumes"
@@ -750,7 +788,7 @@
         "owningTeam" : "urn:li:internalTeam:wherehows"
       }
     }
-  }, "com.linkedin.common.DatasetUrn", {
+  }, "com.linkedin.common.DatasetUrn", "com.linkedin.common.Edge", {
     "type" : "typeref",
     "name" : "EmailAddress",
     "namespace" : "com.linkedin.common",
