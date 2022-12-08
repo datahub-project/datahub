@@ -41,6 +41,8 @@ VALID_AUTH_TYPES: Dict[str, str] = {
     "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
 }
 
+SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
+
 
 class SnowflakeProvisionRoleConfig(ConfigModel):
     enabled: bool = pydantic.Field(
@@ -132,7 +134,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         description="DEPRECATED: Snowflake account. e.g. abc48144"
     )  # Deprecated
     account_id: Optional[str] = pydantic.Field(
-        description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details."
+        description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details."
     )  # Once host_port is removed this will be made mandatory
     warehouse: Optional[str] = pydantic.Field(description="Snowflake warehouse.")
     role: Optional[str] = pydantic.Field(description="Snowflake role.")
@@ -167,9 +169,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             )
             host_port = remove_protocol(host_port)
             host_port = remove_trailing_slashes(host_port)
-            host_port = remove_suffix(host_port, ".snowflakecomputing.com")
+            host_port = remove_suffix(host_port, SNOWFLAKE_HOST_SUFFIX)
             values["host_port"] = host_port
-        account_id = values.get("account_id")
+        account_id: Optional[str] = values.get("account_id")
         if account_id is None:
             if host_port is None:
                 raise ConfigurationError(
@@ -177,6 +179,14 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 )
             else:
                 values["account_id"] = host_port
+        else:
+            account_id = remove_protocol(account_id)
+            account_id = remove_trailing_slashes(account_id)
+            account_id = remove_suffix(account_id, SNOWFLAKE_HOST_SUFFIX)
+            if account_id != values["account_id"]:
+                logger.info(f"Using {account_id} as `account_id`.")
+                values["account_id"] = account_id
+
         return values
 
     @pydantic.validator("authentication_type", always=True)
