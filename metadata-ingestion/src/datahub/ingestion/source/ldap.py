@@ -36,7 +36,10 @@ from datahub.metadata.schema_classes import (
     CorpUserSnapshotClass,
     GroupMembershipClass,
 )
-from datahub.utilities.source_helpers import auto_status_aspect
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
@@ -221,6 +224,12 @@ class LDAPSource(StatefulIngestionSourceBase):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+    )
+        
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Returns an Iterable containing the workunits to ingest LDAP users or groups."""
         cookie = True
         while cookie:
@@ -272,10 +281,6 @@ class LDAPSource(StatefulIngestionSourceBase):
                 break
 
             cookie = set_cookie(self.lc, pctrls)
-        # Clean up stale entities at the end
-        yield from auto_status_aspect(
-            self.stale_entity_removal_handler.gen_removed_entity_workunits()
-        )
 
     def get_platform_instance_id(self) -> str:
         """
