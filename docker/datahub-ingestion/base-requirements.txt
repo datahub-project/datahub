@@ -41,7 +41,7 @@ cached-property==1.5.2
 cachelib==0.8.0
 cachetools==5.2.0
 cattrs==1.10.0
-certifi==2022.6.15
+certifi==2022.12.7
 cffi==1.15.0
 chardet==4.0.0
 charset-normalizer==2.0.12
