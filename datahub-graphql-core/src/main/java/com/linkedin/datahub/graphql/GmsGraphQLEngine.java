@@ -192,6 +192,8 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
@@ -557,6 +559,7 @@ public class GmsGraphQLEngine {
             .addSchema(fileBasedSchema(INGESTION_SCHEMA_FILE))
             .addSchema(fileBasedSchema(TIMELINE_SCHEMA_FILE))
             .addSchema(fileBasedSchema(TESTS_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(STEPS_SCHEMA_FILE))
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
             .configureRuntimeWiring(this::configureRuntimeWiring);
@@ -691,6 +694,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
             .dataFetcher("getInviteToken", new GetInviteTokenResolver(this.inviteTokenService))
             .dataFetcher("listPosts", new ListPostsResolver(this.entityClient))
+            .dataFetcher("batchGetStepStates", new BatchGetStepStatesResolver(this.entityClient))
         );
     }
 
@@ -814,6 +818,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
             .dataFetcher("acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
             .dataFetcher("createPost", new CreatePostResolver(this.postService))
+            .dataFetcher("batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
         );
     }
 

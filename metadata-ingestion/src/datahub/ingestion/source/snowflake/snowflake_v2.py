@@ -81,7 +81,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    Status,
+    SubTypes,
+    TimeStamp,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
     UpstreamLineage,
@@ -438,7 +442,8 @@ class SnowflakeV2Source(
         self.report.include_technical_schema = self.config.include_technical_schema
         databases: List[SnowflakeDatabase] = []
 
-        databases = self.data_dictionary.get_databases(conn)
+        databases = self.get_databases(conn)
+
         for snowflake_db in databases:
             self.report.report_entity_scanned(snowflake_db.name, "database")
 
@@ -480,6 +485,31 @@ class SnowflakeV2Source(
                 for table in schema.views
             ]
             yield from self.usage_extractor.get_workunits(discovered_datasets)
+
+    def get_databases(self, conn):
+        databases = self.data_dictionary.show_databases(conn)
+
+        # Below code block is required to enrich database with additional
+        # information that is missing in `show databases` results
+        # For example - last modified time of database
+        ischema_database_map: Dict[str, SnowflakeDatabase] = {}
+        for database in databases:
+            try:
+                ischema_databases = self.data_dictionary.get_databases(
+                    conn, database.name
+                )
+                ischema_database_map = {db.name: db for db in ischema_databases}
+                break
+            except Exception:
+                # query fails if "USAGE" access is not granted for database
+                logger.debug(
+                    f"Failed to list databases {database.name} information_schema"
+                )
+        for database in databases:
+            if database.name in ischema_database_map.keys():
+                database.last_altered = ischema_database_map[database.name].last_altered
+
+        return databases
 
     def _process_database(
         self, conn: SnowflakeConnection, snowflake_db: SnowflakeDatabase
@@ -649,6 +679,14 @@ class SnowflakeV2Source(
 
         dataset_properties = DatasetProperties(
             name=table.name,
+            created=TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
+            else None,
+            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+            if table.last_altered is not None
+            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
+            else None,
             description=table.comment,
             qualifiedName=dataset_name,
             customProperties={**upstream_column_props},
@@ -906,6 +944,14 @@ class SnowflakeV2Source(
             external_url=self.get_external_url_for_database(database.name)
             if self.config.include_external_url
             else None,
+            created=int(database.created.timestamp() * 1000)
+            if database.created is not None
+            else None,
+            last_modified=int(database.last_altered.timestamp() * 1000)
+            if database.last_altered is not None
+            else int(database.created.timestamp() * 1000)
+            if database.created is not None
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -944,6 +990,14 @@ class SnowflakeV2Source(
             domain_urn=domain_urn,
             external_url=self.get_external_url_for_schema(schema.name, db_name)
             if self.config.include_external_url
+            else None,
+            created=int(schema.created.timestamp() * 1000)
+            if schema.created is not None
+            else None,
+            last_modified=int(schema.last_altered.timestamp() * 1000)
+            if schema.last_altered is not None
+            else int(schema.created.timestamp() * 1000)
+            if schema.created is not None
             else None,
         )
 

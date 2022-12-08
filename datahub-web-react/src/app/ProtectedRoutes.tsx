@@ -4,6 +4,7 @@ import { Layout } from 'antd';
 import { HomePage } from './home/HomePage';
 import AppConfigProvider from '../AppConfigProvider';
 import { SearchRoutes } from './SearchRoutes';
+import { EducationStepsProvider } from '../providers/EducationStepsProvider';
 
 /**
  * Container for all views behind an authentication wall.
@@ -11,14 +12,16 @@ import { SearchRoutes } from './SearchRoutes';
 export const ProtectedRoutes = (): JSX.Element => {
     return (
         <AppConfigProvider>
-            <Layout style={{ height: '100%', width: '100%' }}>
-                <Layout>
-                    <Switch>
-                        <Route exact path="/" render={() => <HomePage />} />
-                        <Route path="/*" render={() => <SearchRoutes />} />
-                    </Switch>
+            <EducationStepsProvider>
+                <Layout style={{ height: '100%', width: '100%' }}>
+                    <Layout>
+                        <Switch>
+                            <Route exact path="/" render={() => <HomePage />} />
+                            <Route path="/*" render={() => <SearchRoutes />} />
+                        </Switch>
+                    </Layout>
                 </Layout>
-            </Layout>
+            </EducationStepsProvider>
         </AppConfigProvider>
     );
 };

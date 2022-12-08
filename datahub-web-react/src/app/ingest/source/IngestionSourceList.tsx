@@ -26,6 +26,10 @@ import { scrollToTop } from '../../shared/searchUtils';
 import useRefreshIngestionData from './executions/useRefreshIngestionData';
 import { isExecutionRequestActive } from './executions/IngestionSourceExecutionList';
 import analytics, { EventType } from '../../analytics';
+import {
+    INGESTION_CREATE_SOURCE_ID,
+    INGESTION_REFRESH_SOURCES_ID,
+} from '../../onboarding/config/IngestionOnboardingConfig';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -355,10 +359,10 @@ export const IngestionSourceList = () => {
             <SourceContainer>
                 <TabToolbar>
                     <div>
-                        <Button type="text" onClick={() => setIsBuildingSource(true)}>
+                        <Button id={INGESTION_CREATE_SOURCE_ID} type="text" onClick={() => setIsBuildingSource(true)}>
                             <PlusOutlined /> Create new source
                         </Button>
-                        <Button type="text" onClick={onRefresh}>
+                        <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
                             <RedoOutlined /> Refresh
                         </Button>
                     </div>

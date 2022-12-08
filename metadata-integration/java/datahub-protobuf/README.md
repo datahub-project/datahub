@@ -623,17 +623,17 @@ usage: Proto2DataHub
 You can run it like a standard java jar application:
 ```shell
 
-java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/v1/clickstream/ --transport rest
+java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/ --transport rest
 ```
 
 or using gradle
 ```shell
-../../../gradlew run --args="--descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/v1/clickstream/ --transport rest"
+../../../gradlew run --args="--descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/ --transport rest"
 ```
 
 Result:
 ```
-java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/v1/clickstream/ --transport rest
+java -jar build/libs/datahub-protobuf-0.8.45-SNAPSHOT.jar --descriptor ../datahub-protobuf-example/build/descriptors/main.dsc --directory ../datahub-protobuf-example/schema/protobuf/ --transport rest
 SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
 SLF4J: Defaulting to no-operation (NOP) logger implementation
 SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
