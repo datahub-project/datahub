@@ -30,6 +30,7 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.Container;
+import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
@@ -58,6 +59,7 @@ import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
+import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
@@ -1069,6 +1071,12 @@ public class GmsGraphQLEngine {
                             (env) -> ((CorpGroupInfo) env.getSource()).getMembers().stream()
                                     .map(CorpUser::getUrn)
                                     .collect(Collectors.toList())))
+        )
+        .type("ListGroupsResult", typeWiring -> typeWiring
+            .dataFetcher("groups", new LoadableTypeBatchResolver<>(corpGroupType,
+                (env) -> ((ListGroupsResult) env.getSource()).getGroups().stream()
+                    .map(CorpGroup::getUrn)
+                    .collect(Collectors.toList())))
         );
     }
 

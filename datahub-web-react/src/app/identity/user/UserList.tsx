@@ -23,6 +23,7 @@ import {
     USERS_SSO_ID,
 } from '../../onboarding/config/UsersOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
+import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from './cacheUtils';
 
 const UserContainer = styled.div``;
 
@@ -38,8 +39,6 @@ const UserPaginationContainer = styled.div`
     justify-content: center;
 `;
 
-const DEFAULT_PAGE_SIZE = 25;
-
 export const UserList = () => {
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -50,33 +49,32 @@ export const UserList = () => {
 
     const [page, setPage] = useState(1);
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
-    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
     const authenticatedUser = useGetAuthenticatedUser();
     const canManagePolicies = authenticatedUser?.platformPrivileges.managePolicies || false;
 
-    const pageSize = DEFAULT_PAGE_SIZE;
+    const pageSize = DEFAULT_USER_LIST_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
     const {
         loading: usersLoading,
         error: usersError,
         data: usersData,
+        client,
         refetch: usersRefetch,
     } = useListUsersQuery({
         variables: {
             input: {
                 start,
                 count: pageSize,
-                query,
+                query: (query?.length && query) || undefined,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
     const totalUsers = usersData?.listUsers?.total || 0;
     const users = usersData?.listUsers?.users || [];
-    const filteredUsers = users.filter((user) => !removedUrns.includes(user.urn));
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
@@ -84,12 +82,7 @@ export const UserList = () => {
     };
 
     const handleDelete = (urn: string) => {
-        // Hack to deal with eventual consistency.
-        const newRemovedUrns = [...removedUrns, urn];
-        setRemovedUrns(newRemovedUrns);
-        setTimeout(function () {
-            usersRefetch?.();
-        }, 3000);
+        removeUserFromListUsersCache(urn, client);
     };
 
     const {
@@ -97,9 +90,12 @@ export const UserList = () => {
         error: rolesError,
         data: rolesData,
     } = useListRolesQuery({
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         variables: {
-            input: {},
+            input: {
+                start: 0,
+                count: 10,
+            },
         },
     });
 
@@ -149,7 +145,7 @@ export const UserList = () => {
                     locale={{
                         emptyText: <Empty description="No Users!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
-                    dataSource={filteredUsers}
+                    dataSource={users}
                     renderItem={(item: any) => (
                         <UserListItem
                             onDelete={() => handleDelete(item.urn as string)}

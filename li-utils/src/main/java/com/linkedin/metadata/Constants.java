@@ -87,6 +87,7 @@ public class Constants {
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
   public static final String CORP_GROUP_INFO_ASPECT_NAME = "corpGroupInfo";
   public static final String CORP_GROUP_EDITABLE_INFO_ASPECT_NAME = "corpGroupEditableInfo";
+  public static final String CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
 
   // Dataset
   public static final String DATASET_KEY_ASPECT_NAME = "datasetKey";
