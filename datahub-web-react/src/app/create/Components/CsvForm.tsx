@@ -10,7 +10,7 @@ import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
 import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
 import { SpecifyBrowsePath } from './SpecifyBrowsePath';
-import { SetParentContainerRevised } from '../../entity/shared/tabs/Dataset/containerEdit/SetParentContainerRevised';
+import { SetParentContainer } from '../../entity/shared/tabs/Dataset/containerEdit/SetParentContainer';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -210,7 +210,7 @@ export const CsvForm = () => {
                     style={{ marginBottom: '0px' }}
                 >
                     <Form.Item name="parentContainerProps">
-                        <SetParentContainerRevised />
+                        <SetParentContainer />
                     </Form.Item>
                 </Form.Item>
                 <CommonFields />

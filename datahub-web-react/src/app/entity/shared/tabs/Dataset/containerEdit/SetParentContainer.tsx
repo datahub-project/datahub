@@ -16,7 +16,7 @@ interface ContainerInputProps {
     onChange?: (value: ContainerValue) => void;
 }
 
-export const SetParentContainerRevised: React.FC<ContainerInputProps> = ({ value = {} }) => {
+export const SetParentContainer: React.FC<ContainerInputProps> = ({ value = {} }) => {
     const entityRegistry = useEntityRegistry();
     const [containerPath, setContainerPath] = useState(<div />);
     const [selectedContainerUrn, setSelectedContainerUrn] = useState(value?.platformContainer || '');
@@ -112,7 +112,7 @@ export const SetParentContainerRevised: React.FC<ContainerInputProps> = ({ value
     );
 };
 
-SetParentContainerRevised.propTypes = {
+SetParentContainer.propTypes = {
     value: PropTypes.shape({
         platformType: PropTypes.string.isRequired,
         platformContainer: PropTypes.string.isRequired,

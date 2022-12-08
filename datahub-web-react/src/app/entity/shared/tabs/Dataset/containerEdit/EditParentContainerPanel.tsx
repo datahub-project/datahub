@@ -7,11 +7,7 @@ import { WhereAmI } from '../../../../../home/whereAmI';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
 import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
-import { SetParentContainerRevised } from './SetParentContainerRevised';
-// import { useGetSearchResultsLazyQuery } from '../../../../../../graphql/search.generated';
-// import { EntityType, SearchResult } from '../../../../../../types.generated';
-// import { useGetContainerLazyQuery } from '../../../../../../graphql/container.generated';
-// import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { SetParentContainer } from './SetParentContainer';
 
 export const EditParentContainerPanel = () => {
     // const entityRegistry = useEntityRegistry();
@@ -23,7 +19,7 @@ export const EditParentContainerPanel = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const containerValue = baseEntity?.dataset?.container?.urn || '';
     const currUrn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
-    const [disableSubmit, setDisableSubmit] = useState(true);
+    // const [disableSubmit, setDisableSubmit] = useState(true);
     const [platform] = useState(baseEntity?.dataset?.platform?.urn || '');
 
     const layout = {
@@ -38,18 +34,9 @@ export const EditParentContainerPanel = () => {
 
     const resetForm = () => {
         formState.resetFields();
-        setDisableSubmit(true);
-    };
-    const updateForm = (values) => {
-        if (values.parentContainer !== containerValue && values.parentContainer !== '') {
-            setDisableSubmit(false);
-        }
-        if (values.parentContainer === containerValue || values.parentContainer === '') {
-            setDisableSubmit(true);
-        }
+        // setDisableSubmit(true);
     };
     const onFinish = async (values) => {
-        console.log(values);
         const proposedContainer = values.parentContainer;
         const submission = {
             dataset_name: currUrn,
@@ -75,7 +62,7 @@ export const EditParentContainerPanel = () => {
                 {...layout}
                 form={formState}
                 onFinish={onFinish}
-                onValuesChange={updateForm}
+                // onValuesChange={updateForm}
                 initialValues={{
                     parentContainerProps: {
                         platformType: platform,
@@ -84,15 +71,32 @@ export const EditParentContainerPanel = () => {
                     parentContainer: containerValue,
                 }}
             >
-                <Button type="primary" htmlType="submit" disabled={disableSubmit}>
+                <Button type="primary" htmlType="submit">
                     Submit
                 </Button>
                 &nbsp;
                 <Button htmlType="button" onClick={resetForm}>
                     Reset
                 </Button>
-                <Form.Item name="parentContainerProps" label="Pick New Container for Dataset">
-                    <SetParentContainerRevised />
+                <Form.Item
+                    name="parentContainerProps"
+                    label="Pick New Container for Dataset"
+                    rules={[
+                        ({ getFieldValue }) => ({
+                            validator() {
+                                if (getFieldValue('parentContainer') === containerValue) {
+                                    return Promise.reject(new Error('Cannot resubmit existing container'));
+                                }
+                                // for cases where the dataset has no container, stop people from submitting empty
+                                if (getFieldValue('parentContainer') === '') {
+                                    return Promise.reject(new Error('Cannot submit blank'));
+                                }
+                                return Promise.resolve();
+                            },
+                        }),
+                    ]}
+                >
+                    <SetParentContainer />
                 </Form.Item>
             </Form>
         </>
