@@ -128,7 +128,9 @@ def test_create_list_delete_global_view(frontend_session):
     # Create new View
     create_view_json = {
         "query": """mutation createView($input: CreateViewInput!) {\n
-            createView(input: $input)
+            createView(input: $input) {\n
+              urn\n
+            }\n
         }""",
         "variables": {
             "input": {
@@ -151,7 +153,7 @@ def test_create_list_delete_global_view(frontend_session):
     assert res_data["data"]["createView"] is not None
     assert "errors" not in res_data
 
-    view_urn = res_data["data"]["createView"]
+    view_urn = res_data["data"]["createView"]["urn"]
 
     new_count = _ensure_more_views(
         frontend_session=frontend_session,
@@ -252,7 +254,9 @@ def test_create_list_delete_personal_view(frontend_session):
     # Create new View
     create_view_json = {
         "query": """mutation createView($input: CreateViewInput!) {\n
-            createView(input: $input)
+            createView(input: $input) {\n
+              urn\n
+            }\n
         }""",
         "variables": {
             "input": {
@@ -275,7 +279,7 @@ def test_create_list_delete_personal_view(frontend_session):
     assert res_data["data"]["createView"] is not None
     assert "errors" not in res_data
 
-    view_urn = res_data["data"]["createView"]
+    view_urn = res_data["data"]["createView"]["urn"]
 
     new_count = _ensure_more_views(
         frontend_session=frontend_session,
@@ -332,7 +336,9 @@ def test_update_global_view(frontend_session):
     # Create new View
     create_view_json = {
         "query": """mutation createView($input: CreateViewInput!) {\n
-            createView(input: $input)
+            createView(input: $input) {\n
+              urn\n
+            }\n
         }""",
         "variables": {
             "input": {
@@ -355,7 +361,7 @@ def test_update_global_view(frontend_session):
     assert res_data["data"]["createView"] is not None
     assert "errors" not in res_data
 
-    view_urn = res_data["data"]["createView"]
+    view_urn = res_data["data"]["createView"]["urn"]
 
     new_view_name = "New Test View"
     new_view_description = "New Test Description"
@@ -376,7 +382,9 @@ def test_update_global_view(frontend_session):
 
     update_view_json = {
         "query": """mutation updateView($urn: String!, $input: UpdateViewInput!) {\n
-            updateView(urn: $urn, input: $input)
+            updateView(urn: $urn, input: $input) {\n
+              urn\n
+            }\n
         }""",
         "variables": {
             "urn": view_urn,
@@ -395,7 +403,7 @@ def test_update_global_view(frontend_session):
     res_data = response.json()
 
     assert res_data
-    assert res_data["data"]["updateView"] is True
+    assert res_data["data"]["updateView"] is not None
     assert "errors" not in res_data
 
     # Delete the View
