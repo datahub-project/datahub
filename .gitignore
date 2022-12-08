@@ -75,3 +75,5 @@ datahub-frontend/public/**
 datahub-frontend/test/resources/public/**
 
 .remote*
+# Ignore runtime generated authenticatior/authorizer jar files
+metadata-service/plugin/src/test/resources/sample-plugins/**
