@@ -7,6 +7,7 @@ import { SidebarHeader } from '../SidebarHeader';
 import { SetDomainModal } from './SetDomainModal';
 import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
+import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 
 export const SidebarDomainSection = () => {
     const { entityData } = useEntityData();
@@ -46,7 +47,7 @@ export const SidebarDomainSection = () => {
 
     return (
         <div>
-            <div className="sidebar-domain-section">
+            <div id={ENTITY_PROFILE_DOMAINS_ID} className="sidebar-domain-section">
                 <SidebarHeader title="Domain" />
                 <div>
                     {domain && (
