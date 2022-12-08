@@ -4,12 +4,14 @@
 import json
 import logging
 import os
+import re
+import requests
 import time
 import urllib
 
 from datetime import datetime as dt
-from sys import stdout
-from typing import Container, Dict, List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, TypeVar, Union
+from urllib.parse import urljoin
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
@@ -41,7 +43,7 @@ from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              ContainerClass,
                                              UpstreamLineageClass)
 
-from .models import FieldParamEdited
+from .models import FieldParamEdited, create_dataset_params
 
 log = logging.getLogger("ingest")
 logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
@@ -52,10 +54,7 @@ DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 
 CLI_MODE = False if os.environ.get("RUNNING_IN_DOCKER") else True
-if CLI_MODE:
-    os.environ["JWT_SECRET"] = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94="
-    os.environ["DATAHUB_AUTHENTICATE_INGEST"] = "True"
-    os.environ["DATAHUB_FRONTEND"] = "http://172.19.0.1:9002"
+datahub_url = os.environ["DATAHUB_FRONTEND"]
 
 T = TypeVar("T")
 
@@ -124,7 +123,7 @@ def make_lineage_mce(
     return mce
 
 def make_institutionalmemory_mce(
-    dataset_urn: str, input_url: List[str], input_description: List[str], actor: str
+    input_url: List[str], input_description: List[str], actor: str
 ) -> InstitutionalMemoryClass:
     """
     returns a list of Documents
@@ -417,3 +416,41 @@ def make_profile_mcp(
         ),
     )
     return mcpw
+
+def check_platform_container_test(item: create_dataset_params):
+    """
+    Objective is to ensure that container type and platform type match to forestall 
+    quirky inputs. Can't be verified by looking at urn, need GraphQL to query GMS
+    """
+    if item.parentContainer == '':
+        # no need to check if no parent container.        
+        return True
+    query_endpoint = urljoin(datahub_url, "/api/graphql")
+    container_urn = item.parentContainer
+    token = item.user_token
+    headers = {}
+    headers["Authorization"] = f"Bearer {token}"
+    headers["Content-Type"] = "application/json"
+    query = """
+        query platform_type($urn: String!){
+            container(urn: $urn) {
+                platform{
+                    urn
+                }
+            }
+        }
+    """
+    variables = {"urn": container_urn}
+    resp = requests.post(
+        query_endpoint, headers=headers, json={"query": query, "variables": variables}
+    )
+    log.debug(f"resp.status_code is {resp.status_code}")
+    if resp.status_code != 200:
+        raise Exception("Backend communications issue")
+    data_received = json.loads(resp.text)
+    container_platform_urn = data_received["data"]["container"]["platform"]["urn"]
+    container_type = re.search('urn:li:dataPlatform:(.+?)', container_platform_urn).group(1)
+    platform_type = re.search('urn:li:dataPlatform:(.+?)', item.platformSelect).group(1)
+    if container_type != platform_type:
+        return False
+    return True
