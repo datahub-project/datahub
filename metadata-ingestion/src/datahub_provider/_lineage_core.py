@@ -1,5 +1,3 @@
-from datahub_provider._airflow_compat import Operator
-
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
@@ -16,6 +14,7 @@ if TYPE_CHECKING:
     from airflow.models.taskinstance import TaskInstance
 
     from datahub_provider.hooks.datahub import DatahubGenericHook
+    from datahub_provider._airflow_compat import Operator
 
 
 def _entities_to_urn_list(iolets: List[_Entity]) -> List[DatasetUrn]:

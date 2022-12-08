@@ -1,5 +1,3 @@
-from datahub_provider._airflow_compat import BaseOperator, ExternalTaskSensor, Operator
-
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Union, cast
 
 from airflow.configuration import conf
@@ -19,6 +17,7 @@ if TYPE_CHECKING:
 
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub_provider._airflow_compat import Operator
 
 
 def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
@@ -98,6 +97,7 @@ class AirflowGenerator:
         # It is possible to tie an external sensor to DAG if external_task_id is omitted but currently we can't tie
         # jobflow to anothet jobflow.
         external_task_upstreams = []
+        from datahub_provider._airflow_compat import ExternalTaskSensor
         if task.task_type == "ExternalTaskSensor":
             task = cast(ExternalTaskSensor, task)
             if hasattr(task, "external_task_id") and task.external_task_id is not None:
@@ -180,6 +180,7 @@ class AirflowGenerator:
 
     @staticmethod
     def _get_description(task: "Operator") -> Optional[str]:
+        from datahub_provider._airflow_compat import BaseOperator
         if not isinstance(task, BaseOperator):
             # TODO: Get docs for mapped operators.
             return None
