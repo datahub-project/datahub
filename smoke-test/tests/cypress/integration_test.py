@@ -99,8 +99,7 @@ for id_list in ONBOARDING_ID_LISTS:
     ONBOARDING_IDS.extend(id_list)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data():
+def ingest_data():
     print("creating onboarding data file")
     create_datahub_step_state_aspects(
         get_admin_username(),
@@ -113,6 +112,11 @@ def ingest_cleanup_data():
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_SCHEMA_BLAME_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ingest_cleanup_data():
+    ingest_data()
     yield
     print("removing test data")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
