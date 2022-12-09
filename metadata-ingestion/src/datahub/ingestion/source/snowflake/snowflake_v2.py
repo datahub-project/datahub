@@ -1191,7 +1191,8 @@ class SnowflakeV2Source(
 
             cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
 
-            # How to find whether this is privatelink ?
+            # For privatelink, account identifier ends with .privatelink
+            # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
             return self.create_snowsight_base_url(
                 account_locator,
                 cloud_region_id,
