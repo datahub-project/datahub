@@ -55,6 +55,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     BigqueryView,
 )
+from datahub.ingestion.source.bigquery_v2.common import BQ_EXTERNAL_TABLE_URL_TEMPLATE
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
@@ -836,7 +837,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             else None,
             lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
             if table.last_altered is not None
+            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
             else None,
+            externalUrl=BQ_EXTERNAL_TABLE_URL_TEMPLATE.format(
+                project=project_id, dataset=dataset_name, table=table.name
+            ),
         )
         if custom_properties:
             dataset_properties.customProperties.update(custom_properties)
