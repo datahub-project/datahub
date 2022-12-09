@@ -62,8 +62,6 @@ jobs:
           key: ${{ runner.os }}-venv-${{ hashFiles('./metadata-ingestion/setup.py') }}-${{ matrix.python-version }}-${{ matrix.command }}
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:build :metadata-ingestion:${{ matrix.command }} -x:metadata-ingestion:testQuick -x:metadata-ingestion:check
-      - name: Run metadata-ingestion tests (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion:${{ matrix.command }}
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion/venv/bin/activate && pip freeze
