@@ -60,7 +60,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as DataHubRole);
     const userRoleUrn = userRole && userRole.urn;
 
-    const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete);
+    const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete, false, true);
 
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
@@ -85,7 +85,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const userStatusColor = userStatus && getUserStatusColor(userStatus);
 
     return (
-        <List.Item data-testid={user.urn}>
+        <List.Item>
             <UserItemContainer>
                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}>
                     <UserHeaderContainer>
