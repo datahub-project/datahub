@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
@@ -10,6 +9,7 @@ from deprecated import deprecated
 from requests.adapters import Response
 from requests.models import HTTPError
 
+from datahub.cli.cli_utils import get_boolean_env_variable
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -31,9 +31,7 @@ from datahub.utilities.urns.urn import Urn, guess_entity_type
 logger = logging.getLogger(__name__)
 
 
-telemetry_enabled = (
-    os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
-)
+telemetry_enabled = get_boolean_env_variable("DATAHUB_TELEMETRY_ENABLED", True)
 
 
 class DatahubClientConfig(ConfigModel):

@@ -173,6 +173,10 @@ class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
         None,
         description="Required if not providing github configuration and deploy keys. A pointer to a local directory (accessible to the ingestion system) where the root of the LookML repo has been checked out (typically via a git clone). This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`.",
     )
+    github_info: Optional[GitHubInfo] = Field(
+        None,
+        description="Reference to your github location. If present, supplies handy links to your lookml on the dataset entity page.",
+    )
     project_dependencies: Dict[str, Union[pydantic.DirectoryPath, GitHubInfo]] = Field(
         {},
         description="A map of project_name to local directory (accessible to the ingestion system) or Git credentials. "

@@ -1,6 +1,9 @@
 from typing import Any, Dict, Optional
 
+from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+
+from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 BQ_DATE_SHARD_FORMAT = "%Y%m%d"
@@ -17,3 +20,17 @@ def _make_gcp_logging_client(
         return GCPLoggingClient(**client_options, project=project_id)
     else:
         return GCPLoggingClient(**client_options)
+
+
+def get_bigquery_client(config: BigQueryV2Config) -> bigquery.Client:
+    client_options = config.extra_client_options
+    return bigquery.Client(config.project_on_behalf, **client_options)
+
+
+def get_sql_alchemy_url(config: BigQueryV2Config) -> str:
+    if config.project_on_behalf:
+        return f"bigquery://{config.project_on_behalf}"
+    # When project_id is not set, we will attempt to detect the project ID
+    # based on the credentials or environment variables.
+    # See https://github.com/mxmzdlv/pybigquery#authentication.
+    return "bigquery://"

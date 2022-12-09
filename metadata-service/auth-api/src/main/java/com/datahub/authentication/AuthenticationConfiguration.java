@@ -13,7 +13,7 @@ public class AuthenticationConfiguration {
    */
   private boolean enabled;
   /**
-   * List of configurations for {@link Authenticator}s to be registered
+   * List of configurations for {@link com.datahub.plugins.auth.authentication.Authenticator}s to be registered
    */
   private List<AuthenticatorConfiguration> authenticators;
   /**

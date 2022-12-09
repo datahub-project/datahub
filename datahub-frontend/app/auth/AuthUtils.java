@@ -63,8 +63,8 @@ public class AuthUtils {
      *
      * Returns true if the request is eligible to be forwarded to GMS, false otherwise.
      */
-    public static boolean isEligibleForForwarding(Http.Context ctx) {
-        return hasValidSessionCookie(ctx) || hasAuthHeader(ctx);
+    public static boolean isEligibleForForwarding(Http.Request req) {
+        return hasValidSessionCookie(req) || hasAuthHeader(req);
     }
 
     /**
@@ -75,17 +75,17 @@ public class AuthUtils {
      * Note that we depend on the presence of 2 cookies, one accessible to the browser and one not,
      * as well as their agreement to determine authentication status.
      */
-    public static boolean hasValidSessionCookie(final Http.Context ctx) {
-        return ctx.session().containsKey(ACTOR)
-                && ctx.request().cookie(ACTOR) != null
-                && ctx.session().get(ACTOR).equals(ctx.request().cookie(ACTOR).value());
+    public static boolean hasValidSessionCookie(final Http.Request req) {
+        return req.session().data().containsKey(ACTOR)
+                && req.cookie(ACTOR) != null
+                && req.session().data().get(ACTOR).equals(req.cookie(ACTOR).value());
     }
 
     /**
      * Returns true if a request includes the Authorization header, false otherwise
      */
-    public static boolean hasAuthHeader(final Http.Context ctx) {
-        return ctx.request().getHeaders().contains(Http.HeaderNames.AUTHORIZATION);
+    public static boolean hasAuthHeader(final Http.Request req) {
+        return req.getHeaders().contains(Http.HeaderNames.AUTHORIZATION);
     }
 
     /**

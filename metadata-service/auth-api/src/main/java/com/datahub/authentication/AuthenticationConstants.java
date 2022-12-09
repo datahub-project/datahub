@@ -32,6 +32,6 @@ public class AuthenticationConstants {
   public static final String ENTITY_SERVICE = "entityService";
   public static final String TOKEN_SERVICE = "tokenService";
 
-
-  private AuthenticationConstants() { }
+  private AuthenticationConstants() {
+  }
 }
