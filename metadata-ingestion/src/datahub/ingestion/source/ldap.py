@@ -7,7 +7,6 @@ import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
