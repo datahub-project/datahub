@@ -755,7 +755,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
             .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService))
-            .dataFetcher("updateLabel", new UpdateLabelResolver(entityService))
+            .dataFetcher("updateDatasetFieldLabel", new UpdateLabelResolver(entityService))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
             .dataFetcher("addOwners", new AddOwnersResolver(entityService))
             .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))

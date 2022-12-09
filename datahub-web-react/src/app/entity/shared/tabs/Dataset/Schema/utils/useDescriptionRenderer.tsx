@@ -4,14 +4,17 @@ import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../.
 import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
 import LabelField from '../../../../../dataset/profile/schema/components/SchemaLabelField';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
-import { useUpdateDescriptionMutation, useUpdateLabelMutation } from '../../../../../../../graphql/mutations.generated';
+import {
+    useUpdateDescriptionMutation,
+    useUpdateDatasetFieldLabelMutation,
+} from '../../../../../../../graphql/mutations.generated';
 import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 
 export default function useDescriptionRenderer(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
-    const [updateLabel] = useUpdateLabelMutation();
+    const [updateFieldLabel] = useUpdateDatasetFieldLabelMutation();
 
     return (description: string, record: SchemaField): JSX.Element => {
         const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
@@ -32,7 +35,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
                     original={originalLabel}
                     isEdited={!!relevantEditableFieldInfo?.label}
                     onUpdate={(updatedLabel) =>
-                        updateLabel({
+                        updateFieldLabel({
                             variables: {
                                 input: {
                                     label: DOMPurify.sanitize(updatedLabel),

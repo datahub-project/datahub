@@ -363,7 +363,7 @@ type Mutation {
     """
     Updates the label of a resource. Currently only supports Dataset Schema Fields
     """
-    updateLabel(input: LabelUpdateInput!): Boolean
+    updateDatasetFieldLabel(input: DatasetFieldLabelUpdateInput!): Boolean
 
     """
     Remove a user. Requires Manage Users & Groups Platform Privilege
@@ -7134,7 +7134,7 @@ input DescriptionUpdateInput {
 """
 Updates the label of a resource. Currently supports DatasetField labels only
 """
-input LabelUpdateInput {
+input DatasetFieldLabelUpdateInput {
     """
     The new label
     """
@@ -7146,9 +7146,9 @@ input LabelUpdateInput {
     resourceUrn: String!
 
     """
-    An optional sub resource type
+    Sub resource type
     """
-    subResourceType: SubResourceType
+    subResourceType: SubResourceType!
 
     """
     A sub resource identifier, eg dataset field path

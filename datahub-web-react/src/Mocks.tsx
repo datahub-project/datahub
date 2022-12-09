@@ -3433,4 +3433,5 @@ export const platformPrivileges: PlatformPrivileges = {
     manageTags: true,
     createTags: true,
     createDomains: true,
+    updateEntityName: true,
 };

@@ -4,7 +4,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.LabelUpdateInput;
+import com.linkedin.datahub.graphql.generated.DatasetFieldLabelUpdateInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -25,20 +25,20 @@ public class UpdateLabelResolver implements DataFetcher<CompletableFuture<Boolea
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
-    final LabelUpdateInput input = bindArgument(environment.getArgument("input"), LabelUpdateInput.class);
+    final DatasetFieldLabelUpdateInput input = bindArgument(environment.getArgument("input"), DatasetFieldLabelUpdateInput.class);
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
     log.info("Updating label. input: {}", input.toString());
     log.info("Target URN: {}", targetUrn.toString());
     switch (targetUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
-        return updateDatasetLabel(targetUrn, input, environment.getContext());
+        return updateDatasetFieldLabel(targetUrn, input, environment.getContext());
       default:
         throw new RuntimeException(
             String.format("Failed to update label. Unsupported resource type %s provided.", targetUrn));
     }
   }
 
-  private CompletableFuture<Boolean> updateDatasetLabel(Urn targetUrn, LabelUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateDatasetFieldLabel(Urn targetUrn, DatasetFieldLabelUpdateInput input, QueryContext context) {
     return CompletableFuture.supplyAsync(() -> {
       
       if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, targetUrn)) {

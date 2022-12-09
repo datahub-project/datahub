@@ -101,6 +101,11 @@ type PlatformPrivileges {
   Whether the user should be able to create and delete all Tags
   """
   manageTags: Boolean!
+
+  """
+  Whether the user should be able to update entity name
+  """
+  updateEntityName: Boolean!
 }
 
 """

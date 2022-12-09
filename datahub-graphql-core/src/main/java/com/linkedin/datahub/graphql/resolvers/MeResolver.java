@@ -72,6 +72,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
         platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));
         platformPrivileges.setManageTags(AuthorizationUtils.canManageTags(context));
+        platformPrivileges.setUpdateEntityName(canUpdateEntityName(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
@@ -146,6 +147,14 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   private boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(context.getAuthorizer(), context.getActorUrn(),
         PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+  }
+
+    /**
+   * Returns true if the authenticated user has privileges to update entity name
+   */
+  
+  private boolean canUpdateEntityName(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.UPDATE_ENTITY_NAME_PRIVILEGE);
   }
 
   /**

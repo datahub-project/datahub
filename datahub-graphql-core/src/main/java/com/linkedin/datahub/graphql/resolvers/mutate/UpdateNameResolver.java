@@ -7,6 +7,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
+import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -17,6 +19,8 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import static com.linkedin.metadata.Constants.*;
+import com.linkedin.common.AuditStamp;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -42,6 +46,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       }
 
       switch (targetUrn.getEntityType()) {
+        case Constants.DATASET_ENTITY_NAME:
+          return updateDatasetName(targetUrn, input, environment.getContext());
         case Constants.GLOSSARY_TERM_ENTITY_NAME:
           return updateGlossaryTermName(targetUrn, input, environment.getContext());
         case Constants.GLOSSARY_NODE_ENTITY_NAME:
@@ -55,6 +61,28 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
               String.format("Failed to update name. Unsupported resource type %s provided.", targetUrn));
       }
     });
+  }
+
+  private Boolean updateDatasetName(
+      Urn targetUrn,
+      UpdateNameInput input,
+      QueryContext context
+  ) {
+     try {
+          if (input.getName() != null) {
+              final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
+              editableDatasetProperties.setName(input.getName());
+              final AuditStamp auditStamp = new AuditStamp();
+              Urn actor = UrnUtils.getUrn(context.getActorUrn());
+              auditStamp.setActor(actor, SetMode.IGNORE_NULL);
+              auditStamp.setTime(System.currentTimeMillis());
+              editableDatasetProperties.setLastModified(auditStamp);
+              persistAspect(targetUrn, Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, editableDatasetProperties, actor, _entityService);
+          }
+          return true;
+      } catch (Exception e) {
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
+      }
   }
 
   private Boolean updateGlossaryTermName(

@@ -211,6 +211,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarRecommendationsSection,
                 },
             ]}
+            isNameEditable
         />
     );
 

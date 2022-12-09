@@ -68,6 +68,10 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
+  public static boolean canUpdateEntityName(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.UPDATE_ENTITY_NAME_PRIVILEGE);
+  }
+
   /**
    * Returns true if the current used is able to create Tags. This is true if the user has the 'Manage Tags' or 'Create Tags' platform privilege.
    */
