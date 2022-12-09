@@ -11,6 +11,7 @@ import pydantic
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -559,8 +560,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             bigquery_project.datasets
         )
         for bigquery_dataset in bigquery_project.datasets:
-
-            if not self.config.dataset_pattern.allowed(bigquery_dataset.name):
+            if not is_schema_allowed(
+                self.config.dataset_pattern,
+                bigquery_dataset.name,
+                project_id,
+                self.config.match_fully_qualified_names,
+            ):
                 self.report.report_dropped(f"{bigquery_dataset.name}.*")
                 continue
             try:
