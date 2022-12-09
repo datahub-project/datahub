@@ -8,7 +8,21 @@ query getMLModel($urn: String!) {
             ...partialLineageResults
         }
         features: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
-            ...fullRelationshipResults
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    ... on MLFeature {
+                        ...nonRecursiveMLFeature
+                    }
+                    ... on MLPrimaryKey {
+                        ...nonRecursiveMLPrimaryKey
+                    }
+                }
+            }
         }
     }
 }

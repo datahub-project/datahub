@@ -15,19 +15,16 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
-import com.linkedin.metadata.timeline.differ.AspectDiffer;
-import com.linkedin.metadata.timeline.differ.AspectDifferFactory;
-import com.linkedin.metadata.timeline.differ.DatasetPropertiesDiffer;
-import com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer;
-import com.linkedin.metadata.timeline.differ.EditableSchemaMetadataDiffer;
-import com.linkedin.metadata.timeline.differ.GlobalTagsDiffer;
-import com.linkedin.metadata.timeline.differ.GlossaryTermsDiffer;
-import com.linkedin.metadata.timeline.differ.InstitutionalMemoryDiffer;
-import com.linkedin.metadata.timeline.differ.OwnershipDiffer;
-import com.linkedin.metadata.timeline.differ.SchemaMetadataDiffer;
-import org.apache.commons.collections.CollectionUtils;
-
-import javax.annotation.Nonnull;
+import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorFactory;
+import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,17 +39,11 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import org.apache.commons.collections.CollectionUtils;
 
-import static com.linkedin.common.urn.VersionedUrnUtils.constructVersionStamp;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
+import static com.linkedin.common.urn.VersionedUrnUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 public class TimelineServiceImpl implements TimelineService {
 
@@ -62,7 +53,7 @@ public class TimelineServiceImpl implements TimelineService {
   private static final String BUILD_VALUE_COMPUTED = "computed";
 
   private final AspectDao _aspectDao;
-  private final AspectDifferFactory _diffFactory;
+  private final EntityChangeEventGeneratorFactory _entityChangeEventGeneratorFactory;
   private final EntityRegistry _entityRegistry;
   private final HashMap<String, HashMap<ChangeCategory, Set<String>>> entityTypeElementAspectRegistry = new HashMap<>();
 
@@ -74,54 +65,60 @@ public class TimelineServiceImpl implements TimelineService {
     // TODO: Load up from yaml file
     // Dataset registry
     HashMap<ChangeCategory, Set<String>> datasetElementAspectRegistry = new HashMap<>();
-    _diffFactory = new AspectDifferFactory();
+    _entityChangeEventGeneratorFactory = new EntityChangeEventGeneratorFactory();
     String entityType = DATASET_ENTITY_NAME;
     for (ChangeCategory elementName : ChangeCategory.values()) {
       Set<String> aspects = new HashSet<>();
       switch (elementName) {
         case TAG: {
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME,
+              new SchemaMetadataChangeEventGenerator());
           aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-              new EditableSchemaMetadataDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              new EditableSchemaMetadataChangeEventGenerator());
           aspects.add(GLOBAL_TAGS_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, GLOBAL_TAGS_ASPECT_NAME,
+              new GlobalTagsChangeEventGenerator());
         }
           break;
         case OWNER: {
           aspects.add(OWNERSHIP_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, OWNERSHIP_ASPECT_NAME, new OwnershipDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, OWNERSHIP_ASPECT_NAME,
+              new OwnershipChangeEventGenerator());
         }
           break;
         case DOCUMENTATION: {
           aspects.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, INSTITUTIONAL_MEMORY_ASPECT_NAME,
-              new InstitutionalMemoryDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, INSTITUTIONAL_MEMORY_ASPECT_NAME,
+              new InstitutionalMemoryChangeEventGenerator());
           aspects.add(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
-              new EditableDatasetPropertiesDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+              new EditableDatasetPropertiesChangeEventGenerator());
           aspects.add(DATASET_PROPERTIES_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, DATASET_PROPERTIES_ASPECT_NAME,
-              new DatasetPropertiesDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, DATASET_PROPERTIES_ASPECT_NAME,
+              new DatasetPropertiesChangeEventGenerator());
           aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-              new EditableSchemaMetadataDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              new EditableSchemaMetadataChangeEventGenerator());
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME,
+              new SchemaMetadataChangeEventGenerator());
         }
           break;
         case GLOSSARY_TERM: {
           aspects.add(GLOSSARY_TERMS_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, GLOSSARY_TERMS_ASPECT_NAME,
+              new GlossaryTermsChangeEventGenerator());
           aspects.add(EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-              new EditableSchemaMetadataDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              new EditableSchemaMetadataChangeEventGenerator());
         }
           break;
         case TECHNICAL_SCHEMA: {
           aspects.add(SCHEMA_METADATA_ASPECT_NAME);
-          _diffFactory.addDiffer(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataDiffer());
+          _entityChangeEventGeneratorFactory.addGenerator(entityType, elementName, SCHEMA_METADATA_ASPECT_NAME,
+              new SchemaMetadataChangeEventGenerator());
         }
           break;
         default:
@@ -337,11 +334,13 @@ public class TimelineServiceImpl implements TimelineService {
     List<ChangeTransaction> semanticChangeTransactions = new ArrayList<>();
     JsonPatch rawDiff = getRawDiff(previousValue, currentValue);
     for (ChangeCategory element : elementNames) {
-      AspectDiffer differ = _diffFactory.getDiffer(entityType, element, aspectName);
-      if (differ != null) {
+      EntityChangeEventGenerator entityChangeEventGenerator =
+          _entityChangeEventGeneratorFactory.getGenerator(entityType, element, aspectName);
+      if (entityChangeEventGenerator != null) {
         try {
-          ChangeTransaction changeTransaction = differ.getSemanticDiff(previousValue, currentValue, element,
-              rawDiff, rawDiffsRequested);
+          ChangeTransaction changeTransaction =
+              entityChangeEventGenerator.getSemanticDiff(previousValue, currentValue, element, rawDiff,
+                  rawDiffsRequested);
           if (CollectionUtils.isNotEmpty(changeTransaction.getChangeEvents())) {
             semanticChangeTransactions.add(changeTransaction);
           }

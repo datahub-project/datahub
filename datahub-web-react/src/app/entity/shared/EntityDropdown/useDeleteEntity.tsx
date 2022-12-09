@@ -3,6 +3,7 @@ import { message, Modal } from 'antd';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getDeleteEntityMutation } from '../../../shared/deleteUtils';
+import analytics, { EventType } from '../../../analytics';
 
 /**
  * Performs the flow for deleting an entity of a given type.
@@ -11,7 +12,14 @@ import { getDeleteEntityMutation } from '../../../shared/deleteUtils';
  * @param type the type of the entity to delete
  * @param name the name of the entity to delete
  */
-function useDeleteEntity(urn: string, type: EntityType, entityData: any, onDelete?: () => void) {
+function useDeleteEntity(
+    urn: string,
+    type: EntityType,
+    entityData: any,
+    onDelete?: () => void,
+    hideMessage?: boolean,
+    skipWait?: boolean,
+) {
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const entityRegistry = useEntityRegistry();
 
@@ -25,18 +33,30 @@ function useDeleteEntity(urn: string, type: EntityType, entityData: any, onDelet
             },
         })
             .then(() => {
-                message.loading({
-                    content: 'Deleting...',
-                    duration: 2,
+                analytics.event({
+                    type: EventType.DeleteEntityEvent,
+                    entityUrn: urn,
+                    entityType: type,
                 });
-                setTimeout(() => {
-                    setHasBeenDeleted(true);
-                    onDelete?.();
-                    message.success({
-                        content: `Deleted ${entityRegistry.getEntityName(type)}!`,
+                if (!hideMessage && !skipWait) {
+                    message.loading({
+                        content: 'Deleting...',
                         duration: 2,
                     });
-                }, 2000);
+                }
+                setTimeout(
+                    () => {
+                        setHasBeenDeleted(true);
+                        onDelete?.();
+                        if (!hideMessage) {
+                            message.success({
+                                content: `Deleted ${entityRegistry.getEntityName(type)}!`,
+                                duration: 2,
+                            });
+                        }
+                    },
+                    skipWait ? 0 : 2000,
+                );
             })
             .catch((e) => {
                 message.destroy();

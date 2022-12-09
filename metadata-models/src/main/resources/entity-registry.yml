@@ -146,10 +146,12 @@ entities:
       - schemaMetadata
       - ownership
       - deprecation
+      - domains
   - name: glossaryNode
     keyAspect: glossaryNodeKey
     aspects:
       - glossaryNodeInfo
+      - institutionalMemory
       - ownership
       - status
   - name: dataHubIngestionSource
@@ -187,6 +189,11 @@ entities:
     category: internal
     keyAspect: dataPlatformInstanceKey
     aspects:
+      - dataPlatformInstanceProperties
+      - ownership
+      - globalTags
+      - institutionalMemory
+      - deprecation
       - status
   - name: mlModel
     category: core
@@ -264,4 +271,9 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
+  - name: dataHubStepState
+    category: core
+    keyAspect: dataHubStepStateKey
+    aspects:
+      - dataHubStepStateProperties
 events:

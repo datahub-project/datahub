@@ -2,10 +2,8 @@ import React, { useState } from 'react';
 import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import GlossaryEntitiesPath from './GlossaryEntitiesPath';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from './GlossarySearch';
@@ -17,6 +15,12 @@ import { Message } from '../shared/Message';
 import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
+import {
+    BUSINESS_GLOSSARY_INTRO_ID,
+    BUSINESS_GLOSSARY_CREATE_TERM_ID,
+    BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
+} from '../onboarding/config/BusinessGlossaryOnboardingConfig';
+import { OnboardingTour } from '../onboarding/OnboardingTour';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -37,6 +41,7 @@ const MainContentWrapper = styled.div`
 
 export const BrowserWrapper = styled.div<{ width: number }>`
     max-height: 100%;
+    width: ${(props) => props.width}px;
     min-width: ${(props) => props.width}px;
 `;
 
@@ -73,6 +78,13 @@ function BusinessGlossaryPage() {
 
     return (
         <>
+            <OnboardingTour
+                stepIds={[
+                    BUSINESS_GLOSSARY_INTRO_ID,
+                    BUSINESS_GLOSSARY_CREATE_TERM_ID,
+                    BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
+                ]}
+            />
             <GlossaryWrapper>
                 {(termsLoading || nodesLoading) && (
                     <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
@@ -92,14 +104,21 @@ function BusinessGlossaryPage() {
                     isSidebarOnLeft
                 />
                 <MainContentWrapper>
-                    <GlossaryEntitiesPath />
                     <HeaderWrapper>
-                        <Typography.Title level={3}>Glossary</Typography.Title>
+                        <Typography.Title level={3}>Business Glossary</Typography.Title>
                         <div>
-                            <Button type="text" onClick={() => setIsCreateTermModalVisible(true)}>
+                            <Button
+                                id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
+                                type="text"
+                                onClick={() => setIsCreateTermModalVisible(true)}
+                            >
                                 <PlusOutlined /> Add Term
                             </Button>
-                            <Button type="text" onClick={() => setIsCreateNodeModalVisible(true)}>
+                            <Button
+                                id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
+                                type="text"
+                                onClick={() => setIsCreateNodeModalVisible(true)}
+                            >
                                 <PlusOutlined /> Add Term Group
                             </Button>
                         </div>

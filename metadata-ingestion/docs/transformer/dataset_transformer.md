@@ -763,13 +763,12 @@ Then define your class to return a list of custom properties, for example:
   import logging
   from typing import Dict
   from datahub.ingestion.transformer.add_dataset_properties import AddDatasetPropertiesResolverBase
-  from datahub.metadata.schema_classes import DatasetSnapshotClass
-  
+
   class MyPropertiesResolver(AddDatasetPropertiesResolverBase):
-      def get_properties_to_add(self, current: DatasetSnapshotClass) -> Dict[str, str]:
+      def get_properties_to_add(self, entity_urn: str) -> Dict[str, str]:
           ### Add custom logic here        
           properties= {'my_custom_property': 'property value'}
-          logging.info(f"Adding properties: {properties} to dataset: {current.urn}.")
+          logging.info(f"Adding properties: {properties} to dataset: {entity_urn}.")
           return properties
   ```
 
@@ -1146,7 +1145,7 @@ def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventCla
 Now that we've defined the transformer, we need to make it visible to DataHub. The easiest way to do this is to just place it in the same directory as your recipe, in which case the module name is the same as the file – in this case, `custom_transform_example`.
 
 <details>
-  <summary>Advanced: installing as a package</summary>
+  <summary>Advanced: Installing as a package and enable discoverability</summary>
 Alternatively, create a `setup.py` in the same directory as our transform script to make it visible globally. After installing this package (e.g. with `python setup.py` or `pip install -e .`), our module will be installed and importable as `custom_transform_example`.
 
 ```python
@@ -1157,9 +1156,17 @@ setup(
     version="1.0",
     packages=find_packages(),
     # if you don't already have DataHub installed, add it under install_requires
-	# install_requires=["acryl-datahub"]
+    # install_requires=["acryl-datahub"],
+    entry_points={
+        "datahub.ingestion.transformer.plugins": [
+            "custom_transform_example_alias = custom_transform_example:AddCustomOwnership",
+        ],
+    },
 )
 ```
+
+Additionally, declare the transformer under the `entry_points` variable of the setup script. This enables the transformer to be
+listed when running `datahub check plugins`, and sets up the transformer's shortened alias for use in recipes.
 
 </details>
 
@@ -1167,7 +1174,7 @@ setup(
 
 ```yaml
 transformers:
-  - type: "custom_transform_example.AddCustomOwnership"
+  - type: "custom_transform_example_alias"
     config:
       owners_json: "<path_to_owners_json>" # the JSON file mentioned at the start
 ```

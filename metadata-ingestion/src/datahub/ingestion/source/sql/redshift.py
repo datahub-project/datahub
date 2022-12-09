@@ -427,7 +427,7 @@ class RedshiftReport(SQLSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(
     SourceCapability.USAGE_STATS,
-    "Not provided by this module, use `bigquery-usage` for that.",
+    "Not provided by this module, use `redshift-usage` for that.",
     supported=False,
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
@@ -691,7 +691,7 @@ class RedshiftSource(SQLAlchemySource):
 
         return sources
 
-    def get_db_name(self, inspector: Inspector = None) -> str:
+    def get_db_name(self, inspector: Optional[Inspector] = None) -> str:
         db_name = getattr(self.config, "database")
         db_alias = getattr(self.config, "database_alias")
         if db_alias:

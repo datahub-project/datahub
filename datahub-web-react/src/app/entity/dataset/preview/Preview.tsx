@@ -74,6 +74,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             type={capitalizeFirstLetterOnly(subtype) || 'Dataset'}
             logoUrl={platformLogo || ''}

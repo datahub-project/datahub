@@ -2,7 +2,7 @@
 FROM confluentinc/cp-base-new:6.1.4 as confluent_base
 
 # Based on https://github.com/blacktop's alpine kafka build
-FROM python:3-alpine
+FROM --platform=$BUILDPLATFORM python:3-alpine
 
 ENV KAFKA_VERSION 2.8.2
 ENV SCALA_VERSION 2.13
@@ -43,6 +43,9 @@ WORKDIR /opt/kafka
 
 RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
+
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /usr/share/java/cp-base-new
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /opt/kafka/libs
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"

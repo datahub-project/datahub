@@ -52,6 +52,11 @@ def _ensure_more_domains(frontend_session, list_domains_json, before_count):
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_domain(frontend_session):
 
+    # Setup: Delete the domain (if exists)
+    response = frontend_session.post(
+        f"{get_gms_url()}/entities?action=delete", json={"urn": "urn:li:domain:test id"}
+    )
+
     # Get count of existing secrets
     list_domains_json = {
         "query": """query listDomains($input: ListDomainsInput!) {\n

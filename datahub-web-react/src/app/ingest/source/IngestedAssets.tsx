@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
 import { EmbeddedListSearchModal } from '../../entity/shared/components/styled/search/EmbeddedListSearchModal';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { UnionType } from '../../search/utils/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import { Message } from '../../shared/Message';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -135,7 +136,10 @@ export default function IngestedAssets({ id }: Props) {
             {showAssetSearch && (
                 <EmbeddedListSearchModal
                     searchBarStyle={{ width: 600, marginRight: 40 }}
-                    fixedFilter={{ field: 'runId', values: [id] }}
+                    fixedFilters={{
+                        unionType: UnionType.AND,
+                        filters: [{ field: 'runId', values: [id] }],
+                    }}
                     onClose={() => setShowAssetSearch(false)}
                 />
             )}

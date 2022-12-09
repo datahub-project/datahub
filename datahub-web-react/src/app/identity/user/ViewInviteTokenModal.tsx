@@ -10,6 +10,7 @@ import { DataHubRole } from '../../../types.generated';
 import { mapRoleIcon } from './UserUtils';
 import { useCreateInviteTokenMutation } from '../../../graphql/mutations.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import analytics, { EventType } from '../../analytics';
 
 const ModalSection = styled.div`
     display: flex;
@@ -81,7 +82,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
     const noRoleText = 'No Role';
 
     const { data: rolesData } = useListRolesQuery({
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         variables: {
             input: {
                 start: 0,
@@ -138,6 +139,10 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
         })
             .then(({ data, errors }) => {
                 if (!errors) {
+                    analytics.event({
+                        type: EventType.CreateInviteLinkEvent,
+                        roleUrn,
+                    });
                     setInviteToken(data?.createInviteToken?.inviteToken || '');
                     message.success('Generated new invite link');
                 }

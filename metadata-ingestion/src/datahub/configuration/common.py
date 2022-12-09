@@ -1,13 +1,18 @@
 import re
+import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
-from typing import IO, Any, ClassVar, Dict, List, Optional, Pattern, Type, cast
+from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar
 
+import pydantic
 from cached_property import cached_property
 from pydantic import BaseModel, Extra
 from pydantic.fields import Field
 
 from datahub.configuration._config_enum import ConfigEnum
+from datahub.utilities.dedup_list import deduplicate_list
+
+_ConfigSelf = TypeVar("_ConfigSelf", bound="ConfigModel")
 
 
 class ConfigModel(BaseModel):
@@ -29,6 +34,11 @@ class ConfigModel(BaseModel):
 
             for key in remove_fields:
                 del schema["properties"][key]
+
+    @classmethod
+    def parse_obj_allow_extras(cls: Type[_ConfigSelf], obj: Any) -> _ConfigSelf:
+        with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
+            return cls.parse_obj(obj)
 
 
 class PermissiveConfigModel(ConfigModel):
@@ -79,7 +89,7 @@ class OperationalError(PipelineExecutionError):
     message: str
     info: dict
 
-    def __init__(self, message: str, info: dict = None):
+    def __init__(self, message: str, info: Optional[dict] = None):
         self.message = message
         self.info = info or {}
 
@@ -88,24 +98,8 @@ class ConfigurationError(MetaError):
     """A configuration error has happened"""
 
 
-class SensitiveError(Exception):
-    """Wraps an exception that should not be logged with variable information."""
-
-    @classmethod
-    def get_sensitive_cause(cls, exc: Exception) -> Optional[Exception]:
-        """
-        Returns the underlying exception if the exception is sensitive, and None otherwise.
-        """
-
-        e: Optional[Exception] = exc
-        while e:
-            # This cast converts BaseException to Exception.
-            inner = cast(Optional[Exception], e.__cause__)
-
-            if isinstance(e, cls):
-                return inner
-            e = inner
-        return None
+class IgnorableError(MetaError):
+    """An error that can be ignored"""
 
 
 class ConfigurationMechanism(ABC):
@@ -203,41 +197,44 @@ class AllowDenyPattern(ConfigModel):
 
 
 class KeyValuePattern(ConfigModel):
-    """A class to store allow deny regexes"""
+    """
+    The key-value pattern is used to map a regex pattern to a set of values.
+    For example, you can use it to map a table name to a list of tags to apply to it.
+    """
 
     rules: Dict[str, List[str]] = {".*": []}
-    alphabet: str = "[A-Za-z0-9 _.-]"
-
-    @property
-    def alphabet_pattern(self) -> Pattern:
-        return re.compile(f"^{self.alphabet}+$")
+    first_match_only: bool = Field(
+        default=True,
+        description="Whether to stop after the first match. If false, all matching rules will be applied.",
+    )
 
     @classmethod
     def all(cls) -> "KeyValuePattern":
         return KeyValuePattern()
 
     def value(self, string: str) -> List[str]:
-        return next(
-            (self.rules[key] for key in self.rules.keys() if re.match(key, string)), []
-        )
-
-    def matched(self, string: str) -> bool:
-        return any(re.match(key, string) for key in self.rules.keys())
-
-    def is_fully_specified_key(self) -> bool:
-        """
-        If the allow patterns are literals and not full regexes, then it is considered
-        fully specified. This is useful if you want to convert a 'list + filter'
-        pattern into a 'search for the ones that are allowed' pattern, which can be
-        much more efficient in some cases.
-        """
-        return any(not self.alphabet_pattern.match(key) for key in self.rules.keys())
-
-    def get(self) -> Dict[str, List[str]]:
-        """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
-        assert self.is_fully_specified_key()
-        return self.rules
+        matching_keys = [key for key in self.rules.keys() if re.match(key, string)]
+        if not matching_keys:
+            return []
+        elif self.first_match_only:
+            return self.rules[matching_keys[0]]
+        else:
+            return deduplicate_list(
+                [v for key in matching_keys for v in self.rules[key]]
+            )
 
 
 class VersionedConfig(ConfigModel):
     version: str = "1"
+
+
+class LineageConfig(ConfigModel):
+    incremental_lineage: bool = Field(
+        default=True,
+        description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
+
+    sql_parser_use_external_process: bool = Field(
+        default=False,
+        description="When enabled, sql parser will run in isolated in a separate process. This can affect processing time but can protect from sql parser's mem leak.",
+    )
