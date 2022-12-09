@@ -45,8 +45,10 @@ public class CacheableSearcher<K> {
    */
   public SearchResult getSearchResults(int from, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getSearchResults").time()) {
-      int resultsSoFar = 0;
-      int batchId = 0;
+      // Setting the batchID based on the from query index and the batchsize of the cache 
+      int batchId = from / batchSize;
+      // Setting the resultSoFar based on the computed batchId and the batchSize of the cache
+      int resultsSoFar = batchId * batchSize;
       boolean foundStart = false;
       List<SearchEntity> resultEntities = new ArrayList<>();
       SearchResult batchedResult;
