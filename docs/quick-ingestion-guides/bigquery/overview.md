@@ -26,7 +26,7 @@ You will NOT have extracted [Routines](https://cloud.google.com/bigquery/docs/ro
 :::
 
 ## Next Steps
-If that all sounds like what you're looking for, navigate to the [next page](Setup.md), where we'll talk about prerequisites
+If that all sounds like what you're looking for, navigate to the [next page](setup.md), where we'll talk about prerequisites
 
 ## Advanced Guides and Reference
 If you're looking to do something more in-depth, want to use CLI instead of the DataHub UI, or just need to look at the reference documentation for this connector, use these links:
