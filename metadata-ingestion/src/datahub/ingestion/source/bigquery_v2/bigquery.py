@@ -56,8 +56,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.common import (
-  BQ_EXTERNAL_TABLE_URL_TEMPLATE,
-  get_bigquery_client
+    BQ_EXTERNAL_TABLE_URL_TEMPLATE,
+    get_bigquery_client,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
