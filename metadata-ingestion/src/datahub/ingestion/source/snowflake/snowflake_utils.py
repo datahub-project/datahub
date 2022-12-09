@@ -1,6 +1,5 @@
 import logging
 from enum import Enum
-from functools import lru_cache
 from typing import Any, Optional
 
 from snowflake.connector import SnowflakeConnection
@@ -22,6 +21,49 @@ class SnowflakeCloudProvider(str, Enum):
     AWS = "aws"
     GCP = "gcp"
     AZURE = "azure"
+
+
+# See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#region-ids
+# This needs an update if and wuhen snowflake supports new region
+SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
+    "aws_us_west_2": ("aws", "us-west-2"),
+    "aws_us_gov_west_1": ("aws", "us-gov-west-1"),
+    "aws_us_east_2": ("aws", "us-east-2"),
+    "aws_us_east_1": ("aws", "us-east-1"),
+    "aws_us_east_1_gov": ("aws", "us-east-1"),
+    "aws_ca_central_1": ("aws", "ca-central-1"),
+    "aws_sa_east_1": ("aws", "sa-east-1"),
+    "aws_eu_west_1": ("aws", "eu-west-1"),
+    "aws_eu_west_2": ("aws", "eu-west-2"),
+    "aws_eu_west_3": ("aws", "eu-west-3"),
+    "aws_eu_central_1": ("aws", "eu-central-1"),
+    "aws_eu_north_1": ("aws", "eu-north-1"),
+    "aws_ap_northeast_1": ("aws", "ap-northeast-1"),
+    "aws_ap_northeast_3": ("aws", "ap-northeast-3"),
+    "aws_ap_northeast_2": ("aws", "ap-northeast-2"),
+    "aws_ap_south_1": ("aws", "ap-south-1"),
+    "aws_ap_southeast_1": ("aws", "ap-southeast-1"),
+    "aws_ap_southeast_2": ("aws", "ap-southeast-2"),
+    "gcp_us_central1": ("gcp", "us-central1"),
+    "gcp_us_east4": ("gcp", "us-east4"),
+    "gcp_europe_west2": ("gcp", "europe-west2"),
+    "gcp_europe_west4": ("gcp", "europe-west4"),
+    "azure_westus2": ("azure", "westus2"),
+    "azure_centralus": ("azure", "centralus"),
+    "azure_southcentralus": ("azure", "southcentralus"),
+    "azure_eastus2": ("azure", "eastus2"),
+    "azure_usgovvirginia": ("azure", "usgovvirginia"),
+    "azure_canadacentral": ("azure", "canadacentral"),
+    "azure_uksouth": ("azure", "uk-south"),
+    "azure_northeurope": ("azure", "northeurope"),
+    "azure_westeurope": ("azure", "westeurope"),
+    "azure_switzerlandnorth": ("azure", "switzerlandnorth"),
+    "azure_uaenorth": ("azure", "uaenorth"),
+    "azure_centralindia": ("azure", "central-india.azure"),
+    "azure_japaneast": ("azure", "japaneast"),
+    "azure_southeastasia": ("azure", "southeastasia"),
+    "azure_australiaeast": ("azure", "australiaeast"),
+}
 
 
 SNOWFLAKE_DEFAULT_CLOUD_REGION_ID = "us-west-2"
@@ -64,21 +106,35 @@ class SnowflakeCommonMixin:
     platform = "snowflake"
 
     @staticmethod
-    @lru_cache(maxsize=128)
-    def create_snowsight_base_url(account_id: str) -> Optional[str]:
-        cloud: Optional[str] = None
-        account_locator: Optional[str] = None
-        cloud_region_id: Optional[str] = None
-        privatelink: bool = False
+    def create_snowsight_base_url(
+        account_locator: str,
+        cloud_region_id: str,
+        cloud: str,
+        privatelink: bool = False,
+    ) -> Optional[str]:
+        if privatelink:
+            url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
+        elif cloud == SNOWFLAKE_DEFAULT_CLOUD:
+            url = f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
+        else:
+            url = f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
+        return url
 
+    def get_snowsight_base_url_from_legacy_account_id(
+        self: SnowflakeCommonProtocol, conn: SnowflakeConnection
+    ) -> Optional[str]:
+        account_id = self.config.get_account()
         if "." not in account_id:  # e.g. xy12345
             account_locator = account_id.lower()
             cloud_region_id = SNOWFLAKE_DEFAULT_CLOUD_REGION_ID
+            privatelink = False
         else:
             parts = account_id.split(".")
             if len(parts) == 2:  # e.g. xy12345.us-east-1
                 account_locator = parts[0].lower()
                 cloud_region_id = parts[1].lower()
+                cloud = SNOWFLAKE_DEFAULT_CLOUD.value
+                privatelink = False
             elif len(parts) == 3 and parts[2] in (
                 SnowflakeCloudProvider.AWS,
                 SnowflakeCloudProvider.GCP,
@@ -89,24 +145,19 @@ class SnowflakeCommonMixin:
                 account_locator = parts[0].lower()
                 cloud_region_id = parts[1].lower()
                 cloud = parts[2].lower()
+                privatelink = False
             elif len(parts) == 3 and parts[2] == "privatelink":
                 account_locator = parts[0].lower()
                 cloud_region_id = parts[1].lower()
                 privatelink = True
             else:
                 logger.warning(
-                    f"Could not create Snowsight base url for account {account_id}."
+                    f"Could not find account locator and cloud region id for account {account_id}."
                 )
                 return None
-
-        if not privatelink and (cloud is None or cloud == SNOWFLAKE_DEFAULT_CLOUD):
-            return f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
-        elif privatelink:
-            return f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
-        return f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
-
-    def get_snowsight_base_url(self: SnowflakeCommonProtocol) -> Optional[str]:
-        return SnowflakeCommonMixin.create_snowsight_base_url(self.config.get_account())
+        return SnowflakeCommonMixin.create_snowsight_base_url(
+            account_locator, cloud_region_id, cloud, privatelink
+        )
 
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,

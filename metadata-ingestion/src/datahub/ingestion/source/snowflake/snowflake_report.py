@@ -1,9 +1,14 @@
+from typing import Optional
+
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
 
 
 class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport):
+
+    account_locator: Optional[str] = None
+    region: Optional[str] = None
 
     schemas_scanned: int = 0
     databases_scanned: int = 0
