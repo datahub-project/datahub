@@ -90,7 +90,7 @@ public class RestHighLevelClientFactory {
   }
 
   @Bean
-  private RestClientBuilder loadRestClient() {
+  public RestClientBuilder loadRestClient() {
     final RestClientBuilder builder = createBuilder(useSSL ? "https" : "http");
 
     builder.setHttpClientConfigCallback(httpAsyncClientBuilder -> {
