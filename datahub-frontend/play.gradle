@@ -26,6 +26,9 @@ dependencies {
     play('com.typesafe.akka:akka-actor_2.12:2.6.20')
     play('net.minidev:json-smart:2.4.8')
     play('io.netty:netty-all:4.1.85.Final')
+    implementation(externalDependency.commonsText) {
+      because("previous versions are vulnerable to CVE-2022-42889")
+    }
   }
 
   compile project(":metadata-service:restli-client")

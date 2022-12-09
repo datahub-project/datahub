@@ -14,6 +14,13 @@ dependencies {
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
     exclude group: "org.apache.htrace", module: "htrace-core4"
   }
+
+  constraints {
+    implementation(externalDependency.hadoopCommon3) {
+      because("previous versions are vulnerable to CVE-2021-37404")
+    }
+  }
+
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   compile externalDependency.picocli
