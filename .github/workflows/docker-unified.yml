@@ -120,6 +120,7 @@ jobs:
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
+          mv ./metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:

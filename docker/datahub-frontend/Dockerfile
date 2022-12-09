@@ -1,4 +1,4 @@
-docker/datahub-frontend/Dockerfile # Defining environment
+# Defining environment
 ARG APP_ENV=prod
 
 FROM --platform=$BUILDPLATFORM alpine:3 AS base
