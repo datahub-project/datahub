@@ -19,7 +19,7 @@ RUN apk --no-cache --update-cache --available upgrade \
 # TODO: Does this do anything?
 #ENV CI=true
 
-COPY ./datahub-frontend/build/distributions/datahub-frontend.zip datahub-frontend.zip
+COPY ./datahub-frontend.zip datahub-frontend.zip
 RUN unzip datahub-frontend.zip
 
 FROM base as prod-install

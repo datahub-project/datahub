@@ -28,7 +28,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add openjdk8 openjdk11 perl
 
 FROM base as prod-install
-COPY ./metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
+COPY ./mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
 COPY ./docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh

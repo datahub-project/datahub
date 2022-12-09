@@ -29,7 +29,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add openjdk8 openjdk11 perl
 
 FROM base as prod-install
-COPY ./datahub-upgrade/build/libs/datahub-upgrade.jar /datahub/datahub-upgrade/bin/
+COPY ./datahub-upgrade.jar /datahub/datahub-upgrade/bin/
 COPY ./metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 
 FROM base as dev-install

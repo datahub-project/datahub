@@ -167,6 +167,7 @@ jobs:
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
+          mv ./metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -213,6 +214,7 @@ jobs:
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-upgrade:build -x test --parallel
+          mv ./datahub-upgrade/build/libs/datahub-upgrade.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -261,6 +263,7 @@ jobs:
           export USE_SYSTEM_NODE="true"
           ./gradlew :datahub-web-react:build -x test -x yarnTest -x yarnLint --parallel \
               && ./gradlew :datahub-frontend:dist -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint --parallel
+          mv ./datahub-frontend/build/distributions/datahub-frontend.zip .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
