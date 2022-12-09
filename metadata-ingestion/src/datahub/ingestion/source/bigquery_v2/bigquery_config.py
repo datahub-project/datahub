@@ -66,6 +66,12 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         default=None,
         description="[deprecated] Use project_id_pattern instead. You can use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account",
     )
+
+    project_on_behalf: Optional[str] = Field(
+        default=None,
+        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account..",
+    )
+
     storage_project_id: None = Field(default=None, hidden_from_schema=True)
 
     lineage_use_sql_parser: bool = Field(
@@ -126,3 +132,12 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
 
     def get_table_pattern(self, pattern: List[str]) -> str:
         return "|".join(pattern) if self.table_pattern else ""
+
+    # TODO: remove run_on_compute when the legacy bigquery source will be deprecated
+    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+        if self.project_on_behalf:
+            return f"bigquery://{self.project_on_behalf}"
+        # When project_id is not set, we will attempt to detect the project ID
+        # based on the credentials or environment variables.
+        # See https://github.com/mxmzdlv/pybigquery#authentication.
+        return "bigquery://"

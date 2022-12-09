@@ -33,9 +33,9 @@ class BaseTable(Generic[SqlTableColumn]):
     name: str
     comment: Optional[str]
     created: datetime
-    last_altered: datetime
-    size_in_bytes: int
-    rows_count: int
+    last_altered: Optional[datetime]
+    size_in_bytes: Optional[int]
+    rows_count: Optional[int]
     columns: List[SqlTableColumn] = field(default_factory=list)
     ddl: Optional[str] = None
 
@@ -44,8 +44,8 @@ class BaseTable(Generic[SqlTableColumn]):
 class BaseView(Generic[SqlTableColumn]):
     name: str
     comment: Optional[str]
-    created: datetime
-    last_altered: datetime
+    created: Optional[datetime]
+    last_altered: Optional[datetime]
     view_definition: str
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None

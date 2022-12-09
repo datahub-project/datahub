@@ -14,6 +14,8 @@ import { SearchBar } from '../search/SearchBar';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { scrollToTop } from '../shared/searchUtils';
 import { addToListDomainsCache, removeFromListDomainsCache } from './utils';
+import { OnboardingTour } from '../onboarding/OnboardingTour';
+import { DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID } from '../onboarding/config/DomainsOnboardingConfig';
 
 const DomainsContainer = styled.div``;
 
@@ -87,9 +89,10 @@ export const DomainsList = () => {
         <>
             {!data && loading && <Message type="loading" content="Loading domains..." />}
             {error && <Message type="error" content="Failed to load domains! An unexpected error occurred." />}
+            <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
                 <TabToolbar>
-                    <Button type="text" onClick={() => setIsCreatingDomain(true)}>
+                    <Button id={DOMAINS_CREATE_DOMAIN_ID} type="text" onClick={() => setIsCreatingDomain(true)}>
                         <PlusOutlined /> New Domain
                     </Button>
                     <SearchBar
