@@ -6,7 +6,7 @@
   "projectId": "hkrxk5",
   "defaultCommandTimeout": 10000,
   "retries": {
-    "runMode": 2,
+    "runMode": 4,
     "openMode": 0
   }
 }
