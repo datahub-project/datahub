@@ -9,7 +9,7 @@ title: Overview
 * You will have learnt how to set up the Snowflake connector using the DataHub UI.
 * At the end of this guide, you will have extracted Databases, Schemas, Tables, External Tables, Views, Materialized Views from Snowflake into your DataHub instance, and set up a recurring link between Snowflake and DataHub.
 * For the extracted Tables and Views, you will have:
-  * Table and column level profile statistics
+  * Table level profile
   * Table and column level lineage (available if using Snowflake Enterprise edition or above)
   * Usage statistics (available if using Snowflake Enterprise edition or above)
 
