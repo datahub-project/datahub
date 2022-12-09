@@ -223,6 +223,10 @@ const platformLogos = [
     imageUrl: "/img/logos/platforms/glue.svg",
   },
   {
+    name: "Great Expectations",
+    imageUrl: "/img/logos/platforms/great-expectations.png",
+  },
+  {
     name: "Hadoop",
     imageUrl: "/img/logos/platforms/hadoop.svg",
   },
