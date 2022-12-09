@@ -4,12 +4,12 @@ dependencies {
     compile project(path: ':metadata-models')
     compile project(path: ':metadata-io')
     compile project(path: ':metadata-service:restli-client')
-    compile externalDependency.lombok
+    implementation externalDependency.slf4jApi
+    compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 
     testCompile externalDependency.mockito
     testCompile externalDependency.testng
-    testAnnotationProcessor externalDependency.lombok
 
     constraints {
         implementation(externalDependency.log4jCore) {

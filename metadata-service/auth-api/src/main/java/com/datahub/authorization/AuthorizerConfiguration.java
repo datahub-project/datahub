@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import java.util.Map;
 import lombok.Data;
 
@@ -21,5 +22,4 @@ public class AuthorizerConfiguration {
    * A set of authorizer-specific configurations passed through during "init" of the authorizer.
    */
   private Map<String, Object> configs;
-
 }

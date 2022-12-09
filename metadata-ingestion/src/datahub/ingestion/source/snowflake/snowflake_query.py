@@ -31,6 +31,17 @@ class SnowflakeQuery:
         return f'use database "{db_name}"'
 
     @staticmethod
+    def get_databases(db_name: Optional[str]) -> str:
+        db_clause = f'"{db_name}".' if db_name is not None else ""
+        return f"""
+        SELECT database_name AS "DATABASE_NAME",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED",
+        comment AS "COMMENT"
+        from {db_clause}information_schema.databases
+        order by database_name"""
+
+    @staticmethod
     def schemas_for_database(db_name: Optional[str]) -> str:
         db_clause = f'"{db_name}".' if db_name is not None else ""
         return f"""

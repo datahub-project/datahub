@@ -4,7 +4,7 @@ import com.datahub.authentication.Authentication;
 
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
-import com.datahub.authentication.Authenticator;
+import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.authentication.AuthenticationRequest;
 import com.linkedin.util.Pair;
 import javax.annotation.Nonnull;
@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
+
 
 /**
  * A configurable chain of {@link Authenticator}s executed in series to attempt to authenticate an inbound request.
@@ -44,11 +45,18 @@ public class AuthenticatorChain {
   @Nullable
   public Authentication authenticate(@Nonnull final AuthenticationRequest context) throws AuthenticationException {
     Objects.requireNonNull(context);
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     List<Pair<String, String>> authenticationFailures = new ArrayList<>();
     for (final Authenticator authenticator : this.authenticators) {
       try {
         log.debug(String.format("Executing Authenticator with class name %s", authenticator.getClass().getCanonicalName()));
+        // The library came with plugin can use the contextClassLoader to load the classes. For example apache-ranger library does this.
+        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class loading request from plugin's home directory,
+        // otherwise plugin's internal library wouldn't be able to find their dependent classes
+        Thread.currentThread().setContextClassLoader(authenticator.getClass().getClassLoader());
         Authentication result = authenticator.authenticate(context);
+        // reset
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
         if (result != null) {
           // Authentication was successful - Short circuit
           return result;
@@ -63,6 +71,8 @@ public class AuthenticatorChain {
         log.debug(String.format(
             "Caught exception while attempting to authenticate request using Authenticator %s",
             authenticator.getClass().getCanonicalName()), e);
+      } finally {
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
       }
     }
     // No authentication resolved. Return null.
