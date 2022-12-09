@@ -4,6 +4,7 @@ dependencies {
 
   compile project(':metadata-auth:auth-api')
   compile project(':metadata-service:factories')
+  compile project(':metadata-service:schema-registry-api')
 
   compile externalDependency.reflections
   compile externalDependency.springBoot

@@ -7,7 +7,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 tasks.withType(Test).configureEach {
     javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
+        languageVersion = JavaLanguageVersion.of(11)
     }
 }
 
@@ -22,6 +22,7 @@ dependencies {
     }
     compile externalDependency.kafkaClients
 
+    // End of dependencies
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
 
