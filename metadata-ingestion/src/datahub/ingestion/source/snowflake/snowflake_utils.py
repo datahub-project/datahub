@@ -24,7 +24,7 @@ class SnowflakeCloudProvider(str, Enum):
 
 
 # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#region-ids
-# This needs an update if and wuhen snowflake supports new region
+# This needs an update if and when snowflake supports new region
 SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
     "aws_us_west_2": (SnowflakeCloudProvider.AWS, "us-west-2"),
     "aws_us_gov_west_1": (SnowflakeCloudProvider.AWS, "us-gov-west-1"),

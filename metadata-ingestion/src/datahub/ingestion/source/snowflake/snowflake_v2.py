@@ -1176,6 +1176,7 @@ class SnowflakeV2Source(
 
     def get_snowsight_base_url(self, conn):
         try:
+            # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
             for db_row in self.query(conn, SnowflakeQuery.current_account()):
                 account_locator = db_row["CURRENT_ACCOUNT()"]
 
