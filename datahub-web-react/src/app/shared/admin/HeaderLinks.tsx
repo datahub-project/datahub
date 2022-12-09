@@ -1,4 +1,4 @@
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import * as React from 'react';
 import {
     ApiOutlined,
@@ -14,6 +14,8 @@ import { Button, Dropdown, Menu, Tooltip } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
+import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -73,6 +75,8 @@ export function HeaderLinks(props: Props) {
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
     const showDomains = me?.platformPrivileges.createDomains || me?.platformPrivileges.manageDomains;
 
+    useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
+
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
             {showAnalytics && (
@@ -92,7 +96,7 @@ export function HeaderLinks(props: Props) {
             {showIngestion && (
                 <LinkWrapper>
                     <Link to="/ingestion">
-                        <Button type="text">
+                        <Button id={HOME_PAGE_INGESTION_ID} type="text">
                             <Tooltip title="Connect DataHub to your organization's data sources">
                                 <NavTitleContainer>
                                     <ApiOutlined />

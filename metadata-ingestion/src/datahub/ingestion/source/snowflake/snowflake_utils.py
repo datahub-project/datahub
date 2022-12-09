@@ -7,6 +7,7 @@ from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 from typing_extensions import Protocol
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -30,23 +31,12 @@ SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 # Required only for mypy, since we are using mixin classes, and not inheritance.
 # Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
 class SnowflakeLoggingProtocol(Protocol):
-    @property
-    def logger(self) -> logging.Logger:
-        ...
+    logger: logging.Logger
 
 
-class SnowflakeCommonProtocol(Protocol):
-    @property
-    def logger(self) -> logging.Logger:
-        ...
-
-    @property
-    def config(self) -> SnowflakeV2Config:
-        ...
-
-    @property
-    def report(self) -> SnowflakeV2Report:
-        ...
+class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
+    config: SnowflakeV2Config
+    report: SnowflakeV2Report
 
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
@@ -136,7 +126,12 @@ class SnowflakeCommonMixin:
 
         if not self.config.database_pattern.allowed(
             dataset_params[0].strip('"')
-        ) or not self.config.schema_pattern.allowed(dataset_params[1].strip('"')):
+        ) or not is_schema_allowed(
+            self.config.schema_pattern,
+            dataset_params[1].strip('"'),
+            dataset_params[0].strip('"'),
+            self.config.match_fully_qualified_names,
+        ):
             return False
 
         if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(

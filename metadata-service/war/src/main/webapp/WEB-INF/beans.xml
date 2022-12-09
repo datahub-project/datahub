@@ -10,7 +10,7 @@
        http://www.springframework.org/schema/task/spring-task-3.0.xsd"
 >
 
-    <context:component-scan base-package="com.linkedin.gms.factory,com.linkedin.metadata,com.linkedin.metadata.boot,com.datahub.authentication,com.datahub.event" />
+    <context:component-scan base-package="com.linkedin.gms.factory,com.linkedin.metadata,com.linkedin.metadata.boot,com.datahub.auth.authentication,com.datahub.event" />
 
     <!-- An InjectResourceFactory must be created.  It is ApplicationContextAware so
     must be instantiated via spring and then passed into rest.li -->

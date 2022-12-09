@@ -288,7 +288,7 @@ module.exports = {
       {
         "Advanced Guides": [
           "docs/how/delete-metadata",
-          "datahub-ranger-plugin/README",
+          "docs/how/configuring-authorization-with-apache-ranger",
           "docs/how/backup-datahub",
           "docs/how/restore-indices",
           "docs/advanced/db-retention",
@@ -413,6 +413,7 @@ module.exports = {
         "Developing on DataHub": [
           "docs/developers",
           "docs/docker/development",
+          "metadata-ingestion/developing",
           {
             Modules: [
               "datahub-web-react/README",
@@ -426,6 +427,7 @@ module.exports = {
         ],
       },
       "docs/debugging",
+      "docs/plugins",
 
       {
         Advanced: [
@@ -438,7 +440,6 @@ module.exports = {
           "docs/advanced/es-7-upgrade",
           "docs/how/migrating-graph-service-implementation",
           "docs/advanced/field-path-spec-v2",
-          "metadata-ingestion/developing",
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
@@ -478,14 +479,12 @@ module.exports = {
       "docs/CONTRIBUTING",
       "docs/links",
       "docs/rfc",
-      {
-        RFCs: list_ids_in_directory("docs/rfc/active"),
-      },
     ],
 
     "Release History": ["releases"],
     "Managed DataHub Release History": [
       "docs/managed-datahub/release-notes/v_0_1_69",
+      "docs/managed-datahub/release-notes/v_0_1_70",
     ],
 
     // "Candidates for Deprecation": [
