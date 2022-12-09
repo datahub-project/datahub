@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Divider, Form, Select } from 'antd';
+import { AutoComplete, Divider, Form } from 'antd';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
@@ -52,6 +52,7 @@ interface SecretFieldProps {
     secrets: Secret[];
     removeMargin?: boolean;
     refetchSecrets: () => void;
+    updateFormValue: (field, value) => void;
 }
 
 function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {
@@ -79,9 +80,16 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
     );
 }
 
-function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFieldProps) {
+const encodeSecret = (secretName: string) => {
+    return `\${${secretName}}`;
+};
+
+function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSecrets }: SecretFieldProps) {
+    const options = secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name }));
+
     return (
         <StyledFormItem
+            required={field.required}
             name={field.name}
             label={field.label}
             rules={field.rules || undefined}
@@ -89,24 +97,24 @@ function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFie
             removeMargin={!!removeMargin}
             isSecretField
         >
-            <Select
-                showSearch
+            <AutoComplete
                 placeholder={field.placeholder}
-                filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
-                dropdownRender={(menu) => (
-                    <>
-                        {menu}
-                        <StyledDivider />
-                        <CreateSecretButton refetchSecrets={refetchSecrets} />
-                    </>
-                )}
-            >
-                {secrets.map((secret) => (
-                    <Select.Option key={secret.urn} value={`\${${secret.name}}`}>
-                        {secret.name}
-                    </Select.Option>
-                ))}
-            </Select>
+                filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+                notFoundContent={<>No secrets found</>}
+                options={options}
+                dropdownRender={(menu) => {
+                    return (
+                        <>
+                            {menu}
+                            <StyledDivider />
+                            <CreateSecretButton
+                                onSubmit={(state) => updateFormValue(field.name, encodeSecret(state.name as string))}
+                                refetchSecrets={refetchSecrets}
+                            />
+                        </>
+                    );
+                }}
+            />
         </StyledFormItem>
     );
 }

@@ -8,7 +8,7 @@ from freezegun import freeze_time
 from tableauserverclient.models import ViewItem
 
 from datahub.configuration.source_common import DEFAULT_ENV
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.tableau_state import TableauCheckpointState
 from datahub.ingestion.source.tableau import TableauSource
@@ -27,6 +27,33 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 test_resources_dir = None
+
+config_source_default = {
+    "username": "username",
+    "password": "pass`",
+    "connect_uri": "https://do-not-connect",
+    "site": "acryl",
+    "projects": ["default", "Project 2"],
+    "page_size": 10,
+    "ingest_tags": True,
+    "ingest_owner": True,
+    "ingest_tables_external": True,
+    "default_schema_map": {
+        "dvdrental": "public",
+        "someotherdb": "schema",
+    },
+    "platform_instance_map": {"postgres": "demo_postgres_instance"},
+    "extract_usage_stats": True,
+    "stateful_ingestion": {
+        "enabled": True,
+        "remove_stale_metadata": True,
+        "fail_safe_threshold": 100.0,
+        "state_provider": {
+            "type": "datahub",
+            "config": {"datahub_api": {"server": GMS_SERVER}},
+        },
+    },
+}
 
 
 def read_response(pytestconfig, file_name):
@@ -64,6 +91,7 @@ def tableau_ingest_common(
     golden_file_name,
     output_file_name,
     mock_datahub_graph,
+    pipeline_config=config_source_default,
 ):
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/tableau"
@@ -93,34 +121,7 @@ def tableau_ingest_common(
                     "pipeline_name": "tableau-test-pipeline",
                     "source": {
                         "type": "tableau",
-                        "config": {
-                            "username": "username",
-                            "password": "pass`",
-                            "connect_uri": "https://do-not-connect",
-                            "site": "acryl",
-                            "projects": ["default", "Project 2"],
-                            "page_size": 10,
-                            "ingest_tags": True,
-                            "ingest_owner": True,
-                            "ingest_tables_external": True,
-                            "default_schema_map": {
-                                "dvdrental": "public",
-                                "someotherdb": "schema",
-                            },
-                            "platform_instance_map": {
-                                "postgres": "demo_postgres_instance"
-                            },
-                            "extract_usage_stats": True,
-                            "stateful_ingestion": {
-                                "enabled": True,
-                                "remove_stale_metadata": True,
-                                "fail_safe_threshold": 100.0,
-                                "state_provider": {
-                                    "type": "datahub",
-                                    "config": {"datahub_api": {"server": GMS_SERVER}},
-                                },
-                            },
-                        },
+                        "config": pipeline_config,
                     },
                     "sink": {
                         "type": "file",
@@ -168,6 +169,58 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.slow_unit
+def test_tableau_ingest_with_platform_instance(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
+    output_file_name: str = "tableau_with_platform_instance_mces.json"
+    golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
+
+    config_source = {
+        "username": "username",
+        "password": "pass`",
+        "connect_uri": "https://do-not-connect",
+        "site": "acryl",
+        "platform_instance": "acryl_site1",
+        "projects": ["default", "Project 2"],
+        "page_size": 10,
+        "ingest_tags": True,
+        "ingest_owner": True,
+        "ingest_tables_external": True,
+        "default_schema_map": {
+            "dvdrental": "public",
+            "someotherdb": "schema",
+        },
+        "platform_instance_map": {"postgres": "demo_postgres_instance"},
+        "extract_usage_stats": True,
+        "stateful_ingestion": {
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
+            "state_provider": {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": GMS_SERVER}},
+            },
+        },
+    }
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        config_source,
     )
 
 
@@ -333,3 +386,25 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
     ]
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
+
+
+def test_tableau_no_verify():
+    # This test ensures that we can connect to a self-signed certificate
+    # when ssl_verify is set to False.
+
+    source = TableauSource.create(
+        {
+            "connect_uri": "https://self-signed.badssl.com/",
+            "ssl_verify": False,
+            "site": "bogus",
+            # Credentials
+            "username": "bogus",
+            "password": "bogus",
+        },
+        PipelineContext(run_id="0"),
+    )
+    list(source.get_workunits())
+
+    report = source.get_report().as_string()
+    assert "SSL" not in report
+    assert "Unable to login" in report

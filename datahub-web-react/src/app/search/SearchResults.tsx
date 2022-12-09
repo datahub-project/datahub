@@ -24,6 +24,8 @@ import { EntityAndType } from '../entity/shared/types';
 import { ErrorSection } from '../shared/error/ErrorSection';
 import { UnionType } from './utils/constants';
 import { SearchFiltersSection } from './SearchFiltersSection';
+import { generateOrFilters } from './utils/generateOrFilters';
+import { SEARCH_RESULTS_FILTERS_ID } from '../onboarding/config/SearchOnboardingConfig';
 
 const SearchBody = styled.div`
     display: flex;
@@ -139,14 +141,16 @@ export const SearchResults = ({
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <div>
                 <SearchBody>
-                    <SearchFiltersSection
-                        filters={filters}
-                        selectedFilters={selectedFilters}
-                        unionType={unionType}
-                        loading={loading}
-                        onChangeFilters={onChangeFilters}
-                        onChangeUnionType={onChangeUnionType}
-                    />
+                    <div id={SEARCH_RESULTS_FILTERS_ID}>
+                        <SearchFiltersSection
+                            filters={filters}
+                            selectedFilters={selectedFilters}
+                            unionType={unionType}
+                            loading={loading}
+                            onChangeFilters={onChangeFilters}
+                            onChangeUnionType={onChangeUnionType}
+                        />
+                    </div>
                     <ResultContainer>
                         <PaginationInfoContainer>
                             <>
@@ -161,7 +165,7 @@ export const SearchResults = ({
                                     <SearchExtendedMenu
                                         callSearchOnVariables={callSearchOnVariables}
                                         entityFilters={entityFilters}
-                                        filters={filtersWithoutEntities}
+                                        filters={generateOrFilters(unionType, filtersWithoutEntities)}
                                         query={query}
                                         setShowSelectMode={setIsSelectMode}
                                     />
@@ -193,7 +197,7 @@ export const SearchResults = ({
                                         selectedEntities={selectedEntities}
                                         setSelectedEntities={setSelectedEntities}
                                     />
-                                    <PaginationControlContainer>
+                                    <PaginationControlContainer id="search-pagination">
                                         <Pagination
                                             current={page}
                                             pageSize={numResultsPerPage}

@@ -7,6 +7,7 @@ import { SimpleSearchFilter } from './SimpleSearchFilter';
 const TOP_FILTERS = ['degree', 'entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
 export const SearchFilterWrapper = styled.div`
+    padding-top: 10px;
     max-height: 100%;
     overflow: auto;
 
@@ -51,10 +52,10 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
             : selectedFilters
                   .map((filter) =>
                       filter.field === field
-                          ? { ...filter, values: filter.values.filter((val) => val !== value) }
+                          ? { ...filter, values: filter.values?.filter((val) => val !== value) }
                           : filter,
                   )
-                  .filter((filter) => filter.field !== field || !(filter.values.length === 0));
+                  .filter((filter) => filter.field !== field || !(filter.values?.length === 0));
         setCachedProps({ ...cachedProps, selectedFilters: newFilters });
         onFilterSelect(newFilters);
     };

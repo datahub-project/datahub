@@ -20,11 +20,19 @@ public class RelationshipAnnotation {
   private static final String ENTITY_TYPES_FIELD = "entityTypes";
   private static final String IS_UPSTREAM_FIELD = "isUpstream";
   private static final String IS_LINEAGE_FIELD = "isLineage";
+  private static final String CREATED_ON = "createdOn";
+  private static final String CREATED_ACTOR = "createdActor";
+  private static final String UPDATED_ON = "updatedOn";
+  private static final String UPDATED_ACTOR = "updatedActor";
 
   String name;
   List<String> validDestinationTypes;
   boolean isUpstream;
   boolean isLineage;
+  String createdOn;
+  String createdActor;
+  String updatedOn;
+  String updatedActor;
 
   @Nonnull
   public static RelationshipAnnotation fromPegasusAnnotationObject(
@@ -70,7 +78,19 @@ public class RelationshipAnnotation {
 
     final Optional<Boolean> isUpstream = AnnotationUtils.getField(map, IS_UPSTREAM_FIELD, Boolean.class);
     final Optional<Boolean> isLineage = AnnotationUtils.getField(map, IS_LINEAGE_FIELD, Boolean.class);
+    final Optional<String> createdOn = AnnotationUtils.getField(map, CREATED_ON, String.class);
+    final Optional<String> createdActor = AnnotationUtils.getField(map, CREATED_ACTOR, String.class);
+    final Optional<String> updatedOn = AnnotationUtils.getField(map, UPDATED_ON, String.class);
+    final Optional<String> updatedActor = AnnotationUtils.getField(map, UPDATED_ACTOR, String.class);
 
-    return new RelationshipAnnotation(name.get(), entityTypes, isUpstream.orElse(true), isLineage.orElse(false));
-  }
+    return new RelationshipAnnotation(
+        name.get(),
+        entityTypes,
+        isUpstream.orElse(true),
+        isLineage.orElse(false),
+        createdOn.orElse(null),
+        createdActor.orElse(null),
+        updatedOn.orElse(null),
+        updatedActor.orElse(null)
+    );  }
 }

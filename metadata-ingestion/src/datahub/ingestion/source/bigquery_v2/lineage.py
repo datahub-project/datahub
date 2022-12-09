@@ -431,15 +431,11 @@ timestamp < "{end_time}"
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
                 try:
-                    parser = BigQuerySQLParser(e.query)
+                    parser = BigQuerySQLParser(
+                        e.query, self.config.sql_parser_use_external_process
+                    )
                     referenced_objs = set(
                         map(lambda x: x.split(".")[-1], parser.get_tables())
-                    )
-                    self.report.num_lineage_entries_sql_parser_failure[e.project_id] = (
-                        self.report.num_lineage_entries_sql_parser_failure.get(
-                            e.project_id, 0
-                        )
-                        + 1
                     )
                 except Exception as ex:
                     logger.debug(
@@ -472,13 +468,15 @@ timestamp < "{end_time}"
         self, project: str, dataset: str, view: BigqueryView
     ) -> List[BigqueryTableIdentifier]:
         parsed_tables = set()
-        if view.ddl:
+        if view.view_definition:
             try:
-                parser = BigQuerySQLParser(view.ddl)
+                parser = BigQuerySQLParser(
+                    view.view_definition, self.config.sql_parser_use_external_process
+                )
                 tables = parser.get_tables()
             except Exception as ex:
                 logger.debug(
-                    f"View {view.name} definination sql parsing failed on query: {view.ddl}. Edge from physical table to view won't be added. The error was {ex}."
+                    f"View {view.name} definination sql parsing failed on query: {view.view_definition}. Edge from physical table to view won't be added. The error was {ex}."
                 )
                 return []
 
@@ -637,7 +635,6 @@ timestamp < "{end_time}"
         return None
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             bigquery_client: BigQueryClient = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(

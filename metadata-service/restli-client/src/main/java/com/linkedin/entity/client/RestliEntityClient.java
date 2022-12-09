@@ -157,7 +157,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Batch get a set of aspects for a single entity.
+   * Batch get a set of aspects for multiple entities.
    *
    * @param entityName the entity type to fetch
    * @param urns the urns of the entities to batch get
@@ -628,7 +628,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
       @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException {
     final AspectsDoIngestProposalRequestBuilder requestBuilder =
-        ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal);
+        ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal).asyncParam(String.valueOf(async));
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 

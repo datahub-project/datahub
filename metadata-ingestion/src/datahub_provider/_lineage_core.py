@@ -1,3 +1,5 @@
+from datahub_provider._airflow_compat import Operator
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
@@ -10,7 +12,6 @@ from datahub_provider.entities import _Entity
 
 if TYPE_CHECKING:
     from airflow import DAG
-    from airflow.models.baseoperator import BaseOperator
     from airflow.models.dagrun import DagRun
     from airflow.models.taskinstance import TaskInstance
 
@@ -47,7 +48,7 @@ class DatahubBasicLineageConfig(ConfigModel):
 
 def send_lineage_to_datahub(
     config: DatahubBasicLineageConfig,
-    operator: "BaseOperator",
+    operator: "Operator",
     inlets: List[_Entity],
     outlets: List[_Entity],
     context: Dict,
@@ -56,7 +57,7 @@ def send_lineage_to_datahub(
         return
 
     dag: "DAG" = context["dag"]
-    task: "BaseOperator" = context["task"]
+    task: "Operator" = context["task"]
     ti: "TaskInstance" = context["task_instance"]
 
     hook = config.make_emitter_hook()

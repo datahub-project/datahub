@@ -3,7 +3,6 @@ import logging
 from typing import Any, List, Optional
 
 import click
-from click.exceptions import UsageError
 
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.telemetry import telemetry
@@ -32,7 +31,7 @@ def get(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
 
     if urn is None:
         if not ctx.args:
-            raise UsageError("Nothing for me to get. Maybe provide an urn?")
+            raise click.UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
     click.echo(

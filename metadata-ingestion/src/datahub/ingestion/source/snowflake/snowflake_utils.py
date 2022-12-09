@@ -1,10 +1,13 @@
 import logging
+from enum import Enum
+from functools import lru_cache
 from typing import Any, Optional
 
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 from typing_extensions import Protocol
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -12,29 +15,35 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import _Aspect
 
+logger: logging.Logger = logging.getLogger(__name__)
 
+
+class SnowflakeCloudProvider(str, Enum):
+    AWS = "aws"
+    GCP = "gcp"
+    AZURE = "azure"
+
+
+SNOWFLAKE_DEFAULT_CLOUD_REGION_ID = "us-west-2"
+SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
+
+
+# Required only for mypy, since we are using mixin classes, and not inheritance.
+# Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
 class SnowflakeLoggingProtocol(Protocol):
-    @property
-    def logger(self) -> logging.Logger:
-        ...
+    logger: logging.Logger
 
 
-class SnowflakeCommonProtocol(Protocol):
-    @property
-    def logger(self) -> logging.Logger:
-        ...
-
-    @property
-    def config(self) -> SnowflakeV2Config:
-        ...
-
-    @property
-    def report(self) -> SnowflakeV2Report:
-        ...
+class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
+    config: SnowflakeV2Config
+    report: SnowflakeV2Report
 
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
     ) -> str:
+        ...
+
+    def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         ...
 
     def snowflake_identifier(self, identifier: str) -> str:
@@ -54,6 +63,51 @@ class SnowflakeCommonMixin:
 
     platform = "snowflake"
 
+    @staticmethod
+    @lru_cache(maxsize=128)
+    def create_snowsight_base_url(account_id: str) -> Optional[str]:
+        cloud: Optional[str] = None
+        account_locator: Optional[str] = None
+        cloud_region_id: Optional[str] = None
+        privatelink: bool = False
+
+        if "." not in account_id:  # e.g. xy12345
+            account_locator = account_id.lower()
+            cloud_region_id = SNOWFLAKE_DEFAULT_CLOUD_REGION_ID
+        else:
+            parts = account_id.split(".")
+            if len(parts) == 2:  # e.g. xy12345.us-east-1
+                account_locator = parts[0].lower()
+                cloud_region_id = parts[1].lower()
+            elif len(parts) == 3 and parts[2] in (
+                SnowflakeCloudProvider.AWS,
+                SnowflakeCloudProvider.GCP,
+                SnowflakeCloudProvider.AZURE,
+            ):
+                # e.g. xy12345.ap-south-1.aws or xy12345.us-central1.gcp or xy12345.west-us-2.azure
+                # NOT xy12345.us-west-2.privatelink or xy12345.eu-central-1.privatelink
+                account_locator = parts[0].lower()
+                cloud_region_id = parts[1].lower()
+                cloud = parts[2].lower()
+            elif len(parts) == 3 and parts[2] == "privatelink":
+                account_locator = parts[0].lower()
+                cloud_region_id = parts[1].lower()
+                privatelink = True
+            else:
+                logger.warning(
+                    f"Could not create Snowsight base url for account {account_id}."
+                )
+                return None
+
+        if not privatelink and (cloud is None or cloud == SNOWFLAKE_DEFAULT_CLOUD):
+            return f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
+        elif privatelink:
+            return f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
+        return f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
+
+    def get_snowsight_base_url(self: SnowflakeCommonProtocol) -> Optional[str]:
+        return SnowflakeCommonMixin.create_snowsight_base_url(self.config.get_account())
+
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,
         dataset_name: Optional[str],
@@ -72,18 +126,25 @@ class SnowflakeCommonMixin:
 
         if not self.config.database_pattern.allowed(
             dataset_params[0].strip('"')
-        ) or not self.config.schema_pattern.allowed(dataset_params[1].strip('"')):
+        ) or not is_schema_allowed(
+            self.config.schema_pattern,
+            dataset_params[1].strip('"'),
+            dataset_params[0].strip('"'),
+            self.config.match_fully_qualified_names,
+        ):
             return False
 
         if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(
-            dataset_params[2].strip('"')
+            self.get_dataset_identifier_from_qualified_name(dataset_name)
         ):
             return False
 
         if dataset_type.lower() in {
             "view",
             "materialized_view",
-        } and not self.config.view_pattern.allowed(dataset_params[2].strip('"')):
+        } and not self.config.view_pattern.allowed(
+            self.get_dataset_identifier_from_qualified_name(dataset_name)
+        ):
             return False
 
         return True

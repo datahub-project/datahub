@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
-import { getDataForEntityType, getEntityPath, useRoutedTab } from './utils';
+import { getDataForEntityType, getEntityPath, getOnboardingStepIdsForEntityType, useRoutedTab } from './utils';
 import {
     EntitySidebarSection,
     EntitySubHeaderSection,
@@ -33,6 +33,8 @@ import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
 import { EntityActionItem } from '../../entity/EntityActions';
 import { ErrorSection } from '../../../../shared/error/ErrorSection';
+import { EntityHead } from '../../../../shared/EntityHead';
+import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
 
 type Props<T, U> = {
     urn: string;
@@ -163,6 +165,7 @@ export const EntityProfile = <T, U>({
     const [sidebarWidth, setSidebarWidth] = useState(window.innerWidth * 0.25);
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
     const [shouldUpdateBrowser, setShouldUpdateBrowser] = useState(false);
+    const stepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
 
     function refreshBrowser() {
         setShouldUpdateBrowser(true);
@@ -297,6 +300,8 @@ export const EntityProfile = <T, U>({
             }}
         >
             <>
+                <OnboardingTour stepIds={stepIds} />
+                <EntityHead />
                 {customNavBar}
                 {showBrowseBar && !customNavBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (

@@ -3,7 +3,7 @@ import urllib
 from typing import Any, Optional
 
 import pytest
-import requests
+import requests_wrapper as requests
 import tenacity
 from datahub.ingestion.run.pipeline import Pipeline
 
@@ -27,7 +27,7 @@ bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-kafka_post_ingestion_wait_sec = 60
+kafka_post_ingestion_wait_sec = 30
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -92,7 +92,7 @@ def _ensure_user_relationship_present(frontend_session, urn, relationships):
     assert res_data["data"]
     assert res_data["data"]["corpUser"]
     assert res_data["data"]["corpUser"]["relationships"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == relationships
 
 
 @tenacity.retry(
@@ -115,6 +115,34 @@ def _ensure_dataset_present(
     assert res_data["results"][urn]
     assert res_data["results"][urn]["aspects"]["datasetProperties"]
     return res_data
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_group_not_present(
+    urn: str,
+    frontend_session
+) -> Any:
+    json = {
+        "query": """query corpGroup($urn: String!) {\n
+            corpGroup(urn: $urn) {\n
+                urn\n
+                properties {\n
+                    displayName\n
+                }\n
+            }\n
+        }""",
+        "variables": {"urn": urn},
+    }
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpGroup"]
+    assert res_data["data"]["corpGroup"]["properties"] is None
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -1042,35 +1070,18 @@ def test_remove_user(frontend_session):
     ]
 )
 def test_remove_group(frontend_session):
+    group_urn = "urn:li:corpGroup:bfoo"
 
     json = {
         "query": """mutation removeGroup($urn: String!) {\n
             removeGroup(urn: $urn) }""",
-        "variables": {"urn": "urn:li:corpGroup:bfoo"},
+        "variables": {"urn": group_urn},
     }
 
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    json = {
-        "query": """query corpGroup($urn: String!) {\n
-            corpGroup(urn: $urn) {\n
-                urn\n
-                properties {\n
-                    displayName\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpGroup:bfoo"},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["corpGroup"]
-    assert res_data["data"]["corpGroup"]["properties"] is None
+    _ensure_group_not_present(group_urn, frontend_session)
 
 
 @pytest.mark.dependency(

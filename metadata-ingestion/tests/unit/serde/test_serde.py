@@ -290,3 +290,22 @@ def test_missing_optional_in_union() -> None:
     original = models.DataHubPolicyInfoClass.from_obj(original_json)
 
     assert revised == original
+
+
+def test_reserved_keywords() -> None:
+    filter1 = models.FilterClass()
+    assert filter1.or_ is None
+
+    filter2 = models.FilterClass(
+        or_=[
+            models.ConjunctiveCriterionClass(
+                and_=[
+                    models.CriterionClass(field="foo", value="var", negated=True),
+                ]
+            )
+        ]
+    )
+    assert "or" in filter2.to_obj()
+
+    filter3 = models.FilterClass.from_obj(filter2.to_obj())
+    assert filter2 == filter3

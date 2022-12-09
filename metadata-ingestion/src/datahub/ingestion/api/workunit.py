@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, Union, overload
+from typing import Iterable, Optional, Union, overload
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import WorkUnit
@@ -42,9 +42,9 @@ class MetadataWorkUnit(WorkUnit):
     def __init__(
         self,
         id: str,
-        mce: MetadataChangeEvent = None,
-        mcp: MetadataChangeProposalWrapper = None,
-        mcp_raw: MetadataChangeProposal = None,
+        mce: Optional[MetadataChangeEvent] = None,
+        mcp: Optional[MetadataChangeProposalWrapper] = None,
+        mcp_raw: Optional[MetadataChangeProposal] = None,
         treat_errors_as_warnings: bool = False,
     ):
         super().__init__(id)
@@ -63,6 +63,13 @@ class MetadataWorkUnit(WorkUnit):
 
     def get_metadata(self) -> dict:
         return {"metadata": self.metadata}
+
+    def get_urn(self) -> str:
+        if isinstance(self.metadata, MetadataChangeEvent):
+            return self.metadata.proposedSnapshot.urn
+        else:
+            assert self.metadata.entityUrn
+            return self.metadata.entityUrn
 
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
         from datahub.emitter.mcp_builder import mcps_from_mce
