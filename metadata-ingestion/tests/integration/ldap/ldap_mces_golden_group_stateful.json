@@ -11,6 +11,11 @@
                         "members": [],
                         "groups": []
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
                 }
             ]
         }
@@ -31,6 +36,11 @@
                         "admins": [],
                         "members": [],
                         "groups": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 }
             ]
