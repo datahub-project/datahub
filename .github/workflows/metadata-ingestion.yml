@@ -35,6 +35,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+      - uses: actions/cache@v2
+        id: cache-venv
+        with:
+          path: ./metadata-ingestion/venv/
+          key: ${{ runner.os }}-venv-${{ hashFiles('./metadata-ingestion/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:build :metadata-ingestion:testQuick :metadata-ingestion:check
       - uses: actions/upload-artifact@v2

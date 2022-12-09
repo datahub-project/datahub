@@ -195,5 +195,4 @@ In some cases, you might want to configure and run a pipeline entirely from with
 
 ## Developing
 
-See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./docs/transformer/intro.md).
-
+See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./docs/transformer/intro.md)

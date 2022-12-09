@@ -406,6 +406,13 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - uses: actions/cache@v2
+        id: cache-venv
+        with:
+          path: ./smoke-test/venv/
+          key: smoke-venv-${{ runner.os }}-${{ hashFiles('./smoke/requirements.txt') }}
+          restore-keys: |
+            smoke-venv-${{ runner.os }}-
       - name: Smoke test
         env:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
