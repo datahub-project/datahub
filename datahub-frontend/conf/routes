@@ -7,37 +7,38 @@
 GET           /                                                               controllers.Application.index(path="index.html")
 
 GET           /admin                                                          controllers.Application.healthcheck()
+GET           /health                                                         controllers.Application.healthcheck()
 GET           /config                                                         controllers.Application.appConfig()
 
 # Routes used exclusively by the React application.
 
 # Authentication in React
 GET           /authenticate                                                   controllers.AuthenticationController.authenticate(request: Request)
-GET           /sso                                                            controllers.AuthenticationController.sso()
+GET           /sso                                                            controllers.AuthenticationController.sso(request: Request)
 POST          /logIn                                                          controllers.AuthenticationController.logIn(request: Request)
 POST          /signUp                                                         controllers.AuthenticationController.signUp(request: Request)
 POST          /resetNativeUserCredentials                                     controllers.AuthenticationController.resetNativeUserCredentials(request: Request)
-GET           /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String)
-POST          /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String)
-GET           /logOut                                                         controllers.CentralLogoutController.executeLogout()
+GET           /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String, request: Request)
+POST          /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String, request: Request)
+GET           /logOut                                                         controllers.CentralLogoutController.executeLogout(request: Request)
 
 # Proxies API requests to the metadata service api
-GET           /api/*path                                                     controllers.Application.proxy(path)
-POST          /api/*path                                                     controllers.Application.proxy(path)
-DELETE        /api/*path                                                     controllers.Application.proxy(path)
-PUT           /api/*path                                                     controllers.Application.proxy(path)
+GET           /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
+POST          /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
+DELETE        /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
+PUT           /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
 
 # Proxies API requests to the metadata service api
-GET           /openapi/*path                                                 controllers.Application.proxy(path)
-POST          /openapi/*path                                                 controllers.Application.proxy(path)
-DELETE        /openapi/*path                                                 controllers.Application.proxy(path)
-PUT           /openapi/*path                                                 controllers.Application.proxy(path)
+GET           /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+POST          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+DELETE        /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+PUT           /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 
 # Map static resources from the /public folder to the /assets URL path
-GET           /assets/*file                                                  controllers.Assets.at(path="/public", file)
+GET           /assets/*file                                                    controllers.Assets.at(path="/public", file)
 
 # Analytics route
-POST          /track                                                         controllers.TrackingController.track(request: Request)
+POST          /track                                                           controllers.TrackingController.track(request: Request)
 
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle
-GET           /*path                                                         controllers.Application.index(path)
+GET           /*path                                                           controllers.Application.index(path)

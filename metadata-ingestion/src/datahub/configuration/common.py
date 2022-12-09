@@ -1,14 +1,18 @@
 import re
+import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
-from typing import IO, Any, ClassVar, Dict, List, Optional, Type
+from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar
 
+import pydantic
 from cached_property import cached_property
 from pydantic import BaseModel, Extra
 from pydantic.fields import Field
 
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.utilities.dedup_list import deduplicate_list
+
+_ConfigSelf = TypeVar("_ConfigSelf", bound="ConfigModel")
 
 
 class ConfigModel(BaseModel):
@@ -30,6 +34,11 @@ class ConfigModel(BaseModel):
 
             for key in remove_fields:
                 del schema["properties"][key]
+
+    @classmethod
+    def parse_obj_allow_extras(cls: Type[_ConfigSelf], obj: Any) -> _ConfigSelf:
+        with unittest.mock.patch.object(cls.Config, "extra", pydantic.Extra.allow):
+            return cls.parse_obj(obj)
 
 
 class PermissiveConfigModel(ConfigModel):

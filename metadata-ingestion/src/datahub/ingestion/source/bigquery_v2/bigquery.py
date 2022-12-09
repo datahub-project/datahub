@@ -7,7 +7,6 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 
-import pydantic
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
 
@@ -326,10 +325,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         _report: Dict[Union[SourceCapability, str], CapabilityReport] = dict()
 
         try:
-            BigQueryV2Config.Config.extra = (
-                pydantic.Extra.allow
-            )  # we are okay with extra fields during this stage
-            connection_conf = BigQueryV2Config.parse_obj(config_dict)
+            connection_conf = BigQueryV2Config.parse_obj_allow_extras(config_dict)
             client: bigquery.Client = get_bigquery_client(connection_conf)
             assert client
 
