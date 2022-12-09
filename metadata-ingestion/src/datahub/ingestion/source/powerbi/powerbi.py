@@ -41,13 +41,15 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.ingestion.source.powerbi import m_parser
-from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport, PowerBiDashboardSourceConfig, PlatformDetail
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceReport,
+    PowerBiDashboardSourceConfig,
+    PlatformDetail,
+    Constant
+)
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 # Logger instance
 LOGGER = logging.getLogger(__name__)
-
-
-
 
 
 class Mapper:

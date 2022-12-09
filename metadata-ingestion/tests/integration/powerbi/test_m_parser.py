@@ -18,90 +18,95 @@ M_QUERIES = [
     "let\n    Source = Value.NativeQuery(Snowflake.Databases(\"bu20658.ap-southeast-2.snowflakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select *,#(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS Agent,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS#(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Industries'#(lf)and TARGET_TEAM = 'Enterprise'\", null, [EnableFolding=true])\nin\n    Source",
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="Select#(lf)*,#(lf)concat((UPPER(REPLACE(SALES_SPECIALIST,\'-\',\'\'))),#(lf)LEFT(CAST(INVOICE_DATE AS DATE),4)+LEFT(RIGHT(CAST(INVOICE_DATE AS DATE),5),2)) AS AGENT_KEY,#(lf)CASE#(lf)    WHEN CLASS = \'Software\' and (NOT(PRODUCT in (\'ADV\', \'Adv\') and left(ACCOUNT_ID,2)=\'10\') #(lf)    or V_ENTERPRISE_INVOICED_REVENUE.TYPE = \'Manual Adjustment\') THEN INVOICE_AMOUNT#(lf)    WHEN V_ENTERPRISE_INVOICED_REVENUE.TYPE IN (\'Recurring\',\'0\') THEN INVOICE_AMOUNT#(lf)    ELSE 0#(lf)END as SOFTWARE_INV#(lf)#(lf)from V_ENTERPRISE_INVOICED_REVENUE", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Services", each if [CLASS] = "Services" then [INVOICE_AMOUNT] else 0),\n    #"Added Custom" = Table.AddColumn(#"Added Conditional Column", "Advanced New Sites", each if [PRODUCT] = "ADV"\nor [PRODUCT] = "Adv"\nthen [NEW_SITE]\nelse 0)\nin\n    #"Added Custom"',
     'let\n    Source = Snowflake.Databases(\"xaa48144.snowflakecomputing.com\",\"GSL_TEST_WH\",[Role=\"ACCOUNTADMIN\"]),\n Source2 = PostgreSQL.Database(\"localhost\", \"mics\"),\n  public_order_date = Source2{[Schema=\"public\",Item=\"order_date\"]}[Data],\n    GSL_TEST_DB_Database = Source{[Name=\"GSL_TEST_DB\",Kind=\"Database\"]}[Data],\n  PUBLIC_Schema = GSL_TEST_DB_Database{[Name=\"PUBLIC\",Kind=\"Schema\"]}[Data],\n   SALES_ANALYST_VIEW_View = PUBLIC_Schema{[Name=\"SALES_ANALYST_VIEW\",Kind=\"View\"]}[Data],\n  two_source_table  = Table.Combine({public_order_date, SALES_ANALYST_VIEW_View})\n in\n    two_source_table',
+    'let\n Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
 ]
 
 
 # def test_parse_m_query1():
 #     expression: str = M_QUERIES[0]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == "TESTTABLE_Table"
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == "TESTTABLE_Table"
 #
 #
 # def test_parse_m_query2():
 #     expression: str = M_QUERIES[1]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Added Custom2"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom2"'
 #
 #
 # def test_parse_m_query3():
 #     expression: str = M_QUERIES[2]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Added Conditional Column"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Conditional Column"'
 #
 #
 # def test_parse_m_query4():
 #     expression: str = M_QUERIES[3]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Changed Type"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Changed Type"'
 #
 #
 # def test_parse_m_query5():
 #     expression: str = M_QUERIES[4]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Renamed Columns"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Renamed Columns"'
 #
 #
 # def test_parse_m_query6():
 #     expression: str = M_QUERIES[5]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Added Custom"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom"'
 #
 #
 # def test_parse_m_query7():
 #     expression: str = M_QUERIES[6]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == "Source"
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == "Source"
 #
 #
 # def test_parse_m_query8():
 #     expression: str = M_QUERIES[7]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Added Custom1"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom1"'
 #
 #
 # def test_parse_m_query9():
 #     expression: str = M_QUERIES[8]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Added Custom1"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom1"'
 #
 #
 # def test_parse_m_query10():
 #     expression: str = M_QUERIES[9]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Changed Type1"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Changed Type1"'
 #
 #
 # def test_parse_m_query11():
 #     expression: str = M_QUERIES[10]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == "Source"
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == "Source"
 #
 #
 # def test_parse_m_query12():
 #     expression: str = M_QUERIES[11]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == '"Added Custom"'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom"'
 #
 #
 # def test_parse_m_query13():
 #     expression: str = M_QUERIES[12]
-#     parse_tree: Tree = m_parser.parse_expression(expression)
-#     assert m_parser.get_output_variable(parse_tree) == 'two_source_table'
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == 'two_source_table'
 
 def test_get_upstream():
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
-        expression=M_QUERIES[0],
-        name="table-name",
-        full_name="db-name.schema-name.table-name",
-    )
-    m_parser.get_upstream_tables(table, PowerBiDashboardSourceReport())
+    qs = [M_QUERIES[0], M_QUERIES[-1]]
+    for q in qs:
+        table: PowerBiAPI.Table = PowerBiAPI.Table(
+            expression=q,
+            name="table-name",
+            full_name="db-name.schema-name.table-name",
+        )
+        reporter = PowerBiDashboardSourceReport()
+        print(m_parser.get_upstream_tables(table, reporter))
+
