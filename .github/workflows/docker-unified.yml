@@ -71,6 +71,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-service:war:build -x test --parallel
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -114,6 +117,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -157,6 +163,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -200,6 +209,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :datahub-upgrade:build -x test --parallel
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -243,6 +255,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          export USE_SYSTEM_NODE="true"
+          ./gradlew :datahub-web-react:build -x test -x yarnTest -x yarnLint --parallel \
+              && ./gradlew :datahub-frontend:dist -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint --parallel
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:

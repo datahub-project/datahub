@@ -27,15 +27,11 @@ FROM --platform=$BUILDPLATFORM alpine:3 AS prod-build
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add openjdk8 openjdk11 perl
 
-COPY . datahub-src
-RUN cd datahub-src && ./gradlew :metadata-jobs:mae-consumer-job:build -x test
-RUN cd datahub-src && cp metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar ../mae-consumer-job.jar
-
 FROM base as prod-install
-COPY --from=prod-build /mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
-COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mae-consumer/resources/entity-registry.yml
-COPY --from=prod-build /datahub-src/docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
-COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
+COPY ./metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
+COPY ./metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mae-consumer/resources/entity-registry.yml
+COPY ./docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
+COPY ./docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mae-consumer/scripts/start.sh
 
 FROM base as dev-install
