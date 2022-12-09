@@ -191,6 +191,6 @@ describe('EntityProfile Edit', () => {
         // const display = screen.getByTestId("select");
         // console.log(`display is ${display.innerText}`);
         // suspect container name is not shown cos the entityregistry is not correctly configured.
-        await waitFor(() => expect(screen.getByText('urn:li:container:customContainer')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getAllByTestId('parentContainerTestId')).toHaveLength(1));
     });
 });
