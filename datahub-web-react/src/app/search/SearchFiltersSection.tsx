@@ -6,6 +6,7 @@ import { UnionType } from './utils/constants';
 import { hasAdvancedFilters } from './utils/hasAdvancedFilters';
 import { AdvancedSearchFilters } from './AdvancedSearchFilters';
 import { SimpleSearchFilters } from './SimpleSearchFilters';
+import { SEARCH_RESULTS_ADVANCED_SEARCH_ID } from '../onboarding/config/SearchOnboardingConfig';
 
 type Props = {
     filters?: Array<FacetMetadata> | null;
@@ -72,6 +73,7 @@ export const SearchFiltersSection = ({
                         disabled={onlyShowAdvancedFilters}
                         type="link"
                         onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}
+                        id={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
                     >
                         {seeAdvancedFilters ? 'Basic' : 'Advanced'}
                     </Button>

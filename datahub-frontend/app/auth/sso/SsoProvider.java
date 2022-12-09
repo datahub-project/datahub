@@ -1,6 +1,7 @@
 package auth.sso;
 
 import org.pac4j.core.client.Client;
+import org.pac4j.core.credentials.Credentials;
 
 /**
  * A thin interface over a Pac4j {@link Client} object and its
@@ -40,6 +41,6 @@ public interface SsoProvider<C extends SsoConfigs> {
   /**
    * Retrieves an initialized Pac4j {@link Client}.
    */
-  Client<?, ?> client();
+  Client<? extends Credentials> client();
 
 }

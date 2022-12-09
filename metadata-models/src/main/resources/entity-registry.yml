@@ -271,4 +271,9 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
+  - name: dataHubStepState
+    category: core
+    keyAspect: dataHubStepStateKey
+    aspects:
+      - dataHubStepStateProperties
 events:

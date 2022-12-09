@@ -52,13 +52,16 @@ import org.pac4j.core.engine.DefaultCallbackLogic;
 import org.pac4j.core.http.adapter.HttpActionAdapter;
 import org.pac4j.core.profile.CommonProfile;
 import org.pac4j.core.profile.ProfileManager;
+import org.pac4j.core.profile.UserProfile;
 import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
 import auth.sso.SsoManager;
 
+import static auth.AuthUtils.ACCESS_TOKEN;
+import static auth.AuthUtils.ACTOR;
+import static auth.AuthUtils.createActorCookie;
 import static com.linkedin.metadata.Constants.*;
-import static play.mvc.Results.*;
-import static auth.AuthUtils.*;
+import static play.mvc.Results.internalServerError;
 
 
 /**
@@ -101,17 +104,17 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
     // By this point, we know that OIDC is the enabled provider.
     final OidcConfigs oidcConfigs = (OidcConfigs) _ssoManager.getSsoProvider().configs();
-    return handleOidcCallback(oidcConfigs, result, context, getProfileManager(context, config));
+    return handleOidcCallback(oidcConfigs, result, context, getProfileManager(context));
   }
 
   private Result handleOidcCallback(final OidcConfigs oidcConfigs, final Result result, final PlayWebContext context,
-      final ProfileManager<CommonProfile> profileManager) {
+      final ProfileManager<UserProfile> profileManager) {
 
     log.debug("Beginning OIDC Callback Handling...");
 
     if (profileManager.isAuthenticated()) {
       // If authenticated, the user should have a profile.
-      final CommonProfile profile = profileManager.get(true).get();
+      final CommonProfile profile = (CommonProfile) profileManager.get(true).get();
       log.debug(String.format("Found authenticated user with profile %s", profile.getAttributes().toString()));
 
       // Extract the User name required to log into DataHub.
@@ -149,8 +152,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
       // Successfully logged in - Generate GMS login token
       final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.getId());
-      context.getJavaSession().put(ACCESS_TOKEN, accessToken);
-      context.getJavaSession().put(ACTOR, corpUserUrn.toString());
+      context.getNativeSession().adding(ACCESS_TOKEN, accessToken);
+      context.getNativeSession().adding(ACTOR, corpUserUrn.toString());
       return result.withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
     }
     return internalServerError(
