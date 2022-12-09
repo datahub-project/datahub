@@ -3,7 +3,7 @@ title: Configuration
 ---
 # Configuring Your BigQuery Connector to DataHub
 
-Now that you have created a Service Account and Service Account Key in BigQuery in [the prior step](Setup.md), it's now time to set up a connection via the DataHub UI.
+Now that you have created a Service Account and Service Account Key in BigQuery in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
 ## Configure Secrets
 
