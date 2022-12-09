@@ -454,7 +454,6 @@ def test_dbt_state_backward_compatibility(
             pipeline_name=dbt_source.ctx.pipeline_name,
             platform_instance_id=dbt_source.get_platform_instance_id(),
             run_id=dbt_source.ctx.run_id,
-            config=dbt_source.config,
             state=sql_state,
         )
 
