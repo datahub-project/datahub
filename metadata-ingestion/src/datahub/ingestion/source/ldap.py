@@ -27,6 +27,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
@@ -396,16 +397,12 @@ class LDAPSource(StatefulIngestionSourceBase):
                     title=title,
                     managerUrn=manager_urn,
                 ),
+                StatusClass(removed=False),
             ],
         )
 
         if groups:
             user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
-
-        if ldap_user:
-            self.stale_entity_removal_handler.add_entity_to_state(
-                type="corpuser", urn=builder.make_user_urn(ldap_user)
-            )
 
         return MetadataChangeEvent(proposedSnapshot=user_snapshot)
 
@@ -443,14 +440,9 @@ class LDAPSource(StatefulIngestionSourceBase):
                         description=description,
                         displayName=displayName,
                     ),
+                    StatusClass(removed=False),
                 ],
             )
-
-            if full_name:
-                self.stale_entity_removal_handler.add_entity_to_state(
-                    type="corpGroup", urn=builder.make_group_urn(full_name)
-                )
-
             return MetadataChangeEvent(proposedSnapshot=group_snapshot)
         return None
 
