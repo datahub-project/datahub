@@ -160,6 +160,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                             </>
                         }
                         suffix={EditButton}
+                        shouldWrap
                     >
                         {description}
                     </StripMarkdownText>

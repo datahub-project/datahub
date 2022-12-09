@@ -120,7 +120,12 @@ class Source(Closeable, metaclass=ABCMeta):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        pass
+        # Technically, this method should be abstract. However, the @config_class
+        # decorator automatically generates a create method at runtime if one is
+        # not defined. Python still treats the class as abstract because it thinks
+        # the create method is missing. To avoid the class becoming abstract, we
+        # can't make this method abstract.
+        raise NotImplementedError('sources must implement "create"')
 
     @abstractmethod
     def get_workunits(self) -> Iterable[WorkUnit]:

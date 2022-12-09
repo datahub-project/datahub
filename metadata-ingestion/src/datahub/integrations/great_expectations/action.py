@@ -2,7 +2,6 @@ from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 
 import json
 import logging
-import os
 import sys
 import time
 from dataclasses import dataclass
@@ -33,6 +32,7 @@ from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
+from datahub.cli.cli_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
@@ -64,7 +64,7 @@ if TYPE_CHECKING:
 
 assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
-if os.getenv("DATAHUB_DEBUG", False):
+if get_boolean_env_variable("DATAHUB_DEBUG", False):
     handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
@@ -110,9 +110,9 @@ class DataHubValidationAction(ValidationAction):
             ValidationResultIdentifier, "GXCloudIdentifier"
         ],
         data_asset: Union[Validator, DataAsset, Batch],
-        payload: Any = None,
+        payload: Optional[Any] = None,
         expectation_suite_identifier: Optional[ExpectationSuiteIdentifier] = None,
-        checkpoint_identifier: Any = None,
+        checkpoint_identifier: Optional[Any] = None,
     ) -> Dict:
         datasets = []
         try:
