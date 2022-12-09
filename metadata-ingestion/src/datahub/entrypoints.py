@@ -9,7 +9,11 @@ from pydantic import ValidationError
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
-from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
+from datahub.cli.cli_utils import (
+    DATAHUB_CONFIG_PATH,
+    get_boolean_env_variable,
+    write_datahub_config,
+)
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.get_cli import get
@@ -95,7 +99,7 @@ def datahub(
     # 3. Turn off propagation to the root handler.
     datahub_logger.propagate = False
     # 4. Adjust log-levels.
-    if debug or os.getenv("DATAHUB_DEBUG", False):
+    if debug or get_boolean_env_variable("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
         datahub_logger.setLevel(logging.DEBUG)
         logging.getLogger("datahub_classify").setLevel(logging.DEBUG)

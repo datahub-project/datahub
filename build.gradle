@@ -10,6 +10,7 @@ buildscript {
   ext.testContainersVersion = '1.17.4'
   ext.jacksonVersion = '2.13.4'
   ext.jettyVersion = '9.4.46.v20220331'
+  ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.32'
   ext.logbackClassic = '1.2.11'
@@ -50,7 +51,7 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': 'com.typesafe.akka:akka-http-core_2.12:10.1.15',
+    'akkaHttp': 'com.typesafe.akka:akka-http-core_2.12:10.2.10',
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.7.2',
     'antlr4': 'org.antlr:antlr4:4.7.2',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -82,7 +83,7 @@ project.ext.externalDependency = [
     'graphqlJava': 'com.graphql-java:graphql-java:' + graphQLJavaVersion,
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:' + graphQLJavaVersion,
     'gson': 'com.google.code.gson:gson:2.8.9',
-    'guice': 'com.google.inject:guice:4.2.2',
+    'guice': 'com.google.inject:guice:4.2.3',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:2.1.214',
     'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.1',
@@ -125,6 +126,7 @@ project.ext.externalDependency = [
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
     'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
+    'log4j2Api': "org.apache.logging.log4j:log4j-to-slf4j:$log4jVersion",
     'lombok': 'org.projectlombok:lombok:1.18.12',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
@@ -141,17 +143,18 @@ project.ext.externalDependency = [
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
     'picocli': 'info.picocli:picocli:4.5.0',
-    'playCache': 'com.typesafe.play:play-cache_2.12:2.7.6',
-    'playEhcache': 'com.typesafe.play:play-ehcache_2.12:2.7.6',
-    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.0.8',
-    'playDocs': 'com.typesafe.play:play-docs_2.12:2.7.6',
-    'playGuice': 'com.typesafe.play:play-guice_2.12:2.7.6',
-    'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.12:2.7.6',
-    'playAkkaHttpServer': 'com.typesafe.play:play-akka-http-server_2.12:2.7.6',
-    'playServer': 'com.typesafe.play:play-server_2.12:2.7.6',
-    'playTest': 'com.typesafe.play:play-test_2.12:2.7.6',
-    'pac4j': 'org.pac4j:pac4j-oidc:3.6.0',
-    'playPac4j': 'org.pac4j:play-pac4j_2.12:8.0.2',
+    'playCache': "com.typesafe.play:play-cache_2.12:$playVersion",
+    'playEhcache': "com.typesafe.play:play-ehcache_2.12:$playVersion",
+    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.1.10',
+    'playDocs': "com.typesafe.play:play-docs_2.12:$playVersion",
+    'playGuice': "com.typesafe.play:play-guice_2.12:$playVersion",
+    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_2.12:$playVersion",
+    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_2.12:$playVersion",
+    'playServer': "com.typesafe.play:play-server_2.12:$playVersion",
+    'playTest': "com.typesafe.play:play-test_2.12:$playVersion",
+    'playFilters': "com.typesafe.play:filters-helpers_2.12:$playVersion",
+    'pac4j': 'org.pac4j:pac4j-oidc:4.5.7',
+    'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
     'postgresql': 'org.postgresql:postgresql:42.3.8',
     'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -203,7 +206,6 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
     exclude group: "org.springframework.boot", module: "spring-boot-starter-logging"
-    exclude group: "org.apache.logging.log4j", module: "log4j-to-slf4j"
     exclude group: "com.vaadin.external.google", module: "android-json"
     exclude group: "org.slf4j", module: "slf4j-reload4j"
     exclude group: "org.slf4j", module: "slf4j-log4j12"
@@ -230,7 +232,7 @@ subprojects {
     dependencies {
       testCompile externalDependency.testng
       constraints {
-        implementation('io.netty:netty-all:4.1.68.Final')
+        implementation('io.netty:netty-all:4.1.85.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
