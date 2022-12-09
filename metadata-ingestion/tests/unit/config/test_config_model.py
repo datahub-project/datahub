@@ -18,6 +18,16 @@ def test_extras_not_allowed():
         MyConfig.parse_obj({"required": "foo", "extra": "extra"})
 
 
+def test_extras_allowed():
+    class MyConfig(ConfigModel):
+        required: str
+        optional: str = "bar"
+
+    MyConfig.parse_obj_allow_extras({"required": "foo"})
+    MyConfig.parse_obj_allow_extras({"required": "foo", "optional": "baz"})
+    MyConfig.parse_obj_allow_extras({"required": "foo", "extra": "extra"})
+
+
 def test_default_object_copy():
     # Doing this with dataclasses would yield a subtle bug: the default list
     # objects would be shared between instances. However, pydantic is smart

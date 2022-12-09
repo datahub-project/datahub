@@ -53,6 +53,16 @@ class DatahubConfig(BaseModel):
     gms: GmsConfig
 
 
+def get_boolean_env_variable(key: str, default: bool = False) -> bool:
+    value = os.environ.get(key)
+    if value is None:
+        return default
+    elif value.lower() in ("true", "1"):
+        return True
+    else:
+        return False
+
+
 def set_env_variables_override_config(url: str, token: Optional[str]) -> None:
     """Should be used to override the config when using rest emitter"""
     config_override[ENV_METADATA_HOST_URL] = url
@@ -73,7 +83,7 @@ def write_datahub_config(host: str, token: Optional[str]) -> None:
 
 
 def should_skip_config() -> bool:
-    return os.getenv(ENV_SKIP_CONFIG, False) == "True"
+    return get_boolean_env_variable(ENV_SKIP_CONFIG, False)
 
 
 def ensure_datahub_config() -> None:
