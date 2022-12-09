@@ -17,6 +17,11 @@
                         "groups": [],
                         "description": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
                 }
             ]
         }
@@ -47,6 +52,11 @@
                         "lastName": "Simpson",
                         "fullName": "Bart Simpson",
                         "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 }
             ]
@@ -79,6 +89,11 @@
                         "fullName": "Homer Simpson",
                         "countryCode": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
                 }
             ]
         }
@@ -109,6 +124,11 @@
                         "lastName": "Simpson",
                         "fullName": "Lisa Simpson",
                         "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 }
             ]
@@ -141,6 +161,11 @@
                         "fullName": "Maggie Simpson",
                         "countryCode": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
                 }
             ]
         }
@@ -171,6 +196,11 @@
                         "lastName": "Bevan",
                         "fullName": "Hester Bevan",
                         "countryCode": null
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 }
             ]
@@ -203,6 +233,11 @@
                         "fullName": "Evalyn Haas",
                         "countryCode": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
                 }
             ]
         }
@@ -229,6 +264,11 @@
                         "groups": [],
                         "description": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
                 }
             ]
         }
@@ -251,6 +291,11 @@
                         "admins": [],
                         "members": [],
                         "groups": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 }
             ]
