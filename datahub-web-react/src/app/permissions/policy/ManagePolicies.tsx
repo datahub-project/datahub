@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Empty, message, Modal, Pagination, Tag } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';

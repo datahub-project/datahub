@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pandas as pd
-import pydantic
 from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.pattern_utils import is_schema_allowed
@@ -256,10 +255,7 @@ class SnowflakeV2Source(
         test_report = TestConnectionReport()
 
         try:
-            SnowflakeV2Config.Config.extra = (
-                pydantic.Extra.allow
-            )  # we are okay with extra fields during this stage
-            connection_conf = SnowflakeV2Config.parse_obj(config_dict)
+            connection_conf = SnowflakeV2Config.parse_obj_allow_extras(config_dict)
 
             connection: SnowflakeConnection = connection_conf.get_connection()
             assert connection
@@ -281,9 +277,6 @@ class SnowflakeV2Source(
                 test_report.internal_failure = True
                 test_report.internal_failure_reason = f"{e}"
         finally:
-            SnowflakeV2Config.Config.extra = (
-                pydantic.Extra.forbid
-            )  # set config flexibility back to strict
             return test_report
 
     @staticmethod

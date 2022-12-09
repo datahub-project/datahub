@@ -4,10 +4,11 @@ import { useCreateGroupMutation } from '../../../graphql/group.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { groupIdTextValidation } from '../../shared/textUtil';
 import analytics, { EventType } from '../../analytics';
+import { CorpGroup, EntityType } from '../../../types.generated';
 
 type Props = {
     onClose: () => void;
-    onCreate: (name: string, description: string) => void;
+    onCreate: (group: CorpGroup) => void;
 };
 
 export default function CreateGroupModal({ onClose, onCreate }: Props) {
@@ -28,10 +29,23 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 },
             },
         })
-            .then(({ errors }) => {
+            .then(({ data, errors }) => {
                 if (!errors) {
                     analytics.event({
                         type: EventType.CreateGroupEvent,
+                    });
+                    message.success({
+                        content: `Created group!`,
+                        duration: 3,
+                    });
+                    // TODO: Get a full corp group back from create endpoint.
+                    onCreate({
+                        urn: data?.createGroup || '',
+                        type: EntityType.CorpGroup,
+                        name: stagedName,
+                        info: {
+                            description: stagedDescription,
+                        },
                     });
                 }
             })
@@ -40,11 +54,6 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
-                message.success({
-                    content: `Created group!`,
-                    duration: 3,
-                });
-                onCreate(stagedName, stagedDescription);
                 setStagedName('');
                 setStagedDescription('');
             });

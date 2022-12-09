@@ -10,21 +10,27 @@ tasks.withType(PlayRun) {
 
 configurations {
   assets
+  play
 }
 
 dependencies {
   assets project(path: ':datahub-web-react', configuration: 'assets')
 
   constraints {
-    play('org.springframework:spring-core:5.2.3.RELEASE')
+    play(externalDependency.springCore)
+    play(externalDependency.springBeans)
+    play(externalDependency.springContext)
     play(externalDependency.jacksonDataBind)
-    play('com.nimbusds:nimbus-jose-jwt:7.9')
-    play('com.typesafe.akka:akka-actor_2.12:2.5.16')
-    play('net.minidev:json-smart:2.4.1')
-    play('io.netty:netty-all:4.1.68.Final')
+    play('com.nimbusds:oauth2-oidc-sdk:8.36.2')
+    play('com.nimbusds:nimbus-jose-jwt:8.18')
+    play('com.typesafe.akka:akka-actor_2.12:2.6.20')
+    play('net.minidev:json-smart:2.4.8')
+    play('io.netty:netty-all:4.1.85.Final')
   }
+
   compile project(":metadata-service:restli-client")
   compile project(":metadata-service:auth-api")
+
 
   implementation externalDependency.jettyJaas
   implementation externalDependency.graphqlJava
@@ -39,7 +45,8 @@ dependencies {
     exclude group: "net.minidev", module: "json-smart"
     exclude group: "com.nimbusds", module: "nimbus-jose-jwt"
   }
-  implementation "com.nimbusds:nimbus-jose-jwt:7.9"
+
+  implementation 'com.nimbusds:nimbus-jose-jwt:8.18'
   implementation externalDependency.jsonSmart
   implementation externalDependency.playPac4j
   implementation externalDependency.shiroCore
@@ -48,12 +55,16 @@ dependencies {
   implementation externalDependency.playWs
   implementation externalDependency.playServer
   implementation externalDependency.playAkkaHttpServer
+  implementation externalDependency.playFilters
   implementation externalDependency.kafkaClients
   implementation externalDependency.awsMskIamAuth
 
   testImplementation externalDependency.mockito
   testImplementation externalDependency.playTest
-  testCompile externalDependency.testng
+  testImplementation 'no.nav.security:mock-oauth2-server:0.3.1'
+  testImplementation 'org.junit-pioneer:junit-pioneer:1.9.1'
+  testImplementation externalDependency.junitJupiterApi
+  testRuntime externalDependency.junitJupiterEngine
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -62,16 +73,19 @@ dependencies {
     exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
   }
   runtime externalDependency.playGuice
+  implementation externalDependency.log4j2Api
+
   implementation externalDependency.logbackClassic
 
   annotationProcessor externalDependency.lombok
 }
 
 dist.dependsOn(':datahub-web-react:copyAssets')
+test.dependsOn(':datahub-frontend:testResources')
 
 play {
   platform {
-    playVersion = '2.7.6'
+    playVersion = '2.8.18'
     scalaVersion = '2.12'
     javaVersion = JavaVersion.VERSION_11
   }
@@ -82,7 +96,7 @@ play {
 model {
   components {
     play {
-      platform play: '2.7.6', scala: '2.12', java: '11'
+      platform play: '2.8.18', scala: '2.12', java: '11'
       injectedRoutesGenerator = true
 
       binaries.all {
@@ -97,6 +111,26 @@ model {
       }
     }
   }
+}
+
+test {
+  useJUnitPlatform()
+}
+
+sourceSets {
+  test {
+    resources {
+      srcDirs = ['test/resources']
+    }
+  }
+}
+
+// minimal files for low-level tests
+task testResources {
+    copy {
+      from '../datahub-web-react/public'
+      into 'test/resources/public'
+    }
 }
 
 task unzipAssets(type: Copy, dependsOn: [configurations.assets, ':datahub-web-react:yarnBuild']) {
@@ -121,4 +155,5 @@ clean {
   delete 'public/logo.png'
   delete 'public/index.html'
   delete 'public/favicon.ico'
+  delete 'test/resources/public'
 }

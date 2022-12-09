@@ -49,14 +49,14 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
 
   protected OidcConfiguration configuration;
 
-  protected OidcClient client;
+  protected OidcClient<OidcConfiguration> client;
 
-  private ClientAuthentication clientAuthentication;
+  private final ClientAuthentication clientAuthentication;
 
-  public CustomOidcAuthenticator(final OidcConfiguration configuration, final OidcClient client) {
-    CommonHelper.assertNotNull("configuration", configuration);
+  public CustomOidcAuthenticator(final OidcClient<OidcConfiguration> client) {
+    CommonHelper.assertNotNull("configuration", client.getConfiguration());
     CommonHelper.assertNotNull("client", client);
-    this.configuration = configuration;
+    this.configuration = client.getConfiguration();
     this.client = client;
 
     // check authentication methods
