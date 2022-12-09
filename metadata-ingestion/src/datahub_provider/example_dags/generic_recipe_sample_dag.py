@@ -26,6 +26,7 @@ default_args = {
 
 
 def datahub_recipe():
+    # Note that this will also resolve environment variables in the recipe.
     config = load_config_file("path/to/recipe.yml")
 
     pipeline = Pipeline.create(config)

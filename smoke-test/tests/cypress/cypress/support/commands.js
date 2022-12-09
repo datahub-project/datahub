@@ -83,6 +83,12 @@ Cypress.Commands.add("goToUserList", () => {
   cy.waitTextVisible("Manage Users & Groups");
 })
 
+Cypress.Commands.add("goToStarSearchList", () => {
+  cy.visit("/search?query=%2A")
+  cy.waitTextVisible("Showing")
+  cy.waitTextVisible("results")
+})
+
 Cypress.Commands.add("openThreeDotDropdown", () => {
   cy.get('[data-testid="entity-header-dropdown"]').click();
 });
@@ -142,6 +148,12 @@ Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
 
   cy.contains(term);
 });
+
+Cypress.Commands.add("removeDomainFromDataset", (urn, dataset_name, domain_urn) => {
+  cy.goToDataset(urn, dataset_name);
+  cy.get('.sidebar-domain-section [href="/domain/' + domain_urn + '"] .anticon-close').click();
+  cy.clickOptionWithText("Yes");
+})
 
 Cypress.Commands.add("openEntityTab", (tab) => {
   const selector = 'div[id$="' + tab + '"]:nth-child(1)'

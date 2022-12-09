@@ -354,7 +354,8 @@ class DBTNode:
     alias: Optional[str]  # alias if present
     comment: str
     description: str
-    raw_sql: Optional[str]
+    language: Optional[str]
+    raw_code: Optional[str]
 
     dbt_adapter: str
     dbt_name: str
@@ -375,7 +376,7 @@ class DBTNode:
     query_tag: Dict[str, Any] = field(default_factory=dict)
 
     tags: List[str] = field(default_factory=list)
-    compiled_sql: Optional[str] = None
+    compiled_code: Optional[str] = None
 
     test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
     test_result: Optional["DBTTestResult"] = None
@@ -410,7 +411,13 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     custom_properties = node.meta
 
     # additional node attributes to extract to custom properties
-    node_attributes = ["node_type", "materialization", "dbt_file_path", "catalog_type"]
+    node_attributes = [
+        "node_type",
+        "materialization",
+        "dbt_file_path",
+        "catalog_type",
+        "language",
+    ]
 
     for attribute in node_attributes:
         node_attribute_value = getattr(node, attribute)
@@ -834,7 +841,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         mce_builder.make_schema_field_urn(upstream_urn, column_name)
                     ],
                     nativeType=node.name,
-                    logic=node.compiled_sql if node.compiled_sql else node.raw_sql,
+                    logic=node.compiled_code if node.compiled_code else node.raw_code,
                     aggregation=AssertionStdAggregationClass._NATIVE_,
                     nativeParameters=string_map(kw_args),
                 ),
@@ -848,7 +855,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     dataset=upstream_urn,
                     scope=DatasetAssertionScopeClass.DATASET_ROWS,
                     operator=AssertionStdOperatorClass._NATIVE_,
-                    logic=node.compiled_sql if node.compiled_sql else node.raw_sql,
+                    logic=node.compiled_code if node.compiled_code else node.raw_code,
                     nativeType=node.name,
                     aggregation=AssertionStdAggregationClass._NATIVE_,
                     nativeParameters=string_map(kw_args),
@@ -1023,7 +1030,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspects.append(upstream_lineage_class)
 
                 # add view properties aspect
-                if node.raw_sql:
+                if node.raw_code and node.language == "sql":
                     view_prop_aspect = self._create_view_properties_aspect(node)
                     aspects.append(view_prop_aspect)
 
@@ -1157,11 +1164,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
         materialized = node.materialization in {"table", "incremental"}
         # this function is only called when raw sql is present. assert is added to satisfy lint checks
-        assert node.raw_sql is not None
+        assert node.raw_code is not None
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
-            viewLogic=node.raw_sql,
+            viewLogic=node.raw_code,
         )
         return view_properties
 

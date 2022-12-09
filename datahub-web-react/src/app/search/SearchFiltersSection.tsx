@@ -6,6 +6,7 @@ import { UnionType } from './utils/constants';
 import { hasAdvancedFilters } from './utils/hasAdvancedFilters';
 import { AdvancedSearchFilters } from './AdvancedSearchFilters';
 import { SimpleSearchFilters } from './SimpleSearchFilters';
+import { SEARCH_RESULTS_ADVANCED_SEARCH_ID } from '../onboarding/config/SearchOnboardingConfig';
 
 type Props = {
     filters?: Array<FacetMetadata> | null;
@@ -17,7 +18,8 @@ type Props = {
 };
 
 const FiltersContainer = styled.div`
-    display: block;
+    display: flex;
+    flex-direction: column;
     max-width: 260px;
     min-width: 260px;
     overflow-wrap: break-word;
@@ -45,7 +47,8 @@ const FiltersHeader = styled.div`
 `;
 
 const SearchFilterContainer = styled.div`
-    padding-top: 10px;
+    flex: 1;
+    overflow: auto;
 `;
 
 // This component renders the entire filters section that allows toggling
@@ -70,6 +73,7 @@ export const SearchFiltersSection = ({
                         disabled={onlyShowAdvancedFilters}
                         type="link"
                         onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}
+                        id={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
                     >
                         {seeAdvancedFilters ? 'Basic' : 'Advanced'}
                     </Button>

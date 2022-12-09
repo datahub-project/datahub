@@ -14,7 +14,7 @@ import {
 import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
-import { CLI_EXECUTOR_ID } from './utils';
+import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
 import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
@@ -26,6 +26,12 @@ import { scrollToTop } from '../../shared/searchUtils';
 import useRefreshIngestionData from './executions/useRefreshIngestionData';
 import { isExecutionRequestActive } from './executions/IngestionSourceExecutionList';
 import analytics, { EventType } from '../../analytics';
+import {
+    INGESTION_CREATE_SOURCE_ID,
+    INGESTION_REFRESH_SOURCES_ID,
+} from '../../onboarding/config/IngestionOnboardingConfig';
+
+const PLACEHOLDER_URN = 'placeholder-urn';
 
 const SourceContainer = styled.div``;
 
@@ -96,7 +102,7 @@ export const IngestionSourceList = () => {
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
 
     // Ingestion Source Queries
-    const { loading, error, data, refetch } = useListIngestionSourcesQuery({
+    const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
             input: {
                 start,
@@ -104,6 +110,7 @@ export const IngestionSourceList = () => {
                 query,
             },
         },
+        fetchPolicy: 'cache-first',
     });
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -197,6 +204,19 @@ export const IngestionSourceList = () => {
                 });
         } else {
             // Create
+            const newSource = {
+                urn: PLACEHOLDER_URN,
+                name: input.name,
+                type: input.type,
+                config: null,
+                schedule: {
+                    interval: input.schedule?.interval || null,
+                    timezone: input.schedule?.timezone || null,
+                },
+                platform: null,
+                executions: null,
+            };
+            addToListIngestionSourcesCache(client, newSource, pageSize, query);
             createIngestionSource({ variables: { input } })
                 .then((result) => {
                     message.loading({ content: 'Loading...', duration: 2 });
@@ -218,7 +238,6 @@ export const IngestionSourceList = () => {
                     setIsBuildingSource(false);
                     setFocusSourceUrn(undefined);
                     resetState();
-                    // onCreateOrUpdateIngestionSourceSuccess();
                 })
                 .catch((e) => {
                     message.destroy();
@@ -226,6 +245,7 @@ export const IngestionSourceList = () => {
                         content: `Failed to create ingestion source!: \n ${e.message || ''}`,
                         duration: 3,
                     });
+                    removeFromListIngestionSourcesCache(client, PLACEHOLDER_URN, page, pageSize, query);
                 });
         }
     };
@@ -236,6 +256,7 @@ export const IngestionSourceList = () => {
     };
 
     const deleteIngestionSource = async (urn: string) => {
+        removeFromListIngestionSourcesCache(client, urn, page, pageSize, query);
         removeIngestionSourceMutation({
             variables: { urn },
         })
@@ -338,10 +359,10 @@ export const IngestionSourceList = () => {
             <SourceContainer>
                 <TabToolbar>
                     <div>
-                        <Button type="text" onClick={() => setIsBuildingSource(true)}>
+                        <Button id={INGESTION_CREATE_SOURCE_ID} type="text" onClick={() => setIsBuildingSource(true)}>
                             <PlusOutlined /> Create new source
                         </Button>
-                        <Button type="text" onClick={onRefresh}>
+                        <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
                             <RedoOutlined /> Refresh
                         </Button>
                     </div>
