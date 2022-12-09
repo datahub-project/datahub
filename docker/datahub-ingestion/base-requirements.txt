@@ -68,7 +68,7 @@ colorama==0.4.5
 colorlog==6.7.0
 commonmark==0.9.1
 confection==0.0.3
-confluent-kafka==1.9.2
+confluent-kafka==1.8.2
 connexion==2.14.1
 coverage==6.5.0
 croniter==1.3.7
