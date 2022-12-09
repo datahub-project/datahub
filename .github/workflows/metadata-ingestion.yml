@@ -81,6 +81,11 @@ jobs:
           hadoop-version: "3.2"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+      - uses: actions/cache@v2
+        id: cache-venv
+        with:
+          path: ./metadata-ingestion/venv/
+          key: ${{ runner.os }}-venv-${{ hashFiles('./metadata-ingestion/setup.py') }}-${{ matrix.python-version }}-${{ matrix.command }}
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:build :metadata-ingestion:${{ matrix.command }} -x:metadata-ingestion:testQuick -x:metadata-ingestion:check
       - name: pip freeze show list installed
