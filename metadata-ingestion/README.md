@@ -179,7 +179,6 @@ transformers: # an array of transformers applied sequentially
     config:
       tag_urns:
         - "urn:li:tag:Important"
-
 # default sink, no config needed
 ```
 
