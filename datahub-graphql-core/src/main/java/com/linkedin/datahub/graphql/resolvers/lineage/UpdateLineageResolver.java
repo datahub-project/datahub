@@ -56,22 +56,19 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
 
         final List<Urn> upstreamUrnsToAdd = downstreamToUpstreamsToAdd.getOrDefault(downstreamUrn, new ArrayList<>());
         final List<Urn> upstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(downstreamUrn, new ArrayList<>());
+        try {
+          if (downstreamUrn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
+            final List<Urn> filteredUpstreamUrnsToAdd = filterUrnsForDatasetLineage(upstreamUrnsToAdd);
+            final List<Urn> filteredUpstreamUrnsToRemove = filterUrnsForDatasetLineage(upstreamUrnsToRemove);
 
-        if (downstreamUrn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
-          final List<Urn> filteredUpstreamUrnsToAdd = filterUrnsForDatasetLineage(upstreamUrnsToAdd);
-          final List<Urn> filteredUpstreamUrnsToRemove = filterUrnsForDatasetLineage(upstreamUrnsToRemove);
-
-          try {
             _lineageService.updateDatasetLineage(downstreamUrn, filteredUpstreamUrnsToAdd, filteredUpstreamUrnsToRemove, actor, context.getAuthentication());
-          } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
-          }
-        } else if (downstreamUrn.getEntityType().equals(Constants.CHART_ENTITY_NAME)) {
-          try {
+          } else if (downstreamUrn.getEntityType().equals(Constants.CHART_ENTITY_NAME)) {
             _lineageService.updateChartLineage(downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, context.getAuthentication());
-          } catch (Exception e) {
-            throw new RuntimeException(String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
+          } else if (downstreamUrn.getEntityType().equals(Constants.DASHBOARD_ENTITY_NAME)) {
+            _lineageService.updateDashboardLineage(downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, context.getAuthentication());
           }
+        } catch (Exception e) {
+          throw new RuntimeException(String.format("Failed to update lineage for urn %s", downstreamUrn), e);
         }
       }
 

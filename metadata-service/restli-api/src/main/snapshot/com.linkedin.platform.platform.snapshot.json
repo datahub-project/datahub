@@ -1266,6 +1266,22 @@
         "type" : "array",
         "items" : "com.linkedin.common.ChartUrn"
       },
+      "doc" : "Charts in a dashboard\nDeprecated! Use chartEdges instead.",
+      "default" : [ ],
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "chart" ],
+          "isLineage" : true,
+          "name" : "Contains"
+        }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "chartEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
       "doc" : "Charts in a dashboard",
       "default" : [ ],
       "Relationship" : {
@@ -1280,6 +1296,22 @@
       "type" : {
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "Datasets consumed by a dashboard\nDeprecated! Use datasetEdges instead.",
+      "default" : [ ],
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "name" : "Consumes"
+        }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "datasetEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
       },
       "doc" : "Datasets consumed by a dashboard",
       "default" : [ ],

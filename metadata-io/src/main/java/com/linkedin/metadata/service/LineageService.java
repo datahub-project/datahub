@@ -4,10 +4,13 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.chart.ChartDataSourceTypeArray;
 import com.linkedin.chart.ChartInfo;
+import com.linkedin.common.ChartUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.DataMap;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.Upstream;
@@ -23,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
 
@@ -38,6 +42,18 @@ public class LineageService {
     for (final Urn urn : urns) {
       if (!urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)) {
         throw new IllegalArgumentException(String.format("Tried to add lineage edge with non-dataset node when we expect a dataset. Upstream urn: %s", urn));
+      }
+      validateUrnExists(urn, authentication);
+    }
+  }
+
+  /**
+   * Validates that a given list of urns are all either datasets or charts and that they exist. Otherwise, throw an error.
+   */
+  public void validateDashboardUpstreamUrns(@Nonnull final List<Urn> urns, @Nonnull final Authentication authentication) throws Exception {
+    for (final Urn urn : urns) {
+      if (!urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME) && !urn.getEntityType().equals(Constants.CHART_ENTITY_NAME)) {
+        throw new IllegalArgumentException(String.format("Tried to add an upstream to a dashboard that isn't a chart or dataset. Upstream urn: %s", urn));
       }
       validateUrnExists(urn, authentication);
     }
@@ -189,13 +205,7 @@ public class LineageService {
     }
 
     for (final Urn upstreamUrn : upstreamsToAdd) {
-      final Edge newEdge = new Edge();
-      newEdge.setDestinationUrn(upstreamUrn);
-      newEdge.setSourceUrn(downstreamUrn);
-      newEdge.setCreated(getAuditStamp(actor));
-      newEdge.setLastModified(getAuditStamp(actor));
-      newEdge.setSourceUrn(downstreamUrn);
-      inputEdges.add(newEdge);
+      addNewEdge(upstreamUrn, downstreamUrn, actor, inputEdges);
     }
 
     inputEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
@@ -205,5 +215,133 @@ public class LineageService {
     chartInfo.setInputs(inputs);
 
     return buildMetadataChangeProposal(downstreamUrn, Constants.CHART_INFO_ASPECT_NAME, chartInfo);
+  }
+
+  /**
+   * Updates Dashboard lineage by building and ingesting an MCP based on inputs.
+   */
+  public void updateDashboardLineage(
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor,
+      @Nonnull final Authentication authentication
+  ) throws Exception {
+    validateDashboardUpstreamUrns(upstreamUrnsToAdd, authentication);
+    // TODO: add permissions check here for entity type - or have one overall permissions check above
+
+    try {
+      MetadataChangeProposal changeProposal = buildDashboardLineageProposal(
+          downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, authentication);
+      _entityClient.ingestProposal(changeProposal, authentication, false);
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
+    }
+  }
+
+  /**
+   * Builds an MCP of DashboardInfo for dashboard entities. DashboardInfo has a list of chart urns and dataset urns pointing upstream.
+   * We need to filter out the chart urns and dataset urns separately in upstreamUrnsToAdd to add them to the correct fields.
+   */
+  @Nonnull
+  public MetadataChangeProposal buildDashboardLineageProposal(
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor,
+      @Nonnull final Authentication authentication
+  ) throws Exception {
+    EntityResponse entityResponse =
+        _entityClient.getV2(Constants.DASHBOARD_ENTITY_NAME, downstreamUrn, ImmutableSet.of(Constants.DASHBOARD_INFO_ASPECT_NAME), authentication);
+
+    if (entityResponse == null || !entityResponse.getAspects().containsKey(Constants.DASHBOARD_INFO_ASPECT_NAME)) {
+      throw new RuntimeException(String.format("Failed to update dashboard lineage for urn %s as dashboard info doesn't exist", downstreamUrn));
+    }
+
+    DataMap dataMap = entityResponse.getAspects().get(Constants.DASHBOARD_INFO_ASPECT_NAME).getValue().data();
+    DashboardInfo dashboardInfo = new DashboardInfo(dataMap);
+
+    // first, deal with chart edges
+    if (!dashboardInfo.hasChartEdges()) {
+      dashboardInfo.setChartEdges(new EdgeArray());
+    }
+    if (!dashboardInfo.hasCharts()) {
+      dashboardInfo.setCharts(new ChartUrnArray());
+    }
+
+    final List<Urn> upstreamChartUrnsToAdd =
+        upstreamUrnsToAdd.stream().filter(urn -> urn.getEntityType().equals(Constants.CHART_ENTITY_NAME)).collect(Collectors.toList());
+    final ChartUrnArray charts = dashboardInfo.getCharts();
+    final EdgeArray chartEdges = dashboardInfo.getChartEdges();
+    final List<Urn> upstreamsChartsToAdd = new ArrayList<>();
+    for (Urn upstreamUrn : upstreamChartUrnsToAdd) {
+      if (
+          chartEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
+              || charts.stream().anyMatch(chart -> chart.equals(upstreamUrn))
+      ) {
+        continue;
+      }
+      upstreamsChartsToAdd.add(upstreamUrn);
+    }
+
+    for (final Urn upstreamUrn : upstreamsChartsToAdd) {
+      addNewEdge(upstreamUrn, downstreamUrn, actor, chartEdges);
+    }
+
+    chartEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
+    charts.removeIf(upstreamUrnsToRemove::contains);
+
+    dashboardInfo.setChartEdges(chartEdges);
+    dashboardInfo.setCharts(charts);
+
+    // next, deal with dataset edges
+    if (!dashboardInfo.hasDatasetEdges()) {
+      dashboardInfo.setDatasetEdges(new EdgeArray());
+    }
+    if (!dashboardInfo.hasDatasets()) {
+      dashboardInfo.setDatasets(new UrnArray());
+    }
+
+    final List<Urn> upstreamDatasetUrnsToAdd =
+        upstreamUrnsToAdd.stream().filter(urn -> urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)).collect(Collectors.toList());
+    final UrnArray datasets = dashboardInfo.getDatasets();
+    final EdgeArray datasetEdges = dashboardInfo.getDatasetEdges();
+    final List<Urn> upstreamsDatasetsToAdd = new ArrayList<>();
+    for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
+      if (
+          datasetEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
+              || datasets.stream().anyMatch(chart -> chart.equals(upstreamUrn))
+      ) {
+        continue;
+      }
+      upstreamsDatasetsToAdd.add(upstreamUrn);
+    }
+
+    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
+      addNewEdge(upstreamUrn, downstreamUrn, actor, datasetEdges);
+    }
+
+    datasetEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
+    datasets.removeIf(upstreamUrnsToRemove::contains);
+
+    dashboardInfo.setDatasetEdges(datasetEdges);
+    dashboardInfo.setDatasets(datasets);
+
+    return buildMetadataChangeProposal(downstreamUrn, Constants.DASHBOARD_INFO_ASPECT_NAME, dashboardInfo);
+  }
+
+  private void addNewEdge(
+      @Nonnull final Urn upstreamUrn,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final Urn actor,
+      @Nonnull final EdgeArray edgeArray
+  ) {
+    final Edge newEdge = new Edge();
+    newEdge.setDestinationUrn(upstreamUrn);
+    newEdge.setSourceUrn(downstreamUrn);
+    newEdge.setCreated(getAuditStamp(actor));
+    newEdge.setLastModified(getAuditStamp(actor));
+    newEdge.setSourceUrn(downstreamUrn);
+    edgeArray.add(newEdge);
   }
 }
