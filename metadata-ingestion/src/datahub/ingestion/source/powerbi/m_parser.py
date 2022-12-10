@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
+from functools import partial
 
 from dataclasses import  dataclass
 import importlib.resources as pkg_resource
@@ -23,26 +24,22 @@ class DataPlatformTable:
 class SupportedDataPlatform(Enum):
     POSTGRES_SQL = "PostgreSQL"
     ORACLE = "Oracle"
-    MY_SQL = "MySql"
     SNOWFLAKE = "Snowflake"
 
 
+POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING: Dict[str, str] = {
+    SupportedDataPlatform.POSTGRES_SQL.value: "postgres",
+    SupportedDataPlatform.ORACLE.value: "oracle",
+    SupportedDataPlatform.SNOWFLAKE.value: "snowflake",
+}
+
+
 def _get_output_variable(root: Tree) -> Optional[str]:
-    def get_token_list_for_any(tree: Tree, rules: List[str]) -> List[Tree]:
-        for rule in rules:
-            token_list = [x for x in tree.find_data(rule)]
-            if len(token_list) > 0:
-                return token_list
-
-        return []
-
-    for tree in root.find_data("in_expression"):
-        for child1 in get_token_list_for_any(
-            tree, ["letter_character", "quoted_identifier"]
-        ):
-            return child1.children[0].value  # type: ignore
-
-    return None
+    in_expression_tree: Tree = _get_first_rule(root, "in_expression")
+    # Get list of terminal value
+    # Remove any whitespaces
+    # Remove any spaces
+    return "".join(_strip_char_from_list(_remove_whitespaces_from_list(_token_values(in_expression_tree)), " "))
 
 
 def _get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
@@ -51,12 +48,11 @@ def _get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
     # We are searching for Tree where variable-name is matching with provided variable
     for tree in _filter:
         values: List[str] = _token_values(tree.children[0])
-        if len(values) > 1:
-            # Rare chances to happen as PowerBI Grammar only have one identifier in variable-name rule
-            LOGGER.info("Found more than one value in variable_name rule")
-            return None
+        actual_value: str = "".join(_strip_char_from_list(values, " "))
+        LOGGER.info("Actual Value = %s", actual_value)
+        LOGGER.info("Expected Value = %s", variable)
 
-        if variable == values[0]:
+        if actual_value == variable:
             return tree
 
     LOGGER.info("Provided variable(%s) not found in variable rule", variable)
@@ -143,18 +139,24 @@ class AbstractDataAccessMQueryResolver(AbstractMQueryResolver, ABC):
         self.table = table
         self.parse_tree = parse_tree
         self.reporter = reporter
+        self.first_expression_func = partial(_get_first_rule, rule="expression")
+        self.first_item_selector_func = partial(_get_first_rule, rule="item_selector")
+        self.first_arg_list_func = partial(_get_first_rule, rule="argument_list")
+        self.first_identifier_func = partial(_get_first_rule, rule="identifier")
+
+
 
     @abstractmethod
     def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
         pass
 
 
-class RelationalMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
+class BaseMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
     def get_item_selector_tokens(self, variable_statement: Tree) -> (str, List[str]):
-        expression_tree: Tree = _get_first_rule(variable_statement, "expression")
-        item_selector: Tree = _get_first_rule(expression_tree, "item_selector")
-        identifier_tree: Tree = _get_first_rule(expression_tree, "identifier")
+        expression_tree: Tree = self.first_expression_func(variable_statement)
+        item_selector: Tree = self.first_item_selector_func(expression_tree)
+        identifier_tree: Tree = self.first_identifier_func(expression_tree)
         # remove whitespaces and quotes from token
         tokens: List[str] = _strip_char_from_list(_remove_whitespaces_from_list(_token_values(item_selector)), "\"")
         identifier: List[str] = _token_values(identifier_tree)
@@ -163,8 +165,8 @@ class RelationalMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return identifier[0], dict(zip(iterator, iterator))
 
     def get_argument_list(self, variable_statement: Tree) -> List[str]:
-        expression_tree: Tree = _get_first_rule(variable_statement, "expression")
-        argument_list: Tree = _get_first_rule(expression_tree, "argument_list")
+        expression_tree: Tree = self.first_expression_func(variable_statement)
+        argument_list: Tree = self.first_arg_list_func(expression_tree)
         # remove whitespaces and quotes from token
         tokens: List[str] = _strip_char_from_list(_remove_whitespaces_from_list(_token_values(argument_list)), "\"")
         return tokens
@@ -202,13 +204,13 @@ class RelationalMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         pass
 
 
-class PostgresMQueryResolver(RelationalMQueryResolver):
+class PostgresMQueryResolver(BaseMQueryResolver):
     def get_full_table_name(self, output_variable: str) -> Optional[str]:
         variable_statement: Tree = _get_variable_statement(self.parse_tree, output_variable)
         if variable_statement is None:
-            self.reporter.warnings(
+            self.reporter.report_warning(
                 f"{self.table.full_name}-variable-statement",
-                "output variable statement not found in table expression",
+                f"output variable ({output_variable}) statement not found in table expression",
             )
             return None
         source, tokens = self.get_item_selector_tokens(variable_statement)
@@ -219,14 +221,14 @@ class PostgresMQueryResolver(RelationalMQueryResolver):
         if variable_statement is None:
             self.reporter.report_warning(
                 f"{self.table.full_name}-source-statement",
-                "source variable statement not found in table expression",
+                f"source variable {source} statement not found in table expression",
             )
             return None
         tokens = self.get_argument_list(variable_statement)
         if len(tokens) < 1:
             self.reporter.report_warning(
                 f"{self.table.full_name}-database-arg-list",
-                "Number of expected tokens in argument list are not present in table expression",
+                "Expected number of argument not found in data-access function of table expression",
             )
             return None
 
@@ -237,27 +239,115 @@ class PostgresMQueryResolver(RelationalMQueryResolver):
         return SupportedDataPlatform.POSTGRES_SQL.value
 
 
+class OracleMQueryResolver(BaseMQueryResolver):
+    def get_platform(self) -> str:
+        return SupportedDataPlatform.ORACLE.value
 
-class OracleMQueryResolver(AbstractDataAccessMQueryResolver):
-    def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
-        return [
-            DataPlatformTable(
-                name="postgres_table",
-                full_name="book.public.test",
-                platform_type="Oracle"
-            ),
-        ]
+    def _get_db_name(self, value: str) -> Optional[str]:
+        error_message: str = f"The target argument ({value}) should in the format of <host-name>:<port>/<db-name>[.<domain>]"
+        splitter_result: List[str] = value.split("/")
+        if len(splitter_result) != 2:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-oracle-target",
+                error_message
+            )
+            return None
+
+        db_name = splitter_result[1].split(".")[0]
+
+        return db_name
+
+    def get_full_table_name(self, output_variable: str) -> str:
+        # Find step for the output variable
+        variable_statement: Tree = _get_variable_statement(self.parse_tree, output_variable)
+
+        if variable_statement is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                f"output variable ({output_variable}) statement not found in table expression",
+            )
+            return None
+
+        schema_variable, tokens = self.get_item_selector_tokens(variable_statement)
+        table_name: str = tokens["Name"]
+
+        # Find step for the schema variable
+        variable_statement = _get_variable_statement(self.parse_tree, schema_variable)
+        if variable_statement is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-schema-variable-statement",
+                f"schema variable ({schema_variable}) statement not found in table expression",
+            )
+            return None
+
+        source_variable, tokens = self.get_item_selector_tokens(variable_statement)
+        schema_name: str = tokens["Schema"]
+
+        # Find step for the database access variable
+        variable_statement = _get_variable_statement(self.parse_tree, source_variable)
+        if variable_statement is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-source-variable-statement",
+                f"schema variable ({source_variable}) statement not found in table expression",
+            )
+            return None
+        tokens = self.get_argument_list(variable_statement)
+        if len(tokens) < 1:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-database-arg-list",
+                "Expected number of argument not found in data-access function of table expression",
+            )
+            return None
+        # The first argument has database name. format localhost:1521/salesdb.GSLAB.COM
+        db_name: Optional[str] = self._get_db_name(tokens[0])
+        if db_name is None:
+            LOGGER.debug(f"Fail to extract db name from the target {tokens[0]}")
+
+        return f"{db_name}.{schema_name}.{table_name}"
 
 
-class SnowflakeMQueryResolver(AbstractDataAccessMQueryResolver):
-    def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
-        return [
-            DataPlatformTable(
-                name="postgres_table",
-                full_name="book.public.test",
-                platform_type="Snowflake"
-            ),
-        ]
+class SnowflakeMQueryResolver(BaseMQueryResolver):
+    def get_platform(self) -> str:
+        return SupportedDataPlatform.SNOWFLAKE.value
+
+    def get_full_table_name(self, output_variable: str) -> str:
+        # Find step for the output variable
+        variable_statement: Tree = _get_variable_statement(self.parse_tree, output_variable)
+
+        if variable_statement is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                f"output variable ({output_variable}) statement not found in table expression",
+            )
+            return None
+
+        schema_variable, tokens = self.get_item_selector_tokens(variable_statement)
+        table_name: str = tokens["Name"]
+
+        # Find step for the schema variable
+        variable_statement = _get_variable_statement(self.parse_tree, schema_variable)
+        if variable_statement is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-schema-variable-statement",
+                f"schema variable ({schema_variable}) statement not found in table expression",
+            )
+            return None
+
+        source_variable, tokens = self.get_item_selector_tokens(variable_statement)
+        schema_name: str = tokens["Name"]
+
+        # Find step for the database access variable
+        variable_statement = _get_variable_statement(self.parse_tree, source_variable)
+        if variable_statement is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-source-variable-statement",
+                f"schema variable ({source_variable}) statement not found in table expression",
+            )
+            return None
+        _, tokens = self.get_item_selector_tokens(variable_statement)
+        db_name: str = tokens["Name"]
+
+        return f"{db_name}.{schema_name}.{table_name}"
 
 
 def _get_resolver(parse_tree: Tree) -> Optional[AbstractMQueryResolver]:

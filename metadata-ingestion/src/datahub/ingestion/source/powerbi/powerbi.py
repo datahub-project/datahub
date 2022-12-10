@@ -148,45 +148,43 @@ class Mapper:
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
-            # Check if upstreams table is available, parse them and create dataset URN for each upstream table
-            upstreams: List[UpstreamClass] = []
-            upstream_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(table.expression, self.__reporter)
-            for upstream_table in upstream_tables:
-                platform: Union[str, PlatformDetail] = self.__config.dataset_type_mapping[upstream_table.platform_type]
-                platform_name: str = None
-                platform_instance_name: str = None
-                platform_env: str = DEFAULT_ENV
-                # Determine if PlatformDetail is provided
-                if isinstance(platform, PlatformDetail):
-                    platform_name = cast(PlatformDetail, platform).platform
-                    platform_instance_name = cast(PlatformDetail, platform).platform_instance
-                    platform_env = cast(PlatformDetail, platform).env
-                else:
-                    platform_name = platform
-
-                upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                    platform=platform_name,
-                    platform_instance=platform_instance_name,
-                    env=platform_env,
-                    name=upstream_table.full_name,
-                )
-                upstream_table = UpstreamClass(
-                    upstream_urn,
-                    DatasetLineageTypeClass.TRANSFORMED,
-                )
-                upstreams.append(upstream_table)
-
-                if len(upstreams) > 0:
-                    upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
-                    mcp = MetadataChangeProposalWrapper(
-                        entityType="dataset",
-                        changeType=ChangeTypeClass.UPSERT,
-                        entityUrn=ds_urn,
-                        aspect=upstream_lineage,
-                    )
-                    dataset_mcps.extend([mcp])
-
             dataset_mcps.extend([info_mcp, status_mcp])
+
+            # Check if upstreams table is available, parse them and create dataset URN for each upstream table
+            if self.__config.extract_lineage is True:
+                upstreams: List[UpstreamClass] = []
+                upstream_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(table.expression, self.__reporter)
+                for upstream_table in upstream_tables:
+                    platform: Union[str, PlatformDetail] = self.__config.dataset_type_mapping[upstream_table.platform_type]
+                    platform_name: str = m_parser.POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING[upstream_table.platform_type]
+                    platform_instance_name: str = None
+                    platform_env: str = DEFAULT_ENV
+                    # Determine if PlatformDetail is provided
+                    if isinstance(platform, PlatformDetail):
+                        platform_instance_name = cast(PlatformDetail, platform).platform_instance
+                        platform_env = cast(PlatformDetail, platform).env
+
+                    upstream_urn = builder.make_dataset_urn_with_platform_instance(
+                        platform=platform_name,
+                        platform_instance=platform_instance_name,
+                        env=platform_env,
+                        name=upstream_table.full_name,
+                    )
+                    upstream_table = UpstreamClass(
+                        upstream_urn,
+                        DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                    upstreams.append(upstream_table)
+
+                    if len(upstreams) > 0:
+                        upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+                        mcp = MetadataChangeProposalWrapper(
+                            entityType="dataset",
+                            changeType=ChangeTypeClass.UPSERT,
+                            entityUrn=ds_urn,
+                            aspect=upstream_lineage,
+                        )
+                        dataset_mcps.extend([mcp])
 
         return dataset_mcps
 

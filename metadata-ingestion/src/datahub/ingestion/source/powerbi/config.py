@@ -1,4 +1,7 @@
 import pydantic
+
+from pydantic import validator
+
 import datahub.emitter.mce_builder as builder
 
 from dataclasses import field as dataclass_field
@@ -8,6 +11,7 @@ from dataclasses import  dataclass
 from datahub.configuration.source_common import EnvBasedSourceConfigBase, DEFAULT_ENV
 from typing import Dict, Union
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.powerbi import m_parser
 
 class Constant:
     """
@@ -83,7 +87,6 @@ class PowerBiDashboardSourceReport(SourceReport):
 
 @dataclass
 class PlatformDetail:
-    platform: str = pydantic.Field(description="DataHub platform name. Example postgres or oracle or snowflake")
     platform_instance: str = pydantic.Field(default=None, description="DataHub platform instance name. It should be same as you have used in ingestion receipe of DataHub platform ingestion source")
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
@@ -114,10 +117,28 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_ownership: bool = pydantic.Field(
         default=True, description="Whether ownership should be ingested"
     )
+    # Enable/Disable extracting lineage information of PowerBI Dataset
+    extract_lineage: bool = pydantic.Field(
+        default=True, description="Whether lineage should be ingested"
+    )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
         default=True, description="Whether reports should be ingested"
     )
+
+    @validator("dataset_type_mapping")
+    @classmethod
+    def check_dataset_type_mapping(cls, value):
+        # For backward compatibility map input PostgreSql to PostgreSQL
+        if "PostgreSql" in value.keys():
+            platform_name = value["PostgreSql"]
+            del value["PostgreSql"]
+            value["PostgreSQL"] = platform_name
+
+        for key in value.keys():
+            if key not in m_parser.POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING.keys():
+                raise ValueError(f"DataPlatform {key} is not supported")
+        return value
 
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
