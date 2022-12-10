@@ -15,7 +15,7 @@ dependencies {
     compile (project(':metadata-service:factories')) {
         exclude group: 'org.neo4j.test'
     }
-    compile project(':metadata-service:auth-api')
+    compile project(':metadata-service:auth-config')
     compile project(':metadata-service:restli-client')
     compile project(':metadata-io')
     compile project(':ingestion-scheduler')
