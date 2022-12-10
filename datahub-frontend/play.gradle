@@ -32,7 +32,7 @@ dependencies {
   }
 
   compile project(":metadata-service:restli-client")
-  compile project(":metadata-service:auth-api")
+  compile project(":metadata-service:auth-config")
 
 
   implementation externalDependency.jettyJaas
