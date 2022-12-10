@@ -314,6 +314,21 @@ class MetabaseSource(Source):
             )
             return None
 
+    def emit_card_id(self, card_id: int) -> Source:
+        card_url = f"{self.config.connect_uri}/api/card/{card_id}"
+        try:
+            card_response = self.session.get(card_url)
+            card_response.raise_for_status()
+            card_details = card_response.json()
+
+            return card_details
+        except HTTPError as http_error:
+            self.report.report_failure(
+                key=f"metabase-card-{card_id}",
+                reason=f"Unable to retrieve Card info. " f"Reason: {str(http_error)}",
+            )
+            return None
+
     def construct_card_from_api_data(self, card_data: dict) -> Optional[ChartSnapshot]:
         card_id = card_data.get("id", "")
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
@@ -443,6 +458,7 @@ class MetabaseSource(Source):
         )
         query_type = card_details.get("dataset_query", {}).get("type", {})
         source_paths = set()
+        card_model = None
 
         if query_type == "query":
             source_table_id = (
@@ -451,12 +467,16 @@ class MetabaseSource(Source):
                 .get("source-table")
             )
             if source_table_id is not None:
-                schema_name, table_name = self.get_source_table_from_id(source_table_id)
-                if table_name:
-                    source_paths.add(
-                        f"{f'{schema_name}.' if schema_name else ''}{table_name}"
-                    )
-        else:
+                if source_table_id.startswith('card__'):
+                    card_id = source_table_id.split('__')[1]
+                    card_model = card_details =  self.emit_card_id(card_id)
+                else:
+                    schema_name, table_name = self.get_source_table_from_id(source_table_id)
+                    if table_name:
+                        source_paths.add(
+                            f"{f'{schema_name}.' if schema_name else ''}{table_name}"
+                        )
+        elif query_type == "native" or card_model is not None:
             try:
                 raw_query = (
                     card_details.get("dataset_query", {})
