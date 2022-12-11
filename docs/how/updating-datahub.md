@@ -5,12 +5,20 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [Configuring Authorization with Apache Ranger](./configuring-authorization-with-apache-ranger.md#configuring-your-datahub-deployment) for configuring `apache-ranger-plugin` in DataHub GMS.
+- #6243 apache-ranger authorizer as plugin is not supported in DataHub Kubernetes deployment.
+- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/factories/src/main/resources/application.yml). Refer documentation [Migration Of Plugins From application.yml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins. 
+- `datahub check graph-consistency` command has been removed. It was a beta API that we had considered but decided there are better solutions for this. So removing this.
+- `graphql_url` option of `powerbi-report-server` source deprecated as the options is not used.
 
 ### Potential Downtime
 
 ### Deprecations
 
 ### Other notable Changes
+
+- #6611 - Snowflake `schema_pattern` now accepts pattern for fully qualified schema name in format `<catalog_name>.<schema_name>` by setting config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+- #6636 - Sources `snowflake-legacy` and `snowflake-usage-legacy` have been removed.
 
 ## 0.9.3
 
@@ -35,6 +43,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - The DataHub Airflow lineage backend and plugin no longer support Airflow 1.x. You can still run DataHub ingestion in Airflow 1.x using the [PythonVirtualenvOperator](https://airflow.apache.org/docs/apache-airflow/1.10.15/_api/airflow/operators/python_operator/index.html?highlight=pythonvirtualenvoperator#airflow.operators.python_operator.PythonVirtualenvOperator).
 
 ### Breaking Changes
+
+- #6570 `snowflake` connector now populates created and last modified timestamps for snowflake datasets and containers. This version of snowflake connector will not work with **datahub-gms** version older than `v0.9.3`
 
 ### Potential Downtime
 
@@ -228,5 +238,4 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #4644 `host_port` option of `snowflake` and `snowflake-usage` sources deprecated as the name was confusing. Use `account_id` option instead.
 
 ### Other notable Changes
-
 - #4760 `check_role_grants` option was added in `snowflake` to disable checking roles in `snowflake` as some people were reporting long run times when checking roles.

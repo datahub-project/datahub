@@ -2,8 +2,6 @@ import logging
 import re
 from typing import Iterable, List, Optional
 
-import pydantic
-
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -152,10 +150,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            UnityCatalogSourceConfig.Config.extra = (
-                pydantic.Extra.allow
-            )  # we are okay with extra fields during this stage
-            config = UnityCatalogSourceConfig.parse_obj(config_dict)
+            config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
             report = UnityCatalogReport()
             unity_proxy = proxy.UnityCatalogApiProxy(
                 config.workspace_url, config.token, report=report

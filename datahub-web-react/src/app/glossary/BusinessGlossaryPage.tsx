@@ -16,6 +16,12 @@ import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import {
+    BUSINESS_GLOSSARY_INTRO_ID,
+    BUSINESS_GLOSSARY_CREATE_TERM_ID,
+    BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
+} from '../onboarding/config/BusinessGlossaryOnboardingConfig';
+import { OnboardingTour } from '../onboarding/OnboardingTour';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -76,6 +82,13 @@ function BusinessGlossaryPage() {
 
     return (
         <>
+            <OnboardingTour
+                stepIds={[
+                    BUSINESS_GLOSSARY_INTRO_ID,
+                    BUSINESS_GLOSSARY_CREATE_TERM_ID,
+                    BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
+                ]}
+            />
             <GlossaryWrapper>
                 {(termsLoading || nodesLoading) && (
                     <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
@@ -98,10 +111,20 @@ function BusinessGlossaryPage() {
                     <HeaderWrapper>
                         <Typography.Title level={3}>Business Glossary</Typography.Title>
                         <div>
-                            <Button type="text" hidden={!allowAdd} onClick={() => setIsCreateTermModalVisible(true)}>
+                            <Button
+                                id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
+                                hidden={!allowAdd} 
+                                type="text"
+                                onClick={() => setIsCreateTermModalVisible(true)}
+                            >
                                 <PlusOutlined /> Add Term
                             </Button>
-                            <Button type="text" hidden={!allowAdd} onClick={() => setIsCreateNodeModalVisible(true)}>
+                            <Button
+                                id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
+                                hidden={!allowAdd} 
+                                type="text"
+                                onClick={() => setIsCreateNodeModalVisible(true)}
+                            >
                                 <PlusOutlined /> Add Term Group
                             </Button>
                         </div>

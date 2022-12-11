@@ -167,7 +167,7 @@ def default_source_config():
         "workstation_name": "workstation",
         "host_port": "host_port",
         "server_alias": "server_alias",
-        "graphql_url": "http://localhost:8080/api/graphql",
+        "graphql_url": None,
         "report_virtual_directory_name": "Reports",
         "report_server_virtual_directory_name": "ReportServer",
         "env": "DEV",

@@ -89,7 +89,7 @@ public class AuthModule extends AbstractModule {
                 final String aesKeyHash = DigestUtils.sha1Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
                 final String aesEncryptionKey = aesKeyHash.substring(0, 16);
                 playCacheCookieStore = new PlayCookieSessionStore(
-                        new ShiroAesDataEncrypter(aesEncryptionKey));
+                        new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
             } catch (Exception e) {
                 throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
             }
