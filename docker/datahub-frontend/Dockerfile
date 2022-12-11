@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.14 AS base
+FROM --platform=$BUILDPLATFORM alpine:3 AS base
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 

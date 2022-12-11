@@ -12,7 +12,14 @@ import analytics, { EventType } from '../../../analytics';
  * @param type the type of the entity to delete
  * @param name the name of the entity to delete
  */
-function useDeleteEntity(urn: string, type: EntityType, entityData: any, onDelete?: () => void) {
+function useDeleteEntity(
+    urn: string,
+    type: EntityType,
+    entityData: any,
+    onDelete?: () => void,
+    hideMessage?: boolean,
+    skipWait?: boolean,
+) {
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const entityRegistry = useEntityRegistry();
 
@@ -31,18 +38,25 @@ function useDeleteEntity(urn: string, type: EntityType, entityData: any, onDelet
                     entityUrn: urn,
                     entityType: type,
                 });
-                message.loading({
-                    content: 'Deleting...',
-                    duration: 2,
-                });
-                setTimeout(() => {
-                    setHasBeenDeleted(true);
-                    onDelete?.();
-                    message.success({
-                        content: `Deleted ${entityRegistry.getEntityName(type)}!`,
+                if (!hideMessage && !skipWait) {
+                    message.loading({
+                        content: 'Deleting...',
                         duration: 2,
                     });
-                }, 2000);
+                }
+                setTimeout(
+                    () => {
+                        setHasBeenDeleted(true);
+                        onDelete?.();
+                        if (!hideMessage) {
+                            message.success({
+                                content: `Deleted ${entityRegistry.getEntityName(type)}!`,
+                                duration: 2,
+                            });
+                        }
+                    },
+                    skipWait ? 0 : 2000,
+                );
             })
             .catch((e) => {
                 message.destroy();

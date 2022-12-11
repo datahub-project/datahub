@@ -767,7 +767,7 @@ class JobProcessor:
 
         input_datasets = {}
 
-        inputs = job["ProcessingInputs"]
+        inputs = job.get("ProcessingInputs", [])
 
         for input_config in inputs:
 

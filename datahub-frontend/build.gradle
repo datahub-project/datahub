@@ -1,7 +1,7 @@
 plugins {
   id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
 }
-apply plugin: 'java'
+apply plugin: 'scala'
 apply from: './play.gradle'
 
 
