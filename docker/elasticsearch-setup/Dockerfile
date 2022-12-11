@@ -3,7 +3,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3 as base
+FROM --platform=$BUILDPLATFORM alpine:3 AS base
 ENV DOCKERIZE_VERSION v0.6.1
 RUN apk add --no-cache curl jq tar bash coreutils \
     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv

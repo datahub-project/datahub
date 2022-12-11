@@ -27,7 +27,7 @@ jobs:
           python  -c "import platform; print(platform.platform())"
       - name: Run quickstart
         run: |
-          datahub docker quickstart
+          datahub docker quickstart --dump-logs-on-failure
       - name: Ingest sample data
         run: |
           datahub docker ingest-sample-data
