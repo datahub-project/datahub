@@ -18,3 +18,13 @@ import './commands'
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')
+
+// Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
+const resizeObserverLoopErrRe = /^ResizeObserver loop limit exceeded/
+Cypress.on('uncaught:exception', (err) => {
+  if (resizeObserverLoopErrRe.test(err.message)) {
+    // returning false here prevents Cypress from
+    // failing the test
+    return false
+  }
+})
