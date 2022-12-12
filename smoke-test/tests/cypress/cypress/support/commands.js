@@ -15,8 +15,8 @@ Cypress.Commands.add('login', () => {
       method: 'POST',
       url: '/logIn',
       body: {
-        username: "datahub", // Cypress.env('ADMIN_USERNAME'),
-        password: "datahub" // Cypress.env('ADMIN_PASSWORD'),
+        username: Cypress.env('ADMIN_USERNAME'),
+        password: Cypress.env('ADMIN_PASSWORD'),
       },
       retryOnStatusCodeFailure: true,
     });
@@ -99,7 +99,7 @@ Cypress.Commands.add("openThreeDotDropdown", () => {
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
-  cy.contains(text).click({ force: true });
+  cy.contains(text).click();
 });
 
 Cypress.Commands.add("deleteFromDropdown", () => {
@@ -185,16 +185,6 @@ Cypress.Commands.add("mouseover", (selector) => {
     "mouseover",
     { force: true }
   );
-})
-
-// Resize Observer Loop warning can be safely ignored - ref. https://github.com/cypress-io/cypress/issues/22113
-const resizeObserverLoopErrRe = /^ResizeObserver loop limit exceeded/
-Cypress.on('uncaught:exception', (err) => {
-  if (resizeObserverLoopErrRe.test(err.message)) {
-    // returning false here prevents Cypress from
-    // failing the test
-    return false
-  }
 })
 
 //
