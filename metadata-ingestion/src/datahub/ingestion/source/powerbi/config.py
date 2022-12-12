@@ -1,17 +1,14 @@
-import pydantic
+from dataclasses import dataclass, field as dataclass_field
+from typing import Dict, List, Union
 
+import pydantic
 from pydantic import validator
 
 import datahub.emitter.mce_builder as builder
-
-from dataclasses import field as dataclass_field
-from typing import List
-
-from dataclasses import  dataclass
-from datahub.configuration.source_common import EnvBasedSourceConfigBase, DEFAULT_ENV
-from typing import Dict, Union
+from datahub.configuration.source_common import DEFAULT_ENV, EnvBasedSourceConfigBase
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.powerbi import m_parser
+
 
 class Constant:
     """
@@ -87,7 +84,10 @@ class PowerBiDashboardSourceReport(SourceReport):
 
 @dataclass
 class PlatformDetail:
-    platform_instance: str = pydantic.Field(default=None, description="DataHub platform instance name. It should be same as you have used in ingestion receipe of DataHub platform ingestion source")
+    platform_instance: str = pydantic.Field(
+        default=None,
+        description="DataHub platform instance name. It should be same as you have used in ingestion receipe of DataHub platform ingestion source",
+    )
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
         description="The environment that all assets produced by DataHub platform ingestion source belong to",
@@ -102,7 +102,9 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Dataset type mapping PowerBI support many type of data-sources. Here user need to define what type of PowerBI
     # DataSource need to be mapped to corresponding DataHub Platform DataSource. For example PowerBI `Snowflake` is
     # mapped to DataHub `snowflake` PowerBI `PostgreSQL` is mapped to DataHub `postgres` and so on.
-    dataset_type_mapping: Union[Dict[str, str], Dict[str, PlatformDetail]] = pydantic.Field(
+    dataset_type_mapping: Union[
+        Dict[str, str], Dict[str, PlatformDetail]
+    ] = pydantic.Field(
         description="Mapping of PowerBI datasource type to DataHub supported data-sources. See Quickstart Recipe for mapping"
     )
     # Azure app client identifier

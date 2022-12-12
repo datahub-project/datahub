@@ -1,15 +1,16 @@
+import importlib.resources as pkg_resource
+import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum
 from functools import partial
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 
-from dataclasses import  dataclass
-import importlib.resources as pkg_resource
+import lark
+from lark import Lark, Token, Tree
+
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
-import logging
-from typing import List, Optional, Any, Dict, Union, cast
-
-from lark import Lark, Tree, Token
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,11 +36,17 @@ POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING: Dict[str, str] = {
 
 
 def _get_output_variable(root: Tree) -> Optional[str]:
-    in_expression_tree: Tree = _get_first_rule(root, "in_expression")
+    in_expression_tree: Optional[Tree] = _get_first_rule(root, "in_expression")
+    if in_expression_tree is None:
+        return None
     # Get list of terminal value
     # Remove any whitespaces
     # Remove any spaces
-    return "".join(_strip_char_from_list(_remove_whitespaces_from_list(_token_values(in_expression_tree)), " "))
+    return "".join(
+        _strip_char_from_list(
+            _remove_whitespaces_from_list(_token_values(in_expression_tree)), " "
+        )
+    )
 
 
 def _get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
@@ -49,8 +56,8 @@ def _get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
     for tree in _filter:
         values: List[str] = _token_values(tree.children[0])
         actual_value: str = "".join(_strip_char_from_list(values, " "))
-        LOGGER.info("Actual Value = %s", actual_value)
-        LOGGER.info("Expected Value = %s", variable)
+        LOGGER.debug("Actual Value = %s", actual_value)
+        LOGGER.debug("Expected Value = %s", variable)
 
         if actual_value == variable:
             return tree
@@ -67,6 +74,7 @@ def _get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     :param tree: Tree to search for the expression rule
     :return: Tree
     """
+
     def internal(node: Union[Tree, Token]) -> Optional[Tree]:
         if isinstance(node, Tree) and node.data == rule:
             return node
@@ -74,9 +82,11 @@ def _get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
             return None
 
         for child in cast(Tree, node).children:
-            node = internal(child)
-            if node is not None:
-                return node
+            child_node: Optional[Tree] = internal(child)
+            if child_node is not None:
+                return child_node
+
+        return None
 
     expression_tree: Optional[Tree] = internal(tree)
 
@@ -91,7 +101,7 @@ def _token_values(tree: Tree) -> List[str]:
     """
     values: List[str] = []
 
-    def internal(node: Union[Tree, Token]):
+    def internal(node: Union[Tree, Token]) -> None:
         if isinstance(node, Token):
             values.append(cast(Token, node).value)
             return
@@ -107,7 +117,7 @@ def _token_values(tree: Tree) -> List[str]:
 def _remove_whitespaces_from_list(values: List[str]) -> List[str]:
     result: List[str] = []
     for item in values:
-        if item.strip() not in ('', '\n', '\t'):
+        if item.strip() not in ("", "\n", "\t"):
             result.append(item)
 
     return result
@@ -135,7 +145,12 @@ class AbstractDataAccessMQueryResolver(AbstractMQueryResolver, ABC):
     parse_tree: Tree
     reporter: PowerBiDashboardSourceReport
 
-    def __init__(self, table: PowerBiAPI.Table, parse_tree: Tree, reporter: PowerBiDashboardSourceReport):
+    def __init__(
+        self,
+        table: PowerBiAPI.Table,
+        parse_tree: Tree,
+        reporter: PowerBiDashboardSourceReport,
+    ):
         self.table = table
         self.parse_tree = parse_tree
         self.reporter = reporter
@@ -144,54 +159,87 @@ class AbstractDataAccessMQueryResolver(AbstractMQueryResolver, ABC):
         self.first_arg_list_func = partial(_get_first_rule, rule="argument_list")
         self.first_identifier_func = partial(_get_first_rule, rule="identifier")
 
-
-
     @abstractmethod
     def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
         pass
 
 
 class BaseMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
+    def get_item_selector_tokens(
+        self, variable_statement: Tree
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+        expression_tree: Optional[Tree] = self.first_expression_func(variable_statement)
+        if expression_tree is None:
+            LOGGER.debug("Expression tree not found")
+            LOGGER.debug(variable_statement.pretty())
+            return None, None
 
-    def get_item_selector_tokens(self, variable_statement: Tree) -> (str, List[str]):
-        expression_tree: Tree = self.first_expression_func(variable_statement)
-        item_selector: Tree = self.first_item_selector_func(expression_tree)
-        identifier_tree: Tree = self.first_identifier_func(expression_tree)
+        item_selector: Optional[Tree] = self.first_item_selector_func(expression_tree)
+        if item_selector is None:
+            LOGGER.debug("Item Selector not found in tree")
+            LOGGER.debug(variable_statement.pretty())
+            return None, None
+
+        identifier_tree: Optional[Tree] = self.first_identifier_func(expression_tree)
+        if identifier_tree is None:
+            LOGGER.debug("Identifier not found in tree")
+            LOGGER.debug(variable_statement.pretty())
+            return None, None
+
         # remove whitespaces and quotes from token
-        tokens: List[str] = _strip_char_from_list(_remove_whitespaces_from_list(_token_values(item_selector)), "\"")
-        identifier: List[str] = _token_values(identifier_tree)
+        tokens: List[str] = _strip_char_from_list(
+            _remove_whitespaces_from_list(_token_values(cast(Tree, item_selector))),
+            '"',
+        )
+        identifier: List[str] = _token_values(
+            cast(Tree, identifier_tree)
+        )  # type :ignore
         # convert tokens to dict
         iterator = iter(tokens)
+        # cast to satisfy lint
         return identifier[0], dict(zip(iterator, iterator))
 
-    def get_argument_list(self, variable_statement: Tree) -> List[str]:
-        expression_tree: Tree = self.first_expression_func(variable_statement)
-        argument_list: Tree = self.first_arg_list_func(expression_tree)
+    def get_argument_list(self, variable_statement: Tree) -> Optional[List[str]]:
+        expression_tree: Optional[Tree] = self.first_expression_func(variable_statement)
+        if expression_tree is None:
+            LOGGER.debug("First expression rule not found in input tree")
+            return None
+
+        argument_list: Optional[Tree] = self.first_arg_list_func(expression_tree)
+        if argument_list is None:
+            LOGGER.debug("First argument-list rule not found in input tree")
+            return None
+
         # remove whitespaces and quotes from token
-        tokens: List[str] = _strip_char_from_list(_remove_whitespaces_from_list(_token_values(argument_list)), "\"")
+        tokens: List[str] = _strip_char_from_list(
+            _remove_whitespaces_from_list(_token_values(argument_list)), '"'
+        )
         return tokens
 
     def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
         data_platform_tables: List[DataPlatformTable] = []
         # Look for output variable
-        output_variable: str = _get_output_variable(self.parse_tree)
+        output_variable: Optional[str] = _get_output_variable(self.parse_tree)
         if output_variable is None:
-            self.reporter.warnings(
+            self.reporter.report_warning(
                 f"{self.table.full_name}-output-variable",
                 "output-variable not found in table expression",
             )
             return data_platform_tables
 
-        full_table_name: str = self.get_full_table_name(output_variable)
+        full_table_name: Optional[str] = self.get_full_table_name(output_variable)
         if full_table_name is None:
-            LOGGER.debug("Fail to form full_table_name for PowerBI DataSet table %s", self.table.full_name)
+            LOGGER.debug(
+                "Fail to form full_table_name for PowerBI DataSet table %s",
+                self.table.full_name,
+            )
             return data_platform_tables
 
         return [
             DataPlatformTable(
                 name=full_table_name.split(".")[-1],
                 full_name=full_table_name,
-                platform_type=self.get_platform()
+                platform_type=self.get_platform(),
             ),
         ]
 
@@ -200,20 +248,29 @@ class BaseMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         pass
 
     @abstractmethod
-    def get_full_table_name(self, output_variable: str) -> str:
+    def get_full_table_name(self, output_variable: str) -> Optional[str]:
         pass
 
 
 class PostgresMQueryResolver(BaseMQueryResolver):
     def get_full_table_name(self, output_variable: str) -> Optional[str]:
-        variable_statement: Tree = _get_variable_statement(self.parse_tree, output_variable)
+        variable_statement: Optional[Tree] = _get_variable_statement(
+            self.parse_tree, output_variable
+        )
         if variable_statement is None:
             self.reporter.report_warning(
                 f"{self.table.full_name}-variable-statement",
                 f"output variable ({output_variable}) statement not found in table expression",
             )
             return None
-        source, tokens = self.get_item_selector_tokens(variable_statement)
+        source, tokens = self.get_item_selector_tokens(cast(Tree, variable_statement))
+        if source is None or tokens is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "Schema detail not found in table expression",
+            )
+            return None
+
         schema_name: str = tokens["Schema"]
         table_name: str = tokens["Item"]
         # Look for database-name
@@ -224,16 +281,16 @@ class PostgresMQueryResolver(BaseMQueryResolver):
                 f"source variable {source} statement not found in table expression",
             )
             return None
-        tokens = self.get_argument_list(variable_statement)
-        if len(tokens) < 1:
+        arg_list = self.get_argument_list(cast(Tree, variable_statement))
+        if arg_list is None or len(arg_list) < 1:
             self.reporter.report_warning(
                 f"{self.table.full_name}-database-arg-list",
                 "Expected number of argument not found in data-access function of table expression",
             )
             return None
 
-        database_name: str = tokens[1]  # 1st token is database name
-        return f"{database_name}.{schema_name}.{table_name}"
+        database_name: str = cast(List[str], arg_list)[1]  # 1st token is database name
+        return cast(Optional[str], f"{database_name}.{schema_name}.{table_name}")
 
     def get_platform(self) -> str:
         return SupportedDataPlatform.POSTGRES_SQL.value
@@ -248,8 +305,7 @@ class OracleMQueryResolver(BaseMQueryResolver):
         splitter_result: List[str] = value.split("/")
         if len(splitter_result) != 2:
             self.reporter.report_warning(
-                f"{self.table.full_name}-oracle-target",
-                error_message
+                f"{self.table.full_name}-oracle-target", error_message
             )
             return None
 
@@ -257,9 +313,11 @@ class OracleMQueryResolver(BaseMQueryResolver):
 
         return db_name
 
-    def get_full_table_name(self, output_variable: str) -> str:
+    def get_full_table_name(self, output_variable: str) -> Optional[str]:
         # Find step for the output variable
-        variable_statement: Tree = _get_variable_statement(self.parse_tree, output_variable)
+        variable_statement: Optional[Tree] = _get_variable_statement(
+            self.parse_tree, output_variable
+        )
 
         if variable_statement is None:
             self.reporter.report_warning(
@@ -268,11 +326,22 @@ class OracleMQueryResolver(BaseMQueryResolver):
             )
             return None
 
-        schema_variable, tokens = self.get_item_selector_tokens(variable_statement)
+        schema_variable, tokens = self.get_item_selector_tokens(
+            cast(Tree, variable_statement)
+        )
+        if schema_variable is None or tokens is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "table name not found in table expression",
+            )
+            return None
+
         table_name: str = tokens["Name"]
 
         # Find step for the schema variable
-        variable_statement = _get_variable_statement(self.parse_tree, schema_variable)
+        variable_statement = _get_variable_statement(
+            self.parse_tree, cast(str, schema_variable)
+        )
         if variable_statement is None:
             self.reporter.report_warning(
                 f"{self.table.full_name}-schema-variable-statement",
@@ -281,6 +350,13 @@ class OracleMQueryResolver(BaseMQueryResolver):
             return None
 
         source_variable, tokens = self.get_item_selector_tokens(variable_statement)
+        if source_variable is None or tokens is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "Schema not found in table expression",
+            )
+            return None
+
         schema_name: str = tokens["Schema"]
 
         # Find step for the database access variable
@@ -291,17 +367,17 @@ class OracleMQueryResolver(BaseMQueryResolver):
                 f"schema variable ({source_variable}) statement not found in table expression",
             )
             return None
-        tokens = self.get_argument_list(variable_statement)
-        if len(tokens) < 1:
+        arg_list = self.get_argument_list(variable_statement)
+        if arg_list is None or len(arg_list) < 1:
             self.reporter.report_warning(
                 f"{self.table.full_name}-database-arg-list",
                 "Expected number of argument not found in data-access function of table expression",
             )
             return None
         # The first argument has database name. format localhost:1521/salesdb.GSLAB.COM
-        db_name: Optional[str] = self._get_db_name(tokens[0])
+        db_name: Optional[str] = self._get_db_name(arg_list[0])
         if db_name is None:
-            LOGGER.debug(f"Fail to extract db name from the target {tokens[0]}")
+            LOGGER.debug(f"Fail to extract db name from the target {arg_list}")
 
         return f"{db_name}.{schema_name}.{table_name}"
 
@@ -310,9 +386,11 @@ class SnowflakeMQueryResolver(BaseMQueryResolver):
     def get_platform(self) -> str:
         return SupportedDataPlatform.SNOWFLAKE.value
 
-    def get_full_table_name(self, output_variable: str) -> str:
+    def get_full_table_name(self, output_variable: str) -> Optional[str]:
         # Find step for the output variable
-        variable_statement: Tree = _get_variable_statement(self.parse_tree, output_variable)
+        variable_statement: Optional[Tree] = _get_variable_statement(
+            self.parse_tree, output_variable
+        )
 
         if variable_statement is None:
             self.reporter.report_warning(
@@ -322,6 +400,13 @@ class SnowflakeMQueryResolver(BaseMQueryResolver):
             return None
 
         schema_variable, tokens = self.get_item_selector_tokens(variable_statement)
+        if schema_variable is None or tokens is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "table name not found in table expression",
+            )
+            return None
+
         table_name: str = tokens["Name"]
 
         # Find step for the schema variable
@@ -334,6 +419,13 @@ class SnowflakeMQueryResolver(BaseMQueryResolver):
             return None
 
         source_variable, tokens = self.get_item_selector_tokens(variable_statement)
+        if source_variable is None or tokens is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "schema name not found in table expression",
+            )
+            return None
+
         schema_name: str = tokens["Name"]
 
         # Find step for the database access variable
@@ -345,12 +437,19 @@ class SnowflakeMQueryResolver(BaseMQueryResolver):
             )
             return None
         _, tokens = self.get_item_selector_tokens(variable_statement)
+        if tokens is None:
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "database name not found in table expression",
+            )
+            return None
+
         db_name: str = tokens["Name"]
 
         return f"{db_name}.{schema_name}.{table_name}"
 
 
-def _get_resolver(parse_tree: Tree) -> Optional[AbstractMQueryResolver]:
+def _get_resolver(parse_tree: Tree) -> Optional[Type["BaseMQueryResolver"]]:
 
     _filter: Any = parse_tree.find_data("invoke_expression")
 
@@ -371,16 +470,11 @@ def _get_resolver(parse_tree: Tree) -> Optional[AbstractMQueryResolver]:
 
 
 # Register M-Query resolver for specific database platform
-DATA_ACCESS_RESOLVER: Dict[str, AbstractDataAccessMQueryResolver.__class__] = {
+DATA_ACCESS_RESOLVER = {
     f"{SupportedDataPlatform.POSTGRES_SQL.value}.Database": PostgresMQueryResolver,
     f"{SupportedDataPlatform.ORACLE.value}.Database": OracleMQueryResolver,
     f"{SupportedDataPlatform.SNOWFLAKE.value}.Databases": SnowflakeMQueryResolver,
-}
-
-# Register M-Query resolver for function call to resolve function arguments
-TABLE_ACCESS_RESOLVER: Dict[str, AbstractMQueryResolver.__class__] = {
-    "Table.Combine": None,
-}
+}  # type :ignore
 
 
 def _parse_expression(expression: str) -> Tree:
@@ -395,28 +489,46 @@ def _parse_expression(expression: str) -> Tree:
     parse_tree: Tree = lark_parser.parse(expression)
 
     LOGGER.debug("Parse Tree")
-    if LOGGER.level == logging.DEBUG:  # Guard condition to avoid heavy pretty() function call
+    if (
+        LOGGER.level == logging.DEBUG
+    ):  # Guard condition to avoid heavy pretty() function call
         LOGGER.debug(parse_tree.pretty())
 
     return parse_tree
 
 
-def get_upstream_tables(table: PowerBiAPI.Table, reporter: PowerBiDashboardSourceReport) -> List[DataPlatformTable]:
-    parse_tree = _parse_expression(table.expression)
+def get_upstream_tables(
+    table: PowerBiAPI.Table, reporter: PowerBiDashboardSourceReport
+) -> List[DataPlatformTable]:
+    if table.expression is None:
+        reporter.report_warning(table.full_name, "Expression is none")
+        return []
+
+    try:
+        parse_tree: Tree = _parse_expression(table.expression)
+    except lark.exceptions.UnexpectedCharacters:
+        reporter.report_warning(
+            table.full_name, f"UnSupported expression = {table.expression}"
+        )
+        return []
 
     trees: List[Tree] = list(parse_tree.find_data("invoke_expression"))
     if len(trees) > 1:
-        reporter.report_warning(table.full_name, f"{table.full_name} has more than one invoke expression")
+        reporter.report_warning(
+            table.full_name, f"{table.full_name} has more than one invoke expression"
+        )
         return []
 
-    resolver: AbstractDataAccessMQueryResolver = _get_resolver(parse_tree)
+    resolver: Optional[Type[BaseMQueryResolver]] = _get_resolver(parse_tree)
     if resolver is None:
         LOGGER.debug("Table full-name = %s", table.full_name)
         LOGGER.debug("Expression = %s", table.expression)
         reporter.report_warning(
             table.full_name,
-            f"{table.full_name} M-Query resolver not found for the table expression"
+            f"{table.full_name} M-Query resolver not found for the table expression",
         )
         return []
 
-    return resolver(table, parse_tree, reporter).resolve_to_data_platform_table_list()
+    return resolver(
+        table, parse_tree, reporter
+    ).resolve_to_data_platform_table_list()  # type: ignore

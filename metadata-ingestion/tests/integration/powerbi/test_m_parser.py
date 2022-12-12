@@ -3,9 +3,12 @@ from typing import List
 from lark import Tree
 
 from datahub.ingestion.source.powerbi import m_parser
-from datahub.ingestion.source.powerbi.m_parser import DataPlatformTable, SupportedDataPlatform
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
+from datahub.ingestion.source.powerbi.m_parser import (
+    DataPlatformTable,
+    SupportedDataPlatform,
+)
+from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -20,9 +23,9 @@ M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","OPERATIONS_ANALYTICS_WAREHOUSE_PROD",[Role="OPERATIONS_ANALYTICS_MEMBER_AD"]),\n    OPERATIONS_ANALYTICS_Database = Source{[Name="OPERATIONS_ANALYTICS",Kind="Database"]}[Data],\n    TEST_Schema = OPERATIONS_ANALYTICS_Database{[Name="TEST",Kind="Schema"]}[Data],\n    LZ_MIGRATION_DOWNLOAD_View = TEST_Schema{[Name="LZ_MIGRATION_DOWNLOAD",Kind="View"]}[Data],\n    #"Changed Type" = Table.TransformColumnTypes(LZ_MIGRATION_DOWNLOAD_View,{{"MIGRATION_MONTH_ID", type text}}),\n    #"Added Custom" = Table.AddColumn(#"Changed Type", "Migration Month", each Date.FromText(\nText.Range([MIGRATION_MONTH_ID], 0,4) & "-" & \nText.Range([MIGRATION_MONTH_ID], 4,2) \n)),\n    #"Changed Type1" = Table.TransformColumnTypes(#"Added Custom",{{"Migration Month", type date}})\nin\n    #"Changed Type1"',
     "let\n    Source = Value.NativeQuery(Snowflake.Databases(\"bu20658.ap-southeast-2.snowflakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select *,#(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS Agent,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS#(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Industries'#(lf)and TARGET_TEAM = 'Enterprise'\", null, [EnableFolding=true])\nin\n    Source",
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="Select#(lf)*,#(lf)concat((UPPER(REPLACE(SALES_SPECIALIST,\'-\',\'\'))),#(lf)LEFT(CAST(INVOICE_DATE AS DATE),4)+LEFT(RIGHT(CAST(INVOICE_DATE AS DATE),5),2)) AS AGENT_KEY,#(lf)CASE#(lf)    WHEN CLASS = \'Software\' and (NOT(PRODUCT in (\'ADV\', \'Adv\') and left(ACCOUNT_ID,2)=\'10\') #(lf)    or V_ENTERPRISE_INVOICED_REVENUE.TYPE = \'Manual Adjustment\') THEN INVOICE_AMOUNT#(lf)    WHEN V_ENTERPRISE_INVOICED_REVENUE.TYPE IN (\'Recurring\',\'0\') THEN INVOICE_AMOUNT#(lf)    ELSE 0#(lf)END as SOFTWARE_INV#(lf)#(lf)from V_ENTERPRISE_INVOICED_REVENUE", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Services", each if [CLASS] = "Services" then [INVOICE_AMOUNT] else 0),\n    #"Added Custom" = Table.AddColumn(#"Added Conditional Column", "Advanced New Sites", each if [PRODUCT] = "ADV"\nor [PRODUCT] = "Adv"\nthen [NEW_SITE]\nelse 0)\nin\n    #"Added Custom"',
-    'let\n    Source = Snowflake.Databases(\"xaa48144.snowflakecomputing.com\",\"GSL_TEST_WH\",[Role=\"ACCOUNTADMIN\"]),\n Source2 = PostgreSQL.Database(\"localhost\", \"mics\"),\n  public_order_date = Source2{[Schema=\"public\",Item=\"order_date\"]}[Data],\n    GSL_TEST_DB_Database = Source{[Name=\"GSL_TEST_DB\",Kind=\"Database\"]}[Data],\n  PUBLIC_Schema = GSL_TEST_DB_Database{[Name=\"PUBLIC\",Kind=\"Schema\"]}[Data],\n   SALES_ANALYST_VIEW_View = PUBLIC_Schema{[Name=\"SALES_ANALYST_VIEW\",Kind=\"View\"]}[Data],\n  two_source_table  = Table.Combine({public_order_date, SALES_ANALYST_VIEW_View})\n in\n    two_source_table',
+    'let\n    Source = Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]),\n Source2 = PostgreSQL.Database("localhost", "mics"),\n  public_order_date = Source2{[Schema="public",Item="order_date"]}[Data],\n    GSL_TEST_DB_Database = Source{[Name="GSL_TEST_DB",Kind="Database"]}[Data],\n  PUBLIC_Schema = GSL_TEST_DB_Database{[Name="PUBLIC",Kind="Schema"]}[Data],\n   SALES_ANALYST_VIEW_View = PUBLIC_Schema{[Name="SALES_ANALYST_VIEW",Kind="View"]}[Data],\n  two_source_table  = Table.Combine({public_order_date, SALES_ANALYST_VIEW_View})\n in\n    two_source_table',
     'let\n Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
-    'let\n Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1'
+    'let\n Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
 ]
 
 
@@ -101,7 +104,7 @@ def test_parse_m_query12():
 def test_parse_m_query13():
     expression: str = M_QUERIES[12]
     parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == 'two_source_table'
+    assert m_parser._get_output_variable(parse_tree) == "two_source_table"
 
 
 def test_postgres_regular_case():
@@ -113,12 +116,17 @@ def test_postgres_regular_case():
     )
 
     reporter = PowerBiDashboardSourceReport()
-    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(table, reporter)
+    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+        table, reporter
+    )
 
     assert len(data_platform_tables) == 1
     assert data_platform_tables[0].name == "order_date"
     assert data_platform_tables[0].full_name == "mics.public.order_date"
-    assert data_platform_tables[0].platform_type == SupportedDataPlatform.POSTGRES_SQL.value
+    assert (
+        data_platform_tables[0].platform_type
+        == SupportedDataPlatform.POSTGRES_SQL.value
+    )
 
 
 def test_oracle_regular_case():
@@ -130,7 +138,9 @@ def test_oracle_regular_case():
     )
 
     reporter = PowerBiDashboardSourceReport()
-    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(table, reporter)
+    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+        table, reporter
+    )
 
     assert len(data_platform_tables) == 1
     assert data_platform_tables[0].name == "EMPLOYEES"
@@ -147,9 +157,13 @@ def test_snowflake_regular_case():
     )
 
     reporter = PowerBiDashboardSourceReport()
-    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(table, reporter)
+    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+        table, reporter
+    )
 
     assert len(data_platform_tables) == 1
     assert data_platform_tables[0].name == "TESTTABLE"
     assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
-    assert data_platform_tables[0].platform_type == SupportedDataPlatform.SNOWFLAKE.value
+    assert (
+        data_platform_tables[0].platform_type == SupportedDataPlatform.SNOWFLAKE.value
+    )

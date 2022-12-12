@@ -5,7 +5,7 @@
 #########################################################
 
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Iterable, List, Optional, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV
@@ -21,7 +21,15 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.powerbi import m_parser
+from datahub.ingestion.source.powerbi.config import (
+    Constant,
+    PlatformDetail,
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
 from datahub.ingestion.source.powerbi.m_parser import DataPlatformTable
+from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
@@ -32,22 +40,18 @@ from datahub.metadata.schema_classes import (
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
-    SubTypesClass, UpstreamClass, DatasetLineageTypeClass, UpstreamLineageClass,
+    SubTypesClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.ingestion.source.powerbi import m_parser
-from datahub.ingestion.source.powerbi.config import (
-    PowerBiDashboardSourceReport,
-    PowerBiDashboardSourceConfig,
-    PlatformDetail,
-    Constant
-)
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
+
 # Logger instance
 LOGGER = logging.getLogger(__name__)
 
@@ -69,7 +73,11 @@ class Mapper:
         def __hash__(self):
             return id(self.id)
 
-    def __init__(self, config: PowerBiDashboardSourceConfig, reporter: PowerBiDashboardSourceReport):
+    def __init__(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        reporter: PowerBiDashboardSourceReport,
+    ):
         self.__config = config
         self.__reporter = reporter
 
@@ -150,18 +158,28 @@ class Mapper:
             )
             dataset_mcps.extend([info_mcp, status_mcp])
 
-            # Check if upstreams table is available, parse them and create dataset URN for each upstream table
             if self.__config.extract_lineage is True:
+                # Check if upstreams table is available, parse them and create dataset URN for each upstream table
                 upstreams: List[UpstreamClass] = []
-                upstream_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(table.expression, self.__reporter)
+                upstream_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+                    table, self.__reporter
+                )
                 for upstream_table in upstream_tables:
-                    platform: Union[str, PlatformDetail] = self.__config.dataset_type_mapping[upstream_table.platform_type]
-                    platform_name: str = m_parser.POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING[upstream_table.platform_type]
-                    platform_instance_name: str = None
+                    platform: Union[
+                        str, PlatformDetail
+                    ] = self.__config.dataset_type_mapping[upstream_table.platform_type]
+                    platform_name: str = (
+                        m_parser.POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING[
+                            upstream_table.platform_type
+                        ]
+                    )
+                    platform_instance_name: Optional[str] = None
                     platform_env: str = DEFAULT_ENV
                     # Determine if PlatformDetail is provided
                     if isinstance(platform, PlatformDetail):
-                        platform_instance_name = cast(PlatformDetail, platform).platform_instance
+                        platform_instance_name = cast(
+                            PlatformDetail, platform
+                        ).platform_instance
                         platform_env = cast(PlatformDetail, platform).env
 
                     upstream_urn = builder.make_dataset_urn_with_platform_instance(
@@ -170,11 +188,11 @@ class Mapper:
                         env=platform_env,
                         name=upstream_table.full_name,
                     )
-                    upstream_table = UpstreamClass(
+                    upstream_table_class = UpstreamClass(
                         upstream_urn,
                         DatasetLineageTypeClass.TRANSFORMED,
                     )
-                    upstreams.append(upstream_table)
+                    upstreams.append(upstream_table_class)
 
                     if len(upstreams) > 0:
                         upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
@@ -536,19 +554,6 @@ class Mapper:
                 entity_urn=chart_urn,
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
-            )
-
-            # ChartKey status
-            chart_key_instance = ChartKeyClass(
-                dashboardTool=self.__config.platform_name,
-                chartId=Constant.CHART_ID.format(page.id),
-            )
-
-            chartkey_mcp = self.new_mcp(
-                entity_type=Constant.CHART,
-                entity_urn=chart_urn,
-                aspect_name=Constant.CHART_KEY,
-                aspect=chart_key_instance,
             )
 
             return [info_mcp, status_mcp]
