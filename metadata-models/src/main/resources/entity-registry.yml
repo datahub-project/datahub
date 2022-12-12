@@ -261,6 +261,12 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects: []
+  - name: globalSettings
+    doc: Global settings for an the platform
+    category: internal
+    keyAspect: globalSettingsKey
+    aspects:
+      - globalSettingsInfo
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -276,4 +282,9 @@ entities:
     keyAspect: dataHubStepStateKey
     aspects:
       - dataHubStepStateProperties
+  - name: dataHubView
+    category: core
+    keyAspect: dataHubViewKey
+    aspects:
+      - dataHubViewInfo
 events:

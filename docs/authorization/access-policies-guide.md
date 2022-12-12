@@ -108,6 +108,7 @@ In the second step, we can simply select the Privileges that this Platform Polic
 | Manage Glossaries               | Allow the actor to create, edit, move, and delete Glossary Terms and Term Groups                                               |
 | Create Tags                     | Allow the actor to create new Tags                                                                                             |
 | Manage Tags                     | Allow the actor to create and remove any Tags                                                                                  |
+| Manage Public Views             | Allow the actor to create, edit, and remove all Public Views.                                                                       |
 
 
 #### Step 3: Choose Policy Actors

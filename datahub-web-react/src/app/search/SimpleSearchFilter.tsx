@@ -101,7 +101,12 @@ export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, def
                                             onFilterSelect(e.target.checked, facet.field, aggregation.value)
                                         }
                                     >
-                                        <SearchFilterLabel field={facet.field} aggregation={aggregation} />
+                                        <SearchFilterLabel
+                                            field={facet.field}
+                                            value={aggregation.value}
+                                            count={aggregation.count}
+                                            entity={aggregation.entity}
+                                        />
                                     </CheckBox>
                                     <br />
                                 </span>
