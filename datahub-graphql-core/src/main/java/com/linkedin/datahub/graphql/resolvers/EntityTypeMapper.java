@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.metadata.Constants;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -35,6 +36,7 @@ public class EntityTypeMapper {
           .put(EntityType.NOTEBOOK, "notebook")
           .put(EntityType.DATA_PLATFORM_INSTANCE, "dataPlatformInstance")
           .put(EntityType.TEST, "test")
+          .put(EntityType.DATAHUB_VIEW, Constants.DATAHUB_VIEW_ENTITY_NAME)
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

@@ -107,7 +107,7 @@ const topicAllowFieldPath = 'source.config.topic_patterns.allow';
 export const TOPIC_ALLOW: RecipeField = {
     name: 'topic_patterns.allow',
     label: 'Allow Patterns',
-    tooltip: 'Provide an optional Regular Expresssion (REGEX) to include specific Kafka Topic names in ingestion.',
+    tooltip: 'Provide an optional Regular Expression (REGEX) to include specific Kafka Topic names in ingestion.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: topicAllowFieldPath,
@@ -121,7 +121,7 @@ const topicDenyFieldPath = 'source.config.topic_patterns.deny';
 export const TOPIC_DENY: RecipeField = {
     name: 'topic_patterns.deny',
     label: 'Deny Patterns',
-    tooltip: 'Provide an optional Regular Expresssion (REGEX) to exclude specific Kafka Topic names from ingestion.',
+    tooltip: 'Provide an optional Regular Expression (REGEX) to exclude specific Kafka Topic names from ingestion.',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: topicDenyFieldPath,

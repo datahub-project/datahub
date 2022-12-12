@@ -1,5 +1,5 @@
 import React from 'react';
-import { Checkbox, DatePicker, Form, Input, Select, Tooltip, FormInstance } from 'antd';
+import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import Button from 'antd/lib/button';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
@@ -94,11 +94,11 @@ interface Props {
     secrets: Secret[];
     refetchSecrets: () => void;
     removeMargin?: boolean;
-    form: FormInstance<any>;
+    updateFormValue: (field, value) => void;
 }
 
 function FormField(props: Props) {
-    const { field, secrets, refetchSecrets, removeMargin, form } = props;
+    const { field, secrets, refetchSecrets, removeMargin, updateFormValue } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
@@ -113,7 +113,7 @@ function FormField(props: Props) {
                 secrets={secrets}
                 removeMargin={removeMargin}
                 refetchSecrets={refetchSecrets}
-                form={form}
+                updateFormValue={updateFormValue}
             />
         );
 

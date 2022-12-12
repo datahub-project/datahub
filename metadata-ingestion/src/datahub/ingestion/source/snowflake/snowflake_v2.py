@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pandas as pd
-import pydantic
 from snowflake.connector import SnowflakeConnection
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -80,7 +80,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    Status,
+    SubTypes,
+    TimeStamp,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
     UpstreamLineage,
@@ -165,7 +169,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Enabled by default, can be disabled via configuration `include_table_lineage` and `include_view_lineage`",
+    "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
 @capability(
     SourceCapability.USAGE_STATS,
@@ -251,10 +255,7 @@ class SnowflakeV2Source(
         test_report = TestConnectionReport()
 
         try:
-            SnowflakeV2Config.Config.extra = (
-                pydantic.Extra.allow
-            )  # we are okay with extra fields during this stage
-            connection_conf = SnowflakeV2Config.parse_obj(config_dict)
+            connection_conf = SnowflakeV2Config.parse_obj_allow_extras(config_dict)
 
             connection: SnowflakeConnection = connection_conf.get_connection()
             assert connection
@@ -276,9 +277,6 @@ class SnowflakeV2Source(
                 test_report.internal_failure = True
                 test_report.internal_failure_reason = f"{e}"
         finally:
-            SnowflakeV2Config.Config.extra = (
-                pydantic.Extra.forbid
-            )  # set config flexibility back to strict
             return test_report
 
     @staticmethod
@@ -437,7 +435,8 @@ class SnowflakeV2Source(
         self.report.include_technical_schema = self.config.include_technical_schema
         databases: List[SnowflakeDatabase] = []
 
-        databases = self.data_dictionary.get_databases(conn)
+        databases = self.get_databases(conn)
+
         for snowflake_db in databases:
             self.report.report_entity_scanned(snowflake_db.name, "database")
 
@@ -480,6 +479,31 @@ class SnowflakeV2Source(
             ]
             yield from self.usage_extractor.get_workunits(discovered_datasets)
 
+    def get_databases(self, conn):
+        databases = self.data_dictionary.show_databases(conn)
+
+        # Below code block is required to enrich database with additional
+        # information that is missing in `show databases` results
+        # For example - last modified time of database
+        ischema_database_map: Dict[str, SnowflakeDatabase] = {}
+        for database in databases:
+            try:
+                ischema_databases = self.data_dictionary.get_databases(
+                    conn, database.name
+                )
+                ischema_database_map = {db.name: db for db in ischema_databases}
+                break
+            except Exception:
+                # query fails if "USAGE" access is not granted for database
+                logger.debug(
+                    f"Failed to list databases {database.name} information_schema"
+                )
+        for database in databases:
+            if database.name in ischema_database_map.keys():
+                database.last_altered = ischema_database_map[database.name].last_altered
+
+        return databases
+
     def _process_database(
         self, conn: SnowflakeConnection, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
@@ -508,7 +532,12 @@ class SnowflakeV2Source(
 
             self.report.report_entity_scanned(snowflake_schema.name, "schema")
 
-            if not self.config.schema_pattern.allowed(snowflake_schema.name):
+            if not is_schema_allowed(
+                self.config.schema_pattern,
+                snowflake_schema.name,
+                db_name,
+                self.config.match_fully_qualified_names,
+            ):
                 self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
                 continue
 
@@ -643,9 +672,25 @@ class SnowflakeV2Source(
 
         dataset_properties = DatasetProperties(
             name=table.name,
+            created=TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
+            else None,
+            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+            if table.last_altered is not None
+            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
+            else None,
             description=table.comment,
             qualifiedName=dataset_name,
             customProperties={**upstream_column_props},
+            externalUrl=self.get_external_url_for_table(
+                table.name,
+                schema_name,
+                db_name,
+                "table" if isinstance(table, SnowflakeTable) else "view",
+            )
+            if self.config.include_external_url
+            else None,
         )
         yield self.wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
@@ -889,6 +934,17 @@ class SnowflakeV2Source(
             description=database.comment,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+            external_url=self.get_external_url_for_database(database.name)
+            if self.config.include_external_url
+            else None,
+            created=int(database.created.timestamp() * 1000)
+            if database.created is not None
+            else None,
+            last_modified=int(database.last_altered.timestamp() * 1000)
+            if database.last_altered is not None
+            else int(database.created.timestamp() * 1000)
+            if database.created is not None
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -905,6 +961,8 @@ class SnowflakeV2Source(
     def gen_schema_containers(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(f"{db_name}.{schema.name}")
+
         schema_container_key = self.gen_schema_key(
             self.snowflake_identifier(db_name),
             self.snowflake_identifier(schema.name),
@@ -922,6 +980,18 @@ class SnowflakeV2Source(
             description=schema.comment,
             sub_types=[SqlContainerSubTypes.SCHEMA],
             parent_container_key=database_container_key,
+            domain_urn=domain_urn,
+            external_url=self.get_external_url_for_schema(schema.name, db_name)
+            if self.config.include_external_url
+            else None,
+            created=int(schema.created.timestamp() * 1000)
+            if schema.created is not None
+            else None,
+            last_modified=int(schema.last_altered.timestamp() * 1000)
+            if schema.last_altered is not None
+            else int(schema.created.timestamp() * 1000)
+            if schema.created is not None
+            else None,
         )
 
         for wu in container_workunits:
@@ -1031,6 +1101,7 @@ class SnowflakeV2Source(
         self.report.check_role_grants = self.config.check_role_grants
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
+        self.report.include_column_lineage = self.config.include_column_lineage
         if self.report.include_usage_stats or self.config.include_operational_stats:
             self.report.window_start_time = self.config.start_time
             self.report.window_end_time = self.config.end_time
@@ -1077,3 +1148,26 @@ class SnowflakeV2Source(
         df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
 
         return df
+
+    # domain is either "view" or "table"
+    def get_external_url_for_table(
+        self, table_name: str, schema_name: str, db_name: str, domain: str
+    ) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+        return None
+
+    def get_external_url_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
+        return None
+
+    def get_external_url_for_database(self, db_name: str) -> Optional[str]:
+        base_url = self.get_snowsight_base_url()
+        if base_url is not None:
+            return f"{base_url}#/data/databases/{db_name}/"
+        return None

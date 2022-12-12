@@ -275,7 +275,8 @@ class BigQueryUsageExtractor:
                 e,
             )
             self.report.report_failure(
-                f"{client.project}", f"unable to retrieve log entries {e}"
+                "lineage-extraction",
+                f"{client.project} - unable to retrieve log entries {e}",
             )
 
     def _get_exported_bigquery_audit_metadata(
@@ -367,7 +368,8 @@ class BigQueryUsageExtractor:
                 e,
             )
             self.report.report_failure(
-                f"{client.project}", f"unable to retrive log entrires {e}"
+                "usage-extraction",
+                f"{client.project} - unable to retrive log entrires {e}",
             )
 
     def _generate_filter(self, audit_templates: Dict[str, str]) -> str:
@@ -622,10 +624,8 @@ class BigQueryUsageExtractor:
                 self.report.num_query_events += 1
 
             if event is None:
-                self.error(
-                    logger,
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
+                logger.warning(
+                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
                 )
             else:
                 yield event
@@ -664,10 +664,8 @@ class BigQueryUsageExtractor:
             else:
                 self.error(
                     logger,
-                    f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
-                    f"Unable to parse audit metadata missing "
-                    f"QueryEvent keys:{str(missing_query_event_exported_audit)},"
-                    f" ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
+                    "usage-extraction",
+                    f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event_exported_audit)} ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
                 )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> Any:
