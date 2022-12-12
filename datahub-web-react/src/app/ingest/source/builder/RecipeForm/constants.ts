@@ -83,12 +83,23 @@ import {
     PROJECT_NAME,
 } from './lookml';
 import { PRESTO, PRESTO_HOST_PORT, PRESTO_DATABASE, PRESTO_USERNAME, PRESTO_PASSWORD } from './presto';
-import { BIGQUERY_BETA, MYSQL } from '../constants';
+import { BIGQUERY_BETA, MYSQL, UNITY_CATALOG } from '../constants';
 import { BIGQUERY_BETA_PROJECT_ID, DATASET_ALLOW, DATASET_DENY, PROJECT_ALLOW, PROJECT_DENY } from './bigqueryBeta';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from './mysql';
 import { MSSQL, MSSQL_DATABASE, MSSQL_HOST_PORT, MSSQL_PASSWORD, MSSQL_USERNAME } from './mssql';
 import { TRINO, TRINO_DATABASE, TRINO_HOST_PORT, TRINO_PASSWORD, TRINO_USERNAME } from './trino';
 import { MARIADB, MARIADB_DATABASE, MARIADB_HOST_PORT, MARIADB_PASSWORD, MARIADB_USERNAME } from './mariadb';
+import {
+    INCLUDE_COLUMN_LINEAGE,
+    TOKEN,
+    UNITY_CATALOG_ALLOW,
+    UNITY_CATALOG_DENY,
+    UNITY_METASTORE_ID_ALLOW,
+    UNITY_METASTORE_ID_DENY,
+    UNITY_TABLE_ALLOW,
+    UNITY_TABLE_DENY,
+    WORKSPACE_URL,
+} from './unity_catalog';
 
 export enum RecipeSections {
     Connection = 0,
@@ -338,8 +349,23 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
+    [UNITY_CATALOG]: {
+        fields: [WORKSPACE_URL, TOKEN],
+        filterFields: [
+            UNITY_METASTORE_ID_ALLOW,
+            UNITY_METASTORE_ID_DENY,
+            UNITY_CATALOG_ALLOW,
+            UNITY_CATALOG_DENY,
+            SCHEMA_ALLOW,
+            SCHEMA_DENY,
+            UNITY_TABLE_ALLOW,
+            UNITY_TABLE_DENY,
+        ],
+        advancedFields: [INCLUDE_TABLE_LINEAGE, INCLUDE_COLUMN_LINEAGE, STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Metastores, Catalogs, Schemas, and Tables from ingestion.',
+    },
 };
 
 export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));
 
-export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY]);
+export const CONNECTORS_WITH_TEST_CONNECTION = new Set([SNOWFLAKE, LOOKER, BIGQUERY_BETA, BIGQUERY, UNITY_CATALOG]);
