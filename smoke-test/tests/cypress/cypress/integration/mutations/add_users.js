@@ -1,6 +1,8 @@
 const tryToSignUp = () => {
-    cy.enterTextInTestId("email", "example@example.com")
-    cy.enterTextInTestId("name", "Example Name")
+    let number = Math.floor(Math.random() * 100000);
+    let name = `Example Name ${number}`;
+    cy.enterTextInTestId("email", `example${number}@example.com`)
+    cy.enterTextInTestId("name", name)
     cy.enterTextInTestId("password", "Example password")
     cy.enterTextInTestId("confirmPassword", "Example password")
 
@@ -8,6 +10,7 @@ const tryToSignUp = () => {
     cy.waitTextVisible("Other").click()
 
     cy.get("[type=submit]").click()
+    return name;
 };
 
 describe("add_user", () => {
@@ -23,8 +26,10 @@ describe("add_user", () => {
             const inviteLink = $elem.text();
             cy.logout();
             cy.visit(inviteLink);
-            tryToSignUp();
-            cy.waitTextVisible("Accepted invite!")
+            let name = tryToSignUp();
+            cy.waitTextVisible("Welcome to DataHub");
+            cy.hideOnboardingTour();
+            cy.waitTextVisible(name);
         }).then(() => {
             cy.logout();
             cy.visit("/signup?invite_token=bad_token");

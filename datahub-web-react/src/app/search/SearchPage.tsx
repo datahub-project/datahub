@@ -19,6 +19,7 @@ import {
     SEARCH_RESULTS_ADVANCED_SEARCH_ID,
     SEARCH_RESULTS_FILTERS_ID,
 } from '../onboarding/config/SearchOnboardingConfig';
+import { useUserContext } from '../context/useUserContext';
 
 type SearchPageParams = {
     type?: string;
@@ -30,6 +31,7 @@ type SearchPageParams = {
 export const SearchPage = () => {
     const history = useHistory();
     const location = useLocation();
+    const userContext = useUserContext();
 
     const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -37,6 +39,7 @@ export const SearchPage = () => {
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
+    const viewUrn = userContext.localState?.selectedViewUrn;
 
     const filters: Array<FacetFilterInput> = useFilters(params);
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
@@ -44,7 +47,7 @@ export const SearchPage = () => {
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values?.map((value) => value?.toUpperCase() as EntityType) || []);
+        .flatMap((filter) => (filter.values || []).map((value) => value?.toUpperCase() as EntityType));
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -64,6 +67,7 @@ export const SearchPage = () => {
                 count: numResultsPerPage,
                 filters: [],
                 orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                viewUrn,
             },
         },
     });
@@ -86,6 +90,7 @@ export const SearchPage = () => {
                 count: SearchCfg.RESULTS_PER_PAGE,
                 filters: [],
                 orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                viewUrn,
             },
         },
     });
