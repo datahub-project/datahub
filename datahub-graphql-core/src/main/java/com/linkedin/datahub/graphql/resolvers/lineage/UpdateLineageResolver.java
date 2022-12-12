@@ -70,9 +70,37 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
             case Constants.DASHBOARD_ENTITY_NAME:
               _lineageService.updateDashboardLineage(downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, context.getAuthentication());
               break;
+            case Constants.DATA_JOB_ENTITY_NAME:
+              _lineageService.updateDataJobUpstreamLineage(downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, context.getAuthentication());
+              break;
           }
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to update lineage for urn %s", downstreamUrn), e);
+        }
+      }
+
+      Map<Urn, List<Urn>> upstreamToDownstreamsToAdd = getUpstreamToDownstreamMap(edgesToAdd);
+      Map<Urn, List<Urn>> upstreamToDownstreamsToRemove = getUpstreamToDownstreamMap(edgesToRemove);
+      Set<Urn> upstreamUrns = new HashSet<>();
+      upstreamUrns.addAll(upstreamToDownstreamsToAdd.keySet());
+      upstreamUrns.addAll(upstreamToDownstreamsToRemove.keySet());
+
+      // build MCP for upstreamUrn if necessary
+      for (Urn upstreamUrn : upstreamUrns) {
+        if (!_entityService.exists(upstreamUrn)) {
+          throw new IllegalArgumentException(String.format("Cannot upsert lineage as downstream urn %s doesn't exist", upstreamUrn));
+        }
+
+        final List<Urn> upstreamUrnsToAdd = downstreamToUpstreamsToAdd.getOrDefault(upstreamUrn, new ArrayList<>());
+        final List<Urn> upstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(upstreamUrn, new ArrayList<>());
+        try {
+          if (upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
+            // need to filter out dataJobs since that is valid in DataJobInputOutput
+            // ensure the downstreams are all datasets
+            _lineageService.updateDataJobDownstreamLineage(upstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, context.getAuthentication());
+          }
+        } catch (Exception e) {
+          throw new RuntimeException(String.format("Failed to update lineage for urn %s", upstreamUrn), e);
         }
       }
 
@@ -102,5 +130,18 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
       downstreamToUpstreams.put(downstream, upstreams);
     }
     return downstreamToUpstreams;
+  }
+
+  private Map<Urn, List<Urn>> getUpstreamToDownstreamMap(@Nonnull List<LineageEdge> edges) {
+    final Map<Urn, List<Urn>> upstreamToDownstreams = new HashMap<>();
+
+    for (LineageEdge edge : edges) {
+      final Urn downstream = UrnUtils.getUrn(edge.getDownstreamUrn());
+      final Urn upstream = UrnUtils.getUrn(edge.getUpstreamUrn());
+      final List<Urn> downstreams = upstreamToDownstreams.getOrDefault(upstream, new ArrayList<>());
+      downstreams.add(downstream);
+      upstreamToDownstreams.put(upstream, downstreams);
+    }
+    return upstreamToDownstreams;
   }
 }

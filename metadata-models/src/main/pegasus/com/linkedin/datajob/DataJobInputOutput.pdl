@@ -4,6 +4,7 @@ import com.linkedin.common.DatasetUrn
 import com.linkedin.common.DataJobUrn
 import com.linkedin.dataset.FineGrainedLineage
 import com.linkedin.common.Urn
+import com.linkedin.common.Edge
 
 /**
  * Information about the inputs and outputs of a Data processing job
@@ -15,6 +16,7 @@ record DataJobInputOutput {
 
   /**
    * Input datasets consumed by the data job during processing
+   * Deprecated! Use inputDatasetEdges instead.
    */
   @Relationship = {
     "/*": {
@@ -31,7 +33,28 @@ record DataJobInputOutput {
       "queryByDefault": false
     }
   }
+  @deprecated
   inputDatasets: array[DatasetUrn]
+
+  /**
+   * Input datasets consumed by the data job during processing
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "inputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputDatasets",
+      "queryByDefault": false
+    }
+  }
+  inputDatasetEdges: array[Edge]
 
   /**
    * Output datasets produced by the data job during processing
@@ -65,6 +88,18 @@ record DataJobInputOutput {
     }
   }
   inputDatajobs: optional array[DataJobUrn] 
+
+  /**
+   * Input datajobs that this data job depends on
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "DownstreamOf",
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true
+    }
+  }
+  inputDatajobEdges: optional array[Edge] 
 
   /**
   * Fields of the input datasets used by this job
