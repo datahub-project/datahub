@@ -262,17 +262,53 @@ public class LineageService {
     DashboardInfo dashboardInfo = new DashboardInfo(dataMap);
 
     // first, deal with chart edges
+    updateUpstreamCharts(dashboardInfo, upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrn, actor);
+
+    // next, deal with dataset edges
+    updateUpstreamDatasets(dashboardInfo, upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrn, actor);
+
+    return buildMetadataChangeProposal(downstreamUrn, Constants.DASHBOARD_INFO_ASPECT_NAME, dashboardInfo);
+  }
+
+  /**
+   * Updates the charts and chartEdges fields on the DashboardInfo aspect. First, add any new lineage edges not already represented
+   * in the existing fields to chartEdges. Then, remove all lineage edges from charts and chartEdges fields that are in upstreamUrnsToRemove.
+   * Then update the DashboardInfo aspect.
+   */
+  private void updateUpstreamCharts(DashboardInfo dashboardInfo, List<Urn> upstreamUrnsToAdd, List<Urn> upstreamUrnsToRemove, Urn dashboardUrn, Urn actor) {
+    initializeChartEdges(dashboardInfo);
+
+    final List<Urn> upstreamChartUrnsToAdd =
+        upstreamUrnsToAdd.stream().filter(urn -> urn.getEntityType().equals(Constants.CHART_ENTITY_NAME)).collect(Collectors.toList());
+    final ChartUrnArray charts = dashboardInfo.getCharts();
+    final EdgeArray chartEdges = dashboardInfo.getChartEdges();
+
+    final List<Urn> upstreamsChartsToAdd = getUpstreamChartToAdd(upstreamChartUrnsToAdd, chartEdges, charts);
+
+    for (final Urn upstreamUrn : upstreamsChartsToAdd) {
+      addNewEdge(upstreamUrn, dashboardUrn, actor, chartEdges);
+    }
+
+    removeChartLineageEdges(chartEdges, charts, upstreamUrnsToRemove);
+
+    dashboardInfo.setChartEdges(chartEdges);
+    dashboardInfo.setCharts(charts);
+  }
+
+
+  private void initializeChartEdges(DashboardInfo dashboardInfo) {
     if (!dashboardInfo.hasChartEdges()) {
       dashboardInfo.setChartEdges(new EdgeArray());
     }
     if (!dashboardInfo.hasCharts()) {
       dashboardInfo.setCharts(new ChartUrnArray());
     }
+  }
 
-    final List<Urn> upstreamChartUrnsToAdd =
-        upstreamUrnsToAdd.stream().filter(urn -> urn.getEntityType().equals(Constants.CHART_ENTITY_NAME)).collect(Collectors.toList());
-    final ChartUrnArray charts = dashboardInfo.getCharts();
-    final EdgeArray chartEdges = dashboardInfo.getChartEdges();
+  /**
+   * Need to filter out any existing upstream chart urns in order to get a list of net new chart urns to add to dashboard lineage
+   */
+  private List<Urn> getUpstreamChartToAdd(List<Urn> upstreamChartUrnsToAdd, List<Edge> chartEdges, ChartUrnArray charts) {
     final List<Urn> upstreamsChartsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamChartUrnsToAdd) {
       if (
@@ -283,29 +319,49 @@ public class LineageService {
       }
       upstreamsChartsToAdd.add(upstreamUrn);
     }
+    return upstreamsChartsToAdd;
+  }
 
-    for (final Urn upstreamUrn : upstreamsChartsToAdd) {
-      addNewEdge(upstreamUrn, downstreamUrn, actor, chartEdges);
-    }
-
+  private void removeChartLineageEdges(List<Edge> chartEdges, ChartUrnArray charts, List<Urn> upstreamUrnsToRemove) {
     chartEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
     charts.removeIf(upstreamUrnsToRemove::contains);
+  }
 
-    dashboardInfo.setChartEdges(chartEdges);
-    dashboardInfo.setCharts(charts);
+  /**
+   * Updates the datasets and datasetEdges fields on the DashboardInfo aspect. First, add any new lineage edges not already represented
+   * in the existing fields to datasetEdges.Then, remove all lineage edges from datasets and datasetEdges fields that are in upstreamUrnsToRemove.
+   * Then update the DashboardInfo aspect.
+   */
+  private void updateUpstreamDatasets(DashboardInfo dashboardInfo, List<Urn> upstreamUrnsToAdd, List<Urn> upstreamUrnsToRemove, Urn dashboardUrn, Urn actor) {
+    initializeDatasetEdges(dashboardInfo);
 
-    // next, deal with dataset edges
+    final List<Urn> upstreamDatasetUrnsToAdd =
+        upstreamUrnsToAdd.stream().filter(urn -> urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)).collect(Collectors.toList());
+    final UrnArray datasets = dashboardInfo.getDatasets();
+    final EdgeArray datasetEdges = dashboardInfo.getDatasetEdges();
+
+    final List<Urn> upstreamsDatasetsToAdd = getUpstreamDatasetsToAdd(upstreamDatasetUrnsToAdd, datasetEdges, datasets);
+
+    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
+      addNewEdge(upstreamUrn, dashboardUrn, actor, datasetEdges);
+    }
+
+    removeDatasetLineageEdges(datasetEdges, datasets, upstreamUrnsToRemove);
+
+    dashboardInfo.setDatasetEdges(datasetEdges);
+    dashboardInfo.setDatasets(datasets);
+  }
+
+  private void initializeDatasetEdges(DashboardInfo dashboardInfo) {
     if (!dashboardInfo.hasDatasetEdges()) {
       dashboardInfo.setDatasetEdges(new EdgeArray());
     }
     if (!dashboardInfo.hasDatasets()) {
       dashboardInfo.setDatasets(new UrnArray());
     }
+  }
 
-    final List<Urn> upstreamDatasetUrnsToAdd =
-        upstreamUrnsToAdd.stream().filter(urn -> urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)).collect(Collectors.toList());
-    final UrnArray datasets = dashboardInfo.getDatasets();
-    final EdgeArray datasetEdges = dashboardInfo.getDatasetEdges();
+  private List<Urn> getUpstreamDatasetsToAdd(List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, UrnArray datasets) {
     final List<Urn> upstreamsDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
       if (
@@ -316,18 +372,12 @@ public class LineageService {
       }
       upstreamsDatasetsToAdd.add(upstreamUrn);
     }
+    return upstreamsDatasetsToAdd;
+  }
 
-    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
-      addNewEdge(upstreamUrn, downstreamUrn, actor, datasetEdges);
-    }
-
+  private void removeDatasetLineageEdges(List<Edge> datasetEdges, UrnArray datasets, List<Urn> upstreamUrnsToRemove) {
     datasetEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
     datasets.removeIf(upstreamUrnsToRemove::contains);
-
-    dashboardInfo.setDatasetEdges(datasetEdges);
-    dashboardInfo.setDatasets(datasets);
-
-    return buildMetadataChangeProposal(downstreamUrn, Constants.DASHBOARD_INFO_ASPECT_NAME, dashboardInfo);
   }
 
   private void addNewEdge(
