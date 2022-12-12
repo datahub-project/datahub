@@ -1,6 +1,5 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
             "urn": "urn:li:corpuser:hbevan",
@@ -10,19 +9,9 @@
                         "active": true,
                         "displayName": "Hester Bevan",
                         "email": "hbevan",
-                        "title": null,
-                        "managerUrn": null,
-                        "departmentId": null,
-                        "departmentName": null,
                         "firstName": "Hester",
                         "lastName": "Bevan",
-                        "fullName": "Hester Bevan",
-                        "countryCode": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
+                        "fullName": "Hester Bevan"
                     }
                 },
                 {
@@ -36,17 +25,12 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "ldap-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
             "urn": "urn:li:corpuser:ehaas",
@@ -56,19 +40,9 @@
                         "active": true,
                         "displayName": "Evalyn Haas",
                         "email": "ehaas",
-                        "title": null,
-                        "managerUrn": null,
-                        "departmentId": null,
-                        "departmentName": null,
                         "firstName": "Evalyn",
                         "lastName": "Haas",
-                        "fullName": "Evalyn Haas",
-                        "countryCode": null
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
+                        "fullName": "Evalyn Haas"
                     }
                 },
                 {
@@ -82,13 +56,37 @@
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "ldap-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:ehaas",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hbevan",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "ldap-test"
     }
 }
 ]
