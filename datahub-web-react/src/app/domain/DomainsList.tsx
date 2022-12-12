@@ -1,29 +1,47 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Empty, List, Pagination, Typography } from 'antd';
+import { Button, Empty, Pagination, Tag, Tooltip, Typography } from 'antd';
+import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
-import { Domain } from '../../types.generated';
+import { AlignType } from 'rc-table/lib/interface';
+import { EntityType, Maybe, Ownership } from '../../types.generated';
 import { useListDomainsQuery } from '../../graphql/domain.generated';
 import CreateDomainModal from './CreateDomainModal';
 import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import DomainListItem from './DomainListItem';
 import { SearchBar } from '../search/SearchBar';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { scrollToTop } from '../shared/searchUtils';
 import { addToListDomainsCache, removeFromListDomainsCache } from './utils';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID } from '../onboarding/config/DomainsOnboardingConfig';
+import { ANTD_GRAY, getElasticCappedTotalValueText } from '../entity/shared/constants';
+import { StyledTable } from '../entity/shared/components/styled/StyledTable';
+import DomainItemDelete from './DomainItemDelete';
+import DomainOwners from './DomainOwners';
+import { IconStyleType } from '../entity/Entity';
+
+export interface DomainEntry {
+    name: string;
+    entities: string;
+    urn: string;
+    owners?: Maybe<Ownership>;
+    url: string;
+}
+
+const NoData = styled(Empty)`
+    color: ${ANTD_GRAY[6]};
+    padding-top: 60px;
+`;
 
 const DomainsContainer = styled.div``;
 
-const DomainsStyledList = styled(List)`
-    &&& {
-        width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-    }
+const DomainNameContainer = styled.div`
+    margin-left: 16px;
+    margin-right: 16px;
+    display: inline;
 `;
 
 const DomainsPaginationContainer = styled.div`
@@ -85,6 +103,77 @@ export const DomainsList = () => {
         }, 2000);
     };
 
+    const logoIcon = entityRegistry.getIcon(EntityType.Domain, 12, IconStyleType.ACCENT);
+    const allColumns = [
+        {
+            title: 'Name',
+            dataIndex: '',
+            key: 'name',
+            sorter: (sourceA, sourceB) => {
+                return sourceA.name.localeCompare(sourceB.name);
+            },
+            render(record: DomainEntry) {
+                return (
+                    <Link to={record.url}>
+                        {logoIcon}
+                        <DomainNameContainer>
+                            <Typography.Text>{record.name}</Typography.Text>
+                        </DomainNameContainer>
+                        <Tooltip title={`There are ${record.entities} entities in this domain.`}>
+                            <Tag>{record.entities} entities</Tag>
+                        </Tooltip>
+                    </Link>
+                );
+            },
+        },
+        {
+            title: 'Owners',
+            dataIndex: '',
+            width: '10%',
+            key: 'owners',
+            render(record: DomainEntry) {
+                return (
+                    <>
+                        <DomainOwners ownership={record.owners} />
+                    </>
+                );
+            },
+        },
+        {
+            title: '',
+            dataIndex: '',
+            width: '5%',
+            align: 'right' as AlignType,
+            key: 'menu',
+            render(record: DomainEntry) {
+                return (
+                    <>
+                        <DomainItemDelete
+                            name={record.name}
+                            urn={record.urn}
+                            onDelete={() => handleDelete(record.urn)}
+                        />
+                    </>
+                );
+            },
+        },
+    ];
+    const domainData: Array<DomainEntry> = [];
+    for (let i = 0; i < domains.length; i++) {
+        const domain = domains[i];
+        const displayName = entityRegistry.getDisplayName(EntityType.Domain, domain);
+        const totalEntitiesText = getElasticCappedTotalValueText(domain.entities?.total || 0);
+        const url = entityRegistry.getEntityUrl(EntityType.Domain, domain.urn);
+
+        domainData.push({
+            name: displayName,
+            entities: totalEntitiesText,
+            urn: domain.urn,
+            owners: domain.ownership,
+            url,
+        });
+    }
+
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading domains..." />}
@@ -113,20 +202,11 @@ export const DomainsList = () => {
                         hideRecommendations
                     />
                 </TabToolbar>
-                <DomainsStyledList
-                    bordered
-                    locale={{
-                        emptyText: <Empty description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                    }}
-                    dataSource={domains}
-                    renderItem={(item: any) => (
-                        <DomainListItem
-                            key={item.urn}
-                            domain={item as Domain}
-                            onDelete={() => handleDelete(item.urn)}
-                        />
-                    )}
-                />
+                {domains && domains.length > 0 ? (
+                    <StyledTable columns={allColumns} dataSource={domainData} rowKey="urn" pagination={false} />
+                ) : (
+                    <NoData description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                )}
                 <DomainsPaginationContainer>
                     <PaginationInfo>
                         <b>
