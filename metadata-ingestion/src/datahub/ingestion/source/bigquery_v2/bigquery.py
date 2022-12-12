@@ -56,6 +56,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
     get_bigquery_client,
 )
@@ -463,6 +464,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset,
             ["Dataset"],
             database_container_key,
+            external_url=BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
+                project=project_id, dataset=dataset
+            )
+            if self.config.include_external_url
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -867,7 +873,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             else None,
             externalUrl=BQ_EXTERNAL_TABLE_URL_TEMPLATE.format(
                 project=project_id, dataset=dataset_name, table=table.name
-            ),
+            )
+            if self.config.include_external_url
+            else None,
         )
         if custom_properties:
             dataset_properties.customProperties.update(custom_properties)

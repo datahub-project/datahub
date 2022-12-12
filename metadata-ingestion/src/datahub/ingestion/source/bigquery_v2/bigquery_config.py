@@ -53,6 +53,11 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         description="Whether `dataset_pattern` is matched against fully qualified dataset name `<project_id>.<dataset_name>`.",
     )
 
+    include_external_url: bool = Field(
+        default=True,
+        description="Whether to populate BigQuery Console url to Datasets/Tables",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",
