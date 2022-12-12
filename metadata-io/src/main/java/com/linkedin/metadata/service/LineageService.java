@@ -395,7 +395,6 @@ public class LineageService {
     }
   }
 
-
   /**
    * Updates DataJob lineage by building and ingesting an MCP based on inputs.
    */
@@ -442,77 +441,120 @@ public class LineageService {
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(dataMap);
 
     // first, deal with dataset edges
-    if (!dataJobInputOutput.hasInputDatasetEdges()) {
-      dataJobInputOutput.setInputDatasetEdges(new EdgeArray());
-    }
-    if (!dataJobInputOutput.hasInputDatasets()) {
-      dataJobInputOutput.setInputDatasets(new DatasetUrnArray());
-    }
+    updateUpstreamDatasetsForDataJobs(dataJobInputOutput, upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrn, actor);
+
+    // next, deal with dataJobs edges
+    updateUpstreamDataJobs(dataJobInputOutput, upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrn, actor);
+
+    return buildMetadataChangeProposal(downstreamUrn, Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, dataJobInputOutput);
+  }
+
+  /**
+   * Updates the inputDatasets and inputDatasetEdges fields on the DataJobInputOutput aspect. First, add any new lineage edges not already represented
+   * in the existing fields to inputDatasetEdges.Then, remove all lineage edges from inputDatasets and inputDatasetEdges fields that are in upstreamUrnsToRemove.
+   * Then update the DataJobInputOutput aspect.
+   */
+  private void updateUpstreamDatasetsForDataJobs(DataJobInputOutput dataJobInputOutput, List<Urn> upstreamUrnsToAdd, List<Urn> upstreamUrnsToRemove, Urn dashboardUrn, Urn actor) {
+    initializeInputDatasetEdges(dataJobInputOutput);
 
     final List<Urn> upstreamDatasetUrnsToAdd =
         upstreamUrnsToAdd.stream().filter(urn -> urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)).collect(Collectors.toList());
     final DatasetUrnArray inputDatasets = dataJobInputOutput.getInputDatasets();
     final EdgeArray inputDatasetEdges = dataJobInputOutput.getInputDatasetEdges();
 
+    final List<Urn> upstreamsDatasetsToAdd = getInputDatasetsToAdd(upstreamDatasetUrnsToAdd, inputDatasetEdges, inputDatasets);
 
+    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
+      addNewEdge(upstreamUrn, dashboardUrn, actor, inputDatasetEdges);
+    }
+
+    removeInputDatasetEdges(inputDatasetEdges, inputDatasets, upstreamUrnsToRemove);
+
+    dataJobInputOutput.setInputDatasetEdges(inputDatasetEdges);
+    dataJobInputOutput.setInputDatasets(inputDatasets);
+  }
+
+  private void initializeInputDatasetEdges(DataJobInputOutput dataJobInputOutput) {
+    if (!dataJobInputOutput.hasInputDatasetEdges()) {
+      dataJobInputOutput.setInputDatasetEdges(new EdgeArray());
+    }
+    if (!dataJobInputOutput.hasInputDatasets()) {
+      dataJobInputOutput.setInputDatasets(new DatasetUrnArray());
+    }
+  }
+
+  private List<Urn> getInputDatasetsToAdd(List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, DatasetUrnArray inputDatasets) {
     final List<Urn> upstreamsDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
       if (
-          inputDatasetEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
+          datasetEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
               || inputDatasets.stream().anyMatch(chart -> chart.equals(upstreamUrn))
       ) {
         continue;
       }
       upstreamsDatasetsToAdd.add(upstreamUrn);
     }
+    return upstreamsDatasetsToAdd;
+  }
 
-    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
-      addNewEdge(upstreamUrn, downstreamUrn, actor, inputDatasetEdges);
-    }
+  private void removeInputDatasetEdges(List<Edge> datasetEdges, DatasetUrnArray datasets, List<Urn> upstreamUrnsToRemove) {
+    datasetEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
+    datasets.removeIf(upstreamUrnsToRemove::contains);
+  }
 
-
-
-    inputDatasetEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
-    inputDatasets.removeIf(upstreamUrnsToRemove::contains);
-
-    dataJobInputOutput.setInputDatasetEdges(inputDatasetEdges);
-    dataJobInputOutput.setInputDatasets(inputDatasets);
-
-    // next, deal with dataJobs edges
-    if (!dataJobInputOutput.hasInputDatasetEdges()) {
-      dataJobInputOutput.setInputDatajobEdges(new EdgeArray());
-    }
-    if (!dataJobInputOutput.hasInputDatajobs()) {
-      dataJobInputOutput.setInputDatajobs(new DataJobUrnArray());
-    }
+  /**
+   * Updates the dataJobs and dataJobEdges fields on the DataJobInputOutput aspect. First, add any new lineage edges not already represented
+   * in the existing fields to dataJobEdges.Then, remove all lineage edges from dataJobs and dataJobEdges fields that are in upstreamUrnsToRemove.
+   * Then update the DataJobInputOutput aspect.
+   */
+  private void updateUpstreamDataJobs(DataJobInputOutput dataJobInputOutput, List<Urn> upstreamUrnsToAdd, List<Urn> upstreamUrnsToRemove, Urn dataJobUrn, Urn actor) {
+    initializeInputDatajobEdges(dataJobInputOutput);
 
     final List<Urn> upstreamDatajobUrnsToAdd =
         upstreamUrnsToAdd.stream().filter(urn -> urn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)).collect(Collectors.toList());
     final DataJobUrnArray dataJobs = dataJobInputOutput.getInputDatajobs();
     final EdgeArray dataJobEdges = dataJobInputOutput.getInputDatajobEdges();
-    final List<Urn> upstreamDatajobsToAdd = new ArrayList<>();
-    for (Urn upstreamUrn : upstreamDatajobUrnsToAdd) {
+
+    final List<Urn> upstreamsDatasetsToAdd = getInputDatajobsToAdd(upstreamDatajobUrnsToAdd, dataJobEdges, dataJobs);
+
+    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
+      addNewEdge(upstreamUrn, dataJobUrn, actor, dataJobEdges);
+    }
+
+    removeInputDatajobEdges(dataJobEdges, dataJobs, upstreamUrnsToRemove);
+
+    dataJobInputOutput.setInputDatajobEdges(dataJobEdges);
+    dataJobInputOutput.setInputDatajobs(dataJobs);
+  }
+
+  private void initializeInputDatajobEdges(DataJobInputOutput dataJobInputOutput) {
+    if (!dataJobInputOutput.hasInputDatajobEdges()) {
+      dataJobInputOutput.setInputDatajobEdges(new EdgeArray());
+    }
+    if (!dataJobInputOutput.hasInputDatajobs()) {
+      dataJobInputOutput.setInputDatajobs(new DataJobUrnArray());
+    }
+  }
+
+  private List<Urn> getInputDatajobsToAdd(List<Urn> upstreamDatasetUrnsToAdd, List<Edge> dataJobEdges, DataJobUrnArray dataJobs) {
+    final List<Urn> upstreamsDatasetsToAdd = new ArrayList<>();
+    for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
       if (
           dataJobEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
               || dataJobs.stream().anyMatch(chart -> chart.equals(upstreamUrn))
       ) {
         continue;
       }
-      upstreamDatajobsToAdd.add(upstreamUrn);
+      upstreamsDatasetsToAdd.add(upstreamUrn);
     }
+    return upstreamsDatasetsToAdd;
+  }
 
-    for (final Urn upstreamUrn : upstreamDatajobsToAdd) {
-      addNewEdge(upstreamUrn, downstreamUrn, actor, dataJobEdges);
-    }
-
+  private void removeInputDatajobEdges(List<Edge> dataJobEdges, DataJobUrnArray dataJobs, List<Urn> upstreamUrnsToRemove) {
     dataJobEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
     dataJobs.removeIf(upstreamUrnsToRemove::contains);
-
-    dataJobInputOutput.setInputDatajobEdges(dataJobEdges);
-    dataJobInputOutput.setInputDatajobs(dataJobs);
-
-    return buildMetadataChangeProposal(downstreamUrn, Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, dataJobInputOutput);
   }
+
 
   private void addNewEdge(
       @Nonnull final Urn upstreamUrn,
