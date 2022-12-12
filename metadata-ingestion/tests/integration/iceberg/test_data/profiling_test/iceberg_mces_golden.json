@@ -1,10 +1,14 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,datahub.integration.profiling,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
@@ -14,11 +18,6 @@
                             "snapshot-id": "4220723025353071767",
                             "manifest-list": "/home/iceberg/warehouse/datahub/integration/profiling/metadata/snap-4220723025353071767-1-ec0bd970-e5ef-4843-abcb-e96a35a8f14d.avro"
                         },
-                        "externalUrl": null,
-                        "name": null,
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -27,19 +26,16 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:root",
-                                "type": "TECHNICAL_OWNER",
-                                "source": null
+                                "type": "TECHNICAL_OWNER"
                             },
                             {
                                 "owner": "urn:li:corpGroup:root",
-                                "type": "TECHNICAL_OWNER",
-                                "source": null
+                                "type": "TECHNICAL_OWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 },
@@ -50,17 +46,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -70,7 +61,6 @@
                         "fields": [
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=long].field_int",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "An integer field",
                                 "type": {
@@ -80,15 +70,11 @@
                                 },
                                 "nativeDataType": "long",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=string].field_str",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "A string field",
                                 "type": {
@@ -98,15 +84,11 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=long].field_timestamp",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "A timestamp field",
                                 "type": {
@@ -116,35 +98,23 @@
                                 },
                                 "nativeDataType": "timestamptz",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": true}"
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "iceberg-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,datahub.integration.profiling,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -153,10 +123,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "iceberg-test"
     }
 }
 ]
