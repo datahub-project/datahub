@@ -11,11 +11,6 @@
                         "members": [],
                         "groups": []
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
@@ -37,14 +32,37 @@
                         "members": [],
                         "groups": []
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:Finance Department",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test"
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:HR Department",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
