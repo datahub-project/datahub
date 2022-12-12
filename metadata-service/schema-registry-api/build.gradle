@@ -19,8 +19,6 @@ dependencies {
 
 
     // End of dependencies
-    implementation externalDependency.slf4jApi
-    compileOnly externalDependency.lombok
     compile externalDependency.swaggerAnnotations
     swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 
