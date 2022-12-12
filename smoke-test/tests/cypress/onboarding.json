@@ -1,0 +1,398 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-global-welcome-to-datahub",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-home-page-ingestion",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-home-page-domains",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-home-page-platforms",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-home-page-most-popular",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-home-page-search-bar",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-search-results-filters",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-search-results-advanced-search",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-entities",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-properties",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-documentation",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-lineage",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-schema",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-owners",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-tags",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-glossary-terms",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-entity-profile-domains",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-ingestion-create-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-ingestion-refresh-sources",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-business-glossary-intro",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-business-glossary-create-term",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-business-glossary-create-term-group",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-domains-intro",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-domains-create-domain",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-users-intro",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-users-sso",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-users-invite-link",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-users-assign-role",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-groups-intro",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-groups-create-group",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-roles-intro",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-policies-intro",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataHubStepState",
+    "entityUrn": "urn:li:dataHubStepState:urn:li:corpuser:datahub-policies-create-policy",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubStepStateProperties",
+    "aspect": {
+      "value": "{\"properties\":{},\"lastModified\":{\"actor\":\"urn:li:corpuser:datahub\",\"time\":1581407189000}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  }
+]
