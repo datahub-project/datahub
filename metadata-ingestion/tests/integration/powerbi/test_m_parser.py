@@ -24,8 +24,9 @@ M_QUERIES = [
     "let\n    Source = Value.NativeQuery(Snowflake.Databases(\"bu20658.ap-southeast-2.snowflakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select *,#(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS Agent,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS#(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Industries'#(lf)and TARGET_TEAM = 'Enterprise'\", null, [EnableFolding=true])\nin\n    Source",
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="Select#(lf)*,#(lf)concat((UPPER(REPLACE(SALES_SPECIALIST,\'-\',\'\'))),#(lf)LEFT(CAST(INVOICE_DATE AS DATE),4)+LEFT(RIGHT(CAST(INVOICE_DATE AS DATE),5),2)) AS AGENT_KEY,#(lf)CASE#(lf)    WHEN CLASS = \'Software\' and (NOT(PRODUCT in (\'ADV\', \'Adv\') and left(ACCOUNT_ID,2)=\'10\') #(lf)    or V_ENTERPRISE_INVOICED_REVENUE.TYPE = \'Manual Adjustment\') THEN INVOICE_AMOUNT#(lf)    WHEN V_ENTERPRISE_INVOICED_REVENUE.TYPE IN (\'Recurring\',\'0\') THEN INVOICE_AMOUNT#(lf)    ELSE 0#(lf)END as SOFTWARE_INV#(lf)#(lf)from V_ENTERPRISE_INVOICED_REVENUE", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Services", each if [CLASS] = "Services" then [INVOICE_AMOUNT] else 0),\n    #"Added Custom" = Table.AddColumn(#"Added Conditional Column", "Advanced New Sites", each if [PRODUCT] = "ADV"\nor [PRODUCT] = "Adv"\nthen [NEW_SITE]\nelse 0)\nin\n    #"Added Custom"',
     'let\n    Source = Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]),\n Source2 = PostgreSQL.Database("localhost", "mics"),\n  public_order_date = Source2{[Schema="public",Item="order_date"]}[Data],\n    GSL_TEST_DB_Database = Source{[Name="GSL_TEST_DB",Kind="Database"]}[Data],\n  PUBLIC_Schema = GSL_TEST_DB_Database{[Name="PUBLIC",Kind="Schema"]}[Data],\n   SALES_ANALYST_VIEW_View = PUBLIC_Schema{[Name="SALES_ANALYST_VIEW",Kind="View"]}[Data],\n  two_source_table  = Table.Combine({public_order_date, SALES_ANALYST_VIEW_View})\n in\n    two_source_table',
-    'let\n Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
-    'let\n Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
+    'let\n    Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
+    'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
+    'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
 ]
 
 
@@ -107,6 +108,27 @@ def test_parse_m_query13():
     assert m_parser._get_output_variable(parse_tree) == "two_source_table"
 
 
+def test_snowflake_regular_case():
+    q: str = M_QUERIES[0]
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+        table, reporter
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == "TESTTABLE"
+    assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
+    assert (
+        data_platform_tables[0].platform_type == SupportedDataPlatform.SNOWFLAKE.value
+    )
+
+
 def test_postgres_regular_case():
     q: str = M_QUERIES[13]
     table: PowerBiAPI.Table = PowerBiAPI.Table(
@@ -148,8 +170,8 @@ def test_oracle_regular_case():
     assert data_platform_tables[0].platform_type == SupportedDataPlatform.ORACLE.value
 
 
-def test_snowflake_regular_case():
-    q: str = M_QUERIES[0]
+def test_mssql_regular_case():
+    q: str = M_QUERIES[15]
     table: PowerBiAPI.Table = PowerBiAPI.Table(
         expression=q,
         name="virtual_order_table",
@@ -157,13 +179,12 @@ def test_snowflake_regular_case():
     )
 
     reporter = PowerBiDashboardSourceReport()
+
     data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
         table, reporter
     )
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "TESTTABLE"
-    assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
-    assert (
-        data_platform_tables[0].platform_type == SupportedDataPlatform.SNOWFLAKE.value
-    )
+    assert data_platform_tables[0].name == "book_issue"
+    assert data_platform_tables[0].full_name == "library.dbo.book_issue"
+    assert data_platform_tables[0].platform_type == SupportedDataPlatform.MS_SQL.value

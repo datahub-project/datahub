@@ -26,6 +26,7 @@ class SupportedDataPlatform(Enum):
     POSTGRES_SQL = "PostgreSQL"
     ORACLE = "Oracle"
     SNOWFLAKE = "Snowflake"
+    MS_SQL = "Sql"
 
 
 POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING: Dict[str, str] = {
@@ -252,7 +253,16 @@ class BaseMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         pass
 
 
-class PostgresMQueryResolver(BaseMQueryResolver):
+class DefaultTwoStepDataAccessSources(BaseMQueryResolver, ABC):
+    """
+    These are the DataSource for which PowerBI Desktop generates default M-Query of following pattern
+        let
+            Source = Sql.Database("localhost", "library"),
+            dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]
+        in
+            dbo_book_issue
+    """
+
     def get_full_table_name(self, output_variable: str) -> Optional[str]:
         variable_statement: Optional[Tree] = _get_variable_statement(
             self.parse_tree, output_variable
@@ -292,8 +302,15 @@ class PostgresMQueryResolver(BaseMQueryResolver):
         database_name: str = cast(List[str], arg_list)[1]  # 1st token is database name
         return cast(Optional[str], f"{database_name}.{schema_name}.{table_name}")
 
+
+class PostgresMQueryResolver(DefaultTwoStepDataAccessSources):
     def get_platform(self) -> str:
         return SupportedDataPlatform.POSTGRES_SQL.value
+
+
+class MSSqlMQueryResolver(DefaultTwoStepDataAccessSources):
+    def get_platform(self) -> str:
+        return SupportedDataPlatform.MS_SQL.value
 
 
 class OracleMQueryResolver(BaseMQueryResolver):
@@ -474,6 +491,7 @@ DATA_ACCESS_RESOLVER = {
     f"{SupportedDataPlatform.POSTGRES_SQL.value}.Database": PostgresMQueryResolver,
     f"{SupportedDataPlatform.ORACLE.value}.Database": OracleMQueryResolver,
     f"{SupportedDataPlatform.SNOWFLAKE.value}.Databases": SnowflakeMQueryResolver,
+    f"{SupportedDataPlatform.MS_SQL.value}.Database": MSSqlMQueryResolver,
 }  # type :ignore
 
 
@@ -506,7 +524,8 @@ def get_upstream_tables(
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
-    except lark.exceptions.UnexpectedCharacters:
+    except lark.exceptions.UnexpectedCharacters as e:
+        LOGGER.debug(f"Fail to parse expression {table.expression}", exc_info=e)
         reporter.report_warning(
             table.full_name, f"UnSupported expression = {table.expression}"
         )
