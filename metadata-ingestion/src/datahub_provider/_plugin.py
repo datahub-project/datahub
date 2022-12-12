@@ -314,6 +314,7 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
             task.partial_kwargs["on_success_callback"] = _wrap_on_success_callback(
                 task.on_success_callback
             )
+            return
 
     task.on_failure_callback = _wrap_on_failure_callback(task.on_failure_callback)  # type: ignore
     task.on_success_callback = _wrap_on_success_callback(task.on_success_callback)  # type: ignore
