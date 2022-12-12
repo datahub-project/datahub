@@ -59,8 +59,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
         try {
           switch (downstreamUrn.getEntityType()) {
             case Constants.DATASET_ENTITY_NAME:
-              final List<Urn> filteredUpstreamUrnsToAdd = filterUrnsForDatasetLineage(upstreamUrnsToAdd);
-              final List<Urn> filteredUpstreamUrnsToRemove = filterUrnsForDatasetLineage(upstreamUrnsToRemove);
+              // need to filter out dataJobs since this is a valid lineage edge, but will be handled in the downstream direction for DataJobInputOutputs
+              final List<Urn> filteredUpstreamUrnsToAdd = filterOutDataJobUrns(upstreamUrnsToAdd);
+              final List<Urn> filteredUpstreamUrnsToRemove = filterOutDataJobUrns(upstreamUrnsToRemove);
 
               _lineageService.updateDatasetLineage(downstreamUrn, filteredUpstreamUrnsToAdd, filteredUpstreamUrnsToRemove, actor, context.getAuthentication());
               break;
@@ -91,13 +92,16 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           throw new IllegalArgumentException(String.format("Cannot upsert lineage as downstream urn %s doesn't exist", upstreamUrn));
         }
 
-        final List<Urn> upstreamUrnsToAdd = downstreamToUpstreamsToAdd.getOrDefault(upstreamUrn, new ArrayList<>());
-        final List<Urn> upstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(upstreamUrn, new ArrayList<>());
+        final List<Urn> downstreamUrnsToAdd = downstreamToUpstreamsToAdd.getOrDefault(upstreamUrn, new ArrayList<>());
+        final List<Urn> downstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(upstreamUrn, new ArrayList<>());
         try {
           if (upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
-            // need to filter out dataJobs since that is valid in DataJobInputOutput
             // ensure the downstreams are all datasets
-            _lineageService.updateDataJobDownstreamLineage(upstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, context.getAuthentication());
+
+            // need to filter out dataJobs since this is a valid lineage edge, but is handled in the upstream direction for DataJobs
+            final List<Urn> filteredDownstreamUrnsToAdd = filterOutDataJobUrns(downstreamUrnsToAdd);
+
+            _lineageService.updateDataJobDownstreamLineage(upstreamUrn, filteredDownstreamUrnsToAdd, downstreamUrnsToRemove, actor, context.getAuthentication());
           }
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to update lineage for urn %s", upstreamUrn), e);
@@ -108,12 +112,7 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     });
   }
 
-  /**
-   * Filter out upstream dataJob entities as we take care of outputDatasets for DataJobInputOutput separately.
-   * This is necessary since a downstream dataset and upstream data job is valid for DataJobInputOutput.
-   * If the upstream is anything else, it is invalid (check in the LineageService).
-   */
-  private List<Urn> filterUrnsForDatasetLineage(List<Urn> urns) {
+  private List<Urn> filterOutDataJobUrns(List<Urn> urns) {
     return urns.stream().filter(
         upstreamUrn -> !upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
     ).collect(Collectors.toList());
