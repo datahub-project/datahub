@@ -1258,7 +1258,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.DatasetUrn"
       },
-      "doc" : "Input datasets consumed by the data job during processing",
+      "doc" : "Input datasets consumed by the data job during processing\nDeprecated! Use inputDatasetEdges instead.",
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
@@ -1273,6 +1273,31 @@
           "numValuesFieldName" : "numInputDatasets",
           "queryByDefault" : false
         }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "inputDatasetEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Input datasets consumed by the data job during processing",
+      "default" : [ ],
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "name" : "Consumes"
+        }
+      },
+      "Searchable" : {
+        "/*/destinationUrn" : {
+          "fieldName" : "inputs",
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numInputDatasets",
+          "queryByDefault" : false
+        }
       }
     }, {
       "name" : "outputDatasets",
@@ -1280,7 +1305,33 @@
         "type" : "array",
         "items" : "com.linkedin.common.DatasetUrn"
       },
+      "doc" : "Output datasets produced by the data job during processing\nDeprecated! Use outputDatasetEdges instead.",
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "isUpstream" : false,
+          "name" : "Produces"
+        }
+      },
+      "Searchable" : {
+        "/*" : {
+          "fieldName" : "outputs",
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numOutputDatasets",
+          "queryByDefault" : false
+        }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "outputDatasetEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
       "doc" : "Output datasets produced by the data job during processing",
+      "default" : [ ],
+      "optional" : true,
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
@@ -1307,6 +1358,21 @@
       "optional" : true,
       "Relationship" : {
         "/*" : {
+          "entityTypes" : [ "dataJob" ],
+          "isLineage" : true,
+          "name" : "DownstreamOf"
+        }
+      }
+    }, {
+      "name" : "inputDatajobEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Input datajobs that this data job depends on",
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
           "entityTypes" : [ "dataJob" ],
           "isLineage" : true,
           "name" : "DownstreamOf"

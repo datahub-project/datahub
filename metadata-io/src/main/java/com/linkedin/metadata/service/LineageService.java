@@ -418,7 +418,7 @@ public class LineageService {
   }
 
   /**
-   * Builds an MCP of DataJobInputOutput for dashboard entities. DataJobInputOutput has a list of dataset urns and datajob urns pointing upstream.
+   * Builds an MCP of DataJobInputOutput for datajob entities. DataJobInputOutput has a list of dataset urns and datajob urns pointing upstream.
    * We need to filter out the chart dataset and datajob urns separately in upstreamUrnsToAdd to add them to the correct fields. We deal with downstream
    * pointing datasets in outputDatasets separately.
    */
@@ -462,13 +462,13 @@ public class LineageService {
     final DatasetUrnArray inputDatasets = dataJobInputOutput.getInputDatasets();
     final EdgeArray inputDatasetEdges = dataJobInputOutput.getInputDatasetEdges();
 
-    final List<Urn> upstreamsDatasetsToAdd = getInputDatasetsToAdd(upstreamDatasetUrnsToAdd, inputDatasetEdges, inputDatasets);
+    final List<Urn> upstreamsDatasetsToAdd = getInputOutputDatasetsToAdd(upstreamDatasetUrnsToAdd, inputDatasetEdges, inputDatasets);
 
     for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
       addNewEdge(upstreamUrn, dashboardUrn, actor, inputDatasetEdges);
     }
 
-    removeInputDatasetEdges(inputDatasetEdges, inputDatasets, upstreamUrnsToRemove);
+    removeDatasetEdges(inputDatasetEdges, inputDatasets, upstreamUrnsToRemove);
 
     dataJobInputOutput.setInputDatasetEdges(inputDatasetEdges);
     dataJobInputOutput.setInputDatasets(inputDatasets);
@@ -483,7 +483,8 @@ public class LineageService {
     }
   }
 
-  private List<Urn> getInputDatasetsToAdd(List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, DatasetUrnArray inputDatasets) {
+  // get new dataset edges that we should be adding to inputDatasetEdges and outputDatasetEdges for the DataJobInputOutput aspect
+  private List<Urn> getInputOutputDatasetsToAdd(List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, DatasetUrnArray inputDatasets) {
     final List<Urn> upstreamsDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
       if (
@@ -497,7 +498,7 @@ public class LineageService {
     return upstreamsDatasetsToAdd;
   }
 
-  private void removeInputDatasetEdges(List<Edge> datasetEdges, DatasetUrnArray datasets, List<Urn> upstreamUrnsToRemove) {
+  private void removeDatasetEdges(List<Edge> datasetEdges, DatasetUrnArray datasets, List<Urn> upstreamUrnsToRemove) {
     datasetEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
     datasets.removeIf(upstreamUrnsToRemove::contains);
   }
@@ -554,6 +555,68 @@ public class LineageService {
     dataJobEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
     dataJobs.removeIf(upstreamUrnsToRemove::contains);
   }
+
+  /**
+   * Updates DataJob lineage in the downstream direction (outputDatasets and outputDatasetEdges)
+   */
+  public void updateDataJobDownstreamLineage(
+      @Nonnull final Urn dataJobUrn,
+      @Nonnull final List<Urn> downstreamUrnsToAdd,
+      @Nonnull final List<Urn> downstreamUrnsToRemove,
+      @Nonnull final Urn actor,
+      @Nonnull final Authentication authentication
+  ) throws Exception {
+    validateDatasetUrns(downstreamUrnsToAdd, authentication);
+    // TODO: add permissions check here for entity type - or have one overall permissions check above
+
+    try {
+      MetadataChangeProposal changeProposal = buildDataJobDownstreamLineageProposal(
+          dataJobUrn, downstreamUrnsToAdd, downstreamUrnsToRemove, actor, authentication);
+      _entityClient.ingestProposal(changeProposal, authentication, false);
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to update chart lineage for urn %s", dataJobUrn), e);
+    }
+  }
+
+  /**
+   * Builds an MCP of DataJobInputOutput for datajob entities. Specifically this is updating this aspect for lineage in the downstream
+   * direction. This includes the fields outputDatasets (deprecated) and outputDatasetEdges
+   */
+  @Nonnull
+  public MetadataChangeProposal buildDataJobDownstreamLineageProposal(
+      @Nonnull final Urn dataJobUrn,
+      @Nonnull final List<Urn> downstreamUrnsToAdd,
+      @Nonnull final List<Urn> downstreamUrnsToRemove,
+      @Nonnull final Urn actor,
+      @Nonnull final Authentication authentication
+  ) throws Exception {
+    EntityResponse entityResponse =
+        _entityClient.getV2(Constants.DATA_JOB_ENTITY_NAME, dataJobUrn, ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME), authentication);
+
+    if (entityResponse == null || !entityResponse.getAspects().containsKey(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
+      throw new RuntimeException(String.format("Failed to update dataJob lineage for urn %s as dataJob input output doesn't exist", dataJobUrn));
+    }
+
+    DataMap dataMap = entityResponse.getAspects().get(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME).getValue().data();
+    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(dataMap);
+
+    final DatasetUrnArray outputDatasets = dataJobInputOutput.getOutputDatasets();
+    final EdgeArray outputDatasetEdges = dataJobInputOutput.getOutputDatasetEdges();
+
+    final List<Urn> downstreamDatasetsToAdd = getInputOutputDatasetsToAdd(downstreamUrnsToAdd, outputDatasetEdges, outputDatasets);
+
+    for (final Urn downstreamUrn : downstreamDatasetsToAdd) {
+      addNewEdge(downstreamUrn, dataJobUrn, actor, outputDatasetEdges);
+    }
+
+    removeDatasetEdges(outputDatasetEdges, outputDatasets, downstreamUrnsToRemove);
+
+    dataJobInputOutput.setOutputDatasetEdges(outputDatasetEdges);
+    dataJobInputOutput.setOutputDatasets(outputDatasets);
+
+    return buildMetadataChangeProposal(dataJobUrn, Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, dataJobInputOutput);
+  }
+
 
 
   private void addNewEdge(

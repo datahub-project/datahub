@@ -54,7 +54,30 @@ record DataJobInputOutput {
       "queryByDefault": false
     }
   }
-  inputDatasetEdges: array[Edge]
+  inputDatasetEdges: optional array[Edge] = []
+
+  /**
+   * Output datasets produced by the data job during processing
+   * Deprecated! Use outputDatasetEdges instead.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Produces",
+      "entityTypes": [ "dataset" ],
+      "isUpstream": false,
+      "isLineage": true
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "outputs",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
+    }
+  }
+  @deprecated
+  outputDatasets: array[DatasetUrn]
 
   /**
    * Output datasets produced by the data job during processing
@@ -75,7 +98,7 @@ record DataJobInputOutput {
       "queryByDefault": false
     }
   }
-  outputDatasets: array[DatasetUrn]
+  outputDatasetEdges: optional array[Edge] = []
 
   /**
    * Input datajobs that this data job depends on
