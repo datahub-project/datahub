@@ -264,7 +264,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext) -> None:
-        super().__init__(config, ctx, "vertica")
+        super().__init__(config, ctx, "vertica_old")
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
