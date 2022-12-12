@@ -1,11 +1,11 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9191fea5add3487ba6b8266d4c74a7d1",
+    "entityUrn": "urn:li:container:0f72a1bc79da282eb614cc089c0ba302",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"datacharmer\"}, \"name\": \"datacharmer\"}",
+        "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"dataCharmer\"}, \"name\": \"dataCharmer\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -15,7 +15,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9191fea5add3487ba6b8266d4c74a7d1",
+    "entityUrn": "urn:li:container:0f72a1bc79da282eb614cc089c0ba302",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -29,7 +29,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9191fea5add3487ba6b8266d4c74a7d1",
+    "entityUrn": "urn:li:container:0f72a1bc79da282eb614cc089c0ba302",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -43,7 +43,7 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9191fea5add3487ba6b8266d4c74a7d1",
+    "entityUrn": "urn:li:container:0f72a1bc79da282eb614cc089c0ba302",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -57,11 +57,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.employees,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:9191fea5add3487ba6b8266d4c74a7d1\"}",
+        "value": "{\"container\": \"urn:li:container:0f72a1bc79da282eb614cc089c0ba302\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -72,7 +72,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.employees,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -88,7 +88,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "datacharmer.employees",
+                        "schemaName": "dataCharmer.employees",
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
@@ -191,7 +191,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.employees,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -205,11 +205,11 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.salaries,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:9191fea5add3487ba6b8266d4c74a7d1\"}",
+        "value": "{\"container\": \"urn:li:container:0f72a1bc79da282eb614cc089c0ba302\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -220,7 +220,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.salaries,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -236,7 +236,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "datacharmer.salaries",
+                        "schemaName": "dataCharmer.salaries",
                         "platform": "urn:li:dataPlatform:mysql",
                         "version": 0,
                         "created": {
@@ -315,7 +315,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.salaries,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -329,7 +329,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.employees,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.employees,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -343,7 +343,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datacharmer.salaries,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,dataCharmer.salaries,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {

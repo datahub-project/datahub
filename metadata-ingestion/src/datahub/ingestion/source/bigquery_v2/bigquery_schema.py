@@ -119,7 +119,7 @@ FROM
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL TABLE')
+  table_type in ('BASE TABLE', 'EXTERNAL')
 {table_filter}
 order by
   table_schema ASC,
@@ -146,7 +146,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL TABLE')
+  table_type in ('BASE TABLE', 'EXTERNAL')
 {table_filter}
 order by
   table_schema ASC,

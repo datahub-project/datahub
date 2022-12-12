@@ -147,6 +147,10 @@ Cypress.Commands.add("clickFirstOptionWithTestId", (id) => {
   });
 })
 
+Cypress.Commands.add("hideOnboardingTour", () => {
+  cy.get('body').type("{ctrl} {meta} h");
+});
+
 Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
   cy.goToDataset(urn, dataset_name);
   cy.clickOptionWithText("Add Term");
