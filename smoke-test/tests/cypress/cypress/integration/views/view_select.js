@@ -10,7 +10,6 @@ describe("view select", () => {
           if (err.message.includes(resizeObserverLoopErrRe)) {
             return false;
           }
-          return true;
         });
 
         cy.login();
