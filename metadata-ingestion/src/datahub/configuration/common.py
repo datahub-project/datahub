@@ -15,6 +15,58 @@ from datahub.utilities.dedup_list import deduplicate_list
 _ConfigSelf = TypeVar("_ConfigSelf", bound="ConfigModel")
 
 
+REDACT_KEYS = {
+    "password",
+    "token",
+    "secret",
+    "options",
+    "sqlalchemy_uri",
+}
+REDACT_SUFFIXES = {
+    "_password",
+    "_secret",
+    "_token",
+    "_key",
+    "_key_id",
+}
+
+
+def _should_redact_key(key: str) -> bool:
+    return key in REDACT_KEYS or any(key.endswith(suffix) for suffix in REDACT_SUFFIXES)
+
+
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, str):
+        # If it's just a variable reference, it's ok to show as-is.
+        if value.startswith("$"):
+            return value
+        return "********"
+    elif value is None:
+        return None
+    elif isinstance(value, bool):
+        # We don't have any sensitive boolean fields.
+        return value
+    elif isinstance(value, list) and not value:
+        # Empty states are fine.
+        return []
+    elif isinstance(value, dict) and not value:
+        return {}
+    else:
+        return "********"
+
+
+def redact_raw_config(obj: Any) -> Any:
+    if isinstance(obj, dict):
+        return {
+            k: _redact_value(v) if _should_redact_key(k) else redact_raw_config(v)
+            for k, v in obj.items()
+        }
+    elif isinstance(obj, list):
+        return [redact_raw_config(v) for v in obj]
+    else:
+        return obj
+
+
 class ConfigModel(BaseModel):
     class Config:
         extra = Extra.forbid

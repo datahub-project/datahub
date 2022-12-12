@@ -258,9 +258,14 @@ def default_query_results(query):
             }
             for op_idx in range(1, NUM_OPS + 1)
         ]
-    elif query == snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-        1654499820000,
-        1654586220000,
+    elif query in (
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+            1654499820000,
+            1654586220000,
+        ),
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+            1654499820000, 1654586220000, False
+        ),
     ):
         return [
             {
@@ -426,7 +431,8 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_views=False,
                         schema_pattern=AllowDenyPattern(allow=["test_schema"]),
                         include_technical_schema=True,
-                        include_table_lineage=False,
+                        include_table_lineage=True,
+                        include_column_lineage=False,
                         include_view_lineage=False,
                         include_usage_stats=False,
                         include_operational_stats=False,

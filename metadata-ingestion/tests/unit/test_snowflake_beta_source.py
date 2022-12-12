@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationError, OauthConfiguration
 from datahub.ingestion.api.source import SourceCapability
@@ -180,6 +181,38 @@ def test_options_contain_connect_args():
     )
     connect_args = config.get_options().get("connect_args")
     assert connect_args is not None
+
+
+def test_snowflake_config_with_view_lineage_no_table_lineage_throws_error():
+    with pytest.raises(ValidationError):
+        SnowflakeV2Config.parse_obj(
+            {
+                "username": "user",
+                "password": "password",
+                "host_port": "acctname",
+                "database_pattern": {"allow": {"^demo$"}},
+                "warehouse": "COMPUTE_WH",
+                "role": "sysadmin",
+                "include_view_lineage": True,
+                "include_table_lineage": False,
+            }
+        )
+
+
+def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
+    with pytest.raises(ValidationError):
+        SnowflakeV2Config.parse_obj(
+            {
+                "username": "user",
+                "password": "password",
+                "host_port": "acctname",
+                "database_pattern": {"allow": {"^demo$"}},
+                "warehouse": "COMPUTE_WH",
+                "role": "sysadmin",
+                "include_column_lineage": True,
+                "include_table_lineage": False,
+            }
+        )
 
 
 @patch("snowflake.connector.connect")
