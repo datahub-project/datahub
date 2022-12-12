@@ -14,11 +14,6 @@
                         "lastName": "Simpson",
                         "fullName": "Bart Simpson"
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
@@ -46,14 +41,37 @@
                         "lastName": "Simpson",
                         "fullName": "Homer Simpson"
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1660460400000,
