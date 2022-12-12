@@ -110,7 +110,7 @@ class SqlLineageSQLParserImpl(SQLParser):
             logger.error("sql holder not present so cannot get tables")
             return result
         for table in self._sql_holder.source_tables:
-            table_normalized = re.sub(r"^<default>.", "", str(table))
+            table_normalized = re.sub(r"^<default>.", "", table.raw_name)
             result.append(str(table_normalized))
 
         # We need to revert TOKEN replacements
