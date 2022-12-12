@@ -198,7 +198,7 @@ class GenericFileSource(TestableSource):
                 id = f"file://{f}:{i}"
                 wu: Union[MetadataWorkUnit, UsageStatsWorkUnit]
                 if isinstance(obj, UsageAggregationClass):
-                    wu = UsageStatsWorkUnit(f"file://{f}:{i}", obj)
+                    wu = UsageStatsWorkUnit(id, obj)
                 elif isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):

@@ -21,6 +21,9 @@ def test_mcpw_inference():
 
 
 def test_mcpw_from_obj():
+    # Checks that the MCPW from_obj() method returns a MCPW instead
+    # of an MCP with a serialized inner aspect object.
+
     mcpw = MetadataChangeProposalWrapper(
         entityUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,harshal-playground-306419.test_schema.excess_deaths_derived,PROD)",
         aspect=models.DomainsClass(domains=["urn:li:domain:health"]),
