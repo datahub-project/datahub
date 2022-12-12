@@ -1,10 +1,14 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace.iceberg_test,PROD)",
             "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
@@ -12,11 +16,6 @@
                             "provider": "ICEBERG",
                             "location": "/namespace/iceberg_test"
                         },
-                        "externalUrl": null,
-                        "name": null,
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -25,19 +24,16 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:new_owner",
-                                "type": "TECHNICAL_OWNER",
-                                "source": null
+                                "type": "TECHNICAL_OWNER"
                             },
                             {
                                 "owner": "urn:li:corpGroup:new_owner",
-                                "type": "TECHNICAL_OWNER",
-                                "source": null
+                                "type": "TECHNICAL_OWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 },
@@ -48,17 +44,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -68,7 +59,6 @@
                         "fields": [
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=string].level",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "level documentation",
                                 "type": {
@@ -78,15 +68,11 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": false}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=long].event_time",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "event_time documentation",
                                 "type": {
@@ -96,15 +82,11 @@
                                 },
                                 "nativeDataType": "timestamptz",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": false}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=string].message",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "message documentation",
                                 "type": {
@@ -114,15 +96,11 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": false}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].call_stack",
-                                "jsonPath": null,
                                 "nullable": true,
                                 "description": "call_stack documentation",
                                 "type": {
@@ -136,28 +114,18 @@
                                 },
                                 "nativeDataType": "list<string>",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": "{\"native_data_type\": \"list<string>\", \"_nullable\": true}"
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "iceberg-test"
     }
 }
 ]
