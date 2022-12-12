@@ -109,7 +109,7 @@ export const UNITY_CATALOG_DENY: RecipeField = {
     name: 'catalog_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Exclude specific Catalogs by providing the name of a Catalog, or a Regular Expression (REGEX) to exclude specific Catalogs. If not provided, all Catalogs will be included. Deny patterns always take precedence over allow patterns.',
+        'Exclude specific Catalogs by providing the name of a Catalog, or a Regular Expression (REGEX) to exclude specific Catalogs. If not provided, all Catalogs will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'my_catalog',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -141,7 +141,7 @@ export const UNITY_TABLE_DENY: RecipeField = {
     name: 'catalog_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
-        'Exclude specific Tables by providing the fully-qualified name of a Table, or a Regular Expression (REGEX) to exclude specific Tables. If not provided, all Tables will be included. Deny patterns always take precedence over allow patterns.',
+        'Exclude specific Tables by providing the fully-qualified name of a Table, or a Regular Expression (REGEX) to exclude specific Tables. If not provided, all Tables will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'catalog.schema.table',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
