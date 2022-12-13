@@ -1,11 +1,12 @@
 import re
 from textwrap import dedent
-from typing import Any, Dict,Optional
+from typing import Any, Dict,Optional,List,Tuple
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.vertica.common import VerticaSQLAlchemySource , SQLAlchemyConfigVertica ,SQLSourceReportVertica
 import math
 import pydantic
 from pydantic.class_validators import validator
+
 from sqlalchemy import sql, util
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.sqltypes import TIME, TIMESTAMP, String
@@ -750,7 +751,11 @@ class VerticaConfig(SQLAlchemyConfigVertica):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 class VerticaSource(VerticaSQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext) -> None:
-        super().__init__(config, ctx, "verticaa")
+        super().__init__(config, ctx, "vertica_lineage3")
+        self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
+        self.Projection_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
+
+
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":

@@ -3,7 +3,11 @@ import traceback
 from datahub.configuration.common import AllowDenyPattern
 from dataclasses import dataclass, field
 from datahub.ingestion.api.common import PipelineContext
+from collections import defaultdict
 from pydantic.fields import Field
+from sqlalchemy import sql, util ,create_engine, inspect
+import json
+from textwrap import dedent
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -42,6 +46,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    dataset_urn_to_key
 )
 from datahub.emitter.mcp_builder import (
     DatabaseKey,
@@ -102,16 +107,17 @@ class SQLSourceReportVertica(SQLSourceReport):
         """
         Entity could be a view or a table
         """
+        
         if ent_type == "projection":
+            
             self.Projection_scanned += 1
         elif ent_type == "models":
             self.models_scanned += 1
         elif ent_type == "OAuth":
             self.Outh_scanned += 1
-        
-        super().report_entity_scanned(name, ent_type)
-        
-    
+        else:
+            super().report_entity_scanned(name, ent_type)
+   
 class SQLAlchemyConfigVertica(BasicSQLAlchemyConfig):
    
     projection_pattern: AllowDenyPattern = Field(
@@ -137,6 +143,12 @@ class SQLAlchemyConfigVertica(BasicSQLAlchemyConfig):
     include_Outh: Optional[bool] = Field(
         default=True, description="Whether OAuth should be ingested."
     )
+    include_view_lineage: Optional[bool] = Field(
+        default=True, description="Whether lineages should be ingested for views"
+    )
+    include_projection_lineage: Optional[bool] = Field(
+        default=True, description="Whether lineages should be ingested for Projection"
+    )
     
 	
 # config flags to emit telemetry for
@@ -145,7 +157,9 @@ config_options_to_report = [
     "include_tables",
     "include_projections",
     "include_models",
-    "include_Outh"
+    "include_Outh",
+    "include_view_lineage",
+    "include_projection_lineage"
    
 ]
 
@@ -518,6 +532,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     self.report.report_dropped(dataset_name)
                     continue
                 try:
+                    
                     yield from self._process_view(
                         dataset_name=dataset_name,
                         inspector=inspector,
@@ -533,6 +548,49 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     self.report.report_warning(
                         f"{schema}.{view}", f"Ingestion error: {e}"
                     )
+                    
+                if sql_config.include_view_lineage:
+                    
+                    try:
+                        dataset_urn = make_dataset_urn_with_platform_instance(
+                                self.platform,
+                                dataset_name,
+                                self.config.platform_instance,
+                                self.config.env,
+                            )
+                        
+                        dataset_snapshot = DatasetSnapshot(
+                            urn=dataset_urn,
+                            aspects=[StatusClass(removed=False)],
+                        )
+                        lineage_info = self._get_upstream_lineage_info(dataset_urn,view)
+                    
+                        if lineage_info is not None:
+                                    # Emit the lineage work unit
+                                    # upstream_column_props = []
+                                    upstream_lineage = lineage_info
+                                    lineage_mcpw = MetadataChangeProposalWrapper(
+                                        entityType="dataset",
+                                        changeType=ChangeTypeClass.UPSERT,
+                                        entityUrn=dataset_snapshot.urn,
+                                        aspectName="upstreamLineage",
+                                        aspect=upstream_lineage,
+                                    )
+                                    
+                                    lineage_wu = MetadataWorkUnit(
+                                        id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
+                                        mcp=lineage_mcpw,
+                                    )
+                                    self.report.report_workunit(lineage_wu)
+                                    yield lineage_wu
+                                    
+                    except Exception as e:
+                        logger.warning(
+                            f"Unable to get lieange of view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                        )
+                        self.report.report_warning(
+                            f"{schema}.{view}", f"Ingestion error: {e}"
+                        )
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Views error: {e}")
 
@@ -686,6 +744,48 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     self.report.report_warning(
                         f"{schema}.{projection}", f"Ingestion error: {e}"
                     )
+                if sql_config.include_projection_lineage:
+                    
+                    try:
+                        dataset_urn = make_dataset_urn_with_platform_instance(
+                                self.platform,
+                                dataset_name,
+                                self.config.platform_instance,
+                                self.config.env,
+                            )
+                        
+                        dataset_snapshot = DatasetSnapshot(
+                            urn=dataset_urn,
+                            aspects=[StatusClass(removed=False)],
+                        )
+                        lineage_info = self._get_upstream_lineage_info_Projection(dataset_urn,projection)
+                    
+                        if lineage_info is not None:
+                                    # Emit the lineage work unit
+                                    # upstream_column_props = []
+                                    upstream_lineage = lineage_info
+                                    lineage_mcpw = MetadataChangeProposalWrapper(
+                                        entityType="dataset",
+                                        changeType=ChangeTypeClass.UPSERT,
+                                        entityUrn=dataset_snapshot.urn,
+                                        aspectName="upstreamLineage",
+                                        aspect=upstream_lineage,
+                                    )
+                                    
+                                    lineage_wu = MetadataWorkUnit(
+                                        id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
+                                        mcp=lineage_mcpw,
+                                    )
+                                    self.report.report_workunit(lineage_wu)
+                                    yield lineage_wu
+                                    
+                    except Exception as e:
+                        logger.warning(
+                            f"Unable to get lieange of Projection {schema}.{projection} due to an exception.\n {traceback.format_exc()}"
+                        )
+                        self.report.report_warning(
+                            f"{schema}.{projection}", f"Ingestion error: {e}"
+                        )
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Tables error: {e}")
             
@@ -792,10 +892,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         
-        # dataset_names = dataset_name.split(".")
-        # dataset_names[0] = "Entities"
-        # name = ".".join(dataset_names)
-        # print(name)
         schema_fields = self.get_schema_fields(
             dataset_name, columns, pk_constraints, tags=extra_tags
         )
@@ -815,12 +911,12 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         
         # table_tags = self.get_extra_tags(inspector, schema, table)
         
-        tags_to_add = []
-        if table_tags:
-            tags_to_add.extend(
-                [make_tag_urn(f"{table_tags.get(table)}")]
-            )
-            yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
+        # tags_to_add = []
+        # if table_tags:
+        #     tags_to_add.extend(
+        #         [make_tag_urn(f"{table_tags.get(table)}")]
+        #     )
+        #     yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
             
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -1058,11 +1154,11 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         # table_tags = self.get_extra_tags(inspector, schema, table)
         
         tags_to_add = []
-        # if table_tags:
-        #     tags_to_add.extend(
-        #         [make_tag_urn(f"{table_tags.get(projection)}")]
-        #     )
-        #     yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
+        if table_tags:
+            tags_to_add.extend(
+                [make_tag_urn(f"{table_tags.get(projection)}")]
+            )
+            yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
             
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -1346,6 +1442,233 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             wu = wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
             self.report.report_workunit(wu)
             return wu
+        
+    def _get_upstream_lineage_info(
+        self, dataset_urn: str,view
+    ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
+
+        dataset_key = dataset_urn_to_key(dataset_urn)
+        if dataset_key is None:
+            logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
+            return None
+       
+        self._populate_view_lineage(view)
+        dataset_name = dataset_key.name
+        lineage = self.view_lineage_map[dataset_name]
+       
+        if not (lineage):
+            logger.debug(f"No lineage found for {dataset_name}")
+            return None
+        upstream_tables: List[UpstreamClass] = []
+        
+        for lineage_entry in lineage:
+            # Update the table-lineage
+            upstream_table_name = lineage_entry[0]
+            # if not self._is_dataset_allowed(upstream_table_name):
+            #     continue
+            upstream_table = UpstreamClass(
+                dataset=make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    upstream_table_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                ),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
             
+        if upstream_tables:
+           
+            logger.debug(
+                f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
+            )
+            # if self.config.upstream_lineage_in_report:
+            #     self.report.upstream_lineage[dataset_name] = [
+            #         u.dataset for u in upstream_tables
+            #     ]
+            return UpstreamLineage(upstreams=upstream_tables)
+                
+        return None
+           
+           
+           
+    def _populate_view_lineage(self,view) -> None:
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+       
+        
+    
+        get_refrence_table = sql.text(dedent("""
+            select reference_table_name 
+            from v_catalog.view_tables                                
+            where table_name = '%(view)s'
+        """ % {'view': view }))
+        
+        refrence_table = ""
+        for data in engine.execute(get_refrence_table):
+            # refrence_table.append(data)
+            refrence_table = data['reference_table_name']
+            
+        view_upstream_lineage_query = sql.text(dedent("""
+            select reference_table_name ,reference_table_schema
+            from v_catalog.view_tables 
+            where table_name = '%(view)s'
+        """ % {'view': view }))
+        
+        view_downstream_query= sql.text(dedent("""
+            select table_name ,table_schema
+            from v_catalog.view_tables 
+            where reference_table_name = '%(view)s'
+        """ % {'view': refrence_table }))
+        num_edges: int = 0
+    
+        try:
+            self.view_lineage_map = defaultdict(list)
+            for db_row_key in engine.execute(view_downstream_query):
+        
+                downstream=f"{db_row_key['table_schema']}.{db_row_key['table_name']}"
+    
+            
+                for db_row_value in engine.execute(view_upstream_lineage_query):
+                
+            
+                    upstream = f"{db_row_value['reference_table_schema']}.{db_row_value['reference_table_name']}"
+                    
+                
+                    view_upstream: str = upstream.lower()
+                    view_name: str = downstream.lower()
+                    
+                
+                    self.view_lineage_map[view_name].append(
+                    # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
+                    (view_upstream, "[]", "[]")
+                    )
+                    
+                
+                    num_edges += 1
+        
+        except Exception as e:
+            traceback.print_exc()
+            self.warn(
+                logger,
+                "view_upstream_lineage",
+                "Extracting the upstream view lineage from Snowflake failed."
+                + f"Please check your permissions. Continuing...\nError was {e}.",
+            )
+        
+        logger.info(f"A total of {num_edges} View upstream edges found found for {view}")
+        self.report.num_table_to_view_edges_scanned = num_edges
+        
+            
+    def _get_upstream_lineage_info_Projection(
+        self, dataset_urn: str,projection
+    ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
+
+        dataset_key = dataset_urn_to_key(dataset_urn)
+        if dataset_key is None:
+            logger.warning(f"Invalid dataset urn {dataset_urn}. Could not get key!")
+            return None
+       
+        self._populate_projection_lineage(projection)
+        dataset_name = dataset_key.name
+        lineage = self.Projection_lineage_map[dataset_name]
+       
+        if not (lineage):
+            logger.debug(f"No lineage found for {dataset_name}")
+            return None
+        upstream_tables: List[UpstreamClass] = []
+        
+        for lineage_entry in lineage:
+            # Update the table-lineage
+            upstream_table_name = lineage_entry[0]
+            # if not self._is_dataset_allowed(upstream_table_name):
+            #     continue
+            upstream_table = UpstreamClass(
+                dataset=make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    upstream_table_name,
+                    self.config.platform_instance,
+                    self.config.env,
+                ),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+            
+        if upstream_tables:
+           
+            logger.debug(
+                f"lineage of Projection '{dataset_name}': {[u.dataset for u in upstream_tables]}"
+            )
+            # if self.config.upstream_lineage_in_report:
+            #     self.report.upstream_lineage[dataset_name] = [
+            #         u.dataset for u in upstream_tables
+            #     ]
+            return UpstreamLineage(upstreams=upstream_tables)
+                
+        return None
+    
+    
+    def _populate_projection_lineage(self,projection) -> None:
+        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+       
+        
+    
+        # get_basename = sql.text(dedent("""
+        #     select basename from vs_projections where name ='date_dimension_super'
+        # """ % {'projection': projection }))
+        
+        # refrence_table = ""
+        # for data in engine.execute(get_refrence_table):
+        #     # refrence_table.append(data)
+        #     refrence_table = data['reference_table_name']
+            
+        view_upstream_lineage_query = sql.text(dedent("""
+           select basename , schemaname
+           from vs_projections 
+           where name ='%(projection)s'
+        """ % {'projection': projection }))
+        
+       
+        num_edges: int = 0
+    
+        try:
+            self.Projection_lineage_map = defaultdict(list)
+            for db_row_key in engine.execute(view_upstream_lineage_query):
+                basename = db_row_key['basename']
+                upstream=f"{db_row_key['schemaname']}.{db_row_key['basename']}"
+    
+                view_downstream_query= sql.text(dedent("""
+                    select name,schemaname 
+                    from vs_projections 
+                    where basename='%(basename)s'
+                    """ % {'basename': basename }))
+                for db_row_value in engine.execute(view_downstream_query):
+                    downstream = f"{db_row_value['schemaname']}.{db_row_value['name']}"
+                    projection_upstream: str = upstream.lower()
+                    projection_name: str = downstream.lower()
+                    
+                
+                    self.Projection_lineage_map[projection_name].append(
+                    # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
+                    (projection_upstream, "[]", "[]")
+                    )
+                    
+                
+                    num_edges += 1
+        
+        except Exception as e:
+            traceback.print_exc()
+            self.warn(
+                logger,
+                "Extracting the upstream view lineage from Vertica failed."
+                + f"Please check your permissions. Continuing...\nError was {e}.",
+            )
+        
+        logger.info(f"A total of {num_edges} View upstream edges found for {projection}.")
+        self.report.num_table_to_view_edges_scanned = num_edges
+ 
     def close(self):
         self.prepare_for_commit()
