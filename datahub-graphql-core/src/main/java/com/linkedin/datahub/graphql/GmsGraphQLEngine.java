@@ -400,7 +400,7 @@ public class GmsGraphQLEngine {
         final AuthorizationConfiguration authorizationConfiguration, final GitVersion gitVersion,
         final TimelineService timelineService, final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
-        final TestsConfiguration testsConfiguration, final DatahubConfiguration datahubConfiguration,
+        final TestsConfiguration testsConfiguration, final DataHubConfiguration datahubConfiguration,
         final SiblingGraphService siblingGraphService, final GroupService groupService, final RoleService roleService,
         final InviteTokenService inviteTokenService, final PostService postService, final LineageService lineageService,
         final FeatureFlags featureFlags) {

@@ -310,7 +310,7 @@ public class LineageServiceTest {
       Upstream upstream = new Upstream();
       upstream.setDataset(DatasetUrn.createFromString(upstreamUrn));
       upstream.setAuditStamp(_auditStamp);
-      upstream.setCreatedAuditStamp(_auditStamp);
+      upstream.setCreated(_auditStamp);
       upstream.setType(DatasetLineageType.TRANSFORMED);
       upstreams.add(upstream);
     }
