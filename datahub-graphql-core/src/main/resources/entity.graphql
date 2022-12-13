@@ -188,6 +188,16 @@ type Query {
     List all Posts
     """
     listPosts(input: ListPostsInput!): ListPostsResult
+
+    """
+    List DataHub Views owned by the current user
+    """
+    listMyViews(input: ListMyViewsInput!): ListViewsResult
+
+    """
+    List Global DataHub Views
+    """
+    listGlobalViews(input: ListGlobalViewsInput!): ListViewsResult
 }
 
 """
@@ -505,6 +515,11 @@ type Mutation {
     batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
 
     """
+    Update the View-related settings for a user.
+    """
+    updateCorpUserViewsSettings(input: UpdateCorpUserViewsSettingsInput!): Boolean
+
+    """
     Update a user setting
     """
     updateUserSetting(input: UpdateUserSettingInput!): Boolean
@@ -528,6 +543,29 @@ type Mutation {
     Create a post
     """
     createPost(input: CreatePostInput!): Boolean
+
+    """
+    Create a new DataHub View (Saved Filter)
+    """
+    createView(
+      "Input required to create a new DataHub View"
+      input: CreateViewInput!): DataHubView
+
+    """
+    Delete a DataHub View (Saved Filter)
+    """
+    updateView(
+      "The urn of the View to update"
+      urn: String!,
+      "Input required to updat an existing DataHub View"
+      input: UpdateViewInput!): DataHubView
+
+    """
+    Delete a DataHub View (Saved Filter)
+    """
+    deleteView(
+      "The urn of the View to delete"
+      urn: String!): Boolean
 }
 
 """
@@ -713,6 +751,11 @@ enum EntityType {
     A Schema Field
     """
     SCHEMA_FIELD
+
+    """
+    A DataHub View
+    """
+    DATAHUB_VIEW
 }
 
 """
@@ -2991,6 +3034,11 @@ type CorpUserSettings {
     Settings that control look and feel of the DataHub UI for the user
     """
     appearance: CorpUserAppearanceSettings
+
+    """
+    Settings related to the DataHub Views feature
+    """
+    views: CorpUserViewsSettings
 }
 
 """
@@ -3002,6 +3050,16 @@ type CorpUserAppearanceSettings {
     who have less operational use cases for the datahub tool.
     """
     showSimplifiedHomepage: Boolean
+}
+
+"""
+Settings related to the Views feature of DataHub.
+"""
+type CorpUserViewsSettings {
+    """
+    The default view for the User.
+    """
+    defaultView: DataHubView
 }
 
 """
@@ -9300,13 +9358,15 @@ type InputField {
     schemaField: SchemaField
 }
 
+"""
+An individual setting type for a Corp User.
+"""
 enum UserSetting {
     """
     Show simplified homepage
     """
     SHOW_SIMPLIFIED_HOMEPAGE
 }
-
 
 """
 Input for updating a user setting
@@ -9661,4 +9721,260 @@ type Media {
     The location of the media (a URL)
     """
     location: String!
+}
+
+"""
+The type of a DataHub View
+"""
+enum DataHubViewType {
+  """
+  A personal view - e.g. saved filters
+  """
+  PERSONAL
+
+  """
+  A global view, e.g. role view
+  """
+  GLOBAL
+}
+
+"""
+An DataHub View - Filters that are applied across the application automatically.
+"""
+type DataHubView implements Entity {
+  """
+  The primary key of the View
+  """
+  urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The type of the View
+  """
+  viewType: DataHubViewType!
+
+  """
+  The name of the View
+  """
+  name: String!
+
+  """
+  The description of the View
+  """
+  description: String
+
+  """
+  The definition of the View
+  """
+  definition: DataHubViewDefinition!
+
+  """
+  Granular API for querying edges extending from the View
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+An DataHub View Definition
+"""
+type DataHubViewDefinition {
+  """
+  A set of filters to apply. If left empty, then ALL entity types are in scope.
+  """
+  entityTypes: [EntityType!]!
+
+  """
+  A set of filters to apply. If left empty, then no filters will be applied.
+  """
+  filter: DataHubViewFilter!
+}
+
+"""
+A Logical Operator, AND or OR.
+"""
+enum LogicalOperator {
+  """
+  An AND operator.
+  """
+  AND
+
+  """
+  An OR operator.
+  """
+  OR
+}
+
+"""
+A DataHub View Filter. Note that
+"""
+type DataHubViewFilter {
+  """
+  The operator used to combine the filters.
+  """
+  operator: LogicalOperator!
+
+  """
+  A set of filters combined using the operator. If left empty, then no filters will be applied.
+  """
+  filters: [FacetFilter!]!
+}
+
+"""
+Input provided when listing DataHub Views
+"""
+input ListMyViewsInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Views to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+
+    """
+    Optional - List the type of View to filter for.
+    """
+    viewType: DataHubViewType
+}
+
+"""
+Input provided when listing DataHub Global Views
+"""
+input ListGlobalViewsInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Views to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+
+"""
+The result obtained when listing DataHub Views
+"""
+type ListViewsResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Views in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Views in the result set
+    """
+    total: Int!
+
+    """
+    The Views themselves
+    """
+    views: [DataHubView!]!
+}
+
+"""
+Input provided when creating a DataHub View
+"""
+input CreateViewInput {
+    """
+    The type of View
+    """
+    viewType: DataHubViewType!
+
+    """
+    The name of the View
+    """
+    name: String!
+
+    """
+    An optional description of the View
+    """
+    description: String
+
+    """
+    The view definition itself
+    """
+    definition: DataHubViewDefinitionInput!
+}
+
+"""
+Input required for creating a DataHub View Definition
+"""
+input DataHubViewDefinitionInput {
+  """
+  A set of entity types that the view applies for. If left empty, then ALL entities will be in scope.
+  """
+  entityTypes: [EntityType!]!
+
+  """
+  A set of filters to apply.
+  """
+  filter: DataHubViewFilterInput!
+}
+
+"""
+Input required for creating a DataHub View Definition
+"""
+input DataHubViewFilterInput {
+  """
+  The operator used to combine the filters.
+  """
+  operator: LogicalOperator!
+
+  """
+  A set of filters combined via an operator. If left empty, then no filters will be applied.
+  """
+  filters: [FacetFilterInput!]!
+}
+
+"""
+Input provided when updating a DataHub View
+"""
+input UpdateViewInput {
+    """
+    The name of the View
+    """
+    name: String
+
+    """
+    An optional description of the View
+    """
+    description: String
+
+    """
+    The view definition itself
+    """
+    definition: DataHubViewDefinitionInput
+}
+
+"""
+Input required to update a users settings.
+"""
+input UpdateCorpUserViewsSettingsInput {
+  """
+  The URN of the View that serves as this user's personal default.
+  If not provided, any existing default view will be removed.
+  """
+  defaultView: String
 }

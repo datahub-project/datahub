@@ -10,7 +10,7 @@ from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.looker.lookml_source import LookMLSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.lookml_state import LookMLCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -624,8 +624,8 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     # Perform all assertions on the states. The deleted table should not be
     # part of the second state
-    state1 = cast(LookMLCheckpointState, checkpoint1.state)
-    state2 = cast(LookMLCheckpointState, checkpoint2.state)
+    state1 = cast(GenericCheckpointState, checkpoint1.state)
+    state2 = cast(GenericCheckpointState, checkpoint2.state)
 
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)

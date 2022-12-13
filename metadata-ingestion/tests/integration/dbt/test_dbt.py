@@ -360,7 +360,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         state1 = cast(DbtCheckpointState, checkpoint1.state)
         state2 = cast(DbtCheckpointState, checkpoint2.state)
         difference_urns = list(
-            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
         )
 
         assert len(difference_urns) == 2
