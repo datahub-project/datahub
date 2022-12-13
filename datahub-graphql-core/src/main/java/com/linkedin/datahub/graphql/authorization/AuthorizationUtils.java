@@ -108,6 +108,10 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE);
   }
 
+  public static boolean canManageGlobalViews(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull Optional<ResourceSpec> resourceSpec,

@@ -172,9 +172,14 @@ WHERE
                             word in column.data_type.lower()
                             for word in ["array", "struct", "geography", "json"]
                         ):
+                            normalized_table_name = BigqueryTableIdentifier(
+                                project_id=project, dataset=dataset, table=table.name
+                            ).get_table_name()
+
                             self.config.profile_pattern.deny.append(
-                                f"^{project}.{dataset}.{table.name}.{column.field_path}$"
+                                f"^{normalized_table_name}.{column.field_path}$"
                             )
+
                     # Emit the profile work unit
                     profile_request = self.get_bigquery_profile_request(
                         project=project, dataset=dataset, table=table

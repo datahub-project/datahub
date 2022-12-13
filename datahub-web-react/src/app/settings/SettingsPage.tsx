@@ -1,6 +1,12 @@
 import React from 'react';
 import { Menu, Typography, Divider } from 'antd';
-import { BankOutlined, SafetyCertificateOutlined, UsergroupAddOutlined, ToolOutlined } from '@ant-design/icons';
+import {
+    BankOutlined,
+    SafetyCertificateOutlined,
+    UsergroupAddOutlined,
+    ToolOutlined,
+    FilterOutlined,
+} from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -10,6 +16,7 @@ import { useAppConfig } from '../useAppConfig';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { AccessTokens } from './AccessTokens';
 import { Preferences } from './Preferences';
+import { ManageViews } from '../entity/view/ManageViews';
 
 const PageContainer = styled.div`
     display: flex;
@@ -51,6 +58,7 @@ const PATHS = [
     { path: 'identities', content: <ManageIdentities /> },
     { path: 'permissions', content: <ManagePermissions /> },
     { path: 'preferences', content: <Preferences /> },
+    { path: 'views', content: <ManageViews /> },
 ];
 
 /**
@@ -74,9 +82,11 @@ export const SettingsPage = () => {
 
     const isPoliciesEnabled = config?.policiesConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
+    const isViewsEnabled = config?.viewsConfig.enabled;
 
     const showPolicies = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
     const showUsersGroups = (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
+    const showViews = isViewsEnabled || false;
 
     return (
         <PageContainer>
@@ -115,6 +125,13 @@ export const SettingsPage = () => {
                                     <ItemTitle>Permissions</ItemTitle>
                                 </Menu.Item>
                             )}
+                        </Menu.ItemGroup>
+                    )}
+                    {showViews && (
+                        <Menu.ItemGroup title="Manage">
+                            <Menu.Item key="views">
+                                <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
+                            </Menu.Item>
                         </Menu.ItemGroup>
                     )}
                     <Menu.ItemGroup title="Preferences">
