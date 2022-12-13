@@ -127,7 +127,7 @@ public class LineageService {
       final Upstream newUpstream = new Upstream();
       newUpstream.setDataset(DatasetUrn.createFromUrn(upstreamUrn));
       newUpstream.setAuditStamp(getAuditStamp(actor));
-      newUpstream.setCreatedAuditStamp(getAuditStamp(actor));
+      newUpstream.setCreated(getAuditStamp(actor));
       newUpstream.setType(DatasetLineageType.TRANSFORMED);
       upstreams.add(newUpstream);
     }
