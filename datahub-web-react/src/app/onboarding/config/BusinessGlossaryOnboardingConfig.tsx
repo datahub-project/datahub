@@ -47,8 +47,7 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
                     Click here to create a new <strong>Term Group</strong>.
                 </p>
                 <p>
-                    <strong>Term Groups</strong> act as folders, containing Terms and even other Term Groups to allow
-                    for nesting.
+                    <strong>Term Groups</strong> act as folders, containing Terms and nested Term Groups.
                 </p>
                 <p>
                     For example, there could be a <strong>PII Term Group</strong> containing Terms for different types

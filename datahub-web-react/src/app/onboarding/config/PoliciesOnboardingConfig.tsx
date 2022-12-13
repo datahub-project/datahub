@@ -15,12 +15,13 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
                     Welcome to DataHub <strong>Policies</strong>!
                 </p>
                 <p>
-                    If you need fine-grained access controls, <strong>Policies</strong> will do the trick.
+                    In most cases, <strong>Roles</strong> can be used to grant privileges to users on DataHub.
                 </p>
                 <p>
-                    For most users, <strong>Roles</strong> are the recommended way to manage permissions on DataHub. If
-                    Roles do not fit your use case, then Policies can be used.
+                    When more fine-grained control over user and group permissions is required, then{' '}
+                    <strong>Policies</strong> will do the trick.
                 </p>
+                <p>Policies allow you to grant fine-grained privileges to specific users and groups.</p>
                 <p>
                     Learn more about <strong>Policies</strong>{' '}
                     <a
