@@ -167,6 +167,13 @@ kafka:
     firstInterval: ${KAFKA_RETRY_FIRST_INTERVAL:1000}
     maxInterval: ${KAFKA_RETRY_MAX_INTERVAL:10000}
     multiplier: ${KAFKA_RETRY_MULTIPLIER:2}
+  mae:
+    consumer:
+      group:
+        1: ${KAFKA_MAE_CONSUMER_GROUP_1:updateIndicesHook}
+        2: ${KAFKA_MAE_CONSUMER_GROUP_2:ingestionSchedulerHook}
+        3: ${KAFKA_MAE_CONSUMER_GROUP_3:entityChangeEventHook}
+        4: ${KAFKA_MAE_CONSUMER_GROUP_4:siblingAssociationHook}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
