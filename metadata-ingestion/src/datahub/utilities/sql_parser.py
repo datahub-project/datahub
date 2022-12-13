@@ -68,7 +68,7 @@ class MetadataSQLSQLParser(SQLParser):
 
 
 def sql_lineage_parser_impl_func_wrapper(
-        queue: Optional[multiprocessing.Queue], sql_query: str, use_raw_names: bool = False
+    queue: Optional[multiprocessing.Queue], sql_query: str, use_raw_names: bool = False
 ) -> Optional[Tuple[List[str], List[str], Any]]:
     """
     The wrapper function that computes the tables and columns using the SqlLineageSQLParserImpl
@@ -102,10 +102,10 @@ def sql_lineage_parser_impl_func_wrapper(
 
 class SqlLineageSQLParser(SQLParser):
     def __init__(
-            self,
-            sql_query: str,
-            use_external_process: bool = True,
-            use_raw_names: bool = False
+        self,
+        sql_query: str,
+        use_external_process: bool = True,
+        use_raw_names: bool = False
     ) -> None:
         super().__init__(sql_query, use_external_process)
         if use_external_process:
@@ -114,9 +114,7 @@ class SqlLineageSQLParser(SQLParser):
             )
         else:
             return_tuple = sql_lineage_parser_impl_func_wrapper(
-                None,
-                sql_query,
-                use_raw_names
+                None, sql_query, use_raw_names
             )
             if return_tuple is not None:
                 (
@@ -136,11 +134,7 @@ class SqlLineageSQLParser(SQLParser):
         queue: multiprocessing.Queue = Queue()
         process: multiprocessing.Process = Process(
             target=sql_lineage_parser_impl_func_wrapper,
-            args=(
-                queue,
-                sql_query,
-                use_raw_names
-            ),
+            args=(queue, sql_query, use_raw_names),
         )
         process.start()
         tables, columns, exception_details = queue.get(block=True)

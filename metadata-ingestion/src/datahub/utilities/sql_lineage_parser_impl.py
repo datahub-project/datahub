@@ -116,7 +116,7 @@ class SqlLineageSQLParserImpl(SQLParser):
                 "",
                 str(table)
                 if not self._use_raw_names
-                else f"{table.schema.raw_name}.{table.raw_name}"
+                else f"{table.schema.raw_name}.{table.raw_name}",
             )
             result.append(str(table_normalized))
 
