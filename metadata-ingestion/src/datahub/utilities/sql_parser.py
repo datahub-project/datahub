@@ -105,7 +105,7 @@ class SqlLineageSQLParser(SQLParser):
         self,
         sql_query: str,
         use_external_process: bool = True,
-        use_raw_names: bool = False
+        use_raw_names: bool = False,
     ) -> None:
         super().__init__(sql_query, use_external_process)
         if use_external_process:
