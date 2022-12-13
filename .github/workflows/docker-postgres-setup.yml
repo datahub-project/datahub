@@ -54,14 +54,14 @@ jobs:
           fetch-depth: 0
       - name: Docker meta
         id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+        uses: docker/metadata-action@v4
         with:
           # list of Docker images to use as base name for tags
           images: |
             acryldata/datahub-postgres-setup
           # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
+          tags: |
+            type=raw,value=${{ needs.setup.outputs.tag }}
       - name: Login to DockerHub
         if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v2
