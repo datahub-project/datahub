@@ -33,6 +33,7 @@ RUN cd datahub-src && cp metadata-jobs/mce-consumer-job/build/libs/mce-consumer-
 
 FROM base as prod-install
 COPY --from=prod-build /mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
+COPY --from=prod-build /datahub-src/metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
 COPY --from=prod-build /datahub-src/docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh

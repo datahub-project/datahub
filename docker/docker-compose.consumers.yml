@@ -33,4 +33,5 @@ services:
       - "9090:9090"
     depends_on:
       - kafka-setup
-      - datahub-gms
+      - elasticsearch-setup
+      - mysql-setup

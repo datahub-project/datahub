@@ -13,7 +13,6 @@ dependencies {
   runtime project(':metadata-jobs:mae-consumer')
   runtime project(':metadata-jobs:pe-consumer')
 
-  runtime externalDependency.logbackClassic
   runtime externalDependency.awsSecretsManagerJdbc
   runtime externalDependency.h2
   runtime externalDependency.mariadbConnector
@@ -24,6 +23,8 @@ dependencies {
   runtime spec.product.pegasus.restliDocgen
   runtime spec.product.pegasus.restliSpringBridge
 
+  implementation externalDependency.log4j2Api
+  implementation externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
 }
 

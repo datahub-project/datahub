@@ -295,7 +295,7 @@ public interface EntityClient {
       @Nonnull final Authentication authentication, final boolean async) {
     try {
       return ingestProposal(metadataChangeProposal, authentication, async);
-    } catch (RemoteInvocationException e) {
+    } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }

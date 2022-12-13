@@ -53,6 +53,10 @@ datahub:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+
+    # URI instead of above host/port/ssl
+    uri: ${DATAHUB_GMS_URI:#{null}}
+
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
@@ -79,8 +83,8 @@ searchService:
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
 
 configEntityRegistry:
-  # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
+  resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}

@@ -5,6 +5,8 @@ import no.nav.security.mock.oauth2.MockOAuth2Server;
 import no.nav.security.mock.oauth2.token.DefaultOAuth2TokenCallback;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.awaitility.Awaitility;
+import org.awaitility.Durations;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -93,7 +95,8 @@ public class ApplicationTest extends WithBrowser {
 
     startServer();
     createBrowser();
-    Thread.sleep(5000);
+
+    Awaitility.await().timeout(Durations.TEN_SECONDS).until(() -> app != null);
   }
 
   @AfterAll

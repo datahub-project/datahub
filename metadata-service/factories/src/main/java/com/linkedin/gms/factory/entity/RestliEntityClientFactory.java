@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
+import java.net.URI;
+
 
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
@@ -23,12 +25,20 @@ public class RestliEntityClientFactory {
   @Value("${datahub.gms.useSSL}")
   private boolean gmsUseSSL;
 
+  @Value("${datahub.gms.uri}")
+  private String gmsUri;
+
   @Value("${datahub.gms.sslContext.protocol}")
   private String gmsSslProtocol;
 
   @Bean("restliEntityClient")
   public RestliEntityClient getRestliEntityClient() {
-    Client restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+    final Client restClient;
+    if (gmsUri != null) {
+      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
+    } else {
+      restClient = DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+    }
     return new RestliEntityClient(restClient);
   }
 }

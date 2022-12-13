@@ -1,6 +1,7 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
-  ext.pegasusVersion = '29.22.16'
+  // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
+  ext.pegasusVersion = '29.40.14'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '5.3.20'
   ext.springBootVersion = '2.5.12'
