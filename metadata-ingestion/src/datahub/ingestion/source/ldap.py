@@ -135,7 +135,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase):
 @dataclasses.dataclass
 class LDAPSourceReport(StaleEntityRemovalSourceReport):
     def report_dropped(self, dn: str) -> None:
-        self.report_stale_entity_soft_deleted(dn)
+        self.dropped_dns.append(dn)
 
 
 def guess_person_ldap(
@@ -406,7 +406,6 @@ class LDAPSource(StatefulIngestionSourceBase):
     def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
         """Creates a MetadataChangeEvent for LDAP groups."""
         cn = attrs.get(self.config.group_attrs_map["urn"])
-        print(cn)
         if cn:
             full_name = cn[0].decode()
             admins = parse_from_attrs(attrs, self.config.group_attrs_map["admins"])
