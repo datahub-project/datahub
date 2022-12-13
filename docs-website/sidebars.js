@@ -106,7 +106,7 @@ module.exports = {
         ],
       },
       {
-        "Ingestion Guides": [
+        "Ingestion Quickstart Guides": [
           {
             BigQuery: [
               "docs/quick-ingestion-guides/bigquery/overview",
