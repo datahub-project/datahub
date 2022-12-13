@@ -432,8 +432,9 @@ timestamp < "{end_time}"
                 # to ensure we only use direct objects accessed for lineage
                 try:
                     parser = BigQuerySQLParser(
-                        e.query, self.config.sql_parser_use_external_process,
-                        use_raw_names=self.config.lineage_sql_parser_use_raw_names
+                        e.query,
+                        self.config.sql_parser_use_external_process,
+                        use_raw_names=self.config.lineage_sql_parser_use_raw_names,
                     )
                     referenced_objs = set(
                         map(lambda x: x.split(".")[-1], parser.get_tables())
@@ -472,8 +473,9 @@ timestamp < "{end_time}"
         if view.view_definition:
             try:
                 parser = BigQuerySQLParser(
-                    view.view_definition, self.config.sql_parser_use_external_process,
-                    use_raw_names=self.config.lineage_sql_parser_use_raw_names
+                    view.view_definition,
+                    self.config.sql_parser_use_external_process,
+                    use_raw_names=self.config.lineage_sql_parser_use_raw_names,
                 )
                 tables = parser.get_tables()
             except Exception as ex:

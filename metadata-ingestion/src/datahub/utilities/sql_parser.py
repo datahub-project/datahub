@@ -68,8 +68,7 @@ class MetadataSQLSQLParser(SQLParser):
 
 
 def sql_lineage_parser_impl_func_wrapper(
-        queue: Optional[multiprocessing.Queue],
-        sql_query: str, use_raw_names: bool = False
+        queue: Optional[multiprocessing.Queue], sql_query: str, use_raw_names: bool = False
 ) -> Optional[Tuple[List[str], List[str], Any]]:
     """
     The wrapper function that computes the tables and columns using the SqlLineageSQLParserImpl
@@ -102,15 +101,23 @@ def sql_lineage_parser_impl_func_wrapper(
 
 
 class SqlLineageSQLParser(SQLParser):
-    def __init__(self, sql_query: str, use_external_process: bool = True, use_raw_names: bool = False) -> None:
+    def __init__(
+            self,
+            sql_query: str,
+            use_external_process: bool = True,
+            use_raw_names: bool = False
+    ) -> None:
         super().__init__(sql_query, use_external_process)
         if use_external_process:
             self.tables, self.columns = self._get_tables_columns_process_wrapped(
+                sql_query, use_raw_names
+            )
+        else:
+            return_tuple = sql_lineage_parser_impl_func_wrapper(
+                None,
                 sql_query,
                 use_raw_names
             )
-        else:
-            return_tuple = sql_lineage_parser_impl_func_wrapper(None, sql_query, use_raw_names)
             if return_tuple is not None:
                 (
                     self.tables,
@@ -120,7 +127,7 @@ class SqlLineageSQLParser(SQLParser):
 
     @staticmethod
     def _get_tables_columns_process_wrapped(
-            sql_query: str, use_raw_names: bool = False
+        sql_query: str, use_raw_names: bool = False
     ) -> Tuple[List[str], List[str]]:
         # Invoke sql_lineage_parser_impl_func_wrapper in a separate process to avoid
         # memory leaks from sqllineage module used by SqlLineageSQLParserImpl. This will help

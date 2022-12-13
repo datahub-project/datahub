@@ -89,12 +89,12 @@ class SqlLineageSQLParserImpl(SQLParser):
             ]
 
             with unittest.mock.patch(
-                    "sqllineage.core.handlers.source.SourceHandler.end_of_query_cleanup",
-                    datahub.utilities.sqllineage_patch.end_of_query_cleanup_patch,
+                "sqllineage.core.handlers.source.SourceHandler.end_of_query_cleanup",
+                datahub.utilities.sqllineage_patch.end_of_query_cleanup_patch,
             ):
                 with unittest.mock.patch(
-                        "sqllineage.core.holders.SubQueryLineageHolder.add_column_lineage",
-                        datahub.utilities.sqllineage_patch.add_column_lineage_patch,
+                    "sqllineage.core.holders.SubQueryLineageHolder.add_column_lineage",
+                    datahub.utilities.sqllineage_patch.add_column_lineage_patch,
                 ):
                     self._stmt_holders = [
                         LineageAnalyzer().analyze(stmt) for stmt in self._stmt
@@ -112,7 +112,11 @@ class SqlLineageSQLParserImpl(SQLParser):
             return result
         for table in self._sql_holder.source_tables:
             table_normalized = re.sub(
-                r"^<default>.", "", str(table) if not self._use_raw_names else f"{table.schema.raw_name}.{table.raw_name}"
+                r"^<default>.",
+                "",
+                str(table)
+                if not self._use_raw_names
+                else f"{table.schema.raw_name}.{table.raw_name}"
             )
             result.append(str(table_normalized))
 

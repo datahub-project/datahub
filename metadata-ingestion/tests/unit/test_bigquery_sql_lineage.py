@@ -39,7 +39,7 @@ SELECT foo, bar
 # this comment will not break sqllineage either
 FROM `project.dataset.CamelCaseTable`
         """,
-        use_raw_names=True
+        use_raw_names=True,
     )
 
     assert parser.get_tables() == ["project.dataset.CamelCaseTable"]
@@ -64,7 +64,7 @@ SELECT foo, bar
 # this comment will not break sqllineage either
 FROM `project.DataSet.table`
         """,
-        use_raw_names=True
+        use_raw_names=True,
     )
 
     assert parser.get_tables() == ["project.DataSet.table"]
@@ -89,7 +89,7 @@ SELECT foo, bar
 # this comment will not break sqllineage either
 FROM `project.DataSet.CamelTable`
         """,
-        use_raw_names=True
+        use_raw_names=True,
     )
 
     assert parser.get_tables() == ["project.DataSet.CamelTable"]

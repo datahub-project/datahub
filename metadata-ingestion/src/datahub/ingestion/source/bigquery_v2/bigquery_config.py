@@ -82,9 +82,10 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         default=True,
         description="Sql parse view ddl to get lineage.",
     )
+
     lineage_sql_parser_use_raw_names: bool = Field(
         default=False,
-        description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False."
+        description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False.",
     )
 
     convert_urns_to_lowercase: bool = Field(
