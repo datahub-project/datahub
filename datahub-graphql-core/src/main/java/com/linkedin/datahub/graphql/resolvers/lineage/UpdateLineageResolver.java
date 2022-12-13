@@ -96,8 +96,6 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
         final List<Urn> downstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(upstreamUrn, new ArrayList<>());
         try {
           if (upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
-            // ensure the downstreams are all datasets
-
             // need to filter out dataJobs since this is a valid lineage edge, but is handled in the upstream direction for DataJobs
             final List<Urn> filteredDownstreamUrnsToAdd = filterOutDataJobUrns(downstreamUrnsToAdd);
 

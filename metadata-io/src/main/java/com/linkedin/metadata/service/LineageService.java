@@ -433,12 +433,11 @@ public class LineageService {
     EntityResponse entityResponse =
         _entityClient.getV2(Constants.DATA_JOB_ENTITY_NAME, downstreamUrn, ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME), authentication);
 
-    if (entityResponse == null || !entityResponse.getAspects().containsKey(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
-      throw new RuntimeException(String.format("Failed to update dataJob lineage for urn %s as dataJob input output doesn't exist", downstreamUrn));
+    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
+    if (entityResponse != null && entityResponse.getAspects().containsKey(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
+      DataMap dataMap = entityResponse.getAspects().get(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME).getValue().data();
+      dataJobInputOutput = new DataJobInputOutput(dataMap);
     }
-
-    DataMap dataMap = entityResponse.getAspects().get(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME).getValue().data();
-    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(dataMap);
 
     // first, deal with dataset edges
     updateUpstreamDatasetsForDataJobs(dataJobInputOutput, upstreamUrnsToAdd, upstreamUrnsToRemove, downstreamUrn, actor);
@@ -593,12 +592,11 @@ public class LineageService {
     EntityResponse entityResponse =
         _entityClient.getV2(Constants.DATA_JOB_ENTITY_NAME, dataJobUrn, ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME), authentication);
 
-    if (entityResponse == null || !entityResponse.getAspects().containsKey(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
-      throw new RuntimeException(String.format("Failed to update dataJob lineage for urn %s as dataJob input output doesn't exist", dataJobUrn));
+    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
+    if (entityResponse != null && entityResponse.getAspects().containsKey(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
+      DataMap dataMap = entityResponse.getAspects().get(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME).getValue().data();
+      dataJobInputOutput = new DataJobInputOutput(dataMap);
     }
-
-    DataMap dataMap = entityResponse.getAspects().get(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME).getValue().data();
-    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(dataMap);
 
     final DatasetUrnArray outputDatasets = dataJobInputOutput.getOutputDatasets();
     final EdgeArray outputDatasetEdges = dataJobInputOutput.getOutputDatasetEdges();
