@@ -105,16 +105,18 @@ module.exports = {
           // "docs/wip/guide-enrich-your-metadata",
         ],
       },
-    ],
-    "Integration Guides": [
       {
-        BigQuery: [
-          "docs/quick-ingestion-guides/bigquery/overview",
-          "docs/quick-ingestion-guides/bigquery/setup",
-          "docs/quick-ingestion-guides/bigquery/configuration",
+        "Ingestion Guides": [
+          {
+            BigQuery: [
+              "docs/quick-ingestion-guides/bigquery/overview",
+              "docs/quick-ingestion-guides/bigquery/setup",
+              "docs/quick-ingestion-guides/bigquery/configuration",
+              ],
+          },
         ],
       },
-    ],
+],
     "Ingest Metadata": [
       // The purpose of this section is to provide a deeper understanding of how ingestion works.
       // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
