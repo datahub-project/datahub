@@ -80,8 +80,8 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
                 output_path="nifi_mces.json",
                 golden_path=test_resources_dir / "nifi_mces_golden_standalone.json",
                 ignore_paths=[
-                    r"root\[5\]\['aspect'\]\['value'\]",
-                    r"root\[9\]\['aspect'\]\['value'\]",
+                    *mce_helpers.IGNORE_PATH_TIMESTAMPS,
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_event_time'\]",
                 ],
             )
 
