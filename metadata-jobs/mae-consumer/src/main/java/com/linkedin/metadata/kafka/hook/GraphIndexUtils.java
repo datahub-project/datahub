@@ -97,7 +97,6 @@ public class GraphIndexUtils {
     for (Object fieldValue : extractedFieldsEntry.getValue()) {
       Long createdOn = getTimestamp(createdOnList, index, extractedFieldsEntry.getValue().size());
       Urn createdActor = getActor(createdActorList, index, extractedFieldsEntry.getValue().size());
-      final Urn createdImpersonator = getActor(createdImpersonatorList, index, extractedFieldsEntry.getValue().size());
       final Long updatedOn = getTimestamp(updatedOnList, index, extractedFieldsEntry.getValue().size());
       final Urn updatedActor = getActor(updatedActorList, index, extractedFieldsEntry.getValue().size());
 
