@@ -34,6 +34,8 @@ def default_query_results(query):
         return [{"CURRENT_ACCOUNT()": "ABC12345"}]
     if query == SnowflakeQuery.current_region():
         return [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}]
+    if query == SnowflakeQuery.show_tags():
+        return []
     if query == SnowflakeQuery.current_role():
         return [{"CURRENT_ROLE()": "TEST_ROLE"}]
     elif query == SnowflakeQuery.current_version():
@@ -77,22 +79,11 @@ def default_query_results(query):
             },
         ]
     elif query == SnowflakeQuery.tables_for_database("TEST_DB"):
-        return [
-            {
-                "TABLE_SCHEMA": "TEST_SCHEMA",
-                "TABLE_NAME": "TABLE_{}".format(tbl_idx),
-                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
-                "BYTES": 1024,
-                "ROW_COUNT": 10000,
-                "COMMENT": "Comment for Table",
-                "CLUSTERING_KEY": None,
-            }
-            for tbl_idx in range(1, NUM_TABLES + 1)
-        ]
+        raise Exception("Information schema query returned too much data")
     elif query == SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
             {
+                "TABLE_SCHEMA": "TEST_SCHEMA",
                 "TABLE_NAME": "TABLE_{}".format(tbl_idx),
                 "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
@@ -104,24 +95,7 @@ def default_query_results(query):
             for tbl_idx in range(1, NUM_TABLES + 1)
         ]
     elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
-        return [
-            {
-                "TABLE_CATALOG": "TEST_DB",
-                "TABLE_SCHEMA": "TEST_SCHEMA",
-                "TABLE_NAME": "TABLE_{}".format(tbl_idx),
-                "COLUMN_NAME": "COL_{}".format(col_idx),
-                "ORDINAL_POSITION": col_idx,
-                "IS_NULLABLE": "NO",
-                "DATA_TYPE": "TEXT" if col_idx > 1 else "NUMBER",
-                "COMMENT": "Comment for column",
-                "CHARACTER_MAXIMUM_LENGTH": 255 if col_idx > 1 else None,
-                "NUMERIC_PRECISION": None if col_idx > 1 else 38,
-                "NUMERIC_SCALE": None if col_idx > 1 else 0,
-            }
-            # first column number, all others text
-            for col_idx in range(1, NUM_COLS + 1)
-            for tbl_idx in range(1, NUM_TABLES + 1)
-        ]
+        raise Exception("Information schema query returned too much data")
     elif query in [
         SnowflakeQuery.columns_for_table(
             "TABLE_{}".format(tbl_idx), "TEST_SCHEMA", "TEST_DB"
@@ -130,11 +104,17 @@ def default_query_results(query):
     ]:
         return [
             {
+                # "TABLE_CATALOG": "TEST_DB",
+                # "TABLE_SCHEMA": "TEST_SCHEMA",
+                # "TABLE_NAME": "TABLE_{}".format(tbl_idx),
                 "COLUMN_NAME": "COL_{}".format(col_idx),
-                "ORDINAL_POSITION": 0,
+                "ORDINAL_POSITION": col_idx,
                 "IS_NULLABLE": "NO",
-                "DATA_TYPE": "VARCHAR",
+                "DATA_TYPE": "TEXT" if col_idx > 1 else "NUMBER",
                 "COMMENT": "Comment for column",
+                "CHARACTER_MAXIMUM_LENGTH": 255 if col_idx > 1 else None,
+                "NUMERIC_PRECISION": None if col_idx > 1 else 38,
+                "NUMERIC_SCALE": None if col_idx > 1 else 0,
             }
             for col_idx in range(1, NUM_COLS + 1)
         ]
@@ -301,6 +281,18 @@ def default_query_results(query):
             }
             for op_idx in range(1, NUM_OPS + 1)
         ]
+    elif query == snowflake_query.SnowflakeQuery.external_table_lineage_history(
+        1654499820000,
+        1654586220000,
+    ):
+        return []
+
+    elif query == snowflake_query.SnowflakeQuery.show_external_tables():
+        return []
+
+    import pdb
+
+    pdb.set_trace()
     # Unreachable code
     raise Exception(f"Unknown query {query}")
 
@@ -335,6 +327,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         sf_cursor = mock.MagicMock()
         mock_connect.return_value = sf_connection
         sf_connection.cursor.return_value = sf_cursor
+
         sf_cursor.execute.side_effect = default_query_results
 
         mock_sample_values.return_value = pd.DataFrame(
@@ -464,4 +457,92 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
             output_path=output_file,
             golden_path=golden_file,
             ignore_paths=[],
+        )
+
+
+def query_permission_error_override(override_for_query, error_msg):
+    def my_function(query):
+        if query in override_for_query:
+            raise Exception(error_msg)
+        else:
+            return default_query_results(query)
+
+    return my_function
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_permission_errors(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "snowflake_test_events.json"
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        config = PipelineConfig(
+            run_id="snowflake-beta-2022_06_07-17_00_00",
+            source=SourceConfig(
+                type="snowflake",
+                config=SnowflakeV2Config(
+                    account_id="ABC12345.ap-south-1.aws",
+                    username="TST_USR",
+                    password="TST_PWD",
+                    include_views=False,
+                    include_technical_schema=True,
+                    match_fully_qualified_names=True,
+                    schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
+                    include_view_lineage=False,
+                    include_usage_stats=False,
+                    start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                        tzinfo=timezone.utc
+                    ),
+                    end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
+                        tzinfo=timezone.utc
+                    ),
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+
+        # Error in listing databases leads to failure
+        sf_cursor.execute.side_effect = query_permission_error_override(
+            [SnowflakeQuery.get_databases("TEST_DB")],
+            "Database 'TEST_DB' does not exist or not authorized.",
+        )
+        pipeline = Pipeline(config)
+        pipeline.run()
+        assert "permission-error" in pipeline.source.get_report().failures.keys()
+
+        # Error in listing columns leads to warning
+        sf_cursor.execute.side_effect = query_permission_error_override(
+            [
+                SnowflakeQuery.columns_for_table(
+                    "TABLE_{}".format(tbl_idx), "TEST_SCHEMA", "TEST_DB"
+                )
+                for tbl_idx in range(1, NUM_TABLES + 1)
+            ],
+            "Database 'TEST_DB' does not exist or not authorized.",
+        )
+        pipeline = Pipeline(config)
+        pipeline.run()
+        assert "columns-for-table" in pipeline.source.get_report().warnings.keys()
+
+        # Error in getting lineage
+        sf_cursor.execute.side_effect = query_permission_error_override(
+            [
+                snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+                    1654499820000,
+                    1654586220000,
+                )
+            ],
+            "Database 'SNOWFLAKE' does not exist or not authorized.",
+        )
+        pipeline = Pipeline(config)
+        pipeline.run()
+        assert (
+            "lineage-permission-error" in pipeline.source.get_report().failures.keys()
         )

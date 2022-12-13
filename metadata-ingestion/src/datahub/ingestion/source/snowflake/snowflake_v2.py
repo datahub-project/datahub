@@ -65,6 +65,8 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
+    SnowflakeEdition,
+    SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
@@ -87,7 +89,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
-    UpstreamLineage,
     ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -436,19 +437,25 @@ class SnowflakeV2Source(
         if self.config.include_external_url:
             self.snowsight_base_url = self.get_snowsight_base_url(conn)
 
-        self.report.include_technical_schema = self.config.include_technical_schema
-        databases: List[SnowflakeDatabase] = []
-
         databases = self.get_databases(conn)
 
+        if not databases:
+            self.report_error(
+                "permission-error",
+                "No databases found. Please check permissions.",
+            )
+            return
+
         for snowflake_db in databases:
-            self.report.report_entity_scanned(snowflake_db.name, "database")
-
-            if not self.config.database_pattern.allowed(snowflake_db.name):
-                self.report.report_dropped(f"{snowflake_db.name}.*")
-                continue
-
-            yield from self._process_database(conn, snowflake_db)
+            try:
+                self.report.report_entity_scanned(snowflake_db.name, "database")
+                if not self.config.database_pattern.allowed(snowflake_db.name):
+                    self.report.report_dropped(f"{snowflake_db.name}.*")
+                    continue
+                yield from self._process_database(conn, snowflake_db)
+            except SnowflakePermissionError as e:
+                self.report_error("permission-error", str(e))
+                return
 
         conn.close()
         # Emit Stale entity workunits
@@ -456,6 +463,25 @@ class SnowflakeV2Source(
 
         if self.config.profiling.enabled and len(databases) != 0:
             yield from self.profiler.get_workunits(databases)
+
+        discovered_tables: List[str] = [
+            self.get_dataset_identifier(table.name, schema.name, db.name)
+            for db in databases
+            for schema in db.schemas
+            for table in schema.tables
+        ]
+        discovered_views: List[str] = [
+            self.get_dataset_identifier(table.name, schema.name, db.name)
+            for db in databases
+            for schema in db.schemas
+            for table in schema.views
+        ]
+        discovered_datasets = discovered_tables + discovered_views
+
+        if self.config.include_table_lineage and len(discovered_datasets) != 0:
+            yield from self.lineage_extractor.get_workunits(
+                discovered_tables, discovered_views
+            )
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
             if self.redundant_run_skip_handler.should_skip_this_run(
@@ -470,43 +496,30 @@ class SnowflakeV2Source(
                 end_time_millis=datetime_to_ts_millis(self.config.end_time),
             )
 
-            discovered_datasets: List[str] = [
-                self.get_dataset_identifier(table.name, schema.name, db.name)
-                for db in databases
-                for schema in db.schemas
-                for table in schema.tables
-            ] + [
-                self.get_dataset_identifier(table.name, schema.name, db.name)
-                for db in databases
-                for schema in db.schemas
-                for table in schema.views
-            ]
             yield from self.usage_extractor.get_workunits(discovered_datasets)
 
-    def get_databases(self, conn):
+    def get_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
+        # `show databases` is required only to get database
+        # whose information_schema can be queries to start with.
         databases = self.data_dictionary.show_databases(conn)
-
-        # Below code block is required to enrich database with additional
-        # information that is missing in `show databases` results
-        # For example - last modified time of database
-        ischema_database_map: Dict[str, SnowflakeDatabase] = {}
+        ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
             try:
                 ischema_databases = self.data_dictionary.get_databases(
                     conn, database.name
                 )
-                ischema_database_map = {db.name: db for db in ischema_databases}
                 break
             except Exception:
                 # query fails if "USAGE" access is not granted for database
+                # This is okay, because `show databases` query lists all databases irrespective of permission,
+                # if role has `MANAGE GRANTS` privilege. (not advisable)
                 logger.debug(
                     f"Failed to list databases {database.name} information_schema"
                 )
-        for database in databases:
-            if database.name in ischema_database_map.keys():
-                database.last_altered = ischema_database_map[database.name].last_altered
-
-        return databases
+                logger.info(
+                    f"It looks like the role {self.report.role} has `MANAGE GRANTS` privilege. This is not advisable and also not required."
+                )
+        return ischema_databases
 
     def _process_database(
         self, conn: SnowflakeConnection, snowflake_db: SnowflakeDatabase
@@ -516,26 +529,31 @@ class SnowflakeV2Source(
         if self.config.include_technical_schema:
             yield from self.gen_database_containers(snowflake_db)
 
-        # Use database and extract metadata from its information_schema
-        # If this query fails, it means, user does not have usage access on database
+        # Extract metadata from its information_schema
         try:
-            self.query(conn, SnowflakeQuery.use_database(db_name))
             snowflake_db.schemas = self.data_dictionary.get_schemas_for_database(
                 conn, db_name
             )
+        except SnowflakePermissionError as e:
+            error_msg = f"Failed to list schemas for database {db_name}. Please check permissions."
+            # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
+            raise SnowflakePermissionError(error_msg) from e.__cause__
+
         except Exception as e:
-            self.warn(
-                self.logger,
-                db_name,
-                f"unable to get metadata information for database {db_name} due to an error -> {e}",
+            logger.debug(e, exc_info=e)
+            self.report_warning(
+                "schemas-for-database",
+                f"Failed to get schemas for database {db_name} due to error {e}",
             )
-            self.report.report_dropped(f"{db_name}.*")
-            return
+
+        if not snowflake_db.schemas:
+            self.report_warning(
+                "schemas-for-database",
+                f"No schemas found in database {db_name}. If schemas exist, please grant USAGE permissions on them.",
+            )
 
         for snowflake_schema in snowflake_db.schemas:
-
             self.report.report_entity_scanned(snowflake_schema.name, "schema")
-
             if not is_schema_allowed(
                 self.config.schema_pattern,
                 snowflake_schema.name,
@@ -555,22 +573,49 @@ class SnowflakeV2Source(
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
         if self.config.include_tables:
-            snowflake_schema.tables = self.get_tables_for_schema(
-                conn, schema_name, db_name
-            )
+            try:
+                snowflake_schema.tables = self.get_tables_for_schema(
+                    conn, schema_name, db_name
+                )
+            except SnowflakePermissionError as e:
+                # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
+                error_msg = f"Failed to list tables for schema {db_name}.{schema_name}. Please check permissions."
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            except Exception as e:
+                self.report_warning(
+                    "tables-for-schema",
+                    f"Failed to get tables for schema {db_name}.{schema_name} due to error {e}",
+                )
 
             if self.config.include_technical_schema:
                 for table in snowflake_schema.tables:
                     yield from self._process_table(conn, table, schema_name, db_name)
 
         if self.config.include_views:
-            snowflake_schema.views = self.get_views_for_schema(
-                conn, schema_name, db_name
-            )
+            try:
+                snowflake_schema.views = self.get_views_for_schema(
+                    conn, schema_name, db_name
+                )
 
+            except SnowflakePermissionError as e:
+                # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
+                error_msg = f"Failed to list views for schema {db_name}.{schema_name}. Please check permissions."
+
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            except Exception as e:
+                self.report_warning(
+                    "views-for-schema",
+                    f"Failed to get views for schema {db_name}.{schema_name} due to error {e}",
+                )
             if self.config.include_technical_schema:
                 for view in snowflake_schema.views:
                     yield from self._process_view(conn, view, schema_name, db_name)
+
+        if not snowflake_schema.views and not snowflake_schema.tables:
+            self.report_warning(
+                "tables-for-schema",
+                f"No tables/views found in schema {db_name}.{schema_name}. If tables exist, please grant REFERENCES or SELECT permissions on them.",
+            )
 
     def _process_table(
         self,
@@ -587,36 +632,53 @@ class SnowflakeV2Source(
             self.report.report_dropped(table_identifier)
             return
 
-        table.columns = self.get_columns_for_table(
-            conn, table.name, schema_name, db_name
-        )
-        table.pk = self.get_pk_constraints_for_table(
-            conn, table.name, schema_name, db_name
-        )
-        table.foreign_keys = self.get_fk_constraints_for_table(
-            conn, table.name, schema_name, db_name
-        )
+        try:
+            table.columns = self.get_columns_for_table(
+                conn, table.name, schema_name, db_name
+            )
+        except Exception as e:
+            self.report_warning(
+                "columns-for-table",
+                f"Failed to get columns for table {table_identifier} due to error {e}",
+            )
+
+        try:
+            table.pk = self.get_pk_constraints_for_table(
+                conn, table.name, schema_name, db_name
+            )
+        except Exception as e:
+            self.report_warning(
+                "keys-for-table",
+                f"Failed to get primary key for table {table_identifier} due to error {e}",
+            )
+
+        try:
+            table.foreign_keys = self.get_fk_constraints_for_table(
+                conn, table.name, schema_name, db_name
+            )
+        except Exception as e:
+            self.report_warning(
+                "keys-for-table",
+                f"Failed to get foreign key for table {table_identifier} due to error {e}",
+            )
+
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
 
-        if self.is_classification_enabled_for_table(dataset_name):
+        if table.columns and self.is_classification_enabled_for_table(dataset_name):
             try:
                 table.sample_data = self.get_sample_values_for_table(
                     conn, table.name, schema_name, db_name
                 )
+            except SnowflakePermissionError:
+                error_msg = f"Failed to get sample values for dataset {dataset_name}. Please grant SELECT permissions are {dataset_name}."
+                self.report_warning("permission-error", error_msg)
             except Exception as e:
-                self.warn(
-                    self.logger,
-                    dataset_name,
-                    f"unable to get table sample data due to error -> {e}",
+                self.report_warning(
+                    "sample-for-table",
+                    f"Failed to get sample values for dataset {dataset_name} due to error {e}",
                 )
 
-        lineage_info = None
-        if self.config.include_table_lineage:
-            lineage_info = self.lineage_extractor._get_upstream_lineage_info(
-                dataset_name
-            )
-
-        yield from self.gen_dataset_workunits(table, schema_name, db_name, lineage_info)
+        yield from self.gen_dataset_workunits(table, schema_name, db_name)
 
     def _process_view(
         self,
@@ -633,18 +695,23 @@ class SnowflakeV2Source(
             self.report.report_dropped(view_name)
             return
 
-        view.columns = self.get_columns_for_table(conn, view.name, schema_name, db_name)
-        lineage_info = None
-        if self.config.include_view_lineage:
-            lineage_info = self.lineage_extractor._get_upstream_lineage_info(view_name)
-        yield from self.gen_dataset_workunits(view, schema_name, db_name, lineage_info)
+        try:
+            view.columns = self.get_columns_for_table(
+                conn, view.name, schema_name, db_name
+            )
+        except Exception as e:
+            self.report_warning(
+                "columns-for-view",
+                f"Failed to get columns for view {view_name} due to error {e}",
+            )
+
+        yield from self.gen_dataset_workunits(view, schema_name, db_name)
 
     def gen_dataset_workunits(
         self,
         table: Union[SnowflakeTable, SnowflakeView],
         schema_name: str,
         db_name: str,
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]],
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -659,12 +726,6 @@ class SnowflakeV2Source(
         self.stale_entity_removal_handler.add_entity_to_state(
             type=type, urn=dataset_urn
         )
-
-        if lineage_info is not None:
-            upstream_lineage, upstream_column_props = lineage_info
-        else:
-            upstream_column_props = {}
-            upstream_lineage = None
 
         status = Status(removed=False)
         yield self.wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
@@ -686,7 +747,7 @@ class SnowflakeV2Source(
             else None,
             description=table.comment,
             qualifiedName=dataset_name,
-            customProperties={**upstream_column_props},
+            customProperties={},
             externalUrl=self.get_external_url_for_table(
                 table.name,
                 schema_name,
@@ -719,12 +780,6 @@ class SnowflakeV2Source(
             entity_urn=dataset_urn,
             entity_type="dataset",
         )
-
-        if upstream_lineage is not None:
-            # Emit the lineage work unit
-            yield self.wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-            )
 
         if isinstance(table, SnowflakeView):
             view = cast(SnowflakeView, table)
@@ -1103,6 +1158,7 @@ class SnowflakeV2Source(
             self.report.lineage_start_time = self.config.start_time
         self.report.lineage_end_time = self.config.end_time
         self.report.check_role_grants = self.config.check_role_grants
+        self.report.include_technical_schema = self.config.include_technical_schema
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
         self.report.include_column_lineage = self.config.include_column_lineage
@@ -1116,19 +1172,28 @@ class SnowflakeV2Source(
             for db_row in self.query(conn, SnowflakeQuery.current_version()):
                 self.report.saas_version = db_row["CURRENT_VERSION()"]
         except Exception as e:
-            self.report.report_failure("version", f"Error: {e}")
+            self.report_error("version", f"Error: {e}")
         try:
             logger.info("Checking current role")
             for db_row in self.query(conn, SnowflakeQuery.current_role()):
                 self.report.role = db_row["CURRENT_ROLE()"]
         except Exception as e:
-            self.report.report_failure("version", f"Error: {e}")
+            self.report_error("version", f"Error: {e}")
         try:
             logger.info("Checking current warehouse")
             for db_row in self.query(conn, SnowflakeQuery.current_warehouse()):
                 self.report.default_warehouse = db_row["CURRENT_WAREHOUSE()"]
         except Exception as e:
-            self.report.report_failure("current_warehouse", f"Error: {e}")
+            self.report_error("current_warehouse", f"Error: {e}")
+
+        try:
+            logger.info("Checking current edition")
+            if self.is_standard_edition(conn):
+                self.report.edition = SnowflakeEdition.STANDARD.value
+            else:
+                self.report.edition = SnowflakeEdition.ENTERPRISE.value
+        except Exception:
+            self.report.edition = None
 
     # Stateful Ingestion Overrides.
     def get_platform_instance_id(self) -> str:
@@ -1209,3 +1274,12 @@ class SnowflakeV2Source(
                 f"unable to get snowsight base url due to an error -> {e}",
             )
             return None
+    
+    def is_standard_edition(self, conn):
+        try:
+            self.query(conn, SnowflakeQuery.show_tags())
+            return False
+        except Exception as e:
+            if "Unsupported feature 'TAG'" in str(e):
+                return True
+            raise

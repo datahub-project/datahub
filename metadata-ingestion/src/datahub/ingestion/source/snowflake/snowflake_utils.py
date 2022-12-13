@@ -6,6 +6,7 @@ from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 from typing_extensions import Protocol
 
+from datahub.configuration.common import MetaError
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -15,6 +16,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeTyp
 from datahub.metadata.schema_classes import _Aspect
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class SnowflakePermissionError(MetaError):
+    """A permission error has happened"""
+
+
+class SnowflakeEdition(str, Enum):
+    STANDARD = "Standard"
+
+    # We use this to represent Enterprise Edition or higher
+    ENTERPRISE = "Enterprise or above"
 
 
 class SnowflakeCloudProvider(str, Enum):
@@ -55,14 +67,26 @@ class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
     def snowflake_identifier(self, identifier: str) -> str:
         ...
 
+    def report_warning(self, key: str, reason: str) -> None:
+        ...
+
+    def report_error(self, key: str, reason: str) -> None:
+        ...
+
 
 class SnowflakeQueryMixin:
     def query(
         self: SnowflakeLoggingProtocol, conn: SnowflakeConnection, query: str
     ) -> Any:
-        self.logger.debug("Query : {}".format(query))
-        resp = conn.cursor(DictCursor).execute(query)
-        return resp
+        try:
+            self.logger.debug("Query : {}".format(query))
+            resp = conn.cursor(DictCursor).execute(query)
+            return resp
+
+        except Exception as e:
+            if is_permission_error(e):
+                raise SnowflakePermissionError() from e
+            raise
 
 
 class SnowflakeCommonMixin:
@@ -200,3 +224,28 @@ class SnowflakeCommonMixin:
         )
         self.report.report_workunit(wu)
         return wu
+
+    def warn_if_stateful_else_error(
+        self: SnowflakeCommonProtocol, key: str, reason: str
+    ) -> None:
+        if (
+            self.config.stateful_ingestion is not None
+            and self.config.stateful_ingestion.enabled
+        ):
+            self.report_warning(key, reason)
+        else:
+            self.report_error(key, reason)
+
+    def report_warning(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
+        self.report.report_warning(key, reason)
+        self.logger.warning(f"{key} => {reason}")
+
+    def report_error(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
+        self.report.report_failure(key, reason)
+        self.logger.error(f"{key} => {reason}")
+
+
+def is_permission_error(e: Exception) -> bool:
+    msg = str(e)
+    # Database 'XXXX' does not exist or not authorized.
+    return "Insufficient privileges" in msg or "not authorized" in msg

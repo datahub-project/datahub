@@ -18,6 +18,8 @@ from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
+    SnowflakeEdition,
+    SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -96,6 +98,11 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         conn = self.config.get_connection()
+
+        if self.report.edition == SnowflakeEdition.STANDARD.value:
+            logger.info(
+                "Snowflake Account is Standard Edition. Usage Feature is not supported."
+            )
 
         logger.info("Checking usage date ranges")
         self._check_usage_date_ranges(conn)
@@ -260,11 +267,14 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 results = self.query(
                     conn, SnowflakeQuery.get_access_history_date_range()
                 )
+            except SnowflakePermissionError:
+                error_msg = "Failed to get usage. Please grant permissions for SNOWFLAKE database. "
+                self.warn_if_stateful_else_error("usage-permission-error", error_msg)
             except Exception as e:
-                self.warn(
-                    "check-usage-data",
-                    f"Extracting the date range for usage data from Snowflake failed."
-                    f"Please check your permissions. Continuing...\nError was {e}.",
+                logger.debug(e, exc_info=e)
+                self.report_warning(
+                    "usage",
+                    f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
                 )
             else:
                 for db_row in results:
@@ -273,9 +283,9 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                         or db_row["MIN_TIME"] is None
                         or db_row["MAX_TIME"] is None
                     ):
-                        self.warn(
+                        self.report_warning(
                             "check-usage-data",
-                            f"Missing data for access_history {db_row} - Check if using Enterprise edition of Snowflake",
+                            f"Missing data for access_history {db_row} - Check if using Enterprise Edition of Snowflake",
                         )
                         continue
                     self.report.min_access_history_time = db_row["MIN_TIME"].astimezone(
@@ -408,7 +418,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             yield event
         except Exception as e:
             self.report.rows_parsing_error += 1
-            self.warn(
+            self.report_warning(
                 "usage",
                 f"Failed to parse usage line {event_dict}, {e}",
             )
@@ -429,11 +439,3 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         ):
             return False
         return True
-
-    def warn(self, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        self.logger.warning(f"{key} => {reason}")
-
-    def error(self, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        self.logger.error(f"{key} => {reason}")

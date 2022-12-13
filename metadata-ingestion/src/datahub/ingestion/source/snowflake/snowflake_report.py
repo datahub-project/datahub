@@ -33,6 +33,8 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
 
     rows_zero_objects_modified: int = 0
 
+    edition: Optional[str] = None
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table or a schema or a database
