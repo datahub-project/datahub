@@ -713,11 +713,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if last_checkpoint is not None and is_conversion_required:
             # Map the BaseSQLAlchemyCheckpointState to DbtCheckpointState
             dbt_checkpoint_state: DbtCheckpointState = DbtCheckpointState()
-            dbt_checkpoint_state.encoded_node_urns = (
+            dbt_checkpoint_state.urns = (
                 cast(BaseSQLAlchemyCheckpointState, last_checkpoint.state)
-            ).encoded_table_urns
-            # Old dbt source was not supporting the assertion
-            dbt_checkpoint_state.encoded_assertion_urns = []
+            ).urns
             last_checkpoint.state = dbt_checkpoint_state
 
         return last_checkpoint

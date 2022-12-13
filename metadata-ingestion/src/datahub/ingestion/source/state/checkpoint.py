@@ -1,5 +1,6 @@
 import base64
 import bz2
+import contextlib
 import functools
 import json
 import logging
@@ -128,7 +129,9 @@ class Checkpoint(Generic[StateType]):
                     )
                 elif checkpoint_aspect.state.serde == "base85":
                     state_obj = Checkpoint._from_base85_bytes(
-                        checkpoint_aspect, functools.partial(bz2.decompress)
+                        checkpoint_aspect,
+                        functools.partial(bz2.decompress),
+                        state_class,
                     )
                 elif checkpoint_aspect.state.serde == "base85-bz2-json":
                     state_obj = Checkpoint._from_base85_json_bytes(
@@ -177,10 +180,17 @@ class Checkpoint(Generic[StateType]):
     def _from_base85_bytes(
         checkpoint_aspect: DatahubIngestionCheckpointClass,
         decompressor: Callable[[bytes], bytes],
+        state_class: Type[StateType],
     ) -> StateType:
         state: StateType = pickle.loads(
             decompressor(base64.b85decode(checkpoint_aspect.state.payload))  # type: ignore
         )
+
+        with contextlib.suppress(Exception):
+            # When loading from pickle, the pydantic validators don't run.
+            # By re-serializing and re-parsing, we ensure that the state is valid.
+            # However, we also suppress any exceptions to make sure this doesn't blow up.
+            state = state_class.parse_obj(state.dict())
 
         # Because the base85 method is deprecated in favor of base85-bz2-json,
         # we will automatically switch the serde.
