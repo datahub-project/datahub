@@ -18,6 +18,9 @@ from datahub_provider.lineage.datahub import DatahubLineageConfig
 
 logger = logging.getLogger(__name__)
 
+TASK_ON_FAILURE_CALLBACK = "on_failure_callback"
+TASK_ON_SUCCESS_CALLBACK = "on_success_callback"
+
 
 def get_lineage_config() -> DatahubLineageConfig:
     """Load the lineage config from airflow.cfg."""
@@ -299,19 +302,19 @@ def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
     # We can bypass this by going through partial_kwargs for now
     if MappedOperator and isinstance(task, MappedOperator):  # type: ignore
         on_failure_callback_prop: property = getattr(
-            MappedOperator, "on_failure_callback"
+            MappedOperator, TASK_ON_FAILURE_CALLBACK
         )
         on_success_callback_prop: property = getattr(
-            MappedOperator, "on_success_callback"
+            MappedOperator, TASK_ON_SUCCESS_CALLBACK
         )
         if not on_failure_callback_prop.fset or not on_success_callback_prop.fset:
             task.log.debug(
                 "Using MappedOperator's partial_kwargs instead of callback properties"
             )
-            task.partial_kwargs["on_failure_callback"] = _wrap_on_failure_callback(
+            task.partial_kwargs[TASK_ON_FAILURE_CALLBACK] = _wrap_on_failure_callback(
                 task.on_failure_callback
             )
-            task.partial_kwargs["on_success_callback"] = _wrap_on_success_callback(
+            task.partial_kwargs[TASK_ON_SUCCESS_CALLBACK] = _wrap_on_success_callback(
                 task.on_success_callback
             )
             return
