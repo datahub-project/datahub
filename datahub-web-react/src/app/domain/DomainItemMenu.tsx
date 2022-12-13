@@ -12,7 +12,7 @@ type Props = {
     onDelete?: () => void;
 };
 
-export default function DomainListItem({ name, urn, onDelete }: Props) {
+export default function DomainItemMenu({ name, urn, onDelete }: Props) {
     const entityRegistry = useEntityRegistry();
     const [deleteDomainMutation] = useDeleteDomainMutation();
 
