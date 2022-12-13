@@ -309,3 +309,23 @@ def test_reserved_keywords() -> None:
 
     filter3 = models.FilterClass.from_obj(filter2.to_obj())
     assert filter2 == filter3
+
+
+def test_read_empty_dict() -> None:
+    original = '{"type": "SUCCESS", "nativeResults": {}}'
+
+    model = models.AssertionResultClass.from_obj(json.loads(original))
+    assert model.nativeResults == {}
+    assert model == models.AssertionResultClass(
+        type=models.AssertionResultTypeClass.SUCCESS, nativeResults={}
+    )
+
+
+def test_write_optional_empty_dict() -> None:
+    model = models.AssertionResultClass(
+        type=models.AssertionResultTypeClass.SUCCESS, nativeResults={}
+    )
+    assert model.nativeResults == {}
+
+    out = json.dumps(model.to_obj())
+    assert out == '{"type": "SUCCESS", "nativeResults": {}}'
