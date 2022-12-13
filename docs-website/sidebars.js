@@ -111,7 +111,7 @@ module.exports = {
             BigQuery: [
               "docs/quick-ingestion-guides/bigquery/overview",
               "docs/quick-ingestion-guides/bigquery/setup",
-              "docs/quick-ingestion-guides/bigquery/configuration",
+              "docs/quick-ingestion-guides/bigquery/configuration"
               ],
           },
         ],
