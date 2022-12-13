@@ -51,7 +51,7 @@ public class AuthenticationManager {
       NameCallback nc = null;
       PasswordCallback pc = null;
       for (Callback callback : callbacks) {
-        Logger.error("The submitted callback is of type: " + callback.getClass() + " : " + callback);
+        Logger.debug("The submitted callback is of type: " + callback.getClass() + " : " + callback);
         if (callback instanceof NameCallback) {
           nc = (NameCallback) callback;
           nc.setName(this.username);
@@ -59,7 +59,7 @@ public class AuthenticationManager {
           pc = (PasswordCallback) callback;
           pc.setPassword(this.password.toCharArray());
         } else {
-          Logger.warn("The submitted callback is unsupported! ", callback);
+          Logger.warn("The submitted callback is unsupported! type: " + callback.getClass(), callback);
         }
       }
     }

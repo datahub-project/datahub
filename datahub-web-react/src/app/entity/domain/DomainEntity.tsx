@@ -66,7 +66,7 @@ export class DomainEntity implements Entity<Domain> {
             useEntityQuery={useGetDomainQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+            headerDropdownItems={new Set([EntityMenuItems.DELETE])}
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
             isNameEditable
             tabs={[

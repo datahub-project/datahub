@@ -1,0 +1,7 @@
+query getEntities($urns: [String!]!) {
+    entities(urns: $urns) {
+        urn
+        type
+        ...searchResultFields
+    }
+}

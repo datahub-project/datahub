@@ -1,13 +1,16 @@
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Tuple
+from typing import Any, Dict, List, Tuple
+from time import sleep
 
-import requests
+import requests_wrapper as requests
 
 from datahub.cli import cli_utils
 from datahub.cli.docker_cli import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
+
+TIME: int = 1581407189000
 
 
 def get_frontend_session():
@@ -22,6 +25,10 @@ def get_frontend_session():
     response.raise_for_status()
 
     return session
+
+
+def get_admin_username() -> str:
+    return os.getenv("ADMIN_USERNAME", "datahub")
 
 
 def get_admin_credentials():
@@ -62,7 +69,7 @@ def get_mysql_password():
 def get_sleep_info() -> Tuple[int, int]:
     return (
         int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 20)),
-        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 15)),
+        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 3)),
     )
 
 
@@ -71,13 +78,8 @@ def is_k8s_enabled():
 
 
 def wait_for_healthcheck_util():
-    if is_k8s_enabled():
-        # Simply assert that kubernetes endpoints are healthy, but don't wait.
-        assert not check_endpoint(f"{get_frontend_url()}/admin")
-        assert not check_endpoint(f"{get_gms_url()}/health")
-    else:
-        # Simply assert that docker is healthy, but don't wait.
-        assert not check_local_docker_containers()
+    assert not check_endpoint(f"{get_frontend_url()}/admin")
+    assert not check_endpoint(f"{get_gms_url()}/health")
 
 
 def check_endpoint(url):
@@ -106,6 +108,7 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     )
     pipeline.run()
     pipeline.raise_from_status()
+    sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
     return pipeline
 
@@ -138,6 +141,7 @@ def delete_urns_from_file(filename: str) -> None:
                 get_gms_url() + "/entities?action=delete",
                 payload_obj,
             )
+    sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 # Fixed now value
@@ -165,3 +169,36 @@ def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
 
 def get_strftime_from_timestamp_millis(ts_millis: int) -> str:
     return datetime.fromtimestamp(ts_millis / 1000).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def create_datahub_step_state_aspect(
+    username: str, onboarding_id: str
+) -> Dict[str, Any]:
+    entity_urn = f"urn:li:dataHubStepState:urn:li:corpuser:{username}-{onboarding_id}"
+    print(f"Creating dataHubStepState aspect for {entity_urn}")
+    return {
+        "auditHeader": None,
+        "entityType": "dataHubStepState",
+        "entityUrn": entity_urn,
+        "changeType": "UPSERT",
+        "aspectName": "dataHubStepStateProperties",
+        "aspect": {
+            "value": f'{{"properties":{{}},"lastModified":{{"actor":"urn:li:corpuser:{username}","time":{TIME}}}}}',
+            "contentType": "application/json",
+        },
+        "systemMetadata": None,
+    }
+
+
+def create_datahub_step_state_aspects(
+    username: str, onboarding_ids: str, onboarding_filename
+) -> None:
+    """
+    For a specific user, creates dataHubStepState aspects for each onboarding id in the list
+    """
+    aspects_dict: List[Dict[str, any]] = [
+        create_datahub_step_state_aspect(username, onboarding_id)
+        for onboarding_id in onboarding_ids
+    ]
+    with open(onboarding_filename, "w") as f:
+        json.dump(aspects_dict, f, indent=2)

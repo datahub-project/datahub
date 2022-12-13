@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import pydantic
 from pydantic import Field
@@ -10,16 +10,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-
-
-class UnityCatalogStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the UnityCatalogConfig.
-    """
-
-    _entity_types: List[str] = Field(default=["dataset", "container"])
 
 
 class UnityCatalogSourceConfig(StatefulIngestionConfigBase):
@@ -64,6 +54,6 @@ class UnityCatalogSourceConfig(StatefulIngestionConfigBase):
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
-    stateful_ingestion: Optional[UnityCatalogStatefulIngestionConfig] = pydantic.Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )

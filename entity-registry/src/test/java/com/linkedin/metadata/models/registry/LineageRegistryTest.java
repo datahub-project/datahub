@@ -65,7 +65,7 @@ public class LineageRegistryTest {
       boolean isUpstream, boolean isLineage) {
     RelationshipFieldSpec spec = mock(RelationshipFieldSpec.class);
     when(spec.getRelationshipAnnotation()).thenReturn(
-        new RelationshipAnnotation(relationshipType, destinationEntityTypes, isUpstream, isLineage));
+        new RelationshipAnnotation(relationshipType, destinationEntityTypes, isUpstream, isLineage, null, null, null, null));
     return spec;
   }
 }

@@ -4,18 +4,26 @@ import { useEntityRegistry } from '../useEntityRegistry';
 
 type Props = {
     onCloseModal: () => void;
-    onOk?: (result: string) => void;
+    onOk?: (results: string[]) => void;
     title?: string;
-    defaultValue?: string;
+    defaultValues?: string[];
 };
 
 const { Option } = Select;
 
-export const ChooseEntityTypeModal = ({ defaultValue, onCloseModal, onOk, title }: Props) => {
+export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title }: Props) => {
     const entityRegistry = useEntityRegistry();
     const entityTypes = entityRegistry.getSearchEntityTypes();
 
-    const [stagedValue, setStagedValue] = useState(defaultValue || entityTypes[0]);
+    const [stagedValues, setStagedValues] = useState(defaultValues || []);
+
+    const addEntityType = (newType) => {
+        setStagedValues([...stagedValues, newType]);
+    };
+
+    const removeEntityType = (type) => {
+        setStagedValues(stagedValues.filter((stagedValue) => stagedValue !== type));
+    };
 
     return (
         <Modal
@@ -28,19 +36,25 @@ export const ChooseEntityTypeModal = ({ defaultValue, onCloseModal, onOk, title 
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    <Button disabled={stagedValue.length === 0} onClick={() => onOk?.(stagedValue)}>
+                    <Button disabled={stagedValues.length === 0} onClick={() => onOk?.(stagedValues)}>
                         Done
                     </Button>
                 </>
             }
         >
             <Select
-                onChange={(newValue) => setStagedValue(newValue)}
-                value={stagedValue}
+                mode="multiple"
+                style={{ width: '100%' }}
+                placeholder="Datasets, Dashboards, Charts, and more..."
+                onSelect={(newValue) => addEntityType(newValue)}
+                onDeselect={(newValue) => removeEntityType(newValue)}
+                value={stagedValues}
                 dropdownMatchSelectWidth={false}
             >
                 {entityTypes.map((type) => (
-                    <Option value={type}>{entityRegistry.getCollectionName(type)}</Option>
+                    <Option key={type} value={type}>
+                        {entityRegistry.getCollectionName(type)}
+                    </Option>
                 ))}
             </Select>
         </Modal>

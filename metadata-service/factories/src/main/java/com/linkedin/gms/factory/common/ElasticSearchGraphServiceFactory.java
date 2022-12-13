@@ -33,9 +33,8 @@ public class ElasticSearchGraphServiceFactory {
   @Nonnull
   protected ElasticSearchGraphService getInstance() {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
-    return new ElasticSearchGraphService(lineageRegistry, components.getSearchClient(), components.getIndexConvention(),
-        new ESGraphWriteDAO(components.getSearchClient(), components.getIndexConvention(),
-            components.getBulkProcessor()),
+    return new ElasticSearchGraphService(lineageRegistry, components.getBulkProcessor(), components.getIndexConvention(),
+        new ESGraphWriteDAO(components.getIndexConvention(), components.getBulkProcessor(), components.getNumRetries()),
         new ESGraphQueryDAO(components.getSearchClient(), lineageRegistry, components.getIndexConvention()),
         components.getIndexBuilder());
   }

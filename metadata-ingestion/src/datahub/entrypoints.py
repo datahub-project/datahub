@@ -9,7 +9,11 @@ from pydantic import ValidationError
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
-from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
+from datahub.cli.cli_utils import (
+    DATAHUB_CONFIG_PATH,
+    get_boolean_env_variable,
+    write_datahub_config,
+)
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.get_cli import get
@@ -95,9 +99,10 @@ def datahub(
     # 3. Turn off propagation to the root handler.
     datahub_logger.propagate = False
     # 4. Adjust log-levels.
-    if debug or os.getenv("DATAHUB_DEBUG", False):
+    if debug or get_boolean_env_variable("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
         datahub_logger.setLevel(logging.DEBUG)
+        logging.getLogger("datahub_classify").setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.WARNING)
         datahub_logger.setLevel(logging.INFO)
@@ -216,11 +221,13 @@ def main(**kwargs):
 
 
 def _get_pretty_chained_message(exc: Exception) -> str:
-    pretty_msg = f"{exc}"
+    pretty_msg = f"{exc.__class__.__name__} {exc}"
     tmp_exc = exc.__cause__
     indent = "\n\t\t"
     while tmp_exc:
-        pretty_msg = f"{pretty_msg} due to {indent}'{tmp_exc}'"
+        pretty_msg = (
+            f"{pretty_msg} due to {indent}{tmp_exc.__class__.__name__}{tmp_exc}"
+        )
         tmp_exc = tmp_exc.__cause__
         indent += "\t"
     return pretty_msg

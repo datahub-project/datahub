@@ -11,12 +11,15 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional
+from typing import Dict, List, NoReturn, Optional, Union
 
 import click
+import click_spinner
 import pydantic
 import requests
 from expandvars import expandvars
+from requests_file import FileAdapter
+from typing_extensions import Literal
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
@@ -26,6 +29,11 @@ from datahub.cli.docker_check import (
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.sample_data import (
+    BOOTSTRAP_MCES_FILE,
+    DOCKER_COMPOSE_BASE,
+    download_sample_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,18 +53,13 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml"
 )
 
-BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
-
-GITHUB_BASE_URL = "https://raw.githubusercontent.com/datahub-project/datahub/master"
-
-GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{GITHUB_BASE_URL}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
+NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
+    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
-GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{GITHUB_BASE_URL}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
+ELASTIC_QUICKSTART_COMPOSE_URL = (
+    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
-GITHUB_M1_QUICKSTART_COMPOSE_URL = f"{GITHUB_BASE_URL}/{M1_QUICKSTART_COMPOSE_FILE}"
-GITHUB_BOOTSTRAP_MCES_URL = f"{GITHUB_BASE_URL}/{BOOTSTRAP_MCES_FILE}"
+M1_QUICKSTART_COMPOSE_URL = f"{DOCKER_COMPOSE_BASE}/{M1_QUICKSTART_COMPOSE_FILE}"
 
 
 class Architectures(Enum):
@@ -217,6 +220,41 @@ def _get_default_quickstart_compose_file() -> Optional[str]:
     return None
 
 
+def _docker_compose_v2() -> Union[List[str], Literal[False]]:
+    try:
+        # Check for the docker compose v2 plugin.
+        compose_version = subprocess.check_output(
+            ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
+        ).decode()
+        assert compose_version.startswith("2.") or compose_version.startswith("v2.")
+        return ["docker", "compose"]
+    except (OSError, subprocess.CalledProcessError, AssertionError):
+        # We'll check for docker-compose as well.
+        try:
+            compose_version = subprocess.check_output(
+                ["docker-compose", "version", "--short"], stderr=subprocess.STDOUT
+            ).decode()
+            if compose_version.startswith("2.") or compose_version.startswith("v2."):
+                # This will happen if docker compose v2 is installed in standalone mode
+                # instead of as a plugin.
+                return ["docker-compose"]
+
+            click.secho(
+                f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2. "
+                "Please upgrade to Docker Compose v2. "
+                "See https://docs.docker.com/compose/compose-v2/ for more information.",
+                fg="red",
+            )
+            return False
+        except (OSError, subprocess.CalledProcessError):
+            # docker-compose v1 is not installed either.
+            click.secho(
+                "You don't have Docker Compose installed. Please install Docker Compose. See https://docs.docker.com/compose/install/.",
+                fg="red",
+            )
+            return False
+
+
 def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     default_quickstart_compose_file = _get_default_quickstart_compose_file()
     compose_files_for_stopping = (
@@ -228,9 +266,11 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     )
     if compose_files_for_stopping:
         # docker-compose stop
+        compose = _docker_compose_v2()
+        if not compose:
+            sys.exit(1)
         base_command: List[str] = [
-            "docker",
-            "compose",
+            *compose,
             *itertools.chain.from_iterable(
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
@@ -630,12 +670,16 @@ def quickstart(
                 fg="red",
             )
         github_file = (
-            GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
             if should_use_neo4j and not is_arch_m1(quickstart_arch)
-            else GITHUB_ELASTIC_QUICKSTART_COMPOSE_URL
+            else ELASTIC_QUICKSTART_COMPOSE_URL
             if not is_arch_m1(quickstart_arch)
-            else GITHUB_M1_QUICKSTART_COMPOSE_URL
+            else M1_QUICKSTART_COMPOSE_URL
         )
+
+        # also allow local files
+        request_session = requests.Session()
+        request_session.mount("file://", FileAdapter())
 
         with open(
             default_quickstart_compose_file, "wb"
@@ -646,16 +690,16 @@ def quickstart(
             quickstart_compose_file.append(path)
             click.echo(f"Fetching docker-compose file {github_file} from GitHub")
             # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = requests.get(github_file)
+            quickstart_download_response = request_session.get(github_file)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
 
         if standalone_consumers:
             consumer_github_file = (
-                f"{GITHUB_BASE_URL}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+                f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
                 if should_use_neo4j
-                else f"{GITHUB_BASE_URL}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+                else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
             )
 
             default_consumer_compose_file = (
@@ -672,7 +716,7 @@ def quickstart(
                     f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
                 )
                 # Download the quickstart docker-compose file from GitHub.
-                quickstart_download_response = requests.get(consumer_github_file)
+                quickstart_download_response = request_session.get(consumer_github_file)
                 quickstart_download_response.raise_for_status()
                 tmp_file.write(quickstart_download_response.content)
                 logger.debug(f"Copied to {path}")
@@ -687,9 +731,11 @@ def quickstart(
         elastic_port=elastic_port,
     )
 
+    compose = _docker_compose_v2()
+    if not compose:
+        sys.exit(1)
     base_command: List[str] = [
-        "docker",
-        "compose",
+        *compose,
         *itertools.chain.from_iterable(
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
@@ -701,11 +747,12 @@ def quickstart(
     try:
         if pull_images:
             click.echo("Pulling docker images...")
-            subprocess.run(
-                [*base_command, "pull", "-q"],
-                check=True,
-                env=_docker_subprocess_env(),
-            )
+            with click_spinner.spinner():
+                subprocess.run(
+                    [*base_command, "pull", "-q"],
+                    check=True,
+                    env=_docker_subprocess_env(),
+                )
             click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
         click.secho(
@@ -835,14 +882,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
 
     if path is None:
         click.echo("Downloading sample data...")
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp_file:
-            path = str(pathlib.Path(tmp_file.name))
-
-            # Download the bootstrap MCE file from GitHub.
-            mce_json_download_response = requests.get(GITHUB_BOOTSTRAP_MCES_URL)
-            mce_json_download_response.raise_for_status()
-            tmp_file.write(mce_json_download_response.content)
-        click.echo(f"Downloaded to {path}")
+        path = download_sample_data()
 
     # Verify that docker is up.
     issues = check_local_docker_containers()

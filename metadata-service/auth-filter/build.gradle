@@ -1,11 +1,13 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(':metadata-service:auth-api');
+  compile project(':metadata-auth:auth-api');
+  compile project(path: ':metadata-service:auth-config')
   compile project(path: ':metadata-service:factories')
 
   compile externalDependency.servletApi
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   compile externalDependency.springWeb
 
   annotationProcessor externalDependency.lombok
