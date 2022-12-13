@@ -46,6 +46,8 @@ export default function ManageLineageMenu({ entityUrn, disableUpstream, disableD
         setLineageDirection(direction);
     }
 
+    const isCenterNode = disableUpstream || disableDownstream;
+
     return (
         <>
             <Dropdown
@@ -82,7 +84,7 @@ export default function ManageLineageMenu({ entityUrn, disableUpstream, disableD
                                 </Menu.Item>
                             </div>
                         </Popover>
-                        {(disableUpstream || disableDownstream) && centerEntity && (
+                        {isCenterNode && centerEntity && (
                             <Menu.Item key="2" onClick={centerEntity}>
                                 <PartitionOutlined />
                                 &nbsp; Focus on Entity
