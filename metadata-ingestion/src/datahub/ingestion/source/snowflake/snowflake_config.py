@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Optional, cast
 
-from pydantic import Field, SecretStr, root_validator
+from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.glossary.classifier import ClassificationConfig
@@ -30,6 +30,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="If enabled, populates the snowflake technical schema and descriptions.",
     )
 
+    include_column_lineage: bool = Field(
+        default=True,
+        description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role.",
+    )
+
     check_role_grants: bool = Field(
         default=False,
         description="Not supported",
@@ -53,6 +58,14 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
+
+    @validator("include_column_lineage")
+    def validate_include_column_lineage(cls, v, values):
+        if not values.get("include_table_lineage") and v:
+            raise ValueError(
+                "include_table_lineage must be True for include_column_lineage to be set."
+            )
+        return v
 
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:

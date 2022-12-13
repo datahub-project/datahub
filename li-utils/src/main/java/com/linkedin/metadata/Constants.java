@@ -1,5 +1,8 @@
 package com.linkedin.metadata;
 
+import com.linkedin.common.urn.Urn;
+
+
 /**
  * Static class containing commonly-used constants across DataHub services.
  */
@@ -50,7 +53,7 @@ public class Constants {
   public static final String POST_ENTITY_NAME = "post";
   public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
-
+  public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
 
   /**
    * Aspects
@@ -175,6 +178,7 @@ public class Constants {
 
   // Policy
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
+
   // Role
   public static final String DATAHUB_ROLE_INFO_ASPECT_NAME = "dataHubRoleInfo";
 
@@ -236,13 +240,20 @@ public class Constants {
   public static final String DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME = "dataHubUpgradeRequest";
   public static final String DATA_HUB_UPGRADE_RESULT_ASPECT_NAME = "dataHubUpgradeResult";
 
-
   // Invite Token
   public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
   public static final int INVITE_TOKEN_LENGTH = 32;
   public static final int SALT_TOKEN_LENGTH = 16;
   public static final int PASSWORD_RESET_TOKEN_LENGTH = 32;
 
+  // Views
+  public static final String DATAHUB_VIEW_KEY_ASPECT_NAME = "dataHubViewKey";
+  public static final String DATAHUB_VIEW_INFO_ASPECT_NAME = "dataHubViewInfo";
+
+  // Settings
+  public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
+  public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
+  public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
 
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
