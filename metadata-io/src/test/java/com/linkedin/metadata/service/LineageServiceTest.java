@@ -9,14 +9,18 @@ import com.linkedin.chart.ChartDataSourceTypeArray;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChartUrnArray;
+import com.linkedin.common.DataJobUrnArray;
+import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.ChartUrn;
+import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardInfo;
+import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
@@ -60,15 +64,22 @@ public class LineageServiceTest {
   private static final String CHART_URN_3 = "urn:li:chart:(looker,baz3)";
   private static final String DASHBOARD_URN_1 = "urn:li:dashboard:(airflow,id1)";
   private static final String DASHBOARD_URN_2 = "urn:li:dashboard:(airflow,id2)";
+  private static final String DATAJOB_URN_1 = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
+  private static final String DATAJOB_URN_2 = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
+  private static final String DATAJOB_URN_3 = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test3)";
   private Urn actorUrn;
   private Urn datasetUrn1;
   private Urn datasetUrn2;
   private Urn datasetUrn3;
+  private Urn datasetUrn4;
   private Urn chartUrn1;
   private Urn chartUrn2;
   private Urn chartUrn3;
   private Urn dashboardUrn1;
   private Urn dashboardUrn2;
+  private Urn datajobUrn1;
+  private Urn datajobUrn2;
+  private Urn datajobUrn3;
 
   @BeforeMethod
   public void setupTest() {
@@ -79,11 +90,15 @@ public class LineageServiceTest {
     datasetUrn1 = UrnUtils.getUrn(DATASET_URN_1);
     datasetUrn2 = UrnUtils.getUrn(DATASET_URN_2);
     datasetUrn3 = UrnUtils.getUrn(DATASET_URN_3);
+    datasetUrn4 = UrnUtils.getUrn(DATASET_URN_4);
     chartUrn1 = UrnUtils.getUrn(CHART_URN_1);
     chartUrn2 = UrnUtils.getUrn(CHART_URN_2);
     chartUrn3 = UrnUtils.getUrn(CHART_URN_3);
     dashboardUrn1 = UrnUtils.getUrn(DASHBOARD_URN_1);
     dashboardUrn2 = UrnUtils.getUrn(DASHBOARD_URN_2);
+    datajobUrn1 = UrnUtils.getUrn(DATAJOB_URN_1);
+    datajobUrn2 = UrnUtils.getUrn(DATAJOB_URN_2);
+    datajobUrn3 = UrnUtils.getUrn(DATAJOB_URN_3);
 
     _lineageService = new LineageService(_mockClient);
   }
@@ -302,6 +317,134 @@ public class LineageServiceTest {
         _lineageService.updateDashboardLineage(dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
   }
 
+  // Adds upstream datajob3, upstream dataset3, downstream dataset4, removes upstream datajob2, upstream dataset1, downstream dataset1
+  // has existing upstream datajob2, upstream dataset1 and dataset2, downstream dataset4
+  // Should result in upstream datajob3, upstream dataset3 and dataset2, downstream dataset5
+  @Test
+  public void testUpdateDataJobLineage() throws Exception {
+    Mockito.when(_mockClient.exists(datajobUrn1, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datajobUrn3, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datasetUrn3, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datajobUrn2, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datasetUrn2, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datasetUrn4, AUTHENTICATION)).thenReturn(true);
+    Mockito.when(_mockClient.exists(datasetUrn1, AUTHENTICATION)).thenReturn(true);
+
+    DataJobInputOutput firstDataJobInputOutput = createDataJobInputOutput(
+        datajobUrn1,
+        Arrays.asList(datasetUrn1, datasetUrn2),
+        Collections.emptyList(),
+        Collections.singletonList(datajobUrn2),
+        Collections.emptyList(),
+        Collections.singletonList(datasetUrn1),
+        Collections.emptyList()
+    );
+
+    DataJobInputOutput secondDataJobInputOutput = createDataJobInputOutput(
+        datajobUrn1,
+        Arrays.asList(datasetUrn1),
+        Arrays.asList(datasetUrn3),
+        Collections.emptyList(),
+        Arrays.asList(datajobUrn3),
+        Arrays.asList(datasetUrn1),
+        Collections.emptyList()
+    );
+
+    Mockito.when(_mockClient.getV2(
+            Mockito.eq(Constants.DATA_JOB_ENTITY_NAME),
+            Mockito.eq(datajobUrn1),
+            Mockito.eq(ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)),
+            Mockito.eq(AUTHENTICATION)
+        ))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(datajobUrn1)
+                .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
+                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
+                    Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(firstDataJobInputOutput.data()))
+                ))),
+            new EntityResponse()
+                .setUrn(datajobUrn1)
+                .setEntityName(Constants.DATA_JOB_ENTITY_NAME)
+                .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
+                    Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(secondDataJobInputOutput.data()))
+                )))
+        );
+
+    final List<Urn> upstreamUrnsToAdd = Arrays.asList(datajobUrn3, datasetUrn3);
+    final List<Urn> upstreamUrnsToRemove = Arrays.asList(datajobUrn2, datasetUrn2);
+    _lineageService.updateDataJobUpstreamLineage(datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION);
+
+    final List<Urn> downstreamUrnsToAdd = Arrays.asList(datasetUrn4);
+    final List<Urn> downstreamUrnsToRemove = Arrays.asList(datasetUrn1);
+    _lineageService.updateDataJobDownstreamLineage(datajobUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn, AUTHENTICATION);
+
+    DataJobInputOutput updatedDataJobInputOutput = createDataJobInputOutput(
+        datajobUrn1,
+        Arrays.asList(datasetUrn1),
+        Arrays.asList(datasetUrn3),
+        Collections.emptyList(),
+        Arrays.asList(datajobUrn3),
+        Collections.emptyList(),
+        Collections.singletonList(datasetUrn4)
+    );
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(datajobUrn1);
+    proposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
+    proposal.setAspectName(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(updatedDataJobInputOutput));
+    proposal.setChangeType(ChangeType.UPSERT);
+    Mockito.verify(_mockClient, Mockito.times(1)).ingestProposal(
+        Mockito.eq(proposal),
+        Mockito.eq(AUTHENTICATION),
+        Mockito.eq(false)
+    );
+  }
+
+  @Test
+  public void testFailUpdateUpstreamDataJobWithMissingUrnToAdd() throws Exception {
+    Mockito.when(_mockClient.exists(datajobUrn3, AUTHENTICATION)).thenReturn(false);
+
+    final List<Urn> upstreamUrnsToAdd = Arrays.asList(datajobUrn3);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(IllegalArgumentException.class, () ->
+        _lineageService.updateDataJobUpstreamLineage(dashboardUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+  }
+
+  @Test
+  public void testFailUpdateUpstreamDataJobWithInvalidEdge() throws Exception {
+    Mockito.when(_mockClient.exists(dashboardUrn2, AUTHENTICATION)).thenReturn(true);
+
+    // dataJobs can't have dashboards upstream of them
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(dashboardUrn2);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(RuntimeException.class, () ->
+        _lineageService.updateDataJobUpstreamLineage(datajobUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+  }
+
+  @Test
+  public void testFailUpdateDownstreamDataJobWithMissingUrnToAdd() throws Exception {
+    Mockito.when(_mockClient.exists(datasetUrn1, AUTHENTICATION)).thenReturn(false);
+
+    final List<Urn> downstreamUrnsToAdd = Arrays.asList(datasetUrn1);
+    final List<Urn> downstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(IllegalArgumentException.class, () ->
+        _lineageService.updateDataJobDownstreamLineage(dashboardUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+  }
+
+  @Test
+  public void testFailUpdateDownstreamDataJobWithInvalidEdge() throws Exception {
+    Mockito.when(_mockClient.exists(dashboardUrn2, AUTHENTICATION)).thenReturn(true);
+
+    // dataJobs can't have dashboards downstream of them
+    final List<Urn> downstreamUrnsToAdd = Collections.singletonList(dashboardUrn2);
+    final List<Urn> downstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(RuntimeException.class, () ->
+        _lineageService.updateDataJobUpstreamLineage(datajobUrn1, downstreamUrnsToAdd, downstreamUrnsToRemove, actorUrn, AUTHENTICATION));
+  }
 
   private UpstreamLineage createUpstreamLineage(List<String> upstreamUrns) throws Exception {
     UpstreamLineage upstreamLineage = new UpstreamLineage();
@@ -373,6 +516,56 @@ public class LineageServiceTest {
     dashboardInfo.setDatasetEdges(datasetEdges);
 
     return dashboardInfo;
+  }
+
+  private DataJobInputOutput createDataJobInputOutput(
+      Urn entityUrn,
+      List<Urn> inputDatasetsToAdd,
+      List<Urn> inputDatasetEdgesToAdd,
+      List<Urn> inputDatajobsToAdd,
+      List<Urn> inputDatajobEdgesToAdd,
+      List<Urn> outputDatasetsToAdd,
+      List<Urn> outputDatasetEdgesToAdd
+      ) throws Exception {
+    final DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
+
+    final DatasetUrnArray inputDatasets = new DatasetUrnArray();
+    for (Urn datasetUrn : inputDatasetsToAdd) {
+      inputDatasets.add(DatasetUrn.createFromUrn(datasetUrn));
+    }
+    dataJobInputOutput.setInputDatasets(inputDatasets);
+
+    final EdgeArray inputDatasetEdges = new EdgeArray();
+    for (Urn datasetUrn : inputDatasetEdgesToAdd) {
+      addNewEdge(datasetUrn, entityUrn, inputDatasetEdges);
+    }
+    dataJobInputOutput.setInputDatasetEdges(inputDatasetEdges);
+
+    final DataJobUrnArray inputDatajobs = new DataJobUrnArray();
+    for (Urn datajobUrn : inputDatajobsToAdd) {
+      inputDatajobs.add(DataJobUrn.createFromUrn(datajobUrn));
+    }
+    dataJobInputOutput.setInputDatajobs(inputDatajobs);
+
+    final EdgeArray inputDatajobEdges = new EdgeArray();
+    for (Urn datajobUrn : inputDatajobEdgesToAdd) {
+      addNewEdge(datajobUrn, entityUrn, inputDatajobEdges);
+    }
+    dataJobInputOutput.setInputDatajobEdges(inputDatajobEdges);
+
+    final DatasetUrnArray outputDatasets = new DatasetUrnArray();
+    for (Urn datasetUrn : outputDatasetsToAdd) {
+      outputDatasets.add(DatasetUrn.createFromUrn(datasetUrn));
+    }
+    dataJobInputOutput.setOutputDatasets(outputDatasets);
+
+    final EdgeArray outputDatasetEdges = new EdgeArray();
+    for (Urn datasetUrn : outputDatasetEdgesToAdd) {
+      addNewEdge(datasetUrn, entityUrn, outputDatasetEdges);
+    }
+    dataJobInputOutput.setOutputDatasetEdges(outputDatasetEdges);
+
+    return dataJobInputOutput;
   }
 
   private void addNewEdge(

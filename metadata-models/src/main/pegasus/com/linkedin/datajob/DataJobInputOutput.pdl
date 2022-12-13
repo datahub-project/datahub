@@ -102,6 +102,7 @@ record DataJobInputOutput {
 
   /**
    * Input datajobs that this data job depends on
+   * Deprecated! Use inputDatajobEdges instead.
    */
   @Relationship = {
     "/*": {
@@ -110,6 +111,7 @@ record DataJobInputOutput {
       "isLineage": true
     }
   }
+  @deprecated
   inputDatajobs: optional array[DataJobUrn] 
 
   /**

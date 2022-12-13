@@ -34,6 +34,8 @@ public class UpdateLineageResolverTest {
   private static final String DATASET_URN_4 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test4,DEV)";
   private static final String CHART_URN = "urn:li:chart:(looker,baz)";
   private static final String DASHBOARD_URN = "urn:li:dashboard:(airflow,id)";
+  private static final String DATAJOB_URN_1 = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
+  private static final String DATAJOB_URN_2 = "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
 
   @BeforeMethod
   public void setupTest() {
@@ -54,7 +56,9 @@ public class UpdateLineageResolverTest {
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
     Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
     Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_3))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_4))).thenReturn(true);
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -66,6 +70,7 @@ public class UpdateLineageResolverTest {
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
     Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(false);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(false);
 
     assertThrows(CompletionException.class, () -> resolver.get(_mockEnv).join());
   }
@@ -79,6 +84,8 @@ public class UpdateLineageResolverTest {
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
     Mockito.when(_mockService.exists(Urn.createFromString(CHART_URN))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
 
     assertTrue(resolver.get(_mockEnv).get());
   }
@@ -92,6 +99,30 @@ public class UpdateLineageResolverTest {
     UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
 
     Mockito.when(_mockService.exists(Urn.createFromString(DASHBOARD_URN))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(CHART_URN))).thenReturn(true);
+
+    assertTrue(resolver.get(_mockEnv).get());
+  }
+
+  // Adds upstream datajob and dataset and one downstream dataset
+  @Test
+  public void testUpdateDataJobLineage() throws Exception {
+    List<LineageEdge> edgesToAdd = Arrays.asList(
+        createLineageEdge(DATAJOB_URN_1, DATASET_URN_2),
+        createLineageEdge(DATAJOB_URN_1, DATAJOB_URN_2),
+        createLineageEdge(DATASET_URN_3, DATAJOB_URN_1)
+    );
+    List<LineageEdge> edgesToRemove = Arrays.asList(createLineageEdge(DATAJOB_URN_1, DATASET_URN_1));
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(Urn.createFromString(DATAJOB_URN_1))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATAJOB_URN_2))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_3))).thenReturn(true);
 
     assertTrue(resolver.get(_mockEnv).get());
   }

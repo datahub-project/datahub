@@ -617,8 +617,6 @@ public class LineageService {
     return buildMetadataChangeProposal(dataJobUrn, Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, dataJobInputOutput);
   }
 
-
-
   private void addNewEdge(
       @Nonnull final Urn upstreamUrn,
       @Nonnull final Urn downstreamUrn,
