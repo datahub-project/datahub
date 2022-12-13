@@ -343,9 +343,9 @@ public class LineageService {
     final UrnArray datasets = dashboardInfo.getDatasets();
     final EdgeArray datasetEdges = dashboardInfo.getDatasetEdges();
 
-    final List<Urn> upstreamsDatasetsToAdd = getUpstreamDatasetsToAdd(upstreamDatasetUrnsToAdd, datasetEdges, datasets);
+    final List<Urn> upstreamDatasetsToAdd = getUpstreamDatasetsToAdd(upstreamDatasetUrnsToAdd, datasetEdges, datasets);
 
-    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
+    for (final Urn upstreamUrn : upstreamDatasetsToAdd) {
       addNewEdge(upstreamUrn, dashboardUrn, actor, datasetEdges);
     }
 
@@ -365,7 +365,7 @@ public class LineageService {
   }
 
   private List<Urn> getUpstreamDatasetsToAdd(List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, UrnArray datasets) {
-    final List<Urn> upstreamsDatasetsToAdd = new ArrayList<>();
+    final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
       if (
           datasetEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
@@ -373,9 +373,9 @@ public class LineageService {
       ) {
         continue;
       }
-      upstreamsDatasetsToAdd.add(upstreamUrn);
+      upstreamDatasetsToAdd.add(upstreamUrn);
     }
-    return upstreamsDatasetsToAdd;
+    return upstreamDatasetsToAdd;
   }
 
   private void removeDatasetLineageEdges(List<Edge> datasetEdges, UrnArray datasets, List<Urn> upstreamUrnsToRemove) {
@@ -462,9 +462,9 @@ public class LineageService {
     final DatasetUrnArray inputDatasets = dataJobInputOutput.getInputDatasets();
     final EdgeArray inputDatasetEdges = dataJobInputOutput.getInputDatasetEdges();
 
-    final List<Urn> upstreamsDatasetsToAdd = getInputOutputDatasetsToAdd(upstreamDatasetUrnsToAdd, inputDatasetEdges, inputDatasets);
+    final List<Urn> upstreamDatasetsToAdd = getInputOutputDatasetsToAdd(upstreamDatasetUrnsToAdd, inputDatasetEdges, inputDatasets);
 
-    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
+    for (final Urn upstreamUrn : upstreamDatasetsToAdd) {
       addNewEdge(upstreamUrn, dashboardUrn, actor, inputDatasetEdges);
     }
 
@@ -485,7 +485,7 @@ public class LineageService {
 
   // get new dataset edges that we should be adding to inputDatasetEdges and outputDatasetEdges for the DataJobInputOutput aspect
   private List<Urn> getInputOutputDatasetsToAdd(List<Urn> upstreamDatasetUrnsToAdd, List<Edge> datasetEdges, DatasetUrnArray inputDatasets) {
-    final List<Urn> upstreamsDatasetsToAdd = new ArrayList<>();
+    final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
       if (
           datasetEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
@@ -493,9 +493,9 @@ public class LineageService {
       ) {
         continue;
       }
-      upstreamsDatasetsToAdd.add(upstreamUrn);
+      upstreamDatasetsToAdd.add(upstreamUrn);
     }
-    return upstreamsDatasetsToAdd;
+    return upstreamDatasetsToAdd;
   }
 
   private void removeDatasetEdges(List<Edge> datasetEdges, DatasetUrnArray datasets, List<Urn> upstreamUrnsToRemove) {
@@ -516,9 +516,9 @@ public class LineageService {
     final DataJobUrnArray dataJobs = dataJobInputOutput.getInputDatajobs();
     final EdgeArray dataJobEdges = dataJobInputOutput.getInputDatajobEdges();
 
-    final List<Urn> upstreamsDatasetsToAdd = getInputDatajobsToAdd(upstreamDatajobUrnsToAdd, dataJobEdges, dataJobs);
+    final List<Urn> upstreamDatasetsToAdd = getInputDatajobsToAdd(upstreamDatajobUrnsToAdd, dataJobEdges, dataJobs);
 
-    for (final Urn upstreamUrn : upstreamsDatasetsToAdd) {
+    for (final Urn upstreamUrn : upstreamDatasetsToAdd) {
       addNewEdge(upstreamUrn, dataJobUrn, actor, dataJobEdges);
     }
 
@@ -538,7 +538,7 @@ public class LineageService {
   }
 
   private List<Urn> getInputDatajobsToAdd(List<Urn> upstreamDatasetUrnsToAdd, List<Edge> dataJobEdges, DataJobUrnArray dataJobs) {
-    final List<Urn> upstreamsDatasetsToAdd = new ArrayList<>();
+    final List<Urn> upstreamDatasetsToAdd = new ArrayList<>();
     for (Urn upstreamUrn : upstreamDatasetUrnsToAdd) {
       if (
           dataJobEdges.stream().anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))
@@ -546,9 +546,9 @@ public class LineageService {
       ) {
         continue;
       }
-      upstreamsDatasetsToAdd.add(upstreamUrn);
+      upstreamDatasetsToAdd.add(upstreamUrn);
     }
-    return upstreamsDatasetsToAdd;
+    return upstreamDatasetsToAdd;
   }
 
   private void removeInputDatajobEdges(List<Edge> dataJobEdges, DataJobUrnArray dataJobs, List<Urn> upstreamUrnsToRemove) {
