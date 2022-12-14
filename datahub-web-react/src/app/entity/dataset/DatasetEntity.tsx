@@ -245,6 +245,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
                 container={data.container}
+                externalUrl={data.properties?.externalUrl}
             />
         );
     };

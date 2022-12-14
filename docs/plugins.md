@@ -23,13 +23,17 @@ Instead, custom authenticators are useful for authenticating API requests to Dat
 The sample authenticator implementation can be found at [Authenticator Sample](../metadata-service/plugin/src/test/sample-test-plugins)
 
 ### Implementing an Authentication Plugin
-1. Add _datahub-auth-api_ as implementation dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api)
+1. Add _datahub-auth-api_ as compileOnly dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api)
 
    Example of gradle dependency is given below.
 
    ```groovy
     dependencies {
-        implementation 'io.acryl:datahub-auth-api:0.8.45'
+      
+      def auth_api = 'io.acryl:datahub-auth-api:0.9.3-3rc3'
+      compileOnly "${auth_api}"
+      testImplementation "${auth_api}"
+
     }
    ```
 
@@ -65,13 +69,13 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin) for reference. 
 
-   Exclude datahub plugin dependency and signature classes as shown in below `shadowJar` task.
+   Exclude signature files as shown in below `shadowJar` task.
 
    ```groovy
      apply plugin: 'com.github.johnrengelman.shadow';
      shadowJar {
          // Exclude com.datahub.plugins package and files related to jar signature   
-         exclude "com/linkedin/common/", "com/datahub/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+         exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
      }
    ```
 5. Refer section [Plugin Installation](#plugin-installation) for plugin installation in DataHub environment
@@ -104,8 +108,20 @@ The sample authorizer implementation can be found at [Authorizer Sample](https:/
 
 ### Implementing an Authorization Plugin
 
-1. Add _datahub-auth-api_ as implementation dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api)
+1. Add _datahub-auth-api_ as compileOnly dependency: Maven coordinates of _datahub-auth-api_ can be found at [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-auth-api)
 
+   Example of gradle dependency is given below.
+
+   ```groovy
+    dependencies {
+      
+      def auth_api = 'io.acryl:datahub-auth-api:0.9.3-3rc3'
+      compileOnly "${auth_api}"
+      testImplementation "${auth_api}"
+
+    }
+   ```
+   
 2. Implement the Authorizer interface: [Authorizer Sample](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin)
 
    <details>
@@ -140,15 +156,16 @@ The sample authorizer implementation can be found at [Authorizer Sample](https:/
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin) for reference.
 
-   Exclude datahub plugin dependency and signature classes as shown in below `shadowJar` task.
+   Exclude signature files as shown in below `shadowJar` task.
 
    ```groovy
      apply plugin: 'com.github.johnrengelman.shadow';
      shadowJar {
          // Exclude com.datahub.plugins package and files related to jar signature   
-         exclude "com/linkedin/common/", "com/datahub/", "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+         exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
      }
    ```
+
    
 5. Install the Plugin: Refer to the section (Plugin Installation)[#plugin_installation] for plugin installation in DataHub environment
 

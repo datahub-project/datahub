@@ -1,27 +1,9 @@
 import * as React from 'react';
-import styled from 'styled-components';
 import { useEffect, useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { SimpleSearchFilter } from './SimpleSearchFilter';
 
 const TOP_FILTERS = ['degree', 'entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
-
-export const SearchFilterWrapper = styled.div`
-    padding-top: 10px;
-    max-height: 100%;
-    overflow: auto;
-
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 1px;
-        background: #f2f2f2;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: #cccccc;
-        -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
-    }
-`;
 
 interface Props {
     facets: Array<FacetMetadata>;
@@ -67,7 +49,7 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
     });
 
     return (
-        <SearchFilterWrapper>
+        <>
             {sortedFacets.map((facet) => (
                 <SimpleSearchFilter
                     key={`${facet.displayName}-${facet.field}`}
@@ -77,6 +59,6 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
                     defaultDisplayFilters={TOP_FILTERS.includes(facet.field)}
                 />
             ))}
-        </SearchFilterWrapper>
+        </>
     );
 };

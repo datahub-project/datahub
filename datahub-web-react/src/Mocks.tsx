@@ -72,7 +72,7 @@ const user1 = {
             },
         ],
     },
-    settings: { appearance: { showSimplifiedHomepage: false } },
+    settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
 const user2 = {
@@ -116,7 +116,7 @@ const user2 = {
             },
         ],
     },
-    settings: { appearance: { showSimplifiedHomepage: false } },
+    settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
 const dataPlatform = {
@@ -3213,6 +3213,7 @@ export const mocks = [
                         manageSecrets: true,
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
+                        manageGlobalViews: true,
                     },
                 },
             },
@@ -3437,4 +3438,5 @@ export const platformPrivileges: PlatformPrivileges = {
     manageTags: true,
     createTags: true,
     createDomains: true,
+    manageGlobalViews: true,
 };

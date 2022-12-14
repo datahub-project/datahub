@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -54,7 +55,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     BigqueryView,
 )
-from datahub.ingestion.source.bigquery_v2.common import get_bigquery_client
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_EXTERNAL_DATASET_URL_TEMPLATE,
+    BQ_EXTERNAL_TABLE_URL_TEMPLATE,
+    get_bigquery_client,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
@@ -459,6 +464,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset,
             ["Dataset"],
             database_container_key,
+            external_url=BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
+                project=project_id, dataset=dataset
+            )
+            if self.config.include_external_url
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -570,8 +580,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             bigquery_project.datasets
         )
         for bigquery_dataset in bigquery_project.datasets:
-
-            if not self.config.dataset_pattern.allowed(bigquery_dataset.name):
+            if not is_schema_allowed(
+                self.config.dataset_pattern,
+                bigquery_dataset.name,
+                project_id,
+                self.config.match_fully_qualified_names,
+            ):
                 self.report.report_dropped(f"{bigquery_dataset.name}.*")
                 continue
             try:
@@ -854,6 +868,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             else None,
             lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
             if table.last_altered is not None
+            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
+            else None,
+            externalUrl=BQ_EXTERNAL_TABLE_URL_TEMPLATE.format(
+                project=project_id, dataset=dataset_name, table=table.name
+            )
+            if self.config.include_external_url
             else None,
         )
         if custom_properties:
