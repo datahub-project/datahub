@@ -184,10 +184,7 @@ def test_kafka_ingest_with_stateful(
                 == f"urn:li:dataset:(urn:li:dataPlatform:kafka,{platform_instance}.{kafka_ctx.topics[0]},PROD)"
             )
 
-            # 4. Checkpoint configuration should be the same.
-            assert checkpoint1.config == checkpoint2.config
-
-            # 5. Validate that all providers have committed successfully.
+            # 4. Validate that all providers have committed successfully.
             # NOTE: The following validation asserts for presence of state as well
             # and validates reporting.
             validate_all_providers_have_committed_successfully(

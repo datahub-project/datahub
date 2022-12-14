@@ -5,7 +5,6 @@ from typing import Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar
 
 import pydantic
 
-from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -140,21 +139,18 @@ class StaleEntityRemovalHandler(
     def __init__(
         self,
         source: StatefulIngestionSourceBase,
-        config: Optional[StatefulIngestionConfigBase],
+        config: StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
         state_type_class: Type[StaleEntityCheckpointStateBase],
         pipeline_name: Optional[str],
         run_id: str,
     ):
-        self.config = config
         self.source = source
         self.state_type_class = state_type_class
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.stateful_ingestion_config = (
-            cast(StatefulStaleMetadataRemovalConfig, self.config.stateful_ingestion)
-            if self.config
-            else None
-        )
+        self.stateful_ingestion_config: Optional[
+            StatefulStaleMetadataRemovalConfig
+        ] = config.stateful_ingestion
         self.checkpointing_enabled: bool = (
             True
             if (
@@ -217,7 +213,6 @@ class StaleEntityRemovalHandler(
                 pipeline_name=self.pipeline_name,
                 platform_instance_id=self.source.get_platform_instance_id(),
                 run_id=self.run_id,
-                config=cast(ConfigModel, self.config),
                 state=self.state_type_class(),
             )
         return None
