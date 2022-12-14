@@ -33,7 +33,7 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
 
     rows_zero_objects_modified: int = 0
 
-    edition: Optional[str] = None
+    edition: Optional[SnowflakeEdition] = None
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

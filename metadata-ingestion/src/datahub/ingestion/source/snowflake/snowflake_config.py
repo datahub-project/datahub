@@ -32,7 +32,7 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
 
     include_column_lineage: bool = Field(
         default=True,
-        description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role , include_table_lineage to be True and Snowflake Enterprise Edition or above.",
+        description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role, include_table_lineage to be True and Snowflake Enterprise Edition or above.",
     )
 
     check_role_grants: bool = Field(
