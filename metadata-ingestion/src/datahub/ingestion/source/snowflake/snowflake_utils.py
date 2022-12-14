@@ -10,6 +10,11 @@ from datahub.configuration.common import MetaError
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.constants import (
+    SNOWFLAKE_DEFAULT_CLOUD,
+    SNOWFLAKE_DEFAULT_CLOUD_REGION_ID,
+    SnowflakeCloudProvider,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType

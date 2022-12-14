@@ -13,12 +13,12 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
-    SnowflakeEdition,
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )

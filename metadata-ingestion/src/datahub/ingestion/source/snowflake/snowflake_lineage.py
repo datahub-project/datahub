@@ -11,6 +11,7 @@ from snowflake.connector import SnowflakeConnection
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -19,7 +20,6 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
-    SnowflakeEdition,
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
@@ -207,7 +207,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         if self._lineage_map is None or self._external_lineage_map is None:
             conn = self.config.get_connection()
         if self._lineage_map is None:
-            if self.report.edition == SnowflakeEdition.STANDARD.value:
+            if self.report.edition == SnowflakeEdition.STANDARD:
                 logger.info(
                     "Snowflake Account is Standard Edition. Table to Table Lineage Feature is not supported."
                 )
@@ -354,7 +354,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         with PerfTimer() as timer:
             self._populate_view_upstream_lineage(conn)
             self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
-        if self.report.edition == SnowflakeEdition.STANDARD.value:
+        if self.report.edition == SnowflakeEdition.STANDARD:
             logger.info(
                 "Snowflake Account is Standard Edition. View to Table Lineage Feature is not supported."
             )
@@ -390,7 +390,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
                 )
         except SnowflakePermissionError:
-            if self.report.edition == SnowflakeEdition.STANDARD.value:
+            if self.report.edition == SnowflakeEdition.STANDARD:
                 logger.info(
                     "Snowflake Account is Standard Edition. External Lineage Feature is not supported."
                 )

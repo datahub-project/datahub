@@ -43,6 +43,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
     SnowflakeLineageExtractor,
@@ -65,7 +66,6 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
-    SnowflakeEdition,
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
@@ -878,8 +878,7 @@ class SnowflakeV2Source(
                     else {},
                 )
             except Exception as e:
-                self.warn(
-                    self.logger,
+                self.report_warning(
                     dataset_name,
                     f"unable to classify table columns due to error -> {e}",
                 )
@@ -1189,9 +1188,9 @@ class SnowflakeV2Source(
         try:
             logger.info("Checking current edition")
             if self.is_standard_edition(conn):
-                self.report.edition = SnowflakeEdition.STANDARD.value
+                self.report.edition = SnowflakeEdition.STANDARD
             else:
-                self.report.edition = SnowflakeEdition.ENTERPRISE.value
+                self.report.edition = SnowflakeEdition.ENTERPRISE
         except Exception:
             self.report.edition = None
 
