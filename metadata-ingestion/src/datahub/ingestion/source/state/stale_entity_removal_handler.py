@@ -1,7 +1,18 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, cast
+from typing import (
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    cast,
+)
 
 import pydantic
 
@@ -99,7 +110,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
 
     @staticmethod
     def compute_percent_entities_changed(
-        new_old_entity_list: List[Tuple[Iterable[str], Iterable[str]]]
+        new_old_entity_list: List[Tuple[Sequence[str], Sequence[str]]]
     ) -> float:
         old_count_all = 0
         overlap_count_all = 0
@@ -119,7 +130,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
 
     @staticmethod
     def get_entity_overlap_and_cardinalities(
-        new_entities: Iterable[str], old_entities: Iterable[str]
+        new_entities: Sequence[str], old_entities: Sequence[str]
     ) -> Tuple[int, int, int]:
         new_set = set(new_entities)
         old_set = set(old_entities)
