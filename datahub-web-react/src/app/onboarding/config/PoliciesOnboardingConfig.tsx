@@ -15,13 +15,12 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
                     Welcome to DataHub <strong>Policies</strong>!
                 </p>
                 <p>
-                    In most cases, <strong>Roles</strong> can be used to grant privileges to users on DataHub.
+                    In most cases, <strong>Roles</strong> are the best option for granting privileges to DataHub users."
                 </p>
                 <p>
                     When more fine-grained control over user and group permissions is required, then{' '}
                     <strong>Policies</strong> will do the trick.
                 </p>
-                <p>Policies allow you to grant fine-grained privileges to specific users and groups.</p>
                 <p>
                     Learn more about <strong>Policies</strong>{' '}
                     <a
