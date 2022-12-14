@@ -16,6 +16,7 @@ import {
     FineGrainedLineage,
     SchemaMetadata,
     InputFields,
+    Entity,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -159,4 +160,14 @@ export interface LineageResult {
     urn: string;
     upstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
     downstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
+}
+
+export interface UpdatedLineages {
+    [urn: string]: UpdatedLineage;
+}
+
+export interface UpdatedLineage {
+    lineageDirection: Direction;
+    entitiesToAdd: Entity[];
+    urnsToRemove: string[];
 }

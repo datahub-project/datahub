@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { Direction, VizNode, EntitySelectParams, EntityAndType } from './types';
+import { Direction, VizNode, EntitySelectParams, EntityAndType, UpdatedLineages } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { getShortenedTitle, nodeHeightFromTitleLength } from './utils/titleUtils';
@@ -46,6 +46,7 @@ export default function LineageEntityNode({
     onExpandClick,
     isCenterNode,
     nodesToRenderByUrn,
+    setUpdatedLineages,
 }: {
     node: VizNode;
     isSelected: boolean;
@@ -57,24 +58,41 @@ export default function LineageEntityNode({
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     onExpandClick: (data: EntityAndType) => void;
     nodesToRenderByUrn: Record<string, VizNode>;
+    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 }) {
     const { direction } = node;
-    const { expandTitles, collapsedColumnsNodes, showColumns } = useContext(LineageExplorerContext);
+    const { expandTitles, collapsedColumnsNodes, showColumns, refetchCenterNode } = useContext(LineageExplorerContext);
+    const [hasExpanded, setHasExpanded] = useState(false);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
-    const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
+    const [getAsyncEntityLineage, { data: asyncLineageData, loading }] = useGetEntityLineageLazyQuery();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
 
+    function fetchEntityLineage() {
+        if (node.data.urn) {
+            if (isCenterNode) {
+                refetchCenterNode(node.data.urn);
+            } else {
+                // update non-center node using onExpandClick in useEffect below
+                getAsyncEntityLineage({
+                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode, showColumns },
+                });
+                setTimeout(() => setHasExpanded(false), 0);
+            }
+        }
+    }
+
     useEffect(() => {
-        if (asyncLineageData && asyncLineageData.entity) {
+        if (asyncLineageData && asyncLineageData.entity && !hasExpanded && !loading) {
             const entityAndType = {
                 type: asyncLineageData.entity.type,
                 entity: { ...asyncLineageData.entity },
             } as EntityAndType;
             onExpandClick(entityAndType);
+            setHasExpanded(true);
         }
-    }, [asyncLineageData, onExpandClick]);
+    }, [asyncLineageData, onExpandClick, hasExpanded, loading]);
 
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -279,6 +297,8 @@ export default function LineageEntityNode({
                 >
                     <ManageLineageMenu
                         entityUrn={node.data.urn || ''}
+                        refetchEntity={fetchEntityLineage}
+                        setUpdatedLineages={setUpdatedLineages}
                         disableUpstream={!isCenterNode && direction === Direction.Downstream}
                         disableDownstream={!isCenterNode && direction === Direction.Upstream}
                         centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}

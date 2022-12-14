@@ -2,7 +2,7 @@ import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined, PartitionOutlined } f
 import { Button, Dropdown, Menu, Popover } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Direction } from '../types';
+import { Direction, UpdatedLineages } from '../types';
 import ManageLineageModal from './ManageLineageModal';
 
 const DROPDOWN_Z_INDEX = 1;
@@ -32,12 +32,21 @@ function PopoverContent({ centerEntity, direction }: { centerEntity?: () => void
 
 interface Props {
     entityUrn: string;
+    refetchEntity: () => void;
+    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
     disableUpstream?: boolean;
     disableDownstream?: boolean;
     centerEntity?: () => void;
 }
 
-export default function ManageLineageMenu({ entityUrn, disableUpstream, disableDownstream, centerEntity }: Props) {
+export default function ManageLineageMenu({
+    entityUrn,
+    refetchEntity,
+    setUpdatedLineages,
+    disableUpstream,
+    disableDownstream,
+    centerEntity,
+}: Props) {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [lineageDirection, setLineageDirection] = useState<Direction>(Direction.Upstream);
 
@@ -101,6 +110,8 @@ export default function ManageLineageMenu({ entityUrn, disableUpstream, disableD
                     entityUrn={entityUrn}
                     lineageDirection={lineageDirection}
                     closeModal={() => setIsModalVisible(false)}
+                    refetchEntity={refetchEntity}
+                    setUpdatedLineages={setUpdatedLineages}
                 />
             )}
         </>

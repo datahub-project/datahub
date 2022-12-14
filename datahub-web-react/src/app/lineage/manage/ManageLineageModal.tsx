@@ -3,7 +3,7 @@ import { Button, message, Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
-import { Direction } from '../types';
+import { Direction, UpdatedLineages } from '../types';
 import AddEntityEdge from './AddEntityEdge';
 import LineageEntityView from './LineageEntityView';
 import LineageEdges from './LineageEdges';
@@ -58,9 +58,17 @@ interface Props {
     entityUrn: string;
     lineageDirection: Direction;
     closeModal: () => void;
+    refetchEntity: () => void;
+    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 }
 
-export default function ManageLineageModal({ entityUrn, lineageDirection, closeModal }: Props) {
+export default function ManageLineageModal({
+    entityUrn,
+    lineageDirection,
+    closeModal,
+    refetchEntity,
+    setUpdatedLineages,
+}: Props) {
     const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
     const [urnsToRemove, setUrnsToRemove] = useState<string[]>([]);
     const [updateLineage] = useUpdateLineageMutation();
@@ -80,7 +88,19 @@ export default function ManageLineageModal({ entityUrn, lineageDirection, closeM
             .then((res) => {
                 if (res.data?.updateLineage) {
                     closeModal();
-                    // TODO: Update local state and refetch new data
+                    message.success('Updated lineage!');
+                    setTimeout(() => {
+                        refetchEntity();
+                    }, 2000);
+
+                    setUpdatedLineages((updatedLineages) => ({
+                        ...updatedLineages,
+                        [entityUrn]: {
+                            lineageDirection,
+                            entitiesToAdd,
+                            urnsToRemove,
+                        },
+                    }));
                 }
             })
             .catch(() => {
