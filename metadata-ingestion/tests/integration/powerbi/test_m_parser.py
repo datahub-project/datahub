@@ -13,7 +13,7 @@ from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
     'let\n    Source = Value.NativeQuery(Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","operations_analytics_warehouse_prod",[Role="OPERATIONS_ANALYTICS_MEMBER"]){[Name="OPERATIONS_ANALYTICS"]}[Data], "SELECT#(lf)concat((UPPER(REPLACE(SELLER,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTHID) as CD_AGENT_KEY,#(lf) *#(lf)FROM#(lf)OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4", null, [EnableFolding=true]),\n    #"ADDed Conditional Column" = Table.AddColumn(Source, "SME Units ENT", each if [DEAL_TYPE] = "SME Unit" then [UNIT] else 0),\n    #"Added Conditional Column1" = Table.AddColumn(#"Added Conditional Column", "Banklink Units", each if [DEAL_TYPE] = "Banklink" then [UNIT] else 0),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Conditional Column1",{"Banklink Units"}),\n    #"Added Custom" = Table.AddColumn(#"Removed Columns", "Banklink Units", each if [DEAL_TYPE] = "Banklink" and [SALES_TYPE] = "3 - Upsell"\nthen [UNIT]\n\nelse if [SALES_TYPE] = "Adjusted BL Migration"\nthen [UNIT]\n\nelse 0),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "SME Units in $ (*$361)", each if [DEAL_TYPE] = "SME Unit" \nand [SALES_TYPE] <> "4 - Renewal"\n    then [UNIT] * 361\nelse 0),\n    #"Added Custom2" = Table.AddColumn(#"Added Custom1", "Banklink in $ (*$148)", each [Banklink Units] * 148)\nin\n    #"Added Custom2"',
-    'let\n    Source = Value.NativeQuery(Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","operations_analytics_warehouse_prod",[Role="OPERATIONS_ANALYTICS_MEMBER"]){[Name="OPERATIONS_ANALYTICS"]}[Data], "select #(lf)UPPER(REPLACE(AGENT_NAME,\'-\',\'\')) AS Agent,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS#(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = \'Accounting\'#(lf)and TARGET_TEAM = \'Enterprise\'", null, [EnableFolding=true]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Has PS Software Quota?", each if [TIER] = "Expansion (Medium)" then "Yes" else if [TIER] = "Acquisition" then "Yes" else "No")\nin\n    #"Added Conditional Column"',
+    'let\n    Source = Value.NativeQuery(Snowflake.Databases("bu20  658.ap-southeast-2.snowflakecomputing.com","operations_analytics_warehouse_prod",[Role="OPERATIONS_ANALYTICS_MEMBER"]){[Name="OPERATIONS_ANALYTICS"]}[Data], "select #(lf)UPPER(REPLACE(AGENT_NAME,\'-\',\'\')) AS Agent,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,\'-\',\'\'))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS#(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = \'Accounting\'#(lf)and TARGET_TEAM = \'Enterprise\'", null, [EnableFolding=true]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Has PS Software Quota?", each if [TIER] = "Expansion (Medium)" then "Yes" else if [TIER] = "Acquisition" then "Yes" else "No")\nin\n    #"Added Conditional Column"',
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="select *#(lf),concat((UPPER(REPLACE(CLIENT_MANAGER_QUOTED,\'-\',\'\'))), MONTHID) as AGENT_KEY#(lf),concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTHID) as CD_AGENT_KEY#(lf)#(lf)from V_OIP_ENT_2022"]),\n    #"Added Custom" = Table.AddColumn(Source, "OIP in $(*$350)", each [SALES_INVOICE_AMOUNT] * 350),\n    #"Changed Type" = Table.TransformColumnTypes(#"Added Custom",{{"OIP in $(*$350)", type number}})\nin\n    #"Changed Type"',
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="Select *,#(lf)#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_QUOTED,\'-\',\'\'))), #(lf)LEFT(CAST(DTE AS DATE),4)+LEFT(RIGHT(CAST(DTE AS DATE),5),2)) AS AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), #(lf)LEFT(CAST(DTE AS DATE),4)+LEFT(RIGHT(CAST(DTE AS DATE),5),2)) AS CD_AGENT_KEY#(lf)#(lf)from V_INVOICE_BOOKING_2022"]),\n    #"Changed Type" = Table.TransformColumnTypes(Source,{{"CLIENT_ID", Int64.Type}}),\n    #"Added Conditional Column" = Table.AddColumn(#"Changed Type", "PS Software (One-Off)", each if Text.Contains([REVENUE_TYPE], "Software") then [Inv_Amt] else if Text.Contains([REVENUE_TYPE], "Tax Seminar") then [Inv_Amt] else 0),\n    #"Filtered Rows" = Table.SelectRows(#"Added Conditional Column", each true),\n    #"Duplicated Column" = Table.DuplicateColumn(#"Filtered Rows", "CLIENT_ID", "CLIENT_ID - Copy"),\n    #"Changed Type1" = Table.TransformColumnTypes(#"Duplicated Column",{{"CLIENT_ID - Copy", type text}}),\n    #"Renamed Columns" = Table.RenameColumns(#"Changed Type1",{{"CLIENT_ID - Copy", "CLIENT_ID for Filter"}})\nin\n    #"Renamed Columns"',
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="SELECT *,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,\'-\',\'\'))), #(lf)LEFT(CAST(MONTH_DATE AS DATE),4)+LEFT(RIGHT(CAST(MONTH_DATE AS DATE),5),2)) AS AGENT_KEY#(lf)#(lf)FROM dbo.V_ARR_ADDS"]),\n    #"Changed Type" = Table.TransformColumnTypes(Source,{{"MONTH_DATE", type date}}),\n    #"Added Custom" = Table.AddColumn(#"Changed Type", "Month", each Date.Month([MONTH_DATE]))\nin\n    #"Added Custom"',
@@ -30,161 +30,171 @@ M_QUERIES = [
 ]
 
 
-def test_parse_m_query1():
-    expression: str = M_QUERIES[0]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == "TESTTABLE_Table"
+# def test_parse_m_query1():
+#     expression: str = M_QUERIES[0]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == "TESTTABLE_Table"
+#
+#
+# def test_parse_m_query2():
+#     expression: str = M_QUERIES[1]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom2"'
+#
+#
+# def test_parse_m_query3():
+#     expression: str = M_QUERIES[2]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Conditional Column"'
+#
+#
+# def test_parse_m_query4():
+#     expression: str = M_QUERIES[3]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Changed Type"'
+#
+#
+# def test_parse_m_query5():
+#     expression: str = M_QUERIES[4]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Renamed Columns"'
+#
+#
+# def test_parse_m_query6():
+#     expression: str = M_QUERIES[5]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom"'
+#
+#
+# def test_parse_m_query7():
+#     expression: str = M_QUERIES[6]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == "Source"
+#
+#
+# def test_parse_m_query8():
+#     expression: str = M_QUERIES[7]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom1"'
+#
+#
+# def test_parse_m_query9():
+#     expression: str = M_QUERIES[8]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom1"'
+#
+#
+# def test_parse_m_query10():
+#     expression: str = M_QUERIES[9]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Changed Type1"'
+#
+#
+# def test_parse_m_query11():
+#     expression: str = M_QUERIES[10]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == "Source"
+#
+#
+# def test_parse_m_query12():
+#     expression: str = M_QUERIES[11]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == '"Added Custom"'
+#
+#
+# def test_parse_m_query13():
+#     expression: str = M_QUERIES[12]
+#     parse_tree: Tree = m_parser._parse_expression(expression)
+#     assert m_parser._get_output_variable(parse_tree) == "two_source_table"
+#
+#
+# def test_snowflake_regular_case():
+#     q: str = M_QUERIES[0]
+#     table: PowerBiAPI.Table = PowerBiAPI.Table(
+#         expression=q,
+#         name="virtual_order_table",
+#         full_name="OrderDataSet.virtual_order_table",
+#     )
+#
+#     reporter = PowerBiDashboardSourceReport()
+#     data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+#         table, reporter
+#     )
+#
+#     assert len(data_platform_tables) == 1
+#     assert data_platform_tables[0].name == "TESTTABLE"
+#     assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
+#     assert (
+#         data_platform_tables[0].platform_type == SupportedDataPlatform.SNOWFLAKE.value
+#     )
+#
+#
+# def test_postgres_regular_case():
+#     q: str = M_QUERIES[13]
+#     table: PowerBiAPI.Table = PowerBiAPI.Table(
+#         expression=q,
+#         name="virtual_order_table",
+#         full_name="OrderDataSet.virtual_order_table",
+#     )
+#
+#     reporter = PowerBiDashboardSourceReport()
+#     data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+#         table, reporter
+#     )
+#
+#     assert len(data_platform_tables) == 1
+#     assert data_platform_tables[0].name == "order_date"
+#     assert data_platform_tables[0].full_name == "mics.public.order_date"
+#     assert (
+#         data_platform_tables[0].platform_type
+#         == SupportedDataPlatform.POSTGRES_SQL.value
+#     )
+#
+#
+# def test_oracle_regular_case():
+#     q: str = M_QUERIES[14]
+#     table: PowerBiAPI.Table = PowerBiAPI.Table(
+#         expression=q,
+#         name="virtual_order_table",
+#         full_name="OrderDataSet.virtual_order_table",
+#     )
+#
+#     reporter = PowerBiDashboardSourceReport()
+#     data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+#         table, reporter
+#     )
+#
+#     assert len(data_platform_tables) == 1
+#     assert data_platform_tables[0].name == "EMPLOYEES"
+#     assert data_platform_tables[0].full_name == "salesdb.HR.EMPLOYEES"
+#     assert data_platform_tables[0].platform_type == SupportedDataPlatform.ORACLE.value
+#
+#
+# def test_mssql_regular_case():
+#     q: str = M_QUERIES[15]
+#     table: PowerBiAPI.Table = PowerBiAPI.Table(
+#         expression=q,
+#         name="virtual_order_table",
+#         full_name="OrderDataSet.virtual_order_table",
+#     )
+#
+#     reporter = PowerBiDashboardSourceReport()
+#
+#     data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
+#         table, reporter
+#     )
+#
+#     assert len(data_platform_tables) == 1
+#     assert data_platform_tables[0].name == "book_issue"
+#     assert data_platform_tables[0].full_name == "library.dbo.book_issue"
+#     assert data_platform_tables[0].platform_type == SupportedDataPlatform.MS_SQL.value
 
+def test_advance_use_case():
 
-def test_parse_m_query2():
-    expression: str = M_QUERIES[1]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Added Custom2"'
-
-
-def test_parse_m_query3():
-    expression: str = M_QUERIES[2]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Added Conditional Column"'
-
-
-def test_parse_m_query4():
-    expression: str = M_QUERIES[3]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Changed Type"'
-
-
-def test_parse_m_query5():
-    expression: str = M_QUERIES[4]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Renamed Columns"'
-
-
-def test_parse_m_query6():
-    expression: str = M_QUERIES[5]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Added Custom"'
-
-
-def test_parse_m_query7():
-    expression: str = M_QUERIES[6]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == "Source"
-
-
-def test_parse_m_query8():
-    expression: str = M_QUERIES[7]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Added Custom1"'
-
-
-def test_parse_m_query9():
-    expression: str = M_QUERIES[8]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Added Custom1"'
-
-
-def test_parse_m_query10():
-    expression: str = M_QUERIES[9]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Changed Type1"'
-
-
-def test_parse_m_query11():
-    expression: str = M_QUERIES[10]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == "Source"
-
-
-def test_parse_m_query12():
-    expression: str = M_QUERIES[11]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == '"Added Custom"'
-
-
-def test_parse_m_query13():
-    expression: str = M_QUERIES[12]
-    parse_tree: Tree = m_parser._parse_expression(expression)
-    assert m_parser._get_output_variable(parse_tree) == "two_source_table"
-
-
-def test_snowflake_regular_case():
-    q: str = M_QUERIES[0]
     table: PowerBiAPI.Table = PowerBiAPI.Table(
-        expression=q,
+        expression=M_QUERIES[1],
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
     )
+    m_parser.get_upstream_tables(table, PowerBiDashboardSourceReport())
 
-    reporter = PowerBiDashboardSourceReport()
-    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
-        table, reporter
-    )
-
-    assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "TESTTABLE"
-    assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
-    assert (
-        data_platform_tables[0].platform_type == SupportedDataPlatform.SNOWFLAKE.value
-    )
-
-
-def test_postgres_regular_case():
-    q: str = M_QUERIES[13]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
-        expression=q,
-        name="virtual_order_table",
-        full_name="OrderDataSet.virtual_order_table",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
-        table, reporter
-    )
-
-    assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "order_date"
-    assert data_platform_tables[0].full_name == "mics.public.order_date"
-    assert (
-        data_platform_tables[0].platform_type
-        == SupportedDataPlatform.POSTGRES_SQL.value
-    )
-
-
-def test_oracle_regular_case():
-    q: str = M_QUERIES[14]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
-        expression=q,
-        name="virtual_order_table",
-        full_name="OrderDataSet.virtual_order_table",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
-        table, reporter
-    )
-
-    assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "EMPLOYEES"
-    assert data_platform_tables[0].full_name == "salesdb.HR.EMPLOYEES"
-    assert data_platform_tables[0].platform_type == SupportedDataPlatform.ORACLE.value
-
-
-def test_mssql_regular_case():
-    q: str = M_QUERIES[15]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
-        expression=q,
-        name="virtual_order_table",
-        full_name="OrderDataSet.virtual_order_table",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    data_platform_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
-        table, reporter
-    )
-
-    assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "book_issue"
-    assert data_platform_tables[0].full_name == "library.dbo.book_issue"
-    assert data_platform_tables[0].platform_type == SupportedDataPlatform.MS_SQL.value

@@ -515,6 +515,31 @@ def _parse_expression(expression: str) -> Tree:
     return parse_tree
 
 
+def _validate_parse_tree(supported_funcs: List[str], tree: Tree) -> Tuple[bool, str]:
+    """
+    :param tree: tree to validate as per functions supported by m_parser module
+    :return: first argument is False if validation is failed and second argument would contain the error message.
+             in-case of valid tree the first argument is True and second argument would be None.
+    """
+    _filter: List[Tree] = tree.find_data("invoke_expression")
+
+    valid: bool = False
+    message: Optional[str] = None
+
+    for node in _filter:
+        primary_expression_node: Optional[Tree] = _get_first_rule(node, "primary_expression")
+        if primary_expression_node is None:
+            continue
+        identifier_node: Optional[Tree] = _get_first_rule(primary_expression_node, "identifier")
+        if identifier_node is None:
+            continue
+
+        function_name: str = _make_function_name(identifier_node)
+        # This function should be in our supported function list
+        if function_name not in supported_funcs:
+            return False, f"function {function_name} is not supported"
+
+
 def get_upstream_tables(
     table: PowerBiAPI.Table, reporter: PowerBiDashboardSourceReport
 ) -> List[DataPlatformTable]:
@@ -524,6 +549,8 @@ def get_upstream_tables(
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
+        _validate_parse_tree([], parse_tree)
+        exit()
     except lark.exceptions.UnexpectedCharacters as e:
         LOGGER.debug(f"Fail to parse expression {table.expression}", exc_info=e)
         reporter.report_warning(
