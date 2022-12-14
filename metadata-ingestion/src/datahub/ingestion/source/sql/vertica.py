@@ -1,12 +1,10 @@
 import re
 from textwrap import dedent
-from typing import Any, Dict,Optional,List,Tuple
-from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.vertica.common import VerticaSQLAlchemySource , SQLAlchemyConfigVertica ,SQLSourceReportVertica
+from typing import Any, Dict, Optional, List, Tuple
+from datahub.ingestion.source.vertica.common import VerticaSQLAlchemySource , SQLAlchemyConfigVertica 
 import math
 import pydantic
 from pydantic.class_validators import validator
-
 from sqlalchemy import sql, util
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.sqltypes import TIME, TIMESTAMP, String
@@ -21,10 +19,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
-    SQLAlchemySource,
-)
+
 from datahub.utilities import config_clean
 
 
@@ -96,7 +91,6 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
     return view_def
 
 
-
 def get_table_comment(self, connection, table_name, schema=None, **kw):
 
     if schema is not None:
@@ -124,18 +118,9 @@ def get_table_comment(self, connection, table_name, schema=None, **kw):
             
         """ % {'table': table_name.lower(), 'schema_condition': schema_condition}))
 
-    # src = sql.text(dedent("""
-    #     SELECT ros_count
-    #     FROM v_monitor.projection_storage
-    #     WHERE lower(anchor_table_name) = '%(table)s'
-    # """ % {'table': table_name.lower(), 'schema_condition': schema_condition}))
     columns = ""
     for column in connection.execute(sct):
         columns = column['create_time']
-
-    # ros_count = ""
-    # for data in connection.execute(src):
-    #     ros_count = data['ros_count']
 
     for table_size in connection.execute(sts):
         if table_size[0] is None:
@@ -144,9 +129,6 @@ def get_table_comment(self, connection, table_name, schema=None, **kw):
             TableSize = math.trunc(table_size['table_size'])
 
     return {"text": "This Vertica module is still is development Process", "properties": {"create_time": str(columns), "Total_Table_Size": str(TableSize) + " KB"}}
-
-
-
 
 
 def _get_column_info(  # noqa: C901
@@ -245,7 +227,6 @@ def _get_column_info(  # noqa: C901
     return column_info
 
 
-
 def _get_schema_keys(self, connection, db_name, schema) -> dict:
     try:
 
@@ -289,7 +270,7 @@ def _get_schema_keys(self, connection, db_name, schema) -> dict:
             user_defined_library += f"{data['lib_name']} -- {data['description']} |  "
 
         return {"projection_count": projection_count,
-                'udx_list': udx_list , 'Udx_langauge' : user_defined_library }
+                'udx_list': udx_list , 'Udx_langauge' : user_defined_library}
 
     except Exception as e:
         print("Exception in _get_schema_keys from vertica ")
@@ -297,7 +278,7 @@ def _get_schema_keys(self, connection, db_name, schema) -> dict:
 
 def _get_database_keys(self, connection, db_name) -> dict:
     try:
-        
+
         # Query for CLUSTER TYPE
         cluster_type_qry = sql.text(dedent("""
             SELECT 
@@ -307,12 +288,12 @@ def _get_database_keys(self, connection, db_name) -> dict:
                 ELSE 'Eon' 
             END AS database_mode 
             FROM v_catalog.shards
-        """ ))
+        """))
 
         communal_storage_path = sql.text(dedent("""
             SELECT location_path from storage_locations 
                 WHERE sharing_type = 'COMMUNAL'
-        """ ))
+        """))
 
         cluster_type = ""
         communical_path = ""
@@ -320,35 +301,34 @@ def _get_database_keys(self, connection, db_name) -> dict:
         for each in cluster_type_res:
             cluster_type = each.database_mode
             if cluster_type.lower() == 'eon':
-                for each in connection.execute(communal_storage_path): 
+                for each in connection.execute(communal_storage_path):
                     communical_path += str(each.location_path) + " | "
-                   
 
         SUBCLUSTER_SIZE = sql.text(dedent("""
                         SELECT subclusters.subcluster_name , CAST(sum(disk_space_used_mb // 1024) as varchar(10)) as subclustersize from subclusters  
                         inner join disk_storage using (node_name) 
                         group by subclusters.subcluster_name
                          """))
-        
+
         subclusters = " "
         for data in connection.execute(SUBCLUSTER_SIZE):
             subclusters += f"{data['subcluster_name']} -- {data['subclustersize']} GB |  "
-        
+
         cluster__size = sql.text(dedent("""
             select ROUND(SUM(disk_space_used_mb) //1024 ) as cluster_size
             from disk_storage
-        """ ))
+        """))
         cluster_size = ""
         for each in connection.execute(cluster__size):
             cluster_size = str(each.cluster_size) + " GB"
 
-       
         return {"cluster_type": cluster_type, "cluster_size": cluster_size, 'Subcluster': subclusters,
                 "communinal_storage_path": communical_path}
-        
+
     except Exception as e:
         print("Exception in _get_database_keys")
- 
+
+
 def _get_properties_keys(self, connection, db_name, schema, level=None) -> dict:
     try:
         properties_keys = dict()
@@ -356,11 +336,10 @@ def _get_properties_keys(self, connection, db_name, schema, level=None) -> dict:
             properties_keys = _get_schema_keys(self, connection, db_name, schema)
         if level == "database":
             properties_keys = _get_database_keys(self, connection, db_name)
-        return properties_keys 
+        return properties_keys
     except Exception as e:
         print("Error in finding schema keys in vertica ")
- 
- 
+
 
 def _get_extra_tags(
     self, connection, name, schema=None
@@ -370,7 +349,7 @@ def _get_extra_tags(
         schema_condition = "lower(table_schema) = '%(schema)s'" % {'schema': schema.lower()}
     else:
         schema_condition = "1"
-        
+
     owner_res = None
     if name == "table":
         table_owner_command = sql.text(dedent("""
@@ -380,7 +359,7 @@ def _get_extra_tags(
             """ % {'schema_condition': schema_condition}))
 
         owner_res = connection.execute(table_owner_command)
-        
+
     elif name == "projection":
         table_owner_command = sql.text(dedent("""
             SELECT projection_name as table_name, owner_name
@@ -388,8 +367,7 @@ def _get_extra_tags(
             WHERE lower(projection_schema) = '%(schema)s'
             """ % {'schema': schema.lower()}))
         owner_res = connection.execute(table_owner_command)
-        
-        
+
     elif name == "view":
         table_owner_command = sql.text(dedent("""
             SELECT table_name, owner_name
@@ -397,59 +375,12 @@ def _get_extra_tags(
             WHERE %(schema_condition)s
             """ % {'schema_condition': schema_condition}))
         owner_res = connection.execute(table_owner_command)
-        
-    
 
-    
     final_tags = dict()
     for each in owner_res:
         final_tags[each['table_name']] = each['owner_name']
     return final_tags
- 
- 
-def get_pk_constraint(self, connection, table_name, schema: None, **kw):
-    if schema is not None:
-        schema_condition = "lower(table_schema) = '%(schema)s'" % {'schema': schema.lower()}
-    else:
-        schema_condition = "1"
 
-    spk = sql.text(dedent("""
-            SELECT column_name
-            FROM v_catalog.primary_keys
-            WHERE lower(table_name) = '%(table)s'
-            AND constraint_type = 'p'
-            AND %(schema_condition)s
-        """ % {'table': table_name.lower(), 'schema_condition': schema_condition}))
-
-    pk_columns = []
-
-    for row in connection.execute(spk):
-        columns = row['column_name']
-        pk_columns.append(columns)
-
-    # print(pk_columns)
-    return {'constrained_columns': pk_columns , 'name': pk_columns}
-
-def get_projection_names(self, connection, schema=None, **kw):
-    if schema is not None:
-        schema_condition = "lower(projection_schema) = '%(schema)s'" % {'schema': schema.lower()}
-    else:
-        schema_condition = "1"
-        
-        
-
-    get_projection_sql = sql.text(dedent("""
-        SELECT projection_name
-        from v_catalog.projections
-        WHERE lower(projection_schema) =  '%(schema)s'
-        ORDER BY projection_name
-        """  % {'schema': schema}))
-    
-    c = connection.execute(get_projection_sql)
-    
-    return [row[0] for row in c]
-  
-  
 
 def get_projection_comment(self, connection, projection_name, schema=None, **kw):
     if schema is not None:
@@ -555,31 +486,7 @@ def get_projection_comment(self, connection, projection_name, schema=None, **kw)
                            "Number of Partition" : str(partition_number),
                            "Segmentation_key": segmentation_key,
                            "Projection SIze": str(projection_size) + " KB",
-                           "Projection Cached": str(cached_projection)}}      
-
-
-
-
-def get_models_names(self, connection, schema=None, **kw):
-        
-        if schema is not None:
-            schema_condition = "lower(schema_name) = '%(schema)s'" % {'schema': schema.lower()}
-        else:
-            schema_condition = "1"
-
-        
-        get_models_sql = sql.text(dedent("""
-            SELECT model_name 
-            FROM models
-            WHERE lower(schema_name) =  '%(schema)s'
-            ORDER BY model_name
-        """ % {'schema': schema}))
-
-        c = connection.execute(get_models_sql)
-        
-        
-        return [row[0] for row in c]
-
+                           "Projection Cached": str(cached_projection)}}
 
 
 def get_model_comment(self, connection, model_name, schema=None, **kw):
@@ -589,154 +496,122 @@ def get_model_comment(self, connection, model_name, schema=None, **kw):
     else:
         schema_condition = "1"
 
-   
-    
-    model_used_by =  sql.text(dedent("""
+    model_used_by = sql.text(dedent("""
             select owner_name from models
             where model_name = '%(model)s'
             
-        """ % {'model': model_name }))
-    
-  
-    model_attr_name  = sql.text(dedent("""
+        """ % {'model': model_name}))
+
+    model_attr_name = sql.text(dedent("""
             SELECT 
                 GET_MODEL_ATTRIBUTE 
                     ( USING PARAMETERS model_name='%(schema)s.%(model)s');
             
-        """ % {'model': model_name,'schema': schema}))
-    
-   
+        """ % {'model': model_name, 'schema': schema}))
+
     used_by = ""
     attr_name = []
     attr_details = []
     for data in connection.execute(model_used_by):
         used_by = data['owner_name']
-        
+
     for data in connection.execute(model_attr_name):
-       
-        attributes = {"attr_name":data[0],"attr_fields":data[1],"#_of_rows":data[2]}
-        
+
+        attributes = {"attr_name": data[0], "attr_fields": data[1], "#_of_rows": data[2]}
+
         attr_name.append(attributes)
-        
+
     attributes_details = []
     for data in attr_name:
         attr_details_dict = dict()
         attr_names = data['attr_name']
         attr_fields = str(data['attr_fields']).split(',')
-        
+
         get_attr_details = sql.text(dedent("""
                 SELECT 
                     GET_MODEL_ATTRIBUTE 
                         ( USING PARAMETERS model_name='%(schema)s.%(model)s', attr_name='%(attr_name)s');
                 
-            """ % {'model': model_name,'schema': schema, 'attr_name': attr_names}))
-        
-        
-        
-        
+            """ % {'model': model_name, 'schema': schema, 'attr_name': attr_names}))
+
         value_final = dict()
         attr_details_dict = {"attr_name": attr_names}
         for data in connection.execute(get_attr_details):
-           
-            
+
             if len(attr_fields) > 1:
-                
+
                 for index, each in enumerate(attr_fields):
                     if each not in value_final:
                         value_final[each] = list()
                     value_final[each].append(data[index])
-                
+
             else:
                 if attr_fields[0] not in value_final:
                     value_final[attr_fields[0]] = list()
                 value_final[attr_fields[0]].append(data[0])
-                
-          
-         
+
         attr_details_dict.update(value_final)
         attributes_details.append(attr_details_dict)
-        
-        
+
     return {"text": "This Vertica module is still is development Process", "properties": {"used_by": str(used_by),
-            "Model Attrributes ": str(attr_name),"Model Specifications":str(attributes_details)}}
+            "Model Attrributes ": str(attr_name), "Model Specifications": str(attributes_details)}}
 
-
-    
-def get_Oauth_names(self, connection, schema=None, **kw):
-
-    
-        get_oauth_sql = sql.text(dedent("""
-            SELECT auth_name from v_catalog.client_auth
-            WHERE auth_method = 'OAUTH'
-        """ % {'schema': schema}))
-        c = connection.execute(get_oauth_sql)
-        
-        return [row[0] for row in c]
 
 def get_oauth_comment(self, connection, model_name, schema=None, **kw):
-    
+
     get_oauth_comments = sql.text(dedent("""
                         SELECT auth_oid ,is_auth_enabled, is_fallthrough_enabled,auth_parameters ,auth_priority ,address_priority from v_catalog.client_auth
                             WHERE auth_method = 'OAUTH'
 
-                            """ ))
+                            """))
     client_id = ""
     client_secret = ""
     for data in connection.execute(get_oauth_comments):
-        
+
         whole_data = str(data['auth_parameters']).split(", ")
         client_id_data = whole_data[0].split("=")
         if client_id_data:
             # client_data.update({client_id_data[0] : client_id_data[1]})
             client_id = client_id_data[1]
-            
+
         client_secret_data = whole_data[1].split("=")
         if client_secret_data:
             # client_data.update({client_secret_data[0] : client_secret_data[1]})
             client_secret = client_secret_data[1]
-        
-        client_discorvery_url =  whole_data[2].split("=")
+
+        client_discorvery_url = whole_data[2].split("=")
         if client_discorvery_url:
             # client_data.update({client_secret_data[0] : client_secret_data[1]})
             discovery_url = client_discorvery_url[1]
-            
-        client_introspect_url =  whole_data[3].split("=")
+
+        client_introspect_url = whole_data[3].split("=")
         if client_introspect_url:
             # client_data.update({client_secret_data[0] : client_secret_data[1]})
             introspect_url = client_introspect_url[1]
-            
+
         auth_oid = data['auth_oid']
         is_auth_enabled = data['is_auth_enabled']
         auth_priority = data['auth_priority']
         address_priority = data['address_priority']
         is_fallthrough_enabled = data['is_fallthrough_enabled']
-       
-        
-   
+
     return {"text": "This Vertica module is still is development Process", "properties": {"discovery_url ": str(discovery_url),
-            "client_id  ": str(client_id),"introspect_url ":str(introspect_url), "auth_oid ":str(auth_oid),"client_secret ":str(client_secret),
-            "is_auth_enabled":str(is_auth_enabled), "auth_priority ":str(auth_priority),"address_priority ":str(address_priority),"is_fallthrough_enabled":str(is_fallthrough_enabled), }}
-    
-    
-    
-           
+            "client_id  ": str(client_id), "introspect_url ": str(introspect_url), "auth_oid ": str(auth_oid), "client_secret ": str(client_secret),
+            "is_auth_enabled": str(is_auth_enabled), "auth_priority ": str(auth_priority), "address_priority ": str(address_priority), "is_fallthrough_enabled": str(is_fallthrough_enabled), }}
+
+
 VerticaDialect.get_view_definition = get_view_definition
 VerticaDialect.get_table_comment = get_table_comment
 VerticaDialect._get_column_info = _get_column_info
 VerticaDialect._get_properties_keys = _get_properties_keys
 VerticaDialect._get_extra_tags = _get_extra_tags
-VerticaDialect.get_pk_constraint = get_pk_constraint
-VerticaDialect.get_projection_names = get_projection_names
 VerticaDialect.get_projection_comment = get_projection_comment
-VerticaDialect.get_models_names = get_models_names
 VerticaDialect.get_model_comment = get_model_comment
-VerticaDialect.get_Oauth_names = get_Oauth_names
 VerticaDialect.get_oauth_comment = get_oauth_comment
 
 
 class VerticaConfig(SQLAlchemyConfigVertica):
     # defaults
-   
     scheme: str = pydantic.Field(default="vertica+vertica_python")
 
     @validator("host_port")
@@ -746,16 +621,18 @@ class VerticaConfig(SQLAlchemyConfigVertica):
 
 @platform_name("Vertica")
 @config_class(VerticaConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`")
+@capability(SourceCapability.LINEAGE_FINE, "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`")
+@capability(SourceCapability.DELETION_DETECTION, "Optionally enabled via `stateful_ingestion.remove_stale_metadata`", supported=True)
 class VerticaSource(VerticaSQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext) -> None:
-        super().__init__(config, ctx, "vertica_lineage3")
+        super().__init__(config, ctx, "vertica")
         self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
         self.Projection_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
-
-
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
