@@ -5,6 +5,8 @@ import io.datahub.test.fixtures.elasticsearch.EntityExporter;
 import io.datahub.test.fixtures.elasticsearch.FixtureReader;
 import io.datahub.test.fixtures.elasticsearch.FixtureWriter;
 import io.datahub.test.fixtures.elasticsearch.LineageExporter;
+import io.datahub.test.models.DatasetAnonymized;
+import io.datahub.test.models.GraphAnonymized;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
@@ -23,14 +25,16 @@ public class ESTestFixtureUtils {
     @Test
     @Ignore("Fixture capture lineage")
     /*
-     * Run this to capture test fixtures
-     * 1. Update environment variables for ELASTICSEARCH_* (see buildEnvironmentClient)
+     * Run this to capture test fixtures, repeat for graph & dataset
+     * 1. Configure anonymizer class (use builder or set to null) Do not commit non-anonymous data
+     * 2. Update environment variables for ELASTICSEARCH_* (see buildEnvironmentClient)
      * 2. Update fixture name
      * 3. Comment @Ignore
-     * 4. Run extraction
+     * 4. Create output directory
+     * 5. Run extraction
      **/
     private void extractSearchLineageTestFixture() throws IOException {
-        String rootUrn = "urn:li:dataset:(urn:li:dataPlatform:teradata,teradata.simba.pp_access_views.dim_cust,PROD)";
+        String rootUrn = "urn:li:dataset:(urn:li:dataPlatform:teradata,teradata.simba.pp_bi_tables.tmis_daily_metrics_final_agg,PROD)";
 
         // Set.of("system_metadata_service_v1", "datasetindex_v2", "graph_service_v1")
         try (RestHighLevelClient client = new RestHighLevelClient(environmentRestClientBuilder())) {
@@ -38,12 +42,20 @@ public class ESTestFixtureUtils {
                     .client(client)
                     .build();
 
-            LineageExporter exporter = LineageExporter.builder()
+        /*
+            LineageExporter<GraphAnonymized> exporter = LineageExporter.<GraphAnonymized>builder()
                     .writer(fixtureWriter)
+                    .anonymizerClazz(GraphAnonymized.class)
                     .graphIndexName("<namespace>_graph_service_v1-5shards")
-                    .graphOutputPath(String.format("%s/%s.json", "search_lineage", "graph_service_v1"))
-                    //.entityIndexName("<namespace>_datasetindex_v2-5shards")
-                    //.entityOutputPath(String.format("%s/%s.json", "search_lineage", "datasetindex_v2"))
+                    .graphOutputPath(String.format("%s/%s.json", "search_lineage2", "graph_service_v1"))
+                    .build();
+         */
+
+            LineageExporter<DatasetAnonymized> exporter = LineageExporter.<DatasetAnonymized>builder()
+                    .writer(fixtureWriter)
+                    .anonymizerClazz(DatasetAnonymized.class)
+                    .entityIndexName("<namespace>_datasetindex_v2-5shards")
+                    .entityOutputPath(String.format("%s/%s.json", "search_lineage2", "datasetindex_v2"))
                     .build();
 
             exporter.export(Set.of(rootUrn));

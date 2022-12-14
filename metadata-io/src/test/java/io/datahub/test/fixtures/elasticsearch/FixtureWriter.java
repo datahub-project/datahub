@@ -9,6 +9,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 
+import javax.annotation.Nullable;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -32,7 +33,7 @@ public class FixtureWriter {
     }
 
     public <O, C> void write(SearchRequest searchRequest, String relativeOutput, boolean append,
-                             Class<O> outputType, Class<C> callbackType, BiConsumer<SearchHit, C> callback) {
+                             @Nullable Class<O> outputType, Class<C> callbackType, BiConsumer<SearchHit, C> callback) {
         try {
             SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
             SearchHits hits = searchResponse.getHits();

@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Builder
-public class LineageExporter {
+public class LineageExporter <O> {
     @Builder.Default
     private int fetchSize = 3000;
     @Builder.Default
@@ -38,12 +38,14 @@ public class LineageExporter {
     private String entityOutputPath;
     private String graphOutputPath;
 
+    private Class<O> anonymizerClazz;
+
 
     private static String idToUrn(String id) {
         return URLDecoder.decode(id, StandardCharsets.UTF_8);
     }
 
-    public void export(Set<String> ids) {
+    public <O> void export(Set<String> ids) {
         if (entityIndexName != null) {
             assert (entityOutputPath != null);
             exportEntityIndex(ids.stream().map(id -> URLEncoder.encode(id, StandardCharsets.UTF_8)).collect(Collectors.toSet()),
@@ -87,7 +89,7 @@ public class LineageExporter {
             long startTime = System.currentTimeMillis();
             System.out.printf("Hops: %s (Ids: %s) [VisitedIds: %s]", hops, urns.size(), visitedUrns.size());
 
-            writer.write(searchRequest, graphOutputPath, hops != 0, GraphAnonymized.class,
+            writer.write(searchRequest, graphOutputPath, hops != 0, anonymizerClazz,
                     GraphDocument.class, (hit, doc) -> {
                 docIds.add(hit.getId());
                 docs.add(doc);
@@ -147,7 +149,7 @@ public class LineageExporter {
             long startTime = System.currentTimeMillis();
             System.out.printf("Hops: %s (Ids: %s) [VisitedIds: %s]", hops, ids.size(), visitedIds.size());
 
-            writer.write(searchRequest, entityOutputPath, hops != 0, DatasetAnonymized.class,
+            writer.write(searchRequest, entityOutputPath, hops != 0, anonymizerClazz,
                     UrnDocument.class, (hit, doc) -> {
                 docIds.add(hit.getId());
                 docs.add(doc);
