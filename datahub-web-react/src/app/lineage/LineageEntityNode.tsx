@@ -290,7 +290,7 @@ export default function LineageEntityNode({
                 )}
                 <foreignObject
                     x={-centerX - 25}
-                    y={centerY + 16}
+                    y={centerY + 20}
                     width={20}
                     height={20}
                     onClick={(e) => e.stopPropagation()}

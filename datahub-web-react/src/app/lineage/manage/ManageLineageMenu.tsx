@@ -1,32 +1,28 @@
-import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined, PartitionOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Menu, Popover } from 'antd';
+import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
+import { Dropdown, Menu, Popover } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import FocusIcon from '../../../images/focus.svg';
 import { Direction, UpdatedLineages } from '../types';
 import ManageLineageModal from './ManageLineageModal';
 
 const DROPDOWN_Z_INDEX = 1;
 const POPOVER_Z_INDEX = 2;
 
-const StyledButton = styled(Button)`
-    margin-top: 10px;
-    max-width: min-content;
+const StyledImage = styled.img`
+    width: 12px;
 `;
 
-const ContentWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+const UnderlineWrapper = styled.span`
+    text-decoration: underline;
+    cursor: pointer;
 `;
 
 function PopoverContent({ centerEntity, direction }: { centerEntity?: () => void; direction: string }) {
     return (
-        <ContentWrapper>
-            Focus on this entity to make {direction} edits.
-            <StyledButton onClick={centerEntity}>
-                <PartitionOutlined /> Click to focus
-            </StyledButton>
-        </ContentWrapper>
+        <div>
+            <UnderlineWrapper onClick={centerEntity}>Focus</UnderlineWrapper> on this entity to make {direction} edits.
+        </div>
     );
 }
 
@@ -99,7 +95,7 @@ export default function ManageLineageMenu({
                         </Popover>
                         {isCenterNode && centerEntity && (
                             <Menu.Item key="2" onClick={centerEntity}>
-                                <PartitionOutlined />
+                                <StyledImage src={FocusIcon} alt="focus on entity" />
                                 &nbsp; Focus on Entity
                             </Menu.Item>
                         )}
