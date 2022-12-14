@@ -173,9 +173,9 @@ export default function LineageExplorer({ urn, type }: Props) {
                             resetAsyncEntity(asyncData.entity.urn);
                             maybeAddAsyncLoadedEntity(asyncData);
                         }}
-                        refetchCenterNode={(centerNodeUrn: string) => {
+                        refetchCenterNode={() => {
                             refetch().then(() => {
-                                resetAsyncEntity(centerNodeUrn);
+                                resetAsyncEntity(urn);
                             });
                         }}
                     />

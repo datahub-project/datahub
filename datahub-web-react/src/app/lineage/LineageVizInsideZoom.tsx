@@ -83,7 +83,7 @@ type Props = {
     width: number;
     height: number;
     fineGrainedMap?: any;
-    refetchCenterNode: (urn: string) => void;
+    refetchCenterNode: () => void;
 };
 
 const HelpIcon = styled(QuestionCircleOutlined)`

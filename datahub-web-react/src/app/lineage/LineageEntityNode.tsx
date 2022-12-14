@@ -72,7 +72,7 @@ export default function LineageEntityNode({
     function fetchEntityLineage() {
         if (node.data.urn) {
             if (isCenterNode) {
-                refetchCenterNode(node.data.urn);
+                refetchCenterNode();
             } else {
                 // update non-center node using onExpandClick in useEffect below
                 getAsyncEntityLineage({

@@ -33,5 +33,5 @@ type LineageExplorerContextType = {
     setVisibleColumnsByUrn: any;
     columnsByUrn: Record<string, SchemaField[]>;
     setColumnsByUrn: React.Dispatch<React.SetStateAction<Record<string, SchemaField[]>>>;
-    refetchCenterNode: (urn: string) => void;
+    refetchCenterNode: () => void;
 };

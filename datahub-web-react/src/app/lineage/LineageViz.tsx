@@ -8,7 +8,7 @@ import LineageVizInsideZoom from './LineageVizInsideZoom';
 export const defaultMargin = { top: 10, left: 280, right: 280, bottom: 10 };
 
 interface Props extends TreeProps {
-    refetchCenterNode: (urn: string) => void;
+    refetchCenterNode: () => void;
 }
 
 export default function LineageViz({
