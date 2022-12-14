@@ -20,6 +20,17 @@ import {
   HistoryOutlined,
 } from "@ant-design/icons";
 
+//quickLinkCards
+import {
+  ThunderboltTwoTone,
+  DeploymentUnitOutlined,
+  SyncOutlined,
+  CodeTwoTone,
+  QuestionCircleTwoTone,
+  SlidersTwoTone,
+  HeartTwoTone,
+} from "@ant-design/icons";
+
 const deploymentGuideContent = [
   {
     title: "Managed DataHub",
@@ -106,6 +117,58 @@ const featureGuideContent = [
   { title: "Schema History", icon: <HistoryOutlined />, to: "docs/schema-history" },
 ];
 
+
+const quickLinkContent = [
+  {
+    title: "Get Started",
+    icon: <ThunderboltTwoTone />,
+    description: "Details on how to get DataHub up and running",
+    to: "/docs/get-started-with-datahub",
+  },
+  {
+    title: "Ingest Metadata",
+    icon: <ApiTwoTone />,
+    description: "Details on how to get Metadata loaded into DataHub",
+    to: "/docs/metadata-ingestion",
+  },
+  {
+    title: "Enrich Metadata",
+    icon: <DeploymentUnitOutlined />,
+    description: "Improve the quality and coverage of Metadata",
+    to: "docs/enrich-metadata",
+  },
+  {
+    title: "Act on Metadata",
+    icon: <SyncOutlined />,
+    description: "Step-by-step guides for acting on Metadata Events",
+    to: "docs/act-on-metadata",
+  },
+  {
+    title: "Developer Guides",
+    icon: <CodeTwoTone />,
+    description: "Interact with DataHub programmatically ",
+    to: "/docs/cli",
+  },
+  {
+    title: "Feature Guides",
+    icon: <QuestionCircleTwoTone />,
+    description: "Step-by-step guides for making the most of DataHub",
+    to: "/docs/how/search",
+  },
+  {
+    title: "Deployment Guides",
+    icon: <SlidersTwoTone />,
+    description: "Step-by-step guides for deploying DataHub to production",
+    to: "/docs/deploy/aws",
+  },
+  {
+    title: "Join the Community",
+    icon: <HeartTwoTone />,
+    description: "Collaborate, learn, and grow with us",
+    to: "/docs/slack",
+  },
+];
+
 function Docs() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
@@ -124,9 +187,9 @@ function Docs() {
               <SearchBar />
             </div>
           </div>
-          <QuickLinkCards />
+          <QuickLinkCards quickLinkContent={quickLinkContent}/>
           <GuideList title="Deployment Guides" content={deploymentGuideContent} />
-          <GuideList title="Ingestion Guides" content={ingestionGuideContent} seeMoreLink={{ label: "See all 50+ sources", to: "/docs/lineage/airflow" }} />
+          <GuideList title="Ingestion Guides" content={ingestionGuideContent} seeMoreLink={{ label: "See all 50+ sources", to: "/docs/sources-summary" }} />
           <GuideList title="Feature Guides" content={featureGuideContent} seeMoreLink={{ label: "See all guides", to: "/docs/how/search" }} />
         </div>
       </header>
