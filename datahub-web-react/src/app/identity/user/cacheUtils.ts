@@ -2,13 +2,13 @@ import { ListUsersDocument, ListUsersQuery } from '../../../graphql/user.generat
 
 export const DEFAULT_USER_LIST_PAGE_SIZE = 25;
 
-export const removeUserFromListUsersCache = (urn, client) => {
+export const removeUserFromListUsersCache = (urn, client, page, pageSize) => {
     const currData: ListUsersQuery | null = client.readQuery({
         query: ListUsersDocument,
         variables: {
             input: {
-                start: 0,
-                count: DEFAULT_USER_LIST_PAGE_SIZE,
+                start: (page - 1) * pageSize,
+                count: pageSize,
             },
         },
     });
@@ -20,8 +20,8 @@ export const removeUserFromListUsersCache = (urn, client) => {
         query: ListUsersDocument,
         variables: {
             input: {
-                start: 0,
-                count: DEFAULT_USER_LIST_PAGE_SIZE,
+                start: (page - 1) * pageSize,
+                count: pageSize,
             },
         },
         data: {
