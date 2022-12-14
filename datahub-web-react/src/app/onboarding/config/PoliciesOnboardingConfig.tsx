@@ -15,7 +15,7 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
                     Welcome to DataHub <strong>Policies</strong>!
                 </p>
                 <p>
-                    In most cases, <strong>Roles</strong> are the best option for granting privileges to DataHub users."
+                    In most cases, <strong>Roles</strong> are the best option for granting privileges to DataHub users.
                 </p>
                 <p>
                     When more fine-grained control over user and group permissions is required, then{' '}
