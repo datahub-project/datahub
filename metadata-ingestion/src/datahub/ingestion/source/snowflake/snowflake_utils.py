@@ -24,45 +24,11 @@ class SnowflakeCloudProvider(str, Enum):
 
 
 # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#region-ids
-# This needs an update if and when snowflake supports new region
+# Includes only exceptions to format <provider>_<cloud region with hyphen replaced by _>
 SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
-    "aws_us_west_2": (SnowflakeCloudProvider.AWS, "us-west-2"),
-    "aws_us_gov_west_1": (SnowflakeCloudProvider.AWS, "us-gov-west-1"),
-    "aws_us_east_2": (SnowflakeCloudProvider.AWS, "us-east-2"),
-    "aws_us_east_1": (SnowflakeCloudProvider.AWS, "us-east-1"),
     "aws_us_east_1_gov": (SnowflakeCloudProvider.AWS, "us-east-1"),
-    "aws_ca_central_1": (SnowflakeCloudProvider.AWS, "ca-central-1"),
-    "aws_sa_east_1": (SnowflakeCloudProvider.AWS, "sa-east-1"),
-    "aws_eu_west_1": (SnowflakeCloudProvider.AWS, "eu-west-1"),
-    "aws_eu_west_2": (SnowflakeCloudProvider.AWS, "eu-west-2"),
-    "aws_eu_west_3": (SnowflakeCloudProvider.AWS, "eu-west-3"),
-    "aws_eu_central_1": (SnowflakeCloudProvider.AWS, "eu-central-1"),
-    "aws_eu_north_1": (SnowflakeCloudProvider.AWS, "eu-north-1"),
-    "aws_ap_northeast_1": (SnowflakeCloudProvider.AWS, "ap-northeast-1"),
-    "aws_ap_northeast_3": (SnowflakeCloudProvider.AWS, "ap-northeast-3"),
-    "aws_ap_northeast_2": (SnowflakeCloudProvider.AWS, "ap-northeast-2"),
-    "aws_ap_south_1": (SnowflakeCloudProvider.AWS, "ap-south-1"),
-    "aws_ap_southeast_1": (SnowflakeCloudProvider.AWS, "ap-southeast-1"),
-    "aws_ap_southeast_2": (SnowflakeCloudProvider.AWS, "ap-southeast-2"),
-    "gcp_us_central1": (SnowflakeCloudProvider.GCP, "us-central1"),
-    "gcp_us_east4": (SnowflakeCloudProvider.GCP, "us-east4"),
-    "gcp_europe_west2": (SnowflakeCloudProvider.GCP, "europe-west2"),
-    "gcp_europe_west4": (SnowflakeCloudProvider.GCP, "europe-west4"),
-    "azure_westus2": (SnowflakeCloudProvider.AZURE, "westus2"),
-    "azure_centralus": (SnowflakeCloudProvider.AZURE, "centralus"),
-    "azure_southcentralus": (SnowflakeCloudProvider.AZURE, "southcentralus"),
-    "azure_eastus2": (SnowflakeCloudProvider.AZURE, "eastus2"),
-    "azure_usgovvirginia": (SnowflakeCloudProvider.AZURE, "usgovvirginia"),
-    "azure_canadacentral": (SnowflakeCloudProvider.AZURE, "canadacentral"),
     "azure_uksouth": (SnowflakeCloudProvider.AZURE, "uk-south"),
-    "azure_northeurope": (SnowflakeCloudProvider.AZURE, "northeurope"),
-    "azure_westeurope": (SnowflakeCloudProvider.AZURE, "westeurope"),
-    "azure_switzerlandnorth": (SnowflakeCloudProvider.AZURE, "switzerlandnorth"),
-    "azure_uaenorth": (SnowflakeCloudProvider.AZURE, "uaenorth"),
     "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india.azure"),
-    "azure_japaneast": (SnowflakeCloudProvider.AZURE, "japaneast"),
-    "azure_southeastasia": (SnowflakeCloudProvider.AZURE, "southeastasia"),
-    "azure_australiaeast": (SnowflakeCloudProvider.AZURE, "australiaeast"),
 }
 
 SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS

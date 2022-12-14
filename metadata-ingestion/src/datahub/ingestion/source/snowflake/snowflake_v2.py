@@ -1190,7 +1190,18 @@ class SnowflakeV2Source(
             region = region.split(".")[-1].lower()
             account_locator = account_locator.lower()
 
-            cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
+            if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+                cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
+            elif region.startswith(("aws_", "gcp_", "azure_")):
+                # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
+                cloud, cloud_region_id = region.split("_", 1)
+                cloud_region_id = cloud_region_id.replace("_", "-")
+            else:
+                self.warn(
+                    self.logger,
+                    "snowsight url",
+                    f"unable to get snowsight base url, unknown region {region}",
+                )
 
             # For privatelink, account identifier ends with .privatelink
             # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
