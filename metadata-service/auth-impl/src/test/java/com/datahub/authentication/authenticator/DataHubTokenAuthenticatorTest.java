@@ -15,23 +15,15 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import java.util.Collections;
+import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
-import java.util.Map;
-
 import static com.datahub.authentication.AuthenticationConstants.*;
-import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SALT_CONFIG_NAME;
-import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_ALG_CONFIG_NAME;
-import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_KEY_CONFIG_NAME;
-import static com.datahub.authentication.token.TokenClaims.ACTOR_ID_CLAIM_NAME;
-import static com.datahub.authentication.token.TokenClaims.ACTOR_TYPE_CLAIM_NAME;
-import static com.datahub.authentication.token.TokenClaims.TOKEN_TYPE_CLAIM_NAME;
-import static com.datahub.authentication.token.TokenClaims.TOKEN_VERSION_CLAIM_NAME;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertThrows;
+import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.*;
+import static com.datahub.authentication.token.TokenClaims.*;
+import static org.testng.Assert.*;
 
 
 public class DataHubTokenAuthenticatorTest {
@@ -141,4 +133,23 @@ public class DataHubTokenAuthenticatorTest {
         assertEquals(claimsMap.get(ACTOR_TYPE_CLAIM_NAME), "USER");
         assertEquals(claimsMap.get(ACTOR_ID_CLAIM_NAME), "datahub");
     }
+/*
+    @Test
+    public void testAccessTokens() {
+        final String salt = "0lib4AggPIuXeBvEBgvotJKg5IgohtDQwqXkMe+Lmao=";
+
+        final String expected_id = "<expected value>";
+        final String access_token = "eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImFkbWluIiwidHlwZS"
+            + "I6IlBFUlNPTkFMIiwidmVyc2lvbiI6IjIiLCJqdGkiOiIyM2U5Y2UyMS1kNWYzLTQ3ODgtYTFjNy05NTRmZjI0NDI4NGQiLCJzdW"
+            + "IiOiJhZG1pbiIsImV4cCI6MTY3MjIyNDAwOSwiaXNzIjoiZGF0YWh1Yi1tZXRhZGF0YS1zZXJ2aWNlIn0.WyYiNGhJ50xFzw1x1"
+            + "8yUUJqKkkalcPl039VHYZBah3s";
+
+        final byte[] saltingKeyBytes = salt.getBytes();
+        final byte[] inputBytes = access_token.getBytes();
+        final byte[] concatBytes = ArrayUtils.addAll(inputBytes, saltingKeyBytes);
+        final byte[] bytes = DigestUtils.sha256(concatBytes);
+        String result = Base64.getEncoder().encodeToString(bytes);
+
+        assertEquals(result, expected_id);
+    }*/
 }
