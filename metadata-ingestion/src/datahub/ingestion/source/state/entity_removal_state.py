@@ -79,7 +79,10 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
 
             value = values.pop(old_field)
             if mapped_type == "dataset":
-                values["urns"] += CheckpointStateUtil.get_dataset_urns_not_in(value, [])
+                values["urns"] += [
+                    CheckpointStateUtil.get_urn_from_encoded_dataset(encoded_urn)
+                    for encoded_urn in value
+                ]
             elif mapped_type == "topic":
                 values["urns"] += [
                     CheckpointStateUtil.get_urn_from_encoded_topic(encoded_urn)
