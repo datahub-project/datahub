@@ -346,7 +346,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common,
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "vertica": sql_common | {"sqlalchemy-vertica-dialect[vertica-python]==0.0.5"},
     "unity-catalog": databricks_cli | {"requests"},
 }
 
