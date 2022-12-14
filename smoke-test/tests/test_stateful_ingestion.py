@@ -114,7 +114,7 @@ def test_stateful_ingestion(wait_for_healthchecks):
     state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
     state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
     difference_urns = list(
-        state1.get_urns_not_in(type="table", other_checkpoint_state=state2)
+        state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
     )
     assert len(difference_urns) == 1
     assert (
