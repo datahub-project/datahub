@@ -12,8 +12,8 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
         title: 'Narrow your search ⚡',
         content: (
             <Typography.Paragraph>
-                Quickly find relevant assets by applying one or more filters. Try filtering by{' '}
-                <strong>Entity Type</strong>, <strong>Owner</strong>, and more!
+                Quickly find relevant assets by applying one or more filters. Try filtering by <strong>Type</strong>,{' '}
+                <strong>Owner</strong>, and more!
             </Typography.Paragraph>
         ),
     },
