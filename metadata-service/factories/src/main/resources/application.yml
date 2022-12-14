@@ -221,3 +221,7 @@ entityChangeEvents:
 
 views:
   enabled: ${VIEWS_ENABLED:true}
+
+entityClient:
+  retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
+  numRetries: ${ENTITY_CLIENT_NUM_RETRIES:3}
