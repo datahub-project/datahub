@@ -100,7 +100,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
 
     @staticmethod
     def compute_percent_entities_changed(
-        new_old_entity_list: List[Tuple[List[str], List[str]]]
+        new_old_entity_list: List[Tuple[Iterable[str], Iterable[str]]]
     ) -> float:
         old_count_all = 0
         overlap_count_all = 0
@@ -120,7 +120,7 @@ class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived])
 
     @staticmethod
     def get_entity_overlap_and_cardinalities(
-        new_entities: List[str], old_entities: List[str]
+        new_entities: Iterable[str], old_entities: Iterable[str]
     ) -> Tuple[int, int, int]:
         new_set = set(new_entities)
         old_set = set(old_entities)
