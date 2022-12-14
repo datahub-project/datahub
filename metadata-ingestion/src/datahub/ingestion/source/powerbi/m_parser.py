@@ -33,6 +33,7 @@ POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING: Dict[str, str] = {
     SupportedDataPlatform.POSTGRES_SQL.value: "postgres",
     SupportedDataPlatform.ORACLE.value: "oracle",
     SupportedDataPlatform.SNOWFLAKE.value: "snowflake",
+    SupportedDataPlatform.MS_SQL.value: "mssql",
 }
 
 
