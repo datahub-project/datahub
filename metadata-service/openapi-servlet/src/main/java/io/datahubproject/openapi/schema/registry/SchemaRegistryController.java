@@ -1,186 +1,257 @@
 package io.datahubproject.openapi.schema.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import com.linkedin.mxe.TopicConvention;
+import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal;
+import com.linkedin.pegasus2avro.mxe.MetadataChangeLog;
+import com.linkedin.pegasus2avro.mxe.MetadataChangeProposal;
+import com.linkedin.pegasus2avro.mxe.PlatformEvent;
 import io.datahubproject.schema_registry.openapi.generated.CompatibilityCheckResponse;
 import io.datahubproject.schema_registry.openapi.generated.ConfigUpdateRequest;
 import io.datahubproject.schema_registry.openapi.generated.ModeUpdateRequest;
 import io.datahubproject.schema_registry.openapi.generated.RegisterSchemaRequest;
 import io.datahubproject.schema_registry.openapi.generated.RegisterSchemaResponse;
-import io.swagger.api.RegistryApiController;
+import io.swagger.api.CompatibilityApi;
+import io.swagger.api.ConfigApi;
+import io.swagger.api.ContextsApi;
+import io.swagger.api.DefaultApi;
+import io.swagger.api.ModeApi;
+import io.swagger.api.SchemasApi;
+import io.swagger.api.SubjectsApi;
+import io.swagger.api.V1Api;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 
 /**
  * DataHub implementation for Confluent's Schema Registry OpenAPI spec.
  */
 @Slf4j
-public class SchemaRegistryController extends RegistryApiController {
-  public SchemaRegistryController(ObjectMapper objectMapper, HttpServletRequest request) {
-    super(objectMapper, request);
+@RestController
+@RequestMapping("/schema-registry")
+//@RequiredArgsConstructor
+public class SchemaRegistryController implements CompatibilityApi, ConfigApi, ContextsApi, DefaultApi, ModeApi,
+                                                 SchemasApi, SubjectsApi, V1Api {
+  //private final CacheManager cacheManager;
+
+  //private final Cache cache = cacheManager.getCache("schemaRegistryCache");
+
+  //private final Parser parser = new org.apache.avro.Schema.Parser();
+
+  private final ObjectMapper objectMapper;
+
+  private final HttpServletRequest request;
+
+  private final Map<String, org.apache.avro.Schema> _schemaMap;
+
+  private final BiMap<String, Integer> _subjectToIdMap;
+
+  private final AtomicInteger counter = new AtomicInteger();
+
+  @org.springframework.beans.factory.annotation.Autowired
+  public SchemaRegistryController(ObjectMapper objectMapper, HttpServletRequest request, TopicConvention convention) {
+    this.objectMapper = objectMapper;
+    this.request = request;
+    this._schemaMap = new HashMap<>();
+    this._subjectToIdMap = HashBiMap.create();
+    this._schemaMap.put(convention.getMetadataChangeProposalTopicName(), MetadataChangeProposal.getClassSchema());
+    this._subjectToIdMap.put(convention.getMetadataChangeProposalTopicName(), counter.incrementAndGet());
+    this._schemaMap.put(convention.getMetadataChangeLogVersionedTopicName(), MetadataChangeLog.getClassSchema());
+    this._subjectToIdMap.put(convention.getMetadataChangeLogVersionedTopicName(), counter.incrementAndGet());
+    this._schemaMap.put(convention.getMetadataChangeLogTimeseriesTopicName(), MetadataChangeLog.getClassSchema());
+    this._subjectToIdMap.put(convention.getMetadataChangeLogTimeseriesTopicName(), counter.incrementAndGet());
+    this._schemaMap.put(convention.getFailedMetadataChangeProposalTopicName(),
+        FailedMetadataChangeProposal.getClassSchema());
+    this._subjectToIdMap.put(convention.getFailedMetadataChangeProposalTopicName(), counter.incrementAndGet());
+    this._schemaMap.put(convention.getPlatformEventTopicName(), PlatformEvent.getClassSchema());
+    this._subjectToIdMap.put(convention.getPlatformEventTopicName(), counter.incrementAndGet());
+  }
+
+  @Override
+  public Optional<ObjectMapper> getObjectMapper() {
+    return Optional.ofNullable(objectMapper);
+  }
+
+  @Override
+  public Optional<HttpServletRequest> getRequest() {
+    return Optional.ofNullable(request);
   }
 
   @Override
   public ResponseEntity<Integer> deleteSchemaVersion(String subject, String version, Boolean permanent) {
-    return super.deleteSchemaVersion(subject, version, permanent);
+    return SubjectsApi.super.deleteSchemaVersion(subject, version, permanent);
   }
 
   @Override
   public ResponseEntity<List<Integer>> deleteSubject(String subject, Boolean permanent) {
-    return super.deleteSubject(subject, permanent);
+    return SubjectsApi.super.deleteSubject(subject, permanent);
   }
 
   @Override
   public ResponseEntity<String> deleteSubjectConfig(String subject) {
-    return super.deleteSubjectConfig(subject);
+    return ConfigApi.super.deleteSubjectConfig(subject);
   }
 
   @Override
   public ResponseEntity<String> deleteSubjectMode(String subject) {
-    return super.deleteSubjectMode(subject);
+    return ModeApi.super.deleteSubjectMode(subject);
   }
 
   @Override
   public ResponseEntity<Void> deleteTopLevelConfig() {
-    return super.deleteTopLevelConfig();
+    return ConfigApi.super.deleteTopLevelConfig();
   }
 
   @Override
   public ResponseEntity<String> get() {
-    return super.get();
+    return DefaultApi.super.get();
   }
 
   @Override
   public ResponseEntity<Void> getClusterId() {
-    return super.getClusterId();
+    return V1Api.super.getClusterId();
   }
 
   @Override
   public ResponseEntity<Void> getMode(String subject, Boolean defaultToGlobal) {
-    return super.getMode(subject, defaultToGlobal);
+    return ModeApi.super.getMode(subject, defaultToGlobal);
   }
 
   @Override
   public ResponseEntity<Void> getReferencedBy(String subject, String version) {
-    return super.getReferencedBy(subject, version);
+    return SubjectsApi.super.getReferencedBy(subject, version);
   }
 
   @Override
   public ResponseEntity<Void> getSchema(Integer id, String subject, String format, Boolean fetchMaxId) {
-    return super.getSchema(id, subject, format, fetchMaxId);
+    return SchemasApi.super.getSchema(id, subject, format, fetchMaxId);
   }
 
   @Override
   public ResponseEntity<Void> getSchemaByVersion(String subject, String version, Boolean deleted) {
-    return super.getSchemaByVersion(subject, version, deleted);
+    return SubjectsApi.super.getSchemaByVersion(subject, version, deleted);
   }
 
   @Override
   public ResponseEntity<Void> getSchemaOnly(String subject, String version, Boolean deleted) {
-    return super.getSchemaOnly(subject, version, deleted);
+    return SubjectsApi.super.getSchemaOnly(subject, version, deleted);
   }
 
   @Override
   public ResponseEntity<Void> getSchemaTypes() {
-    return super.getSchemaTypes();
+    return SchemasApi.super.getSchemaTypes();
   }
 
   @Override
   public ResponseEntity<Void> getSchemas(String subjectPrefix, Boolean deleted, Boolean latestOnly, Integer offset,
       Integer limit) {
-    return super.getSchemas(subjectPrefix, deleted, latestOnly, offset, limit);
+    return SchemasApi.super.getSchemas(subjectPrefix, deleted, latestOnly, offset, limit);
   }
 
   @Override
   public ResponseEntity<Void> getSubjectLevelConfig(String subject, Boolean defaultToGlobal) {
-    return super.getSubjectLevelConfig(subject, defaultToGlobal);
+    return ConfigApi.super.getSubjectLevelConfig(subject, defaultToGlobal);
   }
 
   @Override
   public ResponseEntity<Void> getSubjects(Integer id, String subject, Boolean deleted) {
-    return super.getSubjects(id, subject, deleted);
+    return SchemasApi.super.getSubjects(id, subject, deleted);
   }
 
   @Override
   public ResponseEntity<Void> getTopLevelConfig() {
-    return super.getTopLevelConfig();
+    return ConfigApi.super.getTopLevelConfig();
   }
 
   @Override
   public ResponseEntity<Void> getTopLevelMode() {
-    return super.getTopLevelMode();
+    return ModeApi.super.getTopLevelMode();
   }
 
   @Override
   public ResponseEntity<Void> getVersions(Integer id, String subject, Boolean deleted) {
-    return super.getVersions(id, subject, deleted);
+    return SchemasApi.super.getVersions(id, subject, deleted);
   }
 
   @Override
   public ResponseEntity<Void> list(String subjectPrefix, Boolean deleted) {
-    return super.list(subjectPrefix, deleted);
+    return SubjectsApi.super.list(subjectPrefix, deleted);
   }
 
   @Override
   public ResponseEntity<Void> listContexts() {
-    return super.listContexts();
+    return ContextsApi.super.listContexts();
   }
 
   @Override
   public ResponseEntity<Void> listVersions(String subject, Boolean deleted) {
-    return super.listVersions(subject, deleted);
+    return SubjectsApi.super.listVersions(subject, deleted);
   }
 
   @Override
   public ResponseEntity<Schema> lookUpSchemaUnderSubject(String subject, RegisterSchemaRequest body, Boolean normalize,
       Boolean deleted) {
-    return super.lookUpSchemaUnderSubject(subject, body, normalize, deleted);
+    return SubjectsApi.super.lookUpSchemaUnderSubject(subject, body, normalize, deleted);
   }
 
   @Override
   public ResponseEntity<Map<String, String>> post(Map<String, String> body) {
-    return super.post(body);
+    return DefaultApi.super.post(body);
   }
 
   @Override
   public ResponseEntity<RegisterSchemaResponse> register(String subject, RegisterSchemaRequest body,
       Boolean normalize) {
-    return super.register(subject, body, normalize);
+    // RegisterSchemaResponse is the unique int (in the DB for the schema)
+    return new ResponseEntity<>(new RegisterSchemaResponse(), HttpStatus.OK);
+  }
+
+  @Override
+  public Optional<String> getAcceptHeader() {
+    return CompatibilityApi.super.getAcceptHeader();
   }
 
   @Override
   public ResponseEntity<CompatibilityCheckResponse> testCompatibilityBySubjectName(String subject, String version,
       RegisterSchemaRequest body, Boolean verbose) {
-    return super.testCompatibilityBySubjectName(subject, version, body, verbose);
+    return CompatibilityApi.super.testCompatibilityBySubjectName(subject, version, body, verbose);
   }
 
   @Override
   public ResponseEntity<CompatibilityCheckResponse> testCompatibilityForSubject(String subject,
       RegisterSchemaRequest body, Boolean verbose) {
-    return super.testCompatibilityForSubject(subject, body, verbose);
+    return CompatibilityApi.super.testCompatibilityForSubject(subject, body, verbose);
   }
 
   @Override
   public ResponseEntity<Void> updateMode(String subject, ModeUpdateRequest body, Boolean force) {
-    return super.updateMode(subject, body, force);
+    return ModeApi.super.updateMode(subject, body, force);
   }
 
   @Override
   public ResponseEntity<Void> updateSubjectLevelConfig(String subject, ConfigUpdateRequest body) {
-    return super.updateSubjectLevelConfig(subject, body);
+    return ConfigApi.super.updateSubjectLevelConfig(subject, body);
   }
 
   @Override
   public ResponseEntity<Void> updateTopLevelConfig(ConfigUpdateRequest body) {
-    return super.updateTopLevelConfig(body);
+    return ConfigApi.super.updateTopLevelConfig(body);
   }
 
   @Override
   public ResponseEntity<Void> updateTopLevelMode(ModeUpdateRequest body, Boolean force) {
-    return super.updateTopLevelMode(body, force);
+    return ModeApi.super.updateTopLevelMode(body, force);
   }
 }

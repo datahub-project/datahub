@@ -10,7 +10,7 @@ import org.springframework.validation.annotation.Validated;
  * SchemaReference
  */
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-07T18:49:15.845110Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SchemaReference {
 

@@ -1,10 +1,11 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
-import com.datahub.kafka.avro.deserializer.KafkaAvroDeserializer;
-import com.datahub.kafka.avro.serializer.KafkaAvroSerializer;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.mxe.TopicConvention;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
+import io.confluent.kafka.serializers.KafkaAvroDeserializer;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -24,7 +25,6 @@ public class InternalSchemaRegistryFactory {
 
   public static final String TYPE = "INTERNAL";
 
-  //TopicConvention
 
   @Bean
   @Nonnull
@@ -32,8 +32,10 @@ public class InternalSchemaRegistryFactory {
   protected SchemaRegistryConfig getInstance(TopicConvention convention) {
     Map<String, Object> props = new HashMap<>();
 
+    // TODO: Fix this url to either come by config or from the source code directly. Particularly the last endpoint
+    props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://localhost:8080/openapi/schema-registry");
+
     log.info("Creating internal registry");
-    return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class,
-        props);
+    return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
   }
 }

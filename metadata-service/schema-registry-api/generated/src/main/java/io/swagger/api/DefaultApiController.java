@@ -6,16 +6,16 @@ import javax.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.RestController;
 
 
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-07T18:49:15.845110Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
 @RestController
-public class RegistryApiController implements RegistryApi {
+public class DefaultApiController implements DefaultApi {
 
   private final ObjectMapper objectMapper;
 
   private final HttpServletRequest request;
 
   @org.springframework.beans.factory.annotation.Autowired
-  public RegistryApiController(ObjectMapper objectMapper, HttpServletRequest request) {
+  public DefaultApiController(ObjectMapper objectMapper, HttpServletRequest request) {
     this.objectMapper = objectMapper;
     this.request = request;
   }

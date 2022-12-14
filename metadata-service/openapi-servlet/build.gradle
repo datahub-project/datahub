@@ -21,6 +21,8 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
+  testImplementation externalDependency.springBootTest
+
   testCompile externalDependency.testng
   testCompile externalDependency.mockito
 }

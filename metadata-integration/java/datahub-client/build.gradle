@@ -28,7 +28,8 @@ tasks.withType(Test).configureEach {
 dependencies {
 
   implementation project(':metadata-models')
-  implementation project(':kafka-avro-serde')
+  //implementation project(':kafka-avro-serde')
+  implementation externalDependency.kafkaAvroSerde
 
   compileOnly externalDependency.httpAsyncClient
   implementation externalDependency.jacksonDataBind
@@ -122,6 +123,7 @@ shadowJar {
   relocate 'net.jpountz', 'datahub.shaded.net.jpountz'
   relocate 'com.github.luben', 'datahub.shaded.com.github.luben'
   relocate 'common.message', 'datahub.shaded.common.message'
+  relocate 'org.glassfish', 'datahub.shaded.org.glassfish'
   finalizedBy checkShadowJar
 }
 

@@ -87,6 +87,7 @@ public class GraphQLEngineFactory {
   private TimeseriesAspectService _timeseriesAspectService;
 
   @Autowired
+  @Qualifier("recommendationsService")
   private RecommendationsService _recommendationsService;
 
   @Autowired

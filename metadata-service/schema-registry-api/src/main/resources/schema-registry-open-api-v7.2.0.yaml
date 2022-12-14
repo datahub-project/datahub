@@ -5,7 +5,7 @@ info:
   title: Confluent Schema Registry
   version: v1
 paths:
-  /registry/compatibility/subjects/{subject}/versions/{version}:
+  /compatibility/subjects/{subject}/versions/{version}:
     post:
       summary: Test input schema against a particular version of a subject's schema
         for compatibility.
@@ -74,7 +74,7 @@ paths:
             Error code 42202 -- Invalid version
         "500":
           description: Error code 50001 -- Error in the backend data store
-  /registry/:
+  /:
     get:
       summary: Schema Registry Root Resource
       description: The Root resource is a no-op.
@@ -134,7 +134,7 @@ paths:
                 type: object
                 additionalProperties:
                   type: string
-  /registry/compatibility/subjects/{subject}/versions:
+  /compatibility/subjects/{subject}/versions:
     post:
       summary: "Test input schema against a subject's schemas for compatibility, based\
         \ on the compatibility level of the subject configured. In other word, it\
@@ -191,7 +191,7 @@ paths:
             Error code 42202 -- Invalid version
         "500":
           description: Error code 50001 -- Error in the backend data store
-  /registry/config:
+  /config:
     get:
       summary: Get global compatibility level.
       operationId: getTopLevelConfig
@@ -253,7 +253,7 @@ paths:
               - "FULL_TRANSITIVE"
         500:
           description: "Error code 50001 -- Error in the backend datastore"
-  /registry/config/{subject}:
+  /config/{subject}:
     get:
       summary: Get compatibility level for a subject.
       operationId: getSubjectLevelConfig
@@ -361,14 +361,14 @@ paths:
           description: Error code 40401 -- Subject not found
         "500":
           description: Error code 50001 -- Error in the backend datastore
-  /registry/contexts:
+  /contexts:
     get:
       summary: Get a list of contexts.
       operationId: listContexts
       responses:
         "500":
           description: Error code 50001 -- Error in the backend datastore
-  /registry/mode:
+  /mode:
     get:
       summary: Get global mode.
       operationId: getTopLevelMode
@@ -411,7 +411,7 @@ paths:
             Error code 50001 -- Error in the backend data store
             Error code 50003 -- Error while forwarding the request to the primary
             Error code 50004 -- Unknown leader
-  /registry/mode/{subject}:
+  /mode/{subject}:
     get:
       summary: Get mode for a subject.
       operationId: getMode
@@ -515,7 +515,7 @@ paths:
           description: Error code 40401 -- Subject not found
         "500":
           description: Error code 50001 -- Error in the backend datastore
-  /registry/schemas:
+  /schemas:
     get:
       summary: Get the schemas.
       operationId: getSchemas
@@ -557,7 +557,7 @@ paths:
         "500":
           description: |
             Error code 50001 -- Error in the backend data store
-  /registry/schemas/ids/{id}:
+  /schemas/ids/{id}:
     get:
       summary: Get the schema string identified by the input ID.
       operationId: getSchema
@@ -593,7 +593,7 @@ paths:
         "500":
           description: |
             Error code 50001 -- Error in the backend data store
-  /registry/schemas/ids/{id}/subjects:
+  /schemas/ids/{id}/subjects:
     get:
       summary: Get all the subjects associated with the input ID.
       operationId: getSubjects
@@ -622,7 +622,7 @@ paths:
         "500":
           description: |
             Error code 50001 -- Error in the backend data store
-  /registry/schemas/ids/{id}/versions:
+  /schemas/ids/{id}/versions:
     get:
       summary: Get all the subject-version pairs associated with the input ID.
       operationId: getVersions
@@ -651,7 +651,7 @@ paths:
         "500":
           description: |
             Error code 50001 -- Error in the backend data store
-  /registry/schemas/types:
+  /schemas/types:
     get:
       summary: Get the schema types supported by this registry.
       operationId: getSchemaTypes
@@ -659,7 +659,7 @@ paths:
         "500":
           description: |
             Error code 50001 -- Error in the backend data store
-  /registry/subjects:
+  /subjects:
     get:
       summary: Get a list of registered subjects.
       operationId: list
@@ -676,7 +676,7 @@ paths:
       responses:
         "500":
           description: Error code 50001 -- Error in the backend datastore
-  /registry/subjects/{subject}:
+  /subjects/{subject}:
     post:
       summary: "Check if a schema has already been registered under the specified\
         \ subject. If so, this returns the schema string along with its globally unique\
@@ -775,7 +775,7 @@ paths:
           description: Error code 40401 -- Subject not found
         "500":
           description: Error code 50001 -- Error in the backend datastore
-  /registry/subjects/{subject}/versions:
+  /subjects/{subject}/versions:
     get:
       summary: Get a list of versions registered under the specified subject.
       operationId: listVersions
@@ -862,7 +862,7 @@ paths:
             Error code 50001 -- Error in the backend data store
             Error code 50002 -- Operation timed out
             Error code 50003 -- Error while forwarding the request to the primary
-  /registry/subjects/{subject}/versions/{version}:
+  /subjects/{subject}/versions/{version}:
     get:
       summary: Get a specific version of the schema registered under this subject.
       operationId: getSchemaByVersion
@@ -950,7 +950,7 @@ paths:
           description: Error code 42202 -- Invalid version
         "500":
           description: Error code 50001 -- Error in the backend data store
-  /registry/subjects/{subject}/versions/{version}/referencedby:
+  /subjects/{subject}/versions/{version}/referencedby:
     get:
       summary: Get the schemas that reference the specified schema.
       operationId: getReferencedBy
@@ -980,7 +980,7 @@ paths:
           description: Error code 42202 -- Invalid version
         "500":
           description: Error code 50001 -- Error in the backend data store
-  /registry/subjects/{subject}/versions/{version}/schema:
+  /subjects/{subject}/versions/{version}/schema:
     get:
       summary: Get the schema for the specified version of this subject. The unescaped
         schema only is returned.
@@ -1016,7 +1016,7 @@ paths:
           description: Error code 42202 -- Invalid version
         "500":
           description: Error code 50001 -- Error in the backend data store
-  /registry/v1/metadata/id:
+  /v1/metadata/id:
     get:
       summary: Get the server metadata
       operationId: getClusterId

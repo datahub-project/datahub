@@ -1,6 +1,5 @@
 package datahub.client.kafka;
 
-import com.datahub.kafka.avro.serializer.KafkaAvroSerializer;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
@@ -38,7 +37,7 @@ public class KafkaEmitter implements Emitter {
 
   /**
    * The default constructor
-   * 
+   *
    * @param config
    * @throws IOException
    */
@@ -49,7 +48,7 @@ public class KafkaEmitter implements Emitter {
     kafkaConfigProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
         org.apache.kafka.common.serialization.StringSerializer.class);
     kafkaConfigProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-        KafkaAvroSerializer.class);
+        io.confluent.kafka.serializers.KafkaAvroSerializer.class);
     kafkaConfigProperties.put("schema.registry.url", this.config.getSchemaRegistryUrl());
     kafkaConfigProperties.putAll(config.getSchemaRegistryConfig());
     kafkaConfigProperties.putAll(config.getProducerConfig());

@@ -1,6 +1,5 @@
 package com.linkedin.gms.factory.kafka;
 
-import com.datahub.kafka.avro.deserializer.KafkaAvroDeserializer;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.time.Duration;
@@ -8,6 +7,7 @@ import java.util.Arrays;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -72,8 +72,9 @@ public class KafkaEventConsumerFactory {
       consumerProps.setBootstrapServers(Arrays.asList(kafkaBootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    consumerProps.setValueDeserializer(KafkaAvroDeserializer.class);
     Map<String, Object> props = properties.buildConsumerProperties();
+
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getDeserializer());
 
     // TODO: Change if using in memory schema registry
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
