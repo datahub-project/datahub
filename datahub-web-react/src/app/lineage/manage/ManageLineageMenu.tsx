@@ -37,6 +37,8 @@ interface Props {
     disableUpstream?: boolean;
     disableDownstream?: boolean;
     centerEntity?: () => void;
+    showLoading?: boolean;
+    menuIcon?: React.ReactNode;
 }
 
 export default function ManageLineageMenu({
@@ -46,6 +48,8 @@ export default function ManageLineageMenu({
     disableUpstream,
     disableDownstream,
     centerEntity,
+    showLoading,
+    menuIcon,
 }: Props) {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [lineageDirection, setLineageDirection] = useState<Direction>(Direction.Upstream);
@@ -103,7 +107,7 @@ export default function ManageLineageMenu({
                 }
                 trigger={['click']}
             >
-                <MoreOutlined style={{ fontSize: 18 }} />
+                {menuIcon || <MoreOutlined style={{ fontSize: 18 }} />}
             </Dropdown>
             {isModalVisible && (
                 <ManageLineageModal
@@ -112,6 +116,7 @@ export default function ManageLineageMenu({
                     closeModal={() => setIsModalVisible(false)}
                     refetchEntity={refetchEntity}
                     setUpdatedLineages={setUpdatedLineages}
+                    showLoading={showLoading}
                 />
             )}
         </>

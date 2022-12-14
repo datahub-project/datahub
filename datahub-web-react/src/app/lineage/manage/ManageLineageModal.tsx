@@ -60,6 +60,7 @@ interface Props {
     closeModal: () => void;
     refetchEntity: () => void;
     setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
+    showLoading?: boolean;
 }
 
 export default function ManageLineageModal({
@@ -68,6 +69,7 @@ export default function ManageLineageModal({
     closeModal,
     refetchEntity,
     setUpdatedLineages,
+    showLoading,
 }: Props) {
     const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
     const [urnsToRemove, setUrnsToRemove] = useState<string[]>([]);
@@ -88,9 +90,17 @@ export default function ManageLineageModal({
             .then((res) => {
                 if (res.data?.updateLineage) {
                     closeModal();
-                    message.success('Updated lineage!');
+                    if (showLoading) {
+                        message.loading('Loading...');
+                    } else {
+                        message.success('Updated lineage!');
+                    }
                     setTimeout(() => {
                         refetchEntity();
+                        if (showLoading) {
+                            message.destroy();
+                            message.success('Updated lineage!');
+                        }
                     }, 2000);
 
                     setUpdatedLineages((updatedLineages) => ({
