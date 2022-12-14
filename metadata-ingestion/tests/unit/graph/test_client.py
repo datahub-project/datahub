@@ -15,6 +15,3 @@ def test_get_aspect(mock_test_connection):
         mock_get.return_value = mock_response
         editable = graph.get_aspect(user_urn, CorpUserEditableInfoClass)
         assert editable is not None
-
-if __name__ == "__main__":
-    test_get_aspect()
