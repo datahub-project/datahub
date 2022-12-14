@@ -42,6 +42,8 @@ class GenericCheckpointState(StaleEntityCheckpointStateBase["GenericCheckpointSt
         # To maintain backwards compatibility, we provide this filtering mechanism.
         if type == "*":
             yield from diff
+        elif type == "topic":
+            yield from (urn for urn in diff if guess_entity_type(urn) == "dataset")
         else:
             yield from (urn for urn in diff if guess_entity_type(urn) == type)
 
@@ -64,6 +66,7 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
         "dataset",
         "container",
         "assertion",
+        "topic",
     ]
     assert set(mapping.values()) <= set(SUPPORTED_TYPES)
 
@@ -77,6 +80,11 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
             value = values.pop(old_field)
             if mapped_type == "dataset":
                 values["urns"] += CheckpointStateUtil.get_dataset_urns_not_in(value, [])
+            elif mapped_type == "topic":
+                values["urns"] += [
+                    CheckpointStateUtil.get_urn_from_encoded_topic(encoded_urn)
+                    for encoded_urn in value
+                ]
             elif mapped_type == "container":
                 values["urns"] += [make_container_urn(guid) for guid in value]
             elif mapped_type == "assertion":
