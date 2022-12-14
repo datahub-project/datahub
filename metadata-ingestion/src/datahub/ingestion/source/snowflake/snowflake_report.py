@@ -11,6 +11,7 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
     include_usage_stats: bool = False
     include_operational_stats: bool = False
     include_technical_schema: bool = False
+    include_column_lineage: bool = False
 
     usage_aggregation_query_secs: float = -1
     table_lineage_query_secs: float = -1

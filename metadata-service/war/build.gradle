@@ -23,8 +23,9 @@ dependencies {
   runtime spec.product.pegasus.restliDocgen
   runtime spec.product.pegasus.restliSpringBridge
 
-  implementation externalDependency.log4j2Api
-  implementation externalDependency.logbackClassic
+  runtime externalDependency.log4jCore
+  runtime externalDependency.log4j2Api
+  runtime externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
 }
 

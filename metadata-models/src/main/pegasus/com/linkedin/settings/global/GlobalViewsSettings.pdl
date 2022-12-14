@@ -1,0 +1,13 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+
+/**
+ * Settings for DataHub Views feature.
+ */
+record GlobalViewsSettings {
+  /**
+   * The default View for the instance, or organization.
+   */
+   defaultView: optional Urn
+}
