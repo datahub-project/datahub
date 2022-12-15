@@ -344,6 +344,7 @@ def get_urns_by_filter(
     search_query: str = "*",
     include_removed: bool = False,
     only_soft_deleted: Optional[bool] = None,
+    container: Optional[str] = None,
 ) -> Iterable[str]:
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
@@ -352,13 +353,12 @@ def get_urns_by_filter(
     entity_type_lower = entity_type.lower()
     if env and entity_type_lower != "container":
         filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
-    if (
-        platform is not None
-        and entity_type_lower == "dataset"
-        or entity_type_lower == "dataflow"
-        or entity_type_lower == "datajob"
-        or entity_type_lower == "container"
-    ):
+    if platform is not None and entity_type_lower in {
+        "dataset",
+        "dataflow",
+        "datajob",
+        "container",
+    }:
         filter_criteria.append(
             {
                 "field": "platform",
@@ -388,6 +388,20 @@ def get_urns_by_filter(
             {
                 "field": "removed",
                 "value": "",  # accept anything regarding removed property (true, false, non-existent)
+                "condition": "EQUAL",
+            }
+        )
+
+    if container is not None and entity_type_lower in {
+        "dataset",
+        "chart",
+        "dashboard",
+        "container",
+    }:
+        filter_criteria.append(
+            {
+                "field": "container",
+                "value": container,
                 "condition": "EQUAL",
             }
         )

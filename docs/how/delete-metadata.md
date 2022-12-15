@@ -73,12 +73,18 @@ curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn
 
 ## Delete using Broader Filters
 
-_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). Additionally, as of v0.8.29 there is a new option: `--include-removed` that deletes softly deleted entities that match the provided filter.
+_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). Starting v0.8.29 there is a new option: `--include-removed` that deletes softly deleted entities that match the provided filter. Starting v0.9.4, these commands also delete references of deleted entities by default. You can use `--keep-references` to change default behavior._
 
 
 ### Delete all datasets in the DEV environment
 ```
 datahub delete --env DEV --entity_type dataset
+```
+
+### Delete all datasets in a particular container
+_Note that this command is not recursive and will only delete datasets directly inside the container._
+```
+datahub delete --container <container-urn>
 ```
 
 ### Delete all containers for a particular platform
@@ -148,6 +154,6 @@ In some cases, entities that were initially ingested by a run might have had fur
 1. Leave these aspects untouched in the database, and soft-delete the entity. A re-ingestion of these entities will result in this additional metadata becoming visible again in the UI, so you don't lose any of your work. 
 2. The datahub cli will save information about these unsafe entities as a CSV for operators to later review and decide on next steps (keep or remove).
 
-The rollback command will report how many entities have such aspects and save as a CSV the urns of these entities under a rollback reports directory, which defaults to `rollback_reports` under the current directory where the cli is run, and can be configured further using the `--reports-dir` command line arg.
+The rollback command will report how many entities have such aspects and save as a CSV the urns of these entities under a rollback reports directory, which defaults to `rollback_reports` under the current directory where the cli is run, and can be configured further using the `--report-dir` command line arg.
 
 The operator can use `datahub get --urn <>` to inspect the aspects that were left behind and either keep them (do nothing) or delete the entity (and its aspects) completely using `datahub delete --urn <urn> --hard`. If the operator wishes to remove all the metadata associated with these unsafe entities, they can re-issue the rollback command with the `--nuke` flag.

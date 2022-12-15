@@ -12,7 +12,8 @@
                   "owner": "urn:li:corpuser:datahub",
                   "type": "DATAOWNER",
                   "source": null
-                }],
+                }
+              ],
               "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown",
@@ -25,7 +26,8 @@
               "name": "Needs Documentation",
               "description": "A tag that is applied to all fields that require some documentation."
             }
-          }]
+          }
+        ]
       }
     },
     "proposedDelta": null
@@ -122,7 +124,11 @@
                   },
                   "nativeDataType": "varchar(100)",
                   "globalTags": {
-                    "tags": [{ "tag": "urn:li:tag:NeedsDocs" }]
+                    "tags": [
+                      {
+                        "tag": "urn:li:tag:NeedsDocs"
+                      }
+                    ]
                   },
                   "recursive": false
                 },
@@ -165,5 +171,72 @@
       }
     },
     "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,dataset-with-tags,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset with tags"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+              "tags": [
+                {
+                  "tag": "urn:li:tag:NeedsOwners"
+                },
+                {
+                  "tag": "urn:li:tag:NeedsReview"
+                },
+                {
+                  "tag": "urn:li:tag:KeepTag"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:NeedsOwners",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "value": "{\"name\": \"Needs Owners\" }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:KeepTag",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "value": "{\"name\": \"Dummy tag\" }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:NeedsReview",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "value": "{\"name\": \"Needs Review\" }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   }
 ]

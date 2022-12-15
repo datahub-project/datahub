@@ -132,6 +132,20 @@ def delete_for_registry(
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
+@click.option(
+    "--container",
+    required=False,
+    type=str,
+    help="urn of container of the entity",
+)
+@click.option(
+    "--delete-references/--keep-references",
+    "remove_references",
+    required=False,
+    is_flag=True,
+    default=True,
+    help="specifies whether to delete references",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def delete(
@@ -148,14 +162,23 @@ def delete(
     registry_id: str,
     dry_run: bool,
     only_soft_deleted: bool,
+    container: str,
+    remove_references: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
     cli_utils.test_connectivity_complain_exit("delete")
     # one of urn / platform / env / query must be provided
-    if not urn and not platform and not env and not query and not registry_id:
+    if (
+        not urn
+        and not platform
+        and not env
+        and not query
+        and not registry_id
+        and not container
+    ):
         raise click.UsageError(
-            "You must provide either an urn or a platform or an env or a query for me to delete anything"
+            "You must provide either an urn or a platform or an env or a query or a container for me to delete anything"
         )
 
     include_removed: bool
@@ -181,10 +204,11 @@ def delete(
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
+        # TODO: Now that default behavior deletes references,
+        # we should be able to remove this confirmation prompt
         references_count, related_aspects = delete_references(
             urn, dry_run=True, cached_session_host=(session, host)
         )
-        remove_references: bool = False
 
         if references_count > 0:
             print(
@@ -197,10 +221,10 @@ def delete(
                     tablefmt="grid",
                 )
             )
-            remove_references = click.confirm("Do you want to delete these references?")
-
-        if remove_references:
-            delete_references(urn, dry_run=False, cached_session_host=(session, host))
+            remove_references = click.confirm(
+                "Do you want to delete these references?",
+                default=remove_references,
+            )
 
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
@@ -211,6 +235,7 @@ def delete(
             start_time=start_time,
             end_time=end_time,
             cached_session_host=(session, host),
+            remove_references=remove_references,
         )
 
         if not dry_run:
@@ -231,6 +256,11 @@ def delete(
             registry_id=registry_id, soft=soft, dry_run=dry_run
         )
     else:
+        if container is not None:
+            assert (
+                guess_entity_type(urn=container) == "container"
+            ), "container must start with urn:li:container:"
+
         # Filter based delete
         deletion_result = delete_with_filters(
             env=env,
@@ -243,6 +273,8 @@ def delete(
             include_removed=include_removed,
             aspect_name=aspect_name,
             only_soft_deleted=only_soft_deleted,
+            container=container,
+            remove_references=remove_references,
         )
 
     if not dry_run:
@@ -279,6 +311,8 @@ def delete_with_filters(
     env: Optional[str] = None,
     platform: Optional[str] = None,
     only_soft_deleted: Optional[bool] = False,
+    container: Optional[str] = None,
+    remove_references: bool = False,
 ) -> DeletionResult:
 
     session, gms_host = cli_utils.get_session_and_host()
@@ -297,6 +331,7 @@ def delete_with_filters(
                 search_query=search_query,
                 entity_type=entity_type,
                 include_removed=False,
+                container=container,
             )
         )
 
@@ -309,6 +344,7 @@ def delete_with_filters(
                 search_query=search_query,
                 entity_type=entity_type,
                 only_soft_deleted=True,
+                container=container,
             )
         )
 
@@ -332,7 +368,7 @@ def delete_with_filters(
     if not force and not dry_run:
         type_delete = "soft" if soft else "permanently"
         click.confirm(
-            f"This will {type_delete} delete {len(urns)} entities. Are you sure?",
+            f"This will {type_delete} delete {len(urns)} entities{' and their references' if remove_references else ''}. Are you sure?",
             abort=True,
         )
 
@@ -346,6 +382,7 @@ def delete_with_filters(
                 dry_run=dry_run,
                 cached_session_host=(session, gms_host),
                 cached_emitter=emitter,
+                remove_references=remove_references,
             )
             batch_deletion_result.merge(one_result)
 
@@ -360,6 +397,7 @@ def delete_with_filters(
                 cached_session_host=(session, gms_host),
                 cached_emitter=emitter,
                 is_soft_deleted=True,
+                remove_references=remove_references,
             )
             batch_deletion_result.merge(one_result)
     batch_deletion_result.end()
@@ -380,7 +418,22 @@ def _delete_one_urn(
     run_id: str = "delete-run-id",
     deletion_timestamp: int = _get_current_time(),
     is_soft_deleted: Optional[bool] = None,
+    remove_references: bool = False,
 ) -> DeletionResult:
+
+    if remove_references and dry_run:
+        # Fetch references to display if dry run
+        references_count, related_aspects = delete_references(
+            urn, dry_run=True, cached_session_host=cached_session_host
+        )
+    elif remove_references and not dry_run:
+        # Delete references if not dry run and flag is set
+        references_count, related_aspects = delete_references(
+            urn, dry_run=False, cached_session_host=cached_session_host
+        )
+    else:
+        # Don't worry about references
+        references_count = 0
 
     soft_delete_msg: str = ""
     if dry_run and is_soft_deleted:
@@ -416,7 +469,19 @@ def _delete_one_urn(
                 )
             )
         else:
-            logger.info(f"[Dry-run] Would soft-delete {urn}")
+            if remove_references and references_count > 0:
+                print(
+                    f"[Dry-run] Would soft-delete {urn} and its {references_count} reference(s)."
+                )
+                click.echo(
+                    tabulate(
+                        [x.values() for x in related_aspects],
+                        ["relationship", "entity", "aspect"],
+                        tablefmt="grid",
+                    )
+                )
+            else:
+                print(f"[Dry-run] Would soft-delete {urn}")
     elif not dry_run:
         payload_obj: Dict[str, Any] = {"urn": urn}
         if aspect_name:
@@ -435,7 +500,20 @@ def _delete_one_urn(
         deletion_result.num_records = rows_affected
         deletion_result.num_timeseries_records = ts_rows_affected
     else:
-        logger.info(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
+        if remove_references and references_count > 0:
+            print(
+                f"[Dry-run] Would hard-delete {urn} {soft_delete_msg} and its {references_count} reference(s)."
+            )
+            click.echo(
+                tabulate(
+                    [x.values() for x in related_aspects],
+                    ["relationship", "entity", "aspect"],
+                    tablefmt="grid",
+                )
+            )
+        else:
+            print(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
+
         deletion_result.num_records = (
             UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
         )
@@ -455,6 +533,7 @@ def delete_one_urn_cmd(
     end_time: Optional[datetime] = None,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
+    remove_references: bool = False,
 ) -> DeletionResult:
     """
     Wrapper around delete_one_urn because it is also called in a loop via delete_with_filters.
@@ -472,6 +551,7 @@ def delete_one_urn_cmd(
         end_time,
         cached_session_host,
         cached_emitter,
+        remove_references=remove_references,
     )
 
 
