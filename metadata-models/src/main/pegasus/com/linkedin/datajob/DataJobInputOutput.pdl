@@ -52,7 +52,7 @@ record DataJobInputOutput {
   }
   @Searchable = {
     "/*/destinationUrn": {
-      "fieldName": "inputs",
+      "fieldName": "inputDatasetEdges",
       "fieldType": "URN",
       "numValuesFieldName": "numInputDatasets",
       "queryByDefault": false
@@ -100,7 +100,7 @@ record DataJobInputOutput {
   }
   @Searchable = {
     "/*/destinationUrn": {
-      "fieldName": "outputs",
+      "fieldName": "outputDatasetEdges",
       "fieldType": "URN",
       "numValuesFieldName": "numOutputDatasets",
       "queryByDefault": false
