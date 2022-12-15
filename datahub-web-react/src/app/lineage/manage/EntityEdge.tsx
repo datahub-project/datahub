@@ -2,12 +2,10 @@ import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { CorpUser, Entity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ANTD_GRAY, DEFAULT_SYSTEM_ACTOR_URNS } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityName } from './LineageEntityView';
 import UserAvatar from './UserAvatar';
-
-const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
 
 const EntityItem = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4]};

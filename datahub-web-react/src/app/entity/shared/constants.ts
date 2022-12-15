@@ -75,3 +75,5 @@ export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
     EntityType.Dataset,
     EntityType.DataJob,
 ]);
+
+export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];

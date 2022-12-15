@@ -277,20 +277,17 @@ public class ESGraphQueryDAO {
   private List<LineageRelationship> extractRelationships(@Nonnull Set<Urn> entityUrns,
       @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges, Set<Urn> visitedEntities,
       int numHops, UrnArrayArray existingPaths) {
-    List<LineageRelationship> result = new LinkedList<>();
+    final List<LineageRelationship> result = new LinkedList<>();
     for (SearchHit hit : searchResponse.getHits().getHits()) {
-      Map<String, Object> document = hit.getSourceAsMap();
-      Urn sourceUrn = UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
-      Urn destinationUrn =
+      final Map<String, Object> document = hit.getSourceAsMap();
+      final Urn sourceUrn = UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
+      final Urn destinationUrn =
           UrnUtils.getUrn(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
-      String type = document.get(RELATIONSHIP_TYPE).toString();
-      Number createdOnNumber = (Number) document.getOrDefault(CREATED_ON, null);
-      Long createdOn = createdOnNumber != null ? createdOnNumber.longValue() : null;
-      String createdActorString = (String) document.getOrDefault(CREATED_ACTOR, null);
-      Urn createdActor = null;
-      if (createdActorString != null) {
-        createdActor = UrnUtils.getUrn(createdActorString);
-      }
+      final String type = document.get(RELATIONSHIP_TYPE).toString();
+      final Number createdOnNumber = (Number) document.getOrDefault(CREATED_ON, null);
+      final Long createdOn = createdOnNumber != null ? createdOnNumber.longValue() : null;
+      final String createdActorString = (String) document.getOrDefault(CREATED_ACTOR, null);
+      final Urn createdActor = createdActorString == null ? null : UrnUtils.getUrn(createdActorString);
 
       // Potential outgoing edge
       if (entityUrns.contains(sourceUrn)) {
@@ -300,7 +297,7 @@ public class ESGraphQueryDAO {
             Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(destinationUrn);
           final UrnArrayArray paths = getAndUpdatePaths(existingPaths, sourceUrn, destinationUrn, RelationshipDirection.OUTGOING);
-          LineageRelationship relationship = createLineageRelationship(type, destinationUrn, numHops, paths, createdOn, createdActor);
+          final LineageRelationship relationship = createLineageRelationship(type, destinationUrn, numHops, paths, createdOn, createdActor);
           result.add(relationship);
         }
       }
@@ -313,7 +310,7 @@ public class ESGraphQueryDAO {
             Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING, sourceUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(sourceUrn);
           final UrnArrayArray paths = getAndUpdatePaths(existingPaths, destinationUrn, sourceUrn, RelationshipDirection.INCOMING);
-          LineageRelationship relationship = createLineageRelationship(type, sourceUrn, numHops, paths, createdOn, createdActor);
+          final LineageRelationship relationship = createLineageRelationship(type, sourceUrn, numHops, paths, createdOn, createdActor);
           result.add(relationship);
         }
       }
@@ -321,7 +318,7 @@ public class ESGraphQueryDAO {
     return result;
   }
 
-  LineageRelationship createLineageRelationship(
+  private LineageRelationship createLineageRelationship(
       @Nonnull final String type,
       @Nonnull final Urn entityUrn,
       final int numHops,
@@ -329,7 +326,7 @@ public class ESGraphQueryDAO {
       @Nullable final Long createdOn,
       @Nullable final Urn createdActor
   ) {
-    LineageRelationship relationship = new LineageRelationship().setType(type).setEntity(entityUrn).setDegree(numHops).setPaths(paths);
+    final LineageRelationship relationship = new LineageRelationship().setType(type).setEntity(entityUrn).setDegree(numHops).setPaths(paths);
     if (createdOn != null) {
       relationship.setCreatedOn(createdOn);
     }
