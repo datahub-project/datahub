@@ -864,6 +864,13 @@ public class GmsGraphQLEngine {
             .type("LineageRelationship", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((LineageRelationship) env.getSource()).getEntity()))
+                .dataFetcher("createdActor",
+                    new EntityTypeResolver(entityTypes,
+                        (env) -> {
+                            final LineageRelationship relationship = env.getSource();
+                            return relationship.getCreatedActor() != null ? relationship.getCreatedActor() : null;
+                        })
+                )
             )
             .type("ListDomainsResult", typeWiring -> typeWiring
                 .dataFetcher("domains", new LoadableTypeBatchResolver<>(domainType,

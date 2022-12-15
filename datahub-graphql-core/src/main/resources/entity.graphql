@@ -871,6 +871,16 @@ type LineageRelationship {
     Degree of relationship (number of hops to get to entity)
     """
     degree: Int!
+
+    """
+    Timestamp for when this lineage relationship was created. Could be null.
+    """
+    createdOn: Long
+
+    """
+    The actor who created this lineage relationship. Could be null.
+    """
+    createdActor: Entity
 }
 
 """

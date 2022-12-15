@@ -1354,7 +1354,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.DataJobUrn"
       },
-      "doc" : "Input datajobs that this data job depends on",
+      "doc" : "Input datajobs that this data job depends on\nDeprecated! Use inputDatajobEdges instead.",
       "optional" : true,
       "Relationship" : {
         "/*" : {
@@ -1362,7 +1362,8 @@
           "isLineage" : true,
           "name" : "DownstreamOf"
         }
-      }
+      },
+      "deprecated" : true
     }, {
       "name" : "inputDatajobEdges",
       "type" : {

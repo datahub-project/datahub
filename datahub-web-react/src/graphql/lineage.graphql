@@ -252,6 +252,23 @@ fragment fullLineageResults on EntityLineageResult {
     total
     relationships {
         type
+        createdOn
+        createdActor {
+            urn
+            type
+            ... on CorpUser {
+                username
+                info {
+                    displayName
+                }
+                properties {
+                    displayName
+                }
+                editableProperties {
+                    displayName
+                }
+            }
+        }
         entity {
             ...lineageFields
             ... on Dataset {

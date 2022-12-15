@@ -88,6 +88,12 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     }
     result.setType(lineageRelationship.getType());
     result.setDegree(lineageRelationship.getDegree());
+    if (lineageRelationship.hasCreatedOn()) {
+      result.setCreatedOn(lineageRelationship.getCreatedOn());
+    }
+    if (lineageRelationship.hasCreatedActor()) {
+      result.setCreatedActor(UrnToEntityMapper.map(lineageRelationship.getCreatedActor()));
+    }
     return result;
   }
 }

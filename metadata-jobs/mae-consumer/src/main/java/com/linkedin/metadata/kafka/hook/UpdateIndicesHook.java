@@ -356,16 +356,16 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
             .filter(edge -> !newEdgeSet.contains(edge))
             .collect(Collectors.toList());
 
-    // Add new edges
-    if (additiveDifference.size() > 0) {
-      log.debug("Adding edges: {}", additiveDifference);
-      additiveDifference.forEach(_graphService::addEdge);
-    }
-
-    // Remove any old edges that no longer exist
+    // Remove any old edges that no longer exist first
     if (subtractiveDifference.size() > 0) {
       log.debug("Removing edges: {}", subtractiveDifference);
       subtractiveDifference.forEach(_graphService::removeEdge);
+    }
+
+    // Then add new edges
+    if (additiveDifference.size() > 0) {
+      log.debug("Adding edges: {}", additiveDifference);
+      additiveDifference.forEach(_graphService::addEdge);
     }
   }
 

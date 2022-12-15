@@ -126,6 +126,14 @@ public class LineageService {
       upstreamsToAdd.add(upstreamUrn);
     }
 
+    // need to backfill old data without new created field in order to index properly in GraphIndexUtils
+    // otherwise we can't set createdOn and createdActor on graph index if not all fields have created
+    for (Upstream upstream : upstreams) {
+      if (!upstream.hasCreated()) {
+        upstream.setCreated(upstream.getAuditStamp());
+      }
+    }
+
     for (final Urn upstreamUrn : upstreamsToAdd) {
       final Upstream newUpstream = new Upstream();
       newUpstream.setDataset(DatasetUrn.createFromUrn(upstreamUrn));

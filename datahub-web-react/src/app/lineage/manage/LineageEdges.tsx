@@ -1,7 +1,7 @@
 import { Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Entity, Maybe } from '../../../types.generated';
+import { CorpUser, Entity, Maybe } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Direction, FetchedEntity } from '../types';
@@ -45,13 +45,17 @@ export default function LineageEdges({
         fetchedEntity = entityRegistry.getLineageVizConfig(entity?.type, entity);
     }
 
-    const lineageChildren =
-        lineageDirection === Direction.Upstream ? fetchedEntity?.upstreamChildren : fetchedEntity?.downstreamChildren;
+    const lineageRelationships =
+        lineageDirection === Direction.Upstream
+            ? fetchedEntity?.upstreamRelationships
+            : fetchedEntity?.downstreamRelationships;
     const urnsToRemove = entitiesToRemove.map((entityToRemove) => entityToRemove.urn);
-    const filteredChildren = lineageChildren?.filter((child) => !urnsToRemove.includes(child.entity.urn));
+    const filteredRelationships = lineageRelationships?.filter(
+        (relationship) => !urnsToRemove.includes(relationship.entity?.urn || ''),
+    );
 
     function removeEntity(removedEntity: Entity) {
-        if (lineageChildren?.find((child) => child.entity.urn === removedEntity.urn)) {
+        if (lineageRelationships?.find((relationship) => relationship.entity?.urn === removedEntity.urn)) {
             setEntitiesToRemove((existingEntitiesToRemove) => [...existingEntitiesToRemove, removedEntity]);
         } else {
             setEntitiesToAdd((existingEntitiesToAdd) =>
@@ -62,15 +66,23 @@ export default function LineageEdges({
 
     return (
         <LineageEdgesWrapper>
-            {!filteredChildren?.length && !entitiesToAdd.length && (
+            {!filteredRelationships?.length && !entitiesToAdd.length && (
                 <EmptyWrapper data-testid="empty-lineage">
                     <Empty description={`No ${lineageDirection.toLocaleLowerCase()} entities`} />
                 </EmptyWrapper>
             )}
-            {filteredChildren &&
-                filteredChildren?.map((child) => (
-                    <EntityEdge key={child.entity.urn} entity={child.entity} removeEntity={removeEntity} />
-                ))}
+            {filteredRelationships &&
+                filteredRelationships?.map((relationship) =>
+                    relationship.entity ? (
+                        <EntityEdge
+                            key={relationship.entity.urn}
+                            entity={relationship.entity}
+                            removeEntity={removeEntity}
+                            createdActor={relationship.createdActor as CorpUser}
+                            createdOn={relationship.createdOn}
+                        />
+                    ) : null,
+                )}
             {entitiesToAdd.map((addedEntity) => (
                 <EntityEdge key={addedEntity.urn} entity={addedEntity} removeEntity={removeEntity} />
             ))}

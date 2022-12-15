@@ -17,6 +17,7 @@ import {
     SchemaMetadata,
     InputFields,
     Entity,
+    LineageRelationship,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -40,8 +41,10 @@ export type FetchedEntity = {
     icon?: string;
     // children?: Array<string>;
     upstreamChildren?: Array<EntityAndType>;
+    upstreamRelationships?: Array<LineageRelationship>;
     numUpstreamChildren?: number;
     downstreamChildren?: Array<EntityAndType>;
+    downstreamRelationships?: Array<LineageRelationship>;
     numDownstreamChildren?: number;
     fullyFetched?: boolean;
     platform?: DataPlatform;
