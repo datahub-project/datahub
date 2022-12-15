@@ -1,5 +1,4 @@
 import logging
-from enum import Enum
 from typing import Any, Optional
 
 from snowflake.connector import SnowflakeConnection
@@ -12,8 +11,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_DEFAULT_CLOUD,
-    SNOWFLAKE_DEFAULT_CLOUD_REGION_ID,
-    SnowflakeCloudProvider,
+    SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -25,30 +23,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class SnowflakePermissionError(MetaError):
     """A permission error has happened"""
-
-
-class SnowflakeEdition(str, Enum):
-    STANDARD = "Standard"
-
-    # We use this to represent Enterprise Edition or higher
-    ENTERPRISE = "Enterprise or above"
-
-
-class SnowflakeCloudProvider(str, Enum):
-    AWS = "aws"
-    GCP = "gcp"
-    AZURE = "azure"
-
-
-# See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#region-ids
-# Includes only exceptions to format <provider>_<cloud region with hyphen replaced by _>
-SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
-    "aws_us_east_1_gov": (SnowflakeCloudProvider.AWS, "us-east-1"),
-    "azure_uksouth": (SnowflakeCloudProvider.AZURE, "uk-south"),
-    "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india.azure"),
-}
-
-SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 
 
 # Required only for mypy, since we are using mixin classes, and not inheritance.
@@ -124,6 +98,19 @@ class SnowflakeCommonMixin:
         else:
             raise Exception(f"Unknown snowflake region {region}")
         return cloud, cloud_region_id
+
+    def get_connection(self: SnowflakeCommonProtocol) -> SnowflakeConnection:
+        try:
+            conn = self.config.get_connection()
+        except Exception as e:
+            # 250001 (08001): Failed to connect to DB: xxxx.snowflakecomputing.com:443. Role 'XXXXX' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC.
+            if "not granted to this user" in str(e):
+                raise SnowflakePermissionError(
+                    f"Failed to connect with snowflake due to error {e}"
+                ) from e
+            raise
+        else:
+            return conn
 
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,
@@ -252,5 +239,6 @@ class SnowflakeCommonMixin:
 
 def is_permission_error(e: Exception) -> bool:
     msg = str(e)
-    # Database 'XXXX' does not exist or not authorized.
+    # 002003 (02000): SQL compilation error: Database/SCHEMA 'XXXX' does not exist or not authorized.
+    # Insufficient privileges to operate on database 'XXXX'
     return "Insufficient privileges" in msg or "not authorized" in msg

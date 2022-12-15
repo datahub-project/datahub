@@ -409,7 +409,7 @@ class SnowflakeV2Source(
                 SourceCapability.USAGE_STATS,
             ):
                 failure_message = (
-                    f"Current role does not have permissions to use warehouse {connection_conf.warehouse}"
+                    f"Current role does not have permissions to use warehouse {connection_conf.warehouse}. Please update permissions."
                     if connection_conf.warehouse is not None
                     else "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe"
                 )
@@ -431,11 +431,36 @@ class SnowflakeV2Source(
 
     def get_workunits(self) -> Iterable[WorkUnit]:
 
-        conn: SnowflakeConnection = self.config.get_connection()
+        try:
+            conn = self.get_connection()
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                self.report_error("permission-error", str(e))
+            else:
+                logger.debug(e, exc_info=e)
+                self.report_error(
+                    "snowflake-connection",
+                    f"Failed to connect to snowflake instance due to error {e}.",
+                )
+            return
+
         self.add_config_to_report()
         self.inspect_session_metadata(conn)
         if self.config.include_external_url:
             self.snowsight_base_url = self.get_snowsight_base_url(conn)
+
+        if self.report.default_warehouse is None:
+            if self.config.warehouse is not None:
+                self.report_error(
+                    "permission-error",
+                    f"Current role does not have permissions to use warehouse {self.config.warehouse}. Please update permissions.",
+                )
+            else:
+                self.report_error(
+                    "no-active-warehouse",
+                    "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe.",
+                )
+            return
 
         databases = self.get_databases(conn)
 
@@ -476,9 +501,16 @@ class SnowflakeV2Source(
             for schema in db.schemas
             for table in schema.views
         ]
+
+        if len(discovered_tables) == 0 and len(discovered_views) == 0:
+            self.report_error(
+                "permission-error", "No tables/views found. Please check permissions."
+            )
+            return
+
         discovered_datasets = discovered_tables + discovered_views
 
-        if self.config.include_table_lineage and len(discovered_datasets) != 0:
+        if self.config.include_table_lineage:
             yield from self.lineage_extractor.get_workunits(
                 discovered_tables, discovered_views
             )
@@ -499,8 +531,8 @@ class SnowflakeV2Source(
             yield from self.usage_extractor.get_workunits(discovered_datasets)
 
     def get_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
-        # `show databases` is required only to get database
-        # whose information_schema can be queries to start with.
+        # `show databases` is required only to get one  of the databases
+        # whose information_schema can be queried to start with.
         databases = self.data_dictionary.show_databases(conn)
         ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
@@ -516,9 +548,13 @@ class SnowflakeV2Source(
                 logger.debug(
                     f"Failed to list databases {database.name} information_schema"
                 )
+                # SNOWFLAKE database always shows up even if permissions are missing
+                if database == "SNOWFLAKE":
+                    continue
                 logger.info(
-                    f"It looks like the role {self.report.role} has `MANAGE GRANTS` privilege. This is not advisable and also not required."
+                    f"The role {self.report.role} has `MANAGE GRANTS` privilege. This is not advisable and also not required."
                 )
+
         return ischema_databases
 
     def _process_database(
@@ -526,10 +562,22 @@ class SnowflakeV2Source(
     ) -> Iterable[MetadataWorkUnit]:
         db_name = snowflake_db.name
 
+        # Extract metadata from its information_schema
+        try:
+            self.query(conn, SnowflakeQuery.use_database(db_name))
+        except SnowflakePermissionError:
+            # This may happen if REFERENCE_USAGE permissions are set
+            # We can not run show queries on database in such case.
+            # This need not be a failure case.
+            self.report_warning(
+                "permission-warning",
+                f"Insufficient privileges to operate on database {db_name}, skipping. Please grant USAGE permissions on database to extract its metadata.",
+            )
+            return
+
         if self.config.include_technical_schema:
             yield from self.gen_database_containers(snowflake_db)
 
-        # Extract metadata from its information_schema
         try:
             snowflake_db.schemas = self.data_dictionary.get_schemas_for_database(
                 conn, db_name
@@ -607,6 +655,7 @@ class SnowflakeV2Source(
                     "views-for-schema",
                     f"Failed to get views for schema {db_name}.{schema_name} due to error {e}",
                 )
+
             if self.config.include_technical_schema:
                 for view in snowflake_schema.views:
                     yield from self._process_view(conn, view, schema_name, db_name)
@@ -1273,7 +1322,7 @@ class SnowflakeV2Source(
                 f"unable to get snowsight base url due to an error -> {e}",
             )
             return None
-    
+
     def is_standard_edition(self, conn):
         try:
             self.query(conn, SnowflakeQuery.show_tags())

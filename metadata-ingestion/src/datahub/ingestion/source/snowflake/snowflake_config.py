@@ -32,7 +32,7 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
 
     include_column_lineage: bool = Field(
         default=True,
-        description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role, include_table_lineage to be True and Snowflake Enterprise Edition or above.",
+        description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role.",
     )
 
     check_role_grants: bool = Field(
@@ -54,7 +54,7 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
-    match_fully_qualified_names: bool = Field(
+    match_fully_qualified_names = bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
@@ -118,11 +118,12 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
             and values["stateful_ingestion"].enabled
             and values["stateful_ingestion"].remove_stale_metadata
         )
+        include_table_lineage = values.get("include_table_lineage")
 
-        # TODO: Allow profiling irrespective of basic schema extraction,
+        # TODO: Allow lineage extraction and profiling irrespective of basic schema extraction,
         # as it seems possible with some refractor
         if not include_technical_schema and any(
-            [include_profiles, delete_detection_enabled]
+            [include_profiles, delete_detection_enabled, include_table_lineage]
         ):
             raise ValueError(
                 "Can not perform Deletion Detection, Lineage Extraction, Profiling without extracting snowflake technical schema.  Set `include_technical_schema` to True or disable Deletion Detection, Lineage Extraction, Profiling."

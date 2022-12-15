@@ -6,6 +6,7 @@ from unittest import mock
 
 import pandas as pd
 from freezegun import freeze_time
+from pytest import fixture
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
 from datahub.ingestion.glossary.classifier import (
@@ -29,7 +30,7 @@ NUM_COLS = 10
 NUM_OPS = 10
 
 
-def default_query_results(query):
+def default_query_results(query):  # noqa: C901
     if query == SnowflakeQuery.current_account():
         return [{"CURRENT_ACCOUNT()": "ABC12345"}]
     if query == SnowflakeQuery.current_region():
@@ -290,9 +291,6 @@ def default_query_results(query):
     elif query == snowflake_query.SnowflakeQuery.show_external_tables():
         return []
 
-    import pdb
-
-    pdb.set_trace()
     # Unreachable code
     raise Exception(f"Unknown query {query}")
 
@@ -470,12 +468,135 @@ def query_permission_error_override(override_for_query, error_msg):
     return my_function
 
 
+def query_permission_response_override(override_for_query, response):
+    def my_function(query):
+        if query in override_for_query:
+            return response
+        else:
+            return default_query_results(query)
+
+    return my_function
+
+
+@fixture(scope="function")
+def snowflake_pipeline_config(tmp_path):
+
+    output_file = tmp_path / "snowflake_test_events_permission_error.json"
+    config = PipelineConfig(
+        run_id="snowflake-beta-2022_06_07-17_00_00",
+        source=SourceConfig(
+            type="snowflake",
+            config=SnowflakeV2Config(
+                account_id="ABC12345.ap-south-1.aws",
+                username="TST_USR",
+                password="TST_PWD",
+                role="TEST_ROLE",
+                warehouse="TEST_WAREHOUSE",
+                include_views=False,
+                include_technical_schema=True,
+                match_fully_qualified_names=True,
+                schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
+                include_view_lineage=False,
+                include_usage_stats=False,
+                start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                    tzinfo=timezone.utc
+                ),
+                end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
+            ),
+        ),
+        sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+    )
+    return config
+
+
+def role_not_granted_to_user(**kwargs):
+    raise Exception(
+        "250001 (08001): Failed to connect to DB: abc12345.ap-south-1.snowflakecomputing.com:443. Role 'TEST_ROLE' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC"
+    )
+
+
 @freeze_time(FROZEN_TIME)
-def test_snowflake_permission_errors(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+def test_snowflake_missing_role_access_causes_pipeline_failure(
+    pytestconfig,
+    snowflake_pipeline_config,
 ):
-    # Run the metadata ingestion pipeline.
-    output_file = tmp_path / "snowflake_test_events.json"
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        # Snowflake connection fails role not granted error
+        mock_connect.side_effect = role_not_granted_to_user
+
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        assert "permission-error" in pipeline.source.get_report().failures.keys()
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_missing_warehouse_access_causes_pipeline_failure(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Current warehouse query leads to blank result
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            [SnowflakeQuery.current_warehouse()],
+            [(None,)],
+        )
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        assert "permission-error" in pipeline.source.get_report().failures.keys()
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_no_databases_with_access_causes_pipeline_failure(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Error in listing databases
+        sf_cursor.execute.side_effect = query_permission_error_override(
+            [SnowflakeQuery.get_databases("TEST_DB")],
+            "Database 'TEST_DB' does not exist or not authorized.",
+        )
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        assert "permission-error" in pipeline.source.get_report().failures.keys()
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_no_tables_causes_pipeline_failure(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Error in listing databases
+        sf_cursor.execute.side_effect = query_permission_response_override(
+            [SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB")],
+            [],
+        )
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        assert "permission-error" in pipeline.source.get_report().failures.keys()
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_list_columns_error_causes_pipeline_warning(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
 
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
@@ -483,41 +604,7 @@ def test_snowflake_permission_errors(
         mock_connect.return_value = sf_connection
         sf_connection.cursor.return_value = sf_cursor
 
-        config = PipelineConfig(
-            run_id="snowflake-beta-2022_06_07-17_00_00",
-            source=SourceConfig(
-                type="snowflake",
-                config=SnowflakeV2Config(
-                    account_id="ABC12345.ap-south-1.aws",
-                    username="TST_USR",
-                    password="TST_PWD",
-                    include_views=False,
-                    include_technical_schema=True,
-                    match_fully_qualified_names=True,
-                    schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
-                    include_view_lineage=False,
-                    include_usage_stats=False,
-                    start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
-                        tzinfo=timezone.utc
-                    ),
-                    end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
-                        tzinfo=timezone.utc
-                    ),
-                ),
-            ),
-            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
-        )
-
-        # Error in listing databases leads to failure
-        sf_cursor.execute.side_effect = query_permission_error_override(
-            [SnowflakeQuery.get_databases("TEST_DB")],
-            "Database 'TEST_DB' does not exist or not authorized.",
-        )
-        pipeline = Pipeline(config)
-        pipeline.run()
-        assert "permission-error" in pipeline.source.get_report().failures.keys()
-
-        # Error in listing columns leads to warning
+        # Error in listing columns
         sf_cursor.execute.side_effect = query_permission_error_override(
             [
                 SnowflakeQuery.columns_for_table(
@@ -527,9 +614,46 @@ def test_snowflake_permission_errors(
             ],
             "Database 'TEST_DB' does not exist or not authorized.",
         )
-        pipeline = Pipeline(config)
+        pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
         assert "columns-for-table" in pipeline.source.get_report().warnings.keys()
+        assert len(pipeline.source.get_report().failures) == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Error in listing keys leads to warning
+        sf_cursor.execute.side_effect = query_permission_error_override(
+            [SnowflakeQuery.show_primary_keys_for_schema("TEST_SCHEMA", "TEST_DB")],
+            "Insufficient privileges to operate on TEST_DB",
+        )
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        assert "keys-for-table" in pipeline.source.get_report().warnings.keys()
+        assert len(pipeline.source.get_report().failures) == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_missing_snowflake_lineage_access_causes_pipeline_failure(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
 
         # Error in getting lineage
         sf_cursor.execute.side_effect = query_permission_error_override(
@@ -541,8 +665,30 @@ def test_snowflake_permission_errors(
             ],
             "Database 'SNOWFLAKE' does not exist or not authorized.",
         )
-        pipeline = Pipeline(config)
+        pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
         assert (
             "lineage-permission-error" in pipeline.source.get_report().failures.keys()
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_snowflake_missing_snowflake_operations_access_causes_pipeline_failure(
+    pytestconfig,
+    snowflake_pipeline_config,
+):
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Error in getting access history date range
+        sf_cursor.execute.side_effect = query_permission_error_override(
+            [snowflake_query.SnowflakeQuery.get_access_history_date_range()],
+            "Database 'SNOWFLAKE' does not exist or not authorized.",
+        )
+        pipeline = Pipeline(snowflake_pipeline_config)
+        pipeline.run()
+        assert "usage-permission-error" in pipeline.source.get_report().failures.keys()

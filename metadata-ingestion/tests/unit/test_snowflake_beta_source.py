@@ -5,8 +5,8 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationError, OauthConfiguration
 from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.source.snowflake.constants import SnowflakeCloudProvider
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCloudProvider
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 
 

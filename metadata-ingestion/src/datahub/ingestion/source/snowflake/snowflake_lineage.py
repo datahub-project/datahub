@@ -169,6 +169,49 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self, discovered_tables: List[str], discovered_views: List[str]
     ) -> Iterable[MetadataWorkUnit]:
 
+        try:
+            conn = self.get_connection()
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                self.report_error("permission-error", str(e))
+            else:
+                logger.debug(e, exc_info=e)
+                self.report_error(
+                    "snowflake-connection",
+                    f"Failed to connect to snowflake instance due to error {e}.",
+                )
+            return
+
+        if self._lineage_map is None:
+            self._lineage_map = defaultdict(SnowflakeTableLineage)
+            if self.report.edition == SnowflakeEdition.STANDARD:
+                logger.info(
+                    "Snowflake Account is Standard Edition. Table to Table Lineage Feature is not supported."
+                )
+            else:
+                with PerfTimer() as timer:
+                    self._populate_lineage(conn)
+                    self.report.table_lineage_query_secs = timer.elapsed_seconds()
+            if self.config.include_view_lineage:
+                if len(discovered_views) > 0:
+                    self._populate_view_lineage(conn)
+                else:
+                    logger.info("No views found. Skipping View Lineage Extraction.")
+
+        if self._external_lineage_map is None:
+            with PerfTimer() as timer:
+                self._populate_external_lineage(conn)
+                self.report.external_lineage_queries_secs = timer.elapsed_seconds()
+
+        assert self._lineage_map is not None
+        assert self._external_lineage_map is not None
+        if (
+            len(self._lineage_map.keys()) == 0
+            and len(self._external_lineage_map.keys()) == 0
+        ):
+            logger.debug("No lineage found.")
+            return
+
         if self.config.include_table_lineage:
             for dataset_name in discovered_tables:
                 if self._is_dataset_pattern_allowed(dataset_name, "table"):
@@ -203,26 +246,6 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def _get_upstream_lineage_info(
         self, dataset_name: str
     ) -> Optional[UpstreamLineage]:
-
-        if self._lineage_map is None or self._external_lineage_map is None:
-            conn = self.config.get_connection()
-        if self._lineage_map is None:
-            if self.report.edition == SnowflakeEdition.STANDARD:
-                logger.info(
-                    "Snowflake Account is Standard Edition. Table to Table Lineage Feature is not supported."
-                )
-            else:
-                with PerfTimer() as timer:
-                    self._populate_lineage(conn)
-                    self.report.table_lineage_query_secs = timer.elapsed_seconds()
-            if self.config.include_view_lineage:
-                self._populate_view_lineage(conn)
-
-        if self._external_lineage_map is None:
-            with PerfTimer() as timer:
-                self._populate_external_lineage(conn)
-                self.report.external_lineage_queries_secs = timer.elapsed_seconds()
-
         assert self._lineage_map is not None
         assert self._external_lineage_map is not None
 
@@ -364,45 +387,46 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 self.report.view_downstream_lineage_query_secs = timer.elapsed_seconds()
 
     def _populate_external_lineage(self, conn: SnowflakeConnection) -> None:
-        # Handles the case where a table is populated from an external location via copy.
-        # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
-        query: str = SnowflakeQuery.external_table_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
-        )
 
         num_edges: int = 0
         self._external_lineage_map = defaultdict(set)
-        try:
-            for db_row in self.query(conn, query):
-                # key is the down-stream table name
-                key: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["DOWNSTREAM_TABLE_NAME"]
-                )
-                if not self._is_dataset_pattern_allowed(key, "table"):
-                    continue
-                self._external_lineage_map[key] |= {
-                    *json.loads(db_row["UPSTREAM_LOCATIONS"])
-                }
-                logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
-                )
-        except SnowflakePermissionError:
-            if self.report.edition == SnowflakeEdition.STANDARD:
-                logger.info(
-                    "Snowflake Account is Standard Edition. External Lineage Feature is not supported."
-                )
-            else:
-                error_msg = "Failed to get lineage. Please grant permissions for SNOWFLAKE database. "
-                self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
-        except Exception as e:
-            logger.debug(e, exc_info=e)
-            self.report_warning(
-                "external_lineage",
-                f"Populating table external lineage from Snowflake failed due to error {e}.",
+        if self.report.edition == SnowflakeEdition.STANDARD:
+            logger.info(
+                "Snowflake Account is Standard Edition. External Lineage Feature via Access History is not supported."
             )
+        else:
+            # Handles the case where a table is populated from an external location via copy.
+            # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
+            query: str = SnowflakeQuery.external_table_lineage_history(
+                start_time_millis=int(self.config.start_time.timestamp() * 1000)
+                if not self.config.ignore_start_time_lineage
+                else 0,
+                end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            )
+
+            try:
+                for db_row in self.query(conn, query):
+                    # key is the down-stream table name
+                    key: str = self.get_dataset_identifier_from_qualified_name(
+                        db_row["DOWNSTREAM_TABLE_NAME"]
+                    )
+                    if not self._is_dataset_pattern_allowed(key, "table"):
+                        continue
+                    self._external_lineage_map[key] |= {
+                        *json.loads(db_row["UPSTREAM_LOCATIONS"])
+                    }
+                    logger.debug(
+                        f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
+                    )
+            except SnowflakePermissionError:
+                error_msg = "Failed to get external lineage. Please grant permissions for SNOWFLAKE database. "
+                self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
+            except Exception as e:
+                logger.debug(e, exc_info=e)
+                self.report_warning(
+                    "external_lineage",
+                    f"Populating table external lineage from Snowflake failed due to error {e}.",
+                )
 
         # Handles the case for explicitly created external tables.
         # NOTE: Snowflake does not log this information to the access_history table.
@@ -430,6 +454,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.report.num_external_table_edges_scanned = num_edges
 
     def _populate_lineage(self, conn: SnowflakeConnection) -> None:
+        assert self._lineage_map is not None
         query: str = SnowflakeQuery.table_to_table_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
@@ -438,7 +463,6 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             include_column_lineage=self.config.include_column_lineage,
         )
         num_edges: int = 0
-        self._lineage_map = defaultdict(SnowflakeTableLineage)
         try:
             for db_row in self.query(conn, query):
                 # key is the down-stream table name
@@ -467,7 +491,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}"
                 )
         except SnowflakePermissionError:
-            error_msg = "Failed to get lineage. Please grant permissions for SNOWFLAKE database. "
+            error_msg = "Failed to get table to table lineage. Please grant permissions for SNOWFLAKE database. "
             self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
         except Exception as e:
             logger.debug(e, exc_info=e)
@@ -519,7 +543,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
                 )
         except SnowflakePermissionError:
-            error_msg = "Failed to get lineage. Please grant permissions for SNOWFLAKE database. "
+            error_msg = "Failed to get table to view lineage. Please grant permissions for SNOWFLAKE database."
             self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
         except Exception as e:
             logger.debug(e, exc_info=e)
@@ -527,8 +551,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 "view-upstream-lineage",
                 f"Extracting the upstream view lineage from Snowflake failed due to error {e}.",
             )
-
-        logger.info(f"A total of {num_edges} View upstream edges found.")
+        else:
+            logger.info(f"A total of {num_edges} View upstream edges found.")
         self.report.num_table_to_view_edges_scanned = num_edges
 
     def _populate_view_downstream_lineage(self, conn: SnowflakeConnection) -> None:
@@ -550,7 +574,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         try:
             db_rows = self.query(conn, view_lineage_query)
         except SnowflakePermissionError:
-            error_msg = "Failed to get lineage. Please grant permissions for SNOWFLAKE database. "
+            error_msg = "Failed to get view to table lineage. Please grant permissions for SNOWFLAKE database. "
             self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
         except Exception as e:
             logger.debug(e, exc_info=e)

@@ -97,15 +97,30 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def get_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        conn = self.config.get_connection()
+        try:
+            conn = self.get_connection()
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                self.report_error("permission-error", str(e))
+            else:
+                logger.debug(e, exc_info=e)
+                self.report_error(
+                    "snowflake-connection",
+                    f"Failed to connect to snowflake instance due to error {e}.",
+                )
+            return
 
         if self.report.edition == SnowflakeEdition.STANDARD.value:
             logger.info(
                 "Snowflake Account is Standard Edition. Usage Feature is not supported."
             )
+            return
 
         logger.info("Checking usage date ranges")
+
         self._check_usage_date_ranges(conn)
+
+        # If permission error, execution returns from here
         if (
             self.report.min_access_history_time is None
             or self.report.max_access_history_time is None
