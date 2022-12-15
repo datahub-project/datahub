@@ -17,9 +17,9 @@ describe('LineageEdges', () => {
                 entity={dataset1}
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
-                urnsToRemove={[]}
+                entitiesToRemove={[]}
                 setEntitiesToAdd={jest.fn}
-                setUrnsToRemove={jest.fn}
+                setEntitiesToRemove={jest.fn}
             />,
         );
 
@@ -33,9 +33,9 @@ describe('LineageEdges', () => {
                 entity={dataset4WithLineage}
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
-                urnsToRemove={[]}
+                entitiesToRemove={[]}
                 setEntitiesToAdd={jest.fn}
-                setUrnsToRemove={jest.fn}
+                setEntitiesToRemove={jest.fn}
             />,
         );
 
@@ -53,9 +53,9 @@ describe('LineageEdges', () => {
                 entity={dataset4WithLineage}
                 lineageDirection={Direction.Downstream}
                 entitiesToAdd={[]}
-                urnsToRemove={[]}
+                entitiesToRemove={[]}
                 setEntitiesToAdd={jest.fn}
-                setUrnsToRemove={jest.fn}
+                setEntitiesToRemove={jest.fn}
             />,
         );
 
@@ -66,15 +66,15 @@ describe('LineageEdges', () => {
         expect(getByText(dataset4WithLineage.downstream.relationships[0].entity.properties.name)).toBeInTheDocument();
     });
 
-    it('should remove entities from the displayed list if the urn is in urnsToRemove', async () => {
+    it('should remove entities from the displayed list if the urn is in entitiesToRemove', async () => {
         const { queryByTestId, findAllByTestId, getByText, queryByText } = render(
             <LineageEdges
                 entity={dataset4WithLineage}
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[]}
-                urnsToRemove={[dataset4WithLineage.upstream.relationships[1].entity.urn]}
+                entitiesToRemove={[dataset4WithLineage.upstream.relationships[1].entity]}
                 setEntitiesToAdd={jest.fn}
-                setUrnsToRemove={jest.fn}
+                setEntitiesToRemove={jest.fn}
             />,
         );
 
@@ -94,9 +94,9 @@ describe('LineageEdges', () => {
                 entity={dataset4WithLineage}
                 lineageDirection={Direction.Upstream}
                 entitiesToAdd={[dataset1]}
-                urnsToRemove={[]}
+                entitiesToRemove={[]}
                 setEntitiesToAdd={jest.fn}
-                setUrnsToRemove={jest.fn}
+                setEntitiesToRemove={jest.fn}
             />,
         );
 

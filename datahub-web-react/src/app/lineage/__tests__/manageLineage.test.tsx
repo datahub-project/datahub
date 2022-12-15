@@ -24,9 +24,9 @@ describe('existsInEntitiesToAdd', () => {
 describe('buildUpdateLineagePayload', () => {
     it('should build update lineage payload properly in the upstream direction', () => {
         const entitiesToAdd = [dataFlow1, dataset2];
-        const urnsToRemove = [dataJob1.urn, dataset3.urn];
+        const entitiesToRemove = [dataJob1, dataset3];
         const entityUrn = dataset1.urn;
-        const payload = buildUpdateLineagePayload(Direction.Upstream, entitiesToAdd, urnsToRemove, entityUrn);
+        const payload = buildUpdateLineagePayload(Direction.Upstream, entitiesToAdd, entitiesToRemove, entityUrn);
 
         expect(payload).toMatchObject({
             edgesToAdd: [
@@ -42,9 +42,9 @@ describe('buildUpdateLineagePayload', () => {
 
     it('should build update lineage payload properly in the downstream direction', () => {
         const entitiesToAdd = [dataFlow1, dataset2];
-        const urnsToRemove = [dataJob1.urn, dataset3.urn];
+        const entitiesToRemove = [dataJob1, dataset3];
         const entityUrn = dataset1.urn;
-        const payload = buildUpdateLineagePayload(Direction.Downstream, entitiesToAdd, urnsToRemove, entityUrn);
+        const payload = buildUpdateLineagePayload(Direction.Downstream, entitiesToAdd, entitiesToRemove, entityUrn);
 
         expect(payload).toMatchObject({
             edgesToAdd: [
