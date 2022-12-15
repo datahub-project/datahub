@@ -74,7 +74,6 @@ def mock_datahub_graph():
             self,
             graph_ref: MagicMock,
             entity_urn: str,
-            aspect_name: str,
             aspect_type: Type[DictWrapper],
             filter_criteria_map: Dict[str, str],
         ) -> Optional[DictWrapper]:
