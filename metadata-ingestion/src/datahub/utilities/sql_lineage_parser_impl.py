@@ -28,9 +28,10 @@ class SqlLineageSQLParserImpl(SQLParser):
     _MYVIEW_SQL_TABLE_NAME_TOKEN = "__my_view__.__sql_table_name__"
     _MYVIEW_LOOKER_TOKEN = "my_view.SQL_TABLE_NAME"
 
-    def __init__(self, sql_query: str) -> None:
+    def __init__(self, sql_query: str, use_raw_names: bool = False) -> None:
         super().__init__(sql_query)
         original_sql_query = sql_query
+        self._use_raw_names = use_raw_names
 
         # SqlLineageParser makes mistakes on lateral flatten queries, use the prefix
         if "lateral flatten" in sql_query:
@@ -110,7 +111,13 @@ class SqlLineageSQLParserImpl(SQLParser):
             logger.error("sql holder not present so cannot get tables")
             return result
         for table in self._sql_holder.source_tables:
-            table_normalized = re.sub(r"^<default>.", "", str(table))
+            table_normalized = re.sub(
+                r"^<default>.",
+                "",
+                str(table)
+                if not self._use_raw_names
+                else f"{table.schema.raw_name}.{table.raw_name}",
+            )
             result.append(str(table_normalized))
 
         # We need to revert TOKEN replacements

@@ -11,6 +11,20 @@ extend type Query {
     Used by DataHub UI
     """
     appConfig: AppConfig
+
+    """
+    Fetch the Global Settings related to the Views feature.
+    Requires the 'Manage Global Views' Platform Privilege.
+    """
+    globalViewsSettings: GlobalViewsSettings
+}
+
+extend type Mutation {
+  """
+  Update the global settings related to the Views feature.
+  Requires the 'Manage Global Views' Platform Privilege.
+  """
+  updateGlobalViewsSettings(input: UpdateGlobalViewsSettingsInput!): Boolean!
 }
 
 """
@@ -101,6 +115,11 @@ type PlatformPrivileges {
   Whether the user should be able to create and delete all Tags
   """
   manageTags: Boolean!
+
+  """
+  Whether the user should be able to create, update, and delete global views.
+  """
+  manageGlobalViews: Boolean!
 }
 
 """
@@ -157,6 +176,11 @@ type AppConfig {
   Configurations related to DataHub tests
   """
   testsConfig: TestsConfig!
+
+  """
+  Configurations related to DataHub Views
+  """
+  viewsConfig: ViewsConfig!
 }
 
 """
@@ -309,4 +333,36 @@ type TestsConfig {
   Whether Tests feature is enabled
   """
   enabled: Boolean!
+}
+
+"""
+Configurations related to DataHub Views feature
+"""
+type ViewsConfig {
+  """
+  Whether Views feature is enabled
+  """
+  enabled: Boolean!
+}
+
+"""
+Input required to update Global View Settings.
+"""
+input UpdateGlobalViewsSettingsInput {
+  """
+  The URN of the View that serves as the Global, or organization-wide, default.
+  If this field is not provided, the existing Global Default will be cleared.
+  """
+  defaultView: String
+}
+
+"""
+Global (platform-level) settings related to the Views feature
+"""
+type GlobalViewsSettings {
+  """
+  The global default View. If a user does not have a personal default, then
+  this will be the default view.
+  """
+  defaultView: String
 }
