@@ -143,6 +143,7 @@ export default function ManageLineageModal({
                         lineageDirection={lineageDirection}
                         setEntitiesToAdd={setEntitiesToAdd}
                         entitiesToAdd={entitiesToAdd}
+                        entityType={entityType}
                     />
                     <LineageEdges
                         entity={data?.entity}

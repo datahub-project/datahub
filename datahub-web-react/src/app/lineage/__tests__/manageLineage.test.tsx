@@ -1,7 +1,8 @@
 import { dataFlow1, dataJob1, dataset1, dataset2, dataset3 } from '../../../Mocks';
 import { existsInEntitiesToAdd } from '../manage/AddEntityEdge';
-import { buildUpdateLineagePayload } from '../utils/manageLineageUtils';
+import { buildUpdateLineagePayload, getValidEntityTypes } from '../utils/manageLineageUtils';
 import { Direction } from '../types';
+import { EntityType } from '../../../types.generated';
 
 describe('existsInEntitiesToAdd', () => {
     it('should return false if the search result is not in entitiesAlreadyAdded', () => {
@@ -56,5 +57,54 @@ describe('buildUpdateLineagePayload', () => {
                 { upstreamUrn: entityUrn, downstreamUrn: dataset3.urn },
             ],
         });
+    });
+});
+
+describe('getValidEntityTypes', () => {
+    it('should get valid entity types to query upstream lineage for datasets', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.Dataset);
+        expect(validEntityTypes).toMatchObject([EntityType.Dataset]);
+    });
+    it('should get valid entity types to query upstream lineage for charts', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.Chart);
+        expect(validEntityTypes).toMatchObject([EntityType.Dataset]);
+    });
+    it('should get valid entity types to query upstream lineage for dashboards', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.Dashboard);
+        expect(validEntityTypes).toMatchObject([EntityType.Chart, EntityType.Dataset]);
+    });
+    it('should get valid entity types to query upstream lineage for datajobs', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.DataJob);
+        expect(validEntityTypes).toMatchObject([EntityType.DataJob, EntityType.Dataset]);
+    });
+    it('should return an empty list if the entity type is unexpected for upstream', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.Container);
+        expect(validEntityTypes).toMatchObject([]);
+    });
+
+    it('should get valid entity types to query downstream lineage for datasets', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.Dataset);
+        expect(validEntityTypes).toMatchObject([
+            EntityType.Dataset,
+            EntityType.Chart,
+            EntityType.Dashboard,
+            EntityType.DataJob,
+        ]);
+    });
+    it('should get valid entity types to query downstream lineage for charts', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.Chart);
+        expect(validEntityTypes).toMatchObject([EntityType.Dashboard]);
+    });
+    it('should return an empty list for downstream lineage for dashboards', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.Dashboard);
+        expect(validEntityTypes).toMatchObject([]);
+    });
+    it('should get valid entity types to query downstream lineage for datajobs', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.DataJob);
+        expect(validEntityTypes).toMatchObject([EntityType.DataJob, EntityType.Dataset]);
+    });
+    it('should return an empty list if the entity type is unexpected for downstream', () => {
+        const validEntityTypes = getValidEntityTypes(Direction.Downstream, EntityType.Container);
+        expect(validEntityTypes).toMatchObject([]);
     });
 });
