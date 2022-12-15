@@ -144,6 +144,7 @@ services:
       - "9002:9002"
     depends_on:
       - datahub-gms
+      - kafka-setup
     volumes:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
