@@ -757,6 +757,7 @@ class RedshiftSource(SQLAlchemySource):
                 if lineage_type in [
                     lineage_type.QUERY_SQL_PARSER,
                     lineage_type.NON_BINDING_VIEW,
+                    lineage_type.VIEW,
                 ]:
                     try:
                         sources = self._get_sources_from_query(
