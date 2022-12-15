@@ -72,4 +72,4 @@ something unique.
 
 ### Community Built Images
 
-As the open source project grows community members would like to contribute additions to the docker images. Not all contributions to the images can be accepted because those changes are not useful for all community members, it will increase build times, add dependencies and possible security vulns. In those cases this section can be used to point to `Dockerfiles` hosted by the community which build on top of the images published by the DataHub core team alongwith any container registry links where the result of those images are maintained.
+As the open source project grows, community members would like to contribute additions to the docker images. Not all contributions to the images can be accepted because those changes are not useful for all community members, it will increase build times, add dependencies and possible security vulns. In those cases this section can be used to point to `Dockerfiles` hosted by the community which build on top of the images published by the DataHub core team along with any container registry links where the result of those images are maintained.
