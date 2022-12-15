@@ -116,7 +116,6 @@ class StatefulIngestionSourceBase(Source):
     ) -> None:
         super().__init__(ctx)
         self.stateful_ingestion_config = config.stateful_ingestion
-        self.source_config_type = type(config)
         self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
@@ -246,7 +245,6 @@ class StatefulIngestionSourceBase(Source):
             last_checkpoint = Checkpoint[StateType].create_from_checkpoint_aspect(
                 job_name=job_id,
                 checkpoint_aspect=last_checkpoint_aspect,
-                config_class=self.source_config_type,
                 state_class=checkpoint_state_class,
             )
         return last_checkpoint
