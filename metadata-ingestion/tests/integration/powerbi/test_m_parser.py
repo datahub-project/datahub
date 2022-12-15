@@ -120,6 +120,7 @@ def test_snowflake_regular_case():
     )
 
     reporter = PowerBiDashboardSourceReport()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table, reporter
     )
@@ -199,3 +200,18 @@ def test_mssql_regular_case():
         == SupportedDataPlatform.MS_SQL.get_data_platform_pair().powerbi_data_platform_name
     )
 
+
+def test_native_query_disabled():
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=M_QUERIES[1],
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter, native_query_enabled=False
+    )
+
+    assert len(data_platform_tables) == 0

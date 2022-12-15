@@ -1,8 +1,9 @@
 import logging
 
 from datahub.ingestion.source.powerbi.m_query import tree_function
+from datahub.ingestion.source.powerbi.m_query import resolver
 
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Set
 from lark import Tree
 
 LOGGER = logging.getLogger(__name__)
@@ -30,10 +31,10 @@ def all_function_should_be_known(supported_funcs: List[str], functions: List[str
     return True, None
 
 
-def validate_parse_tree(supported_funcs: List[str], tree: Tree) -> Tuple[bool, str]:
+def validate_parse_tree(tree: Tree, native_query_enabled: bool = True) -> Tuple[bool, str]:
     """
-    :param supported_funcs: List of supported functions
     :param tree: tree to validate as per functions supported by m_parser module
+    :param native_query_enabled: Whether user want to extract lineage from native query
     :return: first argument is False if validation is failed and second argument would contain the error message.
              in-case of valid tree the first argument is True and second argument would be None.
     """
@@ -41,3 +42,13 @@ def validate_parse_tree(supported_funcs: List[str], tree: Tree) -> Tuple[bool, s
     if len(functions) == 0:
         return False, "Function call not found"
 
+    data_access_function_names: List[str] = [x.get_function_name().value for x in resolver.SupportedDataPlatform]
+    result: Set[str] = set(data_access_function_names) & set(functions)
+    if len(result) != 1:
+        return False, f"More than one data-access functions are found in expression. Functions = {result}"
+
+    if native_query_enabled is False:
+        if resolver.FunctionName.NATIVE_QUERY.value in functions:
+            return False, f"Lineage extraction from native query is disabled."
+
+    return True, None

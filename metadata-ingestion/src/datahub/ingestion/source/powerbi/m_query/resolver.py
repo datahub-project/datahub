@@ -346,34 +346,46 @@ class SnowflakeMQueryResolver(BaseMQueryResolver):
         return f"{db_name}.{schema_name}.{table_name}"
 
 
+class FunctionName(Enum):
+    NATIVE_QUERY = "Value.NativeQuery"
+    POSTGRESQL_DATA_ACCESS = "PostgreSQL.Database"
+    ORACLE_DATA_ACCESS = "Oracle.Database"
+    SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
+    MSSQL_DATA_ACCESS = "Sql.Database"
+
+
 class SupportedDataPlatform(Enum):
     POSTGRES_SQL = (
         DataPlatformPair(
             powerbi_data_platform_name="PostgreSQL",
             datahub_data_platform_name="postgres"
         ),
-        PostgresMQueryResolver
+        PostgresMQueryResolver,
+        FunctionName.POSTGRESQL_DATA_ACCESS,
     )
     ORACLE = (
         DataPlatformPair(
             powerbi_data_platform_name="Oracle",
             datahub_data_platform_name="oracle"
         ),
-        OracleMQueryResolver
+        OracleMQueryResolver,
+        FunctionName.ORACLE_DATA_ACCESS,
     )
     SNOWFLAKE = (
         DataPlatformPair(
             powerbi_data_platform_name="Snowflake",
             datahub_data_platform_name="snowflake"
         ),
-        SnowflakeMQueryResolver
+        SnowflakeMQueryResolver,
+        FunctionName.SNOWFLAKE_DATA_ACCESS,
     )
     MS_SQL = (
         DataPlatformPair(
             powerbi_data_platform_name="Sql",
             datahub_data_platform_name="mssql"
         ),
-        MSSqlMQueryResolver
+        MSSqlMQueryResolver,
+        FunctionName.MSSQL_DATA_ACCESS,
     )
 
     def get_data_platform_pair(self) -> DataPlatformPair:
@@ -381,6 +393,9 @@ class SupportedDataPlatform(Enum):
 
     def get_m_query_resolver(self) -> Type[BaseMQueryResolver]:
         return self.value[1]
+
+    def get_function_name(self) -> FunctionName:
+        return self.value[2]
 
 
 def get_resolver(parse_tree: Tree) -> Optional[SupportedDataPlatform]:
@@ -395,10 +410,8 @@ def get_resolver(parse_tree: Tree) -> Optional[SupportedDataPlatform]:
         data_access_func,
     )
 
-    # Take platform name from data_access_func variable
-    platform_name: str = data_access_func.split(".")[0]
     for platform in SupportedDataPlatform:
-        if platform.get_data_platform_pair().powerbi_data_platform_name == platform_name:
+        if platform.get_function_name().value == data_access_func:
             return platform
 
     LOGGER.info("M-Query resolver not found for data access function %s", data_access_func)
