@@ -18,7 +18,6 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collections;
 import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
