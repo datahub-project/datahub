@@ -272,10 +272,10 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 backcompat_instance_for_guid=self.config.env,
 
 
-                clusterType=all_properties_keys.get("cluster_type", "AMAN's CLuster"),
-                clusterSize=all_properties_keys.get("cluster_size", "8999 GB"),
-                subClusters=all_properties_keys.get("Subcluster", "MANY"),
-                communalStoragePath=all_properties_keys.get("communinal_storage_path", "/dev/sda1"),
+                clusterType=all_properties_keys.get("cluster_type"),
+                clusterSize=all_properties_keys.get("cluster_size"),
+                subClusters=all_properties_keys.get("Subcluster"),
+                communalStoragePath=all_properties_keys.get("communinal_storage_path"),
             )
         except Exception as e:
             traceback.print_exc()
@@ -745,8 +745,9 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
 
                         if lineage_info is not None:
                             # Emit the lineage work unit
-                            # upstream_column_props = []
+                            
                             upstream_lineage = lineage_info
+                            
                             lineage_mcpw = MetadataChangeProposalWrapper(
                                 entityType="dataset",
                                 changeType=ChangeTypeClass.UPSERT,
@@ -754,13 +755,18 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                                 aspectName="upstreamLineage",
                                 aspect=upstream_lineage,
                             )
-
+                          
+                           
                             lineage_wu = MetadataWorkUnit(
                                 id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
                                 mcp=lineage_mcpw,
                             )
+                           
                             self.report.report_workunit(lineage_wu)
                             yield lineage_wu
+                            
+                            
+                            
 
                     except Exception as e:
                         logger.warning(
@@ -1542,7 +1548,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             logger.debug(f"No lineage found for {dataset_name}")
             return None
         upstream_tables: List[UpstreamClass] = []
-
+       
         for lineage_entry in lineage:
             # Update the projection-lineage
             upstream_table_name = lineage_entry[0]
@@ -1557,6 +1563,9 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
+            
+            
+          
 
         if upstream_tables:
 
@@ -1577,6 +1586,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
            where name ='%(projection)s'
         """ % {'projection': projection}))
 
+         
         num_edges: int = 0
 
         try:
@@ -1594,12 +1604,13 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     downstream = f"{db_row_value['schemaname']}.{db_row_value['name']}"
                     projection_upstream: str = upstream.lower()
                     projection_name: str = downstream.lower()
-
+                    
+                  
                     self.Projection_lineage_map[projection_name].append(
-                        # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
+                            # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
                         (projection_upstream, "[]", "[]")
                     )
-
+                       
                     num_edges += 1
 
         except Exception as e:
