@@ -16,13 +16,7 @@ import styles from "./search.module.scss";
 import { useSearchPage } from "@docusaurus/theme-common/internal";
 
 
-function FilterBar() {
-  
-  var { searchQuery} = ""
-  function setSearchQuery(newQuery) {
-    searchQuery=newQuery;
-  }
-  
+function FilterBar({filterState, setFilterState}) {
   return (
     <div className="DocSearch row">
       <div className="col col--offset-3 col--6">
@@ -41,8 +35,8 @@ function FilterBar() {
               message: "Filter",
               description: "The ARIA label for search page input",
             })}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            value={searchQuery}
+            onChange={(e) => setFilterState(e.target.value)}
+            value={textState}
             autoComplete="off"
             autoFocus
           />

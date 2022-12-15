@@ -19,10 +19,8 @@ import {
 
 
 const FilterCard = ({ icon, platformIcon, title, description, to }) => {
-  const [showInfo] = React.useState(true);
-
   return (
-    <div className="col col--3" style={{display: showInfo ? "block" : "none"}}>
+    <div className="col col--3">
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
         {icon}
         {platformIcon && <img src={useBaseUrl(`/img/logos/platforms/${platformIcon}.svg`)} />}

@@ -6,14 +6,6 @@ import styles from "./quicklinkcards.module.scss";
 import FilterCard from "../FilterCard";
 
 
-// var prevFilterState = ""
-// if(componentDidUpdate(filterBar, prevFilterState)){
-//   for (title in cards.keys){
-//       cards[title].props.showInfo = title.includes(filterBar.searchQuery);
-//   }
-// }
-
-// var cards = Object.assign({}, ...RTCPeerConnectionIceEvent.map((props, idx) => ({[props.title]:  <FilterCard key={idx} {...props} />})))
 
 
 const FilterCards = ({content, filterBar}) =>
