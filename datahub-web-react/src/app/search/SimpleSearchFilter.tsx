@@ -2,7 +2,7 @@ import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
@@ -66,6 +66,14 @@ export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, def
     const filteredAggregations = facet.aggregations.filter(
         (agg) => agg.count > 0 || isFacetSelected(facet.field, agg.value) || isGraphDegreeFilter(facet.field),
     );
+
+    // By default, render a Filter as open if it is selected
+    const isFilterSelected = !!filteredAggregations.find((agg) => isFacetSelected(facet.field, agg.value));
+    useEffect(() => {
+        if (isFilterSelected) {
+            setAreFiltersVisible(true);
+        }
+    }, [isFilterSelected]);
 
     const shouldTruncate = filteredAggregations.length > TRUNCATED_FILTER_LENGTH;
 

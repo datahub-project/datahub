@@ -2,13 +2,13 @@ import { ListGroupsDocument, ListGroupsQuery } from '../../../graphql/group.gene
 
 export const DEFAULT_GROUP_LIST_PAGE_SIZE = 25;
 
-export const removeGroupFromListGroupsCache = (urn, client) => {
+export const removeGroupFromListGroupsCache = (urn, client, page, pageSize) => {
     const currData: ListGroupsQuery | null = client.readQuery({
         query: ListGroupsDocument,
         variables: {
             input: {
-                start: 0,
-                count: DEFAULT_GROUP_LIST_PAGE_SIZE,
+                start: (page - 1) * pageSize,
+                count: pageSize,
             },
         },
     });
@@ -19,8 +19,8 @@ export const removeGroupFromListGroupsCache = (urn, client) => {
         query: ListGroupsDocument,
         variables: {
             input: {
-                start: 0,
-                count: DEFAULT_GROUP_LIST_PAGE_SIZE,
+                start: (page - 1) * pageSize,
+                count: pageSize,
             },
         },
         data: {

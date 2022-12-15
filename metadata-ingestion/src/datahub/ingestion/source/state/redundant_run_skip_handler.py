@@ -3,7 +3,6 @@ from typing import Optional, cast
 
 import pydantic
 
-from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -42,17 +41,14 @@ class RedundantRunSkipHandler(
     def __init__(
         self,
         source: StatefulIngestionSourceBase,
-        config: Optional[StatefulIngestionConfigBase],
+        config: StatefulIngestionConfigBase[StatefulRedundantRunSkipConfig],
         pipeline_name: Optional[str],
         run_id: str,
     ):
         self.source = source
-        self.config = config
-        self.stateful_ingestion_config = (
-            cast(StatefulRedundantRunSkipConfig, self.config.stateful_ingestion)
-            if self.config
-            else None
-        )
+        self.stateful_ingestion_config: Optional[
+            StatefulRedundantRunSkipConfig
+        ] = config.stateful_ingestion
         self.pipeline_name = pipeline_name
         self.run_id = run_id
         self.checkpointing_enabled: bool = source.is_stateful_ingestion_configured()
@@ -100,14 +96,12 @@ class RedundantRunSkipHandler(
         if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return None
 
-        assert self.config is not None
         assert self.pipeline_name is not None
         return Checkpoint(
             job_name=self.job_id,
             pipeline_name=self.pipeline_name,
             platform_instance_id=self.source.get_platform_instance_id(),
             run_id=self.run_id,
-            config=cast(ConfigModel, self.config),
             state=BaseUsageCheckpointState(
                 begin_timestamp_millis=self.INVALID_TIMESTAMP_VALUE,
                 end_timestamp_millis=self.INVALID_TIMESTAMP_VALUE,

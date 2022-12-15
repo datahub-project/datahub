@@ -99,7 +99,6 @@ class Checkpoint(Generic[StateType]):
     pipeline_name: str
     platform_instance_id: str
     run_id: str
-    config: ConfigModel
     state: StateType
 
     @classmethod
@@ -107,20 +106,10 @@ class Checkpoint(Generic[StateType]):
         cls,
         job_name: str,
         checkpoint_aspect: Optional[DatahubIngestionCheckpointClass],
-        config_class: Type[ConfigModel],
         state_class: Type[StateType],
     ) -> Optional["Checkpoint"]:
         if checkpoint_aspect is None:
             return None
-        try:
-            # Construct the config
-            config_as_dict = json.loads(checkpoint_aspect.config)
-            config_obj = config_class.parse_obj(config_as_dict)
-        except Exception as e:
-            # Failure to load config is probably okay...config structure has changed.
-            logger.warning(
-                "Failed to construct checkpoint's config from checkpoint aspect. %s", e
-            )
         else:
             try:
                 if checkpoint_aspect.state.serde == "utf-8":
@@ -153,7 +142,6 @@ class Checkpoint(Generic[StateType]):
                     pipeline_name=checkpoint_aspect.pipelineName,
                     platform_instance_id=checkpoint_aspect.platformInstanceId,
                     run_id=checkpoint_aspect.runId,
-                    config=config_obj,
                     state=state_obj,
                 )
                 logger.info(
@@ -230,7 +218,7 @@ class Checkpoint(Generic[StateType]):
                 pipelineName=self.pipeline_name,
                 platformInstanceId=self.platform_instance_id,
                 runId=self.run_id,
-                config=self.config.json(),
+                config="",
                 state=checkpoint_state,
             )
             return checkpoint_aspect
