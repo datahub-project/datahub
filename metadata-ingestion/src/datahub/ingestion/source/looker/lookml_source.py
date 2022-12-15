@@ -302,6 +302,7 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
     models_dropped: List[str] = dataclass_field(default_factory=LossyList)
     views_discovered: int = 0
     views_dropped: List[str] = dataclass_field(default_factory=LossyList)
+    views_dropped_unreachable: List[str] = dataclass_field(default_factory=LossyList)
     query_parse_attempts: int = 0
     query_parse_failures: int = 0
     query_parse_failure_views: List[str] = dataclass_field(default_factory=LossyList)
@@ -318,6 +319,9 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
 
     def report_views_dropped(self, view: str) -> None:
         self.views_dropped.append(view)
+
+    def report_unreachable_view_dropped(self, view: str) -> None:
+        self.views_dropped_unreachable.append(view)
 
     def compute_stats(self) -> None:
         if self._looker_api:
@@ -1641,6 +1645,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                         ):
                             logger.debug(
                                 f"view {raw_view['name']} is not reachable from an explore, skipping.."
+                            )
+                            self.reporter.report_unreachable_view_dropped(
+                                raw_view["name"]
                             )
                             continue
 
