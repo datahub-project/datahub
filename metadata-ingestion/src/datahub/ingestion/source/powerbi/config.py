@@ -7,7 +7,6 @@ from pydantic import validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV, EnvBasedSourceConfigBase
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.powerbi import m_parser
 
 
 class Constant:
@@ -130,16 +129,14 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
 
     @validator("dataset_type_mapping")
     @classmethod
-    def check_dataset_type_mapping(cls, value):
-        # For backward compatibility map input PostgreSql to PostgreSQL
+    def map_data_platform(cls, value):
+        # For backward compatibility convert input PostgreSql to PostgreSQL
+        # PostgreSQL is name of the data-platform in M-Query
         if "PostgreSql" in value.keys():
             platform_name = value["PostgreSql"]
             del value["PostgreSql"]
             value["PostgreSQL"] = platform_name
 
-        for key in value.keys():
-            if key not in m_parser.POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING.keys():
-                raise ValueError(f"DataPlatform {key} is not supported")
         return value
 
 
