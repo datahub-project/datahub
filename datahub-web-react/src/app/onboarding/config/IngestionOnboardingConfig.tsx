@@ -13,9 +13,9 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Click here to configure new Integrations from DataHub to your <strong>Data Platforms</strong>,
-                    including Transactional Databases like <strong>MySQL</strong>, Data Warehouses like{' '}
-                    <strong>Snowflake</strong>, Dashboarding tools like <strong>Looker</strong>, and many more!
+                    Configure new Integrations from DataHub to your <strong>Data Platforms</strong>, including
+                    Transactional Databases like <strong>MySQL</strong>, Data Warehouses such as{' '}
+                    <strong>Snowflake</strong>, Dashboarding tools like <strong>Looker</strong>, and more!
                 </p>
                 <p>
                     Learn more about ingestion and view the full list of supported Integrations{' '}
@@ -37,8 +37,7 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         title: 'Refresh Ingestion Pipelines',
         content: (
             <Typography.Paragraph>
-                <p>Click here to refresh and check whether new ingestion pipelines have been set up.</p>
-                <p>You can view both pipelines created on this page and those set up using the DataHub CLI.</p>
+                <p>Click to force a refresh of running ingestion sources.</p>
             </Typography.Paragraph>
         ),
     },

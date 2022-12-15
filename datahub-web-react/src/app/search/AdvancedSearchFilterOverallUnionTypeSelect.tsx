@@ -8,6 +8,7 @@ import { UnionType } from './utils/constants';
 type Props = {
     unionType: UnionType;
     onUpdate: (newValue: UnionType) => void;
+    disabled?: boolean;
 };
 
 const { Option } = Select;
@@ -20,12 +21,13 @@ const StyledSelect = styled(Select)`
     }
 `;
 
-export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate }: Props) => {
+export const AdvancedSearchFilterOverallUnionTypeSelect = ({ unionType, onUpdate, disabled = false }: Props) => {
     return (
         <>
             <StyledSelect
                 showArrow={false}
                 bordered={false}
+                disabled={disabled}
                 // these values are just for display purposes- the actual value is the unionType prop
                 value={unionType === UnionType.AND ? 'all filters' : 'any filter'}
                 onChange={(newValue) => {

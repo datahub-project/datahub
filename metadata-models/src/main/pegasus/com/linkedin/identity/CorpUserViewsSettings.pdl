@@ -1,0 +1,14 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * Settings related to the 'Views' feature.
+ */
+record CorpUserViewsSettings {
+  /**
+   * The default View which is selected for the user.
+   * If none is chosen, then this value will be left blank.
+   */
+  defaultView: optional Urn
+}

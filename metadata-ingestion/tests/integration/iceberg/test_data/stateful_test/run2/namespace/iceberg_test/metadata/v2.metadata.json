@@ -1,0 +1,118 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "16e6ecee-cd5d-470f-a7a6-a197944fa4db",
+  "location" : "/namespace/iceberg_test",
+  "last-updated-ms" : 1649086837695,
+  "last-column-id" : 5,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "level",
+      "required" : true,
+      "type" : "string",
+      "doc" : "level documentation"
+    }, {
+      "id" : 2,
+      "name" : "event_time",
+      "required" : true,
+      "type" : "timestamptz",
+      "doc" : "event_time documentation"
+    }, {
+      "id" : 3,
+      "name" : "message",
+      "required" : true,
+      "type" : "string",
+      "doc" : "message documentation"
+    }, {
+      "id" : 4,
+      "name" : "call_stack",
+      "required" : false,
+      "type" : {
+        "type" : "list",
+        "element-id" : 5,
+        "element" : "string",
+        "element-required" : true
+      },
+      "doc" : "call_stack documentation"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "level",
+      "required" : true,
+      "type" : "string",
+      "doc" : "level documentation"
+    }, {
+      "id" : 2,
+      "name" : "event_time",
+      "required" : true,
+      "type" : "timestamptz",
+      "doc" : "event_time documentation"
+    }, {
+      "id" : 3,
+      "name" : "message",
+      "required" : true,
+      "type" : "string",
+      "doc" : "message documentation"
+    }, {
+      "id" : 4,
+      "name" : "call_stack",
+      "required" : false,
+      "type" : {
+        "type" : "list",
+        "element-id" : 5,
+        "element" : "string",
+        "element-required" : true
+      },
+      "doc" : "call_stack documentation"
+    } ]
+  } ],
+  "partition-spec" : [ {
+    "name" : "event_time_hour",
+    "transform" : "hour",
+    "source-id" : 2,
+    "field-id" : 1000
+  }, {
+    "name" : "level",
+    "transform" : "identity",
+    "source-id" : 1,
+    "field-id" : 1001
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ {
+      "name" : "event_time_hour",
+      "transform" : "hour",
+      "source-id" : 2,
+      "field-id" : 1000
+    }, {
+      "name" : "level",
+      "transform" : "identity",
+      "source-id" : 1,
+      "field-id" : 1001
+    } ]
+  } ],
+  "last-partition-id" : 1001,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "owner" : "new_owner"
+  },
+  "current-snapshot-id" : -1,
+  "snapshots" : [ ],
+  "snapshot-log" : [ ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1649086837511,
+    "metadata-file" : "/namespace/iceberg_test/metadata/v1.metadata.json"
+  } ]
+}

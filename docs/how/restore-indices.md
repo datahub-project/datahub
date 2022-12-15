@@ -49,3 +49,16 @@ kubectl create job --from=cronjob/datahub-datahub-restore-indices-job-template d
 ```
 
 Once the job completes, your indices will have been restored. 
+
+## Through API
+
+You can do a HTTP POST request to `/gms/aspects?action=restoreIndices` endpoint with the `urn` as part of JSON Payload to restore indices for the particular URN.
+
+```
+curl --location --request POST 'https://demo.datahubproject.io/api/gms/aspects?action=restoreIndices' \
+--header 'Authorization: Bearer TOKEN' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "urn": "YOUR_URN"
+}'
+```

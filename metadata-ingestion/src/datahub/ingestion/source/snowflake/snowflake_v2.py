@@ -169,7 +169,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Enabled by default, can be disabled via configuration `include_table_lineage` and `include_view_lineage`",
+    "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
 @capability(
     SourceCapability.USAGE_STATS,
@@ -1101,6 +1101,7 @@ class SnowflakeV2Source(
         self.report.check_role_grants = self.config.check_role_grants
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
+        self.report.include_column_lineage = self.config.include_column_lineage
         if self.report.include_usage_stats or self.config.include_operational_stats:
             self.report.window_start_time = self.config.start_time
             self.report.window_end_time = self.config.end_time
