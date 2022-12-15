@@ -2,6 +2,8 @@ package com.linkedin.gms.factory.kafka.schemaregistry;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.schema.registry.SchemaRegistryService;
+import com.linkedin.metadata.schema.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
@@ -25,11 +27,13 @@ public class InternalSchemaRegistryFactory {
 
   public static final String TYPE = "INTERNAL";
 
-
+  /**
+   * Configure Kafka Producer/Consumer processes with a custom schema registry.
+   * @return
+   */
   @Bean
   @Nonnull
-  @DependsOn({TopicConventionFactory.TOPIC_CONVENTION_BEAN})
-  protected SchemaRegistryConfig getInstance(TopicConvention convention) {
+  protected SchemaRegistryConfig getInstance() {
     Map<String, Object> props = new HashMap<>();
 
     // TODO: Fix this url to either come by config or from the source code directly. Particularly the last endpoint
@@ -37,5 +41,12 @@ public class InternalSchemaRegistryFactory {
 
     log.info("Creating internal registry");
     return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
+  }
+
+  @Bean(name = "schemaRegistryService")
+  @Nonnull
+  @DependsOn({TopicConventionFactory.TOPIC_CONVENTION_BEAN})
+  protected SchemaRegistryService schemaRegistryService(TopicConvention convention) {
+    return new SchemaRegistryServiceImpl(convention);
   }
 }

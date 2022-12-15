@@ -1,13 +1,8 @@
 package io.datahubproject.openapi.schema.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-import com.linkedin.mxe.TopicConvention;
-import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal;
-import com.linkedin.pegasus2avro.mxe.MetadataChangeLog;
-import com.linkedin.pegasus2avro.mxe.MetadataChangeProposal;
-import com.linkedin.pegasus2avro.mxe.PlatformEvent;
+import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
+import com.linkedin.metadata.schema.registry.SchemaRegistryService;
 import io.datahubproject.schema_registry.openapi.generated.CompatibilityCheckResponse;
 import io.datahubproject.schema_registry.openapi.generated.ConfigUpdateRequest;
 import io.datahubproject.schema_registry.openapi.generated.ModeUpdateRequest;
@@ -22,13 +17,14 @@ import io.swagger.api.SchemasApi;
 import io.swagger.api.SubjectsApi;
 import io.swagger.api.V1Api;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,48 +32,21 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 /**
- * DataHub implementation for Confluent's Schema Registry OpenAPI spec.
+ * DataHub Rest Controller implementation for Confluent's Schema Registry OpenAPI spec.
  */
 @Slf4j
 @RestController
 @RequestMapping("/schema-registry")
-//@RequiredArgsConstructor
+@RequiredArgsConstructor
+@ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = InternalSchemaRegistryFactory.TYPE)
 public class SchemaRegistryController implements CompatibilityApi, ConfigApi, ContextsApi, DefaultApi, ModeApi,
                                                  SchemasApi, SubjectsApi, V1Api {
-  //private final CacheManager cacheManager;
-
-  //private final Cache cache = cacheManager.getCache("schemaRegistryCache");
-
-  //private final Parser parser = new org.apache.avro.Schema.Parser();
 
   private final ObjectMapper objectMapper;
 
   private final HttpServletRequest request;
-
-  private final Map<String, org.apache.avro.Schema> _schemaMap;
-
-  private final BiMap<String, Integer> _subjectToIdMap;
-
-  private final AtomicInteger counter = new AtomicInteger();
-
-  @org.springframework.beans.factory.annotation.Autowired
-  public SchemaRegistryController(ObjectMapper objectMapper, HttpServletRequest request, TopicConvention convention) {
-    this.objectMapper = objectMapper;
-    this.request = request;
-    this._schemaMap = new HashMap<>();
-    this._subjectToIdMap = HashBiMap.create();
-    this._schemaMap.put(convention.getMetadataChangeProposalTopicName(), MetadataChangeProposal.getClassSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeProposalTopicName(), counter.incrementAndGet());
-    this._schemaMap.put(convention.getMetadataChangeLogVersionedTopicName(), MetadataChangeLog.getClassSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeLogVersionedTopicName(), counter.incrementAndGet());
-    this._schemaMap.put(convention.getMetadataChangeLogTimeseriesTopicName(), MetadataChangeLog.getClassSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeLogTimeseriesTopicName(), counter.incrementAndGet());
-    this._schemaMap.put(convention.getFailedMetadataChangeProposalTopicName(),
-        FailedMetadataChangeProposal.getClassSchema());
-    this._subjectToIdMap.put(convention.getFailedMetadataChangeProposalTopicName(), counter.incrementAndGet());
-    this._schemaMap.put(convention.getPlatformEventTopicName(), PlatformEvent.getClassSchema());
-    this._subjectToIdMap.put(convention.getPlatformEventTopicName(), counter.incrementAndGet());
-  }
+  @Qualifier("schemaRegistryService")
+  private final SchemaRegistryService _schemaRegistryService;
 
   @Override
   public Optional<ObjectMapper> getObjectMapper() {
@@ -214,8 +183,16 @@ public class SchemaRegistryController implements CompatibilityApi, ConfigApi, Co
   @Override
   public ResponseEntity<RegisterSchemaResponse> register(String subject, RegisterSchemaRequest body,
       Boolean normalize) {
-    // RegisterSchemaResponse is the unique int (in the DB for the schema)
-    return new ResponseEntity<>(new RegisterSchemaResponse(), HttpStatus.OK);
+    final String topicName = subject.replaceFirst("-value", "");
+    return _schemaRegistryService.getSchemaIdForTopic(topicName).map(id -> {
+          final RegisterSchemaResponse response = new RegisterSchemaResponse();
+          return new ResponseEntity<>(response.id(id), HttpStatus.OK);
+        })
+        .orElseGet(() -> {
+          log.error("Couldn't find topic with name {}.", topicName);
+          return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    );
   }
 
   @Override
