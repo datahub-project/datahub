@@ -3,11 +3,11 @@ title: Setup
 ---
 # Snowflake Ingestion Guide: Setup & Prerequisites
 
-In order to configure ingestion from Snowflake, you'll first have to ensure you have a Snowflake user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege and you know where to [execute queries](https://docs.snowflake.com/en/user-guide/ui-worksheet.html#) in Snowflake.
+In order to configure ingestion from Snowflake, you'll first have to ensure you have a Snowflake user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
 
 ## Snowflake Prerequisites
 
-1. Create a DataHub-specific role by executing the following queries. Replace `<your-warehouse>` with an existing warehouse that you wish to use for DataHub ingestion.
+1. Create a DataHub-specific role by executing the following queries in Snowflake. Replace `<your-warehouse>` with an existing warehouse that you wish to use for DataHub ingestion.
 
    ```sql
    create or replace role datahub_role;
@@ -27,7 +27,7 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 
    Make note of the user and its password. You'll need this in the next step.
 
-3. Assign privileges to read metadata about your assets by executing the following queries. Replace `<your-database>` with an existing database. Repeat for all databases from your Snowflake instance that you wish to integrate with DataHub. This is a bit tedious but a very important step.
+3. Assign privileges to read metadata about your assets by executing the following queries. Replace `<your-database>` with an existing database. Repeat for all databases from your Snowflake instance that you wish to integrate with DataHub.
 
    ```sql
    set db_var = '"<your-database>"';
@@ -68,6 +68,6 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 
 ## Next Steps
 
-Once you've done all of the above in Snowflake, it's time to [move on](configuration.md) to configuring the actual ingestion source within the DataHub UI
+Once you've done all of the above in Snowflake, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
 
 *Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
