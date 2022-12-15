@@ -302,6 +302,8 @@ export default function LineageEntityNode({
                         disableUpstream={!isCenterNode && direction === Direction.Downstream}
                         disableDownstream={!isCenterNode && direction === Direction.Upstream}
                         centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
+                        entityType={node.data.type}
+                        entityPlatform={node.data.platform?.name}
                     />
                 </foreignObject>
                 <Group>

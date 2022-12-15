@@ -25,18 +25,18 @@ interface Props {
     entity?: Maybe<Entity>;
     lineageDirection: Direction;
     entitiesToAdd: Entity[];
-    urnsToRemove: string[];
+    entitiesToRemove: Entity[];
     setEntitiesToAdd: React.Dispatch<React.SetStateAction<Entity[]>>;
-    setUrnsToRemove: React.Dispatch<React.SetStateAction<string[]>>;
+    setEntitiesToRemove: React.Dispatch<React.SetStateAction<Entity[]>>;
 }
 
 export default function LineageEdges({
     entity,
     lineageDirection,
     entitiesToAdd,
-    urnsToRemove,
+    entitiesToRemove,
     setEntitiesToAdd,
-    setUrnsToRemove,
+    setEntitiesToRemove,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -47,14 +47,15 @@ export default function LineageEdges({
 
     const lineageChildren =
         lineageDirection === Direction.Upstream ? fetchedEntity?.upstreamChildren : fetchedEntity?.downstreamChildren;
+    const urnsToRemove = entitiesToRemove.map((entityToRemove) => entityToRemove.urn);
     const filteredChildren = lineageChildren?.filter((child) => !urnsToRemove.includes(child.entity.urn));
 
-    function removeEntity(removedUrn: string) {
-        if (lineageChildren?.find((child) => child.entity.urn === removedUrn)) {
-            setUrnsToRemove((existingUrnsToRemove) => [...existingUrnsToRemove, removedUrn]);
+    function removeEntity(removedEntity: Entity) {
+        if (lineageChildren?.find((child) => child.entity.urn === removedEntity.urn)) {
+            setEntitiesToRemove((existingEntitiesToRemove) => [...existingEntitiesToRemove, removedEntity]);
         } else {
             setEntitiesToAdd((existingEntitiesToAdd) =>
-                existingEntitiesToAdd.filter((addedEntity) => addedEntity.urn !== removedUrn),
+                existingEntitiesToAdd.filter((addedEntity) => addedEntity.urn !== removedEntity.urn),
             );
         }
     }

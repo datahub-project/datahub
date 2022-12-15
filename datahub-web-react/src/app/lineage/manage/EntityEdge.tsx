@@ -25,7 +25,7 @@ const StyledClose = styled(CloseOutlined)`
 
 interface Props {
     entity: Entity;
-    removeEntity: (urn: string) => void;
+    removeEntity: (removedEntity: Entity) => void;
 }
 
 export default function EntityEdge({ entity, removeEntity }: Props) {
@@ -39,7 +39,7 @@ export default function EntityEdge({ entity, removeEntity }: Props) {
                 {platformLogoUrl && <PlatformLogo src={platformLogoUrl} alt="platform logo" />}{' '}
                 <EntityName>{entityRegistry.getDisplayName(entity.type, entity)}</EntityName>
             </span>
-            <StyledClose onClick={() => removeEntity(entity.urn)} />
+            <StyledClose onClick={() => removeEntity(entity)} />
         </EntityItem>
     );
 }

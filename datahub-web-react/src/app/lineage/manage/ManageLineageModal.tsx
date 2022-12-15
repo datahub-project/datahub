@@ -7,8 +7,10 @@ import { Direction, UpdatedLineages } from '../types';
 import AddEntityEdge from './AddEntityEdge';
 import LineageEntityView from './LineageEntityView';
 import LineageEdges from './LineageEdges';
-import { Entity, LineageEdge } from '../../../types.generated';
+import { Entity, EntityType } from '../../../types.generated';
 import { useUpdateLineageMutation } from '../../../graphql/mutations.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { buildUpdateLineagePayload, recordAnalyticsEvents } from '../utils/manageLineageUtils';
 
 const ModalFooter = styled.div`
     display: flex;
@@ -33,27 +35,6 @@ const LoadingWrapper = styled.div`
     font-size: 30px;
 `;
 
-export function buildUpdateLineagePayload(
-    lineageDirection: Direction,
-    entitiesToAdd: Entity[],
-    urnsToRemove: string[],
-    entityUrn: string,
-) {
-    let edgesToAdd: LineageEdge[] = [];
-    let edgesToRemove: LineageEdge[] = [];
-
-    if (lineageDirection === Direction.Upstream) {
-        edgesToAdd = entitiesToAdd.map((entity) => ({ upstreamUrn: entity.urn, downstreamUrn: entityUrn }));
-        edgesToRemove = urnsToRemove.map((urn) => ({ upstreamUrn: urn, downstreamUrn: entityUrn }));
-    }
-    if (lineageDirection === Direction.Downstream) {
-        edgesToAdd = entitiesToAdd.map((entity) => ({ upstreamUrn: entityUrn, downstreamUrn: entity.urn }));
-        edgesToRemove = urnsToRemove.map((urn) => ({ upstreamUrn: entityUrn, downstreamUrn: urn }));
-    }
-
-    return { edgesToAdd, edgesToRemove };
-}
-
 interface Props {
     entityUrn: string;
     lineageDirection: Direction;
@@ -61,6 +42,8 @@ interface Props {
     refetchEntity: () => void;
     setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
     showLoading?: boolean;
+    entityType?: EntityType;
+    entityPlatform?: string;
 }
 
 export default function ManageLineageModal({
@@ -70,9 +53,12 @@ export default function ManageLineageModal({
     refetchEntity,
     setUpdatedLineages,
     showLoading,
+    entityType,
+    entityPlatform,
 }: Props) {
+    const entityRegistry = useEntityRegistry();
     const [entitiesToAdd, setEntitiesToAdd] = useState<Entity[]>([]);
-    const [urnsToRemove, setUrnsToRemove] = useState<string[]>([]);
+    const [entitiesToRemove, setEntitiesToRemove] = useState<Entity[]>([]);
     const [updateLineage] = useUpdateLineageMutation();
 
     const { data, loading } = useGetEntityLineageQuery({
@@ -85,7 +71,7 @@ export default function ManageLineageModal({
     });
 
     function saveLineageChanges() {
-        const payload = buildUpdateLineagePayload(lineageDirection, entitiesToAdd, urnsToRemove, entityUrn);
+        const payload = buildUpdateLineagePayload(lineageDirection, entitiesToAdd, entitiesToRemove, entityUrn);
         updateLineage({ variables: { input: payload } })
             .then((res) => {
                 if (res.data?.updateLineage) {
@@ -108,9 +94,17 @@ export default function ManageLineageModal({
                         [entityUrn]: {
                             lineageDirection,
                             entitiesToAdd,
-                            urnsToRemove,
+                            urnsToRemove: entitiesToRemove.map((entity) => entity.urn),
                         },
                     }));
+                    recordAnalyticsEvents({
+                        lineageDirection,
+                        entitiesToAdd,
+                        entitiesToRemove,
+                        entityRegistry,
+                        entityType,
+                        entityPlatform,
+                    });
                 }
             })
             .catch(() => {
@@ -118,7 +112,7 @@ export default function ManageLineageModal({
             });
     }
 
-    const isSaveDisabled = !entitiesToAdd.length && !urnsToRemove.length;
+    const isSaveDisabled = !entitiesToAdd.length && !entitiesToRemove.length;
 
     return (
         <StyledModal
@@ -149,14 +143,15 @@ export default function ManageLineageModal({
                         lineageDirection={lineageDirection}
                         setEntitiesToAdd={setEntitiesToAdd}
                         entitiesToAdd={entitiesToAdd}
+                        entityType={entityType}
                     />
                     <LineageEdges
                         entity={data?.entity}
                         lineageDirection={lineageDirection}
                         entitiesToAdd={entitiesToAdd}
-                        urnsToRemove={urnsToRemove}
+                        entitiesToRemove={entitiesToRemove}
                         setEntitiesToAdd={setEntitiesToAdd}
-                        setUrnsToRemove={setUrnsToRemove}
+                        setEntitiesToRemove={setEntitiesToRemove}
                     />
                 </>
             )}

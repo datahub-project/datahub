@@ -1,6 +1,6 @@
 import { dataFlow1, dataJob1, dataset1, dataset2, dataset3 } from '../../../Mocks';
 import { existsInEntitiesToAdd } from '../manage/AddEntityEdge';
-import { buildUpdateLineagePayload } from '../manage/ManageLineageModal';
+import { buildUpdateLineagePayload } from '../utils/manageLineageUtils';
 import { Direction } from '../types';
 
 describe('existsInEntitiesToAdd', () => {

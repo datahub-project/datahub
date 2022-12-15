@@ -61,7 +61,7 @@ export const LineageTab = ({
 }: {
     properties?: { defaultDirection: LineageDirection };
 }) => {
-    const { urn, entityType } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -125,6 +125,8 @@ export const LineageTab = ({
                             </Button>
                         }
                         showLoading
+                        entityType={entityType}
+                        entityPlatform={entityData?.platform?.name}
                     />
                 </RightButtonsWrapper>
             </StyledTabToolbar>

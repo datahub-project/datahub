@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import FocusIcon from '../../../images/focus.svg';
 import { Direction, UpdatedLineages } from '../types';
+import { EntityType } from '../../../types.generated';
 import ManageLineageModal from './ManageLineageModal';
 
 const DROPDOWN_Z_INDEX = 1;
@@ -35,6 +36,8 @@ interface Props {
     centerEntity?: () => void;
     showLoading?: boolean;
     menuIcon?: React.ReactNode;
+    entityType?: EntityType;
+    entityPlatform?: string;
 }
 
 export default function ManageLineageMenu({
@@ -46,6 +49,8 @@ export default function ManageLineageMenu({
     centerEntity,
     showLoading,
     menuIcon,
+    entityType,
+    entityPlatform,
 }: Props) {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [lineageDirection, setLineageDirection] = useState<Direction>(Direction.Upstream);
@@ -113,6 +118,8 @@ export default function ManageLineageMenu({
                     refetchEntity={refetchEntity}
                     setUpdatedLineages={setUpdatedLineages}
                     showLoading={showLoading}
+                    entityType={entityType}
+                    entityPlatform={entityPlatform}
                 />
             )}
         </>

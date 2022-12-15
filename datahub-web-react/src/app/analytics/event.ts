@@ -1,4 +1,5 @@
 import { EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import { Direction } from '../lineage/types';
 
 /**
  * Valid event types.
@@ -49,6 +50,8 @@ export enum EventType {
     DeleteIngestionSourceEvent,
     ExecuteIngestionSourceEvent,
     SsoEvent,
+    ManuallyCreateLineageEvent,
+    ManuallyDeleteLineageEvent,
 }
 
 /**
@@ -382,6 +385,24 @@ export interface SsoEvent extends BaseEvent {
     type: EventType.SsoEvent;
 }
 
+export interface ManuallyCreateLineageEvent extends BaseEvent {
+    type: EventType.ManuallyCreateLineageEvent;
+    direction: Direction;
+    sourceEntityType?: EntityType;
+    sourceEntityPlatform?: string;
+    destinationEntityType?: EntityType;
+    destinationEntityPlatform?: string;
+}
+
+export interface ManuallyDeleteLineageEvent extends BaseEvent {
+    type: EventType.ManuallyDeleteLineageEvent;
+    direction: Direction;
+    sourceEntityType?: EntityType;
+    sourceEntityPlatform?: string;
+    destinationEntityType?: EntityType;
+    destinationEntityPlatform?: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -430,4 +451,6 @@ export type Event =
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
-    | SsoEvent;
+    | SsoEvent
+    | ManuallyCreateLineageEvent
+    | ManuallyDeleteLineageEvent;
