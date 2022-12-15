@@ -107,15 +107,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
                     },
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, dashboard: GetDashboardQuery) => {
-                            return (
-                                (dashboard?.dashboard?.upstream?.total || 0) > 0 ||
-                                (dashboard?.dashboard?.downstream?.total || 0) > 0
-                            );
-                        },
-                    },
                 },
                 {
                     name: 'Datasets',
