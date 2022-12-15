@@ -22,7 +22,8 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testImplementation externalDependency.springBootTest
-
+  testCompile externalDependency.testContainers
+  testCompile "org.testcontainers:kafka:1.17.6"
   testCompile externalDependency.testng
   testCompile externalDependency.mockito
 }

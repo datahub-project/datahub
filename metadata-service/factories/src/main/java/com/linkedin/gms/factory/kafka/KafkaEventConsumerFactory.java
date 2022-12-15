@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.time.Duration;
@@ -25,18 +26,11 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@EnableConfigurationProperties(KafkaProperties.class)
+@EnableConfigurationProperties({ConfigurationProvider.class, KafkaProperties.class})
 public class KafkaEventConsumerFactory {
-
-  @Value("${kafka.bootstrapServers}")
-  private String kafkaBootstrapServers;
 
   @Value("${kafka.listener.concurrency:1}")
   private Integer kafkaListenerConcurrency;
-
-  @Autowired
-  @Lazy
-  private SchemaRegistryConfig schemaRegistryConfig;
 
   // CHANGE THIS
   @Autowired
@@ -55,9 +49,8 @@ public class KafkaEventConsumerFactory {
   }
 
   @Bean(name = "kafkaEventConsumer")
-  protected KafkaListenerContainerFactory<?> createInstance(
-          KafkaProperties properties,
-          @Qualifier("kafkaEventConsumerConcurrency") int concurrency) {
+  protected KafkaListenerContainerFactory<?> createInstance(ConfigurationProvider provider,
+      KafkaProperties properties, @Qualifier("kafkaEventConsumerConcurrency") int concurrency) {
 
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
 
@@ -68,8 +61,8 @@ public class KafkaEventConsumerFactory {
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaBootstrapServers != null && kafkaBootstrapServers.length() > 0) {
-      consumerProps.setBootstrapServers(Arrays.asList(kafkaBootstrapServers.split(",")));
+    if (provider.getKafka().getBootstrapServers() != null && provider.getKafka().getBootstrapServers().length() > 0) {
+      consumerProps.setBootstrapServers(Arrays.asList(provider.getKafka().getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> props = properties.buildConsumerProperties();

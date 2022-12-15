@@ -179,7 +179,7 @@ kafka:
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:INTERNAL} # INTERNAL or KAFKA or AWS_GLUE
-    #url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081} # Application only for type = kafka
+    url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8080/openapi/schema-registry}
     #awsGlue:
     #  region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
     #  registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}

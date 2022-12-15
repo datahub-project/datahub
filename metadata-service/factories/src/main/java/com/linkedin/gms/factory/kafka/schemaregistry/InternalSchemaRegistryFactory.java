@@ -12,6 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,17 +29,31 @@ public class InternalSchemaRegistryFactory {
 
   public static final String TYPE = "INTERNAL";
 
+  @Value("${datahub.gms.host}")
+  private String gmsHost;
+
+  @Value("${datahub.gms.port}")
+  private int gmsPort;
+
+  @Value("${datahub.gms.useSSL}")
+  private boolean gmsUseSSL;
+
+  @Bean(name = "schemaRegistryUrl")
+  protected String schemaRegistryUrl() {
+    final String protocol = gmsUseSSL ? "https" : "http";
+    return String.format("%s://%s/%s/openapi/schema-registry", protocol, gmsHost, gmsPort);
+  }
+
   /**
    * Configure Kafka Producer/Consumer processes with a custom schema registry.
-   * @return
    */
   @Bean
   @Nonnull
-  protected SchemaRegistryConfig getInstance() {
+  protected SchemaRegistryConfig getInstance(@Qualifier("schemaRegistryUrl") final String schemaRegistryUrl) {
     Map<String, Object> props = new HashMap<>();
 
     // TODO: Fix this url to either come by config or from the source code directly. Particularly the last endpoint
-    props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, "http://localhost:8080/openapi/schema-registry");
+    props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
 
     log.info("Creating internal registry");
     return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);

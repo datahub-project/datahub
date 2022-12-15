@@ -1,11 +1,11 @@
 package com.linkedin.gms.factory.kafka;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.time.Duration;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -17,14 +17,12 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(KafkaProperties.class)
+@EnableConfigurationProperties({ConfigurationProvider.class, KafkaProperties.class})
 public class SimpleKafkaConsumerFactory {
 
-  @Value("${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}")
-  private String kafkaBootstrapServers;
-
   @Bean(name = "simpleKafkaConsumer")
-  protected KafkaListenerContainerFactory<?> createInstance(KafkaProperties properties) {
+  protected KafkaListenerContainerFactory<?> createInstance(ConfigurationProvider provider,
+      KafkaProperties properties) {
 
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
 
@@ -36,8 +34,8 @@ public class SimpleKafkaConsumerFactory {
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaBootstrapServers != null && kafkaBootstrapServers.length() > 0) {
-      consumerProps.setBootstrapServers(Arrays.asList(kafkaBootstrapServers.split(",")));
+    if (provider.getKafka().getBootstrapServers() != null && provider.getKafka().getBootstrapServers().length() > 0) {
+      consumerProps.setBootstrapServers(Arrays.asList(provider.getKafka().getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
