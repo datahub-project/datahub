@@ -43,7 +43,11 @@ record DataJobInputOutput {
     "/*/destinationUrn": {
       "name": "Consumes",
       "entityTypes": [ "dataset" ],
-      "isLineage": true
+      "isLineage": true,
+      "createdOn": "inputDatasetEdges/*/created/time"
+      "createdActor": "inputDatasetEdges/*/created/actor"
+      "updatedOn": "inputDatasetEdges/*/lastModified/time"
+      "updatedActor": "inputDatasetEdges/*/lastModified/actor"
     }
   }
   @Searchable = {
@@ -87,11 +91,15 @@ record DataJobInputOutput {
       "name": "Produces",
       "entityTypes": [ "dataset" ],
       "isUpstream": false,
-      "isLineage": true
+      "isLineage": true,
+      "createdOn": "outputDatasetEdges/*/created/time"
+      "createdActor": "outputDatasetEdges/*/created/actor"
+      "updatedOn": "outputDatasetEdges/*/lastModified/time"
+      "updatedActor": "outputDatasetEdges/*/lastModified/actor"
     }
   }
   @Searchable = {
-    "/*": {
+    "/*/destinationUrn": {
       "fieldName": "outputs",
       "fieldType": "URN",
       "numValuesFieldName": "numOutputDatasets",
@@ -121,7 +129,11 @@ record DataJobInputOutput {
     "/*/destinationUrn": {
       "name": "DownstreamOf",
       "entityTypes": [ "dataJob" ],
-      "isLineage": true
+      "isLineage": true,
+      "createdOn": "inputDatajobEdges/*/created/time"
+      "createdActor": "inputDatajobEdges/*/created/actor"
+      "updatedOn": "inputDatajobEdges/*/lastModified/time"
+      "updatedActor": "inputDatajobEdges/*/lastModified/actor"
     }
   }
   inputDatajobEdges: optional array[Edge] 

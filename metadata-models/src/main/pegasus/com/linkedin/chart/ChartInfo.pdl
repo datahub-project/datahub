@@ -62,7 +62,11 @@ record ChartInfo includes CustomProperties, ExternalReference {
     "/*/destinationUrn": {
       "name": "Consumes",
       "entityTypes": [ "dataset" ],
-      "isLineage": true
+      "isLineage": true,
+      "createdOn": "inputEdges/*/created/time"
+      "createdActor": "inputEdges/*/created/actor"
+      "updatedOn": "inputEdges/*/lastModified/time"
+      "updatedActor": "inputEdges/*/lastModified/actor"
     }
   }
   inputEdges: optional array[Edge]

@@ -55,10 +55,14 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    * Charts in a dashboard
    */
   @Relationship = {
-    "/*": {
+    "/*/destinationUrn": {
       "name": "Contains",
       "entityTypes": [ "chart" ],
-      "isLineage": true
+      "isLineage": true,
+      "createdOn": "chartEdges/*/created/time"
+      "createdActor": "chartEdges/*/created/actor"
+      "updatedOn": "chartEdges/*/lastModified/time"
+      "updatedActor": "chartEdges/*/lastModified/actor"
     }
   }
   chartEdges: array[Edge] = [ ]
@@ -81,10 +85,14 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    * Datasets consumed by a dashboard
    */
   @Relationship = {
-    "/*": {
+    "/*/destinationUrn": {
       "name": "Consumes",
       "entityTypes": [ "dataset" ],
-      "isLineage": true
+      "isLineage": true,
+      "createdOn": "datasetEdges/*/created/time"
+      "createdActor": "datasetEdges/*/created/actor"
+      "updatedOn": "datasetEdges/*/lastModified/time"
+      "updatedActor": "datasetEdges/*/lastModified/actor"
     }
   }
   datasetEdges: array[Edge] = [ ]
