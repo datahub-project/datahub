@@ -244,7 +244,18 @@ export const EditOwnersModal = ({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to add owners: \n ${e.message || ''}`, duration: 3 });
+                if (
+                    urns.length > 1 &&
+                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
+                ) {
+                    message.error({
+                        content:
+                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                        duration: 3,
+                    });
+                } else {
+                    message.error({ content: `Failed to add owners: \n ${e.message || ''}`, duration: 3 });
+                }
             }
         } finally {
             refetch?.();
@@ -267,7 +278,18 @@ export const EditOwnersModal = ({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove owners: \n ${e.message || ''}`, duration: 3 });
+                if (
+                    urns.length > 1 &&
+                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
+                ) {
+                    message.error({
+                        content:
+                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                        duration: 3,
+                    });
+                } else {
+                    message.error({ content: `Failed to remove owners: \n ${e.message || ''}`, duration: 3 });
+                }
             }
         } finally {
             refetch?.();

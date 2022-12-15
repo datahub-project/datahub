@@ -32,10 +32,21 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
             })
             .catch((e) => {
                 message.destroy();
-                message.error({
-                    content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
-                    duration: 3,
-                });
+                if (
+                    urns.length > 1 &&
+                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
+                ) {
+                    message.error({
+                        content:
+                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                        duration: 3,
+                    });
+                } else {
+                    message.error({
+                        content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                }
             });
     };
 

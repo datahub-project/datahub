@@ -59,7 +59,18 @@ function EntityActions(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add glossary term: \n ${e.message || ''}`, duration: 3 });
+                if (
+                    entityUrns.length > 0 &&
+                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
+                ) {
+                    message.error({
+                        content:
+                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                        duration: 3,
+                    });
+                } else {
+                    message.error({ content: `Failed to add glossary term: \n ${e.message || ''}`, duration: 3 });
+                }
             });
     };
 
@@ -90,7 +101,18 @@ function EntityActions(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
+                if (
+                    entityUrns.length > 0 &&
+                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
+                ) {
+                    message.error({
+                        content:
+                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                        duration: 3,
+                    });
+                } else {
+                    message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
+                }
             });
     };
 

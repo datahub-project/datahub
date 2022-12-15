@@ -31,7 +31,21 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove assets from Domain: \n ${e.message || ''}`, duration: 3 });
+                if (
+                    urns.length > 1 &&
+                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
+                ) {
+                    message.error({
+                        content:
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
+                        duration: 3,
+                    });
+                } else {
+                    message.error({
+                        content: `Failed to remove assets from Domain: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                }
             });
     };
 
