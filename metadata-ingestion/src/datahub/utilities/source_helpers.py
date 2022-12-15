@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Optional, Set
+from typing import Callable, Iterable, Optional, Set, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -7,6 +7,16 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.metadata.schema_classes import MetadataChangeEventClass, StatusClass
 from datahub.utilities.urns.urn import guess_entity_type
+
+
+def auto_workunit(
+    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]
+) -> Iterable[MetadataWorkUnit]:
+    for item in stream:
+        if isinstance(item, MetadataChangeEventClass):
+            yield MetadataWorkUnit(id=f"{item.proposedSnapshot.urn}/mce", mce=item)
+        else:
+            yield item.as_workunit()
 
 
 def auto_status_aspect(
@@ -20,6 +30,7 @@ def auto_status_aspect(
     status_urns: Set[str] = set()
     for wu in stream:
         urn = wu.get_urn()
+        all_urns.add(urn)
         if isinstance(wu.metadata, MetadataChangeEventClass):
             if any(
                 isinstance(aspect, StatusClass)
@@ -34,7 +45,7 @@ def auto_status_aspect(
 
         yield wu
 
-    for urn in all_urns - status_urns:
+    for urn in sorted(all_urns - status_urns):
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),

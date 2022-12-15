@@ -94,3 +94,11 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         self, schema: str, db_name: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         return []
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        engine = inspector.engine
+
+        if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
+            return str(engine.url.database).strip('"')
+        else:
+            raise Exception("Unable to get database name from Sqlalchemy inspector")

@@ -48,6 +48,11 @@ Cypress.Commands.add("goToDomainList", () => {
   cy.waitTextVisible("New Domain");
 });
 
+Cypress.Commands.add("goToViewsSettings", () => {
+  cy.visit("/settings/views");
+  cy.waitTextVisible("Manage Views");
+});
+
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
@@ -135,6 +140,16 @@ Cypress.Commands.add("clickOptionWithTestId", (id) => {
     force: true,
   });
 })
+
+Cypress.Commands.add("clickFirstOptionWithTestId", (id) => {
+  cy.get('[data-testid="' + id +'"]').first().click({
+    force: true,
+  });
+})
+
+Cypress.Commands.add("hideOnboardingTour", () => {
+  cy.get('body').type("{ctrl} {meta} h");
+});
 
 Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
   cy.goToDataset(urn, dataset_name);
