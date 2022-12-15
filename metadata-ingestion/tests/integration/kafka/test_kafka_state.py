@@ -83,7 +83,7 @@ class KafkaTopicsCxtManager:
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
-) -> Optional[Checkpoint]:
+) -> Optional[Checkpoint[KafkaCheckpointState]]:
     kafka_source = cast(KafkaSource, pipeline.source)
     return kafka_source.get_current_checkpoint(
         kafka_source.stale_entity_removal_handler.job_id
@@ -172,8 +172,8 @@ def test_kafka_ingest_with_stateful(
 
             # 3. Perform all assertions on the states. The deleted topic should not be
             #    part of the second state
-            state1 = cast(KafkaCheckpointState, checkpoint1.state)
-            state2 = cast(KafkaCheckpointState, checkpoint2.state)
+            state1 = checkpoint1.state
+            state2 = checkpoint2.state
             difference_urns = list(
                 state1.get_urns_not_in(type="topic", other_checkpoint_state=state2)
             )

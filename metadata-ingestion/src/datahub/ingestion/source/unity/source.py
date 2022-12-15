@@ -34,6 +34,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -44,7 +45,6 @@ from datahub.ingestion.source.unity import proxy
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import Catalog, Metastore, Schema
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.ingestion.source.unity.unity_state import UnityCatalogCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -136,7 +136,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=UnityCatalogCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
