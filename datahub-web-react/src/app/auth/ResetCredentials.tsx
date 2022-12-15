@@ -75,8 +75,8 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                     analytics.event({ type: EventType.ResetCredentialsEvent });
                     return Promise.resolve();
                 })
-                .catch((error) => {
-                    message.error(`Failed to log in! ${error}`);
+                .catch((_) => {
+                    message.error(`Failed to log in!`);
                 })
                 .finally(() => setLoading(false));
         },

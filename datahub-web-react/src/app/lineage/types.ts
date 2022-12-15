@@ -40,7 +40,7 @@ export type FetchedEntity = {
     downstreamChildren?: Array<EntityAndType>;
     numDownstreamChildren?: number;
     fullyFetched?: boolean;
-    platform?: string;
+    platform?: DataPlatform;
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
 };
@@ -58,7 +58,7 @@ export type NodeData = {
     // Hidden children are unexplored but in the opposite direction of the flow of the graph.
     // Currently our visualization does not support expanding in two directions
     countercurrentChildrenUrns?: string[];
-    platform?: string;
+    platform?: DataPlatform;
     status?: Maybe<Status>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
 };

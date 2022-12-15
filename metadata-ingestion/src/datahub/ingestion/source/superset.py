@@ -59,7 +59,7 @@ class SupersetConfig(ConfigModel):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(default="localhost:8088", description="Superset host URL.")
-    display_uri: str = Field(
+    display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
@@ -84,7 +84,7 @@ class SupersetConfig(ConfigModel):
     def default_display_uri_to_connect_uri(cls, values):
         base = values.get("display_uri")
         if base is None:
-            values.set("display_uri", values.get("connect_uri"))
+            values["display_uri"] = values.get("connect_uri")
         return values
 
 

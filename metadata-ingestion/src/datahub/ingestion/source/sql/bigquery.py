@@ -990,8 +990,8 @@ WHERE
         return cls(config, ctx)
 
     def add_config_to_report(self):
-        self.report.start_time = self.config.start_time
-        self.report.end_time = self.config.end_time
+        self.report.window_start_time = self.config.start_time
+        self.report.window_end_time = self.config.end_time
         self.report.include_table_lineage = self.config.include_table_lineage
         self.report.use_date_sharded_audit_log_tables = (
             self.config.use_date_sharded_audit_log_tables

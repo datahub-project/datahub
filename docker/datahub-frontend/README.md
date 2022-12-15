@@ -14,11 +14,6 @@ If using React app:
 http://localhost:9002
 ```
 
-If using legacy Ember app:
-```
-http://localhost:9001
-```
-
 You can sign in with `datahub` as username and password.
 
 ## Build instructions

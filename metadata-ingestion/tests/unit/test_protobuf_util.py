@@ -1,20 +1,14 @@
-import sys
 from typing import List
 
 import pytest
 
-IS_PYTHON_37_OR_NEWER: bool = sys.version_info >= (3, 7)
-NEEDS_PYTHON_37_OR_NEWER = "Needs Python 3.7 or higher"
-
-if IS_PYTHON_37_OR_NEWER:
-    from datahub.ingestion.extractor.protobuf_util import (
-        ProtobufSchema,
-        protobuf_schema_to_mce_fields,
-    )
-    from datahub.metadata.schema_classes import ArrayTypeClass, SchemaFieldClass
+from datahub.ingestion.extractor.protobuf_util import (
+    ProtobufSchema,
+    protobuf_schema_to_mce_fields,
+)
+from datahub.metadata.schema_classes import ArrayTypeClass, SchemaFieldClass
 
 
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_to_mce_fields_with_single_empty_message() -> None:
     schema: str = """
 syntax = "proto3";
@@ -29,7 +23,6 @@ message Test1 {
     assert 0 == len(fields)
 
 
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_to_mce_fields_with_single_message_single_field_key_schema() -> None:
     schema: str = """
 syntax = "proto3";
@@ -49,7 +42,6 @@ message Test2 {
     assert "string" == fields[0].nativeDataType
 
 
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_to_mce_fields_with_two_messages_enum() -> None:
     schema: str = """
 syntax = "proto3";
@@ -85,7 +77,6 @@ message Test4 {
     )
 
 
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_to_mce_fields_nested():
     schema: str = """
 syntax = "proto3";
@@ -125,7 +116,6 @@ message Test5 {
     assert "Test5.Nested1.Nested2.Nested3.Nested4" == fields[3].nativeDataType
 
 
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_to_mce_fields_repeated() -> None:
     schema: str = """
 syntax = "proto3";
@@ -149,7 +139,6 @@ message Test6 {
     assert "int64" == fields[0].type.type.nestedType[0]
 
 
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_to_mce_fields_nestd_repeated() -> None:
     schema: str = """
 syntax = "proto3";
@@ -184,7 +173,6 @@ message Test7 {
 # This is not how maps should be encoded but we need to find a good way of detecting
 # maps in protobuf before we change it back
 #
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_to_mce_fields_map() -> None:
     schema: str = """
 syntax = "proto3";
@@ -233,7 +221,6 @@ message Test8 {
     )
 
 
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_to_mce_fields_with_complex_schema() -> None:
     schema: str = """
 syntax = "proto3";
@@ -303,7 +290,6 @@ message Test10 {
     )
 
 
-@pytest.mark.skipif(not IS_PYTHON_37_OR_NEWER, reason=NEEDS_PYTHON_37_OR_NEWER)
 def test_protobuf_schema_with_recursive_type() -> None:
     schema: str = """
 syntax = "proto3";

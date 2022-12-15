@@ -95,6 +95,7 @@ export default function EmbeddedListSearchHeader({
                             onSearch={onSearch}
                             onQueryChange={onSearch}
                             entityRegistry={entityRegistry}
+                            hideRecommendations
                         />
                         <SearchMenuContainer>
                             <SearchExtendedMenu

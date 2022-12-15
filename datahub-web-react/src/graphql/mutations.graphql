@@ -101,3 +101,7 @@ mutation batchUpdateDeprecation($input: BatchUpdateDeprecationInput!) {
 mutation batchUpdateSoftDeleted($input: BatchUpdateSoftDeletedInput!) {
     batchUpdateSoftDeleted(input: $input)
 }
+
+mutation batchAssignRole($input: BatchAssignRoleInput!) {
+    batchAssignRole(input: $input)
+}

@@ -33,6 +33,8 @@ import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
+import { TagSummary } from './shared/TagSummary';
+import { TermSummary } from './shared/TermSummary';
 import { ChangeEventsTab } from '../shared/tabs/Dataset/Schema/ChangeEventsTab';
 
 const SUBTYPES = {
@@ -122,12 +124,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     display: {
-                        visible: (_, dataset: GetDatasetQuery) => {
-                            return (
-                                (dataset?.dataset?.upstream?.total || 0) > 0 ||
-                                (dataset?.dataset?.downstream?.total || 0) > 0
-                            );
-                        },
+                        visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (
                                 (dataset?.dataset?.upstream?.total || 0) > 0 ||
@@ -140,8 +137,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Queries',
                     component: QueriesTab,
                     display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                        visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
                     },
@@ -161,9 +157,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Validation',
                     component: ValidationsTab,
                     display: {
-                        visible: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.assertions?.total || 0) > 0;
-                        },
+                        visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (
                                 (dataset?.dataset?.assertions?.total || 0) > 0 || dataset?.dataset?.testResults !== null
@@ -319,6 +313,19 @@ export class DatasetEntity implements Entity<Dataset> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
+
+        let snippet: React.ReactNode;
+
+        if (result.matchedFields.length > 0) {
+            if (result.matchedFields[0].value.includes('urn:li:tag')) {
+                snippet = <TagSummary urn={result.matchedFields[0].value} />;
+            } else if (result.matchedFields[0].value.includes('urn:li:glossaryTerm')) {
+                snippet = <TermSummary urn={result.matchedFields[0].value} />;
+            } else {
+                snippet = <b>{result.matchedFields[0].value}</b>;
+            }
+        }
+
         return (
             <Preview
                 urn={data.urn}
@@ -345,8 +352,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     result.matchedFields.length > 0 &&
                     result.matchedFields.every((field) => FIELDS_TO_HIGHLIGHT.has(field.name)) && (
                         <Typography.Text>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)}{' '}
-                            <b>{result.matchedFields[0].value}</b>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(result.matchedFields[0].name)} {snippet}
                         </Typography.Text>
                     )
                 }
@@ -369,7 +375,7 @@ export class DatasetEntity implements Entity<Dataset> {
             type: EntityType.Dataset,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
-            platform: entity?.platform?.name,
+            platform: entity?.platform,
         };
     };
 

@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
@@ -10,8 +9,9 @@ from elasticsearch import Elasticsearch
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.validate_host_port import validate_host_port
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -47,9 +47,11 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     OtherSchemaClass,
     RecordTypeClass,
+    SchemaFieldDataTypeClass,
     StringTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.config_clean import remove_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -122,9 +124,10 @@ class ElasticToSchemaFieldConverter:
         self, elastic_schema_dict: Dict[str, Any]
     ) -> Generator[SchemaField, None, None]:
         # append each schema field (sort so output is consistent)
+        PROPERTIES: str = "properties"
         for columnName, column in elastic_schema_dict.items():
             elastic_type: Optional[str] = column.get("type")
-            nested_props: Optional[Dict[str, Any]] = column.get("properties")
+            nested_props: Optional[Dict[str, Any]] = column.get(PROPERTIES)
             if elastic_type is not None:
                 self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
                 schema_field_data_type = self.get_column_type(elastic_type)
@@ -139,7 +142,16 @@ class ElasticToSchemaFieldConverter:
                 yield schema_field
                 self._prefix_name_stack.pop()
             elif nested_props:
-                self._prefix_name_stack.append(f"[type={columnName}]")
+                self._prefix_name_stack.append(f"[type={PROPERTIES}].{columnName}")
+                schema_field = SchemaField(
+                    fieldPath=self._get_cur_field_path(),
+                    nativeDataType=PROPERTIES,
+                    type=SchemaFieldDataTypeClass(RecordTypeClass()),
+                    description=None,
+                    nullable=True,
+                    recursive=False,
+                )
+                yield schema_field
                 yield from self._get_schema_fields(nested_props)
                 self._prefix_name_stack.pop()
             else:
@@ -237,29 +249,11 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):
-            # The port can be provided but is not required.
-            port = None
-            for prefix in ["http://", "https://"]:
-                if entry.startswith(prefix):
-                    entry = entry[len(prefix) :]
+            entry = remove_protocol(entry)
             for suffix in ["/"]:
                 if entry.endswith(suffix):
                     entry = entry[: -len(suffix)]
-
-            if ":" in entry:
-                (host, port) = entry.rsplit(":", 1)
-            else:
-                host = entry
-            if not re.match(
-                # This regex is quite loose. Many invalid hostnames or IPs will slip through,
-                # but it serves as a good first line of validation. We defer to Elastic for the
-                # remaining validation.
-                r"^[\w\-\.]+$",
-                host,
-            ):
-                raise ConfigurationError(f"host contains bad characters, found {host}")
-            if port is not None and not port.isdigit():
-                raise ConfigurationError(f"port must be all digits, found {port}")
+            validate_host_port(entry)
         return host_val
 
     @property

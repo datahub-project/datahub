@@ -1,0 +1,68 @@
+name: test_checkpoint_2
+config_version: 1.0
+template_name:
+module_name: great_expectations.checkpoint
+class_name: Checkpoint
+run_name_template: '%Y%m%d-%H%M%S-my-run-name-template'
+expectation_suite_name: test_suite
+batch_request:
+action_list:
+  - name: store_validation_result
+    action:
+      class_name: StoreValidationResultAction
+  - name: store_evaluation_params
+    action:
+      class_name: StoreEvaluationParametersAction
+  - name: update_data_docs
+    action:
+      class_name: UpdateDataDocsAction
+      site_names: []
+  - name: datahub_action
+    action:
+      module_name: datahub.integrations.great_expectations.action
+      class_name: DataHubValidationAction
+      server_url: http://localhost:8080
+      graceful_exceptions: False
+      parse_table_names_from_sql: True
+      exclude_dbname: True 
+      platform_alias: postgres-blue
+      platform_instance_map:
+        my_postgresql_datasource: postgres1
+        runtime_postgres_datasource: postgres1
+evaluation_parameters: {}
+runtime_configuration:
+  result_format:
+    result_format: COMPLETE
+    partial_unexpected_count: 20
+validations:
+  - batch_request:
+      datasource_name: my_postgresql_datasource
+      data_connector_name: by_category_limit_sample # ConfiguredAssetSqlDataConnector
+      data_asset_name: data__foo1__asset
+      data_connector_query:
+        batch_filter_parameters:
+          category: catA
+  - batch_request:
+      datasource_name: my_postgresql_datasource
+      data_connector_name: by_category_limit_sample # ConfiguredAssetSqlDataConnector
+      data_asset_name: data__foo1__asset
+      data_connector_query:
+        batch_filter_parameters:
+          category: catB
+  - batch_request:
+      datasource_name: my_postgresql_datasource
+      data_connector_name: whole_table # InferredAssetSqlDataConnector
+      data_asset_name: foo2
+      data_connector_query:
+        index: -1
+  - batch_request:
+      datasource_name: runtime_postgres_datasource
+      data_connector_name: default_runtime_data_connector_name #RuntimeDataConnector
+      data_asset_name: custom_data_asset
+      runtime_parameters:
+        query: select * from foo2 where score>5
+      batch_identifiers:
+        default_identifier_name: test_identifier
+profilers: []
+ge_cloud_id:
+expectation_suite_ge_cloud_id:

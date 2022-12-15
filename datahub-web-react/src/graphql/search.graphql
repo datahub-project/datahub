@@ -162,6 +162,9 @@ fragment autoCompleteFields on Entity {
             ...dataPlatformInstanceFields
         }
     }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -375,6 +378,12 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        inputFields {
+            ...inputFieldsFields
+        }
+        subTypes {
+            typeNames
+        }
     }
     ... on Chart {
         chartId
@@ -436,6 +445,9 @@ fragment searchResultFields on Entity {
                     pictureLink
                 }
             }
+        }
+        inputFields {
+            ...inputFieldsFields
         }
     }
     ... on DataFlow {
@@ -535,6 +547,9 @@ fragment searchResultFields on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        parentNodes {
+            ...parentNodesFields
         }
     }
     ... on GlossaryNode {
@@ -659,6 +674,9 @@ fragment searchResultFields on Entity {
             name
         }
         description
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
     }
 }
 

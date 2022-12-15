@@ -9,10 +9,12 @@ import com.linkedin.datahub.graphql.generated.Highlight;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
 
 
@@ -20,13 +22,19 @@ import org.joda.time.DateTime;
  * Retrieves the Highlights to be rendered of the Analytics screen of the DataHub application.
  */
 @RequiredArgsConstructor
+@Slf4j
 public final class GetHighlightsResolver implements DataFetcher<List<Highlight>> {
 
   private final AnalyticsService _analyticsService;
 
   @Override
   public final List<Highlight> get(DataFetchingEnvironment environment) throws Exception {
-    return getHighlights();
+    try {
+      return getHighlights();
+    } catch (Exception e) {
+      log.error("Failed to retrieve analytics highlights!", e);
+      return Collections.emptyList(); // Simply return nothing.
+    }
   }
 
   /**

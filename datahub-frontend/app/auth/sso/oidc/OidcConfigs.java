@@ -73,7 +73,6 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<String> customParamResource;
     private String readTimeout;
     private Optional<Boolean> extractJwtAccessTokenClaims;
-
     private Optional<String> resourceClientRole;
     private Optional<String> resourceErrorMessage;
 

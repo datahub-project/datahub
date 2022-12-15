@@ -1,0 +1,14 @@
+namespace com.linkedin.common
+
+/**
+ * Information about the fields a chart or dashboard references
+ */
+@Aspect = {
+  "name": "inputFields"
+}
+record InputFields {
+  /**
+   * List of fields being referenced
+   */
+  fields: array[InputField]
+}

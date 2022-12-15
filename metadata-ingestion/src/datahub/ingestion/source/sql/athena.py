@@ -95,12 +95,6 @@ class AthenaSource(SQLAlchemySource):
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
     - Profiling when enabled.
-
-    :::note
-
-    Athena source only works with python 3.7+.
-
-    :::
     """
 
     def __init__(self, config, ctx):

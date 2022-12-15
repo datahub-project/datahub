@@ -1,0 +1,16 @@
+run_id: mssql-test
+
+source:
+  type: mssql
+  config:
+    username: sa
+    password: test!Password
+    host_port: localhost:51433
+    database_pattern:
+      deny:
+        - NewData
+
+sink:
+  type: file
+  config:
+    filename: "./mssql_mces.json"

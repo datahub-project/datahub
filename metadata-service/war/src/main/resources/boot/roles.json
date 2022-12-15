@@ -1,0 +1,26 @@
+[
+  {
+    "urn": "urn:li:dataHubRole:Admin",
+    "info": {
+      "name":"Admin",
+      "description":"Can do everything on the platform.",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubRole:Editor",
+    "info": {
+      "name":"Editor",
+      "description":"Can read and edit all metadata. Cannot take administrative actions.",
+      "editable":false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubRole:Reader",
+    "info": {
+      "name":"Reader",
+      "description":"Can read all metadata. Cannot edit anything by default, or take administrative actions.",
+      "editable":false
+    }
+  }
+]

@@ -5,6 +5,20 @@ import { useEntityData } from '../../../../EntityContext';
 import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
 import { getPlatformName } from '../../../../utils';
 import PlatformContentView from './PlatformContentView';
+import { GenericEntityProperties } from '../../../../types';
+import EntityRegistry from '../../../../../EntityRegistry';
+import { EntityType } from '../../../../../../../types.generated';
+
+export function getDisplayedEntityType(
+    entityData: GenericEntityProperties | null,
+    entityRegistry: EntityRegistry,
+    entityType: EntityType,
+) {
+    const entityTypeCased =
+        (entityData?.subTypes?.typeNames?.length && capitalizeFirstLetterOnly(entityData?.subTypes.typeNames[0])) ||
+        entityRegistry.getEntityName(entityType);
+    return entityData?.entityTypeOverride || entityTypeCased || '';
+}
 
 export function useParentContainersTruncation(dataDependency: any) {
     const parentContainersRef = useRef<HTMLDivElement>(null);
@@ -33,10 +47,7 @@ function PlatformContentContainer() {
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
-    const entityTypeCased =
-        (entityData?.subTypes?.typeNames?.length && capitalizeFirstLetterOnly(entityData?.subTypes.typeNames[0])) ||
-        entityRegistry.getEntityName(entityType);
-    const displayedEntityType = entityData?.entityTypeOverride || entityTypeCased;
+    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const instanceId = entityData?.dataPlatformInstance?.instanceId;
 
     const { parentContainersRef, areContainersTruncated } = useParentContainersTruncation(entityData);

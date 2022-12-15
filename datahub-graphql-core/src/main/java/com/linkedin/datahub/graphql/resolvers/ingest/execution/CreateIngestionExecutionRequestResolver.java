@@ -44,6 +44,7 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
   private static final String MANUAL_EXECUTION_SOURCE_NAME = "MANUAL_INGESTION_SOURCE";
   private static final String RECIPE_ARG_NAME = "recipe";
   private static final String VERSION_ARG_NAME = "version";
+  private static final String DEBUG_MODE_ARG_NAME = "debug_mode";
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
@@ -112,6 +113,11 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           if (ingestionSourceInfo.getConfig().hasVersion()) {
             arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().getVersion());
           }
+          String debugMode = "false";
+          if (ingestionSourceInfo.getConfig().hasDebugMode()) {
+            debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
+          }
+          arguments.put(DEBUG_MODE_ARG_NAME, debugMode);
           execInput.setArgs(new StringMap(arguments));
 
           proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);

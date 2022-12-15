@@ -87,10 +87,10 @@ public class LineageSearchServiceTest {
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
     _graphService = mock(GraphService.class);
-    resetService();
+    resetService(true);
   }
 
-  private void resetService() {
+  private void resetService(boolean withCache) {
     CachingEntitySearchService cachingEntitySearchService = new CachingEntitySearchService(_cacheManager, _elasticSearchService, 100, true);
     _lineageSearchService = new LineageSearchService(
         new SearchService(
@@ -102,7 +102,7 @@ public class LineageSearchServiceTest {
                 100,
                 true),
             new SimpleRanker()),
-        _graphService, _cacheManager.getCache("test"));
+        _graphService, _cacheManager.getCache("test"), withCache);
   }
 
   @BeforeMethod
@@ -126,7 +126,7 @@ public class LineageSearchServiceTest {
 
   private void clearCache() {
     _cacheManager.getCacheNames().forEach(cache -> _cacheManager.getCache(cache).clear());
-    resetService();
+    resetService(true);
   }
 
   @AfterClass

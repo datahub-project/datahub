@@ -83,6 +83,7 @@ services:
     - JAVA_OPTS=-Xms1g -Xmx1g
     - GRAPH_SERVICE_IMPL=neo4j
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true

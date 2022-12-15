@@ -13,11 +13,7 @@ configurations {
 }
 
 dependencies {
-  if (project.hasProperty('enableEmber') && project.getProperty('enableEmber').toBoolean()) {
-    assets project(path: ':datahub-web', configuration: 'assets')
-  } else {
-    assets project(path: ':datahub-web-react', configuration: 'assets')
-  }
+  assets project(path: ':datahub-web-react', configuration: 'assets')
 
   constraints {
     play('org.springframework:spring-core:5.2.3.RELEASE')

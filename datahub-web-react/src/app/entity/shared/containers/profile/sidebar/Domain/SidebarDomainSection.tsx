@@ -5,14 +5,11 @@ import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { SetDomainModal } from './SetDomainModal';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { EntityType } from '../../../../../../../types.generated';
 import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
 
 export const SidebarDomainSection = () => {
     const { entityData } = useEntityData();
-    const entityRegistry = useEntityRegistry();
     const refetch = useRefetch();
     const urn = useMutationUrn();
     const [unsetDomainMutation] = useUnsetDomainMutation();
@@ -53,8 +50,7 @@ export const SidebarDomainSection = () => {
             <div>
                 {domain && (
                     <DomainLink
-                        urn={domain?.urn}
-                        name={entityRegistry.getDisplayName(EntityType.Domain, domain)}
+                        domain={domain}
                         closable
                         onClose={(e) => {
                             e.preventDefault();

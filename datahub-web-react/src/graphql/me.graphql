@@ -19,6 +19,11 @@ query getMe {
                 teams
                 skills
             }
+            settings {
+                appearance {
+                    showSimplifiedHomepage
+                }
+            }
         }
         platformPrivileges {
             viewAnalytics
@@ -38,11 +43,6 @@ query getMe {
     }
 }
 
-query getMeOnly {
-    me {
-        corpUser {
-            username
-            urn
-        }
-    }
+mutation updateUserSetting($input: UpdateUserSettingInput!) {
+    updateUserSetting(input: $input)
 }

@@ -22,7 +22,7 @@ class GEProfilingConfig(ConfigModel):
     )
     report_dropped_profiles: bool = Field(
         default=False,
-        description="If datasets which were not profiled are reported in source report or not. Set to `True` for debugging purposes.",
+        description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
     )
 
     # These settings will override the ones below.
@@ -75,9 +75,8 @@ class GEProfilingConfig(ConfigModel):
         description="Whether to profile for the sample values for all columns.",
     )
 
-    allow_deny_patterns: AllowDenyPattern = Field(
+    _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for filtering of tables or table columns to profile.",
     )
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
         default=None,
@@ -86,17 +85,17 @@ class GEProfilingConfig(ConfigModel):
 
     profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
         default=1,
-        description="Profile table only if it has been updated since these many number of days. If set to `null`, no constraint of last modified time for tables to profile. Supported only in `Snowflake` and `BigQuery`.",
+        description="Profile table only if it has been updated since these many number of days. If set to `null`, no constraint of last modified time for tables to profile. Supported only in `snowflake`, `snowflake-beta` and `BigQuery`.",
     )
 
     profile_table_size_limit: Optional[int] = Field(
         default=1,
-        description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `BigQuery`",
+        description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake-beta` and `BigQuery`",
     )
 
     profile_table_row_limit: Optional[int] = Field(
         default=50000,
-        description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `BigQuery`",
+        description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake-beta` and `BigQuery`",
     )
 
     # The default of (5 * cpu_count) is adopted from the default max_workers

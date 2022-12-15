@@ -21,6 +21,7 @@ query getGroup($urn: String!, $membersCount: Int!) {
             displayName
             description
             email
+            slack
         }
         ownership {
             ...ownershipFields

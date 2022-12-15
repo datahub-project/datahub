@@ -15,6 +15,8 @@ pip install -r requirements.txt
 python generate_docker_quickstart.py ../docker-compose.yml ../docker-compose.override.yml temp.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose-without-neo4j.yml ../docker-compose-without-neo4j.override.yml temp-without-neo4j.quickstart.yml
 python generate_docker_quickstart.py ../monitoring/docker-compose.monitoring.yml temp.monitoring.quickstart.yml
+python generate_docker_quickstart.py ../docker-compose.consumers.yml temp.consumers.quickstart.yml
+python generate_docker_quickstart.py ../docker-compose.consumers-without-neo4j.yml temp.consumers-without-neo4j.quickstart.yml
 
 for flavour in "${FLAVOURS[@]}"
 do

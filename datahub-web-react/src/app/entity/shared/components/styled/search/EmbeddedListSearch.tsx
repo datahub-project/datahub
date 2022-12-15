@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { message } from 'antd';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
 import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
@@ -11,6 +10,7 @@ import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/s
 import { GetSearchResultsParams, SearchResultsInterface } from './types';
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
+import { Message } from '../../../../../shared/Message';
 
 const Container = styled.div`
     display: flex;
@@ -181,7 +181,7 @@ export const EmbeddedListSearch = ({
 
     return (
         <Container>
-            {error && message.error(`Failed to complete search: ${error && error.message}`)}
+            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
             <EmbeddedListSearchHeader
                 onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                 placeholderText={placeholderText}

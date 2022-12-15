@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserUpdateInput;
@@ -51,9 +52,11 @@ import static com.linkedin.metadata.Constants.*;
 public class CorpUserType implements SearchableEntityType<CorpUser, String>, MutableType<CorpUserUpdateInput, CorpUser> {
 
     private final EntityClient _entityClient;
+    private final FeatureFlags _featureFlags;
 
-    public CorpUserType(final EntityClient entityClient) {
+    public CorpUserType(final EntityClient entityClient, final FeatureFlags featureFlags) {
         _entityClient = entityClient;
+        _featureFlags = featureFlags;
     }
 
     @Override
@@ -89,7 +92,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
             }
             return results.stream()
                     .map(gmsCorpUser -> gmsCorpUser == null ? null
-                        : DataFetcherResult.<CorpUser>newResult().data(CorpUserMapper.map(gmsCorpUser)).build())
+                        : DataFetcherResult.<CorpUser>newResult().data(CorpUserMapper.map(gmsCorpUser, _featureFlags)).build())
                     .collect(Collectors.toList());
         } catch (Exception e) {
             throw new RuntimeException("Failed to batch load Datasets", e);

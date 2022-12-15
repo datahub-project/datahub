@@ -19,15 +19,19 @@ public class SearchUtil {
 
   public static List<FilterValue> convertToFilters(Map<String, Long> aggregations) {
     return aggregations.entrySet().stream().map(entry -> {
-      FilterValue value = new FilterValue().setValue(entry.getKey()).setFacetCount(entry.getValue());
-      if (entry.getKey().startsWith(URN_PREFIX)) {
-        try {
-          value.setEntity(Urn.createFromString(entry.getKey()));
-        } catch (URISyntaxException e) {
-          log.error("Failed to create urn for filter value: {}", entry.getKey());
-        }
-      }
-      return value;
+      return createFilterValue(entry.getKey(), entry.getValue());
     }).sorted(Comparator.comparingLong(value -> -value.getFacetCount())).collect(Collectors.toList());
+  }
+
+  public static FilterValue createFilterValue(String value, Long facetCount) {
+    FilterValue result = new FilterValue().setValue(value).setFacetCount(facetCount);
+    if (value.startsWith(URN_PREFIX)) {
+      try {
+        result.setEntity(Urn.createFromString(value));
+      } catch (URISyntaxException e) {
+        log.error("Failed to create urn for filter value: {}", value);
+      }
+    }
+    return result;
   }
 }

@@ -25,6 +25,7 @@ public class SchemaFieldMapper {
         result.setNullable(input.isNullable());
         result.setNativeDataType(input.getNativeDataType());
         result.setType(mapSchemaFieldDataType(input.getType()));
+        result.setLabel(input.getLabel());
         if (input.hasGlobalTags()) {
             result.setGlobalTags(GlobalTagsMapper.map(input.getGlobalTags(), entityUrn));
             result.setTags(GlobalTagsMapper.map(input.getGlobalTags(), entityUrn));

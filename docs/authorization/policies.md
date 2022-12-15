@@ -161,7 +161,7 @@ Supported fields are as follows
 
 ## Managing Policies
 
-Policies can be managed under the `/policies` page, or accessed via the top navigation bar. The `Policies` tab will only 
+Policies can be managed on the page **Settings > Permissions > Policies** page. The `Policies` tab will only 
 be visible to those users having the `Manage Policies` privilege.
 
 Out of the box, DataHub is deployed with a set of pre-baked Policies. The set of default policies are created at deploy 

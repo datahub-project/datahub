@@ -1,16 +1,17 @@
-import platform
-import sys
+import datetime
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Generic, Iterable, List, Optional, TypeVar, Union
+from typing import Dict, Generic, Iterable, List, Optional, Type, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
-import datahub
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
+from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.type_annotations import get_class_from_annotation
 
 
 class SourceCapability(Enum):
@@ -31,30 +32,41 @@ class SourceCapability(Enum):
 
 @dataclass
 class SourceReport(Report):
-    workunits_produced: int = 0
-    workunit_ids: List[str] = field(default_factory=list)
+    events_produced: int = 0
+    events_produced_per_sec: int = 0
+    event_ids: List[str] = field(default_factory=LossyList)
 
-    warnings: Dict[str, List[str]] = field(default_factory=dict)
-    failures: Dict[str, List[str]] = field(default_factory=dict)
-    cli_version: str = datahub.nice_version_name()
-    cli_entry_location: str = datahub.__file__
-    py_version: str = sys.version
-    py_exec_path: str = sys.executable
-    os_details: str = platform.platform()
+    warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
+    failures: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
 
     def report_workunit(self, wu: WorkUnit) -> None:
-        self.workunits_produced += 1
-        self.workunit_ids.append(wu.id)
+        self.events_produced += 1
+        self.event_ids.append(wu.id)
 
     def report_warning(self, key: str, reason: str) -> None:
-        if key not in self.warnings:
-            self.warnings[key] = []
-        self.warnings[key].append(reason)
+        warnings = self.warnings.get(key, LossyList())
+        warnings.append(reason)
+        self.warnings[key] = warnings
 
     def report_failure(self, key: str, reason: str) -> None:
-        if key not in self.failures:
-            self.failures[key] = []
-        self.failures[key].append(reason)
+        failures = self.failures.get(key, LossyList())
+        failures.append(reason)
+        self.failures[key] = failures
+
+    def __post_init__(self) -> None:
+        self.start_time = datetime.datetime.now()
+        self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
+
+    def compute_stats(self) -> None:
+        duration = datetime.datetime.now() - self.start_time
+        workunits_produced = self.events_produced
+        if duration.total_seconds() > 0:
+            self.events_produced_per_sec: int = int(
+                workunits_produced / duration.total_seconds()
+            )
+            self.running_time = duration
+        else:
+            self.read_rate = 0
 
 
 class CapabilityReport(BaseModel):
@@ -76,12 +88,26 @@ class TestConnectionReport(Report):
 
 
 WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
+ExtractorConfig = TypeVar("ExtractorConfig", bound=ConfigModel)
 
 
-class Extractor(Generic[WorkUnitType], Closeable, metaclass=ABCMeta):
-    @abstractmethod
-    def configure(self, config_dict: dict, ctx: PipelineContext) -> None:
-        pass
+class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABCMeta):
+    ctx: PipelineContext
+    config: ExtractorConfig
+
+    @classmethod
+    def get_config_class(cls) -> Type[ExtractorConfig]:
+        config_class = get_class_from_annotation(cls, Extractor, ConfigModel)
+        assert config_class, "Extractor subclasses must define a config class"
+        return cast(Type[ExtractorConfig], config_class)
+
+    def __init__(self, config_dict: dict, ctx: PipelineContext) -> None:
+        super().__init__()
+
+        config_class = self.get_config_class()
+
+        self.ctx = ctx
+        self.config = config_class.parse_obj(config_dict)
 
     @abstractmethod
     def get_records(self, workunit: WorkUnitType) -> Iterable[RecordEnvelope]:

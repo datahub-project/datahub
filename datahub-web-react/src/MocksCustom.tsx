@@ -35,6 +35,7 @@ const user2 = {
         pictureLink: 'something',
         email: 'sdas@domain.com',
     },
+    settings: { appearance: { showSimplifiedHomepage: false } },
 };
 
 const customContainer = {
@@ -89,6 +90,7 @@ export const dataset3 = {
         },
         type: EntityType.DataPlatform,
     },
+    lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
@@ -190,7 +192,10 @@ export const dataset3 = {
                         description: 'sample definition',
                         definition: 'sample definition',
                         termSource: 'sample term source',
+                        customProperties: null,
                     },
+                    ownership: null,
+                    parentNodes: null,
                 },
                 associatedUrn: 'urn:li:dataset:3',
             },
@@ -220,6 +225,7 @@ export const dataset3 = {
         createdAt: 0,
         fields: [
             {
+                __typename: 'SchemaField',
                 nullable: false,
                 recursive: false,
                 fieldPath: 'user_id',
@@ -230,8 +236,10 @@ export const dataset3 = {
                 jsonPath: null,
                 globalTags: null,
                 glossaryTerms: null,
+                label: 'hi',
             },
             {
+                __typename: 'SchemaField',
                 nullable: false,
                 recursive: false,
                 fieldPath: 'user_name',
@@ -242,6 +250,7 @@ export const dataset3 = {
                 jsonPath: null,
                 globalTags: null,
                 glossaryTerms: null,
+                label: 'hi',
             },
         ],
         hash: '',
@@ -302,9 +311,7 @@ export const dataset3 = {
         },
     ],
     domain: null,
-    container: {
-        ...customContainer,
-    },
+    container: null,
     lineage: null,
     relationships: null,
     health: [],
@@ -316,7 +323,6 @@ export const dataset3 = {
     siblings: null,
     statsSummary: null,
 } as Dataset;
-
 /*
     Define mock data to be returned by Apollo MockProvider.
 */

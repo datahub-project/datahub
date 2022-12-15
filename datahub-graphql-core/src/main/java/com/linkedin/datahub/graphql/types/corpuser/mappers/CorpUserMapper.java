@@ -4,19 +4,23 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CorpUserAppearanceSettings;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -26,16 +30,19 @@ import static com.linkedin.metadata.Constants.*;
  *
  * To be replaced by auto-generated mappers implementations
  */
-public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
+public class CorpUserMapper {
 
     public static final CorpUserMapper INSTANCE = new CorpUserMapper();
 
     public static CorpUser map(@Nonnull final EntityResponse entityResponse) {
-        return INSTANCE.apply(entityResponse);
+        return INSTANCE.apply(entityResponse, null);
     }
 
-    @Override
-    public CorpUser apply(@Nonnull final EntityResponse entityResponse) {
+    public static CorpUser map(@Nonnull final EntityResponse entityResponse, @Nullable final FeatureFlags featureFlags) {
+        return INSTANCE.apply(entityResponse, featureFlags);
+    }
+
+    public CorpUser apply(@Nonnull final EntityResponse entityResponse, @Nullable final FeatureFlags featureFlags) {
         final CorpUser result = new CorpUser();
         Urn entityUrn = entityResponse.getUrn();
 
@@ -52,7 +59,35 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
         mappingHelper.mapToResult(CORP_USER_STATUS_ASPECT_NAME,
             (corpUser, dataMap) -> corpUser.setStatus(CorpUserStatusMapper.map(new CorpUserStatus(dataMap))));
         mappingHelper.mapToResult(CORP_USER_CREDENTIALS_ASPECT_NAME, this::mapIsNativeUser);
+
+        mapCorpUserSettings(result, aspectMap.getOrDefault(CORP_USER_SETTINGS_ASPECT_NAME, null), featureFlags);
+
         return mappingHelper.getResult();
+    }
+
+    private void mapCorpUserSettings(@Nonnull CorpUser corpUser, EnvelopedAspect envelopedAspect, FeatureFlags featureFlags) {
+        CorpUserSettings corpUserSettings = new CorpUserSettings();
+        if (envelopedAspect != null) {
+            corpUserSettings = new CorpUserSettings(envelopedAspect.getValue().data());
+        }
+
+        com.linkedin.datahub.graphql.generated.CorpUserSettings result =
+            new com.linkedin.datahub.graphql.generated.CorpUserSettings();
+
+        CorpUserAppearanceSettings appearanceResult = new CorpUserAppearanceSettings();
+        if (featureFlags != null) {
+            appearanceResult.setShowSimplifiedHomepage(featureFlags.isShowSimplifiedHomepageByDefault());
+        } else {
+            appearanceResult.setShowSimplifiedHomepage(false);
+        }
+
+        if (corpUserSettings.hasAppearance()) {
+            appearanceResult.setShowSimplifiedHomepage(corpUserSettings.getAppearance().isShowSimplifiedHomepage());
+        }
+
+        result.setAppearance(appearanceResult);
+
+        corpUser.setSettings(result);
     }
 
     private void mapCorpUserKey(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {

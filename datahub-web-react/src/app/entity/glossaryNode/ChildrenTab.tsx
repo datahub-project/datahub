@@ -1,5 +1,6 @@
 import React from 'react';
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
+import EmptyGlossarySection from '../../glossary/EmptyGlossarySection';
 import GlossaryEntitiesList from '../../glossary/GlossaryEntitiesList';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { sortGlossaryTerms } from '../glossaryTerm/utils';
@@ -19,12 +20,18 @@ function ChildrenTab() {
         .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA.entity, termB.entity))
         .map((child) => child.entity);
 
-    return (
-        <GlossaryEntitiesList
-            nodes={(childNodes as GlossaryNode[]) || []}
-            terms={(childTerms as GlossaryTerm[]) || []}
-        />
-    );
+    const hasTermsOrNodes = !!childNodes?.length || !!childTerms?.length;
+
+    if (hasTermsOrNodes) {
+        return (
+            <GlossaryEntitiesList
+                nodes={(childNodes as GlossaryNode[]) || []}
+                terms={(childTerms as GlossaryTerm[]) || []}
+            />
+        );
+    }
+
+    return <EmptyGlossarySection description="No Terms or Term Groups" />;
 }
 
 export default ChildrenTab;

@@ -87,7 +87,7 @@ export const SetParentContainer: React.FC<ContainerInputProps> = ({ value = {} }
     return (
         <Row>
             <Col span={6}>
-                <Form.Item name="parentContainer" style={{ marginBottom: '0px' }}>
+                <Form.Item name="parentContainer" data-testid="parentContainerTestId" style={{ marginBottom: '0px' }}>
                     <Select
                         value={selectedContainerUrn}
                         onSelect={(container: any) => {

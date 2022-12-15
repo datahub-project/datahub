@@ -1,9 +1,8 @@
 import os
 
 import pytest
-import requests
 
-from tests.utils import get_frontend_url, wait_for_healthcheck_util
+from tests.utils import wait_for_healthcheck_util, get_frontend_session
 from tests.test_result_msg import send_message
 
 # Disable telemetry
@@ -18,16 +17,7 @@ def wait_for_healthchecks():
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    yield session
+    yield get_frontend_session()
 
 
 # TODO: Determine whether we need this or not.

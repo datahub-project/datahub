@@ -144,7 +144,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             name: entity.name,
             type: EntityType.MlfeatureTable,
             icon: entity.platform.properties?.logoUrl || undefined,
-            platform: entity.platform.name,
+            platform: entity.platform,
         };
     };
 

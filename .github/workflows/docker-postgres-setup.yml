@@ -4,13 +4,13 @@ on:
     branches:
       - master
     paths:
-      - './docker/postgres-setup/**'
+      - 'docker/postgres-setup/**'
       - '.github/workflows/docker-postgres-setup.yml'
   pull_request:
     branches:
       - master
     paths:
-      - './docker/postgres-setup/**'
+      - 'docker/postgres-setup/**'
       - '.github/workflows/docker-postgres-setup.yml'
   release:
     types: [published, edited]

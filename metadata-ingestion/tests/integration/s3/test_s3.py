@@ -7,7 +7,7 @@ from boto3.session import Session
 from moto import mock_s3
 from pydantic import ValidationError
 
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -78,6 +78,7 @@ def test_data_lake_s3_ingest(
 
     f = open(os.path.join(SOURCE_FILES_PATH, source_file))
     source = json.load(f)
+    source["config"]["platform"] = "s3"
 
     config_dict = {}
     config_dict["source"] = source
@@ -163,11 +164,11 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
         },
     }
     config_dict["source"] = source
-    with pytest.raises(ValidationError) as e_info:
-        pipeline = Pipeline.create(config_dict)
-        pipeline.run()
-        pipeline.raise_from_status()
+    with pytest.raises(PipelineInitError) as e_info:
+        Pipeline.create(config_dict)
 
+    assert e_info._excinfo
+    assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
     logging.debug(e_info)
 
     # Case 2 : named variable in exclude is not allowed
@@ -181,11 +182,11 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
         },
     }
     config_dict["source"] = source
-    with pytest.raises(ValidationError) as e_info:
-        pipeline = Pipeline.create(config_dict)
-        pipeline.run()
-        pipeline.raise_from_status()
+    with pytest.raises(PipelineInitError) as e_info:
+        Pipeline.create(config_dict)
 
+    assert e_info._excinfo
+    assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
     logging.debug(e_info)
 
     # Case 3 : unsupported file type not allowed
@@ -198,11 +199,11 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
         },
     }
     config_dict["source"] = source
-    with pytest.raises(ValidationError) as e_info:
-        pipeline = Pipeline.create(config_dict)
-        pipeline.run()
-        pipeline.raise_from_status()
+    with pytest.raises(PipelineInitError) as e_info:
+        Pipeline.create(config_dict)
 
+    assert e_info._excinfo
+    assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
     logging.debug(e_info)
 
     # Case 4 : ** in include not allowed
@@ -215,9 +216,9 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
         },
     }
     config_dict["source"] = source
-    with pytest.raises(ValidationError) as e_info:
-        pipeline = Pipeline.create(config_dict)
-        pipeline.run()
-        pipeline.raise_from_status()
+    with pytest.raises(PipelineInitError) as e_info:
+        Pipeline.create(config_dict)
 
+    assert e_info._excinfo
+    assert isinstance(e_info._excinfo[1].__cause__, ValidationError)
     logging.debug(e_info)

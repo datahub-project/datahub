@@ -1,10 +1,15 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Generic, Iterable, Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, TypeVar
+
+import requests
 
 from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+
+if TYPE_CHECKING:
+    from datahub.ingestion.run.pipeline import PipelineConfig
 
 T = TypeVar("T")
 
@@ -49,14 +54,24 @@ class PipelineContext:
         pipeline_name: Optional[str] = None,
         dry_run: bool = False,
         preview_mode: bool = False,
+        pipeline_config: Optional["PipelineConfig"] = None,
     ) -> None:
+        self.pipeline_config = pipeline_config
         self.run_id = run_id
-        self.graph = DataHubGraph(datahub_api) if datahub_api is not None else None
         self.pipeline_name = pipeline_name
         self.dry_run_mode = dry_run
         self.preview_mode = preview_mode
         self.reporters: Dict[str, Committable] = {}
         self.checkpointers: Dict[str, Committable] = {}
+        try:
+            self.graph = DataHubGraph(datahub_api) if datahub_api is not None else None
+        except requests.exceptions.ConnectionError as e:
+            raise Exception("Failed to connect to DataHub") from e
+        except Exception as e:
+            raise Exception(
+                "Failed to instantiate a valid DataHub Graph instance"
+            ) from e
+
         self._set_dataset_urn_to_lower_if_needed()
 
     def _set_dataset_urn_to_lower_if_needed(self) -> None:

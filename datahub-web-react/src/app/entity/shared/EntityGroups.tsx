@@ -1,14 +1,14 @@
 import { Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, EntityRelationshipsResult } from '../../../types.generated';
+import { EntityType, EntityRelationship } from '../../../types.generated';
 import { EmptyValue, TagsSection, Tags, GroupsSeeMoreText } from './SidebarStyledComponents';
 import { useEntityRegistry } from '../../useEntityRegistry';
 
 type Props = {
     readMore: boolean;
     setReadMore: (readMore: boolean) => void;
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships: Array<EntityRelationship>;
 };
 
 /**
@@ -19,9 +19,9 @@ export default function EntityGroups({ readMore, setReadMore, groupMemberRelatio
 
     return (
         <TagsSection>
-            {groupMemberRelationships?.relationships.length === 0 && <EmptyValue />}
+            {groupMemberRelationships?.length === 0 && <EmptyValue />}
             {!readMore &&
-                groupMemberRelationships?.relationships.slice(0, 2).map((item) => {
+                groupMemberRelationships?.slice(0, 2).map((item) => {
                     if (!item?.entity?.urn) return null;
                     const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpGroup, item?.entity?.urn);
                     return (
@@ -33,8 +33,8 @@ export default function EntityGroups({ readMore, setReadMore, groupMemberRelatio
                     );
                 })}
             {readMore &&
-                groupMemberRelationships?.relationships.length > 2 &&
-                groupMemberRelationships?.relationships.map((item) => {
+                groupMemberRelationships?.length > 2 &&
+                groupMemberRelationships?.map((item) => {
                     if (!item?.entity?.urn) return null;
                     const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn);
                     return (
@@ -45,9 +45,9 @@ export default function EntityGroups({ readMore, setReadMore, groupMemberRelatio
                         </Link>
                     );
                 })}
-            {!readMore && groupMemberRelationships?.relationships.length > 2 && (
+            {!readMore && groupMemberRelationships?.length > 2 && (
                 <GroupsSeeMoreText onClick={() => setReadMore(!readMore)}>
-                    {`+${groupMemberRelationships?.relationships.length - 2} more`}
+                    {`+${groupMemberRelationships?.length - 2} more`}
                 </GroupsSeeMoreText>
             )}
         </TagsSection>

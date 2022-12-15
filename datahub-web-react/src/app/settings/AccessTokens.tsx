@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { Alert, Button, Divider, Empty, message, Modal, Pagination, Typography } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { red } from '@ant-design/colors';
 
 import { FacetFilterInput } from '../../types.generated';
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../graphql/auth.generated';
@@ -12,6 +13,7 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import CreateTokenModal from './CreateTokenModal';
 import { useAppConfigQuery } from '../../graphql/app.generated';
 import { getLocaleTimezone } from '../shared/time/timeUtils';
+import { scrollToTop } from '../shared/searchUtils';
 
 const SourceContainer = styled.div`
     width: 100%;
@@ -62,6 +64,10 @@ const ActionButtonContainer = styled.div`
 const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
+`;
+
+const NeverExpireText = styled.span`
+    color: ${red[5]};
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -172,6 +178,7 @@ export const AccessTokens = () => {
             dataIndex: 'expiresAt',
             key: 'expiresAt',
             render: (expiresAt: string) => {
+                if (expiresAt === null) return <NeverExpireText>Never</NeverExpireText>;
                 const localeTimezone = getLocaleTimezone();
                 const formattedExpireAt = new Date(expiresAt);
                 return (
@@ -194,6 +201,7 @@ export const AccessTokens = () => {
     ];
 
     const onChangePage = (newPage: number) => {
+        scrollToTop();
         setPage(newPage);
     };
 

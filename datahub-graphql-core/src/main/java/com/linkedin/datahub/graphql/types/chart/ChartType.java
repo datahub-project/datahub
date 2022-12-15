@@ -71,7 +71,8 @@ public class ChartType implements SearchableEntityType<Chart, String>, Browsable
         CONTAINER_ASPECT_NAME,
         DOMAINS_ASPECT_NAME,
         DEPRECATION_ASPECT_NAME,
-        DATA_PLATFORM_INSTANCE_ASPECT_NAME
+        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+        INPUT_FIELDS_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "queryType", "tool", "type");
 
