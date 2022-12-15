@@ -110,13 +110,13 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     });
   }
 
-  private List<Urn> filterOutDataJobUrns(List<Urn> urns) {
+  private List<Urn> filterOutDataJobUrns(@Nonnull final List<Urn> urns) {
     return urns.stream().filter(
         upstreamUrn -> !upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
     ).collect(Collectors.toList());
   }
 
-  private Map<Urn, List<Urn>> getDownstreamToUpstreamsMap(@Nonnull List<LineageEdge> edges) {
+  private Map<Urn, List<Urn>> getDownstreamToUpstreamsMap(@Nonnull final List<LineageEdge> edges) {
     final Map<Urn, List<Urn>> downstreamToUpstreams = new HashMap<>();
 
     for (LineageEdge edge : edges) {
@@ -129,7 +129,7 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     return downstreamToUpstreams;
   }
 
-  private Map<Urn, List<Urn>> getUpstreamToDownstreamMap(@Nonnull List<LineageEdge> edges) {
+  private Map<Urn, List<Urn>> getUpstreamToDownstreamMap(@Nonnull final List<LineageEdge> edges) {
     final Map<Urn, List<Urn>> upstreamToDownstreams = new HashMap<>();
 
     for (LineageEdge edge : edges) {

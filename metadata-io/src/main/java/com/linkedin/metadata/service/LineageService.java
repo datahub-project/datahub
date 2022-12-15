@@ -569,7 +569,7 @@ public class LineageService {
     // TODO: add permissions check here for entity type - or have one overall permissions check above
 
     try {
-      MetadataChangeProposal changeProposal = buildDataJobDownstreamLineageProposal(
+      final MetadataChangeProposal changeProposal = buildDataJobDownstreamLineageProposal(
           dataJobUrn, downstreamUrnsToAdd, downstreamUrnsToRemove, actor, authentication);
       _entityClient.ingestProposal(changeProposal, authentication, false);
     } catch (Exception e) {
@@ -589,7 +589,7 @@ public class LineageService {
       @Nonnull final Urn actor,
       @Nonnull final Authentication authentication
   ) throws Exception {
-    EntityResponse entityResponse =
+    final EntityResponse entityResponse =
         _entityClient.getV2(Constants.DATA_JOB_ENTITY_NAME, dataJobUrn, ImmutableSet.of(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME), authentication);
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
