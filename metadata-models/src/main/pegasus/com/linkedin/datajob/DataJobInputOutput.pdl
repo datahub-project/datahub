@@ -87,7 +87,7 @@ record DataJobInputOutput {
    * Output datasets produced by the data job during processing
    */
   @Relationship = {
-    "/*": {
+    "/*/destinationUrn": {
       "name": "Produces",
       "entityTypes": [ "dataset" ],
       "isUpstream": false,
