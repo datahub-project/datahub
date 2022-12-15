@@ -5,39 +5,24 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import redshift_connector
 
+from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, eq=True)
-class RedshiftColumn:
-    name: str
-    data_type: str
-    is_nullable: bool
-    dist_key: bool
-    sort_key: bool
-    ordinal_position: Optional[int] = None
-    comment: Optional[str] = None
+class RedshiftColumn(BaseColumn):
+    dist_key: bool = False
+    sort_key: bool = False
     default: Optional[str] = None
     encode: Optional[str] = None
 
 
 @dataclass
-class RedshiftSchema:
-    name: str
-    database: str
-    type: str
-    owner: Optional[str] = None
-    option: Optional[str] = None
-    external_database: Optional[str] = None
-
-
-@dataclass
-class RedshiftTable:
-    type: str
-    name: str
-    schema: str
-    dist_style: str
-    created: Optional[datetime] = None
+class RedshiftTable(BaseTable):
+    type: Optional[str] = None
+    schema: Optional[str] = None
+    dist_style: Optional[str] = None
     description: Optional[str] = None
     columns: List[RedshiftColumn] = field(default_factory=list)
     size_in_bytes: Optional[int] = None
@@ -65,6 +50,16 @@ class RedshiftView:
 
 
 @dataclass
+class RedshiftSchema:
+    name: str
+    database: str
+    type: str
+    owner: Optional[str] = None
+    option: Optional[str] = None
+    external_database: Optional[str] = None
+
+
+@dataclass
 class RedshiftExtraTableMeta:
     database: str
     schema: str
@@ -83,7 +78,7 @@ class RedshiftMetadatQueries:
         AND (datname <> ('template1')::name)
         """
 
-    list_schemas: str = """            SELECT database_name,
+    list_schemas: str = """SELECT database_name,
         schema_name,
         schema_type,
         usename as schema_owner_name,
@@ -275,7 +270,7 @@ SELECT null as database_name,
 class RedshiftDataDictionary:
     @staticmethod
     def get_query_result(
-            conn: redshift_connector.Connection, query: str
+        conn: redshift_connector.Connection, query: str
     ) -> redshift_connector.Cursor:
         cursor: redshift_connector.Cursor = conn.cursor()
 
@@ -297,7 +292,7 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_schemas(
-            conn: redshift_connector.Connection, database: str
+        conn: redshift_connector.Connection, database: str
     ) -> List[RedshiftSchema]:
 
         cursor = RedshiftDataDictionary.get_query_result(
@@ -322,7 +317,7 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def enrich_tables(
-            conn: redshift_connector.Connection,
+        conn: redshift_connector.Connection,
     ) -> (Dict[str, Dict[str, RedshiftExtraTableMeta]]):
 
         cur = RedshiftDataDictionary.get_query_result(
@@ -354,7 +349,7 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_tables_and_views(
-            conn: redshift_connector.Connection,
+        conn: redshift_connector.Connection,
     ) -> Tuple[Dict[str, List[RedshiftTable]], Dict[str, List[RedshiftView]]]:
         tables: Dict[str, List[RedshiftTable]] = {}
         views: Dict[str, List[RedshiftView]] = {}
@@ -446,7 +441,7 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_columns_for_schema(
-            conn: redshift_connector.Connection, schema: RedshiftSchema
+        conn: redshift_connector.Connection, schema: RedshiftSchema
     ) -> Dict[str, List[RedshiftColumn]]:
 
         cursor = RedshiftDataDictionary.get_query_result(

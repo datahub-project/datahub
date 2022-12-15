@@ -191,11 +191,11 @@ class RedshiftUsageExtractor:
             with PerfTimer() as timer:
                 # Generate operation aspect workunits
                 yield from self._gen_operation_aspect_workunits(self.connection)
-                self.report.operational_metadata_extraction_sec[f"{self.config.database}"] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.operational_metadata_extraction_sec[
+                    f"{self.config.database}"
+                ] = round(timer.elapsed_seconds(), 2)
 
-    # Generate aggregate events
+        # Generate aggregate events
         query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
             start_time=self.config.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.config.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
@@ -304,6 +304,9 @@ class RedshiftUsageExtractor:
                 and event.endtime
                 and event.operation_type
             ):
+                continue
+
+            if not self._should_process_event(event):
                 continue
 
             assert event.operation_type in ["insert", "delete"]

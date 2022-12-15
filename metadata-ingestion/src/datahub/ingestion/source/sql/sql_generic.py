@@ -31,11 +31,11 @@ SqlTableColumn = TypeVar("SqlTableColumn", bound="BaseColumn")
 @dataclass
 class BaseTable(Generic[SqlTableColumn]):
     name: str
-    comment: Optional[str]
     created: datetime
-    last_altered: Optional[datetime]
-    size_in_bytes: Optional[int]
-    rows_count: Optional[int]
+    comment: Optional[str] = None
+    last_altered: Optional[datetime] = None
+    size_in_bytes: Optional[int] = None
+    rows_count: Optional[int] = None
     columns: List[SqlTableColumn] = field(default_factory=list)
     ddl: Optional[str] = None
 

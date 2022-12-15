@@ -145,7 +145,8 @@ class LineageExtractor:
         """
         try:
             cursor = connection.cursor()
-            db_name = get_db_name(self.config)
+            db_name = self.config.database
+            alias_db_name = get_db_name(self.config)
             cursor.execute(query)
             field_names = [i[0] for i in cursor.description]
 
@@ -155,7 +156,7 @@ class LineageExtractor:
                     if not self.config.schema_pattern.allowed(
                         db_row[field_names.index("target_schema")]
                     ) or not self.config.table_pattern.allowed(
-                        db_row[field_names.index("target_table")]
+                        f'{db_name}.{db_row[field_names.index("target_schema")]}.{db_row[field_names.index("target_table")]}'
                     ):
                         continue
 
@@ -174,6 +175,7 @@ class LineageExtractor:
                     if lineage_type in [
                         lineage_type.QUERY_SQL_PARSER,
                         lineage_type.NON_BINDING_VIEW,
+                        lineage_type.VIEW,
                     ]:
                         try:
                             sources = self._get_sources_from_query(
@@ -240,7 +242,7 @@ class LineageExtractor:
                     else:
                         self._lineage_map[target.dataset.path] = target
 
-                    logger.info(
+                    logger.debug(
                         f"Lineage[{target}]:{self._lineage_map[target.dataset.path]}"
                     )
                 rows = cursor.fetchmany()
@@ -368,7 +370,7 @@ class LineageExtractor:
                 pg_catalog.pg_namespace AS n
                 ON c.relnamespace = n.oid
             WHERE relkind = 'v'
-            and ddl like '%%with no schema binding%%'
+--            and ddl like '%%with no schema binding%%'
             and
             n.nspname not in ('pg_catalog', 'information_schema')
             """

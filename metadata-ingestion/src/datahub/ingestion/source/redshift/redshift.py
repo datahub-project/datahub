@@ -11,6 +11,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
     make_tag_urn,
+    make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.common import PipelineContext
@@ -50,6 +51,7 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_containers,
     get_dataplatform_instance_aspect,
     get_domain_wu,
+    gen_lineage,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -57,7 +59,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    Status,
+    SubTypes,
+    TimeStamp,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
     UpstreamLineage,
@@ -258,13 +264,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             test_report.capability_report = {}
             try:
                 RedshiftDataDictionary.get_schemas(connection, database=config.database)
-                test_report.capability_report[SourceCapability.SCHEMA_METADATA] = CapabilityReport(
-                    capable=True
-                )
+                test_report.capability_report[
+                    SourceCapability.SCHEMA_METADATA
+                ] = CapabilityReport(capable=True)
             except Exception as e:
-                test_report.capability_report[SourceCapability.SCHEMA_METADATA] = CapabilityReport(
-                    capable=False, failure_reason=str(e)
-                )
+                test_report.capability_report[
+                    SourceCapability.SCHEMA_METADATA
+                ] = CapabilityReport(capable=False, failure_reason=str(e))
 
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
@@ -282,7 +288,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor: Optional[LineageExtractor] = None
         self.catalog_metadata: Dict = {}
         self.config: RedshiftConfig = config
-        self._all_tables_set: Optional[Set[str]] = None
         self.report: RedshiftReport = RedshiftReport()
         self.platform = "redshift"
         # Create and register the stateful ingestion use-case handler.
@@ -301,7 +306,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         self.db_tables: Dict[str, Dict[str, List[RedshiftTable]]] = {}
         self.db_views: Dict[str, Dict[str, List[RedshiftView]]] = {}
-        self.schema_columns: Dict[str, Dict[str, Dict[str, List[RedshiftColumn]]]] = {}
+        self.db_schemas: Dict[str, Dict[str, RedshiftSchema]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -328,7 +333,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         connection: redshift_connector.Connection,
         database: str,
         schema: RedshiftSchema,
-    ):
+    ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
 
             schema_workunits = gen_schema_containers(
@@ -344,9 +349,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_workunit(wu)
                 yield wu
 
-            self.schema_columns[database][
-                schema.name
-            ] = RedshiftDataDictionary.get_columns_for_schema(
+            schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
+            schema_columns[schema.name] = RedshiftDataDictionary.get_columns_for_schema(
                 conn=connection, schema=schema
             )
 
@@ -357,15 +361,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
                 if schema.name in self.db_tables[schema.database]:
                     for table in self.db_tables[schema.database][schema.name]:
-                        logger.info(f"Table: {table}")
                         table.columns = (
-                            self.schema_columns[database][schema.name][table.name]
-                            if table.name in self.schema_columns[database][schema.name]
+                            schema_columns[schema.name][table.name]
+                            if table.name in schema_columns[schema.name]
                             else []
                         )
-                        yield from self._process_table(
-                            table, database=database, schema=schema
-                        )
+                        yield from self._process_table(table, database=database)
                         self.report.table_processed[f"{database}.{schema.name}"] = (
                             self.report.table_processed.get(
                                 f"{database}.{schema.name}", 0
@@ -379,8 +380,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     for view in self.db_views[schema.database][schema.name]:
                         logger.info(f"View: {view}")
                         view.columns = (
-                            self.schema_columns[database][schema.name][view.name]
-                            if view.name in self.schema_columns[database][schema.name]
+                            schema_columns[schema.name][view.name]
+                            if view.name in schema_columns[schema.name]
                             else []
                         )
                         yield from self._process_view(
@@ -401,7 +402,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _process_table(
         self,
         table: RedshiftTable,
-        schema: RedshiftSchema,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
 
@@ -415,23 +415,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(datahub_dataset_name)
             return
 
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
-        if self.config.include_table_lineage and self.lineage_extractor:
-            dataset_urn = make_dataset_urn(
-                platform=self.platform, name=datahub_dataset_name
-            )
-
-            lineage_info = self.lineage_extractor.get_lineage(
-                schema=schema,
-                table=table,
-                dataset_urn=dataset_urn,
-            )
-
         table_workunits = self.gen_table_dataset_workunits(
-            table,
-            database=database,
-            dataset_name=datahub_dataset_name,
-            lineage_info=lineage_info,
+            table, database=database, dataset_name=datahub_dataset_name
         )
         for wu in table_workunits:
             self.report.report_workunit(wu)
@@ -449,23 +434,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(datahub_dataset_name)
             return
 
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
-        if self.config.include_table_lineage and self.lineage_extractor:
-            dataset_urn = make_dataset_urn(
-                platform=self.platform, name=datahub_dataset_name
-            )
-
-            lineage_info = self.lineage_extractor.get_lineage(
-                schema=schema,
-                table=table,
-                dataset_urn=dataset_urn,
-            )
-
         table_workunits = self.gen_view_dataset_workunits(
             table=table,
             database=database,
             schema=table.schema,
-            lineage_info=lineage_info,
         )
 
         for wu in table_workunits:
@@ -477,7 +449,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         table: RedshiftTable,
         database: str,
         dataset_name: str,
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]],
     ) -> Iterable[MetadataWorkUnit]:
 
         custom_properties = {}
@@ -502,10 +473,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         yield from self.gen_dataset_workunits(
             table=table,
-            database=get_db_name(self.config),
+            database=database,
             schema=table.schema,
             sub_type=table.type,
-            lineage_info=lineage_info,
             tags_to_add=[],
             custom_properties=custom_properties,
         )
@@ -516,7 +486,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         table: RedshiftView,
         database: str,
         schema: str,
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]],
     ) -> Iterable[MetadataWorkUnit]:
 
         view = cast(RedshiftView, table)
@@ -526,7 +495,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             database=get_db_name(self.config),
             schema=table.schema,
             sub_type=table.type,
-            lineage_info=lineage_info,
             tags_to_add=[],
             custom_properties={},
         )
@@ -538,8 +506,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             viewLogic=view_definition_string,
         )
         datahub_dataset_name = f"{database}.{schema}.{table.name}"
-        dataset_urn = make_dataset_urn(
-            platform=self.platform, name=datahub_dataset_name
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=datahub_dataset_name,
+            platform_instance=self.config.platform_instance,
         )
         wu = wrap_aspect_as_workunit(
             "dataset",
@@ -610,13 +580,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database: str,
         schema: str,
         sub_type: str,
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
         tags_to_add: Optional[List[str]] = None,
         custom_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         datahub_dataset_name = f"{database}.{schema}.{table.name}"
-        dataset_urn = make_dataset_urn(
-            platform=self.platform, name=datahub_dataset_name
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=datahub_dataset_name,
+            platform_instance=self.config.platform_instance,
         )
         status = Status(removed=False)
         wu = wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
@@ -625,47 +596,22 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         yield self.gen_schema_metadata(dataset_urn, table, str(datahub_dataset_name))
 
-        if lineage_info is not None:
-            upstream_lineage, upstream_column_props = lineage_info
-        else:
-            upstream_column_props = {}
-            upstream_lineage = None
-
-        if upstream_lineage is not None:
-            if self.config.incremental_lineage:
-                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                    urn=dataset_urn
-                )
-                for upstream in upstream_lineage.upstreams:
-                    patch_builder.add_upstream_lineage(upstream)
-
-                lineage_workunits = [
-                    MetadataWorkUnit(
-                        id=f"upstreamLineage-for-{dataset_urn}",
-                        mcp_raw=mcp,
-                    )
-                    for mcp in patch_builder.build()
-                ]
-            else:
-                lineage_workunits = [
-                    wrap_aspect_as_workunit(
-                        "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-                    )
-                ]
-
-            for wu in lineage_workunits:
-                yield wu
-                self.report.report_workunit(wu)
-
         dataset_properties = DatasetProperties(
             name=table.name,
+            created=TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created
+            else None,
+            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+            if table.last_altered
+            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created
+            else None,
             description=table.description,
             qualifiedName=str(datahub_dataset_name),
-            customProperties={**upstream_column_props},
         )
 
         if custom_properties:
-            dataset_properties.customProperties.update(custom_properties)
+            dataset_properties.customProperties = custom_properties
 
         wu = wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
@@ -717,7 +663,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         # self.add_config_to_report()
         self.db_tables[database] = {}
         self.db_views[database] = {}
-        self.schema_columns[database] = {}
 
         yield from gen_database_containers(
             database=database,
@@ -739,6 +684,18 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             memory_footprint.total_size(self.db_views)
         )
 
+        for schema in RedshiftDataDictionary.get_schemas(
+            conn=connection, database=database
+        ):
+            logger.info(f"Schema: {database}.{schema.name}")
+            if not self.config.schema_pattern.allowed(schema.name):
+                self.report.report_dropped(f"{database}.{schema.name}")
+                continue
+            if database not in self.db_schemas:
+                self.db_schemas[database] = {}
+            self.db_schemas[database][schema.name] = schema
+            yield from self.process_schema(connection, database, schema)
+
         if self.config.include_table_lineage or self.config.include_copy_lineage:
             self.lineage_extractor = LineageExtractor(
                 config=self.config,
@@ -759,15 +716,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.lineage_extraction_sec[f"{database}"] = round(
                     timer.elapsed_seconds(), 2
                 )
-
-        for schema in RedshiftDataDictionary.get_schemas(
-            conn=connection, database=database
-        ):
-            logger.info(f"Schema: {database}.{schema.name}")
-            if not self.config.schema_pattern.allowed(schema.name):
-                self.report.report_dropped(f"{database}.{schema.name}")
-                continue
-            yield from self.process_schema(connection, database, schema)
+                wus = self.generate_lineage(database)
+                for wu in wus:
+                    yield wu
+                    self.report.report_workunit(wu)
 
         if self.config.include_usage_statistics:
             with PerfTimer() as timer:
@@ -785,6 +737,54 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.profiling.enabled:
             profiler = RedshiftProfiler(config=self.config, report=self.report)
             yield from profiler.get_workunits(self.db_tables)
+
+    def generate_lineage(self, database: str) -> Iterable[MetadataWorkUnit]:
+        logger.info(f"Generate lineage for {database}")
+        for schema in self.db_tables[database]:
+            for table in self.db_tables[database][schema]:
+                if (
+                    database not in self.db_schemas
+                    or schema not in self.db_schemas[database]
+                ):
+                    continue
+                datahub_dataset_name = f"{database}.{table.schema}.{table.name}"
+                dataset_urn = make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=datahub_dataset_name,
+                    platform_instance=self.config.platform_instance,
+                )
+
+                lineage_info = self.lineage_extractor.get_lineage(
+                    table,
+                    dataset_urn,
+                    self.db_schemas[database][schema],
+                )
+                if lineage_info:
+                    for wu in gen_lineage(
+                        dataset_urn, lineage_info, self.config.incremental_lineage
+                    ):
+                        self.report.report_workunit(wu)
+                        yield wu
+
+        for schema in self.db_views[database]:
+            for view in self.db_views[database][schema]:
+                dataset_urn = make_dataset_urn_with_platform_instance(
+                    self.platform,
+                    view.name,
+                    self.config.platform_instance,
+                    env=self.config.env,
+                )
+                lineage_info = self.lineage_extractor.get_lineage(
+                    view,
+                    dataset_urn,
+                    self.db_schemas[database][schema],
+                )
+                if lineage_info:
+                    for wu in gen_lineage(
+                        dataset_urn, lineage_info, self.config.incremental_lineage
+                    ):
+                        self.report.report_workunit(wu)
+                        yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
