@@ -83,21 +83,23 @@ export default function ManageLineageMenu({
                                 </Menu.Item>
                             </div>
                         </Popover>
-                        <Popover
-                            content={<PopoverContent centerEntity={centerEntity} direction="downstream" />}
-                            overlayStyle={disableDownstream ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
-                        >
-                            <div>
-                                <Menu.Item
-                                    key="1"
-                                    onClick={() => manageLineage(Direction.Downstream)}
-                                    disabled={disableDownstream}
-                                >
-                                    <ArrowDownOutlined />
-                                    &nbsp; Edit Downstream
-                                </Menu.Item>
-                            </div>
-                        </Popover>
+                        {entityType !== EntityType.Dashboard && (
+                            <Popover
+                                content={<PopoverContent centerEntity={centerEntity} direction="downstream" />}
+                                overlayStyle={disableDownstream ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
+                            >
+                                <div>
+                                    <Menu.Item
+                                        key="1"
+                                        onClick={() => manageLineage(Direction.Downstream)}
+                                        disabled={disableDownstream}
+                                    >
+                                        <ArrowDownOutlined />
+                                        &nbsp; Edit Downstream
+                                    </Menu.Item>
+                                </div>
+                            </Popover>
+                        )}
                         {isCenterNode && centerEntity && (
                             <Menu.Item key="2" onClick={centerEntity}>
                                 <StyledImage src={FocusIcon} alt="focus on entity" />
