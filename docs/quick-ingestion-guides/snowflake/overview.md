@@ -26,6 +26,14 @@ The pipeline will also extract:
 You will NOT have extracted Stages, Snowpipes, Streams, Tasks, Procedures from Snowflake, as the connector does not support ingesting these assets yet.
 :::
 
+### Caveats
+
+By default, DataHub only profiles datasets that have changed in the past 1 day. This can be changed in the YAML editor by setting the value of `profile_if_updated_since_days` to something greater than 1.
+
+Additionally, DataHub only extracts usage and lineage information based on operations performed in the last 1 day. This can be changed by setting a custom value for `start_time` and `end_time` in the YAML editor.
+
+*To learn more about setting these advanced values, check out the [Snowflake Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/snowflake/#module-snowflake).*
+
 ## Next Steps
 
 If that all sounds like what you're looking for, navigate to the [next page](setup.md), where we'll talk about prerequisites.
