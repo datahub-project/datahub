@@ -2,8 +2,11 @@ package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateSecretInput;
+import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainProposalMatcher;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -55,16 +58,15 @@ public class CreateSecretResolverTest {
     value.setValue("encryptedvalue");
     value.setName(TEST_INPUT.getName());
     value.setDescription(TEST_INPUT.getDescription());
+    value.setCreated(new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:test")).setTime(0L));
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
-        Mockito.eq(
-            new MetadataChangeProposal()
-                .setChangeType(ChangeType.UPSERT)
-                .setEntityType(Constants.SECRETS_ENTITY_NAME)
-                .setAspectName(Constants.SECRET_VALUE_ASPECT_NAME)
-                .setAspect(GenericRecordUtils.serializeAspect(value))
-                .setEntityKeyAspect(GenericRecordUtils.serializeAspect(key))
-        ),
+        Mockito.argThat(new CreateSecretResolverMatcherTest(new MetadataChangeProposal()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityType(Constants.SECRETS_ENTITY_NAME)
+            .setAspectName(Constants.SECRET_VALUE_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(value))
+            .setEntityKeyAspect(GenericRecordUtils.serializeAspect(key)))),
         Mockito.any(Authentication.class)
     );
   }
