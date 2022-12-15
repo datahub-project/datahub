@@ -57,10 +57,17 @@ interface Props {
     lineageDirection: Direction;
     setEntitiesToAdd: React.Dispatch<React.SetStateAction<Entity[]>>;
     entitiesToAdd: Entity[];
+    entityUrn: string;
     entityType?: EntityType;
 }
 
-export default function AddEntityEdge({ lineageDirection, setEntitiesToAdd, entitiesToAdd, entityType }: Props) {
+export default function AddEntityEdge({
+    lineageDirection,
+    setEntitiesToAdd,
+    entitiesToAdd,
+    entityUrn,
+    entityType,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const [queryText, setQueryText] = useState<string | undefined>(undefined);
     const [search, { data: searchData }] = useGetSearchResultsForMultipleLazyQuery();
@@ -99,7 +106,7 @@ export default function AddEntityEdge({ lineageDirection, setEntitiesToAdd, enti
     };
 
     const searchResults = searchData?.searchAcrossEntities?.searchResults
-        .filter((result) => !existsInEntitiesToAdd(result, entitiesToAdd))
+        .filter((result) => !existsInEntitiesToAdd(result, entitiesToAdd) && result.entity.urn !== entityUrn)
         .map((result) => renderSearchResult(result.entity));
 
     const placeholderText = getPlaceholderText(validEntityTypes, entityRegistry);
