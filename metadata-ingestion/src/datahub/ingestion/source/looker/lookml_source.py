@@ -169,13 +169,13 @@ class LookerConnectionDefinition(ConfigModel):
 
 
 class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
-    base_folder: Optional[pydantic.DirectoryPath] = Field(
-        None,
-        description="Required if not providing github configuration and deploy keys. A pointer to a local directory (accessible to the ingestion system) where the root of the LookML repo has been checked out (typically via a git clone). This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`.",
-    )
     github_info: Optional[GitHubInfo] = Field(
         None,
         description="Reference to your github location. If present, supplies handy links to your lookml on the dataset entity page.",
+    )
+    base_folder: Optional[pydantic.DirectoryPath] = Field(
+        None,
+        description="Required if not providing github configuration and deploy keys. A pointer to a local directory (accessible to the ingestion system) where the root of the LookML repo has been checked out (typically via a git clone). This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`.",
     )
     project_dependencies: Dict[str, Union[pydantic.DirectoryPath, GitHubInfo]] = Field(
         {},
@@ -221,7 +221,7 @@ class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
         description="When enabled, field descriptions will include the sql logic for computed fields if descriptions are missing",
     )
     process_isolation_for_sql_parsing: bool = Field(
-        True,
+        False,
         description="When enabled, sql parsing will be executed in a separate process to prevent memory leaks.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -265,7 +265,7 @@ class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
         if not values.get("connection_to_platform_map", {}) and not values.get(
             "api", {}
         ):
-            raise ConfigurationError(
+            raise ValueError(
                 "Neither api not connection_to_platform_map config was found. LookML source requires either api credentials for Looker or a map of connection names to platform identifiers to work correctly"
             )
         return values
@@ -274,7 +274,7 @@ class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
     def check_either_project_name_or_api_provided(cls, values):
         """Validate that we must either have a project name or an api credential to fetch project names"""
         if not values.get("project_name") and not values.get("api"):
-            raise ConfigurationError(
+            raise ValueError(
                 "Neither project_name not an API credential was found. LookML source requires either api credentials for Looker or a project_name to accurately name views and models."
             )
         return values
@@ -414,11 +414,17 @@ class LookerModel:
             # "**" matches an arbitrary number of directories in LookML
             # we also resolve these paths to absolute paths so we can de-dup effectively later on
             included_files = [
-                str(pathlib.Path(p).resolve())
-                for p in sorted(
-                    glob.glob(glob_expr, recursive=True)
-                    + glob.glob(f"{glob_expr}.lkml", recursive=True)
-                )
+                str(p.resolve())
+                for p in [
+                    pathlib.Path(p)
+                    for p in sorted(
+                        glob.glob(glob_expr, recursive=True)
+                        + glob.glob(f"{glob_expr}.lkml", recursive=True)
+                    )
+                ]
+                # We don't want to match directories. The '**' glob can be used to
+                # recurse into directories.
+                if p.is_file()
             ]
             logger.debug(
                 f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
@@ -765,7 +771,7 @@ class LookerView:
         sql_parser_path: str = "datahub.utilities.sql_parser.DefaultSQLParser",
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
-        process_isolation_for_sql_parsing: bool = True,
+        process_isolation_for_sql_parsing: bool = False,
     ) -> Optional["LookerView"]:
         view_name = looker_view["name"]
         logger.debug(f"Handling view {view_name} in model {model_name}")

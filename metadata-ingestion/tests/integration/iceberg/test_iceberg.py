@@ -10,7 +10,7 @@ from iceberg.core.filesystem.local_filesystem import LocalFileSystem
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.iceberg.iceberg import IcebergSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.iceberg_state import IcebergCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     run_and_get_pipeline,
@@ -24,7 +24,7 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
-) -> Optional[Checkpoint]:
+) -> Optional[Checkpoint[GenericCheckpointState]]:
     iceberg_source = cast(IcebergSource, pipeline.source)
     return iceberg_source.get_current_checkpoint(
         iceberg_source.stale_entity_removal_handler.job_id
@@ -153,8 +153,8 @@ def test_iceberg_stateful_ingest(pytestconfig, tmp_path, mock_time, mock_datahub
 
         # Perform all assertions on the states. The deleted table should not be
         # part of the second state
-        state1 = cast(IcebergCheckpointState, checkpoint1.state)
-        state2 = cast(IcebergCheckpointState, checkpoint2.state)
+        state1 = checkpoint1.state
+        state2 = checkpoint2.state
         difference_urns = list(
             state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
         )

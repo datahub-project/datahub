@@ -1,4 +1,5 @@
 from datahub.emitter.mce_builder import make_container_urn, make_dataset_urn
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -51,3 +52,40 @@ def test_backward_compat() -> None:
             "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
         ]
     )
+
+
+def test_deduplication_and_order_preservation() -> None:
+    state = GenericCheckpointState(
+        urns=[
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,db1.t1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,db1.v1,PROD)",
+            "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+            "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,db1.v1,PROD)",  # duplicate
+        ]
+    )
+    assert len(state.urns) == 4
+
+    state.add_checkpoint_urn(
+        type="dataset",
+        urn="urn:li:dataset:(urn:li:dataPlatform:mysql,db1.v1,PROD)",  # duplicate
+    )
+    assert len(state.urns) == 4
+
+    state.add_checkpoint_urn(
+        type="dataset",
+        urn="urn:li:dataset:(urn:li:dataPlatform:mysql,this_one_is_new,PROD)",
+    )
+    assert len(state.urns) == 5
+
+    assert list(state.urns) == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,db1.t1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,db1.v1,PROD)",
+        "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+        "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,this_one_is_new,PROD)",
+    ]
+
+    # verifies that the state can be serialized without raising an error
+    json = state.json()
+    assert json
