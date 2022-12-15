@@ -135,6 +135,7 @@ def test_delete_tags_remove_references(test_setup, depends=["test_healthchecks"]
 
     sleep(3)
 
+    # Validate that references no longer exist for soft deleted tags
     references_count, _ = delete_references(
         tag_to_delete, dry_run=True, cached_session_host=(session, gms_host)
     )
@@ -167,7 +168,7 @@ def test_delete_tags_keep_references(test_setup, depends=["test_healthchecks"]):
 
     sleep(3)
 
-    # Validate that references no longer exist for soft deleted tags
+    # Validate that references still exist for soft deleted tags
     references_count, _ = delete_references(
         tag_to_delete, dry_run=True, cached_session_host=(session, gms_host)
     )
