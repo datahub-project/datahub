@@ -27,10 +27,7 @@ function Docs(ingestionSourceContent, siteConfig) {
   
 
   const [textState,setTextState] = React.useState("");
-  const [filterState, setFilterState] = React.useState({
-    Difficulty: [],
-    PlatformType: [],
-    PushPull: []})
+  const [filterState, setFilterState] = React.useState([])
 
   const filterOptions= {
     Difficulty: ["easy", "medium", "hard"],

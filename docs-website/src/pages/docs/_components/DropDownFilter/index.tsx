@@ -56,22 +56,47 @@ function SingleFilter({filterState, setFilterState, filter, width, filterOptions
     )
   }
 function DropDownFilter({filterState, setFilterState, filterOptions}) {
+ 
+  const  options: SelectProps['options'] = []
+  for(const filter in filterOptions) {
+    var tempOptions: SelectProps['options'] = []
+    for(let x = 0; x< filterOptions[filter].length; x++) {
+      if(!filterState.includes(filterOptions[filter][x])){
+        tempOptions.push({
+          label: filterOptions[filter][x],
+          value: filterOptions[filter][x],
+        })
+      }
+      
+  }
+  options.push({
+    label: filter,
+    options: tempOptions
+  })
+  }
+  
+  
 
-const keys = Object.keys(filterState);
-var width: any = keys.length > 1 ? 100/keys.length : 100;
-width = width + '%';
+
+  const handleChange = (values: string[]) => {
+    console.log(`selected ${values}`);
+    filterState = values;
+    setFilterState(filterState);
+  } 
+
 
   return (
-    <>
-    {
-      
-keys.map((filter) => {
-  
-  return <SingleFilter filterState={filterState} setFilterState={setFilterState} filterOptions={filterOptions} filter={filter} width={width} key={filter} />
-})
-
-    }</>
-  );
+    
+  <Select
+    mode="multiple"
+    allowClear
+    bordered={false}
+    style={{ width: '30%' }}
+    placeholder="Please select filters"
+    onChange={handleChange}
+    options={options}
+  />
+    )
 }
 
 export default DropDownFilter;
