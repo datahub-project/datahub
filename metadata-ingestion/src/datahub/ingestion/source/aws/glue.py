@@ -727,6 +727,10 @@ class GlueSource(StatefulIngestionSourceBase):
             ] = mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
+                if location.startswith("s3a://"):
+                    location = location.replace("s3a://", "s3://")
+                if location.startswith("s3n://"):
+                    location = location.replace("s3n://", "s3://")
                 if location.startswith("s3://"):
                     s3_dataset_urn = make_s3_urn(location, self.source_config.env)
                     if self.source_config.glue_s3_lineage_direction == "upstream":
