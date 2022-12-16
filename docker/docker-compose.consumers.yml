@@ -17,8 +17,6 @@ services:
     ports:
       - "9091:9091"
     depends_on:
-      - kafka-setup
-      - elasticsearch-setup
       - neo4j
 
   datahub-mce-consumer:
@@ -32,5 +30,4 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - kafka-setup
       - datahub-gms
