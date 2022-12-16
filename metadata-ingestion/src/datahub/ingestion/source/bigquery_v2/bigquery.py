@@ -639,7 +639,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         tables: Dict[str, List[str]] = {}
         for dataset in self.db_tables[project_id]:
             tables[dataset] = [
-                table.name for table in self.db_tables[project_id][dataset]
+                BigqueryTableIdentifier(
+                    project_id, dataset, table.name
+                ).get_table_name()
+                for table in self.db_tables[project_id][dataset]
             ]
         for dataset in self.db_views[project_id]:
             if not tables[dataset]:
@@ -789,9 +792,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             custom_properties["max_partition_id"] = str(table.max_partition_id)
             custom_properties["is_partitioned"] = str(True)
 
+        sub_type: str = "table"
         if table.max_shard_id:
             custom_properties["max_shard_id"] = str(table.max_shard_id)
             custom_properties["is_sharded"] = str(True)
+            sub_type = "Sharded Table"
 
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
@@ -804,7 +809,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             table=table,
             project_id=project_id,
             dataset_name=dataset_name,
-            sub_type="table",
+            sub_type=sub_type,
             tags_to_add=tags_to_add,
             custom_properties=custom_properties,
         )
