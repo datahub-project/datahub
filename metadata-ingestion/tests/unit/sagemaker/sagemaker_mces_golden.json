@@ -193,7 +193,7 @@
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": [
-                "/sagemaker/test-1"
+                "/sagemaker"
               ]
             }
           },
