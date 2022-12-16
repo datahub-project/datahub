@@ -1,13 +1,12 @@
-from datahub_provider._airflow_compat import Operator
+from datahub_provider._airflow_compat import BaseOperator, MappedOperator, Operator
 
 import contextlib
 import logging
 import traceback
-from typing import Any, Callable, Iterable, List, Optional
+from typing import Any, Callable, Iterable, List, Optional, Union
 
 from airflow.configuration import conf
 from airflow.lineage import PIPELINE_OUTLETS
-from airflow.models.baseoperator import BaseOperator
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.module_loading import import_string
 from cattr import structure
@@ -18,6 +17,9 @@ from datahub_provider.hooks.datahub import DatahubGenericHook
 from datahub_provider.lineage.datahub import DatahubLineageConfig
 
 logger = logging.getLogger(__name__)
+
+TASK_ON_FAILURE_CALLBACK = "on_failure_callback"
+TASK_ON_SUCCESS_CALLBACK = "on_success_callback"
 
 
 def get_lineage_config() -> DatahubLineageConfig:
@@ -290,12 +292,35 @@ def _wrap_on_success_callback(on_success_callback):
     return custom_on_success_callback
 
 
-def task_policy(task: BaseOperator) -> None:
+def task_policy(task: Union[BaseOperator, MappedOperator]) -> None:
     task.log.debug(f"Setting task policy for Dag: {task.dag_id} Task: {task.task_id}")
     # task.add_inlets(["auto"])
     # task.pre_execute = _wrap_pre_execution(task.pre_execute)
-    task.on_failure_callback = _wrap_on_failure_callback(task.on_failure_callback)
-    task.on_success_callback = _wrap_on_success_callback(task.on_success_callback)
+
+    # MappedOperator's callbacks don't have setters until Airflow 2.X.X
+    # https://github.com/apache/airflow/issues/24547
+    # We can bypass this by going through partial_kwargs for now
+    if MappedOperator and isinstance(task, MappedOperator):  # type: ignore
+        on_failure_callback_prop: property = getattr(
+            MappedOperator, TASK_ON_FAILURE_CALLBACK
+        )
+        on_success_callback_prop: property = getattr(
+            MappedOperator, TASK_ON_SUCCESS_CALLBACK
+        )
+        if not on_failure_callback_prop.fset or not on_success_callback_prop.fset:
+            task.log.debug(
+                "Using MappedOperator's partial_kwargs instead of callback properties"
+            )
+            task.partial_kwargs[TASK_ON_FAILURE_CALLBACK] = _wrap_on_failure_callback(
+                task.on_failure_callback
+            )
+            task.partial_kwargs[TASK_ON_SUCCESS_CALLBACK] = _wrap_on_success_callback(
+                task.on_success_callback
+            )
+            return
+
+    task.on_failure_callback = _wrap_on_failure_callback(task.on_failure_callback)  # type: ignore
+    task.on_success_callback = _wrap_on_success_callback(task.on_success_callback)  # type: ignore
     # task.pre_execute = _wrap_pre_execution(task.pre_execute)
 
 
