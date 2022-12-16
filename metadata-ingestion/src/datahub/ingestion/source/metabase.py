@@ -343,6 +343,8 @@ class MetabaseSource(Source):
                     source_schema = str(self.config.default_schema)
 
                 source_paths.add(f"{source_schema}.{source_table}")
+
+            return source_paths
         except Exception as e:
             self.report.report_failure(
                 key="metabase-query",
@@ -492,7 +494,9 @@ class MetabaseSource(Source):
                 if source_table_id.startswith("card__"):
                     card_id = source_table_id.split("__")[1]
                     card_details = self.emit_card_id(card_id)
-                    self.construct_source_path(source_paths, card_details)
+                    source_paths = self.construct_source_path(
+                        source_paths, card_details
+                    )
                 else:
                     schema_name, table_name = self.get_source_table_from_id(
                         source_table_id
@@ -502,7 +506,7 @@ class MetabaseSource(Source):
                             f"{f'{schema_name}.' if schema_name else ''}{table_name}"
                         )
         elif query_type == "native":
-            self.construct_source_path(source_paths, card_details)
+            source_paths = self.construct_source_path(source_paths, card_details)
 
         # Create dataset URNs
         dataset_urn = []
