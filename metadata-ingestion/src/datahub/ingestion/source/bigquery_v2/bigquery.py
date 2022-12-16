@@ -792,7 +792,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if table.max_shard_id:
             custom_properties["max_shard_id"] = str(table.max_shard_id)
             custom_properties["is_sharded"] = str(True)
-            sub_types = ["sharded table"]
+            sub_types = ["sharded table", "table"]
 
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
