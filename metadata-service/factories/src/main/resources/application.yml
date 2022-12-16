@@ -214,3 +214,6 @@ featureFlags:
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
+
+views:
+  enabled: ${VIEWS_ENABLED:true}

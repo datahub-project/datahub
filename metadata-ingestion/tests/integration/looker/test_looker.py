@@ -29,7 +29,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
 )
 from datahub.ingestion.source.looker.looker_source import LookerDashboardSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.looker_state import LookerCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
@@ -689,8 +689,8 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     # Perform all assertions on the states. The deleted table should not be
     # part of the second state
-    state1 = cast(LookerCheckpointState, checkpoint1.state)
-    state2 = cast(LookerCheckpointState, checkpoint2.state)
+    state1 = cast(GenericCheckpointState, checkpoint1.state)
+    state2 = cast(GenericCheckpointState, checkpoint2.state)
 
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)

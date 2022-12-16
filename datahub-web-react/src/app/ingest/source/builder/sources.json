@@ -98,6 +98,13 @@
         "recipe": "source:\n    type: mariadb\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:unity-catalog",
+        "name": "unity-catalog",
+        "displayName": "Databricks Unity Catalog",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/databricks/#module-unity-catalog",
+        "recipe": "source:\n    type: unity-catalog\n    config:\n        # Coordinates\n        workspace_url: null\n        include_table_lineage: true\n        include_column_lineage: false\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mongodb",
         "name": "mongodb",
         "displayName": "MongoDB",

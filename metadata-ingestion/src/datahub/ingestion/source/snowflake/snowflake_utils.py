@@ -1,6 +1,5 @@
 import logging
 from enum import Enum
-from functools import lru_cache
 from typing import Any, Optional
 
 from snowflake.connector import SnowflakeConnection
@@ -24,7 +23,14 @@ class SnowflakeCloudProvider(str, Enum):
     AZURE = "azure"
 
 
-SNOWFLAKE_DEFAULT_CLOUD_REGION_ID = "us-west-2"
+# See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#region-ids
+# Includes only exceptions to format <provider>_<cloud region with hyphen replaced by _>
+SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
+    "aws_us_east_1_gov": (SnowflakeCloudProvider.AWS, "us-east-1"),
+    "azure_uksouth": (SnowflakeCloudProvider.AZURE, "uk-south"),
+    "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india.azure"),
+}
+
 SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 
 
@@ -64,49 +70,31 @@ class SnowflakeCommonMixin:
     platform = "snowflake"
 
     @staticmethod
-    @lru_cache(maxsize=128)
-    def create_snowsight_base_url(account_id: str) -> Optional[str]:
-        cloud: Optional[str] = None
-        account_locator: Optional[str] = None
-        cloud_region_id: Optional[str] = None
-        privatelink: bool = False
-
-        if "." not in account_id:  # e.g. xy12345
-            account_locator = account_id.lower()
-            cloud_region_id = SNOWFLAKE_DEFAULT_CLOUD_REGION_ID
+    def create_snowsight_base_url(
+        account_locator: str,
+        cloud_region_id: str,
+        cloud: str,
+        privatelink: bool = False,
+    ) -> Optional[str]:
+        if privatelink:
+            url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
+        elif cloud == SNOWFLAKE_DEFAULT_CLOUD:
+            url = f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
         else:
-            parts = account_id.split(".")
-            if len(parts) == 2:  # e.g. xy12345.us-east-1
-                account_locator = parts[0].lower()
-                cloud_region_id = parts[1].lower()
-            elif len(parts) == 3 and parts[2] in (
-                SnowflakeCloudProvider.AWS,
-                SnowflakeCloudProvider.GCP,
-                SnowflakeCloudProvider.AZURE,
-            ):
-                # e.g. xy12345.ap-south-1.aws or xy12345.us-central1.gcp or xy12345.west-us-2.azure
-                # NOT xy12345.us-west-2.privatelink or xy12345.eu-central-1.privatelink
-                account_locator = parts[0].lower()
-                cloud_region_id = parts[1].lower()
-                cloud = parts[2].lower()
-            elif len(parts) == 3 and parts[2] == "privatelink":
-                account_locator = parts[0].lower()
-                cloud_region_id = parts[1].lower()
-                privatelink = True
-            else:
-                logger.warning(
-                    f"Could not create Snowsight base url for account {account_id}."
-                )
-                return None
+            url = f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
+        return url
 
-        if not privatelink and (cloud is None or cloud == SNOWFLAKE_DEFAULT_CLOUD):
-            return f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
-        elif privatelink:
-            return f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
-        return f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
-
-    def get_snowsight_base_url(self: SnowflakeCommonProtocol) -> Optional[str]:
-        return SnowflakeCommonMixin.create_snowsight_base_url(self.config.get_account())
+    @staticmethod
+    def get_cloud_region_from_snowflake_region_id(region):
+        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+            cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
+        elif region.startswith(("aws_", "gcp_", "azure_")):
+            # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
+            cloud, cloud_region_id = region.split("_", 1)
+            cloud_region_id = cloud_region_id.replace("_", "-")
+        else:
+            raise Exception(f"Unknown snowflake region {region}")
+        return cloud, cloud_region_id
 
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,
