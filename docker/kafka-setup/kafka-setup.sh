@@ -77,7 +77,8 @@ if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
 fi
 
 echo "Waiting for topic creation."
-wait_ex
+result=$(wait_ex)
+if [ $result -ne 0 ]; then exit $result
 echo "Finished topic creation."
 
 kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --entity-type topics --entity-name _schemas --alter --add-config cleanup.policy=compact
