@@ -5,9 +5,6 @@ services:
     - MCE_CONSUMER_ENABLED=false
   datahub-mae-consumer:
     container_name: datahub-mae-consumer
-    depends_on:
-    - kafka-setup
-    - elasticsearch-setup
     environment:
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
@@ -27,7 +24,6 @@ services:
   datahub-mce-consumer:
     container_name: datahub-mce-consumer
     depends_on:
-    - kafka-setup
     - datahub-gms
     environment:
     - MCE_CONSUMER_ENABLED=true
