@@ -323,7 +323,7 @@ class MetabaseSource(Source):
 
             return card_details
         except HTTPError as http_error:
-            self.report.report_failure(
+            self.report.report_warning(
                 key=f"metabase-card-{card_id}",
                 reason=f"Unable to retrieve Card info. " f"Reason: {str(http_error)}",
             )
