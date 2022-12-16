@@ -11,13 +11,13 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collections;
 import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -42,7 +42,8 @@ public class ListSecretsResolverTest {
     Mockito.when(mockClient.search(
         Mockito.eq(Constants.SECRETS_ENTITY_NAME),
         Mockito.eq(""),
-        Mockito.eq(Collections.emptyMap()),
+        Mockito.eq(null),
+        Mockito.any(SortCriterion.class),
         Mockito.eq(0),
         Mockito.eq(20),
         Mockito.any(Authentication.class)
@@ -109,7 +110,8 @@ public class ListSecretsResolverTest {
     Mockito.verify(mockClient, Mockito.times(0)).search(
         Mockito.any(),
         Mockito.eq(""),
-        Mockito.anyMap(),
+        Mockito.eq(null),
+        Mockito.any(SortCriterion.class),
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class));

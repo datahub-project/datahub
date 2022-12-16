@@ -8,7 +8,12 @@ namespace com.linkedin.identity
 }
 record CorpUserSettings {
   /**
-   *Settings for a user around the appearance of their DataHub U
+   * Settings for a user around the appearance of their DataHub U
    */
   appearance: CorpUserAppearanceSettings
+
+  /**
+   * User preferences for the Views feature.
+   */
+  views: optional CorpUserViewsSettings
 }

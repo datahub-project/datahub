@@ -105,6 +105,24 @@ module.exports = {
           // "docs/wip/guide-enrich-your-metadata",
         ],
       },
+      {
+        "Ingestion Quickstart Guides": [
+          {
+            BigQuery: [
+              "docs/quick-ingestion-guides/bigquery/overview",
+              "docs/quick-ingestion-guides/bigquery/setup",
+              "docs/quick-ingestion-guides/bigquery/configuration",
+            ],
+          },
+          {
+            Snowflake: [
+              "docs/quick-ingestion-guides/snowflake/overview",
+              "docs/quick-ingestion-guides/snowflake/setup",
+              "docs/quick-ingestion-guides/snowflake/configuration",
+            ],
+          },
+        ],
+      },
     ],
     "Ingest Metadata": [
       // The purpose of this section is to provide a deeper understanding of how ingestion works.

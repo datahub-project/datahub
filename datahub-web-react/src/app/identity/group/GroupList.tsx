@@ -66,7 +66,7 @@ export const GroupList = () => {
     };
 
     const handleDelete = (urn: string) => {
-        removeGroupFromListGroupsCache(urn, client);
+        removeGroupFromListGroupsCache(urn, client, page, pageSize);
     };
 
     return (

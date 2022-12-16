@@ -16,7 +16,7 @@ COPY . /datahub-src
 # and https://unix.stackexchange.com/a/82610/378179.
 # This is a workaround for https://github.com/gradle/gradle/issues/18124.
 RUN cd /datahub-src && \
-    (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to download gradle wrapper (attempt $attempt)" && sleep $((2*2**$attempt)) ; done ) && \
+    (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to download gradle wrapper (attempt $attempt)" && sleep $((2<<$attempt)) ; done ) && \
     ./gradlew :metadata-events:mxe-schemas:build
 
 FROM base as prod-codegen
