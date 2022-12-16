@@ -20,6 +20,7 @@ from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.telemetry import telemetry
@@ -149,6 +150,7 @@ datahub.add_command(ingest)
 datahub.add_command(delete)
 datahub.add_command(get)
 datahub.add_command(put)
+datahub.add_command(state)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)

@@ -3,6 +3,7 @@ import logging
 from typing import Any, List, Optional
 
 import click
+from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.telemetry import telemetry
@@ -11,23 +12,25 @@ from datahub.upgrade import upgrade
 logger = logging.getLogger(__name__)
 
 
-@click.command(
-    name="get",
-    context_settings=dict(
-        ignore_unknown_options=False,
-        allow_extra_args=True,
-    ),
-)
+@click.group(cls=DefaultGroup, default="urn")
+def get() -> None:
+    """A group of commands to get metadata from DataHub."""
+    pass
+
+
+@get.command()
 @click.option("--urn", required=False, type=str)
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.pass_context
 @upgrade.check_upgrade
 @telemetry.with_telemetry
-def get(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
+def urn(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
     """
     Get metadata for an entity with an optional list of aspects to project.
     This works for both versioned aspects and timeseries aspects. For timeseries aspects, it fetches the latest value.
     """
+    # We're using ctx.args here so that we can support `datahub get urn:li:...`
+    # in addition to the `--urn` variant.
 
     if urn is None:
         if not ctx.args:
