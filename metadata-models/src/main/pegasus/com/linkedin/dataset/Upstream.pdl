@@ -32,6 +32,7 @@ record Upstream {
     "createdActor": "upstreams/*/created/actor"
     "updatedOn": "upstreams/*/auditStamp/time"
     "updatedActor": "upstreams/*/auditStamp/actor"
+    "properties": "upstreams/*/properties"
   }
   @Searchable = {
     "fieldName": "upstreams",
@@ -44,4 +45,9 @@ record Upstream {
    * The type of the lineage
    */
   type: DatasetLineageType
+
+  /**
+   * A generic properties bag that allows us to store specific information on this graph edge.
+   */
+  properties: optional map[string, string]
 }

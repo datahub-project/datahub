@@ -232,7 +232,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         for (Urn downstream : fineGrainedLineage.getDownstreams()) {
           for (Urn upstream : fineGrainedLineage.getUpstreams()) {
             // TODO: add edges uniformly across aspects
-            edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF, null, null, null, null));
+            edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF, null, null, null, null, null));
             Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(downstream, new HashSet<>());
             relationshipTypes.add(DOWNSTREAM_OF);
             urnToRelationshipTypesBeingAdded.put(downstream, relationshipTypes);
@@ -261,7 +261,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         if (field.hasSchemaFieldUrn() && field.hasSchemaField() && field.getSchemaField().hasFieldPath()) {
           final Urn sourceFieldUrn = generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
           // TODO: add edges uniformly across aspects
-          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF, null, null, null, null));
+          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF, null, null, null, null, null));
           final Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
           relationshipTypes.add(DOWNSTREAM_OF);
           urnToRelationshipTypesBeingAdded.put(sourceFieldUrn, relationshipTypes);

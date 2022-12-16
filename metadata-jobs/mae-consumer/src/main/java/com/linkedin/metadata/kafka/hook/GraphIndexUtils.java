@@ -43,6 +43,18 @@ public class GraphIndexUtils {
   }
 
   @Nullable
+  private static List<Map<String,String>> getPropertiesList(@Nullable final String path, @Nonnull final RecordTemplate aspect) {
+    if (path == null) {
+      return null;
+    }
+    final PathSpec propertiesPathSpec = new PathSpec(path.split("/"));
+    final Optional<Object> value = RecordUtils.getFieldValue(aspect, propertiesPathSpec);
+    return (List<Map<String,String>>) value.orElse(null);
+  }
+
+
+
+  @Nullable
   private static boolean isValueListValid(@Nullable final List<?> entryList, final int valueListSize) {
     if (entryList == null) {
       log.warn("Unable to get entry as entryList is null");
@@ -71,6 +83,14 @@ public class GraphIndexUtils {
     return null;
   }
 
+  @Nullable
+  private static Map<String,String> getProperties(@Nullable final List<Map<String,String>> propertiesList, final int index, final int valueListSize) {
+    if (isValueListValid(propertiesList, valueListSize)) {
+      return propertiesList.get(index);
+    }
+    return null;
+  }
+
   /**
    * Used to create new edges for the graph db, adding all the metadata associated with each edge based on the aspect.
    * Returns a list of Edges to be consumed by the graph service.
@@ -87,11 +107,13 @@ public class GraphIndexUtils {
     final String createdActorPath = extractedFieldsEntry.getKey().getRelationshipAnnotation().getCreatedActor();
     final String updatedOnPath = extractedFieldsEntry.getKey().getRelationshipAnnotation().getUpdatedOn();
     final String updatedActorPath = extractedFieldsEntry.getKey().getRelationshipAnnotation().getUpdatedActor();
+    final String propertiesPath = extractedFieldsEntry.getKey().getRelationshipAnnotation().getProperties();
 
     final List<Long> createdOnList = getTimestampList(createdOnPath, aspect);
     final List<Urn> createdActorList = getActorList(createdActorPath, aspect);
     final List<Long> updatedOnList = getTimestampList(updatedOnPath, aspect);
     final List<Urn> updatedActorList = getActorList(updatedActorPath, aspect);
+    final List<Map<String, String>> propertiesList = getPropertiesList(propertiesPath, aspect);
 
     int index = 0;
     for (Object fieldValue : extractedFieldsEntry.getValue()) {
@@ -99,6 +121,7 @@ public class GraphIndexUtils {
       Urn createdActor = getActor(createdActorList, index, extractedFieldsEntry.getValue().size());
       final Long updatedOn = getTimestamp(updatedOnList, index, extractedFieldsEntry.getValue().size());
       final Urn updatedActor = getActor(updatedActorList, index, extractedFieldsEntry.getValue().size());
+      final Map<String, String> properties = getProperties(propertiesList, index, extractedFieldsEntry.getValue().size());
 
       if (createdOn == null && event.hasSystemMetadata()) {
         createdOn = event.getSystemMetadata().getLastObserved();
@@ -116,7 +139,8 @@ public class GraphIndexUtils {
                 createdOn,
                 createdActor,
                 updatedOn,
-                updatedActor
+                updatedActor,
+                properties
             )
         );
       } catch (URISyntaxException e) {

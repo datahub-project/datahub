@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
@@ -87,6 +88,9 @@ public class ElasticSearchGraphService implements GraphService {
     }
     if (edge.getUpdatedActor() != null) {
       searchDocument.put("updatedActor", edge.getUpdatedActor().toString());
+    }
+    if (edge.getProperties() != null) {
+      searchDocument.put("properties", edge.getProperties().toString());
     }
 
     return searchDocument.toString();

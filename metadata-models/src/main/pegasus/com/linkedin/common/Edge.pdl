@@ -23,4 +23,9 @@ record Edge {
    * Audit stamp containing who last modified this relationship edge and when
    */
   lastModified: AuditStamp
+
+  /**
+   * A generic properties bag that allows us to store specific information on this graph edge.
+   */
+  properties: optional map[string, string]
 }

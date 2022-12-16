@@ -67,6 +67,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
       "createdActor": "inputEdges/*/created/actor"
       "updatedOn": "inputEdges/*/lastModified/time"
       "updatedActor": "inputEdges/*/lastModified/actor"
+      "properties": "inputEdges/*/properties"
     }
   }
   inputEdges: optional array[Edge]
