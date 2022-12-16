@@ -89,7 +89,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         self,
         graph_ref: MagicMock,
         entity_urn: str,
-        aspect_name: str,
         aspect_type: Type[DictWrapper],
         filter_criteria_map: Dict[str, str],
     ) -> Optional[DictWrapper]:
@@ -98,7 +97,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         for a given entity urn.
         """
         self.assertIsNotNone(graph_ref)
-        self.assertEqual(aspect_name, "datahubIngestionCheckpoint")
         self.assertEqual(aspect_type, CheckpointJobStateType)
         self.assertEqual(
             filter_criteria_map,

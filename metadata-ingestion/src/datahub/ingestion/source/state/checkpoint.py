@@ -107,7 +107,7 @@ class Checkpoint(Generic[StateType]):
         job_name: str,
         checkpoint_aspect: Optional[DatahubIngestionCheckpointClass],
         state_class: Type[StateType],
-    ) -> Optional["Checkpoint"]:
+    ) -> Optional["Checkpoint[StateType]"]:
         if checkpoint_aspect is None:
             return None
         else:

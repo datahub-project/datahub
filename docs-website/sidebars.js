@@ -114,6 +114,13 @@ module.exports = {
               "docs/quick-ingestion-guides/bigquery/configuration",
             ],
           },
+          {
+            Snowflake: [
+              "docs/quick-ingestion-guides/snowflake/overview",
+              "docs/quick-ingestion-guides/snowflake/setup",
+              "docs/quick-ingestion-guides/snowflake/configuration",
+            ],
+          },
         ],
       },
     ],
