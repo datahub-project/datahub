@@ -89,7 +89,7 @@ describe('LineageEdges', () => {
     });
 
     it('should append entities from entitiesToAdd to the displayed list', async () => {
-        const { queryByTestId, findAllByTestId, getByText, queryByText } = render(
+        const { queryByTestId, findAllByTestId, getByText } = render(
             <LineageEdges
                 entity={dataset4WithLineage}
                 lineageDirection={Direction.Upstream}
