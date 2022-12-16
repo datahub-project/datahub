@@ -5,7 +5,7 @@ import FilterBar from "./_components/FilterBar";
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import FilterCards from "./_components/FilterCards";
 import useGlobalData from '@docusaurus/useGlobalData';
-
+import DropDownFilter from "./_components/DropDownFilter";
 
 import {
   FolderTwoTone,
@@ -27,8 +27,24 @@ function Docs(ingestionSourceContent, siteConfig) {
   
 
   const [textState,setTextState] = React.useState("");
+  const [filterState, setFilterState] = React.useState({
+    Difficulty: {
+      easy: false,
+      medium: false,
+      hard: false
+      },
+    PlatformType: {
+      datalake: false,
+      bitool: false,
+      orchestrator: false
+      },
+    PushPull: {
+      push: false,
+      pull: false
+    }
+  })
   const filteredIngestionSourceContent = ingestionSourceContent.filter((item) => {
-
+    
     return item.title.includes(textState)
 
   })
@@ -47,6 +63,7 @@ function Docs(ingestionSourceContent, siteConfig) {
               <h1 className="hero__title">DataHub Integrations</h1>
               <p className="hero__subtitle">Services that integrate with DataHub</p>
               <FilterBar textState = {textState} setTextState= {setTextState} />
+              <DropDownFilter filterState={filterState} setFilterState= {setFilterState} /> 
             </div>
           </div>
           <FilterCards  content ={filteredIngestionSourceContent} filterBar= {<FilterBar />} />
