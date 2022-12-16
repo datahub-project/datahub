@@ -309,22 +309,11 @@ import logging
 
 import datahub.emitter.mce_builder as builder
 from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass,
     TagAssociationClass
 )
 
-def custom_tags(current: DatasetSnapshotClass) -> List[TagAssociationClass]:
-    """ Returns tags to associate to a dataset depending on custom logic
-
-    This function receives a DatasetSnapshotClass, performs custom logic and returns
-    a list of TagAssociationClass-wrapped tags.
-
-    Args:
-        current (DatasetSnapshotClass): Single DatasetSnapshotClass object
-
-    Returns:
-        List of TagAssociationClass objects.
-    """
+def custom_tags(entity_urn: str) -> List[TagAssociationClass]:
+    """Compute the tags to associate to a given dataset."""
 
     tag_strings = []
 
@@ -335,7 +324,7 @@ def custom_tags(current: DatasetSnapshotClass) -> List[TagAssociationClass]:
     tag_strings = [builder.make_tag_urn(tag=n) for n in tag_strings]
     tags = [TagAssociationClass(tag=tag) for tag in tag_strings]
     
-    logging.info(f"Tagging dataset {current.urn} with {tag_strings}.")
+    logging.info(f"Tagging dataset {entity_urn} with {tag_strings}.")
     return tags
 ```
 Finally, you can install and use your custom transformer as [shown here](#installing-the-package).
