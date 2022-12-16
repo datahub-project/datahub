@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
 import { SimpleSearchFilter } from './SimpleSearchFilter';
 
-const TOP_FILTERS = ['degree', 'entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
+const TOP_FILTERS = ['degree', 'entity', 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
 interface Props {
     facets: Array<FacetMetadata>;

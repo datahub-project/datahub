@@ -26,10 +26,6 @@ def test_add_checkpoint_urn():
     assert len(state.urns) != 1
 
 
-def test_get_supported_types():
-    assert LdapCheckpointState().get_supported_types() == ["corpuser", "corpGroup"]
-
-
 def test_get_urns_not_in(other_checkpoint_state):
     oldstate = LdapCheckpointState()
     oldstate.add_checkpoint_urn("corpuser", "urn:li:corpuser:user1")

@@ -35,8 +35,8 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    You can view and edit an entity&apos;s key-value <strong>Properties</strong> on this tab. These are
-                    sourced from the original Data Platform.
+                    You can view an entity&apos;s key-value <strong>Properties</strong> on this tab. These are sourced
+                    from the original Data Platform.
                 </p>
                 <p>
                     If this tab is disabled, <strong>Properties</strong> have not been ingested for this entity.
@@ -121,8 +121,8 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     You can view and add <strong>Tags</strong> to this asset here.
                 </p>
                 <p>
-                    <strong>Tags</strong> are labels for organizing your data. For example, you can add a Tag marking an
-                    asset as <strong>Deprecated</strong>.
+                    <strong>Tags</strong> are labels for organizing your data. For example, you can add a Tag to mark an
+                    asset as <strong>Mission Critical</strong>.
                 </p>
                 <p>
                     Learn more about <strong>Tags</strong>{' '}

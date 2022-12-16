@@ -14,7 +14,6 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
     JobStateKey,
 )
-from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -124,7 +123,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             pipeline_name=self.pipeline_name,
             platform_instance_id=self.platform_instance_id,
             run_id=self.run_id,
-            config=PostgresConfig(host_port="localhost:5432"),
             state=job1_state_obj,
         )
         # Job2 - Checkpoint with a BaseUsageCheckpointState state
@@ -136,7 +134,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             pipeline_name=self.pipeline_name,
             platform_instance_id=self.platform_instance_id,
             run_id=self.run_id,
-            config=PostgresConfig(host_port="localhost:5432"),
             state=job2_state_obj,
         )
 
@@ -171,7 +168,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             job_name=self.job_names[0],
             checkpoint_aspect=last_state[self.job_names[0]],
             state_class=type(job1_state_obj),
-            config_class=type(job1_checkpoint.config),
         )
         self.assertEqual(job1_last_checkpoint, job1_checkpoint)
 
@@ -180,6 +176,5 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             job_name=self.job_names[1],
             checkpoint_aspect=last_state[self.job_names[1]],
             state_class=type(job2_state_obj),
-            config_class=type(job2_checkpoint.config),
         )
         self.assertEqual(job2_last_checkpoint, job2_checkpoint)

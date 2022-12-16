@@ -3,12 +3,17 @@ import pathlib
 from typing import Any, List, Optional, cast
 from unittest import mock
 
+import pydantic
+import pytest
 from freezegun import freeze_time
 from looker_sdk.sdk.api31.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.looker.lookml_source import LookMLSource
+from datahub.ingestion.source.looker.lookml_source import (
+    LookMLSource,
+    LookMLSourceConfig,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
@@ -652,3 +657,26 @@ def get_current_checkpoint_from_pipeline(
     return dbt_source.get_current_checkpoint(
         dbt_source.stale_entity_removal_handler.job_id
     )
+
+
+def test_lookml_base_folder():
+    fake_api = {
+        "base_url": "https://filler.cloud.looker.com",
+        "client_id": "this-is-fake",
+        "client_secret": "this-is-also-fake",
+    }
+
+    LookMLSourceConfig.parse_obj(
+        {
+            "github_info": {
+                "repo": "acryldata/long-tail-companions-looker",
+                "deploy_key": "this-is-fake",
+            },
+            "api": fake_api,
+        }
+    )
+
+    with pytest.raises(
+        pydantic.ValidationError, match=r"base_folder.+not provided.+deploy_key"
+    ):
+        LookMLSourceConfig.parse_obj({"api": fake_api})

@@ -16,6 +16,3 @@ class DbtCheckpointState(GenericCheckpointState):
             "encoded_assertion_urns": "assertion",
         }
     )
-
-    def prepare_for_commit(self) -> None:
-        self.urns = list(set(self.urns))
