@@ -3,6 +3,14 @@ from typing import Optional
 
 class SnowflakeQuery:
     @staticmethod
+    def current_account() -> str:
+        return "select CURRENT_ACCOUNT()"
+
+    @staticmethod
+    def current_region() -> str:
+        return "select CURRENT_REGION()"
+
+    @staticmethod
     def current_version() -> str:
         return "select CURRENT_VERSION()"
 
