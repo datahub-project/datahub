@@ -12,7 +12,7 @@ jobs:
       - uses: hmarr/auto-approve-action@v3
   enable-auto-merge:
     runs-on: ubuntu-latest
-    requires: auto-approve
+    needs: auto-approve
     steps:
     - uses: alexwilson/enable-github-automerge-action@main
       with:
