@@ -9,7 +9,7 @@ import { CURRENT_ONBOARDING_IDS } from '../app/onboarding/OnboardingConfig';
 export function EducationStepsProvider({ children }: { children: React.ReactNode }) {
     const userUrn = useGetAuthenticatedUser()?.corpUser.urn;
     const stepIds = getStepIds(userUrn || '');
-    const { data } = useBatchGetStepStatesQuery({ variables: { input: { ids: stepIds } } });
+    const { data } = useBatchGetStepStatesQuery({ skip: !userUrn, variables: { input: { ids: stepIds } } });
     const results = data?.batchGetStepStates.results;
     const [educationSteps, setEducationSteps] = useState<StepStateResult[] | null>(results || null);
     const [educationStepIdsAllowlist, setEducationStepIdsAllowlist] = useState<Set<string>>(
