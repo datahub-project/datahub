@@ -1,8 +1,11 @@
+import concurrent.futures
+import json
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type
 
 import confluent_kafka
+import confluent_kafka.admin
 import pydantic
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -44,6 +47,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     SubTypesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -55,6 +59,7 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     env: str = DEFAULT_ENV
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
+
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
     domain: Dict[str, AllowDenyPattern] = pydantic.Field(
         default={},
@@ -132,6 +137,14 @@ class KafkaSource(StatefulIngestionSourceBase):
                 **self.source_config.connection.consumer_config,
             }
         )
+        # TODO: Do we require separate config than existing consumer_config ?
+        self.admin_client = confluent_kafka.admin.AdminClient(
+            {
+                "group.id": "test",
+                "bootstrap.servers": self.source_config.connection.bootstrap,
+                **self.source_config.connection.consumer_config,
+            }
+        )
         self.report: KafkaSourceReport = KafkaSourceReport()
         self.schema_registry_client: KafkaSchemaRegistryBase = (
             KafkaSource.create_schema_registry(config, self.report)
@@ -161,10 +174,13 @@ class KafkaSource(StatefulIngestionSourceBase):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics().topics
-        for t in topics:
+
+        extra_topic_details = self.fetch_extra_topic_details(topics.keys())
+
+        for t, t_detail in topics.items():
             self.report.report_topic_scanned(t)
             if self.source_config.topic_patterns.allowed(t):
-                yield from self._extract_record(t)
+                yield from self._extract_record(t, t_detail, extra_topic_details.get(t))
                 # add topic to checkpoint
                 topic_urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
@@ -180,7 +196,12 @@ class KafkaSource(StatefulIngestionSourceBase):
         # Clean up stale entities.
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
-    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
+    def _extract_record(
+        self,
+        topic: str,
+        topic_detail: confluent_kafka.admin.TopicMetadata,
+        extra_topic_config: Optional[Dict[str, confluent_kafka.admin.ConfigEntry]],
+    ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
         # 1. Create the default dataset snapshot for the topic.
@@ -214,6 +235,14 @@ class KafkaSource(StatefulIngestionSourceBase):
             [f"/{self.source_config.env.lower()}/{self.platform}/{browse_path_suffix}"]
         )
         dataset_snapshot.aspects.append(browse_path)
+
+        custom_props = self.build_custom_properties(topic_detail, extra_topic_config)
+
+        dataset_properties = DatasetPropertiesClass(
+            name=topic,
+            customProperties=custom_props,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
 
         # 4. Attach dataPlatformInstance aspect.
         if self.source_config.platform_instance:
@@ -265,6 +294,54 @@ class KafkaSource(StatefulIngestionSourceBase):
                 self.report.report_workunit(wu)
                 yield wu
 
+    def build_custom_properties(self, topic_detail, extra_topic_config):
+
+        replication_factor = None
+        for _, p_meta in topic_detail.partitions.items():
+            if replication_factor is None or len(p_meta.replicas) > replication_factor:
+                replication_factor = len(p_meta.replicas)
+
+        MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
+        RETENTION_SIZE_CONFIG = "retention.bytes"
+        RETENTION_TIME_CONFIG = "retention.ms"
+        CLEANUP_POLICY_CONFIG = "cleanup.policy"
+        MAX_MESSAGE_SIZE_CONFIG = "max.message.bytes"
+        UNCLEAN_LEADER_ELECTION_CONFIG = "unclean.leader.election.enable"
+
+        custom_props = {
+            "Partitions": len(topic_detail.partitions),
+            "Replication Factor": replication_factor,
+        }
+        if extra_topic_config is not None:
+            custom_props.update(
+                {
+                    "Retention Size (In Bytes)": self._get_config_value_if_present(
+                        extra_topic_config, RETENTION_SIZE_CONFIG
+                    ),
+                    "Retention Time (In Milliseconds)": self._get_config_value_if_present(
+                        extra_topic_config, RETENTION_TIME_CONFIG
+                    ),
+                    "Max Message Size (In Bytes)": self._get_config_value_if_present(
+                        extra_topic_config, MAX_MESSAGE_SIZE_CONFIG
+                    ),
+                    "Cleanup Policies": self._get_config_value_if_present(
+                        extra_topic_config, CLEANUP_POLICY_CONFIG
+                    ),
+                    "Minimum Number of In-Sync Replicas Required": self._get_config_value_if_present(
+                        extra_topic_config, MIN_INSYNC_REPLICAS_CONFIG
+                    ),
+                    "Unclean Leader Election Enabled": self._get_config_value_if_present(
+                        extra_topic_config, UNCLEAN_LEADER_ELECTION_CONFIG
+                    ),
+                }
+            )
+
+        return {
+            k: (json.dumps(v) if not isinstance(v, str) else v)
+            for k, v in custom_props.items()
+            if v is not None
+        }
+
     def get_report(self) -> KafkaSourceReport:
         return self.report
 
@@ -272,3 +349,41 @@ class KafkaSource(StatefulIngestionSourceBase):
         if self.consumer:
             self.consumer.close()
         super().close()
+
+    def _get_config_value_if_present(
+        self, config_dict: Dict[str, confluent_kafka.admin.ConfigEntry], key: str
+    ) -> Any:
+        return config_dict[key].value if key in config_dict.keys() else None
+
+    def fetch_extra_topic_details(self, topics: List[str]) -> Dict[str, dict]:
+        logger.debug("Fetching config details for all topics")
+        extra_topic_details = {}
+        configs: Dict[
+            confluent_kafka.admin.ConfigResource, concurrent.futures.Future
+        ] = self.admin_client.describe_configs(
+            resources=[
+                confluent_kafka.admin.ConfigResource(
+                    confluent_kafka.admin.ResourceType.TOPIC, t
+                )
+                for t in topics
+            ]
+        )
+        logger.debug("Waiting for config details futures to complete")
+        concurrent.futures.wait(configs.values())
+        logger.debug("Config details futures completed")
+        for config_resource, config_result_future in configs.items():
+            try:
+                assert config_result_future.done()
+                assert config_result_future.exception() is None
+                extra_topic_details[
+                    config_resource.name
+                ] = config_result_future.result()
+            except Exception as e:
+                logger.debug(
+                    f"Config details for topic {config_resource.name} not fetched due to error {e}"
+                )
+            else:
+                logger.debug(
+                    f"Config details for topic {config_resource.name} fetched successfully"
+                )
+        return extra_topic_details
