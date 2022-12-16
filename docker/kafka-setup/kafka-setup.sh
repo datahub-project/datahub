@@ -78,7 +78,7 @@ fi
 
 echo "Waiting for topic creation."
 result=$(wait_ex)
-if [ $result -ne 0 ]; then exit $result; fi
+if [ $? -ne 0 ]; then exit $result; fi
 echo "Finished topic creation."
 
 kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --entity-type topics --entity-name _schemas --alter --add-config cleanup.policy=compact
