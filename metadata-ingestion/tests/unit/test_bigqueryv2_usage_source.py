@@ -175,12 +175,15 @@ def test_bigquery_table_sanitasitation():
     table_ref = BigQueryTableRef(
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_*")
     )
-    new_table_ref = BigqueryTableIdentifier.from_string_name(
-        table_ref.table_identifier.get_table_name()
+
+    assert (
+        table_ref.table_identifier.raw_table_name() == "project-1234.dataset-4567.foo_*"
     )
-    assert new_table_ref.table == "foo"
-    assert new_table_ref.project_id == "project-1234"
-    assert new_table_ref.dataset == "dataset-4567"
+    assert table_ref.table_identifier.table == "foo_*"
+    assert table_ref.table_identifier.project_id == "project-1234"
+    assert table_ref.table_identifier.dataset == "dataset-4567"
+    assert table_ref.table_identifier.is_sharded_table() == True
+    assert table_ref.table_identifier.get_table_display_name() == "foo"
 
     table_ref = BigQueryTableRef(
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2022")
@@ -195,12 +198,12 @@ def test_bigquery_table_sanitasitation():
     table_ref = BigQueryTableRef(
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20222110")
     )
-    new_table_ref = BigqueryTableIdentifier.from_string_name(
-        table_ref.table_identifier.get_table_name()
-    )
-    assert new_table_ref.table == "foo"
-    assert new_table_ref.project_id == "project-1234"
-    assert new_table_ref.dataset == "dataset-4567"
+    new_table_identifier = table_ref.table_identifier
+    assert new_table_identifier.table == "foo_20222110"
+    assert new_table_identifier.is_sharded_table() == True
+    assert new_table_identifier.get_table_display_name() == "foo"
+    assert new_table_identifier.project_id == "project-1234"
+    assert new_table_identifier.dataset == "dataset-4567"
 
     table_ref = BigQueryTableRef(
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo")
@@ -215,9 +218,9 @@ def test_bigquery_table_sanitasitation():
     table_ref = BigQueryTableRef(
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2016*")
     )
-    new_table_ref = BigqueryTableIdentifier.from_string_name(
-        table_ref.table_identifier.get_table_name()
-    )
-    assert new_table_ref.table == "foo"
-    assert new_table_ref.project_id == "project-1234"
-    assert new_table_ref.dataset == "dataset-4567"
+    table_identifier = table_ref.table_identifier
+    assert table_identifier.is_sharded_table() == True
+    assert table_identifier.project_id == "project-1234"
+    assert table_identifier.dataset == "dataset-4567"
+    assert table_identifier.table == "foo_2016*"
+    assert table_identifier.get_table_display_name() == "foo"
