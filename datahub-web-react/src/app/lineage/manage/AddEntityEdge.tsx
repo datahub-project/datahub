@@ -82,7 +82,7 @@ export default function AddEntityEdge({
                     types: validEntityTypes,
                     query: text,
                     start: 0,
-                    count: 20,
+                    count: 25,
                 },
             },
         });

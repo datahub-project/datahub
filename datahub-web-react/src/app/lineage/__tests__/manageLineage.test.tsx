@@ -63,7 +63,7 @@ describe('buildUpdateLineagePayload', () => {
 describe('getValidEntityTypes', () => {
     it('should get valid entity types to query upstream lineage for datasets', () => {
         const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.Dataset);
-        expect(validEntityTypes).toMatchObject([EntityType.Dataset]);
+        expect(validEntityTypes).toMatchObject([EntityType.Dataset, EntityType.DataJob]);
     });
     it('should get valid entity types to query upstream lineage for charts', () => {
         const validEntityTypes = getValidEntityTypes(Direction.Upstream, EntityType.Chart);

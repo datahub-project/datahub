@@ -49,7 +49,7 @@ export default function EntityEdge({ entity, removeEntity, createdActor, created
         createdActor && !DEFAULT_SYSTEM_ACTOR_URNS.includes(createdActor.urn) && createdActor.properties !== null;
 
     return (
-        <EntityItem>
+        <EntityItem data-testid="lineage-entity-item">
             <NameAndLogoWrapper>
                 {platformLogoUrl && <PlatformLogo src={platformLogoUrl} alt="platform logo" />}{' '}
                 <EntityName ellipsis={{ tooltip: entityRegistry.getDisplayName(entity.type, entity) }}>

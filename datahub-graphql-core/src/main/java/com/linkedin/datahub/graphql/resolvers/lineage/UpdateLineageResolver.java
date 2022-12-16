@@ -93,8 +93,8 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           throw new IllegalArgumentException(String.format("Cannot upsert lineage as downstream urn %s doesn't exist", upstreamUrn));
         }
 
-        final List<Urn> downstreamUrnsToAdd = downstreamToUpstreamsToAdd.getOrDefault(upstreamUrn, new ArrayList<>());
-        final List<Urn> downstreamUrnsToRemove = downstreamToUpstreamsToRemove.getOrDefault(upstreamUrn, new ArrayList<>());
+        final List<Urn> downstreamUrnsToAdd = upstreamToDownstreamsToAdd.getOrDefault(upstreamUrn, new ArrayList<>());
+        final List<Urn> downstreamUrnsToRemove = upstreamToDownstreamsToRemove.getOrDefault(upstreamUrn, new ArrayList<>());
         try {
           if (upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
             // need to filter out dataJobs since this is a valid lineage edge, but is handled in the upstream direction for DataJobs

@@ -69,7 +69,7 @@ export function getValidEntityTypes(lineageDirection: Direction, entityType?: En
     if (lineageDirection === Direction.Upstream) {
         switch (entityType) {
             case EntityType.Dataset:
-                return [EntityType.Dataset];
+                return [EntityType.Dataset, EntityType.DataJob];
             case EntityType.Chart:
                 return [EntityType.Dataset];
             case EntityType.Dashboard:
