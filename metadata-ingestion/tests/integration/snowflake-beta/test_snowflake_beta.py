@@ -30,6 +30,10 @@ NUM_OPS = 10
 
 
 def default_query_results(query):
+    if query == SnowflakeQuery.current_account():
+        return [{"CURRENT_ACCOUNT()": "ABC12345"}]
+    if query == SnowflakeQuery.current_region():
+        return [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}]
     if query == SnowflakeQuery.current_role():
         return [{"CURRENT_ROLE()": "TEST_ROLE"}]
     elif query == SnowflakeQuery.current_version():
