@@ -1,4 +1,4 @@
-name: Unified Docker Workflow
+name: Docker Build, Scan, Test
 on:
   push:
     branches:
@@ -84,10 +84,16 @@ jobs:
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
   gms_scan:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, gms_build]
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -97,10 +103,17 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: "table"
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+          vuln-type: "os,library"          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
 
   mae_consumer_build:
     name: Build and Push DataHub MAE Consumer Docker Image
@@ -130,7 +143,13 @@ jobs:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, mae_consumer_build]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -140,10 +159,17 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: "table"
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
 
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
@@ -173,7 +199,13 @@ jobs:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, mce_consumer_build]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -183,10 +215,17 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: "table"
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
 
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
@@ -216,7 +255,13 @@ jobs:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_upgrade_build]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -226,10 +271,16 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: "table"
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
@@ -259,7 +310,13 @@ jobs:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, frontend_build]
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -269,10 +326,16 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-          format: "table"
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           vuln-type: "os,library"
-          severity: "CRITICAL,HIGH"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
 
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
