@@ -90,7 +90,11 @@ public class ElasticSearchGraphService implements GraphService {
       searchDocument.put("updatedActor", edge.getUpdatedActor().toString());
     }
     if (edge.getProperties() != null) {
-      searchDocument.put("properties", edge.getProperties().toString());
+      final ObjectNode propertiesObject = JsonNodeFactory.instance.objectNode();
+      for (Map.Entry<String, String> entry : edge.getProperties().entrySet()) {
+        propertiesObject.put(entry.getKey(), entry.getValue());
+      }
+      searchDocument.set("properties", propertiesObject);
     }
 
     return searchDocument.toString();
