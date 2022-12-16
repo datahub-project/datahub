@@ -21,40 +21,6 @@ type selectedFilters = {
   PushPull: ["push", "pull"]
 }
 
-function SingleFilter({filterState, setFilterState, filter, width, filterOptions}) {
-  
-  const  options: SelectProps['options'] = []
-  for(let i = 0; i< filterOptions[filter].length; i++) {
-    options.push({
-      label: filterOptions[filter][i],
-      value: filterOptions[filter][i],
-    })
-  }
-  
-
-  const handleChange = (values: string[]) => {
-    console.log(`selected ${values}`);
-    filterState[filter] = values;
-    console.log("filterState",filterState[filter])
-    setFilterState(selected => ({
-      ...selected,
-    }));
-  } 
-
-
-  return (
-    
-  <Select
-    mode="multiple"
-    allowClear
-    bordered={false}
-    style={{ width: width }}
-    placeholder="Please select filters"
-    onChange={handleChange}
-    options={options}
-  />
-    )
-  }
 function DropDownFilter({filterState, setFilterState, filterOptions}) {
  
   const  options: SelectProps['options'] = []
