@@ -84,6 +84,18 @@ class SnowflakeCommonMixin:
             url = f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
         return url
 
+    @staticmethod
+    def get_cloud_region_from_snowflake_region_id(region):
+        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+            cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
+        elif region.startswith(("aws_", "gcp_", "azure_")):
+            # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
+            cloud, cloud_region_id = region.split("_", 1)
+            cloud_region_id = cloud_region_id.replace("_", "-")
+        else:
+            raise Exception(f"Unknown snowflake region {region}")
+        return cloud, cloud_region_id
+
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,
         dataset_name: Optional[str],
