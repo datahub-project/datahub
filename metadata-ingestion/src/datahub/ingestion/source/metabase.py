@@ -329,6 +329,29 @@ class MetabaseSource(Source):
             )
             return None
 
+    def construct_source_path(self, source_paths: set, card_details: dict):
+        try:
+            raw_query = (
+                card_details.get("dataset_query", {}).get("native", {}).get("query", "")
+            )
+            parser = LineageRunner(raw_query)
+
+            for table in parser.source_tables:
+                sources = str(table).split(".")
+                source_schema, source_table = sources[-2], sources[-1]
+                if source_schema == "<default>":
+                    source_schema = str(self.config.default_schema)
+
+                source_paths.add(f"{source_schema}.{source_table}")
+        except Exception as e:
+            self.report.report_failure(
+                key="metabase-query",
+                reason=f"Unable to retrieve lineage from query. "
+                f"Query: {raw_query} "
+                f"Reason: {str(e)} ",
+            )
+            return None
+
     def construct_card_from_api_data(self, card_data: dict) -> Optional[ChartSnapshot]:
         card_id = card_data.get("id", "")
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
@@ -458,7 +481,6 @@ class MetabaseSource(Source):
         )
         query_type = card_details.get("dataset_query", {}).get("type", {})
         source_paths = set()
-        card_model = None
 
         if query_type == "query":
             source_table_id = (
@@ -467,39 +489,20 @@ class MetabaseSource(Source):
                 .get("source-table")
             )
             if source_table_id is not None:
-                if source_table_id.startswith('card__'):
-                    card_id = source_table_id.split('__')[1]
-                    card_model = card_details =  self.emit_card_id(card_id)
+                if source_table_id.startswith("card__"):
+                    card_id = source_table_id.split("__")[1]
+                    card_details = self.emit_card_id(card_id)
+                    self.construct_source_path(source_paths, card_details)
                 else:
-                    schema_name, table_name = self.get_source_table_from_id(source_table_id)
+                    schema_name, table_name = self.get_source_table_from_id(
+                        source_table_id
+                    )
                     if table_name:
                         source_paths.add(
                             f"{f'{schema_name}.' if schema_name else ''}{table_name}"
                         )
-        elif query_type == "native" or card_model is not None:
-            try:
-                raw_query = (
-                    card_details.get("dataset_query", {})
-                    .get("native", {})
-                    .get("query", "")
-                )
-                parser = LineageRunner(raw_query)
-
-                for table in parser.source_tables:
-                    sources = str(table).split(".")
-                    source_schema, source_table = sources[-2], sources[-1]
-                    if source_schema == "<default>":
-                        source_schema = str(self.config.default_schema)
-
-                    source_paths.add(f"{source_schema}.{source_table}")
-            except Exception as e:
-                self.report.report_failure(
-                    key="metabase-query",
-                    reason=f"Unable to retrieve lineage from query. "
-                    f"Query: {raw_query} "
-                    f"Reason: {str(e)} ",
-                )
-                return None
+        elif query_type == "native":
+            self.construct_source_path(source_paths, card_details)
 
         # Create dataset URNs
         dataset_urn = []
