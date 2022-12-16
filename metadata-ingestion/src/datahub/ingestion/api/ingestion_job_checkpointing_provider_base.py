@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Type, TypeVar
 
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import PipelineContext
@@ -29,6 +29,9 @@ class IngestionCheckpointingProviderConfig(IngestionJobStateProviderConfig):
     pass
 
 
+_Self = TypeVar("_Self", bound="IngestionCheckpointingProviderBase")
+
+
 @dataclass()
 class IngestionCheckpointingProviderBase(
     IngestionJobStateProvider[CheckpointJobStateType]
@@ -46,8 +49,8 @@ class IngestionCheckpointingProviderBase(
 
     @classmethod
     def create(
-        cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
-    ) -> "IngestionJobStateProvider":
+        cls: Type[_Self], config_dict: Dict[str, Any], ctx: PipelineContext, name: str
+    ) -> "_Self":
         raise NotImplementedError("Sub-classes must override this method.")
 
     def get_last_state(
