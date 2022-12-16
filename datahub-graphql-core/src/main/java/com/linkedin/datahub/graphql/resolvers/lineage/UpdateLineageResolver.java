@@ -74,6 +74,7 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
             case Constants.DATA_JOB_ENTITY_NAME:
               _lineageService.updateDataJobUpstreamLineage(downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor, context.getAuthentication());
               break;
+            default:
           }
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to update lineage for urn %s", downstreamUrn), e);
@@ -98,8 +99,11 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           if (upstreamUrn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
             // need to filter out dataJobs since this is a valid lineage edge, but is handled in the upstream direction for DataJobs
             final List<Urn> filteredDownstreamUrnsToAdd = filterOutDataJobUrns(downstreamUrnsToAdd);
+            final List<Urn> filteredDownstreamUrnsToRemove = filterOutDataJobUrns(downstreamUrnsToRemove);
 
-            _lineageService.updateDataJobDownstreamLineage(upstreamUrn, filteredDownstreamUrnsToAdd, downstreamUrnsToRemove, actor, context.getAuthentication());
+            _lineageService.updateDataJobDownstreamLineage(
+                upstreamUrn, filteredDownstreamUrnsToAdd, filteredDownstreamUrnsToRemove, actor, context.getAuthentication()
+            );
           }
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to update lineage for urn %s", upstreamUrn), e);

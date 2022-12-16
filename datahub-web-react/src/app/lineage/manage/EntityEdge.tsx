@@ -1,10 +1,10 @@
 import { CloseOutlined } from '@ant-design/icons';
+import Text from 'antd/lib/typography/Text';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { CorpUser, Entity } from '../../../types.generated';
 import { ANTD_GRAY, DEFAULT_SYSTEM_ACTOR_URNS } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityName } from './LineageEntityView';
 import UserAvatar from './UserAvatar';
 
 const EntityItem = styled.div`
@@ -22,10 +22,16 @@ const PlatformLogo = styled.img`
 const NameAndLogoWrapper = styled.span`
     display: flex;
     align-items: center;
+    max-width: 85%;
 `;
 
 const StyledClose = styled(CloseOutlined)`
     cursor: pointer;
+`;
+
+const EntityName = styled(Text)`
+    font-size: 14px;
+    font-weight: bold;
 `;
 
 interface Props {
@@ -46,7 +52,9 @@ export default function EntityEdge({ entity, removeEntity, createdActor, created
         <EntityItem>
             <NameAndLogoWrapper>
                 {platformLogoUrl && <PlatformLogo src={platformLogoUrl} alt="platform logo" />}{' '}
-                <EntityName>{entityRegistry.getDisplayName(entity.type, entity)}</EntityName>
+                <EntityName ellipsis={{ tooltip: entityRegistry.getDisplayName(entity.type, entity) }}>
+                    {entityRegistry.getDisplayName(entity.type, entity)}
+                </EntityName>
             </NameAndLogoWrapper>
             <span>
                 {shouldDisplayAvatar && <UserAvatar createdActor={createdActor} createdOn={createdOn} />}

@@ -457,11 +457,17 @@ public class LineageService {
   }
 
   /**
-   * Updates the inputDatasets and inputDatasetEdges fields on the DataJobInputOutput aspect. First, add any new lineage edges not already represented
-   * in the existing fields to inputDatasetEdges.Then, remove all lineage edges from inputDatasets and inputDatasetEdges fields that are in upstreamUrnsToRemove.
-   * Then update the DataJobInputOutput aspect.
+   * Updates the inputDatasets and inputDatasetEdges fields on the DataJobInputOutput aspect. First, add any new lineage
+   * edges not already represented in the existing fields to inputDatasetEdges. Then, remove all lineage edges from inputDatasets
+   * and inputDatasetEdges fields that are in upstreamUrnsToRemove. Then update the DataJobInputOutput aspect.
    */
-  private void updateUpstreamDatasetsForDataJobs(DataJobInputOutput dataJobInputOutput, List<Urn> upstreamUrnsToAdd, List<Urn> upstreamUrnsToRemove, Urn dashboardUrn, Urn actor) {
+  private void updateUpstreamDatasetsForDataJobs(
+      DataJobInputOutput dataJobInputOutput,
+      List<Urn> upstreamUrnsToAdd,
+      List<Urn> upstreamUrnsToRemove,
+      Urn dashboardUrn,
+      Urn actor
+  ) {
     initializeInputDatasetEdges(dataJobInputOutput);
 
     final List<Urn> upstreamDatasetUrnsToAdd =
@@ -515,7 +521,13 @@ public class LineageService {
    * in the existing fields to dataJobEdges.Then, remove all lineage edges from dataJobs and dataJobEdges fields that are in upstreamUrnsToRemove.
    * Then update the DataJobInputOutput aspect.
    */
-  private void updateUpstreamDataJobs(DataJobInputOutput dataJobInputOutput, List<Urn> upstreamUrnsToAdd, List<Urn> upstreamUrnsToRemove, Urn dataJobUrn, Urn actor) {
+  private void updateUpstreamDataJobs(
+      DataJobInputOutput dataJobInputOutput,
+      List<Urn> upstreamUrnsToAdd,
+      List<Urn> upstreamUrnsToRemove,
+      Urn dataJobUrn,
+      Urn actor
+  ) {
     initializeInputDatajobEdges(dataJobInputOutput);
 
     final List<Urn> upstreamDatajobUrnsToAdd =
