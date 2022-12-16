@@ -130,7 +130,12 @@ class BigqueryTableIdentifier:
         return table_name
 
     def get_table_name(self) -> str:
-        return f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}{BQ_SHARDED_TABLE_SUFFIX if self.is_sharded_table() else ''}"
+        table_name: str = (
+            f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
+        )
+        if self.is_sharded_table():
+            table_name = f"{table_name}{BQ_SHARDED_TABLE_SUFFIX}"
+        return table_name
 
     def is_sharded_table(self) -> bool:
         _, shard = self.get_table_and_shard(self.raw_table_name())
