@@ -1199,10 +1199,12 @@ jobs:
         # https://github.com/marketplace/actions/buildpulse
         uses: Workshop64/buildpulse-action@main
         with:
-          account: 74336327
-          repository: 370568987
+          account: ${{ secrets.BUILDPULSE_ACCOUNT }}
+          repository: ${{ secrets.BUILDPULSE_REPO }}
           path: |
-            **/junit.smoke.xml
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
           key: ${{ secrets.BUILDPULSE_ACCESS_KEY_ID }}
           secret: ${{ secrets.BUILDPULSE_SECRET_ACCESS_KEY }}
       - name: Slack failure notification
