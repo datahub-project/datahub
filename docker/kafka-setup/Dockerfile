@@ -58,5 +58,6 @@ ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC="FailedMetadataChangeProposal_v1"
 ENV PLATFORM_EVENT_TOPIC_NAME="PlatformEvent_v1"
 
 COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
+RUN chmod +x ./kafka-setup.sh
 
 CMD ./kafka-setup.sh

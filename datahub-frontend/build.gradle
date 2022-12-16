@@ -76,11 +76,10 @@ distributions {
 docker {
   name "${docker_registry}/${docker_repo}:${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
-  buildArgs(['VERSION': version])
   files fileTree(rootProject.projectDir) {
     include 'docker/monitoring/*'
     include "docker/${docker_dir}/*"
-    include "${docker_dir}/build/distributions/datahub-frontend-${version}.tar"
+    include "${docker_dir}/build/distributions/*"
   }
   tag("-version", "${docker_registry}/${docker_repo}:v${version}")
 
@@ -90,4 +89,12 @@ docker {
   push(false)
 }
 
-tasks.getByName("docker").dependsOn(dist)
+task unversionTar(type: Copy) {
+  from ("${buildDir}/distributions")
+  include "datahub-frontend-${version}.tar"
+  into "${buildDir}/distributions/"
+  rename "datahub-frontend-${version}.tar", "datahub-frontend.tar"
+}
+
+dist.finalizedBy(unversionTar)
+tasks.getByName("docker").dependsOn(unversionTar)
