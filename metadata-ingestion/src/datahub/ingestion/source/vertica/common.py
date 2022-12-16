@@ -86,12 +86,12 @@ if TYPE_CHECKING:
 MISSING_COLUMN_INFO = "missing column information"
 logger: logging.Logger = logging.getLogger(__name__)
 
-#Extended SQLSourceReport from sql_common.py to add support for projection , MLModels and Outh metadata reports .
+#Extended SQLSourceReport from sql_common.py to add support for projection , MLModels and Oauth metadata reports .
 @dataclass
 class SQLSourceReportVertica(SQLSourceReport):
     Projection_scanned: int = 0
     models_scanned: int = 0
-    Outh_scanned: int = 0
+    oauth_scanned: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
@@ -104,11 +104,11 @@ class SQLSourceReportVertica(SQLSourceReport):
         elif ent_type == "models":
             self.models_scanned += 1
         elif ent_type == "OAuth":
-            self.Outh_scanned += 1
+            self.oauth_scanned += 1
         else:
             super().report_entity_scanned(name, ent_type)
 
-#Extended BasicSQLAlchemyConfig to config for projections,models and outh metadata.
+#Extended BasicSQLAlchemyConfig to config for projections,models and oauth metadata.
 class SQLAlchemyConfigVertica(BasicSQLAlchemyConfig):
 
     projection_pattern: AllowDenyPattern = Field(
@@ -130,7 +130,7 @@ class SQLAlchemyConfigVertica(BasicSQLAlchemyConfig):
     include_models: Optional[bool] = Field(
         default=True, description="Whether Models should be ingested."
     )
-    include_Outh: Optional[bool] = Field(
+    include_oauth: Optional[bool] = Field(
         default=True, description="Whether OAuth should be ingested."
     )
     include_view_lineage: Optional[bool] = Field(
@@ -147,7 +147,7 @@ config_options_to_report = [
     "include_tables",
     "include_projections",
     "include_models",
-    "include_Outh",
+    "include_oauth",
     "include_view_lineage",
     "include_projection_lineage"
 
@@ -332,9 +332,9 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     profile_requests, profiler, platform=self.platform
                 )
 
-            Outh_schema = "Entities"
-            if sql_config.include_Outh:
-                yield from self.loop_Oauth(inspector, Outh_schema, sql_config)
+            oauth_schema = "Entities"
+            if sql_config.include_oauth:
+                yield from self.loop_Oauth(inspector, oauth_schema, sql_config)
 
         # Clean up stale entities.
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
