@@ -28,21 +28,16 @@ function Docs(ingestionSourceContent, siteConfig) {
 
   const [textState,setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState({
-    Difficulty: {
-      easy: false,
-      medium: false,
-      hard: false
-      },
-    PlatformType: {
-      datalake: false,
-      bitool: false,
-      orchestrator: false
-      },
-    PushPull: {
-      push: false,
-      pull: false
-    }
-  })
+    Difficulty: [],
+    PlatformType: [],
+    PushPull: []})
+
+  const filterOptions= {
+    Difficulty: ["easy", "medium", "hard"],
+    PlatformType: ["datalake", "bitool", "orchestrator"],
+    PushPull: ["push", "pull"]
+  }
+
   const filteredIngestionSourceContent = ingestionSourceContent.filter((item) => {
     
     return item.title.includes(textState)
@@ -63,7 +58,7 @@ function Docs(ingestionSourceContent, siteConfig) {
               <h1 className="hero__title">DataHub Integrations</h1>
               <p className="hero__subtitle">Services that integrate with DataHub</p>
               <FilterBar textState = {textState} setTextState= {setTextState} />
-              <DropDownFilter filterState={filterState} setFilterState= {setFilterState} /> 
+              <DropDownFilter filterState={filterState} setFilterState= {setFilterState} filterOptions= {filterOptions}/> 
             </div>
           </div>
           <FilterCards  content ={filteredIngestionSourceContent} filterBar= {<FilterBar />} />

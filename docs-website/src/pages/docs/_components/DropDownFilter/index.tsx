@@ -16,57 +16,46 @@ import { Select} from 'antd';
 
 
 type selectedFilters = {
-  Difficulty: {
-    easy: Boolean,
-    medium: Boolean,
-    hard: Boolean
-    },
-  PlatformType: {
-    datalake: Boolean,
-    bitool: Boolean,
-    orchestrator: Boolean
-    },
-  PushPull: {
-    push: Boolean,
-    pull: Boolean
-  }
+  Difficulty: ["easy", "medium", "hard"],
+  PlatformType: ["datalake", "bitool", "orchestrator"],
+  PushPull: ["push", "pull"]
 }
 
-
-function SingleFilter({filterState, setFilterState, filter, width}) {
+function SingleFilter({filterState, setFilterState, filter, width, filterOptions}) {
   
-  const options: SelectProps['options'] = [];
-  for (const option in filterState[filter]) {
+  const  options: SelectProps['options'] = []
+  for(let i = 0; i< filterOptions[filter].length; i++) {
     options.push({
-      label: option,
-      value: option,
-    });
+      label: filterOptions[filter][i],
+      value: filterOptions[filter][i],
+    })
   }
+  
+
   const handleChange = (values: string[]) => {
     console.log(`selected ${values}`);
-    for (const option in filterState[filter]) {      
-      if(values.indexOf(option) > -1)
-        filterState[filter][option] = true;
-      else
-        filterState[filter][option] = false;
-    }
+    filterState[filter] = values;
+    console.log("filterState",filterState[filter])
     setFilterState(selected => ({
       ...selected,
     }));
   } 
+
+
   return (
     
   <Select
     mode="multiple"
     allowClear
+    bordered={false}
     style={{ width: width }}
-    placeholder="Please select"
+    placeholder="Please select filters"
     onChange={handleChange}
     options={options}
   />
     )
   }
-function DropDownFilter({filterState, setFilterState}) {
+function DropDownFilter({filterState, setFilterState, filterOptions}) {
 
 const keys = Object.keys(filterState);
 var width: any = keys.length > 1 ? 100/keys.length : 100;
@@ -78,7 +67,7 @@ width = width + '%';
       
 keys.map((filter) => {
   
-  return <SingleFilter filterState={filterState} setFilterState={setFilterState} filter={filter} width={width} key={filter} />
+  return <SingleFilter filterState={filterState} setFilterState={setFilterState} filterOptions={filterOptions} filter={filter} width={width} key={filter} />
 })
 
     }</>
