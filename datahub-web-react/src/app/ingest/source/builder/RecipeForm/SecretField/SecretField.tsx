@@ -1,10 +1,12 @@
 import React, { ReactNode } from 'react';
 import { AutoComplete, Divider, Form } from 'antd';
+import { useApolloClient } from '@apollo/client';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
 import { RecipeField } from '../common';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
+import { clearSecretListCache } from '../../../../secret/cacheUtils';
 
 const StyledDivider = styled(Divider)`
     margin: 0;
@@ -86,6 +88,7 @@ const encodeSecret = (secretName: string) => {
 
 function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSecrets }: SecretFieldProps) {
     const options = secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name }));
+    const apolloClient = useApolloClient();
 
     return (
         <StyledFormItem
@@ -108,7 +111,10 @@ function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSec
                             {menu}
                             <StyledDivider />
                             <CreateSecretButton
-                                onSubmit={(state) => updateFormValue(field.name, encodeSecret(state.name as string))}
+                                onSubmit={(state) => {
+                                    updateFormValue(field.name, encodeSecret(state.name as string));
+                                    setTimeout(() => clearSecretListCache(apolloClient), 3000);
+                                }}
                                 refetchSecrets={refetchSecrets}
                             />
                         </>
