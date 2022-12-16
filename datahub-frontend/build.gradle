@@ -1,9 +1,17 @@
 plugins {
   id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
+  id 'com.palantir.docker'
+  id 'scala'
 }
-apply plugin: 'scala'
+
+apply from: "../gradle/versioning/versioning.gradle"
 apply from: './play.gradle'
 
+ext {
+  docker_registry = 'linkedin'
+  docker_repo = 'datahub-frontend-react'
+  docker_dir = 'datahub-frontend'
+}
 
 model {
   // Must specify the dependency here as "stage" is added by rule based model.
@@ -64,3 +72,22 @@ distributions {
     distributionBaseName = project.ext.playBinaryBaseName
   }
 }
+
+docker {
+  name "${docker_registry}/${docker_repo}:${version}"
+  dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
+  buildArgs(['VERSION': version])
+  files fileTree(rootProject.projectDir) {
+    include 'docker/monitoring/*'
+    include "docker/${docker_dir}/*"
+    include "${docker_dir}/build/distributions/datahub-frontend-${version}.tar"
+  }
+  tag("-version", "${docker_registry}/${docker_repo}:v${version}")
+
+  // platform('linux/arm64', 'linux/amd64')
+  buildx(true)
+  load(true)
+  push(false)
+}
+
+tasks.getByName("docker").dependsOn(dist)

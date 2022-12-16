@@ -127,9 +127,6 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - elasticsearch-setup
-      - kafka-setup
-      - cassandra-setup
       - neo4j
 
   datahub-frontend-react:
@@ -144,7 +141,6 @@ services:
       - "9002:9002"
     depends_on:
       - datahub-gms
-      - kafka-setup
     volumes:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 

@@ -20,12 +20,14 @@ import org.springframework.context.annotation.PropertySource;
         SolrHealthContributorAutoConfiguration.class
 })
 @ComponentScan(basePackages = {
+        "com.linkedin.gms.factory.auth",
         "com.linkedin.gms.factory.common",
         "com.linkedin.gms.factory.config",
         "com.linkedin.gms.factory.entity",
         "com.linkedin.gms.factory.entityregistry",
         "com.linkedin.gms.factory.kafka",
         "com.linkedin.gms.factory.search",
+        "com.linkedin.gms.factory.secret",
         "com.linkedin.gms.factory.timeseries",
         "com.linkedin.restli.server",
         "com.linkedin.metadata.restli"

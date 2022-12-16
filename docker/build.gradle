@@ -1,0 +1,20 @@
+plugins {
+    id 'java' // required by versioning
+}
+
+apply from: "../gradle/versioning/versioning.gradle"
+
+task quickstart(type: Exec) {
+    dependsOn(
+            ':docker:elasticsearch-setup:dockerTag-version',
+            ':docker:mysql-setup:dockerTag-version',
+            ':docker:kafka-setup:dockerTag-version',
+            ':metadata-jobs:mce-consumer-job:dockerTag-version',
+            ':metadata-jobs:mae-consumer-job:dockerTag-version',
+            ':metadata-service:war:dockerTag-version',
+            ':datahub-frontend:dockerTag-version'
+    )
+    environment "DATAHUB_TELEMETRY_ENABLED", "false"
+    environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
+    commandLine 'datahub', 'docker', 'quickstart', '--standalone_consumers', '--version', "v${version}", '--dump-logs-on-failure'
+}

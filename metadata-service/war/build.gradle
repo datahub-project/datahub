@@ -1,4 +1,14 @@
-apply plugin: 'war'
+plugins {
+  id 'war'
+  id 'com.palantir.docker'
+}
+
+apply from: "../../gradle/versioning/versioning.gradle"
+
+ext {
+  docker_registry = 'linkedin'
+  docker_repo = 'datahub-gms'
+}
 
 ext.apiProject = project(':metadata-service:restli-api')
 
@@ -42,3 +52,26 @@ task run(type: JavaExec, dependsOn: build) {
   args = [war.archivePath]
   classpath configurations.jetty9
 }
+
+war {
+  archiveFileName = "war.war"
+}
+
+docker {
+  name "${docker_registry}/${docker_repo}:${version}"
+  dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+  files war.outputs.files
+  files fileTree(rootProject.projectDir) {
+    include 'docker/monitoring/*'
+    include "docker/${docker_repo}/*"
+    include 'metadata-models/src/main/resources/*'
+  }
+  tag("-version", "${docker_registry}/${docker_repo}:v${version}")
+
+  // platform('linux/arm64', 'linux/amd64')
+  buildx(true)
+  load(true)
+  push(false)
+}
+
+tasks.getByName("docker").dependsOn([war])
