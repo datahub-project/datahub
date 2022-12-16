@@ -14,7 +14,6 @@ class CommitPolicy(Enum):
 class Committable(ABC):
     name: str
     commit_policy: CommitPolicy
-    committed: bool = False
 
     @abstractmethod
     def commit(self) -> None:
@@ -33,6 +32,7 @@ class StatefulCommittable(
         self, name: str, commit_policy: CommitPolicy, state_to_commit: StateType
     ):
         super().__init__(name=name, commit_policy=commit_policy)
+        self.committed: bool = False
         self.state_to_commit: StateType = state_to_commit
 
     def has_successfully_committed(self) -> bool:
