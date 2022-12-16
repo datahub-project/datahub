@@ -35,7 +35,7 @@ def test_sql_common_state() -> None:
     )
 
 
-def test_backward_compat() -> None:
+def test_state_backward_compat() -> None:
     state = BaseSQLAlchemyCheckpointState.parse_obj(
         dict(
             encoded_table_urns=["mysql||db1.t1||PROD"],
