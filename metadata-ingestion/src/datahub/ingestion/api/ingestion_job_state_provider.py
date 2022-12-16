@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, List, NewType, Optional, TypeVar
+from typing import Any, Dict, Generic, List, NewType, TypeVar
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -10,8 +10,6 @@ from datahub.ingestion.api.common import PipelineContext
 JobId = NewType("JobId", str)
 JobState = TypeVar("JobState")
 JobStatesMap = Dict[JobId, JobState]
-# TODO: We need a first-class representation of a search filter in the python code. Using str for now.
-JobStateFilterType = NewType("JobStateFilterType", str)
 
 
 @dataclass
@@ -26,7 +24,7 @@ class IngestionJobStateProviderConfig(ConfigModel):
 
 
 class IngestionJobStateProvider(
-    StatefulCommittable[JobStateKey, JobStatesMap, JobStateFilterType],
+    StatefulCommittable[JobStateKey, JobStatesMap],
     Generic[JobState],
 ):
     """
@@ -44,14 +42,6 @@ class IngestionJobStateProvider(
     ) -> "IngestionJobStateProvider":
         """Concrete sub-classes must throw an exception if this fails."""
         pass
-
-    def get_last_state(self, state_key: JobStateKey) -> Optional[JobStatesMap]:
-        previous_states = self.get_previous_states(
-            state_key=state_key, last_only=True, filter_opt=None
-        )
-        if previous_states:
-            return previous_states[0]
-        return None
 
     @staticmethod
     def get_data_job_urn(

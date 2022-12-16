@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import PipelineContext
@@ -7,7 +7,6 @@ from datahub.ingestion.api.ingestion_job_state_provider import (
     IngestionJobStateProvider,
     IngestionJobStateProviderConfig,
     JobId,
-    JobStateFilterType,
     JobStateKey,
     JobStatesMap,
 )
@@ -18,7 +17,6 @@ from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 #
 JobId = JobId
 JobStateKey = JobStateKey
-JobStateFilterType = JobStateFilterType
 
 #
 # Checkpoint state specific types
@@ -52,12 +50,10 @@ class IngestionCheckpointingProviderBase(
     ) -> "IngestionJobStateProvider":
         raise NotImplementedError("Sub-classes must override this method.")
 
-    def get_previous_states(
+    def get_last_state(
         self,
         state_key: JobStateKey,
-        last_only: bool = True,
-        filter_opt: Optional[JobStateFilterType] = None,
-    ) -> List[CheckpointJobStatesMap]:
+    ) -> CheckpointJobStatesMap:
         raise NotImplementedError("Sub-classes must override this method.")
 
     def commit(self) -> None:

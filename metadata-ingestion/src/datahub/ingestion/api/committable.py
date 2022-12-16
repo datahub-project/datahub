@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, TypeVar
 
 
 class CommitPolicy(Enum):
@@ -23,13 +23,11 @@ class Committable(ABC):
 
 StateKeyType = TypeVar("StateKeyType")
 StateType = TypeVar("StateType")
-# TODO: Add a better alternative to a string for the filter.
-FilterType = TypeVar("FilterType")
 
 
 class StatefulCommittable(
     Committable,
-    Generic[StateKeyType, StateType, FilterType],
+    Generic[StateKeyType, StateType],
 ):
     def __init__(
         self, name: str, commit_policy: CommitPolicy, state_to_commit: StateType
@@ -41,10 +39,5 @@ class StatefulCommittable(
         return bool(not self.state_to_commit or self.committed)
 
     @abstractmethod
-    def get_previous_states(
-        self,
-        state_key: StateKeyType,
-        last_only: bool = True,
-        filter_opt: Optional[FilterType] = None,
-    ) -> List[StateType]:
+    def get_last_state(self, state_key: StateKeyType) -> StateType:
         pass
