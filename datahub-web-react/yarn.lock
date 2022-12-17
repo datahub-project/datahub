@@ -14101,6 +14101,11 @@ rc@^1.2.8:
     minimist "^1.2.0"
     strip-json-comments "~2.0.1"
 
+react-apollo-network-status@^5.2.1:
+  version "5.2.1"
+  resolved "https://registry.yarnpkg.com/react-apollo-network-status/-/react-apollo-network-status-5.2.1.tgz#3cc1a5ccace7d8b09371592a65ee665f14627b66"
+  integrity sha512-l6FPsl9Zgw9VrJdq7ABIDGVxlP+BN6X3PVMmCctIYQ0/mFOQd+Y+qEpAjk2ZovhwCXlZZbtztAeOBKDhhgN6iA==
+
 react-app-polyfill@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/react-app-polyfill/-/react-app-polyfill-2.0.0.tgz#a0bea50f078b8a082970a9d853dc34b6dcc6a3cf"

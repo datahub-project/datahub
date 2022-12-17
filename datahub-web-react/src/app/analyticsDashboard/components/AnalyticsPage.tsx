@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Alert, Divider, Input, Select } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { ChartGroup } from './ChartGroup';
 import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '../../../graphql/analytics.generated';
 import { useGetHighlightsQuery } from '../../../graphql/highlights.generated';
 import { Highlight } from './Highlight';
-import { Message } from '../../shared/Message';
 import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import filterSearchQuery from '../../search/utils/filterSearchQuery';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -50,12 +49,8 @@ export const AnalyticsPage = () => {
     const me = useGetAuthenticatedUser();
     const canManageDomains = me?.platformPrivileges?.createDomains;
     const { data: chartData, loading: chartLoading, error: chartError } = useGetAnalyticsChartsQuery();
-    const { data: highlightData, loading: highlightLoading, error: highlightError } = useGetHighlightsQuery();
-    const {
-        loading: domainLoading,
-        error: domainError,
-        data: domainData,
-    } = useListDomainsQuery({
+    const { data: highlightData, error: highlightError } = useGetHighlightsQuery();
+    const { error: domainError, data: domainData } = useListDomainsQuery({
         skip: !canManageDomains,
         variables: {
             input: {
@@ -71,11 +66,7 @@ export const AnalyticsPage = () => {
 
     const onDomainChange = (inputDomain) => setDomain(inputDomain);
     const onStagedQueryChange = (inputQuery) => setStagedQuery(inputQuery);
-    const {
-        loading: metadataAnalyticsLoading,
-        error: metadataAnalyticsError,
-        data: metadataAnalyticsData,
-    } = useGetMetadataAnalyticsChartsQuery({
+    const { error: metadataAnalyticsError, data: metadataAnalyticsData } = useGetMetadataAnalyticsChartsQuery({
         variables: {
             input: {
                 entityType: null,
@@ -86,10 +77,8 @@ export const AnalyticsPage = () => {
         skip: domain === '' && query === '',
     });
 
-    const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
     return (
         <>
-            {isLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <HighlightGroup>
                 {highlightError && (
                     <Alert type="error" message={highlightError?.message || 'Highlights failed to load'} />

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useLocation } from 'react-router';
 import { Button, message, Pagination } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
@@ -7,7 +7,6 @@ import * as QueryString from 'query-string';
 import { useListMyViewsQuery } from '../../../graphql/view.generated';
 import { SearchBar } from '../../search/SearchBar';
 import TabToolbar from '../shared/components/styled/TabToolbar';
-import { Message } from '../../shared/Message';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { scrollToTop } from '../../shared/searchUtils';
 import { ViewsTable } from './ViewsTable';
@@ -64,7 +63,7 @@ export const ViewsList = () => {
      */
     const pageSize = DEFAULT_LIST_VIEWS_PAGE_SIZE;
     const start = (page - 1) * pageSize;
-    const { loading, error, data } = useListMyViewsQuery({
+    const { error, data } = useListMyViewsQuery({
         variables: {
             start,
             count: pageSize,
@@ -100,7 +99,6 @@ export const ViewsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Views..." />}
             {error && message.error({ content: `Failed to load Views! An unexpected error occurred.`, duration: 3 })}
             <TabToolbar>
                 <Button type="text" onClick={onClickCreateView}>

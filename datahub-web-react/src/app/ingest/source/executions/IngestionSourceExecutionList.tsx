@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { message, Modal } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import {
     useGetIngestionSourceQuery,
     useCancelIngestionExecutionRequestMutation,
@@ -34,7 +34,7 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
     const start = 0;
     const count = 10; // Load 10 items at a time.
 
-    const { loading, data, error, refetch } = useGetIngestionSourceQuery({
+    const { data, error, refetch } = useGetIngestionSourceQuery({
         variables: {
             urn,
             runStart: start,
@@ -142,7 +142,6 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
 
     return (
         <ListContainer>
-            {!data && loading && <Message type="loading" content="Loading executions..." />}
             {error && (
                 <Message type="error" content="Failed to load ingestion executions! An unexpected error occurred." />
             )}

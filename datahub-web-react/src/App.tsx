@@ -6,6 +6,7 @@ import { ApolloClient, ApolloProvider, createHttpLink, InMemoryCache, ServerErro
 import { onError } from '@apollo/client/link/error';
 import { ThemeProvider } from 'styled-components';
 import { Helmet } from 'react-helmet';
+import { createNetworkStatusNotifier } from 'react-apollo-network-status';
 import './App.less';
 import { Routes } from './app/Routes';
 import EntityRegistry from './app/entity/EntityRegistry';
@@ -37,7 +38,8 @@ import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity
 /*
     Construct Apollo Client
 */
-const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
+const { link: statusLink, useApolloNetworkStatus } = createNetworkStatusNotifier();
+const httpLink = statusLink.concat(createHttpLink({ uri: '/api/v2/graphql' }));
 
 const errorLink = onError((error) => {
     const { networkError, graphQLErrors } = error;
@@ -75,12 +77,22 @@ const client = new ApolloClient({
 
 const App: React.VFC = () => {
     const [dynamicThemeConfig, setDynamicThemeConfig] = useState<Theme>(defaultThemeConfig);
+    const status = useApolloNetworkStatus();
+    const hasPendingRequests = status.numPendingQueries > 0 || status.numPendingMutations > 0;
 
     useEffect(() => {
         import(`./conf/theme/${process.env.REACT_APP_THEME_CONFIG}`).then((theme) => {
             setDynamicThemeConfig(theme);
         });
     }, []);
+
+    useEffect(() => {
+        if (hasPendingRequests) {
+            message.loading({ content: 'Loading...', duration: 0, style: { marginTop: '10%' } });
+        } else {
+            message.destroy();
+        }
+    }, [hasPendingRequests]);
 
     const entityRegistry = useMemo(() => {
         const register = new EntityRegistry();

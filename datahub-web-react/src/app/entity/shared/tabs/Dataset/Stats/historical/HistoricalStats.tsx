@@ -6,7 +6,6 @@ import StatChart from './charts/StatChart';
 import { DatasetProfile, DateInterval } from '../../../../../../../types.generated';
 import { getFixedLookbackWindow, TimeWindowSize } from '../../../../../../shared/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '../../../../../../../graphql/dataset.generated';
-import { Message } from '../../../../../../shared/Message';
 import { LookbackWindow } from '../lookbackWindows';
 import { ANTD_GRAY } from '../../../../constants';
 import PrefixedSelect from './shared/PrefixedSelect';
@@ -113,7 +112,7 @@ export type Props = {
 };
 
 export default function HistoricalStats({ urn, lookbackWindow }: Props) {
-    const [getDataProfiles, { data: profilesData, loading: profilesLoading }] = useGetDataProfilesLazyQuery();
+    const [getDataProfiles, { data: profilesData }] = useGetDataProfilesLazyQuery();
 
     /**
      * Perform initial fetch of default lookback window stats.
@@ -194,7 +193,6 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
 
     return (
         <>
-            {profilesLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <StatSection>
                 <Typography.Title level={5}>Profiling Runs</Typography.Title>
                 <ProfilingRunsChart profiles={profiles} />

@@ -46,7 +46,7 @@ export const GroupList = () => {
     const pageSize = DEFAULT_GROUP_LIST_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    const { loading, error, data, refetch, client } = useListGroupsQuery({
+    const { error, data, refetch, client } = useListGroupsQuery({
         variables: {
             input: {
                 start,
@@ -72,7 +72,6 @@ export const GroupList = () => {
     return (
         <>
             <OnboardingTour stepIds={[GROUPS_INTRO_ID, GROUPS_CREATE_GROUP_ID]} />
-            {!data && loading && <Message type="loading" content="Loading groups..." />}
             {error && <Message type="error" content="Failed to load groups! An unexpected error occurred." />}
             <GroupContainer>
                 <TabToolbar>

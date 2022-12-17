@@ -3,7 +3,6 @@ import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { TermRelationshipType } from '../../../../types.generated';
-import { Message } from '../../../shared/Message';
 import { EmptyTab } from '../../shared/components/styled/EmptyTab';
 import { ANTD_GRAY } from '../../shared/constants';
 import AddRelatedTermsModal from './AddRelatedTermsModal';
@@ -32,8 +31,6 @@ const TitleContainer = styled.div`
     margin-bottom: 30px;
 `;
 
-const messageStyle = { marginTop: '10%' };
-
 export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermResult }: Props) {
     const [isShowingAddModal, setIsShowingAddModal] = useState(false);
     const glossaryRelatedTermUrns: Array<string> = [];
@@ -48,9 +45,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
 
     return (
         <>
-            {contentLoading ? (
-                <Message type="loading" content="Loading..." style={messageStyle} />
-            ) : (
+            {!contentLoading && (
                 <ListContainer>
                     <TitleContainer>
                         <Typography.Title style={{ margin: '0' }} level={3}>

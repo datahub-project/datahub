@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
-import styled from 'styled-components';
-import { Message } from '../shared/Message';
+import styled from 'styled-components/macro';
 import {
     Entity,
     EntityType,
@@ -138,7 +137,6 @@ export const SearchResults = ({
 
     return (
         <>
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <div>
                 <SearchBody>
                     <div id={SEARCH_RESULTS_FILTERS_ID}>

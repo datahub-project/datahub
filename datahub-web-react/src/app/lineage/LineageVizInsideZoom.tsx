@@ -1,6 +1,6 @@
 import React, { SVGProps, useEffect, useMemo, useState } from 'react';
 import { PlusOutlined, MinusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Button, Switch, Tooltip } from 'antd';
 import { ProvidedZoom, TransformMatrix } from '@vx/zoom/lib/types';
 import { useHistory, useLocation } from 'react-router-dom';

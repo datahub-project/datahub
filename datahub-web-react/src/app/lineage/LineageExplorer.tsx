@@ -3,9 +3,7 @@ import { useHistory } from 'react-router';
 
 import { Button, Drawer } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
-
-import { Message } from '../shared/Message';
+import styled from 'styled-components/macro';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
 import { EntityAndType, EntitySelectParams, FetchedEntities } from './types';
@@ -21,9 +19,6 @@ import usePrevious from '../shared/usePrevious';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
-const LoadingMessage = styled(Message)`
-    margin-top: 10%;
-`;
 const FooterButtonGroup = styled.div`
     display: flex;
     justify-content: space-between;
@@ -141,7 +136,6 @@ export default function LineageExplorer({ urn, type }: Props) {
     return (
         <>
             {error && <ErrorSection />}
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
             {!!data && (
                 <div>
                     <LineageViz

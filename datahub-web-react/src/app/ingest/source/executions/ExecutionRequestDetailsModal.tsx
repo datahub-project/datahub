@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import { useGetIngestionExecutionRequestQuery } from '../../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { downloadFile } from '../../../search/utils/csvUtils';
-import { Message } from '../../../shared/Message';
 import IngestedAssets from '../IngestedAssets';
 import {
     getExecutionRequestStatusDisplayColor,
@@ -91,7 +90,7 @@ type Props = {
 
 export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
-    const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
+    const { data, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
 
     const downloadLogs = () => {
@@ -136,7 +135,6 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
             visible={visible}
             onCancel={onClose}
         >
-            {!data && loading && <Message type="loading" content="Loading execution details..." />}
             {error && message.error('Failed to load execution details :(')}
             <Section>
                 <StatusSection>

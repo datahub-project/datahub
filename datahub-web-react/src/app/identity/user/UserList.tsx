@@ -57,7 +57,6 @@ export const UserList = () => {
     const start = (page - 1) * pageSize;
 
     const {
-        loading: usersLoading,
         error: usersError,
         data: usersData,
         client,
@@ -85,11 +84,7 @@ export const UserList = () => {
         removeUserFromListUsersCache(urn, client, page, pageSize);
     };
 
-    const {
-        loading: rolesLoading,
-        error: rolesError,
-        data: rolesData,
-    } = useListRolesQuery({
+    const { error: rolesError, data: rolesData } = useListRolesQuery({
         fetchPolicy: 'cache-first',
         variables: {
             input: {
@@ -99,7 +94,6 @@ export const UserList = () => {
         },
     });
 
-    const loading = usersLoading || rolesLoading;
     const error = usersError || rolesError;
     const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
 
@@ -108,7 +102,6 @@ export const UserList = () => {
     return (
         <>
             <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
-            {!usersData && loading && <Message type="loading" content="Loading users..." />}
             {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
             <UserContainer>
                 <TabToolbar>

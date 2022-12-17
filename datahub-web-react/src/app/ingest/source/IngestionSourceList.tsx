@@ -102,7 +102,7 @@ export const IngestionSourceList = () => {
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
 
     // Ingestion Source Queries
-    const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
+    const { error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
             input: {
                 start,
@@ -352,7 +352,6 @@ export const IngestionSourceList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
             {error && (
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}

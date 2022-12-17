@@ -1,10 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
-import { Message } from '../../../../shared/Message';
 import { getDataForEntityType, getEntityPath, getOnboardingStepIdsForEntityType, useRoutedTab } from './utils';
 import {
     EntitySidebarSection,
@@ -263,7 +262,6 @@ export const EntityProfile = <T, U>({
                 }}
             >
                 <div>
-                    {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                     {(error && <ErrorSection />) ||
                         (!loading && (
                             <>
@@ -310,7 +308,6 @@ export const EntityProfile = <T, U>({
                         banner
                     />
                 )}
-                {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
                 {(error && <ErrorSection />) || (
                     <ContentContainer>
                         {isLineageMode ? (

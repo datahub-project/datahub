@@ -1,10 +1,9 @@
 import React, { ReactNode, useEffect, useState } from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 
 import { Affix, Row, Select, Typography } from 'antd';
 import { useGetDataProfilesLazyQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetProfile, DateInterval } from '../../../../../../types.generated';
-import { Message } from '../../../../../shared/Message';
 import { getFixedLookbackWindow, TimeWindowSize } from '../../../../../shared/time/timeUtils';
 
 import ProfilingRunsChart from './charts/ProfilingRunsChart';
@@ -122,7 +121,7 @@ export type Props = {
 };
 
 export default function HistoricalStatsView({ urn, toggleView }: Props) {
-    const [getDataProfiles, { data: profilesData, loading: profilesLoading }] = useGetDataProfilesLazyQuery();
+    const [getDataProfiles, { data: profilesData }] = useGetDataProfilesLazyQuery();
 
     /**
      * Perform initial fetch of default lookback window stats.
@@ -218,7 +217,6 @@ export default function HistoricalStatsView({ urn, toggleView }: Props) {
 
     return (
         <>
-            {profilesLoading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             <Affix offsetTop={127}>
                 <HeaderRow justify="space-between" align="middle">
                     <div>

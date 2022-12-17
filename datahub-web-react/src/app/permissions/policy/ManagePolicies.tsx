@@ -160,7 +160,6 @@ export const ManagePolicies = () => {
     const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
 
     const {
-        loading: policiesLoading,
         error: policiesError,
         data: policiesData,
         refetch: policiesRefetch,
@@ -445,9 +444,6 @@ export const ManagePolicies = () => {
     return (
         <PageContainer>
             <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
-            {policiesLoading && !policiesData && (
-                <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
-            )}
             {policiesError && <Message type="error" content="Failed to load policies! An unexpected error occurred." />}
             {updateError && message.error('Failed to update policies. An unexpected error occurred.')}
             <SourceContainer>

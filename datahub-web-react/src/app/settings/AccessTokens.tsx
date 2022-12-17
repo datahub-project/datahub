@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Alert, Button, Divider, Empty, message, Modal, Pagination, Typography } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { red } from '@ant-design/colors';
 
 import { FacetFilterInput } from '../../types.generated';
 import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '../../graphql/auth.generated';
-import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
@@ -100,7 +99,6 @@ export const AccessTokens = () => {
 
     // Call list Access Token Mutation
     const {
-        loading: tokensLoading,
         error: tokensError,
         data: tokensData,
         refetch: tokensRefetch,
@@ -214,9 +212,6 @@ export const AccessTokens = () => {
 
     return (
         <SourceContainer>
-            {tokensLoading && !tokensData && (
-                <Message type="loading" content="Loading tokens..." style={{ marginTop: '10%' }} />
-            )}
             {tokensError && message.error('Failed to load tokens :(')}
             {revokeTokenError && message.error('Failed to update the Token :(')}
             <TokensContainer>

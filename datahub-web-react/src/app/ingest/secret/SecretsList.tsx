@@ -9,7 +9,6 @@ import {
     useDeleteSecretMutation,
     useListSecretsQuery,
 } from '../../../graphql/ingestion.generated';
-import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { SecretBuilderModal } from './SecretBuilderModal';
 import { SecretBuilderState } from './types';
@@ -49,7 +48,7 @@ export const SecretsList = () => {
 
     const [deleteSecretMutation] = useDeleteSecretMutation();
     const [createSecretMutation] = useCreateSecretMutation();
-    const { loading, error, data, client } = useListSecretsQuery({
+    const { error, data, client } = useListSecretsQuery({
         variables: {
             input: {
                 start,
@@ -171,7 +170,6 @@ export const SecretsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading secrets..." />}
             {error && message.error({ content: `Failed to load secrets! \n ${error.message || ''}`, duration: 3 })}
             <div>
                 <TabToolbar>

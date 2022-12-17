@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Empty, message, Pagination, Tooltip, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { useListRolesQuery } from '../../../graphql/role.generated';
-import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import AvatarsGroup from '../AvatarsGroup';
@@ -67,7 +66,6 @@ export const ManageRoles = () => {
     const start = (page - 1) * pageSize;
 
     const {
-        loading: rolesLoading,
         error: rolesError,
         data: rolesData,
         refetch: rolesRefetch,
@@ -217,9 +215,6 @@ export const ManageRoles = () => {
     return (
         <PageContainer>
             <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
-            {rolesLoading && !rolesData && (
-                <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
-            )}
             {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>

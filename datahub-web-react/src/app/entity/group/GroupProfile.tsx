@@ -1,18 +1,15 @@
 import React from 'react';
 import { Col, Row } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { OriginType, EntityRelationshipsResult, Ownership } from '../../../types.generated';
-import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { decodeUrn } from '../shared/utils';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
 import { ErrorSection } from '../../shared/error/ErrorSection';
-
-const messageStyle = { marginTop: '10%' };
 
 export enum TabType {
     Assets = 'Assets',
@@ -47,7 +44,7 @@ const Content = styled.div`
 export default function GroupProfile() {
     const { urn: encodedUrn } = useUserParams();
     const urn = encodedUrn && decodeUrn(encodedUrn);
-    const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
+    const { error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
@@ -113,7 +110,6 @@ export default function GroupProfile() {
     return (
         <>
             {error && <ErrorSection />}
-            {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>
                     <Row>

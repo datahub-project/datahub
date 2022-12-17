@@ -10,21 +10,6 @@ import { mocks } from '../../../Mocks';
 import { PageRoutes } from '../../../conf/Global';
 
 describe('SearchPage', () => {
-    it('renders loading', async () => {
-        const promise = Promise.resolve();
-        const { getByText } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer
-                    initialEntries={['/search?filter_entity=DATASET&filter_platform=hive,kafka&page=1&query=sample']}
-                >
-                    <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-        await waitFor(() => expect(getByText('Loading...')).toBeInTheDocument());
-        await act(() => promise);
-    });
-
     it('renders the selected filters as checked', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider

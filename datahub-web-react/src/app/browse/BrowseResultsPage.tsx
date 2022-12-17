@@ -8,7 +8,6 @@ import { useGetBrowseResultsQuery } from '../../graphql/browse.generated';
 import { LegacyBrowsePath } from './LegacyBrowsePath';
 import { PageRoutes } from '../../conf/Global';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { Message } from '../shared/Message';
 import { scrollToTop } from '../shared/searchUtils';
 import { ErrorSection } from '../shared/error/ErrorSection';
 
@@ -59,7 +58,6 @@ export const BrowseResultsPage = () => {
                 <LegacyBrowsePath type={entityType} path={path} isBrowsable />
             </Affix>
             {error && <ErrorSection />}
-            {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
             {data && data.browse && !loading && (
                 <BrowseResults
                     type={entityType}

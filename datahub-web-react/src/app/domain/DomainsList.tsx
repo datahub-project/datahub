@@ -58,7 +58,7 @@ export const DomainsList = () => {
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    const { loading, error, data, client, refetch } = useListDomainsQuery({
+    const { error, data, client, refetch } = useListDomainsQuery({
         variables: {
             input: {
                 start,
@@ -87,7 +87,6 @@ export const DomainsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading domains..." />}
             {error && <Message type="error" content="Failed to load domains! An unexpected error occurred." />}
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>

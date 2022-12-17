@@ -86,9 +86,6 @@ function BusinessGlossaryPage() {
                 ]}
             />
             <GlossaryWrapper>
-                {(termsLoading || nodesLoading) && (
-                    <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
-                )}
                 {(termsError || nodesError) && (
                     <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
                 )}
