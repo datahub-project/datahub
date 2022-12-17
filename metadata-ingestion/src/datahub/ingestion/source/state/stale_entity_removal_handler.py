@@ -215,7 +215,6 @@ class StaleEntityRemovalHandler(
             return Checkpoint(
                 job_name=self.job_id,
                 pipeline_name=self.pipeline_name,
-                platform_instance_id=self.source.get_platform_instance_id(),
                 run_id=self.run_id,
                 state=self.state_type_class(),
             )
