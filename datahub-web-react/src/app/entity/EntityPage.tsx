@@ -40,6 +40,7 @@ export const EntityPage = ({ entityType }: Props) => {
                 resourceSpec: { resourceType: entityType, resourceUrn: urn },
             },
         },
+        fetchPolicy: 'cache-first',
     });
     const privileges = data?.getGrantedPrivileges?.privileges || [];
 
