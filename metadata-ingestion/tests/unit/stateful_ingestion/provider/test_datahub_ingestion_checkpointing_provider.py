@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Type
 from unittest.mock import MagicMock, patch
 
 from avrogen.dict_wrapper import DictWrapper
+from test_helpers.type_helpers import assert_not_null
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -138,11 +139,11 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         # 2. Set the provider's state_to_commit.
         self.provider.state_to_commit = {
             # NOTE: state_to_commit accepts only the aspect version of the checkpoint.
-            self.job_names[0]: job1_checkpoint.to_checkpoint_aspect(
-                max_allowed_state_size=2**20
+            self.job_names[0]: assert_not_null(
+                job1_checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20)
             ),
-            self.job_names[1]: job2_checkpoint.to_checkpoint_aspect(
-                max_allowed_state_size=2**20
+            self.job_names[1]: assert_not_null(
+                job2_checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20)
             ),
         }
 
