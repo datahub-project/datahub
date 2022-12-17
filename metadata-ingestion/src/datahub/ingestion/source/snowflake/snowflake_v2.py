@@ -192,6 +192,7 @@ class SnowflakeV2Source(
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
         self.logger = logger
+        self.snowsight_base_url = None
         # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
@@ -230,6 +231,7 @@ class SnowflakeV2Source(
 
         if self.is_classification_enabled():
             self.classifiers = self.get_classifiers()
+
         # Currently caching using instance variables
         # TODO - rewrite cache for readability or use out of the box solution
         self.db_tables: Dict[str, Optional[Dict[str, List[SnowflakeTable]]]] = {}
@@ -431,6 +433,8 @@ class SnowflakeV2Source(
         conn: SnowflakeConnection = self.config.get_connection()
         self.add_config_to_report()
         self.inspect_session_metadata(conn)
+        if self.config.include_external_url:
+            self.snowsight_base_url = self.get_snowsight_base_url(conn)
 
         self.report.include_technical_schema = self.config.include_technical_schema
         databases: List[SnowflakeDatabase] = []
@@ -1153,21 +1157,55 @@ class SnowflakeV2Source(
     def get_external_url_for_table(
         self, table_name: str, schema_name: str, db_name: str, domain: str
     ) -> Optional[str]:
-        base_url = self.get_snowsight_base_url()
-        if base_url is not None:
-            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+        if self.snowsight_base_url is not None:
+            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
         return None
 
     def get_external_url_for_schema(
         self, schema_name: str, db_name: str
     ) -> Optional[str]:
-        base_url = self.get_snowsight_base_url()
-        if base_url is not None:
-            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
+        if self.snowsight_base_url is not None:
+            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
         return None
 
     def get_external_url_for_database(self, db_name: str) -> Optional[str]:
-        base_url = self.get_snowsight_base_url()
-        if base_url is not None:
-            return f"{base_url}#/data/databases/{db_name}/"
+        if self.snowsight_base_url is not None:
+            return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
         return None
+
+    def get_snowsight_base_url(self, conn):
+        try:
+            # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
+            for db_row in self.query(conn, SnowflakeQuery.current_account()):
+                account_locator = db_row["CURRENT_ACCOUNT()"]
+
+            for db_row in self.query(conn, SnowflakeQuery.current_region()):
+                region = db_row["CURRENT_REGION()"]
+
+            self.report.account_locator = account_locator
+            self.report.region = region
+
+            # Returned region may be in the form <region_group>.<region>, see https://docs.snowflake.com/en/sql-reference/functions/current_region.html
+            region = region.split(".")[-1].lower()
+            account_locator = account_locator.lower()
+
+            cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(
+                region
+            )
+
+            # For privatelink, account identifier ends with .privatelink
+            # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
+            return self.create_snowsight_base_url(
+                account_locator,
+                cloud_region_id,
+                cloud,
+                self.config.account_id.endswith(".privatelink"),  # type:ignore
+            )
+
+        except Exception as e:
+            self.warn(
+                self.logger,
+                "snowsight url",
+                f"unable to get snowsight base url due to an error -> {e}",
+            )
+            return None
