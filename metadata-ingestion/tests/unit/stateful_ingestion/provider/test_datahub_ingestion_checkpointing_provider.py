@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, Type
 from unittest.mock import MagicMock, patch
 
 from avrogen.dict_wrapper import DictWrapper
-from test_helpers.type_helpers import assert_not_null
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -23,6 +22,7 @@ from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpoin
 from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider import (
     DatahubIngestionCheckpointingProvider,
 )
+from tests.test_helpers.type_helpers import assert_not_null
 
 
 class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
