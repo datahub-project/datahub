@@ -38,6 +38,8 @@ plugins {
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
 
+apply from: "gradle/docker/docker.gradle"
+
 project.ext.spec = [
     'product' : [
         'pegasus' : [

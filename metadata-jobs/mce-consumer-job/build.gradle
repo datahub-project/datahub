@@ -13,6 +13,7 @@ ext {
 
 dependencies {
     implementation project(':metadata-service:factories')
+    implementation project(':metadata-service:auth-filter')
     implementation project(':metadata-jobs:mce-consumer')
     implementation project(':entity-registry')
 
@@ -54,6 +55,7 @@ docker {
         include "docker/${docker_repo}/*"
         include 'metadata-models/src/main/resources/*'
     }
+    tag("-${version}", "${docker_registry}/${docker_repo}:v${version}")
     tag("-version", "${docker_registry}/${docker_repo}:v${version}")
 
     // platform('linux/arm64', 'linux/amd64')
@@ -61,5 +63,11 @@ docker {
     load(true)
     push(false)
 }
-
 tasks.getByName("docker").dependsOn([bootJar])
+
+task cleanLocalDockerImages {
+    doLast {
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+    }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

@@ -30,7 +30,8 @@ import org.springframework.context.annotation.PropertySource;
         "com.linkedin.gms.factory.secret",
         "com.linkedin.gms.factory.timeseries",
         "com.linkedin.restli.server",
-        "com.linkedin.metadata.restli"
+        "com.linkedin.metadata.restli",
+        "com.linkedin.metadata.kafka"
 }, excludeFilters = {
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {
                 ScheduledAnalyticsFactory.class,

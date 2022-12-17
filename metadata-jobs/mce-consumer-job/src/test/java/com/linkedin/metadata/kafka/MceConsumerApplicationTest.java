@@ -7,7 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 
@@ -26,7 +25,7 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
     @Autowired
     private EntityService mockEntityService;
 
-    @Ignore("Temp ignore for gha build")
+    //@Ignore("Temp ignore for gha build")
     @Test
     public void testRestliServletConfig() {
         RestoreIndicesResult mockResult = new RestoreIndicesResult();
