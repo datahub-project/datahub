@@ -32,7 +32,7 @@ def get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
         LOGGER.debug("Actual Value = %s", actual_value)
         LOGGER.debug("Expected Value = %s", variable)
 
-        if actual_value == variable:
+        if actual_value.lower() == variable.lower():
             return tree
 
     LOGGER.info("Provided variable(%s) not found in variable rule", variable)
@@ -141,3 +141,7 @@ first_arg_list_func = partial(get_first_rule, rule="argument_list")
 first_identifier_func = partial(get_first_rule, rule="identifier")
 first_primary_expression_func = partial(get_first_rule, rule="primary_expression")
 first_identifier_func = partial(get_first_rule, rule="identifier")
+first_invoke_expression_func = partial(get_first_rule, rule="invoke_expression")
+first_type_expression_func = partial(get_first_rule, rule="type_expression")
+
+

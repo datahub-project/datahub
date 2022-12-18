@@ -60,19 +60,8 @@ def get_upstream_tables(
         )
         return []
 
-    resolver_enum: Optional[resolver.SupportedDataPlatform] = resolver.get_resolver(parse_tree)
-    if resolver_enum is None:
-        LOGGER.debug("Table full-name = %s", table.full_name)
-        LOGGER.debug("Expression = %s", table.expression)
-        reporter.report_warning(
-            table.full_name,
-            f"{table.full_name} M-Query resolver not found for the table expression",
-        )
-        return []
-
-    return resolver_enum.get_m_query_resolver()(
+    return resolver.BaseMQueryResolver(
         table=table,
         parse_tree=parse_tree,
-        data_platform_pair=resolver_enum.get_data_platform_pair(),
         reporter=reporter,
     ).resolve_to_data_platform_table_list()  # type: ignore
