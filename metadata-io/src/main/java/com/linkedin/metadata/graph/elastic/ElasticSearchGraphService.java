@@ -91,8 +91,12 @@ public class ElasticSearchGraphService implements GraphService {
     }
     if (edge.getProperties() != null) {
       final ObjectNode propertiesObject = JsonNodeFactory.instance.objectNode();
-      for (Map.Entry<String, String> entry : edge.getProperties().entrySet()) {
-        propertiesObject.put(entry.getKey(), entry.getValue());
+      for (Map.Entry<String, Object> entry : edge.getProperties().entrySet()) {
+        if (entry.getValue() instanceof String) {
+          propertiesObject.put(entry.getKey(), (String) entry.getValue());
+        } else {
+          propertiesObject.set(entry.getKey(), (JsonNode) entry.getValue());
+        }
       }
       searchDocument.set("properties", propertiesObject);
     }

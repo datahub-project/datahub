@@ -6,7 +6,6 @@ import lombok.Data;
 
 import java.util.Map;
 
-
 @Data
 @AllArgsConstructor
 public class Edge {
@@ -17,5 +16,5 @@ public class Edge {
   private Urn createdActor;
   private Long updatedOn;
   private Urn updatedActor;
-  private Map<String, String> properties;
+  private Map<String, Object> properties;
 }

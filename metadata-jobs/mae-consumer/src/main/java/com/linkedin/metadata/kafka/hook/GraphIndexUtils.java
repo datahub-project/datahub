@@ -43,13 +43,13 @@ public class GraphIndexUtils {
   }
 
   @Nullable
-  private static List<Map<String,String>> getPropertiesList(@Nullable final String path, @Nonnull final RecordTemplate aspect) {
+  private static List<Map<String,Object>> getPropertiesList(@Nullable final String path, @Nonnull final RecordTemplate aspect) {
     if (path == null) {
       return null;
     }
     final PathSpec propertiesPathSpec = new PathSpec(path.split("/"));
     final Optional<Object> value = RecordUtils.getFieldValue(aspect, propertiesPathSpec);
-    return (List<Map<String,String>>) value.orElse(null);
+    return (List<Map<String,Object>>) value.orElse(null);
   }
 
 
@@ -84,7 +84,7 @@ public class GraphIndexUtils {
   }
 
   @Nullable
-  private static Map<String,String> getProperties(@Nullable final List<Map<String,String>> propertiesList, final int index, final int valueListSize) {
+  private static Map<String,Object> getProperties(@Nullable final List<Map<String,Object>> propertiesList, final int index, final int valueListSize) {
     if (isValueListValid(propertiesList, valueListSize)) {
       return propertiesList.get(index);
     }
@@ -113,7 +113,7 @@ public class GraphIndexUtils {
     final List<Urn> createdActorList = getActorList(createdActorPath, aspect);
     final List<Long> updatedOnList = getTimestampList(updatedOnPath, aspect);
     final List<Urn> updatedActorList = getActorList(updatedActorPath, aspect);
-    final List<Map<String, String>> propertiesList = getPropertiesList(propertiesPath, aspect);
+    final List<Map<String, Object>> propertiesList = getPropertiesList(propertiesPath, aspect);
 
     int index = 0;
     for (Object fieldValue : extractedFieldsEntry.getValue()) {
@@ -121,7 +121,7 @@ public class GraphIndexUtils {
       Urn createdActor = getActor(createdActorList, index, extractedFieldsEntry.getValue().size());
       final Long updatedOn = getTimestamp(updatedOnList, index, extractedFieldsEntry.getValue().size());
       final Urn updatedActor = getActor(updatedActorList, index, extractedFieldsEntry.getValue().size());
-      final Map<String, String> properties = getProperties(propertiesList, index, extractedFieldsEntry.getValue().size());
+      final Map<String, Object> properties = getProperties(propertiesList, index, extractedFieldsEntry.getValue().size());
 
       if (createdOn == null && event.hasSystemMetadata()) {
         createdOn = event.getSystemMetadata().getLastObserved();
