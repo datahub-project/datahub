@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.AssertJUnit.*;
 
 
-public class CustomClaimTokenAuthenticatorTest {
+public class DatahubJwtTokenAuthenticatorTest {
 
   @Test
   void testAuthentication()
@@ -41,7 +41,7 @@ public class CustomClaimTokenAuthenticatorTest {
         + "0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdg"
         + "cKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc" + "mwIDAQAB";
 
-    CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
+    DatahubJwtTokenAuthenticator mock = mock(DatahubJwtTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(validPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
 
@@ -76,7 +76,7 @@ public class CustomClaimTokenAuthenticatorTest {
         + "+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyeh"
         + "kd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ" + "0iT9wCS0DRTXu269V264Vf/3jvr";
 
-    CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
+    DatahubJwtTokenAuthenticator mock = mock(DatahubJwtTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(inValidPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
 
@@ -96,7 +96,7 @@ public class CustomClaimTokenAuthenticatorTest {
   @Test(expectedExceptions = AuthenticationException.class)
   void testNullToken() throws AuthenticationException {
 
-    CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
+    DatahubJwtTokenAuthenticator mock = mock(DatahubJwtTokenAuthenticator.class);
 
     final AuthenticationRequest context = new AuthenticationRequest(ImmutableMap.of());
 
@@ -120,7 +120,7 @@ public class CustomClaimTokenAuthenticatorTest {
         + "0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdg"
         + "cKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbc" + "mwIDAQAB";
 
-    CustomClaimTokenAuthenticator mock = mock(CustomClaimTokenAuthenticator.class);
+    DatahubJwtTokenAuthenticator mock = mock(DatahubJwtTokenAuthenticator.class);
     RSAPublicKey pk = loadPublicKey(validPublicKey);
     when(mock.getPublicKey(any())).thenReturn(pk);
 

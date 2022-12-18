@@ -33,7 +33,7 @@ import static com.datahub.authentication.AuthenticationConstants.*;
  * Supported algorithm at this moment RS256
  */
 @Slf4j
-public class CustomClaimTokenAuthenticator implements Authenticator {
+public class DatahubJwtTokenAuthenticator implements Authenticator {
 
 
   /**
