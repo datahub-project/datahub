@@ -89,7 +89,7 @@ docker {
   push(false)
 }
 
-task unversionZip(type: Copy, dependsOn: dist) {
+task unversionZip(type: Copy, dependsOn: [':datahub-web-react:build', dist]) {
   from ("${buildDir}/distributions")
   include "datahub-frontend-${version}.zip"
   into "${buildDir}/docker/"
