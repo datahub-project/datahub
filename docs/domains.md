@@ -38,7 +38,7 @@ To create a new Domain, click '+ New Domain'.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/create-domain.png"/>
 </p>
 
-Inside the form, you can choose a name for your name. Most often, this will align with your business units or groups, for example
+Inside the form, you can choose a name for your Domain. Most often, this will align with your business units or groups, for example
 'Platform Engineering' or 'Social Marketing'. You can also add an optional description. Don't worry, this can be changed later.
 
 #### Advanced: Setting a Custom Domain id

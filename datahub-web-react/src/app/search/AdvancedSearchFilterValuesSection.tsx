@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import { SearchFilterLabel } from './SearchFilterLabel';
 
 type Props = {
@@ -14,7 +13,7 @@ const ValueFilterSection = styled.div`
     :hover {
         cursor: pointer;
     }
-    border-top: 1px solid ${ANTD_GRAY[3]};
+    margin: 4px;
 `;
 
 const StyledSearchFilterLabel = styled.div`
@@ -26,11 +25,14 @@ export const AdvancedSearchFilterValuesSection = ({ facet, filter }: Props) => {
         <ValueFilterSection>
             {filter?.values?.map((value) => {
                 const matchedAggregation = facet?.aggregations?.find((aggregation) => aggregation.value === value);
-                if (!matchedAggregation) return <span>{value}</span>;
-
                 return (
-                    <StyledSearchFilterLabel>
-                        <SearchFilterLabel hideCount aggregation={matchedAggregation} field={filter.field} />
+                    <StyledSearchFilterLabel key={value}>
+                        <SearchFilterLabel
+                            hideCount
+                            field={filter.field}
+                            value={value}
+                            entity={matchedAggregation?.entity}
+                        />
                     </StyledSearchFilterLabel>
                 );
             })}

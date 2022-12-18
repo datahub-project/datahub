@@ -37,6 +37,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -46,7 +47,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.state.tableau_state import TableauCheckpointState
 from datahub.ingestion.source.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
@@ -176,20 +176,33 @@ class TableauConnectionConfig(ConfigModel):
             )
 
         try:
-            server = Server(self.connect_uri, use_server_version=True)
+            server = Server(
+                self.connect_uri,
+                use_server_version=True,
+                http_options={
+                    # As per https://community.tableau.com/s/question/0D54T00000F33bdSAB/tableauserverclient-signin-with-ssl-certificate
+                    "verify": bool(self.ssl_verify),
+                    **(
+                        {"cert": self.ssl_verify}
+                        if isinstance(self.ssl_verify, str)
+                        else {}
+                    ),
+                },
+            )
 
             # From https://stackoverflow.com/a/50159273/5004662.
-            server._session.verify = self.ssl_verify
             server._session.trust_env = False
 
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
             raise ValueError(
-                f"Unable to login with credentials provided: {str(e)}"
+                f"Unable to login (invalid credentials or missing permissions): {str(e)}"
             ) from e
         except Exception as e:
-            raise ValueError(f"Unable to login: {str(e)}") from e
+            raise ValueError(
+                f"Unable to login (check your Tableau connection and credentials): {str(e)}"
+            ) from e
 
 
 class TableauConfig(
@@ -303,7 +316,7 @@ class TableauSource(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=TableauCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -374,7 +387,9 @@ class TableauSource(StatefulIngestionSourceBase):
         if "errors" in query_data:
             errors = query_data["errors"]
             if all(
-                error.get("extensions", {}).get("severity", None) == "WARNING"
+                # The format of the error messages is highly unpredictable, so we have to
+                # be extra defensive with our parsing.
+                error and (error.get("extensions") or {}).get("severity") == "WARNING"
                 for error in errors
             ):
                 self.report.report_warning(key=connection_type, reason=f"{errors}")
@@ -988,7 +1003,10 @@ class TableauSource(StatefulIngestionSourceBase):
         return mcp_workunit
 
     def emit_datasource(
-        self, datasource: dict, workbook: dict = None, is_embedded_ds: bool = False
+        self,
+        datasource: dict,
+        workbook: Optional[dict] = None,
+        is_embedded_ds: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
         datasource_info = workbook
         if not is_embedded_ds:
@@ -996,7 +1014,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         project = (
             datasource_info.get("projectName", "").replace("/", REPLACE_SLASH_CHAR)
-            if datasource_info
+            if datasource_info and datasource_info.get("projectName", "")
             else ""
         )
         datasource_id = datasource["id"]

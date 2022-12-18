@@ -9,6 +9,7 @@ schema:
     - '../datahub-graphql-core/src/main/resources/ingestion.graphql'
     - '../datahub-graphql-core/src/main/resources/timeline.graphql'
     - '../datahub-graphql-core/src/main/resources/tests.graphql'
+    - '../datahub-graphql-core/src/main/resources/step.graphql'
 config:
     scalars:
         Long: number

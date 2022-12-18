@@ -4,7 +4,7 @@ import { curveBasis } from '@vx/curve';
 import { LinePath } from '@vx/shape';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
-import { NodeData, Direction, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType } from './types';
+import { NodeData, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType } from './types';
 import LineageEntityNode from './LineageEntityNode';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -22,7 +22,6 @@ type Props = {
     setHoveredEntity: (EntitySelectParams) => void;
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
     margin: TreeProps['margin'];
-    direction: Direction;
     nodesToRender: VizNode[];
     edgesToRender: VizEdge[];
     nodesByUrn: Record<string, VizNode>;
@@ -50,7 +49,6 @@ export default function LineageTreeNodeAndEdgeRenderer({
     hoveredEntity,
     setHoveredEntity,
     onDrag,
-    direction,
     nodesToRender,
     edgesToRender,
     nodesByUrn,
@@ -77,7 +75,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                 const isHighlighted = isLinkHighlighted(link);
                 const key = `edge-${idx}-${link.source.data.urn}${link.sourceField && `-${link.sourceField}`}-${
                     link.target.data.urn
-                }${link.targetField && `-${link.targetField}`}-${direction}`;
+                }${link.targetField && `-${link.targetField}`}-${link.target.direction}`;
 
                 return (
                     <Group key={key}>
@@ -91,18 +89,19 @@ export default function LineageTreeNodeAndEdgeRenderer({
                             strokeWidth="1"
                             markerEnd={`url(#triangle-downstream${isHighlighted ? '-highlighted' : ''})`}
                             markerStart={`url(#triangle-upstream${isHighlighted ? '-highlighted' : ''})`}
-                            data-testid={`edge-${link.source.data.urn}-${link.target.data.urn}-${direction}`}
+                            data-testid={`edge-${link.source.data.urn}-${link.target.data.urn}-${link.target.direction}`}
                         />
                     </Group>
                 );
             })}
-            {nodesToRender.map((node) => {
+            {nodesToRender.map((node, index) => {
                 const isSelected = node.data.urn === selectedEntity?.urn;
                 const isHovered = node.data.urn === hoveredEntity?.urn;
+                const key = `node-${node.data.urn}-${node.direction}-${index}`;
 
                 return (
                     <LineageEntityNode
-                        key={`node-${node.data.urn}-${direction}`}
+                        key={key}
                         node={node}
                         isSelected={isSelected}
                         isHovered={isHovered}

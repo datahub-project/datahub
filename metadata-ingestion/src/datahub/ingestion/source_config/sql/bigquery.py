@@ -97,16 +97,6 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
     def validate_that_bigquery_audit_metadata_datasets_is_correctly_configured(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
-        profiling = values.get("profiling")
-        if (
-            values.get("storage_project_id")
-            and profiling is not None
-            and profiling.enabled
-            and not profiling.bigquery_temp_table_schema
-        ):
-            raise ConfigurationError(
-                "If storage project is being used with profiling then bigquery_temp_table_schema needs to be set to a dataset in the compute project"
-            )
         if (
             values.get("use_exported_bigquery_audit_metadata")
             and not values.get("use_v2_audit_metadata")
@@ -115,7 +105,6 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
             raise ConfigurationError(
                 "bigquery_audit_metadata_datasets must be specified if using exported audit metadata. Otherwise set use_v2_audit_metadata to True."
             )
-            pass
         return values
 
     @pydantic.validator("platform")

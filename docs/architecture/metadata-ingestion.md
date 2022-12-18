@@ -25,7 +25,7 @@ As long as you can emit a [Metadata Change Proposal (MCP)] event to Kafka or mak
 
 ### Applying Metadata Change Proposals to DataHub Metadata Service (mce-consumer-job)
 
-DataHub comes with a Kafka Streams based job, [mce-consumer-job], which consumes the Metadata Change Proposals and writes them into the DataHub Metadata Service (datahub-gms) using the `/ingest` endpoint. 
+DataHub comes with a Spring job, [mce-consumer-job], which consumes the Metadata Change Proposals and writes them into the DataHub Metadata Service (datahub-gms) using the `/ingest` endpoint. 
 
 [Metadata Change Proposal (MCP)]: ../what/mxe.md#metadata-change-proposal-mcp
 [Metadata Change Log (MCL)]: ../what/mxe.md#metadata-change-log-mcl

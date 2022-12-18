@@ -1,10 +1,12 @@
 import logging
+from enum import Enum
 from typing import Any, Optional
 
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 from typing_extensions import Protocol
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -12,27 +14,35 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import _Aspect
 
+logger: logging.Logger = logging.getLogger(__name__)
+
+
+class SnowflakeCloudProvider(str, Enum):
+    AWS = "aws"
+    GCP = "gcp"
+    AZURE = "azure"
+
+
+# See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#region-ids
+# Includes only exceptions to format <provider>_<cloud region with hyphen replaced by _>
+SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
+    "aws_us_east_1_gov": (SnowflakeCloudProvider.AWS, "us-east-1"),
+    "azure_uksouth": (SnowflakeCloudProvider.AZURE, "uk-south"),
+    "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india.azure"),
+}
+
+SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
+
 
 # Required only for mypy, since we are using mixin classes, and not inheritance.
 # Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
 class SnowflakeLoggingProtocol(Protocol):
-    @property
-    def logger(self) -> logging.Logger:
-        ...
+    logger: logging.Logger
 
 
-class SnowflakeCommonProtocol(Protocol):
-    @property
-    def logger(self) -> logging.Logger:
-        ...
-
-    @property
-    def config(self) -> SnowflakeV2Config:
-        ...
-
-    @property
-    def report(self) -> SnowflakeV2Report:
-        ...
+class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
+    config: SnowflakeV2Config
+    report: SnowflakeV2Report
 
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
@@ -59,6 +69,33 @@ class SnowflakeCommonMixin:
 
     platform = "snowflake"
 
+    @staticmethod
+    def create_snowsight_base_url(
+        account_locator: str,
+        cloud_region_id: str,
+        cloud: str,
+        privatelink: bool = False,
+    ) -> Optional[str]:
+        if privatelink:
+            url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
+        elif cloud == SNOWFLAKE_DEFAULT_CLOUD:
+            url = f"https://app.snowflake.com/{cloud_region_id}/{account_locator}/"
+        else:
+            url = f"https://app.snowflake.com/{cloud_region_id}.{cloud}/{account_locator}/"
+        return url
+
+    @staticmethod
+    def get_cloud_region_from_snowflake_region_id(region):
+        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+            cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
+        elif region.startswith(("aws_", "gcp_", "azure_")):
+            # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
+            cloud, cloud_region_id = region.split("_", 1)
+            cloud_region_id = cloud_region_id.replace("_", "-")
+        else:
+            raise Exception(f"Unknown snowflake region {region}")
+        return cloud, cloud_region_id
+
     def _is_dataset_pattern_allowed(
         self: SnowflakeCommonProtocol,
         dataset_name: Optional[str],
@@ -77,7 +114,12 @@ class SnowflakeCommonMixin:
 
         if not self.config.database_pattern.allowed(
             dataset_params[0].strip('"')
-        ) or not self.config.schema_pattern.allowed(dataset_params[1].strip('"')):
+        ) or not is_schema_allowed(
+            self.config.schema_pattern,
+            dataset_params[1].strip('"'),
+            dataset_params[0].strip('"'),
+            self.config.match_fully_qualified_names,
+        ):
             return False
 
         if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(

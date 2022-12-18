@@ -29,6 +29,11 @@ from datahub.cli.docker_check import (
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.sample_data import (
+    BOOTSTRAP_MCES_FILE,
+    DOCKER_COMPOSE_BASE,
+    download_sample_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +53,6 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml"
 )
 
-BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
-
-DOCKER_COMPOSE_BASE = os.getenv(
-    "DOCKER_COMPOSE_BASE",
-    "https://raw.githubusercontent.com/datahub-project/datahub/master",
-)
-
 NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
@@ -62,7 +60,6 @@ ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
 M1_QUICKSTART_COMPOSE_URL = f"{DOCKER_COMPOSE_BASE}/{M1_QUICKSTART_COMPOSE_FILE}"
-BOOTSTRAP_MCES_URL = f"{DOCKER_COMPOSE_BASE}/{BOOTSTRAP_MCES_FILE}"
 
 
 class Architectures(Enum):
@@ -226,13 +223,10 @@ def _get_default_quickstart_compose_file() -> Optional[str]:
 def _docker_compose_v2() -> Union[List[str], Literal[False]]:
     try:
         # Check for the docker compose v2 plugin.
-        assert (
-            subprocess.check_output(
-                ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
-            )
-            .decode()
-            .startswith("2.")
-        )
+        compose_version = subprocess.check_output(
+            ["docker", "compose", "version", "--short"], stderr=subprocess.STDOUT
+        ).decode()
+        assert compose_version.startswith("2.") or compose_version.startswith("v2.")
         return ["docker", "compose"]
     except (OSError, subprocess.CalledProcessError, AssertionError):
         # We'll check for docker-compose as well.
@@ -240,13 +234,13 @@ def _docker_compose_v2() -> Union[List[str], Literal[False]]:
             compose_version = subprocess.check_output(
                 ["docker-compose", "version", "--short"], stderr=subprocess.STDOUT
             ).decode()
-            if compose_version.startswith("2."):
+            if compose_version.startswith("2.") or compose_version.startswith("v2."):
                 # This will happen if docker compose v2 is installed in standalone mode
                 # instead of as a plugin.
                 return ["docker-compose"]
 
             click.secho(
-                "You have docker-compose v1 installed, but we require Docker Compose v2. "
+                f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2. "
                 "Please upgrade to Docker Compose v2. "
                 "See https://docs.docker.com/compose/compose-v2/ for more information.",
                 fg="red",
@@ -274,7 +268,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
         # docker-compose stop
         compose = _docker_compose_v2()
         if not compose:
-            return
+            sys.exit(1)
         base_command: List[str] = [
             *compose,
             *itertools.chain.from_iterable(
@@ -739,7 +733,7 @@ def quickstart(
 
     compose = _docker_compose_v2()
     if not compose:
-        return
+        sys.exit(1)
     base_command: List[str] = [
         *compose,
         *itertools.chain.from_iterable(
@@ -753,10 +747,7 @@ def quickstart(
     try:
         if pull_images:
             click.echo("Pulling docker images...")
-            # FIXME: Remove args once https://github.com/python/typeshed/pull/9220 is merged.
-            with click_spinner.spinner(
-                beep=False, disable=False, force=False, stream=sys.stdout
-            ):
+            with click_spinner.spinner():
                 subprocess.run(
                     [*base_command, "pull", "-q"],
                     check=True,
@@ -891,14 +882,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
 
     if path is None:
         click.echo("Downloading sample data...")
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp_file:
-            path = str(pathlib.Path(tmp_file.name))
-
-            # Download the bootstrap MCE file from GitHub.
-            mce_json_download_response = requests.get(BOOTSTRAP_MCES_URL)
-            mce_json_download_response.raise_for_status()
-            tmp_file.write(mce_json_download_response.content)
-        click.echo(f"Downloaded to {path}")
+        path = download_sample_data()
 
     # Verify that docker is up.
     issues = check_local_docker_containers()

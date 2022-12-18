@@ -73,7 +73,7 @@ input SearchInput {
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  orFilters: [OrFilter!]
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -109,7 +109,12 @@ input SearchAcrossEntitiesInput {
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  orFilters: [OrFilter!]
+  orFilters: [AndFilterInput!]
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
 }
 
 """
@@ -155,13 +160,13 @@ input SearchAcrossLineageInput {
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  orFilters: [OrFilter!]
+  orFilters: [AndFilterInput!]
 }
 
 """
 A list of disjunctive criterion for the filter. (or operation to combine filters)
 """
-input OrFilter {
+input AndFilterInput {
   """
   A list of and criteria the filter applies to the query
   """
@@ -556,7 +561,7 @@ input BrowseInput {
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
-  orFilters: [OrFilter!]
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -657,4 +662,29 @@ input FilterInput {
   A list of conjunctive filters
   """
   and: [FacetFilterInput!]!
+}
+
+"""
+A single filter value
+"""
+type FacetFilter {
+  """
+  Name of field to filter by
+  """
+  field: String!
+
+  """
+  Condition for the values.
+  """
+  condition: FilterOperator
+
+  """
+  Values, one of which the intended field should match.
+  """
+  values: [String!]!
+
+  """
+  If the filter should or should not be matched
+  """
+  negated: Boolean
 }

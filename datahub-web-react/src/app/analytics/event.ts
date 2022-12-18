@@ -1,4 +1,4 @@
-import { EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
 
 /**
  * Valid event types.
@@ -49,6 +49,10 @@ export enum EventType {
     DeleteIngestionSourceEvent,
     ExecuteIngestionSourceEvent,
     SsoEvent,
+    CreateViewEvent,
+    UpdateViewEvent,
+    SetGlobalDefaultViewEvent,
+    SetUserDefaultViewEvent,
 }
 
 /**
@@ -383,6 +387,40 @@ export interface SsoEvent extends BaseEvent {
 }
 
 /**
+ * Emitted when a new View is created.
+ */
+export interface CreateViewEvent extends BaseEvent {
+    type: EventType.CreateViewEvent;
+    viewType: DataHubViewType;
+}
+
+/**
+ * Emitted when an existing View is updated.
+ */
+export interface UpdateViewEvent extends BaseEvent {
+    type: EventType.UpdateViewEvent;
+    viewType: DataHubViewType;
+    urn: string;
+}
+
+/**
+ * Emitted when a user sets or clears their personal default view.
+ */
+export interface SetUserDefaultViewEvent extends BaseEvent {
+    type: EventType.SetUserDefaultViewEvent;
+    urn: string | null;
+    viewType: DataHubViewType | null;
+}
+
+/**
+ * Emitted when a user sets or clears the global default view.
+ */
+export interface SetGlobalDefaultViewEvent extends BaseEvent {
+    type: EventType.SetGlobalDefaultViewEvent;
+    urn: string | null;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -430,4 +468,8 @@ export type Event =
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
-    | SsoEvent;
+    | SsoEvent
+    | CreateViewEvent
+    | UpdateViewEvent
+    | SetUserDefaultViewEvent
+    | SetGlobalDefaultViewEvent;

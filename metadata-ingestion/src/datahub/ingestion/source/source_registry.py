@@ -17,6 +17,13 @@ source_registry.register_alias(
         UserWarning("source type snowflake-beta is deprecated, use snowflake instead")
     ),
 )
+source_registry.register_alias(
+    "bigquery-beta",
+    "bigquery",
+    lambda: warnings.warn(
+        UserWarning("source type bigquery-beta is deprecated, use bigquery instead")
+    ),
+)
 
 # The MSSQL source has two possible sets of dependencies. We alias
 # the second to the first so that we maintain the 1:1 mapping between
