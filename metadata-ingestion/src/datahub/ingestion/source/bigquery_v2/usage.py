@@ -488,7 +488,6 @@ class BigQueryUsageExtractor:
     def _create_operation_aspect_work_unit(
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
-
         if not event.read_event and not event.query_event:
             return None
 

@@ -458,7 +458,6 @@ class ClickHouseSource(SQLAlchemySource):
 
         try:
             for db_row in engine.execute(text(query)):
-
                 if not self.config.schema_pattern.allowed(
                     db_row["target_schema"]
                 ) or not self.config.table_pattern.allowed(db_row["target_table"]):
@@ -502,7 +501,6 @@ class ClickHouseSource(SQLAlchemySource):
 
                 # Merging downstreams if dataset already exists and has downstreams
                 if target.dataset.path in self._lineage_map:
-
                     self._lineage_map[
                         target.dataset.path
                     ].upstreams = self._lineage_map[
@@ -525,7 +523,6 @@ class ClickHouseSource(SQLAlchemySource):
             )
 
     def _populate_lineage(self) -> None:
-
         # only dictionaries with clickhouse as a source are supported
         table_lineage_query = textwrap.dedent(
             """\

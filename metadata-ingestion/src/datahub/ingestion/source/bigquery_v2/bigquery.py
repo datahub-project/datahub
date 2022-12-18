@@ -717,7 +717,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         table_identifier = BigqueryTableIdentifier(project_id, dataset_name, view.name)
 
         self.report.report_entity_scanned(table_identifier.raw_table_name(), "view")
@@ -746,7 +745,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         entity_urn: str,
         entity_type: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
@@ -815,7 +813,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         yield from self.gen_dataset_workunits(
             table=table,
             project_id=project_id,
@@ -1027,7 +1024,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         table: Union[BigqueryTable, BigqueryView],
         dataset_name: str,
     ) -> MetadataWorkUnit:
-
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.platform),
@@ -1051,7 +1047,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> List[BigqueryTable]:
-
         bigquery_tables: Optional[List[BigqueryTable]] = (
             self.db_tables[project_id].get(dataset_name)
             if project_id in self.db_tables
@@ -1185,7 +1180,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> List[BigqueryView]:
-
         views = self.db_views.get(project_id)
 
         if not views:
@@ -1202,7 +1196,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         table_identifier: BigqueryTableIdentifier,
         column_limit: Optional[int] = None,
     ) -> List[BigqueryColumn]:
-
         if (
             table_identifier.project_id,
             table_identifier.dataset,

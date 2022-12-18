@@ -69,7 +69,6 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         platform_instance_id: str,
         job_name: JobId,
     ) -> Optional[DatahubIngestionCheckpointClass]:
-
         logger.info(
             f"Querying for the latest ingestion checkpoint for pipelineName:'{pipeline_name}',"
             f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}'"
