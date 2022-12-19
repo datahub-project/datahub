@@ -77,6 +77,7 @@ export default function IngestedAssets({ id }: Props) {
                 ],
             },
         },
+        fetchPolicy: 'cache-first',
     });
 
     // Parse filter values to get results.
