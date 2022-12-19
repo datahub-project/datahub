@@ -52,7 +52,6 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         query: Optional[str],
         fields: List[str],
     ) -> None:
-
         if not self.user_email_pattern.allowed(user_email):
             return
 
@@ -85,7 +84,6 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         format_sql_queries: bool,
         include_top_n_queries: bool,
     ) -> MetadataWorkUnit:
-
         top_sql_queries: Optional[List[str]] = None
         if include_top_n_queries:
             budget_per_query: int = int(

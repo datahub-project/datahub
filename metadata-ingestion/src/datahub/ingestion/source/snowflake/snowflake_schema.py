@@ -3,10 +3,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
+import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
+from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -27,13 +29,8 @@ class SnowflakeFK:
     referred_column_names: List[str]
 
 
-@dataclass
-class SnowflakeColumn:
-    name: str
-    ordinal_position: int
-    is_nullable: bool
-    data_type: str
-    comment: Optional[str]
+@dataclass(frozen=True, eq=True)
+class SnowflakeColumn(BaseColumn):
     character_maximum_length: Optional[int]
     numeric_precision: Optional[int]
     numeric_scale: Optional[int]
@@ -59,34 +56,24 @@ class SnowflakeColumn:
 
 
 @dataclass
-class SnowflakeTable:
-    name: str
-    created: datetime
-    last_altered: datetime
-    size_in_bytes: int
-    rows_count: int
-    comment: Optional[str]
-    clustering_key: str
+class SnowflakeTable(BaseTable):
+    clustering_key: Optional[str] = None
     pk: Optional[SnowflakePK] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
+    sample_data: Optional[pd.DataFrame] = None
 
 
 @dataclass
-class SnowflakeView:
-    name: str
-    created: datetime
-    comment: Optional[str]
-    view_definition: str
-    last_altered: Optional[datetime] = None
+class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
 
 
 @dataclass
 class SnowflakeSchema:
     name: str
-    created: datetime
-    last_altered: datetime
+    created: Optional[datetime]
+    last_altered: Optional[datetime]
     comment: Optional[str]
     tables: List[SnowflakeTable] = field(default_factory=list)
     views: List[SnowflakeView] = field(default_factory=list)
@@ -95,8 +82,9 @@ class SnowflakeSchema:
 @dataclass
 class SnowflakeDatabase:
     name: str
-    created: datetime
+    created: Optional[datetime]
     comment: Optional[str]
+    last_altered: Optional[datetime] = None
     schemas: List[SnowflakeSchema] = field(default_factory=list)
 
 
@@ -104,8 +92,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
     def __init__(self) -> None:
         self.logger = logger
 
-    def get_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
-
+    def show_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
         cur = self.query(
@@ -123,10 +110,30 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
 
         return databases
 
+    def get_databases(
+        self, conn: SnowflakeConnection, db_name: str
+    ) -> List[SnowflakeDatabase]:
+        databases: List[SnowflakeDatabase] = []
+
+        cur = self.query(
+            conn,
+            SnowflakeQuery.get_databases(db_name),
+        )
+
+        for database in cur:
+            snowflake_db = SnowflakeDatabase(
+                name=database["DATABASE_NAME"],
+                created=database["CREATED"],
+                last_altered=database["LAST_ALTERED"],
+                comment=database["COMMENT"],
+            )
+            databases.append(snowflake_db)
+
+        return databases
+
     def get_schemas_for_database(
         self, conn: SnowflakeConnection, db_name: str
     ) -> List[SnowflakeSchema]:
-
         snowflake_schemas = []
 
         cur = self.query(
@@ -223,6 +230,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     # last_altered=table["last_altered"],
                     comment=table["comment"],
                     view_definition=table["text"],
+                    last_altered=table["created_on"],
                 )
             )
         return views
@@ -243,6 +251,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     # last_altered=table["last_altered"],
                     comment=table["comment"],
                     view_definition=table["text"],
+                    last_altered=table["created_on"],
                 )
             )
         return views

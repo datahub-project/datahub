@@ -69,7 +69,6 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         platform_instance_id: str,
         job_name: JobId,
     ) -> Optional[DatahubIngestionCheckpointClass]:
-
         logger.info(
             f"Querying for the latest ingestion checkpoint for pipelineName:'{pipeline_name}',"
             f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}'"
@@ -82,12 +81,11 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             DatahubIngestionCheckpointClass
         ] = self.graph.get_latest_timeseries_value(
             entity_urn=data_job_urn,
-            aspect_name="datahubIngestionCheckpoint",
+            aspect_type=DatahubIngestionCheckpointClass,
             filter_criteria_map={
                 "pipelineName": pipeline_name,
                 "platformInstanceId": platform_instance_id,
             },
-            aspect_type=DatahubIngestionCheckpointClass,
         )
         if latest_checkpoint:
             logger.info(

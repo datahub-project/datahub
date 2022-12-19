@@ -8,9 +8,9 @@ from freezegun import freeze_time
 from tableauserverclient.models import ViewItem
 
 from datahub.configuration.source_common import DEFAULT_ENV
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.tableau_state import TableauCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.tableau import TableauSource
 from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
@@ -145,7 +145,7 @@ def tableau_ingest_common(
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
-) -> Optional[Checkpoint]:
+) -> Optional[Checkpoint[GenericCheckpointState]]:
     tableau_source = cast(TableauSource, pipeline.source)
     return tableau_source.get_current_checkpoint(
         tableau_source.stale_entity_removal_handler.job_id
@@ -320,8 +320,8 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
 
     # Perform all assertions on the states. The deleted table should not be
     # part of the second state
-    state1 = cast(TableauCheckpointState, checkpoint1.state)
-    state2 = cast(TableauCheckpointState, checkpoint2.state)
+    state1 = checkpoint1.state
+    state2 = checkpoint2.state
 
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
@@ -386,3 +386,25 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
     ]
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
+
+
+def test_tableau_no_verify():
+    # This test ensures that we can connect to a self-signed certificate
+    # when ssl_verify is set to False.
+
+    source = TableauSource.create(
+        {
+            "connect_uri": "https://self-signed.badssl.com/",
+            "ssl_verify": False,
+            "site": "bogus",
+            # Credentials
+            "username": "bogus",
+            "password": "bogus",
+        },
+        PipelineContext(run_id="0"),
+    )
+    list(source.get_workunits())
+
+    report = source.get_report().as_string()
+    assert "SSL" not in report
+    assert "Unable to login" in report

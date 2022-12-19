@@ -47,7 +47,6 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
         # Run the metadata ingestion pipeline.
         with fs_helpers.isolated_filesystem(tmp_path):
-
             # Run nifi ingestion run.
             pipeline = Pipeline.create(
                 {

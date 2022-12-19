@@ -1,3 +1,7 @@
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Generic, List, Optional, TypeVar
+
 from pydantic.fields import Field
 
 from datahub.ingestion.api.common import PipelineContext
@@ -12,8 +16,43 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig, SQLAlchemySource
 
 
-class SQLAlchemyGenericConfig(SQLAlchemyConfig):
+@dataclass(frozen=True, eq=True)
+class BaseColumn:
+    name: str
+    ordinal_position: int
+    is_nullable: bool
+    data_type: str
+    comment: Optional[str]
 
+
+SqlTableColumn = TypeVar("SqlTableColumn", bound="BaseColumn")
+
+
+@dataclass
+class BaseTable(Generic[SqlTableColumn]):
+    name: str
+    comment: Optional[str]
+    created: datetime
+    last_altered: Optional[datetime]
+    size_in_bytes: Optional[int]
+    rows_count: Optional[int]
+    columns: List[SqlTableColumn] = field(default_factory=list)
+    ddl: Optional[str] = None
+
+
+@dataclass
+class BaseView(Generic[SqlTableColumn]):
+    name: str
+    comment: Optional[str]
+    created: Optional[datetime]
+    last_altered: Optional[datetime]
+    view_definition: str
+    size_in_bytes: Optional[int] = None
+    rows_count: Optional[int] = None
+    columns: List[SqlTableColumn] = field(default_factory=list)
+
+
+class SQLAlchemyGenericConfig(SQLAlchemyConfig):
     platform: str = Field(
         description="Name of platform being ingested, used in constructing URNs."
     )

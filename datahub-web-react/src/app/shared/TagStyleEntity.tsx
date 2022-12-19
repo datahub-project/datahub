@@ -350,7 +350,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         urn={urn}
                         entityType={EntityType.Tag}
                         entityData={data?.tag}
-                        menuItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+                        menuItems={new Set([EntityMenuItems.DELETE])}
                     />
                 </ActionButtons>
                 {displayColorPicker && (

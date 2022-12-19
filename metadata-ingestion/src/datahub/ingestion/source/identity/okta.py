@@ -187,6 +187,13 @@ class OktaSource(Source):
 
     from your Okta instance.
 
+    Note that any users ingested from this connector will not be able to log into DataHub unless you have Okta OIDC SSO
+    enabled. You can, however, have these users ingested into DataHub before they log in for the first time if you would
+    like to take actions like adding them to a group or assigning them a role.
+
+    For instructions on how to do configure Okta OIDC SSO, please read the documentation
+    [here](https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react-okta).
+
     ### Extracting DataHub Users
 
     #### Usernames
@@ -233,12 +240,7 @@ class OktaSource(Source):
     ### Extracting Group Membership
 
     This connector additional extracts the edges between Users and Groups that are stored in Okta. It maps them to the `GroupMembership` aspect
-    associated with DataHub users (CorpUsers). Today this has the unfortunate side effect of **overwriting** any Group Membership information that
-    was created outside of the connector. That means if you've used the DataHub REST API to assign users to groups, this information will be overridden
-    when the Okta source is executed. If you intend to *always* pull users, groups, and their relationships from your Identity Provider, then
-    this should not matter.
-
-    This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/datahub-project/datahub/issues/3065).
+    associated with DataHub users (CorpUsers).
 
     ### Filtering and Searching
     You can also choose to ingest a subset of users or groups to Datahub by adding flags for filtering or searching. For
@@ -261,7 +263,6 @@ class OktaSource(Source):
         self.okta_client = self._create_okta_client()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         # Step 0: get or create the event loop
         # This method can be called on the main thread or an async thread, so we must create a new loop if one doesn't exist
         # See https://docs.python.org/3/library/asyncio-eventloop.html for more info.
@@ -316,7 +317,6 @@ class OktaSource(Source):
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = {}
         if self.config.ingest_group_membership and okta_groups is not None:
-
             # Fetch membership for each group.
             for okta_group in okta_groups:
                 datahub_corp_group_urn = self._map_okta_group_profile_to_urn(
@@ -363,7 +363,6 @@ class OktaSource(Source):
             for user_count, datahub_corp_user_snapshot in enumerate(
                 datahub_corp_user_snapshots
             ):
-
                 # Add GroupMembership aspect populated in Step 2 if applicable.
                 if (
                     datahub_corp_user_snapshot.urn
@@ -415,9 +414,6 @@ class OktaSource(Source):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        pass
 
     # Instantiates Okta SDK Client.
     def _create_okta_client(self):

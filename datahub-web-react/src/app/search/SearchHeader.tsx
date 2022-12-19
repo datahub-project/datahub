@@ -11,6 +11,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
+import { ViewSelect } from '../entity/view/select/ViewSelect';
 
 const { Header } = Layout;
 
@@ -47,6 +48,10 @@ const NavGroup = styled.div`
     min-width: 200px;
 `;
 
+const ViewSelectContainer = styled.span`
+    margin-right: 14px;
+`;
+
 type Props = {
     initialQuery: string;
     placeholderText: string;
@@ -78,6 +83,7 @@ export const SearchHeader = ({
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
+    const viewsEnabled = appConfig.config?.viewsConfig?.enabled;
 
     return (
         <Header style={styles.header as any}>
@@ -104,6 +110,11 @@ export const SearchHeader = ({
                 />
             </LogoSearchContainer>
             <NavGroup>
+                {viewsEnabled && (
+                    <ViewSelectContainer>
+                        <ViewSelect />
+                    </ViewSelectContainer>
+                )}
                 <HeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>

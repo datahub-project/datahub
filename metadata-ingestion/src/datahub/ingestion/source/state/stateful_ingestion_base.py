@@ -57,12 +57,15 @@ class StatefulIngestionConfig(ConfigModel):
         default=False,
         description="The type of the ingestion state provider registered with datahub.",
     )
-    # fmt: off
-    # 16MB
-    max_checkpoint_state_size: pydantic.PositiveInt = Field(default=2**24, description="The maximum size of the checkpoint state in bytes. Default is 16MB")  # 16MB
-    # fmt: on
+    max_checkpoint_state_size: pydantic.PositiveInt = Field(
+        default=2**24,  # 16 MB
+        description="The maximum size of the checkpoint state in bytes. Default is 16MB",
+        hidden_from_schema=True,
+    )
     state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
-        default=None, description="The ingestion state provider configuration."
+        default=None,
+        description="The ingestion state provider configuration.",
+        hidden_from_schema=True,
     )
     ignore_old_state: bool = Field(
         default=False,
@@ -113,7 +116,6 @@ class StatefulIngestionSourceBase(Source):
     ) -> None:
         super().__init__(ctx)
         self.stateful_ingestion_config = config.stateful_ingestion
-        self.source_config_type = type(config)
         self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
@@ -243,7 +245,6 @@ class StatefulIngestionSourceBase(Source):
             last_checkpoint = Checkpoint[StateType].create_from_checkpoint_aspect(
                 job_name=job_id,
                 checkpoint_aspect=last_checkpoint_aspect,
-                config_class=self.source_config_type,
                 state_class=checkpoint_state_class,
             )
         return last_checkpoint
@@ -323,3 +324,7 @@ class StatefulIngestionSourceBase(Source):
     def prepare_for_commit(self) -> None:
         """NOTE: Sources should call this method from their close method."""
         self._prepare_checkpoint_states_for_commit()
+
+    def close(self) -> None:
+        self.prepare_for_commit()
+        super().close()

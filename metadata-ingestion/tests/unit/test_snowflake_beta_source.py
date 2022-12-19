@@ -1,10 +1,12 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationError, OauthConfiguration
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCloudProvider
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 
 
@@ -91,8 +93,21 @@ def test_account_id_is_added_when_host_port_is_present():
     assert config.account_id == "acctname"
 
 
-def test_snowflake_uri_default_authentication():
+def test_account_id_with_snowflake_host_suffix():
+    config = SnowflakeV2Config.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "account_id": "https://acctname.snowflakecomputing.com",
+            "database_pattern": {"allow": {"^demo$"}},
+            "warehouse": "COMPUTE_WH",
+            "role": "sysadmin",
+        }
+    )
+    config.account_id == "acctname"
 
+
+def test_snowflake_uri_default_authentication():
     config = SnowflakeV2Config.parse_obj(
         {
             "username": "user",
@@ -112,7 +127,6 @@ def test_snowflake_uri_default_authentication():
 
 
 def test_snowflake_uri_external_browser_authentication():
-
     config = SnowflakeV2Config.parse_obj(
         {
             "username": "user",
@@ -132,7 +146,6 @@ def test_snowflake_uri_external_browser_authentication():
 
 
 def test_snowflake_uri_key_pair_authentication():
-
     config = SnowflakeV2Config.parse_obj(
         {
             "username": "user",
@@ -168,6 +181,38 @@ def test_options_contain_connect_args():
     assert connect_args is not None
 
 
+def test_snowflake_config_with_view_lineage_no_table_lineage_throws_error():
+    with pytest.raises(ValidationError):
+        SnowflakeV2Config.parse_obj(
+            {
+                "username": "user",
+                "password": "password",
+                "host_port": "acctname",
+                "database_pattern": {"allow": {"^demo$"}},
+                "warehouse": "COMPUTE_WH",
+                "role": "sysadmin",
+                "include_view_lineage": True,
+                "include_table_lineage": False,
+            }
+        )
+
+
+def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
+    with pytest.raises(ValidationError):
+        SnowflakeV2Config.parse_obj(
+            {
+                "username": "user",
+                "password": "password",
+                "host_port": "acctname",
+                "database_pattern": {"allow": {"^demo$"}},
+                "warehouse": "COMPUTE_WH",
+                "role": "sysadmin",
+                "include_column_lineage": True,
+                "include_table_lineage": False,
+            }
+        )
+
+
 @patch("snowflake.connector.connect")
 def test_test_connection_failure(mock_connect):
     mock_connect.side_effect = Exception("Failed to connect to snowflake")
@@ -188,7 +233,6 @@ def test_test_connection_failure(mock_connect):
 
 @patch("snowflake.connector.connect")
 def test_test_connection_basic_success(mock_connect):
-
     config = {
         "username": "user",
         "password": "password",
@@ -400,3 +444,61 @@ def test_test_connection_capability_all_success(mock_connect):
     assert report.capability_report[SourceCapability.DATA_PROFILING].capable
     assert report.capability_report[SourceCapability.DESCRIPTIONS].capable
     assert report.capability_report[SourceCapability.LINEAGE_COARSE].capable
+
+
+def test_aws_cloud_region_from_snowflake_region_id():
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("aws_ca_central_1")
+
+    assert cloud == SnowflakeCloudProvider.AWS
+    assert cloud_region_id == "ca-central-1"
+
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("aws_us_east_1_gov")
+
+    assert cloud == SnowflakeCloudProvider.AWS
+    assert cloud_region_id == "us-east-1"
+
+
+def test_google_cloud_region_from_snowflake_region_id():
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id("gcp_europe_west2")
+
+    assert cloud == SnowflakeCloudProvider.GCP
+    assert cloud_region_id == "europe-west2"
+
+
+def test_azure_cloud_region_from_snowflake_region_id():
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+        "azure_switzerlandnorth"
+    )
+
+    assert cloud == SnowflakeCloudProvider.AZURE
+    assert cloud_region_id == "switzerlandnorth"
+
+    (
+        cloud,
+        cloud_region_id,
+    ) = SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+        "azure_centralindia"
+    )
+
+    assert cloud == SnowflakeCloudProvider.AZURE
+    assert cloud_region_id == "central-india.azure"
+
+
+def test_unknown_cloud_region_from_snowflake_region_id():
+    with pytest.raises(Exception) as e:
+        SnowflakeV2Source.get_cloud_region_from_snowflake_region_id(
+            "somecloud_someregion"
+        )
+    assert "Unknown snowflake region" in str(e)

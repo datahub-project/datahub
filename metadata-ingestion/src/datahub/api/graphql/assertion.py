@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class Assertion(BaseApi):
-
     ASSERTION_QUERY = """
 query dataset($urn: String!, $start: Int, $count: Int, $status: AssertionRunStatus,$limit: Int, $startTimeMillis:Long, $endTimeMillis:Long, $filter:FilterInput) {
   dataset(urn: $urn) {
