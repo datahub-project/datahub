@@ -1895,13 +1895,14 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       @Nonnull final Long nextVersion,
       @Nullable final ExtraIngestParams extraIngestParams) {
 
-    // 1. Compare the latest existing and new.
     final RecordTemplate oldValue =
         latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
-    final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
-    // 2. Check if the condition update is met
+    // 1. Check if the condition update is met
     checkConditionalUpdate(latest, extraIngestParams);
+
+    // 2. Compare the latest existing and new.
+    final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
     // 3. If there is no difference between existing and new, we just update
     // the lastObserved in system metadata. RunId should stay as the original runId
@@ -2050,13 +2051,17 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     if (_aspectDao.supportTransactions() && updateIfCreatedOn != null) {
       long updateIfCreatedOnValue = updateIfCreatedOn.longValue();
       if (oldAspect != null && updateIfCreatedOnValue == 0) {
-        throw new PreconditionFailedException("Conditional Update value must be greater then 0 for update operation");
+        throw new PreconditionFailedException("Conditional Update value must be greater then 0 for update operation,"
+                + "expected value is " + oldAspect.getCreatedOn().getTime());
       }
       if (oldAspect == null && updateIfCreatedOnValue != 0) {
-        throw new PreconditionFailedException("Conditional Update value must be 0 for insert operation");
+        throw new PreconditionFailedException("Conditional Update value must be 0 for insert operation or "
+                + "null if you don't want to apply the condition");
       }
       if (updateIfCreatedOnValue != 0 && oldAspect != null && oldAspect.getCreatedOn().getTime() != updateIfCreatedOnValue) {
-        throw new PreconditionFailedException("Condition for Conditional Update is not met");
+        throw new PreconditionFailedException("Condition for Conditional Update is not met. Received value is "
+                + updateIfCreatedOnValue + ", but expected value was " + oldAspect.getCreatedOn().getTime()
+                + ". Last update was done by " + oldAspect.getCreatedBy());
       }
     }
   }

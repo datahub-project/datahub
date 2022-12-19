@@ -532,7 +532,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null, extraIngestParams));
     ResultSet resultSet = _cqlSession.execute(batch);
     if (!resultSet.wasApplied()) {
-      throw new PreconditionFailedException("Condition for Conditional Update is not met");
+      throw new PreconditionFailedException("Condition for Conditional Update is not met. Received value is "
+              + updateIfCreatedOnValue + ", but expected value was " + oldAspect.getCreatedOn().getTime()
+              + ". Last update was done by " + oldAspect.getCreatedBy());
     }
     return largestVersion;
   }
@@ -558,7 +560,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()));
       if (updateIfCreatedOn != null) {
         if (updateIfCreatedOn != 0) {
-          throw new PreconditionFailedException("Conditional Update value must be 0 for insert operation");
+          throw new PreconditionFailedException("Conditional Update value must be 0 for insert operation or "
+                  + "null if you don't want to apply the condition");
         }
         ri = ri.ifNotExists();
       }
@@ -578,7 +581,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
       if (updateIfCreatedOn != null) {
         if (updateIfCreatedOn == 0) {
-          throw new PreconditionFailedException("Conditional Update value must be greater then 0 for update operation");
+          throw new PreconditionFailedException("Conditional Update value must be greater then 0 for update operation,"
+                  + "expected value is " + oldAspect.getCreatedOn().getTime());
         }
         u = u.ifColumn(CassandraAspect.CREATED_ON_COLUMN).isEqualTo(literal(updateIfCreatedOn));
       } else {
