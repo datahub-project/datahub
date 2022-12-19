@@ -143,6 +143,39 @@ springKafkaConfigurationOverrides:
 
 Then simply apply the updated `values.yaml` to your K8s cluster via `kubectl apply`. 
 
+#### DataHub Actions
+
+Configuring Confluent Cloud for DataHub Actions requires some additional edits to your `executor.yaml`. Under the Kafka
+source connection config you will need to add the Python style client connection information:
+
+```yaml
+    connection:
+        bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+        schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+        consumer_config:
+          security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+          sasl.mechanism: ${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}
+          sasl.username: ${KAFKA_PROPERTIES_SASL_USERNAME}
+          sasl.password: ${KAFKA_PROPERTIES_SASL_PASSWORD}
+```
+
+Specifically `sasl.username` and `sasl.password` are the differences from the base `executor.yaml` example file.
+
+Additionally, you will need to set up secrets for `KAFKA_PROPERTIES_SASL_USERNAME` and `KAFKA_PROPERTIES_SASL_PASSWORD`
+which will use the same username and API Key you generated for the JAAS config.
+
+```yaml
+credentialsAndCertsSecrets:
+  name: confluent-secrets
+  secureEnv:
+    sasl.jaas.config: sasl_jaas_config
+    basic.auth.user.info: basic_auth_user_info
+    sasl.username: sasl_username
+    sasl.password: sasl_password
+```
+
+The Actions pod will automatically pick these up in the correctly named environment variables when they are named this exact way.
+
 ## Contribution
 Accepting contributions for a setup script compatible with Confluent Cloud!
 
