@@ -15,7 +15,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 public class GraphIndexUtils {
@@ -28,8 +27,8 @@ public class GraphIndexUtils {
       return null;
     }
     final PathSpec actorPathSpec = new PathSpec(path.split("/"));
-    final Optional<Object> value = RecordUtils.getFieldValue(aspect, actorPathSpec);
-    return (List<Urn>) value.orElse(null);
+    final Object value = RecordUtils.getNullableFieldValue(aspect, actorPathSpec);
+    return (List<Urn>) value;
   }
 
   @Nullable
@@ -38,18 +37,18 @@ public class GraphIndexUtils {
       return null;
     }
     final PathSpec timestampPathSpec = new PathSpec(path.split("/"));
-    final Optional<Object> value = RecordUtils.getFieldValue(aspect, timestampPathSpec);
-    return (List<Long>) value.orElse(null);
+    final Object value = RecordUtils.getNullableFieldValue(aspect, timestampPathSpec);
+    return (List<Long>) value;
   }
 
   @Nullable
-  private static List<Map<String,Object>> getPropertiesList(@Nullable final String path, @Nonnull final RecordTemplate aspect) {
+  private static List<Map<String, Object>> getPropertiesList(@Nullable final String path, @Nonnull final RecordTemplate aspect) {
     if (path == null) {
       return null;
     }
     final PathSpec propertiesPathSpec = new PathSpec(path.split("/"));
-    final Optional<Object> value = RecordUtils.getFieldValue(aspect, propertiesPathSpec);
-    return (List<Map<String,Object>>) value.orElse(null);
+    final Object value = RecordUtils.getNullableFieldValue(aspect, propertiesPathSpec);
+    return (List<Map<String, Object>>) value;
   }
 
 
@@ -84,7 +83,7 @@ public class GraphIndexUtils {
   }
 
   @Nullable
-  private static Map<String,Object> getProperties(@Nullable final List<Map<String,Object>> propertiesList, final int index, final int valueListSize) {
+  private static Map<String, Object> getProperties(@Nullable final List<Map<String, Object>> propertiesList, final int index, final int valueListSize) {
     if (isValueListValid(propertiesList, valueListSize)) {
       return propertiesList.get(index);
     }
@@ -117,11 +116,11 @@ public class GraphIndexUtils {
 
     int index = 0;
     for (Object fieldValue : extractedFieldsEntry.getValue()) {
-      Long createdOn = getTimestamp(createdOnList, index, extractedFieldsEntry.getValue().size());
-      Urn createdActor = getActor(createdActorList, index, extractedFieldsEntry.getValue().size());
-      final Long updatedOn = getTimestamp(updatedOnList, index, extractedFieldsEntry.getValue().size());
-      final Urn updatedActor = getActor(updatedActorList, index, extractedFieldsEntry.getValue().size());
-      final Map<String, Object> properties = getProperties(propertiesList, index, extractedFieldsEntry.getValue().size());
+      Long createdOn = createdOnList != null ? getTimestamp(createdOnList, index, extractedFieldsEntry.getValue().size()) : null;
+      Urn createdActor = createdActorList != null ? getActor(createdActorList, index, extractedFieldsEntry.getValue().size()) : null;
+      final Long updatedOn = updatedOnList != null ? getTimestamp(updatedOnList, index, extractedFieldsEntry.getValue().size()) : null;
+      final Urn updatedActor = updatedActorList != null ? getActor(updatedActorList, index, extractedFieldsEntry.getValue().size()) : null;
+      final Map<String, Object> properties = propertiesList != null ? getProperties(propertiesList, index, extractedFieldsEntry.getValue().size()) : null;
 
       if (createdOn == null && event.hasSystemMetadata()) {
         createdOn = event.getSystemMetadata().getLastObserved();

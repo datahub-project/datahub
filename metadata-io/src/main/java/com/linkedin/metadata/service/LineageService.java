@@ -132,19 +132,6 @@ public class LineageService {
       upstreamsToAdd.add(upstreamUrn);
     }
 
-    // need to backfill old data without new created field in order to index properly in GraphIndexUtils
-    // otherwise we can't set createdOn and createdActor on graph index if not all fields have created
-    // same thing with properties - if properties were not set, it came from ingestion
-    for (Upstream upstream : upstreams) {
-      if (!upstream.hasCreated()) {
-        upstream.setCreated(upstream.getAuditStamp());
-      }
-      if (!upstream.hasProperties()) {
-        final StringMap properties = new StringMap();
-        properties.put(SOURCE_FIELD_NAME, INGESTION_SOURCE);
-        upstream.setProperties(properties);
-      }
-    }
 
     for (final Urn upstreamUrn : upstreamsToAdd) {
       final Upstream newUpstream = new Upstream();

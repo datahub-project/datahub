@@ -95,7 +95,13 @@ public class ElasticSearchGraphService implements GraphService {
         if (entry.getValue() instanceof String) {
           propertiesObject.put(entry.getKey(), (String) entry.getValue());
         } else {
-          propertiesObject.set(entry.getKey(), (JsonNode) entry.getValue());
+          throw new UnsupportedOperationException(
+              String.format(
+                  "Tried setting properties on graph edge but property value type is not supported. Key: %s, Value: %s ",
+                  entry.getKey(),
+                  entry.getValue()
+              )
+          );
         }
       }
       searchDocument.set("properties", propertiesObject);
