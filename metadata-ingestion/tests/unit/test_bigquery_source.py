@@ -47,7 +47,6 @@ def test_bigquery_uri_with_credential():
     )
 
     try:
-
         assert config.get_sql_alchemy_url() == "bigquery://test-project"
         assert config._credentials_path
 
@@ -251,7 +250,6 @@ def test_bq_get_profile_candidate_query_no_row_limit():
 
 
 def test_bq_get_profile_candidate_query_all_null():
-
     config = BigQueryConfig.parse_obj(
         {
             "profiling": {
@@ -307,7 +305,6 @@ def test_bq_get_profile_candidate_query_only_days():
 
 
 def test_bq_get_profile_candidate_query_only_size():
-
     config = BigQueryConfig.parse_obj(
         {
             "profiling": {

@@ -361,7 +361,6 @@ class ModeSource(Source):
     def construct_chart_custom_properties(
         self, chart_detail: dict, chart_type: str
     ) -> Dict:
-
         custom_properties = {}
         metadata = chart_detail.get("encoding", {})
         if chart_type == "table":
@@ -447,7 +446,6 @@ class ModeSource(Source):
     def _get_platform_and_dbname(
         self, data_source_id: int
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
-
         data_sources = []
         try:
             ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")
