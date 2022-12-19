@@ -182,7 +182,7 @@ def test_bigquery_table_sanitasitation():
     assert table_ref.table_identifier.table == "foo_*"
     assert table_ref.table_identifier.project_id == "project-1234"
     assert table_ref.table_identifier.dataset == "dataset-4567"
-    assert table_ref.table_identifier.is_sharded_table() == True
+    assert table_ref.table_identifier.is_sharded_table()
     assert table_ref.table_identifier.get_table_display_name() == "foo"
 
     table_ref = BigQueryTableRef(
@@ -200,7 +200,7 @@ def test_bigquery_table_sanitasitation():
     )
     new_table_identifier = table_ref.table_identifier
     assert new_table_identifier.table == "foo_20222110"
-    assert new_table_identifier.is_sharded_table() == True
+    assert new_table_identifier.is_sharded_table()
     assert new_table_identifier.get_table_display_name() == "foo"
     assert new_table_identifier.project_id == "project-1234"
     assert new_table_identifier.dataset == "dataset-4567"
@@ -219,7 +219,7 @@ def test_bigquery_table_sanitasitation():
         BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2016*")
     )
     table_identifier = table_ref.table_identifier
-    assert table_identifier.is_sharded_table() == True
+    assert table_identifier.is_sharded_table()
     assert table_identifier.project_id == "project-1234"
     assert table_identifier.dataset == "dataset-4567"
     assert table_identifier.table == "foo_2016*"

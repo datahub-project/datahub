@@ -7,7 +7,6 @@ from dateutil.relativedelta import relativedelta
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
-from datahub.ingestion.api.common import WorkUnit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config

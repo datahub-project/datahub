@@ -12,7 +12,6 @@ from google.cloud.bigquery.table import TableListItem
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
-    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -29,7 +28,7 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
     wrap_aspect_as_workunit,
 )
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -641,14 +640,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for table in self.db_tables[project_id][dataset]
             ]
         for dataset in self.db_views[project_id]:
-            if not tables[dataset]:
-                tables[dataset] = [
-                    table.name for table in self.db_views[project_id][dataset]
-                ]
-            else:
-                tables[dataset].extend(
-                    [table.name for table in self.db_views[project_id][dataset]]
-                )
+            tables[dataset].extend(
+                [table.name for table in self.db_views[project_id][dataset]]
+            )
         yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
 
     def _process_schema(
