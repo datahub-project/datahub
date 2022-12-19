@@ -515,7 +515,6 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
         pipeline_run1 = Pipeline.create(
             {
@@ -569,7 +568,6 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
 
         pipeline_run2 = Pipeline.create(

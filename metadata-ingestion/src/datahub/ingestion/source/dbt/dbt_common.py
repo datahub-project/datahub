@@ -993,7 +993,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
         for node in dbt_nodes:
-
             node_datahub_urn = node.get_urn(
                 mce_platform,
                 self.config.env,

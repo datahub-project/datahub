@@ -528,7 +528,6 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
     output_file = tmp_path / "dbt_stateful_tests.json"
     golden_path = test_resources_dir / "dbt_stateful_tests_golden.json"
