@@ -360,7 +360,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         state1 = cast(DbtCheckpointState, checkpoint1.state)
         state2 = cast(DbtCheckpointState, checkpoint2.state)
         difference_urns = list(
-            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
         )
 
         assert len(difference_urns) == 2
@@ -454,7 +454,6 @@ def test_dbt_state_backward_compatibility(
             pipeline_name=dbt_source.ctx.pipeline_name,
             platform_instance_id=dbt_source.get_platform_instance_id(),
             run_id=dbt_source.ctx.run_id,
-            config=dbt_source.config,
             state=sql_state,
         )
 
@@ -529,7 +528,6 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
     output_file = tmp_path / "dbt_stateful_tests.json"
     golden_path = test_resources_dir / "dbt_stateful_tests_golden.json"

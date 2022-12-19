@@ -3,7 +3,7 @@ from typing import List
 import pydantic
 import pytest
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, redact_raw_config
 
 
 def test_extras_not_allowed():
@@ -49,3 +49,26 @@ def test_default_object_copy():
 
     assert config_2.items == []
     assert config_2.items_field == []
+
+
+def test_config_redaction():
+    obj = {
+        "config": {
+            "password": "this_is_sensitive",
+            "aws_key_id": "${AWS_KEY_ID}",
+            "projects": ["default"],
+            "options": {},
+        },
+        "options": {"foo": "bar"},
+    }
+
+    redacted = redact_raw_config(obj)
+    assert redacted == {
+        "config": {
+            "password": "********",
+            "aws_key_id": "${AWS_KEY_ID}",
+            "projects": ["default"],
+            "options": {},
+        },
+        "options": "********",
+    }

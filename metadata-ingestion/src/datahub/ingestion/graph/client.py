@@ -152,7 +152,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Deserialize the aspect json into the aspect type.
         aspect_json = response_json.get("aspect", {}).get(aspect_type_name)
-        if aspect_json:
+        if aspect_json is not None:
             # need to apply a transform to the response to match rest.li and avro serialization
             post_json_obj = post_json_transform(aspect_json)
             return aspect_type.from_obj(post_json_obj)
@@ -274,7 +274,6 @@ class DataHubGraph(DatahubRestEmitter):
     def get_latest_timeseries_value(
         self,
         entity_urn: str,
-        aspect_name: str,
         aspect_type: Type[Aspect],
         filter_criteria_map: Dict[str, str],
     ) -> Optional[Aspect]:
@@ -285,7 +284,7 @@ class DataHubGraph(DatahubRestEmitter):
         query_body = {
             "urn": entity_urn,
             "entity": guess_entity_type(entity_urn),
-            "aspect": aspect_name,
+            "aspect": aspect_type.ASPECT_NAME,
             "latestValue": True,
             "filter": {"or": [{"and": filter_criteria}]},
         }

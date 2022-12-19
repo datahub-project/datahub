@@ -121,7 +121,6 @@ def check_golden_file(
     golden_path: Union[str, os.PathLike],
     ignore_paths: Optional[List[str]] = None,
 ) -> None:
-
     update_golden = pytestconfig.getoption("--update-golden-files")
     copy_output = pytestconfig.getoption("--copy-output-files")
     golden_exists = os.path.isfile(golden_path)

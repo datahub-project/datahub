@@ -8,6 +8,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple
 from dateutil import parser
 
 from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.ingestion.source.bigquery_v2.common import BQ_SHARDED_TABLE_SUFFIX
 from datahub.utilities.parsing_util import (
     get_first_missing_key,
     get_first_missing_key_any,
@@ -79,6 +80,7 @@ class BigqueryTableIdentifier:
 
     invalid_chars: ClassVar[Set[str]] = {"$", "@"}
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = "((.+)[_$])?(\\d{8})$"
+    _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
 
     @staticmethod
     def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
@@ -104,7 +106,9 @@ class BigqueryTableIdentifier:
     def get_table_display_name(self) -> str:
         shortened_table_name = self.table
         # if table name ends in _* or * then we strip it as that represents a query on a sharded table
-        shortened_table_name = re.sub("(_(.+)?\\*)|\\*$", "", shortened_table_name)
+        shortened_table_name = re.sub(
+            self._BIGQUERY_WILDCARD_REGEX, "", shortened_table_name
+        )
 
         table_name, _ = self.get_table_and_shard(shortened_table_name)
         if not table_name:
@@ -126,7 +130,26 @@ class BigqueryTableIdentifier:
         return table_name
 
     def get_table_name(self) -> str:
-        return f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
+        table_name: str = (
+            f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
+        )
+        if self.is_sharded_table():
+            table_name = f"{table_name}{BQ_SHARDED_TABLE_SUFFIX}"
+        return table_name
+
+    def is_sharded_table(self) -> bool:
+        _, shard = self.get_table_and_shard(self.raw_table_name())
+        if shard:
+            return True
+
+        if re.match(
+            f".*({BigqueryTableIdentifier._BIGQUERY_WILDCARD_REGEX})",
+            self.raw_table_name(),
+            re.IGNORECASE,
+        ):
+            return True
+
+        return False
 
     def __str__(self) -> str:
         return self.get_table_name()
@@ -329,7 +352,6 @@ class QueryEvent:
     def from_exported_bigquery_audit_metadata(
         cls, row: BigQueryAuditMetadata, debug_include_full_payloads: bool = False
     ) -> "QueryEvent":
-
         payload: Dict = row["protoPayload"]
         metadata: Dict = json.loads(row["metadata"])
         job: Dict = metadata["jobChange"]["job"]
