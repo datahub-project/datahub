@@ -264,6 +264,7 @@ export const TARGET_PLATFORM: RecipeField = {
         { label: 'Redshift', value: 'redshift' },
         { label: 'Postgres', value: 'postgres' },
         { label: 'Trino (Starburst)', value: 'trino' },
+        { label: 'Databricks', value: 'databricks' },
     ],
     fieldPath: 'source.config.target_platform',
     required: true,
