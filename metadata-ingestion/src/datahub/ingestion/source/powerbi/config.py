@@ -118,13 +118,17 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_ownership: bool = pydantic.Field(
         default=True, description="Whether ownership should be ingested"
     )
+    # Enable/Disable extracting report information
+    extract_reports: bool = pydantic.Field(
+        default=True, description="Whether reports should be ingested"
+    )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
         default=True, description="Whether lineage should be ingested"
     )
-    # Enable/Disable extracting report information
-    extract_reports: bool = pydantic.Field(
-        default=True, description="Whether reports should be ingested"
+    # Enable/Disable extracting lineage information from PowerBI Native query
+    native_query_parsing: bool = pydantic.Field(
+        default=True, description="Whether PowerBI native query should be parsed to extract lineage"
     )
 
     @validator("dataset_type_mapping")
