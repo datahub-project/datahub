@@ -6,7 +6,9 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import get_url_and_token
-from datahub.ingestion.api.ingestion_job_state_provider import IngestionJobStateProvider
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
+    IngestionCheckpointingProviderBase,
+)
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -49,7 +51,7 @@ def inspect(pipeline_name: str, platform: str, platform_instance: str) -> None:
 
     job_name = StaleEntityRemovalHandler.compute_job_id(platform)
 
-    data_job_urn = IngestionJobStateProvider.get_data_job_urn(
+    data_job_urn = IngestionCheckpointingProviderBase.get_data_job_urn(
         DatahubIngestionCheckpointingProvider.orchestrator_name,
         pipeline_name,
         job_name,

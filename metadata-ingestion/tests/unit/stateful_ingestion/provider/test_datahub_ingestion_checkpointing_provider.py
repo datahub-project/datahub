@@ -22,6 +22,7 @@ from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpoin
 from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider import (
     DatahubIngestionCheckpointingProvider,
 )
+from tests.test_helpers.type_helpers import assert_not_null
 
 
 class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
@@ -137,11 +138,11 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         # 2. Set the provider's state_to_commit.
         self.provider.state_to_commit = {
             # NOTE: state_to_commit accepts only the aspect version of the checkpoint.
-            self.job_names[0]: job1_checkpoint.to_checkpoint_aspect(
-                max_allowed_state_size=2**20
+            self.job_names[0]: assert_not_null(
+                job1_checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20)
             ),
-            self.job_names[1]: job2_checkpoint.to_checkpoint_aspect(
-                max_allowed_state_size=2**20
+            self.job_names[1]: assert_not_null(
+                job2_checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20)
             ),
         }
 
