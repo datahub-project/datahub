@@ -27,9 +27,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
-
-from datahub.ingestion.source.powerbi.m_query import resolver
-from datahub.ingestion.source.powerbi.m_query import parser
+from datahub.ingestion.source.powerbi.m_query import parser, resolver
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
@@ -162,17 +160,25 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 # Check if upstreams table is available, parse them and create dataset URN for each upstream table
                 upstreams: List[UpstreamClass] = []
-                upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
-                    table, self.__reporter
-                )
+                upstream_tables: List[
+                    resolver.DataPlatformTable
+                ] = parser.get_upstream_tables(table, self.__reporter)
                 for upstream_table in upstream_tables:
-                    if upstream_table.data_platform_pair.powerbi_data_platform_name not in self.__config.dataset_type_mapping[upstream_table.platform_type]:
+                    if (
+                        upstream_table.data_platform_pair.powerbi_data_platform_name
+                        not in self.__config.dataset_type_mapping.keys()
+                    ):
+                        LOGGER.debug("Skipping upstream table for %s", ds_urn)
                         continue
 
                     platform: Union[
                         str, PlatformDetail
-                    ] = self.__config.dataset_type_mapping[upstream_table.platform_type]
-                    platform_name: str = upstream_table.data_platform_pair.datahub_data_platform_name
+                    ] = self.__config.dataset_type_mapping[
+                        upstream_table.data_platform_pair.powerbi_data_platform_name
+                    ]
+                    platform_name: str = (
+                        upstream_table.data_platform_pair.datahub_data_platform_name
+                    )
                     platform_instance_name: Optional[str] = None
                     platform_env: str = DEFAULT_ENV
                     # Determine if PlatformDetail is provided
@@ -731,10 +737,12 @@ class PowerBiDashboardSource(Source):
         return cls(config, ctx)
 
     def validate_dataset_type_mapping(self):
-        powerbi_data_platforms: List[str] = [data_platform.get_data_platform_pair().powerbi_data_platform_name for data_platform
-                                             in resolver.SupportedDataPlatform]
+        powerbi_data_platforms: List[str] = [
+            data_platform.value.powerbi_data_platform_name
+            for data_platform in resolver.SupportedDataPlatform
+        ]
 
-        for key in self.source_config.keys():
+        for key in self.source_config.dataset_type_mapping.keys():
             if key not in powerbi_data_platforms:
                 raise ValueError(f"PowerBI DataPlatform {key} is not supported")
 

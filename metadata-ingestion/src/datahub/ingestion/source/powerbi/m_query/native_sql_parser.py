@@ -1,7 +1,7 @@
 import logging
+from typing import List
 
 import sqlparse
-from typing import List
 
 SPECIAL_CHARACTERS = ["#(lf)", "(lf)"]
 
@@ -26,9 +26,12 @@ def get_tables(native_query: str) -> List[str]:
     length: int = len(tokens)
     from_index: int = -1
     for index, token in enumerate(tokens):
-        LOGGER.debug("%s=%s",  token.value, token.ttype)
-        if token.value.lower().strip() == "from" and str(token.ttype) == "Token.Keyword":
-            from_index = index+1
+        LOGGER.debug("%s=%s", token.value, token.ttype)
+        if (
+            token.value.lower().strip() == "from"
+            and str(token.ttype) == "Token.Keyword"
+        ):
+            from_index = index + 1
             break
 
     table_name = None

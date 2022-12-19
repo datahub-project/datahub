@@ -1,7 +1,6 @@
 import logging
-from typing import Optional, List, Union, cast, Any
-
 from functools import partial
+from typing import Any, List, Optional, Union, cast
 
 from lark import Token, Tree
 
@@ -136,12 +135,14 @@ def get_all_function_name(tree: Tree) -> List[str]:
 
 
 def flat_argument_list(tree: Tree) -> List[Tree]:
-    values: List[str] = []
+    values: List[Tree] = []
 
     for child in tree.children:
         if isinstance(child, Token):
             continue
-        if isinstance(child, Tree) and (child.data == "argument_list" or child.data == "expression"):
+        if isinstance(child, Tree) and (
+            child.data == "argument_list" or child.data == "expression"
+        ):
             values.append(child)
 
     return values
@@ -155,5 +156,3 @@ first_primary_expression_func = partial(get_first_rule, rule="primary_expression
 first_identifier_func = partial(get_first_rule, rule="identifier")
 first_invoke_expression_func = partial(get_first_rule, rule="invoke_expression")
 first_type_expression_func = partial(get_first_rule, rule="type_expression")
-
-

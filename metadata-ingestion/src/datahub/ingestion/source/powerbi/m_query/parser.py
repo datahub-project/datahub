@@ -1,15 +1,13 @@
 import importlib.resources as pkg_resource
 import logging
-from typing import List, Optional
+from typing import List, cast
 
 import lark
 from lark import Lark, Tree
 
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
-
+from datahub.ingestion.source.powerbi.m_query import resolver, validator
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
-from datahub.ingestion.source.powerbi.m_query import validator
-from datahub.ingestion.source.powerbi.m_query import resolver
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,13 +43,12 @@ def get_upstream_tables(
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
-        valid, message = validator.validate_parse_tree(parse_tree, native_query_enabled=native_query_enabled)
+        valid, message = validator.validate_parse_tree(
+            parse_tree, native_query_enabled=native_query_enabled
+        )
         if valid is False:
-            LOGGER.debug("Validation failed: %s", message)
-            reporter.report_warning(
-                table.full_name,
-                message
-            )
+            LOGGER.debug("Validation failed: %s", cast(str, message))
+            reporter.report_warning(table.full_name, cast(str, message))
             return []
     except lark.exceptions.UnexpectedCharacters as e:
         LOGGER.debug(f"Fail to parse expression {table.expression}", exc_info=e)

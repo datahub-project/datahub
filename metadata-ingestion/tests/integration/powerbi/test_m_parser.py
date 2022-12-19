@@ -2,14 +2,10 @@ from typing import List
 
 from lark import Tree
 
-from datahub.ingestion.source.powerbi.m_query import (
-    parser,
-    tree_function
-)
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
+from datahub.ingestion.source.powerbi.m_query import parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.resolver import (
     DataPlatformTable,
-    SupportedResolver,
     SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
@@ -174,8 +170,8 @@ def test_oracle_regular_case():
     assert data_platform_tables[0].name == "EMPLOYEES"
     assert data_platform_tables[0].full_name == "salesdb.HR.EMPLOYEES"
     assert (
-            data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-            == SupportedDataPlatform.ORACLE.value.powerbi_data_platform_name
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.ORACLE.value.powerbi_data_platform_name
     )
 
 
@@ -236,8 +232,8 @@ def test_mssql_with_query():
         assert data_platform_tables[0].name == expected_tables[index].split(".")[2]
         assert data_platform_tables[0].full_name == expected_tables[index]
         assert (
-                data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-                == SupportedDataPlatform.MS_SQL.value.powerbi_data_platform_name
+            data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+            == SupportedDataPlatform.MS_SQL.value.powerbi_data_platform_name
         )
 
 
@@ -272,8 +268,8 @@ def test_snowflake_native_query():
         assert data_platform_tables[0].name == expected_tables[index].split(".")[2]
         assert data_platform_tables[0].full_name == expected_tables[index]
         assert (
-                data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-                == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+            data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+            == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
         )
 
 
@@ -291,4 +287,3 @@ def test_native_query_disabled():
     )
 
     assert len(data_platform_tables) == 0
-
