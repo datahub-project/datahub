@@ -437,9 +437,7 @@ class ModelProcessor:
             for x in model_group_names
         ]
 
-        model_browsepaths = [
-            f"/sagemaker/{x}" for x in model_group_names
-        ]
+        model_browsepaths = [f"/sagemaker/{x}" for x in model_group_names]
 
         # if model is not in any groups, set a single browsepath with the model as the first entity
         if not model_browsepaths:
