@@ -430,13 +430,44 @@ class SnowflakeTableFullNameCreator(AbstractTableFullNameCreator):
 
 class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
     def get_platform_pair(self) -> DataPlatformPair:
-        return SupportedDataPlatform.POSTGRES_SQL.value
+        return SupportedDataPlatform.SNOWFLAKE.value
 
     def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
-        print("===NATIVE========")
-        for source in token_dict:
-            print(tree_function.token_values(token_dict[source]["arg_list"]))
-        return []
+        full_table_names: List[str] = []
+        data_access_dict: Dict[str, Any] = list(token_dict.values())[0]
+        t1: Tree = tree_function.first_arg_list_func(data_access_dict["arg_list"])
+        flat_argument_list: List[Tree] = tree_function.flat_argument_list(t1)
+
+        if len(flat_argument_list) != 2:
+            LOGGER.debug("Expecting 2 argument, actual argument count is %s", len(flat_argument_list))
+            LOGGER.debug("Flat argument list = %s", flat_argument_list)
+            return full_table_names
+
+        data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
+            tree_function.token_values(flat_argument_list[0])
+        )
+        if data_access_tokens[0] != SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name:
+            LOGGER.debug("Provided native-query data-platform = %s", data_access_tokens[0])
+            LOGGER.debug("Only Snowflake is supported in NativeQuery")
+            return full_table_names
+
+        # First argument is the query
+        sql_query: str = tree_function.strip_char_from_list(
+            values=tree_function.remove_whitespaces_from_list(
+                        tree_function.token_values(flat_argument_list[1])
+                    ),
+            char="\""
+
+        )[0]  # Remove any whitespaces and double quotes character
+
+        for table in native_sql_parser.get_tables(sql_query):
+            if len(table.split(".")) != 3:
+                LOGGER.debug("Skipping table (%s) as it is not as per full_table_name format", table)
+            full_table_names.append(
+                table
+            )
+
+        return full_table_names
 
 
 class FunctionName(Enum):

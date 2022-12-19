@@ -135,6 +135,18 @@ def get_all_function_name(tree: Tree) -> List[str]:
     return functions
 
 
+def flat_argument_list(tree: Tree) -> List[Tree]:
+    values: List[str] = []
+
+    for child in tree.children:
+        if isinstance(child, Token):
+            continue
+        if isinstance(child, Tree) and (child.data == "argument_list" or child.data == "expression"):
+            values.append(child)
+
+    return values
+
+
 first_expression_func = partial(get_first_rule, rule="expression")
 first_item_selector_func = partial(get_first_rule, rule="item_selector")
 first_arg_list_func = partial(get_first_rule, rule="argument_list")
