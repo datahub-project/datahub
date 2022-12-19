@@ -5,6 +5,7 @@ import { SearchSelectModal } from '../components/styled/search/SearchSelectModal
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
+import { getGraphqlErrorCode } from '../utils';
 
 export enum EntityActionItem {
     /**
@@ -59,13 +60,10 @@ function EntityActions(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    entityUrns.length > 0 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (entityUrns.length > 0 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {
@@ -101,13 +99,10 @@ function EntityActions(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    entityUrns.length > 0 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (entityUrns.length > 0 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {

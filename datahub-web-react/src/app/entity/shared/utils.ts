@@ -124,3 +124,13 @@ export const getMatchPrioritizingPrimary = (
 
     return fromQueryGetBestMatch(matchesThatShouldBeShownOnFE, query);
 };
+
+export const getGraphqlErrorCode = (e) => {
+    if (e.graphQLErrors && e.graphQLErrors.length) {
+        const firstError = e.graphQLErrors[0];
+        const { extensions } = firstError;
+        const errorCode = extensions && (extensions.code as number);
+        return errorCode;
+    }
+    return undefined;
+};

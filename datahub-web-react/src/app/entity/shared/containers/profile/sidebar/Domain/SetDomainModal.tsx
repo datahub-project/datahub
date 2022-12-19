@@ -9,6 +9,7 @@ import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
+import { getGraphqlErrorCode } from '../../../../utils';
 
 type Props = {
     urns: string[];
@@ -135,13 +136,10 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    urns.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {

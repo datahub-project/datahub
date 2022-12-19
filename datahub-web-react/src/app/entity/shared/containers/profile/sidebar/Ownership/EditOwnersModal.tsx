@@ -13,6 +13,7 @@ import {
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
+import { getGraphqlErrorCode } from '../../../../utils';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -244,13 +245,10 @@ export const EditOwnersModal = ({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                if (
-                    urns.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {
@@ -278,13 +276,10 @@ export const EditOwnersModal = ({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                if (
-                    urns.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {

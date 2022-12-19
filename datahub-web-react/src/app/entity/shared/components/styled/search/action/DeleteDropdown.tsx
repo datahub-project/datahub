@@ -2,6 +2,7 @@ import { message, Modal } from 'antd';
 import React from 'react';
 import { useBatchUpdateSoftDeletedMutation } from '../../../../../../../graphql/mutations.generated';
 import ActionDropdown from './ActionDropdown';
+import { getGraphqlErrorCode } from '../../../../utils';
 
 type Props = {
     urns: Array<string>;
@@ -30,13 +31,10 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    urns.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {

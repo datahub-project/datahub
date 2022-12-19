@@ -16,7 +16,7 @@ import GlossaryBrowser from '../../glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '../ClickOutside';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../recommendation';
-import { FORBIDDEN_URN_CHARS_REGEX } from '../../entity/shared/utils';
+import { FORBIDDEN_URN_CHARS_REGEX, getGraphqlErrorCode } from '../../entity/shared/utils';
 import { TagTermLabel } from './TagTermLabel';
 import { ENTER_KEY_CODE } from '../constants';
 
@@ -267,13 +267,10 @@ export default function EditTagTermsModal({
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    resources.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (resources.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {
@@ -306,13 +303,10 @@ export default function EditTagTermsModal({
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    resources.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (resources.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {
@@ -345,13 +339,10 @@ export default function EditTagTermsModal({
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    resources.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (resources.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {
@@ -384,13 +375,10 @@ export default function EditTagTermsModal({
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    resources.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (resources.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
-                            'Your bulk edit selection included datasets that you do not own. The bulk edit being performed will not be saved.',
+                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
                         duration: 3,
                     });
                 } else {

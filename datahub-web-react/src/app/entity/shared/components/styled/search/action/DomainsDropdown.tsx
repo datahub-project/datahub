@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { SetDomainModal } from '../../../../containers/profile/sidebar/Domain/SetDomainModal';
 import ActionDropdown from './ActionDropdown';
+import { getGraphqlErrorCode } from '../../../../utils';
 
 type Props = {
     urns: Array<string>;
@@ -31,10 +32,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
             })
             .catch((e) => {
                 message.destroy();
-                if (
-                    urns.length > 1 &&
-                    e.message === 'Unauthorized to perform this action. Please contact your DataHub administrator.'
-                ) {
+                if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
                     message.error({
                         content:
                             'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
