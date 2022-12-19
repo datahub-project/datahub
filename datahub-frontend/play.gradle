@@ -85,7 +85,6 @@ dependencies {
 }
 
 dist.dependsOn(':datahub-web-react:copyAssets')
-test.dependsOn(':datahub-frontend:testResources')
 
 play {
   platform {
@@ -130,11 +129,9 @@ sourceSets {
 }
 
 // minimal files for low-level tests
-task testResources {
-    copy {
-      from '../datahub-web-react/public'
-      into 'test/resources/public'
-    }
+task testResources(type: Copy) {
+  from '../datahub-web-react/public'
+  into 'test/resources/public'
 }
 
 task unzipAssets(type: Copy, dependsOn: [configurations.assets, ':datahub-web-react:yarnBuild']) {
@@ -161,3 +158,4 @@ clean {
   delete 'public/favicon.ico'
   delete 'test/resources/public'
 }
+clean.finalizedBy(':datahub-frontend:testResources')

@@ -75,7 +75,7 @@ public class ApplicationTest extends WithBrowser {
   private String _wellKnownUrl;
 
   @BeforeAll
-  public void init() throws IOException, InterruptedException {
+  public void init() throws IOException {
     _gmsServer = new MockWebServer();
     _gmsServer.enqueue(new MockResponse().setBody("{\"value\":\"urn:li:corpuser:testUser@myCompany.com\"}"));
     _gmsServer.enqueue(new MockResponse().setBody("{\"accessToken\":\"faketoken_YCpYIrjQH4sD3_rAc3VPPFg4\"}"));
