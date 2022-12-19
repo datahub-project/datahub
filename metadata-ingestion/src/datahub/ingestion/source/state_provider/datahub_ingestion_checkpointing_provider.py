@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -10,7 +10,6 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
     IngestionCheckpointingProviderConfig,
     JobId,
-    JobStateFilterType,
     JobStateKey,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
@@ -41,7 +40,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     @classmethod
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
-    ) -> IngestionCheckpointingProviderBase:
+    ) -> "DatahubIngestionCheckpointingProvider":
         if ctx.graph:
             # Use the pipeline-level graph if set
             return cls(ctx.graph, name)
@@ -103,21 +102,10 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
 
         return None
 
-    def get_previous_states(
+    def get_last_state(
         self,
         state_key: JobStateKey,
-        last_only: bool = True,
-        filter_opt: Optional[JobStateFilterType] = None,
-    ) -> List[CheckpointJobStatesMap]:
-        if not last_only:
-            raise NotImplementedError(
-                "Currently supports retrieving only the last commited state."
-            )
-        if filter_opt is not None:
-            raise NotImplementedError(
-                "Support for optional filters is not implemented yet."
-            )
-        checkpoints: List[CheckpointJobStatesMap] = []
+    ) -> CheckpointJobStatesMap:
         last_job_checkpoint_map: CheckpointJobStatesMap = {}
         for job_name in state_key.job_names:
             last_job_checkpoint = self.get_latest_checkpoint(
@@ -125,8 +113,8 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             )
             if last_job_checkpoint is not None:
                 last_job_checkpoint_map[job_name] = last_job_checkpoint
-        checkpoints.append(last_job_checkpoint_map)
-        return checkpoints
+
+        return last_job_checkpoint_map
 
     def commit(self) -> None:
         if not self.state_to_commit:
