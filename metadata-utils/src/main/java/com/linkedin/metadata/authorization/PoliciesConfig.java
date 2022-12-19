@@ -182,6 +182,11 @@ public class PoliciesConfig {
       "Delete",
       "The ability to delete the delete this entity.");
 
+  public static final Privilege EDIT_LINEAGE = Privilege.of(
+      "EDIT_LINEAGE",
+      "Edit Lineage",
+      "The ability to add and remove lineage edges for this entity.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
       VIEW_ENTITY_PAGE_PRIVILEGE,
       EDIT_ENTITY_TAGS_PRIVILEGE,
@@ -266,7 +271,8 @@ public class PoliciesConfig {
               EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
               EDIT_DATASET_COL_TAGS_PRIVILEGE,
               EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
-              EDIT_ENTITY_ASSERTIONS_PRIVILEGE))
+              EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
+              EDIT_LINEAGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );
@@ -276,7 +282,11 @@ public class PoliciesConfig {
       "chart",
       "Charts",
       "Charts indexed by DataHub",
-      COMMON_ENTITY_PRIVILEGES
+      Stream.of(
+              COMMON_ENTITY_PRIVILEGES,
+              ImmutableList.of(EDIT_LINEAGE))
+          .flatMap(Collection::stream)
+          .collect(Collectors.toList())
   );
 
   // Dashboard Privileges
@@ -284,7 +294,11 @@ public class PoliciesConfig {
       "dashboard",
       "Dashboards",
       "Dashboards indexed by DataHub",
-      COMMON_ENTITY_PRIVILEGES
+      Stream.of(
+              COMMON_ENTITY_PRIVILEGES,
+              ImmutableList.of(EDIT_LINEAGE))
+          .flatMap(Collection::stream)
+          .collect(Collectors.toList())
   );
 
   // Data Doc Privileges
@@ -308,7 +322,11 @@ public class PoliciesConfig {
       "dataJob",
       "Data Tasks",
       "Data Tasks indexed by DataHub",
-      COMMON_ENTITY_PRIVILEGES
+      Stream.of(
+              COMMON_ENTITY_PRIVILEGES,
+              ImmutableList.of(EDIT_LINEAGE))
+          .flatMap(Collection::stream)
+          .collect(Collectors.toList())
   );
 
   // Tag Privileges

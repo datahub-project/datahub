@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
 import com.linkedin.datahub.graphql.generated.UpdateLineageInput;
 import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.CompletionException;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -44,8 +46,6 @@ public class UpdateLineageResolverTest {
     _lineageService = Mockito.mock(LineageService.class);
     _mockEnv = Mockito.mock(DataFetchingEnvironment.class);
   }
-
-  // TODO: Add tests for permissions once we add permissions for updating lineage
 
   // Adds upstream for dataset1 to dataset2 and removes edge to dataset3
   @Test
@@ -125,6 +125,26 @@ public class UpdateLineageResolverTest {
     Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_3))).thenReturn(true);
 
     assertTrue(resolver.get(_mockEnv).get());
+  }
+
+  @Test
+  public void testFailUpdateLineageNoPermissions() throws Exception {
+    List<LineageEdge> edgesToAdd = Arrays.asList(createLineageEdge(DATASET_URN_1, DATASET_URN_2), createLineageEdge(DATASET_URN_3, DATASET_URN_4));
+    List<LineageEdge> edgesToRemove = Arrays.asList(createLineageEdge(DATASET_URN_1, DATASET_URN_3));
+
+    QueryContext mockContext = getMockDenyContext();
+    UpdateLineageInput input = new UpdateLineageInput(edgesToAdd, edgesToRemove);
+    Mockito.when(_mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(_mockEnv.getContext()).thenReturn(mockContext);
+
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_1))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_2))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_3))).thenReturn(true);
+    Mockito.when(_mockService.exists(Urn.createFromString(DATASET_URN_4))).thenReturn(true);
+
+    assertThrows(AuthorizationException.class, () -> resolver.get(_mockEnv).join());
   }
 
 
