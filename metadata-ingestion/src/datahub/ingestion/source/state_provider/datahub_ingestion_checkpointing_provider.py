@@ -40,7 +40,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     @classmethod
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
-    ) -> IngestionCheckpointingProviderBase:
+    ) -> "DatahubIngestionCheckpointingProvider":
         if ctx.graph:
             # Use the pipeline-level graph if set
             return cls(ctx.graph, name)
