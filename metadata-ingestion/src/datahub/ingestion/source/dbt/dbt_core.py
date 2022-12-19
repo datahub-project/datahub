@@ -350,7 +350,6 @@ def load_test_results(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.USAGE_STATS, "", supported=False)
 class DBTCoreSource(DBTSourceBase):
     """
     The artifacts used by this source are:

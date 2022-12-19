@@ -156,7 +156,6 @@ class NifiProcessorType:
 # 2. Implement provenance event analyzer to find external dataset and
 # map it in provenance_event_to_lineage_map
 class NifiProcessorProvenanceEventAnalyzer:
-
     env: str
 
     KNOWN_INGRESS_EGRESS_PROCESORS = {
@@ -662,7 +661,6 @@ class NifiSource(Source):
         startDate: datetime,
         endDate: Optional[datetime] = None,
     ) -> Iterable[Dict]:
-
         logger.debug(
             f"Fetching {eventType} provenance events for {processor.id}\
             of processor type {processor.type}, Start date: {startDate}, End date: {endDate}"
@@ -770,7 +768,6 @@ class NifiSource(Source):
             logger.error("failed to delete provenance ", provenance_uri)
 
     def construct_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
-
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = builder.make_data_flow_urn(NIFI, rootpg.id, self.config.env)
@@ -931,7 +928,6 @@ class NifiSource(Source):
             )
 
     def process_provenance_events(self):
-
         startDate = datetime.now(timezone.utc) - timedelta(
             days=self.config.provenance_days
         )
@@ -957,7 +953,6 @@ class NifiSource(Source):
                         component.outlets[dataset.dataset_urn] = dataset
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         self.create_nifi_flow()
 
@@ -1072,7 +1067,6 @@ class NifiSource(Source):
         external_url: Optional[str] = None,
         datasetProperties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         if not dataset_urn:
             dataset_urn = builder.make_dataset_urn(
                 dataset_platform, dataset_name, self.config.env
