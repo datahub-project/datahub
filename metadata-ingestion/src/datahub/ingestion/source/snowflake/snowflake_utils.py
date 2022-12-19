@@ -64,7 +64,7 @@ class SnowflakeQueryMixin:
 
         except Exception as e:
             if is_permission_error(e):
-                raise SnowflakePermissionError() from e
+                raise SnowflakePermissionError(e) from e
             raise
 
 
