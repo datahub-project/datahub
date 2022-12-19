@@ -7,7 +7,7 @@ from dateutil.relativedelta import relativedelta
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
-from datahub.ingestion.api.common import WorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
@@ -152,8 +152,7 @@ WHERE
 
     def get_workunits(
         self, tables: Dict[str, Dict[str, List[BigqueryTable]]]
-    ) -> Iterable[WorkUnit]:
-
+    ) -> Iterable[MetadataWorkUnit]:
         # Otherwise, if column level profiling is enabled, use  GE profiler.
         for project in tables.keys():
             if not self.config.project_id_pattern.allowed(project):

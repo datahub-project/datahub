@@ -6,7 +6,6 @@ from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsage
 
 
 class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport):
-
     account_locator: Optional[str] = None
     region: Optional[str] = None
 

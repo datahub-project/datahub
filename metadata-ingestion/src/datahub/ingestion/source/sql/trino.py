@@ -197,7 +197,6 @@ class TrinoSource(SQLAlchemySource):
         pk_constraints: Optional[dict] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
-
         fields = super().get_schema_fields_for_column(
             dataset_name, column, pk_constraints
         )
