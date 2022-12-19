@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.openqa.selenium.Cookie;
+import org.openqa.selenium.htmlunit.HtmlUnitDriver;
 import play.Application;
 import play.Environment;
 import play.Mode;
@@ -56,17 +57,19 @@ public class ApplicationTest extends WithBrowser {
             .in(new Environment(Mode.TEST)).build();
   }
 
+  @Override
+  protected TestBrowser provideBrowser(int port) {
+    HtmlUnitDriver webClient = new HtmlUnitDriver();
+    webClient.setJavascriptEnabled(false);
+    return Helpers.testBrowser(webClient, providePort());
+  }
+
   public int oauthServerPort() {
     return providePort() + 1;
   }
 
   public int gmsServerPort() {
     return providePort() + 2;
-  }
-
-  @Override
-  protected TestBrowser provideBrowser(int port) {
-    return Helpers.testBrowser(providePort());
   }
 
   private MockOAuth2Server _oauthServer;

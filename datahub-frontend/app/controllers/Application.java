@@ -9,6 +9,7 @@ import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,10 +64,16 @@ public class Application extends Controller {
    */
   @Nonnull
   private Result serveAsset(@Nullable String path) {
-    InputStream indexHtml = _environment.resourceAsStream("public/index.html");
-    return ok(indexHtml)
-            .withHeader("Cache-Control", "no-cache")
-            .as("text/html");
+    try {
+      InputStream indexHtml = _environment.resourceAsStream("public/index.html");
+      return ok(indexHtml)
+              .withHeader("Cache-Control", "no-cache")
+              .as("text/html");
+    } catch (Exception e) {
+      return notFound()
+              .withHeader("Cache-Control", "no-cache")
+              .as("text/html");
+    }
   }
 
   @Nonnull
