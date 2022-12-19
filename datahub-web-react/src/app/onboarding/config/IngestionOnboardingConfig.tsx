@@ -34,7 +34,7 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
     {
         id: INGESTION_REFRESH_SOURCES_ID,
         selector: `#${INGESTION_REFRESH_SOURCES_ID}`,
-        title: 'Refresh Ingestion Pipelines',
+        title: 'Refresh Ingestion Sources',
         content: (
             <Typography.Paragraph>
                 <p>Click to force a refresh of running ingestion sources.</p>
