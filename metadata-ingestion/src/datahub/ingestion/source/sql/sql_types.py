@@ -217,7 +217,6 @@ POSTGRES_MODIFIED_TYPES = {
 
 
 def resolve_postgres_modified_type(type_string: str) -> Any:
-
     if type_string.endswith("[]"):
         return ArrayType
 

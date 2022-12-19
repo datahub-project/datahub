@@ -180,7 +180,6 @@ FIELD_TYPE_MAPPING = {
     supported=False,
 )
 class SalesforceSource(Source):
-
     base_url: str
     config: SalesforceConfig
     report: SalesforceSourceReport
@@ -256,14 +255,12 @@ class SalesforceSource(Source):
             )
 
     def get_workunits(self) -> Iterable[WorkUnit]:
-
         sObjects = self.get_salesforce_objects()
 
         for sObject in sObjects:
             yield from self.get_salesforce_object_workunits(sObject)
 
     def get_salesforce_object_workunits(self, sObject: dict) -> Iterable[WorkUnit]:
-
         sObjectName = sObject["QualifiedApiName"]
 
         if not self.config.object_pattern.allowed(sObjectName):
@@ -323,7 +320,6 @@ class SalesforceSource(Source):
         return customObject
 
     def get_salesforce_objects(self) -> List:
-
         # Using Describe Global REST API returns many more objects than required.
         # Response does not have the attribute ("customizable") that can be used
         # to filter out entities not on ObjectManager UI. Hence SOQL on EntityDefinition
@@ -371,7 +367,6 @@ class SalesforceSource(Source):
     def get_operation_workunit(
         self, customObject: dict, datasetUrn: str
     ) -> Iterable[WorkUnit]:
-
         if customObject.get("CreatedBy") and customObject.get("CreatedDate"):
             timestamp = self.get_time_from_salesforce_timestamp(
                 customObject["CreatedDate"]
@@ -594,7 +589,6 @@ class SalesforceSource(Source):
     def get_schema_metadata_workunit(
         self, sObjectName: str, sObject: dict, customObject: dict, datasetUrn: str
     ) -> Iterable[WorkUnit]:
-
         sObject_fields_query_url = (
             self.base_url
             + "tooling/query?q=SELECT "
@@ -645,7 +639,6 @@ class SalesforceSource(Source):
         foreignKeys: List[ForeignKeyConstraintClass] = []
 
         for field in sObject_fields_response["records"]:
-
             customField = customFields.get(field["DeveloperName"], {})
 
             fieldName = field["QualifiedApiName"]

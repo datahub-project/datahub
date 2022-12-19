@@ -53,7 +53,6 @@ class BaseView(Generic[SqlTableColumn]):
 
 
 class SQLAlchemyGenericConfig(SQLAlchemyConfig):
-
     platform: str = Field(
         description="Name of platform being ingested, used in constructing URNs."
     )

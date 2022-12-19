@@ -374,21 +374,41 @@ export const INGEST_OWNER: RecipeField = {
     rules: null,
 };
 
+const includeTablesPath = 'source.config.include_tables';
 export const INCLUDE_TABLES: RecipeField = {
     name: 'include_tables',
     label: 'Include Tables',
     tooltip: 'Extract Tables from source.',
     type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_tables',
+    fieldPath: includeTablesPath,
+    // Always set include views indicator to true by default.
+    // This is in accordance with what the ingestion sources do.
+    getValueFromRecipeOverride: (recipe: any) => {
+        const includeTables = get(recipe, includeTablesPath);
+        if (includeTables !== undefined && includeTables !== null) {
+            return includeTables;
+        }
+        return true;
+    },
     rules: null,
 };
 
+const includeViewsPath = 'source.config.include_views';
 export const INCLUDE_VIEWS: RecipeField = {
     name: 'include_views',
     label: 'Include Views',
     tooltip: 'Extract Views from source.',
     type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_views',
+    fieldPath: includeViewsPath,
+    // Always set include views indicator to true by default.
+    // This is in accordance with what the ingestion sources do.
+    getValueFromRecipeOverride: (recipe: any) => {
+        const includeViews = get(recipe, includeViewsPath);
+        if (includeViews !== undefined && includeViews !== null) {
+            return includeViews;
+        }
+        return true;
+    },
     rules: null,
 };
 

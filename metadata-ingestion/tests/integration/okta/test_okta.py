@@ -39,11 +39,9 @@ def test_okta_config():
 
 @freeze_time(FROZEN_TIME)
 def test_okta_source_default_configs(pytestconfig, tmp_path):
-
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     with patch("datahub.ingestion.source.identity.okta.OktaClient") as MockClient:
-
         _init_mock_okta_client(test_resources_dir, MockClient)
 
         # Run an Okta usage ingestion run.
@@ -88,11 +86,9 @@ def test_okta_source_default_configs(pytestconfig, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 def test_okta_source_ingestion_disabled(pytestconfig, tmp_path):
-
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     with patch("datahub.ingestion.source.identity.okta.OktaClient") as MockClient:
-
         _init_mock_okta_client(test_resources_dir, MockClient)
 
         # Run an Okta usage ingestion run.
@@ -138,11 +134,9 @@ def test_okta_source_ingestion_disabled(pytestconfig, tmp_path):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.asyncio
 def test_okta_source_include_deprovisioned_suspended_users(pytestconfig, tmp_path):
-
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     with patch("datahub.ingestion.source.identity.okta.OktaClient") as MockClient:
-
         _init_mock_okta_client(test_resources_dir, MockClient)
 
         # Run an Okta usage ingestion run.
@@ -189,11 +183,9 @@ def test_okta_source_include_deprovisioned_suspended_users(pytestconfig, tmp_pat
 @freeze_time(FROZEN_TIME)
 @pytest.mark.asyncio
 def test_okta_source_custom_user_name_regex(pytestconfig, tmp_path):
-
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     with patch("datahub.ingestion.source.identity.okta.OktaClient") as MockClient:
-
         _init_mock_okta_client(test_resources_dir, MockClient)
 
         # Run an Okta usage ingestion run.
@@ -238,7 +230,6 @@ def test_okta_source_custom_user_name_regex(pytestconfig, tmp_path):
 
 # Initializes a Mock Okta Client to return users from okta_users.json and groups from okta_groups.json.
 def _init_mock_okta_client(test_resources_dir, MockClient):
-
     okta_users_json_file = test_resources_dir / "okta_users.json"
     okta_groups_json_file = test_resources_dir / "okta_groups.json"
 
@@ -291,7 +282,6 @@ def _init_mock_okta_client(test_resources_dir, MockClient):
     # Create a separate response mock for each group in our sample data.
     list_group_users_result_values = []
     for group in groups:
-
         # Mock Get Group Membership
         group_users_resp_mock = Mock()
         group_users_resp_mock.has_next.side_effect = [True, False]

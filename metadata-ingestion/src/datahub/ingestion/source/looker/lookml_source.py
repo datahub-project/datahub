@@ -1234,7 +1234,6 @@ class LookMLSource(StatefulIngestionSourceBase):
     ) -> Optional[UpstreamLineage]:
         upstreams = []
         for sql_table_name in looker_view.sql_table_names:
-
             sql_table_name = sql_table_name.replace('"', "").replace("`", "")
             upstream_dataset_urn: str = self._construct_datalineage_urn(
                 sql_table_name, looker_view

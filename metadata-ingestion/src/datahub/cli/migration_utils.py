@@ -218,7 +218,6 @@ def modify_urn_list_for_aspect(
     old_urn: str,
     new_urn: str,
 ) -> Aspect:
-
     if hasattr(UrnListModifier, f"{aspect_name}_modifier"):
         modifier = getattr(UrnListModifier, f"{aspect_name}_modifier")
         return modifier(
@@ -240,7 +239,6 @@ def clone_aspect(
     run_id: str = str(uuid.uuid4()),
     dry_run: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-
     aspect_map = cli_utils.get_aspects_for_entity(
         entity_urn=src_urn, aspects=aspect_names, typed=True
     )
