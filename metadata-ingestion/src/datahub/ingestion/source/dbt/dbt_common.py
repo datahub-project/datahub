@@ -684,6 +684,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         "platform": DBT_PLATFORM,
                         "name": node.dbt_name,
                         "instance": self.config.platform_instance,
+                        **(
+                            # Ideally we'd include the env unconditionally. However, we started out
+                            # not including env in the guid, so we need to maintain backwards compatibility
+                            # with existing PROD assertions.
+                            {}
+                            if self.config.env == mce_builder.DEFAULT_ENV
+                            else {"env": self.config.env}
+                        ),
                     }
                 )
             )
