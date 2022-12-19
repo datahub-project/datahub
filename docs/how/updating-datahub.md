@@ -19,7 +19,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #6611 - Snowflake `schema_pattern` now accepts pattern for fully qualified schema name in format `<catalog_name>.<schema_name>` by setting config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
 - #6636 - Sources `snowflake-legacy` and `snowflake-usage-legacy` have been removed.
-- Delete cli functionality now deletes references of deleted entities by default. Use `--keep-references` to change the default behavior.
 
 ## 0.9.3
 

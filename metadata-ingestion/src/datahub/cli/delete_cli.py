@@ -143,7 +143,7 @@ def delete_for_registry(
     "remove_references",
     required=False,
     is_flag=True,
-    default=True,
+    default=False,
     help="specifies whether to delete references",
 )
 @upgrade.check_upgrade

@@ -73,7 +73,7 @@ curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn
 
 ## Delete using Broader Filters
 
-_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). Starting v0.8.29 there is a new option: `--include-removed` that deletes softly deleted entities that match the provided filter. Starting v0.9.4, these commands also delete references of deleted entities by default. You can use `--keep-references` to change default behavior._
+_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). Starting v0.8.29 there is a new option: `--include-removed` that deletes softly deleted entities that match the provided filter. Starting v0.9.4, these commands also support deleting references of entities being deleted via `--delete-references`. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database._
 
 
 ### Delete all datasets in the DEV environment
