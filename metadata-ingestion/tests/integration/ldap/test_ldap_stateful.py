@@ -8,7 +8,7 @@ from freezegun import freeze_time
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.ldap import LDAPSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.ldap_state import LdapCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
@@ -91,7 +91,7 @@ def ldap_ingest_common(
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
-) -> Optional[Checkpoint]:
+) -> Optional[Checkpoint[GenericCheckpointState]]:
     ldap_source = cast(LDAPSource, pipeline.source)
     return ldap_source.get_current_checkpoint(
         ldap_source.stale_entity_removal_handler.job_id
@@ -154,8 +154,8 @@ def test_ldap_stateful(
         pipeline=pipeline_run2, expected_providers=1
     )
 
-    state1 = cast(LdapCheckpointState, checkpoint1.state)
-    state2 = cast(LdapCheckpointState, checkpoint2.state)
+    state1 = checkpoint1.state
+    state2 = checkpoint2.state
 
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="corpuser", other_checkpoint_state=state2)
@@ -194,8 +194,8 @@ def test_ldap_stateful(
     assert checkpoint4
     assert checkpoint4.state
 
-    state3 = cast(LdapCheckpointState, checkpoint3.state)
-    state4 = cast(LdapCheckpointState, checkpoint4.state)
+    state3 = checkpoint3.state
+    state4 = checkpoint4.state
 
     difference_dataset_urns = list(
         state3.get_urns_not_in(type="corpGroup", other_checkpoint_state=state4)

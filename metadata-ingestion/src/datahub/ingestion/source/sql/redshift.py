@@ -733,7 +733,6 @@ class RedshiftSource(SQLAlchemySource):
 
         try:
             for db_row in engine.execute(query):
-
                 if not self.config.schema_pattern.allowed(
                     db_row["target_schema"]
                 ) or not self.config.table_pattern.allowed(db_row["target_table"]):
@@ -809,7 +808,6 @@ class RedshiftSource(SQLAlchemySource):
 
                 # Merging downstreams if dataset already exists and has downstreams
                 if target.dataset.path in self._lineage_map:
-
                     self._lineage_map[
                         target.dataset.path
                     ].upstreams = self._lineage_map[
@@ -829,7 +827,6 @@ class RedshiftSource(SQLAlchemySource):
             self.warn(logger, f"extract-{lineage_type.name}", f"Error was {e}")
 
     def _populate_lineage(self) -> None:
-
         stl_scan_based_lineage_query: str = """
             select
                 distinct cluster,

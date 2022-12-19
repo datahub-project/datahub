@@ -280,7 +280,6 @@ def delete_with_filters(
     platform: Optional[str] = None,
     only_soft_deleted: Optional[bool] = False,
 ) -> DeletionResult:
-
     session, gms_host = cli_utils.get_session_and_host()
     token = cli_utils.get_token()
 
@@ -381,7 +380,6 @@ def _delete_one_urn(
     deletion_timestamp: int = _get_current_time(),
     is_soft_deleted: Optional[bool] = None,
 ) -> DeletionResult:
-
     soft_delete_msg: str = ""
     if dry_run and is_soft_deleted:
         soft_delete_msg = "(soft-deleted)"
