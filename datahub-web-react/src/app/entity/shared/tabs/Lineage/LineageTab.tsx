@@ -82,6 +82,7 @@ export const LineageTab = ({
     const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn) || '';
     const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);
     const impactAnalysisUrn = isColumnLevelLineage && selectedColumnUrn ? selectedColumnUrn : urn;
+    const canEditLineage = !!entityData?.privileges?.canEditLineage;
 
     return (
         <>
@@ -113,23 +114,23 @@ export const LineageTab = ({
                         <PartitionOutlined />
                         Visualize Lineage
                     </Button>
-                    {entityData?.privileges?.canEditLineage && (
-                        <ManageLineageMenu
-                            entityUrn={urn}
-                            refetchEntity={() => setShouldRefetch(true)}
-                            setUpdatedLineages={() => {}}
-                            menuIcon={
-                                <Button type="text">
-                                    <ManageLineageIcon />
-                                    Edit
-                                    <StyledCaretDown />
-                                </Button>
-                            }
-                            showLoading
-                            entityType={entityType}
-                            entityPlatform={entityData?.platform?.name}
-                        />
-                    )}
+                    <ManageLineageMenu
+                        entityUrn={urn}
+                        refetchEntity={() => setShouldRefetch(true)}
+                        setUpdatedLineages={() => {}}
+                        menuIcon={
+                            <Button type="text">
+                                <ManageLineageIcon />
+                                Edit
+                                <StyledCaretDown />
+                            </Button>
+                        }
+                        showLoading
+                        entityType={entityType}
+                        entityPlatform={entityData?.platform?.name}
+                        canEditLineage={canEditLineage}
+                        disableDropdown={!canEditLineage}
+                    />
                 </RightButtonsWrapper>
             </StyledTabToolbar>
             <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>

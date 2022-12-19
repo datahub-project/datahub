@@ -182,7 +182,7 @@ public class PoliciesConfig {
       "Delete",
       "The ability to delete the delete this entity.");
 
-  public static final Privilege EDIT_LINEAGE = Privilege.of(
+  public static final Privilege EDIT_LINEAGE_PRIVILEGE = Privilege.of(
       "EDIT_LINEAGE",
       "Edit Lineage",
       "The ability to add and remove lineage edges for this entity.");
@@ -272,7 +272,7 @@ public class PoliciesConfig {
               EDIT_DATASET_COL_TAGS_PRIVILEGE,
               EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
               EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
-              EDIT_LINEAGE))
+              EDIT_LINEAGE_PRIVILEGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );
@@ -282,10 +282,9 @@ public class PoliciesConfig {
       "chart",
       "Charts",
       "Charts indexed by DataHub",
-      Stream.of(
-              COMMON_ENTITY_PRIVILEGES,
-              ImmutableList.of(EDIT_LINEAGE))
-          .flatMap(Collection::stream)
+      Stream.concat(
+          COMMON_ENTITY_PRIVILEGES.stream(),
+          ImmutableList.of(EDIT_LINEAGE_PRIVILEGE).stream())
           .collect(Collectors.toList())
   );
 
@@ -294,10 +293,9 @@ public class PoliciesConfig {
       "dashboard",
       "Dashboards",
       "Dashboards indexed by DataHub",
-      Stream.of(
-              COMMON_ENTITY_PRIVILEGES,
-              ImmutableList.of(EDIT_LINEAGE))
-          .flatMap(Collection::stream)
+      Stream.concat(
+              COMMON_ENTITY_PRIVILEGES.stream(),
+              ImmutableList.of(EDIT_LINEAGE_PRIVILEGE).stream())
           .collect(Collectors.toList())
   );
 
@@ -322,10 +320,9 @@ public class PoliciesConfig {
       "dataJob",
       "Data Tasks",
       "Data Tasks indexed by DataHub",
-      Stream.of(
-              COMMON_ENTITY_PRIVILEGES,
-              ImmutableList.of(EDIT_LINEAGE))
-          .flatMap(Collection::stream)
+      Stream.concat(
+              COMMON_ENTITY_PRIVILEGES.stream(),
+              ImmutableList.of(EDIT_LINEAGE_PRIVILEGE).stream())
           .collect(Collectors.toList())
   );
 

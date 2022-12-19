@@ -168,17 +168,17 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
   private void checkLineageEdgePrivileges(
       @Nonnull final QueryContext context,
       @Nonnull final LineageEdge lineageEdge,
-      @Nonnull final DisjunctivePrivilegeGroup orPrivilegesGroup
+      @Nonnull final DisjunctivePrivilegeGroup editLineagePrivileges
   ) {
     Urn upstreamUrn = UrnUtils.getUrn(lineageEdge.getUpstreamUrn());
-    if (!isAuthorized(context, upstreamUrn, orPrivilegesGroup)) {
+    if (!isAuthorized(context, upstreamUrn, editLineagePrivileges)) {
       throw new AuthorizationException(
           String.format("Unauthorized to edit %s lineage. Please contact your DataHub administrator.", upstreamUrn.getEntityType())
       );
     }
 
     Urn downstreamUrn = UrnUtils.getUrn(lineageEdge.getDownstreamUrn());
-    if (!isAuthorized(context, downstreamUrn, orPrivilegesGroup)) {
+    if (!isAuthorized(context, downstreamUrn, editLineagePrivileges)) {
       throw new AuthorizationException(
           String.format("Unauthorized to edit %s lineage. Please contact your DataHub administrator.", downstreamUrn.getEntityType())
       );
@@ -197,16 +197,16 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
         PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
     ));
-    DisjunctivePrivilegeGroup orPrivilegesGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(
+    DisjunctivePrivilegeGroup editLineagePrivileges = new DisjunctivePrivilegeGroup(ImmutableList.of(
         allPrivilegesGroup,
-        new ConjunctivePrivilegeGroup(Collections.singletonList(PoliciesConfig.EDIT_LINEAGE.getType()))
+        new ConjunctivePrivilegeGroup(Collections.singletonList(PoliciesConfig.EDIT_LINEAGE_PRIVILEGE.getType()))
     ));
 
     for (LineageEdge edgeToAdd : edgesToAdd) {
-      checkLineageEdgePrivileges(context, edgeToAdd, orPrivilegesGroup);
+      checkLineageEdgePrivileges(context, edgeToAdd, editLineagePrivileges);
     }
     for (LineageEdge edgeToRemove : edgesToRemove) {
-      checkLineageEdgePrivileges(context, edgeToRemove, orPrivilegesGroup);
+      checkLineageEdgePrivileges(context, edgeToRemove, editLineagePrivileges);
     }
   }
 }

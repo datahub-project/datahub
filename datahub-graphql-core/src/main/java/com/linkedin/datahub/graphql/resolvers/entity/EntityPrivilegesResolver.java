@@ -96,7 +96,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     ));
     DisjunctivePrivilegeGroup orPrivilegesGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(
         allPrivilegesGroup,
-        new ConjunctivePrivilegeGroup(Collections.singletonList(PoliciesConfig.EDIT_LINEAGE.getType()))
+        new ConjunctivePrivilegeGroup(Collections.singletonList(PoliciesConfig.EDIT_LINEAGE_PRIVILEGE.getType()))
     ));
 
     return AuthorizationUtils.isAuthorized(
