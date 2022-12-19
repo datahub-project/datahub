@@ -9,6 +9,7 @@ from datahub.ingestion.source.powerbi.m_query import (
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query.resolver import (
     DataPlatformTable,
+    SupportedResolver,
     SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
@@ -111,95 +112,134 @@ M_QUERIES = [
 #     assert tree_function.get_output_variable(parse_tree) == "two_source_table"
 #
 #
-# def test_snowflake_regular_case():
-#     q: str = M_QUERIES[0]
-#     table: PowerBiAPI.Table = PowerBiAPI.Table(
-#         expression=q,
-#         name="virtual_order_table",
-#         full_name="OrderDataSet.virtual_order_table",
-#     )
-#
-#     reporter = PowerBiDashboardSourceReport()
-#
-#     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-#         table, reporter
-#     )
-#
-#     assert len(data_platform_tables) == 1
-#     assert data_platform_tables[0].name == "TESTTABLE"
-#     assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
-#     assert (
-#         data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-#         == SupportedDataPlatform.SNOWFLAKE.get_data_platform_pair().powerbi_data_platform_name
-#     )
-#
-#
-# def test_postgres_regular_case():
-#     q: str = M_QUERIES[13]
-#     table: PowerBiAPI.Table = PowerBiAPI.Table(
-#         expression=q,
-#         name="virtual_order_table",
-#         full_name="OrderDataSet.virtual_order_table",
-#     )
-#
-#     reporter = PowerBiDashboardSourceReport()
-#     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-#         table, reporter
-#     )
-#
-#     assert len(data_platform_tables) == 1
-#     assert data_platform_tables[0].name == "order_date"
-#     assert data_platform_tables[0].full_name == "mics.public.order_date"
-#     assert (
-#         data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-#         == SupportedDataPlatform.POSTGRES_SQL.get_data_platform_pair().powerbi_data_platform_name
-#     )
-#
-#
-# def test_oracle_regular_case():
-#     q: str = M_QUERIES[14]
-#     table: PowerBiAPI.Table = PowerBiAPI.Table(
-#         expression=q,
-#         name="virtual_order_table",
-#         full_name="OrderDataSet.virtual_order_table",
-#     )
-#
-#     reporter = PowerBiDashboardSourceReport()
-#     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-#         table, reporter
-#     )
-#
-#     assert len(data_platform_tables) == 1
-#     assert data_platform_tables[0].name == "EMPLOYEES"
-#     assert data_platform_tables[0].full_name == "salesdb.HR.EMPLOYEES"
-#     assert (
-#             data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-#             == SupportedDataPlatform.ORACLE.get_data_platform_pair().powerbi_data_platform_name
-#     )
-#
-#
-# def test_mssql_regular_case():
-#     q: str = M_QUERIES[15]
-#     table: PowerBiAPI.Table = PowerBiAPI.Table(
-#         expression=q,
-#         name="virtual_order_table",
-#         full_name="OrderDataSet.virtual_order_table",
-#     )
-#
-#     reporter = PowerBiDashboardSourceReport()
-#
-#     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-#         table, reporter
-#     )
-#
-#     assert len(data_platform_tables) == 1
-#     assert data_platform_tables[0].name == "book_issue"
-#     assert data_platform_tables[0].full_name == "library.dbo.book_issue"
-#     assert (
-#         data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-#         == SupportedDataPlatform.MS_SQL.get_data_platform_pair().powerbi_data_platform_name
-#     )
-#
+def test_snowflake_regular_case():
+    q: str = M_QUERIES[0]
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == "TESTTABLE"
+    assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+    )
+
+
+def test_postgres_regular_case():
+    q: str = M_QUERIES[13]
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == "order_date"
+    assert data_platform_tables[0].full_name == "mics.public.order_date"
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.POSTGRES_SQL.value.powerbi_data_platform_name
+    )
+
+
+def test_oracle_regular_case():
+    q: str = M_QUERIES[14]
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == "EMPLOYEES"
+    assert data_platform_tables[0].full_name == "salesdb.HR.EMPLOYEES"
+    assert (
+            data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+            == SupportedDataPlatform.ORACLE.value.powerbi_data_platform_name
+    )
+
+
+def test_mssql_regular_case():
+    q: str = M_QUERIES[15]
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter
+    )
+
+    assert len(data_platform_tables) == 1
+    assert data_platform_tables[0].name == "book_issue"
+    assert data_platform_tables[0].full_name == "library.dbo.book_issue"
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.MS_SQL.value.powerbi_data_platform_name
+    )
+
+
+def test_mssql_with_query():
+    mssql_queries: List[str] = [
+        M_QUERIES[3],
+        M_QUERIES[4],
+        M_QUERIES[5],
+        M_QUERIES[7],
+        M_QUERIES[8],
+        M_QUERIES[11],
+    ]
+    expected_tables = [
+        "COMMOPSDB.dbo.V_OIP_ENT_2022",
+        "COMMOPSDB.dbo.V_INVOICE_BOOKING_2022",
+        "COMMOPSDB.dbo.V_ARR_ADDS",
+        "COMMOPSDB.dbo.V_PS_CD_RETENTION",
+        "COMMOPSDB.dbo.V_TPV_LEADERBOARD",
+        "COMMOPSDB.dbo.V_ENTERPRISE_INVOICED_REVENUE",
+    ]
+
+    for index, query in enumerate(mssql_queries):
+        table: PowerBiAPI.Table = PowerBiAPI.Table(
+            expression=query,
+            name="virtual_order_table",
+            full_name="OrderDataSet.virtual_order_table",
+        )
+        reporter = PowerBiDashboardSourceReport()
+
+        data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+            table, reporter, native_query_enabled=False
+        )
+
+        assert len(data_platform_tables) == 1
+        assert data_platform_tables[0].name == expected_tables[index].split(".")[2]
+        assert data_platform_tables[0].full_name == expected_tables[index]
+        assert (
+                data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+                == SupportedDataPlatform.MS_SQL.value.powerbi_data_platform_name
+        )
+
 #
 # def test_native_query_disabled():
 #     table: PowerBiAPI.Table = PowerBiAPI.Table(
@@ -216,17 +256,18 @@ M_QUERIES = [
 #
 #     assert len(data_platform_tables) == 0
 
-def test_native_query_disabled():
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
-        expression=M_QUERIES[9],
-        name="virtual_order_table",
-        full_name="OrderDataSet.virtual_order_table",
-    )
-
-    reporter = PowerBiDashboardSourceReport()
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
-    )
-
-    assert len(data_platform_tables) == 0
+# def test_native_query_disabled():
+#     # for q in M_QUERIES:
+#     table: PowerBiAPI.Table = PowerBiAPI.Table(
+#         expression=M_QUERIES[13],
+#         name="virtual_order_table",
+#         full_name="OrderDataSet.virtual_order_table",
+#     )
+#
+#     reporter = PowerBiDashboardSourceReport()
+#
+#     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+#         table, reporter
+#     )
+#
+#     assert len(data_platform_tables) == 0

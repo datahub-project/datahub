@@ -10,7 +10,7 @@ from enum import Enum
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 
-from datahub.ingestion.source.powerbi.m_query import tree_function
+from datahub.ingestion.source.powerbi.m_query import tree_function, native_sql_parser
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,9 +28,35 @@ class DataPlatformTable:
     data_platform_pair: DataPlatformPair
 
 
-class FullTableNameCreator(ABC):
+class SupportedDataPlatform(Enum):
+    POSTGRES_SQL = DataPlatformPair(
+            powerbi_data_platform_name="PostgreSQL",
+            datahub_data_platform_name="postgres"
+        )
+
+    ORACLE = DataPlatformPair(
+            powerbi_data_platform_name="Oracle",
+            datahub_data_platform_name="oracle"
+        )
+
+    SNOWFLAKE = DataPlatformPair(
+            powerbi_data_platform_name="Snowflake",
+            datahub_data_platform_name="snowflake"
+        )
+
+    MS_SQL = DataPlatformPair(
+            powerbi_data_platform_name="Sql",
+            datahub_data_platform_name="mssql"
+        )
+
+
+class AbstractTableFullNameCreator(ABC):
     @abstractmethod
     def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_platform_pair(self) -> DataPlatformPair:
         pass
 
 
@@ -177,16 +203,21 @@ class BaseMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 new_identifier: str = tokens[0]
                 fill_token_dict(new_identifier, supported_data_access_func, t_dict)
             else:
-                identifier, key_vs_value = self.get_item_selector_tokens(
+                new_identifier, key_vs_value = self.get_item_selector_tokens(
                     tree_function.first_expression_func(expression_tree)
                 )
                 current_selector: Dict[str, Any] = {
-                    f"{identifier}": {
-                        "item_selectors": [key_vs_value],
+                    f"{new_identifier}": {
+                        "item_selectors": [
+                            {
+                                "items": key_vs_value,
+                                "assigned_to": identifier
+                            }
+                        ],
                         **t_dict,
                     }
                 }
-                fill_token_dict(identifier, supported_data_access_func, current_selector)
+                fill_token_dict(new_identifier, supported_data_access_func, current_selector)
 
         fill_token_dict(identifier, SupportedResolver.get_function_names(), {})
 
@@ -216,20 +247,20 @@ class BaseMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 )
                 continue
 
-            table_full_name_creator: FullTableNameCreator = supported_resolver.get_table_full_name_creator()()
+            table_full_name_creator: AbstractTableFullNameCreator = supported_resolver.get_table_full_name_creator()()
             for table_full_name in table_full_name_creator.get_full_table_names(token_dict):
                 data_platform_tables.append(
                     DataPlatformTable(
                         name=table_full_name.split(".")[-1],
                         full_name=table_full_name,
-                        data_platform_pair=supported_resolver.get_data_platform_pair()
+                        data_platform_pair=table_full_name_creator.get_platform_pair()
                     )
                 )
 
         return data_platform_tables
 
 
-class DefaultTwoStepDataAccessSources(FullTableNameCreator):
+class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
     """
     These are the DataSource for which PowerBI Desktop generates default M-Query of following pattern
         let
@@ -239,55 +270,92 @@ class DefaultTwoStepDataAccessSources(FullTableNameCreator):
             dbo_book_issue
     """
 
+    def two_level_access_pattern(self, token_dict: Dict[str, Any]) -> List[str]:
+        full_table_names: List[str] = []
+
+        LOGGER.debug("Processing PostgreSQL token-dict %s", token_dict)
+
+        for data_access_function in token_dict:
+            arguments: List[str] = tree_function.strip_char_from_list(
+                values=tree_function.remove_whitespaces_from_list(
+                            tree_function.token_values(token_dict[data_access_function]["arg_list"])
+                        ),
+                char="\""
+            )
+            # delete arg_list as we consumed it and don't want to process it in next step
+            if len(arguments) != 2:
+                LOGGER.debug("Expected 2 arguments, but got {%s}", len(arguments))
+                return full_table_names
+
+            del token_dict[data_access_function]["arg_list"]
+
+            db_name: str = arguments[1]
+            for source in token_dict[data_access_function]:
+                source_dict: Dict[str, Any] = token_dict[data_access_function][source]
+                for schema in source_dict["item_selectors"]:
+                    schema_name: str = schema["items"]["Schema"]
+                    table_name: str = schema["items"]["Item"]
+                    full_table_names.append(
+                        f"{db_name}.{schema_name}.{table_name}"
+                    )
+
+        LOGGER.debug("PostgreSQL full-table-names = %s", full_table_names)
+
+        return full_table_names
+
+
+class PostgresTableFullNameCreator(DefaultTwoStepDataAccessSources):
     def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
-        variable_statement: Optional[Tree] = tree_function.get_variable_statement(
-            self.parse_tree, output_variable
+        return self.two_level_access_pattern(token_dict)
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.POSTGRES_SQL.value
+
+
+class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.MS_SQL.value
+
+    def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
+        full_table_names: List[str] = []
+        data_access_dict: Dict[str, Any] = list(token_dict.values())[0]
+
+        arguments: List[str] = tree_function.strip_char_from_list(
+            values=tree_function.remove_whitespaces_from_list(
+                        tree_function.token_values(data_access_dict["arg_list"])
+                    ),
+            char="\""
         )
-        if variable_statement is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                f"output variable ({output_variable}) statement not found in table expression",
+
+        if len(arguments) == 2:
+            # It is regular case of MS-SQL
+            LOGGER.debug("Handling with regular case")
+            return self.two_level_access_pattern(token_dict)
+
+        if len(arguments) >= 4 and arguments[2] != "Query":
+            LOGGER.debug("Unsupported case is found. Second index is not the Query")
+            return full_table_names
+
+        db_name: str = arguments[1]
+        tables: List[str] = native_sql_parser.get_tables(arguments[3])
+        for table in tables:
+            schema_and_table: List[str] = table.split(".")
+            if len(schema_and_table) == 1:
+                # schema name is not present. Default schema name in MS-SQL is dbo
+                # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
+                schema_and_table.insert(0, "dbo")
+
+            full_table_names.append(
+                f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
             )
-            return None
-        source, tokens = self.get_item_selector_tokens(cast(Tree, variable_statement))
-        if source is None or tokens is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "Schema detail not found in table expression",
-            )
-            return None
+        LOGGER.debug("MS-SQL full-table-names %s", full_table_names)
 
-        schema_name: str = tokens["Schema"]
-        table_name: str = tokens["Item"]
-        # Look for database-name
-        variable_statement = tree_function.get_variable_statement(self.parse_tree, source)
-        if variable_statement is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-source-statement",
-                f"source variable {source} statement not found in table expression",
-            )
-            return None
-        arg_list = self.get_argument_list(cast(Tree, variable_statement))
-        if arg_list is None or len(arg_list) < 1:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-database-arg-list",
-                "Expected number of argument not found in data-access function of table expression",
-            )
-            return None
-
-        database_name: str = cast(List[str], arg_list)[1]  # 1st token is database name
-        return cast(Optional[str], f"{database_name}.{schema_name}.{table_name}")
+        return full_table_names
 
 
-class PostgresFullTableNameCreator(DefaultTwoStepDataAccessSources):
-    pass
-
-
-class MSSqlFullTableNameCreator(DefaultTwoStepDataAccessSources):
-    pass
-
-
-class OracleFullTableNameCreator(FullTableNameCreator):
+class OracleTableFullNameCreator(AbstractTableFullNameCreator):
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.ORACLE.value
 
     def _get_db_name(self, value: str) -> Optional[str]:
         error_message: str = f"The target argument ({value}) should in the format of <host-name>:<port>/<db-name>[.<domain>]"
@@ -303,143 +371,72 @@ class OracleFullTableNameCreator(FullTableNameCreator):
         return db_name
 
     def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
-        # Find step for the output variable
-        variable_statement: Optional[Tree] = tree_function.get_variable_statement(
-            self.parse_tree, output_variable
-        )
+        full_table_names: List[str] = []
 
-        if variable_statement is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                f"output variable ({output_variable}) statement not found in table expression",
-            )
-            return None
+        LOGGER.debug("Processing Oracle token-dict %s", token_dict)
 
-        schema_variable, tokens = self.get_item_selector_tokens(
-            cast(Tree, variable_statement)
-        )
-        if schema_variable is None or tokens is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "table name not found in table expression",
-            )
-            return None
+        for data_access_function in token_dict:
+            arguments: List[str] = tree_function.remove_whitespaces_from_list(
+                tree_function.token_values(token_dict[data_access_function]["arg_list"]))
+            # delete arg_list as we consumed it and don't want to process it in next step
+            del token_dict[data_access_function]["arg_list"]
 
-        table_name: str = tokens["Name"]
+            for source in token_dict[data_access_function]:
+                source_dict: Dict[str, Any] = token_dict[data_access_function][source]
 
-        # Find step for the schema variable
-        variable_statement = tree_function.get_variable_statement(
-            self.parse_tree, cast(str, schema_variable)
-        )
-        if variable_statement is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-schema-variable-statement",
-                f"schema variable ({schema_variable}) statement not found in table expression",
-            )
-            return None
+                db_name: Optional[str] = self._get_db_name(arguments[0])
+                if db_name is None:
+                    return full_table_names
 
-        source_variable, tokens = self.get_item_selector_tokens(variable_statement)
-        if source_variable is None or tokens is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "Schema not found in table expression",
-            )
-            return None
+                for schema in source_dict["item_selectors"]:
+                    schema_name: str = schema["items"]["Schema"]
+                    for item_selectors in source_dict[schema["assigned_to"]]:
+                        for item_selector in source_dict[schema["assigned_to"]][item_selectors]:
+                            table_name: str = item_selector["items"]["Name"]
+                            full_table_names.append(
+                                f"{db_name}.{schema_name}.{table_name}"
+                            )
 
-        schema_name: str = tokens["Schema"]
-
-        # Find step for the database access variable
-        variable_statement = tree_function.get_variable_statement(self.parse_tree, source_variable)
-        if variable_statement is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-source-variable-statement",
-                f"schema variable ({source_variable}) statement not found in table expression",
-            )
-            return None
-        arg_list = self.get_argument_list(variable_statement)
-        if arg_list is None or len(arg_list) < 1:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-database-arg-list",
-                "Expected number of argument not found in data-access function of table expression",
-            )
-            return None
-        # The first argument has database name. format localhost:1521/salesdb.GSLAB.COM
-        db_name: Optional[str] = self._get_db_name(arg_list[0])
-        if db_name is None:
-            LOGGER.debug(f"Fail to extract db name from the target {arg_list}")
-
-        return f"{db_name}.{schema_name}.{table_name}"
+        return full_table_names
 
 
-class SnowflakeFullTableNameCreator(FullTableNameCreator):
+class SnowflakeTableFullNameCreator(AbstractTableFullNameCreator):
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.SNOWFLAKE.value
 
     def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
-        # Find step for the output variable
-        variable_statement: Optional[Tree] = tree_function.get_variable_statement(
-            self.parse_tree, output_variable
-        )
+        full_table_names: List[str] = []
 
-        if variable_statement is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                f"output variable ({output_variable}) statement not found in table expression",
-            )
-            return None
+        LOGGER.debug("Processing Snowflake token-dict %s", token_dict)
 
-        schema_variable, tokens = self.get_item_selector_tokens(variable_statement)
-        if schema_variable is None or tokens is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "table name not found in table expression",
-            )
-            return None
+        data_access_dict: Dict[str, Any] = list(token_dict.values())[0]
+        del data_access_dict["arg_list"]
 
-        table_name: str = tokens["Name"]
+        for source in data_access_dict:
+            for db_its in data_access_dict[source]["item_selectors"]:
+                db_name: str = db_its["items"]["Name"]
+                for schema_its in data_access_dict[source][db_its["assigned_to"]]["item_selectors"]:
+                    schema_name: str = schema_its["items"]["Name"]
+                    for table_its in data_access_dict[source][db_its["assigned_to"]][schema_its["assigned_to"]]["item_selectors"]:
+                        table_name: str = table_its["items"]["Name"]
+                        full_table_names.append(
+                            f"{db_name}.{schema_name}.{table_name}"
+                        )
 
-        # Find step for the schema variable
-        variable_statement = tree_function.get_variable_statement(self.parse_tree, schema_variable)
-        if variable_statement is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-schema-variable-statement",
-                f"schema variable ({schema_variable}) statement not found in table expression",
-            )
-            return None
+        LOGGER.debug("Snowflake full-table-name %s", full_table_names)
 
-        source_variable, tokens = self.get_item_selector_tokens(variable_statement)
-        if source_variable is None or tokens is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "schema name not found in table expression",
-            )
-            return None
-
-        schema_name: str = tokens["Name"]
-
-        # Find step for the database access variable
-        variable_statement = tree_function.get_variable_statement(self.parse_tree, source_variable)
-        if variable_statement is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-source-variable-statement",
-                f"schema variable ({source_variable}) statement not found in table expression",
-            )
-            return None
-        _, tokens = self.get_item_selector_tokens(variable_statement)
-        if tokens is None:
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "database name not found in table expression",
-            )
-            return None
-
-        db_name: str = tokens["Name"]
-
-        return f"{db_name}.{schema_name}.{table_name}"
+        return full_table_names
 
 
-class NativeQueryFullTableNameCreator(FullTableNameCreator):
+class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.POSTGRES_SQL.value
 
     def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
-        pass
+        print("===NATIVE========")
+        for source in token_dict:
+            print(tree_function.token_values(token_dict[source]["arg_list"]))
+        return []
 
 
 class FunctionName(Enum):
@@ -452,55 +449,35 @@ class FunctionName(Enum):
 
 class SupportedResolver(Enum):
     POSTGRES_SQL = (
-        DataPlatformPair(
-            powerbi_data_platform_name="PostgreSQL",
-            datahub_data_platform_name="postgres"
-        ),
-        PostgresFullTableNameCreator,
+        PostgresTableFullNameCreator,
         FunctionName.POSTGRESQL_DATA_ACCESS,
     )
 
     ORACLE = (
-        DataPlatformPair(
-            powerbi_data_platform_name="Oracle",
-            datahub_data_platform_name="oracle"
-        ),
-        OracleFullTableNameCreator,
+        OracleTableFullNameCreator,
         FunctionName.ORACLE_DATA_ACCESS,
     )
 
     SNOWFLAKE = (
-        DataPlatformPair(
-            powerbi_data_platform_name="Snowflake",
-            datahub_data_platform_name="snowflake"
-        ),
-        SnowflakeFullTableNameCreator,
+        SnowflakeTableFullNameCreator,
         FunctionName.SNOWFLAKE_DATA_ACCESS,
     )
 
     MS_SQL = (
-        DataPlatformPair(
-            powerbi_data_platform_name="Sql",
-            datahub_data_platform_name="mssql"
-        ),
-        MSSqlFullTableNameCreator,
+        MSSqlTableFullNameCreator,
         FunctionName.MSSQL_DATA_ACCESS,
     )
 
     NATIVE_QUERY = (
-        None,
-        NativeQueryFullTableNameCreator,
+        NativeQueryTableFullNameCreator,
         FunctionName.NATIVE_QUERY,
     )
 
-    def get_data_platform_pair(self) -> DataPlatformPair:
+    def get_table_full_name_creator(self) -> Type[AbstractTableFullNameCreator]:
         return self.value[0]
 
-    def get_table_full_name_creator(self) -> Type[FullTableNameCreator]:
-        return self.value[1]
-
     def get_function_name(self) -> str:
-        return self.value[2].value
+        return self.value[1].value
 
     @staticmethod
     def get_function_names() -> List[str]:
@@ -514,8 +491,9 @@ class SupportedResolver(Enum):
 
     @staticmethod
     def get_resolver(function_name: str) -> Optional["SupportedResolver"]:
+        LOGGER.debug("Looking for resolver %s", function_name)
         for supported_resolver in SupportedResolver:
             if function_name == supported_resolver.get_function_name():
                 return supported_resolver
-
+        LOGGER.debug("Looking not found for resolver %s", function_name)
         return None

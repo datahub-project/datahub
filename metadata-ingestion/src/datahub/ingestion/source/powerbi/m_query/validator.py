@@ -40,12 +40,7 @@ def validate_parse_tree(tree: Tree, native_query_enabled: bool = True) -> Tuple[
     """
     functions: List[str] = tree_function.get_all_function_name(tree)
     if len(functions) == 0:
-        return False, "Function call not found"
-
-    data_access_function_names: List[str] = [x.get_function_name().value for x in resolver.SupportedDataPlatform]
-    result: Set[str] = set(data_access_function_names) & set(functions)
-    if len(result) != 1:
-        return False, f"More than one data-access functions are found in expression. Functions = {result}"
+        return False, "Function calls not found"
 
     if native_query_enabled is False:
         if resolver.FunctionName.NATIVE_QUERY.value in functions:
