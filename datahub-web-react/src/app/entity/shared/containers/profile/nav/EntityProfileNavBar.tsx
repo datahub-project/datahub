@@ -15,7 +15,10 @@ type Props = {
 const AffixWithHeight = styled(Affix)``;
 
 export const EntityProfileNavBar = ({ urn, entityType }: Props) => {
-    const { data: browseData } = useGetBrowsePathsQuery({ variables: { input: { urn, type: entityType } } });
+    const { data: browseData } = useGetBrowsePathsQuery({
+        variables: { input: { urn, type: entityType } },
+        fetchPolicy: 'cache-first',
+    });
     const entityRegistry = useEntityRegistry();
 
     const isBrowsable = entityRegistry.getBrowseEntityTypes().includes(entityType);

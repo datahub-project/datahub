@@ -337,7 +337,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # catch any other cases where the script path is invalid
         if not script_path.startswith("s3://"):
-
             self.report.report_warning(
                 script_path,
                 f"Error parsing DAG for Glue job. The script {script_path} is not a valid S3 path.",
@@ -369,7 +368,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # sometimes the Python script can be user-modified and the script is not valid for graph extraction
         except self.glue_client.exceptions.InvalidInputException as e:
-
             self.report.report_warning(
                 script_path,
                 f"Error parsing DAG for Glue job. The script {script_path} cannot be processed by Glue (this usually occurs when it has been user-modified): {e}",
@@ -389,22 +387,18 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_dataflow_s3_names(
         self, dataflow_graph: Dict[str, Any]
     ) -> Iterator[Tuple[str, Optional[str]]]:
-
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
-
             node_type = node["NodeType"]
 
             # for nodes representing datasets, we construct a dataset URN accordingly
             if node_type in ["DataSource", "DataSink"]:
-
                 node_args = {
                     x["Name"]: yaml.safe_load(x["Value"]) for x in node["Args"]
                 }
 
                 # if data object is S3 bucket
                 if node_args.get("connection_type") == "s3":
-
                     s3_uri = self.get_s3_uri(node_args)
 
                     if s3_uri is None:
@@ -422,17 +416,14 @@ class GlueSource(StatefulIngestionSourceBase):
         new_dataset_mces: List[MetadataChangeEvent],
         s3_formats: DefaultDict[str, Set[Union[str, None]]],
     ) -> Optional[Dict[str, Any]]:
-
         node_type = node["NodeType"]
 
         # for nodes representing datasets, we construct a dataset URN accordingly
         if node_type in ["DataSource", "DataSink"]:
-
             node_args = {x["Name"]: yaml.safe_load(x["Value"]) for x in node["Args"]}
 
             # if data object is Glue table
             if "database" in node_args and "table_name" in node_args:
-
                 full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
                 # we know that the table will already be covered when ingesting Glue tables
@@ -445,7 +436,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
-
                 s3_uri = self.get_s3_uri(node_args)
 
                 if s3_uri is None:
@@ -484,16 +474,13 @@ class GlueSource(StatefulIngestionSourceBase):
                 new_dataset_ids.append(f"{node['NodeType']}-{node['Id']}")
 
             else:
-
                 if self.source_config.ignore_unsupported_connectors:
-
                     logger.info(
                         flow_urn,
                         f"Unrecognized Glue data object type: {node_args}. Skipping.",
                     )
                     return None
                 else:
-
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
 
         # otherwise, a node represents a transformation
@@ -536,7 +523,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # iterate through each node to populate processed nodes
         for node in dataflow_graph["DagNodes"]:
-
             processed_node = self.process_dataflow_node(
                 node, flow_urn, new_dataset_ids, new_dataset_mces, s3_formats
             )
@@ -546,7 +532,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
-
             source_node = nodes.get(edge["Source"])
             target_node = nodes.get(edge["Target"])
 
@@ -959,7 +944,6 @@ class GlueSource(StatefulIngestionSourceBase):
     def _get_domain_wu(
         self, dataset_name: str, entity_urn: str, entity_type: str
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
@@ -1050,7 +1034,6 @@ class GlueSource(StatefulIngestionSourceBase):
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
         flow_names: Dict[str, str] = {}
         for job in self.get_all_jobs():
-
             flow_urn = mce_builder.make_data_flow_urn(
                 self.platform, job["Name"], self.env
             )
@@ -1079,7 +1062,6 @@ class GlueSource(StatefulIngestionSourceBase):
                     s3_formats[s3_name].add(extension)
         # run second pass to generate node workunits
         for flow_urn, dag in dags.items():
-
             if dag is None:
                 continue
 
@@ -1088,7 +1070,6 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
             for node in nodes.values():
-
                 if node["NodeType"] not in ["DataSource", "DataSink"]:
                     job_wu = self.get_datajob_wu(node, flow_names[flow_urn])
                     self.report.report_workunit(job_wu)

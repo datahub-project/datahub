@@ -110,7 +110,6 @@ class CliReport(Report):
     os_details: str = platform.platform()
 
     def compute_stats(self) -> None:
-
         self.mem_info = humanfriendly.format_size(
             psutil.Process(os.getpid()).memory_info().rss
         )

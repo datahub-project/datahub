@@ -134,7 +134,6 @@ class LDAPSourceConfig(StatefulIngestionConfigBase):
 
 @dataclasses.dataclass
 class LDAPSourceReport(StaleEntityRemovalSourceReport):
-
     dropped_dns: List[str] = dataclasses.field(default_factory=list)
 
     def report_dropped(self, dn: str) -> None:

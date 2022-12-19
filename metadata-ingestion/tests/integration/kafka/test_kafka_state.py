@@ -103,7 +103,6 @@ def test_kafka_ingest_with_stateful(
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "kafka"
     ) as docker_services:
-
         wait_for_port(docker_services, "test_broker", KAFKA_PORT, timeout=120)
         wait_for_port(docker_services, "test_schema_registry", 8081, timeout=120)
 
@@ -149,7 +148,6 @@ def test_kafka_ingest_with_stateful(
             "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
             mock_datahub_graph,
         ) as mock_checkpoint:
-
             # both checkpoint and reporting will use the same mocked graph instance
             mock_checkpoint.return_value = mock_datahub_graph
 
