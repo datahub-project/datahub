@@ -113,21 +113,23 @@ export const LineageTab = ({
                         <PartitionOutlined />
                         Visualize Lineage
                     </Button>
-                    <ManageLineageMenu
-                        entityUrn={urn}
-                        refetchEntity={() => setShouldRefetch(true)}
-                        setUpdatedLineages={() => {}}
-                        menuIcon={
-                            <Button type="text">
-                                <ManageLineageIcon />
-                                Manage
-                                <StyledCaretDown />
-                            </Button>
-                        }
-                        showLoading
-                        entityType={entityType}
-                        entityPlatform={entityData?.platform?.name}
-                    />
+                    {entityData?.privileges?.canEditLineage && (
+                        <ManageLineageMenu
+                            entityUrn={urn}
+                            refetchEntity={() => setShouldRefetch(true)}
+                            setUpdatedLineages={() => {}}
+                            menuIcon={
+                                <Button type="text">
+                                    <ManageLineageIcon />
+                                    Edit
+                                    <StyledCaretDown />
+                                </Button>
+                            }
+                            showLoading
+                            entityType={entityType}
+                            entityPlatform={entityData?.platform?.name}
+                        />
+                    )}
                 </RightButtonsWrapper>
             </StyledTabToolbar>
             <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>

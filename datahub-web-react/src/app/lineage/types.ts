@@ -53,6 +53,7 @@ export type FetchedEntity = {
     fineGrainedLineages?: [FineGrainedLineage];
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
+    canManageLineage?: boolean;
 };
 
 export type NodeData = {
@@ -73,6 +74,7 @@ export type NodeData = {
     siblingPlatforms?: Maybe<DataPlatform[]>;
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
+    canManageLineage?: boolean;
 };
 
 export type VizNode = {

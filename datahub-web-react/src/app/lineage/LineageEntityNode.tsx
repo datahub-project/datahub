@@ -288,24 +288,26 @@ export default function LineageEntityNode({
                         {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
                     </svg>
                 )}
-                <foreignObject
-                    x={-centerX - 25}
-                    y={centerY + 20}
-                    width={20}
-                    height={20}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <ManageLineageMenu
-                        entityUrn={node.data.urn || ''}
-                        refetchEntity={fetchEntityLineage}
-                        setUpdatedLineages={setUpdatedLineages}
-                        disableUpstream={!isCenterNode && direction === Direction.Downstream}
-                        disableDownstream={!isCenterNode && direction === Direction.Upstream}
-                        centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
-                        entityType={node.data.type}
-                        entityPlatform={node.data.platform?.name}
-                    />
-                </foreignObject>
+                {node.data.canManageLineage && (
+                    <foreignObject
+                        x={-centerX - 25}
+                        y={centerY + 20}
+                        width={20}
+                        height={20}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <ManageLineageMenu
+                            entityUrn={node.data.urn || ''}
+                            refetchEntity={fetchEntityLineage}
+                            setUpdatedLineages={setUpdatedLineages}
+                            disableUpstream={!isCenterNode && direction === Direction.Downstream}
+                            disableDownstream={!isCenterNode && direction === Direction.Upstream}
+                            centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
+                            entityType={node.data.type}
+                            entityPlatform={node.data.platform?.name}
+                        />
+                    </foreignObject>
+                )}
                 <Group>
                     <UnselectableText
                         dy="-1em"

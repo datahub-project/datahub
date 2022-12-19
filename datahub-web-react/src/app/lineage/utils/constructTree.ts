@@ -96,6 +96,7 @@ export default function constructTree(
         siblingPlatforms: fetchedEntity?.siblingPlatforms,
         schemaMetadata: fetchedEntity?.schemaMetadata,
         inputFields: fetchedEntity?.inputFields,
+        canManageLineage: fetchedEntity?.canManageLineage,
     };
     const lineageConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
     let updatedLineageConfig = { ...lineageConfig };
