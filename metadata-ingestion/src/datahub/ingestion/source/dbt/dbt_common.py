@@ -251,13 +251,19 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     )
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
-        description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
+        description="[deprecated] Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
     )
 
     incremental_lineage: bool = Field(
         # Copied from LineageConfig, and changed the default.
         default=False,
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
+    backcompat_no_env_in_assertion_guid: bool = Field(
+        default=False,
+        description="[deprecated] Prior to version 0.9.3.4, the assertion GUIDs did not include the environment. This flag can be used to revert to the legacy behavior. "
+        "Note that this may cause the assertions between different envs to overwrite each other, as the GUIDs will be the same.",
+        hidden_from_schema=True,
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
@@ -689,7 +695,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             # not including env in the guid, so we need to maintain backwards compatibility
                             # with existing PROD assertions.
                             {}
-                            if self.config.env == mce_builder.DEFAULT_ENV
+                            if self.config.env == mce_builder.DEFAULT_ENV or self.config.backcompat_no_env_in_assertion_guid
                             else {"env": self.config.env}
                         ),
                     }
