@@ -151,7 +151,6 @@ elasticsearch:
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
   index:
     prefix: ${INDEX_PREFIX:}
-    create: ${INDEX_CREATE:false} # mae/gms there should only be 1 index creator
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}

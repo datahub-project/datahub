@@ -54,9 +54,6 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("${elasticsearch.index.entitySettingsOverrides}")
   private String entityIndexSettingOverrides;
 
-  @Value("${index.create}")
-  private boolean indexCreate;
-
   @Value("#{new Boolean('${elasticsearch.index.enableSettingsReindex}')}")
   private boolean enableSettingsReindex;
 
@@ -78,7 +75,7 @@ public class ElasticSearchIndexBuilderFactory {
   protected ESIndexBuilder getInstance(
           @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides) {
     return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, overrides,
-            indexCreate, enableSettingsReindex);
+            enableSettingsReindex);
   }
 
   @Nonnull

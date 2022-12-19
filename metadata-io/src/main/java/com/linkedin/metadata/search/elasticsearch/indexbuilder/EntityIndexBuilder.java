@@ -14,17 +14,12 @@ public class EntityIndexBuilder {
   private final EntitySpec entitySpec;
   private final SettingsBuilder settingsBuilder;
   private final String indexName;
-  private final boolean enabled;
 
   public void buildIndex() throws IOException {
     log.info("Setting up index: {}", indexName);
-    if (enabled) {
-      Map<String, Object> mappings = MappingsBuilder.getMappings(entitySpec);
-      Map<String, Object> settings = settingsBuilder.getSettings();
+    Map<String, Object> mappings = MappingsBuilder.getMappings(entitySpec);
+    Map<String, Object> settings = settingsBuilder.getSettings();
 
-      indexBuilder.buildIndex(indexName, mappings, settings);
-    } else {
-      log.info("Index building is not enabled for this component.");
-    }
+    indexBuilder.buildIndex(indexName, mappings, settings);
   }
 }

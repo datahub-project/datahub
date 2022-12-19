@@ -61,9 +61,6 @@ public class ESIndexBuilder {
   private final Map<String, Map<String, String>> indexSettingOverrides;
 
   @Getter
-  private final boolean enabled;
-
-  @Getter
   private final boolean enableIndexSettingsReindex;
 
   private final static ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -80,12 +77,6 @@ public class ESIndexBuilder {
 
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings)
       throws IOException {
-
-    if (!enabled) {
-      log.info("Index building is not enabled for this component.");
-      return;
-    }
-
     // Check if index exists
     boolean exists = searchClient.indices().exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
 
