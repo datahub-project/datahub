@@ -352,7 +352,6 @@ class QueryEvent:
     def from_exported_bigquery_audit_metadata(
         cls, row: BigQueryAuditMetadata, debug_include_full_payloads: bool = False
     ) -> "QueryEvent":
-
         payload: Dict = row["protoPayload"]
         metadata: Dict = json.loads(row["metadata"])
         job: Dict = metadata["jobChange"]["job"]

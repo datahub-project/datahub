@@ -302,7 +302,6 @@ class PulsarSource(StatefulIngestionSourceBase):
                         for topic, is_partitioned in topics.items():
                             self.report.topics_scanned += 1
                             if self.config.topic_patterns.allowed(topic):
-
                                 yield from self._extract_record(topic, is_partitioned)
                                 # Add topic to checkpoint if stateful ingestion is enabled
                                 topic_urn = make_dataset_urn_with_platform_instance(
@@ -332,7 +331,6 @@ class PulsarSource(StatefulIngestionSourceBase):
     def _get_schema_and_fields(
         self, pulsar_topic: PulsarTopic, is_key_schema: bool
     ) -> Tuple[Optional[PulsarSchema], List[SchemaField]]:
-
         pulsar_schema: Optional[PulsarSchema] = None
 
         schema_url = (
@@ -377,7 +375,6 @@ class PulsarSource(StatefulIngestionSourceBase):
     def _get_schema_metadata(
         self, pulsar_topic: PulsarTopic, platform_urn: str
     ) -> Tuple[Optional[PulsarSchema], Optional[SchemaMetadata]]:
-
         # FIXME: Type annotations are not working for this function.
         schema, fields = self._get_schema_and_fields(
             pulsar_topic=pulsar_topic, is_key_schema=False

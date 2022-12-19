@@ -17,7 +17,6 @@ from datahub.ingestion.source.sql.sql_common import (
 
 
 class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
-
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",

@@ -153,7 +153,6 @@ WHERE
     def get_workunits(
         self, tables: Dict[str, Dict[str, List[BigqueryTable]]]
     ) -> Iterable[MetadataWorkUnit]:
-
         # Otherwise, if column level profiling is enabled, use  GE profiler.
         for project in tables.keys():
             if not self.config.project_id_pattern.allowed(project):

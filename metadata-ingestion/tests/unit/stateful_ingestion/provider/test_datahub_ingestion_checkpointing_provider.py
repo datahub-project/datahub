@@ -112,7 +112,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         return None
 
     def test_provider(self):
-
         # 1. Create the individual job checkpoints with appropriate states.
         # Job1 - Checkpoint with a BaseSQLAlchemyCheckpointState state
         job1_state_obj = BaseSQLAlchemyCheckpointState()
