@@ -695,7 +695,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             # not including env in the guid, so we need to maintain backwards compatibility
                             # with existing PROD assertions.
                             {}
-                            if self.config.env == mce_builder.DEFAULT_ENV or self.config.backcompat_no_env_in_assertion_guid
+                            if self.config.env == mce_builder.DEFAULT_ENV
+                            or self.config.backcompat_no_env_in_assertion_guid
                             else {"env": self.config.env}
                         ),
                     }
