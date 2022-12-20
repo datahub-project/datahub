@@ -94,6 +94,12 @@ def register_mock_api(request_mock):
                         "embedUrl": "https://localhost/tiles/embed/1",
                         "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
                     },
+                    {
+                        "id": "23212598-23b5-4980-87cc-5fc0ecd84385",
+                        "title": "yearly_sales",
+                        "embedUrl": "https://localhost/tiles/embed/2",
+                        "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                    }
                 ]
             },
         },
