@@ -118,7 +118,6 @@ class S3BucketKey(PlatformKey):
 
 
 class DatahubKeyJSONEncoder(json.JSONEncoder):
-
     # overload method default
     def default(self, obj: Any) -> Any:
         if hasattr(obj, "guid"):

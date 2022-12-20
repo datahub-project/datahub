@@ -164,7 +164,6 @@ class DataHubValidationAction(ValidationAction):
             logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
 
             for assertion in assertions:
-
                 logger.info(
                     "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
                 )
@@ -220,7 +219,6 @@ class DataHubValidationAction(ValidationAction):
         payload,
         datasets,
     ):
-
         dataPlatformInstance = DataPlatformInstance(
             platform=builder.make_data_platform_urn(GE_PLATFORM_NAME)
         )
@@ -354,7 +352,6 @@ class DataHubValidationAction(ValidationAction):
     def get_assertion_info(
         self, expectation_type, kwargs, dataset, fields, expectation_suite_name
     ):
-
         # TODO - can we find exact type of min and max value
         def get_min_max(kwargs, type=AssertionStdParameterType.UNKNOWN):
             return AssertionStdParameters(
@@ -717,7 +714,6 @@ def make_dataset_urn_from_sqlalchemy_uri(
     exclude_dbname=None,
     platform_alias=None,
 ):
-
     data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
     url_instance = make_url(sqlalchemy_uri)
 

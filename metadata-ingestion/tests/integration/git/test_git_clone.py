@@ -6,7 +6,6 @@ from datahub.ingestion.source.git.git_import import GitClone
 
 
 def test_git_clone(pytestconfig, tmp_path):
-
     git_clone = GitClone(str(tmp_path))
     secret_env_variable = "DATAHUB_LOOKML_GIT_TEST_SSH_KEY"
     if os.environ.get(secret_env_variable) is not None:

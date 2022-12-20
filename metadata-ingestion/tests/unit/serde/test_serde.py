@@ -96,7 +96,6 @@ def test_serde_to_avro(
     with patch(
         "datahub.ingestion.api.common.PipelineContext", autospec=True
     ) as mock_pipeline_context:
-
         json_path = pytestconfig.rootpath / json_filename
         source = GenericFileSource(
             ctx=mock_pipeline_context, config=FileSourceConfig(path=str(json_path))

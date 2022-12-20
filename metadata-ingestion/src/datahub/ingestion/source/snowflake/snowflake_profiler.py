@@ -71,7 +71,6 @@ class SnowflakeProfiler(SnowflakeCommonMixin, GenericProfiler, SnowflakeCommonPr
                 ):
                     continue
                 for table in schema.tables:
-
                     # Emit the profile work unit
                     profile_request = self.get_snowflake_profile_request(
                         table, schema.name, db.name
