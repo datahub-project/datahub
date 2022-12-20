@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.Media;
 import com.linkedin.common.MediaType;
 import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.PostKey;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -66,6 +67,15 @@ public class PostService {
         buildMetadataChangeProposal(POST_ENTITY_NAME, postKey, POST_INFO_ASPECT_NAME, postInfo);
     _entityClient.ingestProposal(proposal, authentication);
 
+    return true;
+  }
+
+  public boolean deletePost(@Nonnull Urn postUrn, @Nonnull Authentication authentication)
+      throws RemoteInvocationException {
+    if (!_entityClient.exists(postUrn, authentication)) {
+      throw new RuntimeException("Post does not exist");
+    }
+    _entityClient.deleteEntity(postUrn, authentication);
     return true;
   }
 }

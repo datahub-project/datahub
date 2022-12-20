@@ -89,8 +89,6 @@ services:
     ports:
       - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     depends_on:
-      - elasticsearch-setup
-      - kafka-setup
       - mysql
 
   datahub-frontend-react:

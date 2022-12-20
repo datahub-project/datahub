@@ -232,7 +232,6 @@ class TrinoUsageSource(Source):
         for event in events:
             floored_ts = get_time_bucket(event.starttime, self.config.bucket_duration)
             for metadata in event.accessed_metadata:
-
                 # Skipping queries starting with $system@
                 if metadata.catalog_name.startswith("$system@"):
                     logging.debug(

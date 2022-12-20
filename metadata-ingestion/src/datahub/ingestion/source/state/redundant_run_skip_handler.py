@@ -3,7 +3,7 @@ from typing import Optional, cast
 
 import pydantic
 
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
@@ -100,7 +100,6 @@ class RedundantRunSkipHandler(
         return Checkpoint(
             job_name=self.job_id,
             pipeline_name=self.pipeline_name,
-            platform_instance_id=self.source.get_platform_instance_id(),
             run_id=self.run_id,
             state=BaseUsageCheckpointState(
                 begin_timestamp_millis=self.INVALID_TIMESTAMP_VALUE,

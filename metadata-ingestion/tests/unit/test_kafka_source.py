@@ -94,7 +94,6 @@ class KafkaSourceTest(object):
 
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_workunits_with_platform_instance(self, mock_kafka):
-
         PLATFORM_INSTANCE = "kafka_cluster"
         PLATFORM = "kafka"
         TOPIC_NAME = "test"

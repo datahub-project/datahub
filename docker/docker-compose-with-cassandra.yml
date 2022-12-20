@@ -127,9 +127,6 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - elasticsearch-setup
-      - kafka-setup
-      - cassandra-setup
       - neo4j
 
   datahub-frontend-react:

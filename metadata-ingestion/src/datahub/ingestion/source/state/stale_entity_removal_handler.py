@@ -6,7 +6,7 @@ from typing import Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -163,7 +163,8 @@ class StaleEntityRemovalHandler(
         self._job_id = self._init_job_id()
         self.source.register_stateful_ingestion_usecase_handler(self)
 
-    def _init_job_id(self) -> JobId:
+    @classmethod
+    def compute_job_id(cls, platform: Optional[str]) -> JobId:
         # Handle backward-compatibility for existing sources.
         backward_comp_platform_to_job_name: Dict[str, str] = {
             "bigquery": "ingest_from_bigquery_source",
@@ -173,13 +174,16 @@ class StaleEntityRemovalHandler(
             "pulsar": "ingest_from_pulsar_source",
             "snowflake": "common_ingest_from_sql_source",
         }
-        platform: Optional[str] = getattr(self.source, "platform")
         if platform in backward_comp_platform_to_job_name:
             return JobId(backward_comp_platform_to_job_name[platform])
 
         # Default name for everything else
         job_name_suffix = "stale_entity_removal"
         return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
+
+    def _init_job_id(self) -> JobId:
+        platform: Optional[str] = getattr(self.source, "platform")
+        return self.compute_job_id(platform)
 
     def _ignore_old_state(self) -> bool:
         if (
@@ -211,7 +215,6 @@ class StaleEntityRemovalHandler(
             return Checkpoint(
                 job_name=self.job_id,
                 pipeline_name=self.pipeline_name,
-                platform_instance_id=self.source.get_platform_instance_id(),
                 run_id=self.run_id,
                 state=self.state_type_class(),
             )

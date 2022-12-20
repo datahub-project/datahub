@@ -2,7 +2,6 @@ from datahub.ingestion.source.superset import SupersetConfig
 
 
 def test_default_values():
-
     config = SupersetConfig.parse_obj({})
 
     assert config.connect_uri == "localhost:8088"
