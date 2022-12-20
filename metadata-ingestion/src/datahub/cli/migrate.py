@@ -24,7 +24,6 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     ContainerKeyClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
@@ -222,10 +221,7 @@ def dataplatform2instance_func(
         if not dry_run:
             rest_emitter.emit_mcp(
                 MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=new_urn,
-                    aspectName="dataPlatformInstance",
                     aspect=DataPlatformInstanceClass(
                         platform=make_data_platform_urn(platform),
                         instance=make_dataplatform_instance_urn(platform, instance),
@@ -253,10 +249,7 @@ def dataplatform2instance_func(
                 )
                 # use mcpw
                 mcp = MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=target_urn,
-                    aspectName=aspect_name,
                     aspect=aspect,
                 )
                 if not dry_run:
@@ -378,9 +371,7 @@ def migrate_containers(
 
         if not dry_run and not keep:
             log.info(f"will {'hard' if hard else 'soft'} delete {src_urn}")
-            delete_cli._delete_one_urn(
-                src_urn, soft=not hard, run_id=run_id, entity_type="container"
-            )
+            delete_cli._delete_one_urn(src_urn, soft=not hard, run_id=run_id)
         migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
 
     print(f"{migration_report}")
@@ -434,10 +425,7 @@ def process_container_relationships(
             )
             # use mcpw
             mcp = MetadataChangeProposalWrapper(
-                entityType=entity_type,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=target_urn,
-                aspectName=aspect_name,
                 aspect=aspect,
             )
 

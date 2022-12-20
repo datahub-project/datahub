@@ -75,7 +75,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
@@ -87,14 +86,12 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
-    JobStatusClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
-    StatusClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -724,10 +721,7 @@ class GlueSource(StatefulIngestionSourceBase):
                             ]
                         )
                         mcp = MetadataChangeProposalWrapper(
-                            entityType="dataset",
                             entityUrn=mce.proposedSnapshot.urn,
-                            changeType=ChangeTypeClass.UPSERT,
-                            aspectName="upstreamLineage",
                             aspect=upstream_lineage,
                         )
                         return mcp
@@ -742,10 +736,7 @@ class GlueSource(StatefulIngestionSourceBase):
                             ]
                         )
                         mcp = MetadataChangeProposalWrapper(
-                            entityType="dataset",
                             entityUrn=s3_dataset_urn,
-                            changeType=ChangeTypeClass.UPSERT,
-                            aspectName="upstreamLineage",
                             aspect=upstream_lineage,
                         )
                         return mcp
@@ -827,10 +818,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=mce.proposedSnapshot.urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProfile",
             aspect=dataset_profile,
         )
         return mcp

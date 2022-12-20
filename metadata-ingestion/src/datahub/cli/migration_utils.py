@@ -8,7 +8,6 @@ from datahub.cli import cli_utils
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
     DataJobInputOutputClass,
@@ -250,9 +249,6 @@ def clone_aspect(
                 assert isinstance(aspect_value, DictWrapper)
                 new_mcp = MetadataChangeProposalWrapper(
                     entityUrn=dst_urn,
-                    entityType=entity_type,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName=a,
                     aspect=aspect_value,
                     systemMetadata=SystemMetadataClass(
                         runId=run_id,

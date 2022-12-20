@@ -42,7 +42,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     SubTypesClass,
 )
@@ -236,10 +235,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         subtype_wu = MetadataWorkUnit(
             id=f"{topic}-subtype",
             mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=["topic"]),
             ),
         )

@@ -11,7 +11,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import _Aspect
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -190,11 +189,8 @@ class SnowflakeCommonMixin:
         wu = MetadataWorkUnit(
             id=id,
             mcp=MetadataChangeProposalWrapper(
-                entityType=entityName,
                 entityUrn=entityUrn,
-                aspectName=aspectName,
                 aspect=aspect,
-                changeType=ChangeType.UPSERT,
             ),
         )
         self.report.report_workunit(wu)
