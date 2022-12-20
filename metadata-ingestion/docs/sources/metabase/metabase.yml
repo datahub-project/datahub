@@ -10,14 +10,14 @@ source:
 
     # Options
     default_schema: public
-    database_alias_map:
-      h2: sample-dataset.db
+
     # Optional mapping of platform types to instance ids
     platform_instance_map: # optional
       postgres: test_postgres
+
+    # Optional mapping of database IDs to database names
     database_alias_map: # optional
-      postgres:
-        "internal_dbname": "datahub_dbname"
+        "2": "my_database"
 
 sink:
   # sink configs

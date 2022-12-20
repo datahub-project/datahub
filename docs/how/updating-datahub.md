@@ -11,6 +11,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - `datahub check graph-consistency` command has been removed. It was a beta API that we had considered but decided there are better solutions for this. So removing this.
 - `graphql_url` option of `powerbi-report-server` source deprecated as the options is not used.
 - #6789 biquery-source: sharded table support changes a bit and it will generate different id as before to make sure it does not clash with non-sharded table names. This means if stateful ingestion is enabled then old sharded tables will be recreated with new id and attached tags/glossary_terms/etc needs to be added again.
+- #5647 `database_alias_map` in the `metabase` source is now mapping Metabase database IDs to DataHub database names.
 
 ### Potential Downtime
 
