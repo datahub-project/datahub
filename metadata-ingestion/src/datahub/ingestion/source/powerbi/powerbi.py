@@ -764,9 +764,7 @@ class PowerBiDashboardSource(Source):
         # Fetch PowerBi workspace for given workspace identifier
         for workspace_id in self.get_workspace_ids():
             LOGGER.info(f"Scanning workspace id: {workspace_id}")
-            workspace = self.powerbi_client.get_workspace(
-                workspace_id, self.reporter
-            )
+            workspace = self.powerbi_client.get_workspace(workspace_id, self.reporter)
 
             for dashboard in workspace.dashboards:
 
