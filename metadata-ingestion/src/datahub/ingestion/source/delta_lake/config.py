@@ -36,7 +36,6 @@ class S3(ConfigModel):
 
 
 class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
-
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables."

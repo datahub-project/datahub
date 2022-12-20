@@ -48,13 +48,13 @@ CREATE TABLE metadata_index (
 CREATE VIEW metadata_index_view AS SELECT id, urn, path, doubleVal FROM metadata_index;
 
 -- -----------------------------------------------------
--- Some sample data, from https://github.com/datacharmer/test_db.
+-- Some sample data, from https://github.com/dataCharmer/test_db.
 -- -----------------------------------------------------
 
-CREATE SCHEMA IF NOT EXISTS `datacharmer` ;
-USE `datacharmer` ;
+CREATE SCHEMA IF NOT EXISTS `dataCharmer` ;
+USE `dataCharmer` ;
 
-CREATE TABLE `datacharmer`.`employees` (
+CREATE TABLE `dataCharmer`.`employees` (
     emp_no      INT             NOT NULL,
     birth_date  DATE            NOT NULL,
     first_name  VARCHAR(14)     NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE `datacharmer`.`employees` (
     PRIMARY KEY (emp_no)
 );
 
-CREATE TABLE `datacharmer`.`salaries` (
+CREATE TABLE `dataCharmer`.`salaries` (
     emp_no      INT             NOT NULL,
     salary      INT             NOT NULL,
     from_date   DATE            NOT NULL,

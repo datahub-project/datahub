@@ -3,11 +3,12 @@ import { FieldType, RecipeField, setListValuesOnRecipe } from './common';
 export const BIGQUERY_BETA_PROJECT_ID: RecipeField = {
     name: 'credential.project_id',
     label: 'Project ID',
-    tooltip: 'Project id to set the credentials.',
+    tooltip: "The Project ID, which can be found in your service account's JSON Key (project_id)",
     placeholder: 'my-project-123',
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.project_id',
     rules: null,
+    required: true,
 };
 
 const projectIdAllowFieldPath = 'source.config.project_id_pattern.allow';

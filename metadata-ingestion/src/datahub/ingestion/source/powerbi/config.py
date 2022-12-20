@@ -1,3 +1,5 @@
+import logging
+
 from dataclasses import dataclass, field as dataclass_field
 from typing import Dict, List, Union
 
@@ -7,6 +9,11 @@ from pydantic import validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV, EnvBasedSourceConfigBase
 from datahub.ingestion.api.source import SourceReport
+from pydantic.class_validators import root_validator
+
+from datahub.configuration.common import AllowDenyPattern
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Constant:
@@ -98,6 +105,12 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
     workspace_id: str = pydantic.Field(description="PowerBI workspace identifier")
+    # PowerBi workspace identifier
+    workspace_id_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter PowerBI workspaces in ingestion",
+    )
+
     # Dataset type mapping PowerBI support many type of data-sources. Here user need to define what type of PowerBI
     # DataSource need to be mapped to corresponding DataHub Platform DataSource. For example PowerBI `Snowflake` is
     # mapped to DataHub `snowflake` PowerBI `PostgreSQL` is mapped to DataHub `postgres` and so on.
@@ -143,6 +156,25 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
             value["PostgreSQL"] = platform_name
 
         return value
+
+    @root_validator(pre=False)
+    def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
+        workspace_id = values.get("workspace_id")
+        workspace_id_pattern = values.get("workspace_id_pattern")
+
+        if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
+            LOGGER.warning(
+                "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
+            )
+            values["workspace_id_pattern"] = AllowDenyPattern(
+                allow=[f"^{workspace_id}$"]
+            )
+        elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
+            LOGGER.warning(
+                "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern only."
+            )
+            values.pop("workspace_id")
+        return values
 
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):

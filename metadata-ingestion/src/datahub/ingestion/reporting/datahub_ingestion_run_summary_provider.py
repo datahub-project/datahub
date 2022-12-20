@@ -4,7 +4,12 @@ import time
 from typing import Any, Dict, Optional
 
 from datahub import nice_version_name
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig, IgnorableError
+from datahub.configuration.common import (
+    ConfigModel,
+    DynamicTypedConfig,
+    IgnorableError,
+    redact_raw_config,
+)
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import make_data_platform_urn
@@ -32,7 +37,6 @@ class DatahubIngestionRunSummaryProviderConfig(ConfigModel):
 
 
 class DatahubIngestionRunSummaryProvider(PipelineRunListener):
-
     _EXECUTOR_ID: str = "__datahub_cli_"
     _EXECUTION_REQUEST_SOURCE_TYPE: str = "CLI_INGESTION_SOURCE"
     _INGESTION_TASK_NAME: str = "CLI Ingestion"
@@ -73,7 +77,6 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         config_dict: Dict[str, Any],
         ctx: PipelineContext,
     ) -> PipelineRunListener:
-
         sink_config_holder: Optional[DynamicTypedConfig] = None
 
         reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
@@ -149,7 +152,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         if not self.report_recipe or not ctx.pipeline_config._raw_dict:
             return ""
         else:
-            return json.dumps(ctx.pipeline_config._raw_dict)
+            return json.dumps(redact_raw_config(ctx.pipeline_config._raw_dict))
 
     def _emit_aspect(
         self, entity_urn: Urn, aspect_name: str, aspect_value: _Aspect

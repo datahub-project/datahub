@@ -37,6 +37,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -46,7 +47,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.state.tableau_state import TableauCheckpointState
 from datahub.ingestion.source.tableau_common import (
     FIELD_TYPE_MAPPING,
     MetadataQueryException,
@@ -176,20 +176,33 @@ class TableauConnectionConfig(ConfigModel):
             )
 
         try:
-            server = Server(self.connect_uri, use_server_version=True)
+            server = Server(
+                self.connect_uri,
+                use_server_version=True,
+                http_options={
+                    # As per https://community.tableau.com/s/question/0D54T00000F33bdSAB/tableauserverclient-signin-with-ssl-certificate
+                    "verify": bool(self.ssl_verify),
+                    **(
+                        {"cert": self.ssl_verify}
+                        if isinstance(self.ssl_verify, str)
+                        else {}
+                    ),
+                },
+            )
 
             # From https://stackoverflow.com/a/50159273/5004662.
-            server._session.verify = self.ssl_verify
             server._session.trust_env = False
 
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
             raise ValueError(
-                f"Unable to login with credentials provided: {str(e)}"
+                f"Unable to login (invalid credentials or missing permissions): {str(e)}"
             ) from e
         except Exception as e:
-            raise ValueError(f"Unable to login: {str(e)}") from e
+            raise ValueError(
+                f"Unable to login (check your Tableau connection and credentials): {str(e)}"
+            ) from e
 
 
 class TableauConfig(
@@ -303,7 +316,7 @@ class TableauSource(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=TableauCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -913,7 +926,6 @@ class TableauSource(StatefulIngestionSourceBase):
     def _create_lineage_to_upstream_tables(
         self, csql_urn: str, tables: List[dict], datasource: dict
     ) -> Iterable[MetadataWorkUnit]:
-
         # This adds an edge to upstream DatabaseTables using `upstreamTables`
         upstream_tables, _ = self.get_upstream_tables(
             tables,
@@ -990,7 +1002,10 @@ class TableauSource(StatefulIngestionSourceBase):
         return mcp_workunit
 
     def emit_datasource(
-        self, datasource: dict, workbook: dict = None, is_embedded_ds: bool = False
+        self,
+        datasource: dict,
+        workbook: Optional[dict] = None,
+        is_embedded_ds: bool = False,
     ) -> Iterable[MetadataWorkUnit]:
         datasource_info = workbook
         if not is_embedded_ds:
@@ -1114,7 +1129,7 @@ class TableauSource(StatefulIngestionSourceBase):
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        for (table_urn, (columns, path, is_embedded)) in self.upstream_tables.items():
+        for table_urn, (columns, path, is_embedded) in self.upstream_tables.items():
             if not is_embedded and not self.config.ingest_tables_external:
                 logger.debug(
                     f"Skipping external table {table_urn} as ingest_tables_external is set to False"
@@ -1352,7 +1367,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
 
     def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
-
         workbook_container_key = self.gen_workbook_key(workbook)
         creator = workbook.get("owner", {}).get("username")
 
@@ -1543,7 +1557,6 @@ class TableauSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
-
         # For some databases, the schema attribute in tableau api does not return
         # correct schema name for the table. For more information, see
         # https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute.

@@ -43,9 +43,9 @@ MIN_MEMORY_NEEDED = 3.8  # GB
 
 
 @contextmanager
-def get_client_with_error() -> Iterator[
-    Tuple[docker.DockerClient, Optional[Exception]]
-]:
+def get_client_with_error() -> (
+    Iterator[Tuple[docker.DockerClient, Optional[Exception]]]
+):
     # This method is structured somewhat strangely because we
     # need to make sure that we only yield once.
 

@@ -51,7 +51,7 @@ def test_get_browse_paths(frontend_session, ingest_cleanup_data):
     # /prod -- There should be one entity
     get_browse_paths_json = {
         "query": get_browse_paths_query,
-        "variables": {"input": { "type": "DATASET", "path": ["prod"], "start": 0, "count": 10 } },
+        "variables": {"input": { "type": "DATASET", "path": ["prod"], "start": 0, "count": 100 } },
     }
 
     response = frontend_session.post(

@@ -9,7 +9,6 @@ This module contains a React application that serves as the DataHub UI.
 
 Feel free to take a look around, deploy, and contribute. 
 
-For details about the motivation please see [this RFC](../docs/rfc/active/2055-react-app/README.md). 
 
 ## Functional Goals
 The initial milestone for the app was to achieve functional parity with the previous Ember app. This meant supporting

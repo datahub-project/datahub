@@ -162,3 +162,11 @@ objectclass: groupOfNames
 objectclass: top
 member: cn=Hester Bevan,ou=people,dc=example,dc=org
 member: cn=Evalyn Haas,ou=people,dc=example,dc=org
+
+# Entry 13: cn=Finance Department,ou=groups,dc=example,dc=org
+dn: cn=Finance Department,dc=example,dc=org
+cn: Finance Department
+objectclass: groupOfNames
+objectclass: top
+member: cn=Hester Bevan,ou=people,dc=example,dc=org
+member: cn=Evalyn Haas,ou=people,dc=example,dc=org
