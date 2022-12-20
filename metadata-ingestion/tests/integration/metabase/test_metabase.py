@@ -4,6 +4,7 @@ from unittest.mock import patch
 from freezegun import freeze_time
 from requests.models import HTTPError
 
+from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
@@ -156,4 +157,9 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
             }
         )
         pipeline.run()
-        pipeline.raise_from_status()
+        try:
+            pipeline.raise_from_status()
+        except PipelineExecutionError as exec_error:
+            assert exec_error.args[0] == "Source reported errors"
+            assert len(exec_error.args[1].failures) == 1
+            assert list(exec_error.args[1].failures.keys())[0] == "metabase-dashboard"
