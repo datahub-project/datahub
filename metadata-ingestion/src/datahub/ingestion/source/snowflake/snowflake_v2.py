@@ -43,7 +43,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
-from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
+from datahub.ingestion.source.snowflake.constants import (
+    SNOWFLAKE_DATABASE,
+    SnowflakeEdition,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
     SnowflakeLineageExtractor,
@@ -409,7 +412,7 @@ class SnowflakeV2Source(
                 SourceCapability.USAGE_STATS,
             ):
                 failure_message = (
-                    f"Current role does not have permissions to use warehouse {connection_conf.warehouse}. Please update permissions."
+                    f"Current role {current_role} does not have permissions to use warehouse {connection_conf.warehouse}. Please check the grants associated with this role."
                     if connection_conf.warehouse is not None
                     else "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe"
                 )
@@ -549,7 +552,7 @@ class SnowflakeV2Source(
                     f"Failed to list databases {database.name} information_schema"
                 )
                 # SNOWFLAKE database always shows up even if permissions are missing
-                if database == "SNOWFLAKE":
+                if database == SNOWFLAKE_DATABASE:
                     continue
                 logger.info(
                     f"The role {self.report.role} has `MANAGE GRANTS` privilege. This is not advisable and also not required."

@@ -158,8 +158,10 @@ class SnowflakeTableLineage:
 
 class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
-        self._lineage_map: Optional[Dict[str, SnowflakeTableLineage]] = None
-        self._external_lineage_map: Optional[Dict[str, Set[str]]] = None
+        self._lineage_map: Dict[str, SnowflakeTableLineage] = defaultdict(
+            SnowflakeTableLineage
+        )
+        self._external_lineage_map: Dict[str, Set[str]] = defaultdict(set)
         self.config = config
         self.platform = "snowflake"
         self.report = report
@@ -182,29 +184,25 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 )
             return
 
-        if self._lineage_map is None:
-            self._lineage_map = defaultdict(SnowflakeTableLineage)
-            if self.report.edition == SnowflakeEdition.STANDARD:
-                logger.info(
-                    "Snowflake Account is Standard Edition. Table to Table Lineage Feature is not supported."
-                )
-            else:
-                with PerfTimer() as timer:
-                    self._populate_lineage(conn)
-                    self.report.table_lineage_query_secs = timer.elapsed_seconds()
-            if self.config.include_view_lineage:
-                if len(discovered_views) > 0:
-                    self._populate_view_lineage(conn)
-                else:
-                    logger.info("No views found. Skipping View Lineage Extraction.")
-
-        if self._external_lineage_map is None:
+        if self.report.edition == SnowflakeEdition.STANDARD:
+            logger.info(
+                "Snowflake Account is Standard Edition. Table to Table Lineage Feature is not supported."
+            )
+        else:
             with PerfTimer() as timer:
-                self._populate_external_lineage(conn)
-                self.report.external_lineage_queries_secs = timer.elapsed_seconds()
+                self._populate_lineage(conn)
+                self.report.table_lineage_query_secs = timer.elapsed_seconds()
 
-        assert self._lineage_map is not None
-        assert self._external_lineage_map is not None
+        if self.config.include_view_lineage:
+            if len(discovered_views) > 0:
+                self._populate_view_lineage(conn)
+            else:
+                logger.info("No views found. Skipping View Lineage Extraction.")
+
+        with PerfTimer() as timer:
+            self._populate_external_lineage(conn)
+            self.report.external_lineage_queries_secs = timer.elapsed_seconds()
+
         if (
             len(self._lineage_map.keys()) == 0
             and len(self._external_lineage_map.keys()) == 0
@@ -212,6 +210,10 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             logger.debug("No lineage found.")
             return
 
+        yield from self.get_table_upstream_workunits(discovered_tables)
+        yield from self.get_view_upstream_workunits(discovered_views)
+
+    def get_table_upstream_workunits(self, discovered_tables):
         if self.config.include_table_lineage:
             for dataset_name in discovered_tables:
                 if self._is_dataset_pattern_allowed(dataset_name, "table"):
@@ -227,135 +229,50 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                             "dataset", dataset_urn, "upstreamLineage", upstream_lineage
                         )
 
+    def get_view_upstream_workunits(self, discovered_views):
         if self.config.include_view_lineage:
-            for dataset_name in discovered_views:
-                if self._is_dataset_pattern_allowed(dataset_name, "view"):
+            for view_name in discovered_views:
+                if self._is_dataset_pattern_allowed(view_name, "view"):
                     dataset_urn = builder.make_dataset_urn_with_platform_instance(
                         self.platform,
-                        dataset_name,
+                        view_name,
                         self.config.platform_instance,
                         self.config.env,
                     )
-                    upstream_lineage = self._get_upstream_lineage_info(dataset_name)
+                    upstream_lineage = self._get_upstream_lineage_info(view_name)
                     if upstream_lineage is not None:
                         yield self.wrap_aspect_as_workunit(
                             "dataset", dataset_urn, "upstreamLineage", upstream_lineage
                         )
 
-    # Rewrite implementation for readability, efficiency and extensibility
     def _get_upstream_lineage_info(
         self, dataset_name: str
     ) -> Optional[UpstreamLineage]:
-        assert self._lineage_map is not None
-        assert self._external_lineage_map is not None
-
         lineage = self._lineage_map[dataset_name]
         external_lineage = self._external_lineage_map[dataset_name]
         if not (lineage.upstreamTables or lineage.columnLineages or external_lineage):
             logger.debug(f"No lineage found for {dataset_name}")
             return None
+
         upstream_tables: List[UpstreamClass] = []
         finegrained_lineages: List[FineGrainedLineage] = []
-        fieldset_finegrained_lineages: List[FineGrainedLineage] = []
+
         dataset_urn = builder.make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
             self.config.platform_instance,
             self.config.env,
         )
-        for lineage_entry in sorted(
-            lineage.upstreamTables.values(), key=lambda x: x.upstreamDataset
-        ):
-            # Update the table-lineage
-            upstream_table_name = lineage_entry.upstreamDataset
-            upstream_table_urn = builder.make_dataset_urn_with_platform_instance(
-                self.platform,
-                upstream_table_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            upstream_table = UpstreamClass(
-                dataset=upstream_table_urn,
-                type=DatasetLineageTypeClass.TRANSFORMED,
-            )
-            upstream_tables.append(upstream_table)
+        # Populate the table-lineage in aspect
+        self.update_upstream_tables_lineage(upstream_tables, lineage)
 
-            if lineage_entry.upstreamColumns and lineage_entry.downstreamColumns:
-                # This is not used currently. This indicates same column lineage as was set
-                # in customProperties earlier - not accurate.
-                fieldset_finegrained_lineage = FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD_SET
-                    if len(lineage_entry.downstreamColumns) > 1
-                    else FineGrainedLineageDownstreamType.FIELD,
-                    upstreams=sorted(
-                        [
-                            builder.make_schema_field_urn(
-                                upstream_table_urn,
-                                self.snowflake_identifier(d.columnName),
-                            )
-                            for d in lineage_entry.upstreamColumns
-                        ]
-                    ),
-                    downstreams=sorted(
-                        [
-                            builder.make_schema_field_urn(
-                                dataset_urn, self.snowflake_identifier(d.columnName)
-                            )
-                            for d in lineage_entry.downstreamColumns
-                        ]
-                    ),
-                )
-                fieldset_finegrained_lineages.append(fieldset_finegrained_lineage)
+        # Populate the column-lineage in aspect
+        self.update_upstream_columns_lineage(dataset_urn, finegrained_lineages, lineage)
 
-        for col, col_upstreams in lineage.columnLineages.items():
-            for fine_upstream in col_upstreams.upstreams:
-                fieldPath = col
-                finegrained_lineage_entry = FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    upstreams=sorted(
-                        [
-                            builder.make_schema_field_urn(
-                                builder.make_dataset_urn_with_platform_instance(
-                                    self.platform,
-                                    self.get_dataset_identifier_from_qualified_name(
-                                        upstream_col.objectName
-                                    ),
-                                    self.config.platform_instance,
-                                    self.config.env,
-                                ),
-                                self.snowflake_identifier(upstream_col.columnName),
-                            )
-                            for upstream_col in fine_upstream.inputColumns  # type:ignore
-                            if upstream_col.objectName
-                            and upstream_col.columnName
-                            and self._is_dataset_pattern_allowed(
-                                upstream_col.objectName, upstream_col.objectDomain
-                            )
-                        ]
-                    ),
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                    downstreams=sorted(
-                        [
-                            builder.make_schema_field_urn(
-                                dataset_urn, self.snowflake_identifier(fieldPath)
-                            )
-                        ]
-                    ),
-                )
-                if finegrained_lineage_entry.upstreams:
-                    finegrained_lineages.append(finegrained_lineage_entry)
+        # Populate the external-table-lineage(s3->snowflake) in aspect
+        self.update_external_tables_lineage(upstream_tables, external_lineage)
 
-        for external_lineage_entry in sorted(external_lineage):
-            # For now, populate only for S3
-            if external_lineage_entry.startswith("s3://"):
-                external_upstream_table = UpstreamClass(
-                    dataset=make_s3_urn(external_lineage_entry, self.config.env),
-                    type=DatasetLineageTypeClass.COPY,
-                )
-                upstream_tables.append(external_upstream_table)
-
-        if upstream_tables:
+        if len(upstream_tables) > 0:
             logger.debug(
                 f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
             )
@@ -370,8 +287,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 )
                 or None,
             )
-
-        return None
+        else:
+            return None
 
     def _populate_view_lineage(self, conn: SnowflakeConnection) -> None:
         with PerfTimer() as timer:
@@ -389,44 +306,12 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def _populate_external_lineage(self, conn: SnowflakeConnection) -> None:
 
         num_edges: int = 0
-        self._external_lineage_map = defaultdict(set)
         if self.report.edition == SnowflakeEdition.STANDARD:
             logger.info(
                 "Snowflake Account is Standard Edition. External Lineage Feature via Access History is not supported."
             )
         else:
-            # Handles the case where a table is populated from an external location via copy.
-            # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
-            query: str = SnowflakeQuery.external_table_lineage_history(
-                start_time_millis=int(self.config.start_time.timestamp() * 1000)
-                if not self.config.ignore_start_time_lineage
-                else 0,
-                end_time_millis=int(self.config.end_time.timestamp() * 1000),
-            )
-
-            try:
-                for db_row in self.query(conn, query):
-                    # key is the down-stream table name
-                    key: str = self.get_dataset_identifier_from_qualified_name(
-                        db_row["DOWNSTREAM_TABLE_NAME"]
-                    )
-                    if not self._is_dataset_pattern_allowed(key, "table"):
-                        continue
-                    self._external_lineage_map[key] |= {
-                        *json.loads(db_row["UPSTREAM_LOCATIONS"])
-                    }
-                    logger.debug(
-                        f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
-                    )
-            except SnowflakePermissionError:
-                error_msg = "Failed to get external lineage. Please grant permissions for SNOWFLAKE database. "
-                self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
-            except Exception as e:
-                logger.debug(e, exc_info=e)
-                self.report_warning(
-                    "external_lineage",
-                    f"Populating table external lineage from Snowflake failed due to error {e}.",
-                )
+            self._populate_external_lineage_from_access_history(conn)
 
         # Handles the case for explicitly created external tables.
         # NOTE: Snowflake does not log this information to the access_history table.
@@ -453,8 +338,41 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         logger.info(f"Found {num_edges} external lineage edges.")
         self.report.num_external_table_edges_scanned = num_edges
 
+    def _populate_external_lineage_from_access_history(self, conn):
+        # Handles the case where a table is populated from an external location via copy.
+        # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
+        query: str = SnowflakeQuery.external_table_lineage_history(
+            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            if not self.config.ignore_start_time_lineage
+            else 0,
+            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+        )
+
+        try:
+            for db_row in self.query(conn, query):
+                # key is the down-stream table name
+                key: str = self.get_dataset_identifier_from_qualified_name(
+                    db_row["DOWNSTREAM_TABLE_NAME"]
+                )
+                if not self._is_dataset_pattern_allowed(key, "table"):
+                    continue
+                self._external_lineage_map[key] |= {
+                    *json.loads(db_row["UPSTREAM_LOCATIONS"])
+                }
+                logger.debug(
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
+                )
+        except SnowflakePermissionError:
+            error_msg = "Failed to get external lineage. Please grant imported privileges on SNOWFLAKE database. "
+            self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
+        except Exception as e:
+            logger.debug(e, exc_info=e)
+            self.report_warning(
+                "external_lineage",
+                f"Populating table external lineage from Snowflake failed due to error {e}.",
+            )
+
     def _populate_lineage(self, conn: SnowflakeConnection) -> None:
-        assert self._lineage_map is not None
         query: str = SnowflakeQuery.table_to_table_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
@@ -491,7 +409,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}"
                 )
         except SnowflakePermissionError:
-            error_msg = "Failed to get table to table lineage. Please grant permissions for SNOWFLAKE database. "
+            error_msg = "Failed to get table to table lineage. Please grant imported privileges on SNOWFLAKE database. "
             self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
         except Exception as e:
             logger.debug(e, exc_info=e)
@@ -511,7 +429,6 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         # and also https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         view_upstream_lineage_query: str = SnowflakeQuery.view_dependencies()
 
-        assert self._lineage_map is not None
         num_edges: int = 0
 
         try:
@@ -543,7 +460,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
                 )
         except SnowflakePermissionError:
-            error_msg = "Failed to get table to view lineage. Please grant permissions for SNOWFLAKE database."
+            error_msg = "Failed to get table to view lineage. Please grant imported privileges on SNOWFLAKE database."
             self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
         except Exception as e:
             logger.debug(e, exc_info=e)
@@ -568,13 +485,12 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             include_column_lineage=self.config.include_column_lineage,
         )
 
-        assert self._lineage_map is not None
         self.report.num_view_to_table_edges_scanned = 0
 
         try:
             db_rows = self.query(conn, view_lineage_query)
         except SnowflakePermissionError:
-            error_msg = "Failed to get view to table lineage. Please grant permissions for SNOWFLAKE database. "
+            error_msg = "Failed to get view to table lineage. Please grant imported privileges on SNOWFLAKE database. "
             self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
         except Exception as e:
             logger.debug(e, exc_info=e)
@@ -616,3 +532,71 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         logger.info(
             f"Found {self.report.num_view_to_table_edges_scanned} View->Table edges."
         )
+
+    def update_upstream_tables_lineage(self, upstream_tables, lineage):
+        for lineage_entry in sorted(
+            lineage.upstreamTables.values(), key=lambda x: x.upstreamDataset
+        ):
+            upstream_table_name = lineage_entry.upstreamDataset
+            upstream_table_urn = builder.make_dataset_urn_with_platform_instance(
+                self.platform,
+                upstream_table_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            upstream_table = UpstreamClass(
+                dataset=upstream_table_urn,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+
+    def update_upstream_columns_lineage(
+        self, dataset_urn, finegrained_lineages, lineage
+    ):
+        for col, col_upstreams in lineage.columnLineages.items():
+            for fine_upstream in col_upstreams.upstreams:
+                fieldPath = col
+                finegrained_lineage_entry = FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=sorted(
+                        [
+                            builder.make_schema_field_urn(
+                                builder.make_dataset_urn_with_platform_instance(
+                                    self.platform,
+                                    self.get_dataset_identifier_from_qualified_name(
+                                        upstream_col.objectName
+                                    ),
+                                    self.config.platform_instance,
+                                    self.config.env,
+                                ),
+                                self.snowflake_identifier(upstream_col.columnName),
+                            )
+                            for upstream_col in fine_upstream.inputColumns
+                            if upstream_col.objectName
+                            and upstream_col.columnName
+                            and self._is_dataset_pattern_allowed(
+                                upstream_col.objectName, upstream_col.objectDomain
+                            )
+                        ]
+                    ),
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=sorted(
+                        [
+                            builder.make_schema_field_urn(
+                                dataset_urn, self.snowflake_identifier(fieldPath)
+                            )
+                        ]
+                    ),
+                )
+                if finegrained_lineage_entry.upstreams:
+                    finegrained_lineages.append(finegrained_lineage_entry)
+
+    def update_external_tables_lineage(self, upstream_tables, external_lineage):
+        for external_lineage_entry in sorted(external_lineage):
+            # For now, populate only for S3
+            if external_lineage_entry.startswith("s3://"):
+                external_upstream_table = UpstreamClass(
+                    dataset=make_s3_urn(external_lineage_entry, self.config.env),
+                    type=DatasetLineageTypeClass.COPY,
+                )
+                upstream_tables.append(external_upstream_table)

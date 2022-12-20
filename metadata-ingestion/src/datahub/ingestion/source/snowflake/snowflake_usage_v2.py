@@ -283,7 +283,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     conn, SnowflakeQuery.get_access_history_date_range()
                 )
             except SnowflakePermissionError:
-                error_msg = "Failed to get usage. Please grant permissions for SNOWFLAKE database. "
+                error_msg = "Failed to get usage. Please grant imported privileges on SNOWFLAKE database. "
                 self.warn_if_stateful_else_error("usage-permission-error", error_msg)
             except Exception as e:
                 logger.debug(e, exc_info=e)

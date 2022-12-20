@@ -24,3 +24,6 @@ SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
     "azure_uksouth": (SnowflakeCloudProvider.AZURE, "uk-south"),
     "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india.azure"),
 }
+
+# https://docs.snowflake.com/en/sql-reference/snowflake-db.html
+SNOWFLAKE_DATABASE = "SNOWFLAKE"

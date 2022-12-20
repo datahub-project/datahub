@@ -313,7 +313,10 @@ def test_test_connection_no_warehouse(mock_connect):
     ].failure_reason
     assert failure_reason
 
-    assert "Current role does not have permissions to use warehouse" in failure_reason
+    assert (
+        "Current role TEST_ROLE does not have permissions to use warehouse"
+        in failure_reason
+    )
 
 
 @patch("snowflake.connector.connect")
