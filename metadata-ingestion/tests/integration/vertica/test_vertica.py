@@ -34,7 +34,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @pytest.fixture(scope="module")
 def vertica_runner(docker_compose_runner, pytestconfig):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/trino"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/vertica"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "vertica"
     ) as docker_services:
