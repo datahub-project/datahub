@@ -14,6 +14,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.Upstream;
@@ -28,7 +29,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
@@ -36,6 +39,9 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 @Slf4j
 @RequiredArgsConstructor
 public class LineageService {
+  private static final String SOURCE_FIELD_NAME = "source";
+  private static final String UI_SOURCE = "UI";
+  private static final String INGESTION_SOURCE = "INGESTION";
   private final EntityClient _entityClient;
 
   /**
@@ -126,13 +132,6 @@ public class LineageService {
       upstreamsToAdd.add(upstreamUrn);
     }
 
-    // need to backfill old data without new created field in order to index properly in GraphIndexUtils
-    // otherwise we can't set createdOn and createdActor on graph index if not all fields have created
-    for (Upstream upstream : upstreams) {
-      if (!upstream.hasCreated()) {
-        upstream.setCreated(upstream.getAuditStamp());
-      }
-    }
 
     for (final Urn upstreamUrn : upstreamsToAdd) {
       final Upstream newUpstream = new Upstream();
@@ -140,6 +139,9 @@ public class LineageService {
       newUpstream.setAuditStamp(getAuditStamp(actor));
       newUpstream.setCreated(getAuditStamp(actor));
       newUpstream.setType(DatasetLineageType.TRANSFORMED);
+      final StringMap properties = new StringMap();
+      properties.put(SOURCE_FIELD_NAME, UI_SOURCE);
+      newUpstream.setProperties(properties);
       upstreams.add(newUpstream);
     }
 
@@ -647,6 +649,9 @@ public class LineageService {
     newEdge.setCreated(getAuditStamp(actor));
     newEdge.setLastModified(getAuditStamp(actor));
     newEdge.setSourceUrn(downstreamUrn);
+    final StringMap properties = new StringMap();
+    properties.put(SOURCE_FIELD_NAME, UI_SOURCE);
+    newEdge.setProperties(properties);
     edgeArray.add(newEdge);
   }
 }

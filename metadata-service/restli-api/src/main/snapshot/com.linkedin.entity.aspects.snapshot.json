@@ -456,6 +456,14 @@
             "name" : "lastModified",
             "type" : "AuditStamp",
             "doc" : "Audit stamp containing who last modified this relationship edge and when"
+          }, {
+            "name" : "properties",
+            "type" : {
+              "type" : "map",
+              "values" : "string"
+            },
+            "doc" : "A generic properties bag that allows us to store specific information on this graph edge.",
+            "optional" : true
           } ]
         }
       },
@@ -463,9 +471,13 @@
       "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
+          "createdActor" : "inputEdges/*/created/actor",
+          "createdOn" : "inputEdges/*/created/time",
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
-          "name" : "Consumes"
+          "name" : "Consumes",
+          "updatedActor" : "inputEdges/*/lastModified/actor",
+          "updatedOn" : "inputEdges/*/lastModified/time"
         }
       }
     }, {
@@ -1274,10 +1286,14 @@
       "doc" : "Charts in a dashboard",
       "default" : [ ],
       "Relationship" : {
-        "/*" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "chartEdges/*/created/actor",
+          "createdOn" : "chartEdges/*/created/time",
           "entityTypes" : [ "chart" ],
           "isLineage" : true,
-          "name" : "Contains"
+          "name" : "Contains",
+          "updatedActor" : "chartEdges/*/lastModified/actor",
+          "updatedOn" : "chartEdges/*/lastModified/time"
         }
       }
     }, {
@@ -1305,10 +1321,14 @@
       "doc" : "Datasets consumed by a dashboard",
       "default" : [ ],
       "Relationship" : {
-        "/*" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "datasetEdges/*/created/actor",
+          "createdOn" : "datasetEdges/*/created/time",
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
-          "name" : "Consumes"
+          "name" : "Consumes",
+          "updatedActor" : "datasetEdges/*/lastModified/actor",
+          "updatedOn" : "datasetEdges/*/lastModified/time"
         }
       }
     }, {
@@ -1532,14 +1552,18 @@
       "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
+          "createdActor" : "inputDatasetEdges/*/created/actor",
+          "createdOn" : "inputDatasetEdges/*/created/time",
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
-          "name" : "Consumes"
+          "name" : "Consumes",
+          "updatedActor" : "inputDatasetEdges/*/lastModified/actor",
+          "updatedOn" : "inputDatasetEdges/*/lastModified/time"
         }
       },
       "Searchable" : {
         "/*/destinationUrn" : {
-          "fieldName" : "inputs",
+          "fieldName" : "inputDatasetEdges",
           "fieldType" : "URN",
           "numValuesFieldName" : "numInputDatasets",
           "queryByDefault" : false
@@ -1579,16 +1603,20 @@
       "default" : [ ],
       "optional" : true,
       "Relationship" : {
-        "/*" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "outputDatasetEdges/*/created/actor",
+          "createdOn" : "outputDatasetEdges/*/created/time",
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
           "isUpstream" : false,
-          "name" : "Produces"
+          "name" : "Produces",
+          "updatedActor" : "outputDatasetEdges/*/lastModified/actor",
+          "updatedOn" : "outputDatasetEdges/*/lastModified/time"
         }
       },
       "Searchable" : {
-        "/*" : {
-          "fieldName" : "outputs",
+        "/*/destinationUrn" : {
+          "fieldName" : "outputDatasetEdges",
           "fieldType" : "URN",
           "numValuesFieldName" : "numOutputDatasets",
           "queryByDefault" : false
@@ -1620,9 +1648,13 @@
       "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
+          "createdActor" : "inputDatajobEdges/*/created/actor",
+          "createdOn" : "inputDatajobEdges/*/created/time",
           "entityTypes" : [ "dataJob" ],
           "isLineage" : true,
-          "name" : "DownstreamOf"
+          "name" : "DownstreamOf",
+          "updatedActor" : "inputDatajobEdges/*/lastModified/actor",
+          "updatedOn" : "inputDatajobEdges/*/lastModified/time"
         }
       }
     }, {
@@ -1907,6 +1939,14 @@
       "name" : "type",
       "type" : "DatasetLineageType",
       "doc" : "The type of the lineage"
+    }, {
+      "name" : "properties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "A generic properties bag that allows us to store specific information on this graph edge.",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

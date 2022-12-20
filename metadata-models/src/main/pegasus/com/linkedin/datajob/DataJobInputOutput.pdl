@@ -48,6 +48,7 @@ record DataJobInputOutput {
       "createdActor": "inputDatasetEdges/*/created/actor"
       "updatedOn": "inputDatasetEdges/*/lastModified/time"
       "updatedActor": "inputDatasetEdges/*/lastModified/actor"
+      "properties": "inputDatasetEdges/*/properties"
     }
   }
   @Searchable = {
@@ -96,6 +97,7 @@ record DataJobInputOutput {
       "createdActor": "outputDatasetEdges/*/created/actor"
       "updatedOn": "outputDatasetEdges/*/lastModified/time"
       "updatedActor": "outputDatasetEdges/*/lastModified/actor"
+      "properties": "outputDatasetEdges/*/properties"
     }
   }
   @Searchable = {
@@ -134,6 +136,7 @@ record DataJobInputOutput {
       "createdActor": "inputDatajobEdges/*/created/actor"
       "updatedOn": "inputDatajobEdges/*/lastModified/time"
       "updatedActor": "inputDatajobEdges/*/lastModified/actor"
+      "properties": "inputDatajobEdges/*/properties"
     }
   }
   inputDatajobEdges: optional array[Edge] 
