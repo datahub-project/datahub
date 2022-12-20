@@ -35,11 +35,7 @@ from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryUsageCo
 from datahub.ingestion.source_report.usage.bigquery_usage import (
     BigQueryUsageSourceReport,
 )
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.parsing_util import (
     get_first_missing_key,
@@ -1128,9 +1124,6 @@ class BigQueryUsageSource(Source):
                 operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            aspectName="operation",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=_table_ref_to_urn(
                 destination_table,
                 env=self.config.env,

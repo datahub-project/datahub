@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (
 
 log = logging.getLogger(__name__)
 
+# TODO: Make this dynamic based on the real aspect class map.
 all_aspects = [
     "schemaMetadata",
     "datasetProperties",
@@ -232,7 +233,6 @@ def modify_urn_list_for_aspect(
 
 def clone_aspect(
     src_urn: str,
-    entity_type: str,
     aspect_names: List[str],
     dst_urn: str,
     run_id: str = str(uuid.uuid4()),

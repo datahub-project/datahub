@@ -209,7 +209,6 @@ def dataplatform2instance_func(
         for mcp in migration_utils.clone_aspect(
             src_entity_urn,
             aspect_names=migration_utils.all_aspects,
-            entity_type="dataset",
             dst_urn=new_urn,
             dry_run=dry_run,
             run_id=run_id,
@@ -336,7 +335,6 @@ def migrate_containers(
         for mcp in migration_utils.clone_aspect(
             src_urn,
             aspect_names=migration_utils.all_aspects,
-            entity_type="container",
             dst_urn=dst_urn,
             dry_run=dry_run,
             run_id=run_id,
