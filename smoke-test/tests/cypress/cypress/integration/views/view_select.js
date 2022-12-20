@@ -5,10 +5,6 @@ function openViewEditDropDownAndClickId(data_id) {
   cy.clickOptionWithTestId(data_id);
 }
 
-function unfocus() {
-  cy.get("input[data-testid='search-input']").click()
-}
-
 describe("view select", () => {
     it("click view select, create view, clear view, make defaults, clear view", () => {
         cy.login();
@@ -49,10 +45,7 @@ describe("view select", () => {
         cy.contains("of 2 results");
 
         cy.log("Clear the selected view")
-        cy.clickOptionWithTestId("view-select");
-        cy.clickOptionWithTestId("view-select-clear");
-        unfocus();
-        cy.contains(viewName).should("not.be.visible");
+        cy.clearView(viewName);
         cy.ensureTextNotPresent("of 2 results");
 
         cy.log("Now edit the view")
@@ -60,35 +53,33 @@ describe("view select", () => {
         cy.get(".ant-form-item-control-input-content > input[type='text']").first().clear().type(newViewName);
         cy.log("Update the actual filters by adding another filter")
         cy.contains("Add Filter").click();
-        cy.get('[data-testid="adv-search-add-filter-description"]').click({
-          force: true,
-        });
-        cy.get('[data-testid="edit-text-input"]').type("log event");
-        cy.get('[data-testid="edit-text-done-btn"]').click();
+        cy.clickOptionWithTestId('adv-search-add-filter-description');
+        cy.enterTextInTestId('edit-text-input', "log event");
+        cy.clickOptionWithTestId('edit-text-done-btn');
 
         cy.log("Save View")
         cy.clickOptionWithTestId("view-builder-save");
 
         cy.contains("cypress_logging_events");
         cy.contains("of 1 result");
-        unfocus();
-
+        
         cy.log("Now set the View as the personal Default")
+        cy.clearView(viewName);
         openViewEditDropDownAndClickId('view-dropdown-set-user-default');
-        unfocus();
-
-
+        
+        cy.contains("of 1 result");
+        cy.clearView(newViewName);
         cy.log("Now unset as the personal default")
         openViewEditDropDownAndClickId('view-dropdown-remove-user-default');
-        unfocus();
-
+        
         cy.log("Now delete the View")
+        cy.clearView(newViewName);
         openViewEditDropDownAndClickId('view-dropdown-delete');
         cy.clickOptionWithText("Yes");
-        unfocus();
 
         cy.log("Ensure that the view was deleted.")
-        cy.ensureTextNotPresent(viewName);
+        cy.goToViewsSettings();
+        cy.ensureTextNotPresent(newViewName);
         cy.ensureTextNotPresent("of 1 result");
 
     });

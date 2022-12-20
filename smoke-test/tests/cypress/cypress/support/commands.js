@@ -167,6 +167,13 @@ Cypress.Commands.add("hideOnboardingTour", () => {
   cy.get('body').type("{ctrl} {meta} h");
 });
 
+Cypress.Commands.add("clearView", (viewName) => {
+  cy.clickOptionWithTestId("view-select");
+  cy.clickOptionWithTestId("view-select-clear");
+  cy.get("input[data-testid='search-input']").click();
+  cy.contains(viewName).should("not.be.visible");
+})
+
 Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
   cy.goToDataset(urn, dataset_name);
   cy.clickOptionWithText("Add Term");
