@@ -22,7 +22,7 @@ services:
   grafana:
     depends_on:
     - prometheus
-    image: grafana/grafana:latest
+    image: grafana/grafana:9.1.4
     ports:
     - 3001:3000
     volumes:

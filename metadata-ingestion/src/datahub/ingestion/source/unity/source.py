@@ -189,7 +189,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_catalogs(
         self, metastore: proxy.Metastore
     ) -> Iterable[MetadataWorkUnit]:
-
         for catalog in self.unity_catalog_api_proxy.catalogs(metastore=metastore):
             if not self.config.catalog_pattern.allowed(catalog.name):
                 self.report.filtered.append(f"{catalog.name}.*.*")
@@ -343,7 +342,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         entity_urn: str,
         entity_type: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(

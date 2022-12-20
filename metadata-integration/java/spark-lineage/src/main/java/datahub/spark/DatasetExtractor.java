@@ -143,7 +143,7 @@ public class DatasetExtractor {
       SaveIntoDataSourceCommand cmd = (SaveIntoDataSourceCommand) p;
 
       Map<String, String> options = JavaConversions.mapAsJavaMap(cmd.options());
-      String url = options.get("url"); // e.g. jdbc:postgresql://localhost:5432/sparktestdb
+      String url = options.getOrDefault("url", ""); // e.g. jdbc:postgresql://localhost:5432/sparktestdb
       if (!url.contains("jdbc")) {
         return Optional.empty();
       }

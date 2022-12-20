@@ -132,7 +132,7 @@ class Checkpoint(Generic[StateType]):
                     raise ValueError(f"Unknown serde: {checkpoint_aspect.state.serde}")
             except Exception as e:
                 logger.error(
-                    "Failed to construct checkpoint class from checkpoint aspect.", e
+                    f"Failed to construct checkpoint class from checkpoint aspect: {e}"
                 )
                 raise e
             else:

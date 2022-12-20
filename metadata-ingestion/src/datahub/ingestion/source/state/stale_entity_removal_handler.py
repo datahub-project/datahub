@@ -6,7 +6,7 @@ from typing import Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.stateful_ingestion_base import (

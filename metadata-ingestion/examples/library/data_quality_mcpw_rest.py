@@ -38,7 +38,6 @@ def assertionUrn(info: AssertionInfo) -> str:
 
 
 def emitAssertionResult(assertionResult: AssertionRunEvent) -> None:
-
     dataset_assertionRunEvent_mcp = MetadataChangeProposalWrapper(
         entityType="assertion",
         changeType=ChangeType.UPSERT,

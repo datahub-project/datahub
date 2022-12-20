@@ -16,7 +16,9 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 
+
 from datahub.utilities import config_clean
+
 
 
 class VerticaConfig(SQLAlchemyConfigVertica):
