@@ -1,14 +1,11 @@
 import json
 import logging
-from datetime import datetime
+from typing import Optional
 
 import click
 from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import get_url_and_token
-from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
-    IngestionCheckpointingProviderBase,
-)
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -18,7 +15,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider import (
     DatahubIngestionCheckpointingProvider,
 )
-from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -34,10 +30,12 @@ def state() -> None:
 @state.command()
 @click.option("--pipeline-name", required=True, type=str)
 @click.option("--platform", required=True, type=str)
-@click.option("--platform-instance", required=True, type=str)
+@click.option("--platform-instance", required=False, type=str)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
-def inspect(pipeline_name: str, platform: str, platform_instance: str) -> None:
+def inspect(
+    pipeline_name: str, platform: str, platform_instance: Optional[str]
+) -> None:
     """
     Get the latest stateful ingestion state for a given pipeline.
     Only works for state entity removal for now.
@@ -48,23 +46,18 @@ def inspect(pipeline_name: str, platform: str, platform_instance: str) -> None:
 
     (url, token) = get_url_and_token()
     datahub_graph = DataHubGraph(DataHubGraphConfig(server=url, token=token))
+    checkpoint_provider = DatahubIngestionCheckpointingProvider(datahub_graph, "cli")
 
     job_name = StaleEntityRemovalHandler.compute_job_id(platform)
 
-    data_job_urn = IngestionCheckpointingProviderBase.get_data_job_urn(
-        DatahubIngestionCheckpointingProvider.orchestrator_name,
-        pipeline_name,
-        job_name,
-        platform_instance,
-    )
-    raw_checkpoint = datahub_graph.get_latest_timeseries_value(
-        entity_urn=data_job_urn,
-        filter_criteria_map={
-            "pipelineName": pipeline_name,
-            "platformInstanceId": platform_instance,
-        },
-        aspect_type=DatahubIngestionCheckpointClass,
-    )
+    raw_checkpoint = checkpoint_provider.get_latest_checkpoint(pipeline_name, job_name)
+    if raw_checkpoint is None and platform_instance is not None:
+        logger.info(
+            "Failed to fetch state, but trying legacy URN format because platform_instance is provided."
+        )
+        raw_checkpoint = checkpoint_provider.get_latest_checkpoint(
+            pipeline_name, job_name, platform_instance_id=platform_instance
+        )
 
     if not raw_checkpoint:
         click.secho("No ingestion state found.", fg="red")
@@ -76,10 +69,5 @@ def inspect(pipeline_name: str, platform: str, platform_instance: str) -> None:
         state_class=GenericCheckpointState,
     )
     assert checkpoint
-
-    ts = datetime.utcfromtimestamp(raw_checkpoint.timestampMillis / 1000)
-    logger.info(
-        f"Found checkpoint with runId {checkpoint.run_id} and timestamp {ts.isoformat()}"
-    )
 
     click.echo(json.dumps(checkpoint.state.urns, indent=2))

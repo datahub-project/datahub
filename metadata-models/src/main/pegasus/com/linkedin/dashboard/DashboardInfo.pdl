@@ -8,6 +8,7 @@ import com.linkedin.common.Url
 import com.linkedin.common.Urn
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.Edge
 
 /**
  * Information about a dashboard
@@ -38,6 +39,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
 
   /**
    * Charts in a dashboard
+   * Deprecated! Use chartEdges instead.
    */
   @Relationship = {
     "/*": {
@@ -46,10 +48,29 @@ record DashboardInfo includes CustomProperties, ExternalReference {
       "isLineage": true
     }
   }
+  @deprecated
   charts: array[ChartUrn] = [ ]
 
   /**
+   * Charts in a dashboard
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Contains",
+      "entityTypes": [ "chart" ],
+      "isLineage": true,
+      "createdOn": "chartEdges/*/created/time"
+      "createdActor": "chartEdges/*/created/actor"
+      "updatedOn": "chartEdges/*/lastModified/time"
+      "updatedActor": "chartEdges/*/lastModified/actor"
+      "properties": "chartEdges/*/properties"
+    }
+  }
+  chartEdges: optional array[Edge]
+
+  /**
    * Datasets consumed by a dashboard
+   * Deprecated! Use datasetEdges instead.
    */
   @Relationship = {
     "/*": {
@@ -58,7 +79,25 @@ record DashboardInfo includes CustomProperties, ExternalReference {
       "isLineage": true
     }
   }
+  @deprecated
   datasets: array[Urn] = [ ]
+
+  /**
+   * Datasets consumed by a dashboard
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true,
+      "createdOn": "datasetEdges/*/created/time"
+      "createdActor": "datasetEdges/*/created/actor"
+      "updatedOn": "datasetEdges/*/lastModified/time"
+      "updatedActor": "datasetEdges/*/lastModified/actor"
+      "properties": "datasetEdges/*/properties"
+    }
+  }
+  datasetEdges: optional array[Edge]
 
   /**
    * Captures information about who created/last modified/deleted this dashboard and when
