@@ -216,6 +216,8 @@ class SnowflakeCommonMixin:
         self.report.report_workunit(wu)
         return wu
 
+    # TODO: Revisit this after stateful ingestion can commit checkpoint
+    # for failures that do not affect the checkpoint
     def warn_if_stateful_else_error(
         self: SnowflakeCommonProtocol, key: str, reason: str
     ) -> None:
