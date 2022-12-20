@@ -20,13 +20,12 @@ class Committable(ABC):
         pass
 
 
-StateKeyType = TypeVar("StateKeyType")
 StateType = TypeVar("StateType")
 
 
 class StatefulCommittable(
     Committable,
-    Generic[StateKeyType, StateType],
+    Generic[StateType],
 ):
     def __init__(
         self, name: str, commit_policy: CommitPolicy, state_to_commit: StateType
@@ -37,7 +36,3 @@ class StatefulCommittable(
 
     def has_successfully_committed(self) -> bool:
         return bool(not self.state_to_commit or self.committed)
-
-    @abstractmethod
-    def get_last_state(self, state_key: StateKeyType) -> StateType:
-        pass
