@@ -21,7 +21,6 @@ from datahub.metadata.schema_classes import (
 )
 
 if TYPE_CHECKING:
-
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sagemaker.type_defs import (
         DescribeFeatureGroupResponseTypeDef,
@@ -135,7 +134,6 @@ class FeatureGroupProcessor:
     }
 
     def get_feature_type(self, aws_type: str, feature_name: str) -> str:
-
         mapped_type = self.field_type_mappings.get(aws_type)
 
         if mapped_type is None:
@@ -172,7 +170,6 @@ class FeatureGroupProcessor:
         feature_sources = []
 
         if "OfflineStoreConfig" in feature_group_details:
-
             # remove S3 prefix (s3://)
             s3_name = feature_group_details["OfflineStoreConfig"]["S3StorageConfig"][
                 "S3Uri"
@@ -190,7 +187,6 @@ class FeatureGroupProcessor:
             )
 
             if "DataCatalogConfig" in feature_group_details["OfflineStoreConfig"]:
-
                 # if Glue catalog associated with offline store
                 glue_database = feature_group_details["OfflineStoreConfig"][
                     "DataCatalogConfig"
@@ -261,11 +257,9 @@ class FeatureGroupProcessor:
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         feature_groups = self.get_all_feature_groups()
 
         for feature_group in feature_groups:
-
             feature_group_details = self.get_feature_group_details(
                 feature_group["FeatureGroupName"]
             )

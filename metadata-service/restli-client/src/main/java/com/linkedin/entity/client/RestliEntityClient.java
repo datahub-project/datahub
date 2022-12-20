@@ -157,7 +157,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Batch get a set of aspects for a single entity.
+   * Batch get a set of aspects for multiple entities.
    *
    * @param entityName the entity type to fetch
    * @param urns the urns of the entities to batch get

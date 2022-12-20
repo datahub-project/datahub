@@ -93,7 +93,6 @@ class AddDatasetDomain(DatasetDomainTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-
         in_domain_aspect: DomainsClass = cast(DomainsClass, aspect)
         domain_aspect = DomainsClass(domains=[])
         # Check if we have received existing aspect

@@ -312,7 +312,7 @@ class Mapper:
             return {
                 "chartCount": str(len(dashboard.tiles)),
                 "workspaceName": dashboard.workspace_name,
-                "workspaceId": dashboard.id,
+                "workspaceId": dashboard.workspace_id,
             }
 
         # DashboardInfo mcp
@@ -736,6 +736,14 @@ class PowerBiDashboardSource(Source):
         config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_workspace_ids(self) -> Iterable[str]:
+        all_workspaces = self.powerbi_client.get_workspaces()
+        return [
+            workspace.id
+            for workspace in all_workspaces
+            if self.source_config.workspace_id_pattern.allowed(workspace.id)
+        ]
+
     def validate_dataset_type_mapping(self):
         powerbi_data_platforms: List[str] = [
             data_platform.value.powerbi_data_platform_name
@@ -754,38 +762,38 @@ class PowerBiDashboardSource(Source):
         # Validate dataset type mapping
         self.validate_dataset_type_mapping()
         # Fetch PowerBi workspace for given workspace identifier
-        workspace = self.powerbi_client.get_workspace(
-            self.source_config.workspace_id, self.reporter
-        )
+        for workspace_id in self.get_workspace_ids():
+            LOGGER.info(f"Scanning workspace id: {workspace_id}")
+            workspace = self.powerbi_client.get_workspace(workspace_id, self.reporter)
 
-        for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards:
 
-            try:
-                # Fetch PowerBi users for dashboards
-                dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
-                # Increase dashboard and tiles count in report
-                self.reporter.report_dashboards_scanned()
-                self.reporter.report_charts_scanned(count=len(dashboard.tiles))
-            except Exception as e:
-                message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
+                try:
+                    # Fetch PowerBi users for dashboards
+                    dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
+                    # Increase dashboard and tiles count in report
+                    self.reporter.report_dashboards_scanned()
+                    self.reporter.report_charts_scanned(count=len(dashboard.tiles))
+                except Exception as e:
+                    message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
 
-                LOGGER.exception(message, e)
-                self.reporter.report_warning(dashboard.id, message)
-            # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
-            workunits = self.mapper.to_datahub_work_units(dashboard)
-            for workunit in workunits:
-                # Add workunit to report
-                self.reporter.report_workunit(workunit)
-                # Return workunit to Datahub Ingestion framework
-                yield workunit
+                    LOGGER.exception(message, e)
+                    self.reporter.report_warning(dashboard.id, message)
+                # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
+                workunits = self.mapper.to_datahub_work_units(dashboard)
+                for workunit in workunits:
+                    # Add workunit to report
+                    self.reporter.report_workunit(workunit)
+                    # Return workunit to Datahub Ingestion framework
+                    yield workunit
 
-        if self.source_config.extract_reports:
-            for report in self.powerbi_client.get_reports(workspace=workspace):
-                for work_unit in self.mapper.report_to_datahub_work_units(
-                    report, workspace
-                ):
-                    self.reporter.report_workunit(work_unit)
-                    yield work_unit
+            if self.source_config.extract_reports:
+                for report in self.powerbi_client.get_reports(workspace=workspace):
+                    for work_unit in self.mapper.report_to_datahub_work_units(
+                        report, workspace
+                    ):
+                        self.reporter.report_workunit(work_unit)
+                        yield work_unit
 
     def get_report(self) -> SourceReport:
         return self.reporter

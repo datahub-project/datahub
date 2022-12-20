@@ -5,8 +5,6 @@ import pydantic
 import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.ingestion.source.sql.postgres import PostgresConfig
-from datahub.ingestion.source.sql.sql_common import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -22,7 +20,6 @@ test_pipeline_name: str = "test_pipeline"
 test_platform_instance_id: str = "test_platform_instance_1"
 test_job_name: str = "test_job_1"
 test_run_id: str = "test_run_1"
-test_source_config: BasicSQLAlchemyConfig = PostgresConfig(host_port="test_host:1234")
 
 
 def _assert_checkpoint_deserialization(
@@ -34,7 +31,7 @@ def _assert_checkpoint_deserialization(
         timestampMillis=int(datetime.utcnow().timestamp() * 1000),
         pipelineName=test_pipeline_name,
         platformInstanceId=test_platform_instance_id,
-        config=test_source_config.json(),
+        config="",
         state=serialized_checkpoint_state,
         runId=test_run_id,
     )
@@ -44,7 +41,6 @@ def _assert_checkpoint_deserialization(
         job_name=test_job_name,
         checkpoint_aspect=checkpoint_aspect,
         state_class=type(expected_checkpoint_state),
-        config_class=PostgresConfig,
     )
 
     expected_checkpoint_obj = Checkpoint(
@@ -52,7 +48,6 @@ def _assert_checkpoint_deserialization(
         pipeline_name=test_pipeline_name,
         platform_instance_id=test_platform_instance_id,
         run_id=test_run_id,
-        config=test_source_config,
         state=expected_checkpoint_state,
     )
     assert checkpoint_obj == expected_checkpoint_obj
@@ -127,7 +122,6 @@ def test_serde_idempotence(state_obj):
         pipeline_name=test_pipeline_name,
         platform_instance_id=test_platform_instance_id,
         run_id=test_run_id,
-        config=test_source_config,
         state=state_obj,
     )
 
@@ -142,7 +136,6 @@ def test_serde_idempotence(state_obj):
         job_name=test_job_name,
         checkpoint_aspect=checkpoint_aspect,
         state_class=type(state_obj),
-        config_class=PostgresConfig,
     )
     assert orig_checkpoint_obj == serde_checkpoint_obj
 

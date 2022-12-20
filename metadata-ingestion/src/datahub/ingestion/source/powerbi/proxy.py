@@ -684,6 +684,32 @@ class PowerBiAPI:
 
         return reports
 
+    def get_groups(self):
+        group_endpoint = PowerBiAPI.BASE_URL
+        # Hit PowerBi
+        LOGGER.info(f"Request to get groups endpoint URL={group_endpoint}")
+        response = requests.get(
+            group_endpoint,
+            headers={Constant.Authorization: self.get_access_token()},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_workspaces(self):
+        groups = self.get_groups()
+        workspaces = [
+            PowerBiAPI.Workspace(
+                id=workspace.get("id"),
+                name=workspace.get("name"),
+                state="",
+                datasets={},
+                dashboards=[],
+            )
+            for workspace in groups.get("value", [])
+            if workspace.get("type", None) == "Workspace"
+        ]
+        return workspaces
+
     # flake8: noqa: C901
     def get_workspace(
         self, workspace_id: str, reporter: PowerBiDashboardSourceReport

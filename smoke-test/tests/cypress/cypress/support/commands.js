@@ -48,6 +48,11 @@ Cypress.Commands.add("goToDomainList", () => {
   cy.waitTextVisible("New Domain");
 });
 
+Cypress.Commands.add("goToViewsSettings", () => {
+  cy.visit("/settings/views");
+  cy.waitTextVisible("Manage Views");
+});
+
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
@@ -81,6 +86,12 @@ Cypress.Commands.add("goToAnalytics", () => {
 Cypress.Commands.add("goToUserList", () => {
   cy.visit("/settings/identities/users");
   cy.waitTextVisible("Manage Users & Groups");
+})
+
+Cypress.Commands.add("goToStarSearchList", () => {
+  cy.visit("/search?query=%2A")
+  cy.waitTextVisible("Showing")
+  cy.waitTextVisible("results")
 })
 
 Cypress.Commands.add("openThreeDotDropdown", () => {
@@ -130,6 +141,16 @@ Cypress.Commands.add("clickOptionWithTestId", (id) => {
   });
 })
 
+Cypress.Commands.add("clickFirstOptionWithTestId", (id) => {
+  cy.get('[data-testid="' + id +'"]').first().click({
+    force: true,
+  });
+})
+
+Cypress.Commands.add("hideOnboardingTour", () => {
+  cy.get('body').type("{ctrl} {meta} h");
+});
+
 Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
   cy.goToDataset(urn, dataset_name);
   cy.clickOptionWithText("Add Term");
@@ -142,6 +163,12 @@ Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
 
   cy.contains(term);
 });
+
+Cypress.Commands.add("removeDomainFromDataset", (urn, dataset_name, domain_urn) => {
+  cy.goToDataset(urn, dataset_name);
+  cy.get('.sidebar-domain-section [href="/domain/' + domain_urn + '"] .anticon-close').click();
+  cy.clickOptionWithText("Yes");
+})
 
 Cypress.Commands.add("openEntityTab", (tab) => {
   const selector = 'div[id$="' + tab + '"]:nth-child(1)'
