@@ -82,7 +82,7 @@ task cleanExtraDirs {
   delete 'tmp'
   delete 'just'
   delete 'src/types.generated.ts'
-  delete file("../datahub-frontend/public").listFiles()
+  delete fileTree('../datahub-frontend/public')
   delete fileTree(dir: 'src/graphql', include: '*.generated.ts')
 }
 clean.finalizedBy(cleanExtraDirs)
