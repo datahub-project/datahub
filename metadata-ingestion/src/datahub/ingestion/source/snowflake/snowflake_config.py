@@ -69,7 +69,6 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
 
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
-
         value = values.get("provision_role")
         if value is not None and value.enabled:
             raise ValueError(

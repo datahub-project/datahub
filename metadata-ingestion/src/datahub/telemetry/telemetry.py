@@ -91,13 +91,11 @@ MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
 
 class Telemetry:
-
     client_id: str
     enabled: bool = True
     tracking_init: bool = False
 
     def __init__(self):
-
         # try loading the config if it exists, update it if that fails
         if not CONFIG_FILE.exists() or not self.load_config():
             # set up defaults
@@ -288,7 +286,6 @@ def get_full_class_name(obj):
 def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-
         function = f"{func.__module__}.{func.__name__}"
 
         telemetry_instance.init_tracking()

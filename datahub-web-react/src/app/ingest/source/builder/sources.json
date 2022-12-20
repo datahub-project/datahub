@@ -46,7 +46,7 @@
         "name": "tableau",
         "displayName": "Tableau",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/tableau/",
-        "recipe": "source:\n  type: tableau\n  config:\n    # Coordinates\n    connect_uri: null\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: tableau\n    config:\n        # Coordinates\n        connect_uri: null\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:mysql",

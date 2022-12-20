@@ -159,7 +159,6 @@ async def get_server_version_stats(
 async def retrieve_version_stats(
     server: Optional[DataHubGraph] = None,
 ) -> Optional[DataHubVersionStats]:
-
     try:
         results = await asyncio.gather(
             get_client_version_stats(),

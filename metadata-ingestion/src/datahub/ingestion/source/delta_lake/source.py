@@ -120,7 +120,6 @@ class DeltaLakeSource(Source):
         return cls(config, ctx)
 
     def get_fields(self, delta_table: DeltaTable) -> List[SchemaField]:
-
         fields: List[SchemaField] = []
 
         for raw_field in delta_table.schema().fields:
@@ -148,7 +147,6 @@ class DeltaLakeSource(Source):
         for hist in delta_table.history(
             limit=self.source_config.version_history_lookback
         ):
-
             # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = hist["timestamp"]

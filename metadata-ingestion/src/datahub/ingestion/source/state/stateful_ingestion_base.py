@@ -162,10 +162,12 @@ class StatefulIngestionSourceBase(Source):
                 Dict[str, Any],
                 self.stateful_ingestion_config.state_provider.dict().get("config", {}),
             )
-            self.ingestion_checkpointing_state_provider = checkpointing_state_provider_class.create(  # type: ignore
-                config_dict=config_dict,
-                ctx=self.ctx,
-                name=checkpointing_state_provider_class.__name__,
+            self.ingestion_checkpointing_state_provider = (
+                checkpointing_state_provider_class.create(
+                    config_dict=config_dict,
+                    ctx=self.ctx,
+                    name=checkpointing_state_provider_class.__name__,
+                )
             )
             assert self.ingestion_checkpointing_state_provider
             if self.stateful_ingestion_config.ignore_old_state:
