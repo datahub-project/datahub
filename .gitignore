@@ -72,7 +72,7 @@ temp/**
 
 # frontend assets
 datahub-frontend/public/**
-datahub-frontend/test/resources/public/**
+!datahub-frontend/public/.gitkeep
 
 .remote*
 # Ignore runtime generated authenticatior/authorizer jar files
