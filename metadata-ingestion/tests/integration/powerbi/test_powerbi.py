@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from unittest import mock
 
 from freezegun import freeze_time
@@ -6,8 +7,6 @@ from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
-
-call_number = 1
 
 
 def mock_msal_cca(*args, **kwargs):
@@ -20,12 +19,16 @@ def mock_msal_cca(*args, **kwargs):
     return MsalClient()
 
 
-def scan_init_response(_request, _context):
-    global call_number
-    if call_number == 1:
-        call_number += 1
-        return {"id": "4674efd1-603c-4129-8d82-03cf2be05aff"}
-    return {"id": "a674efd1-603c-4129-8d82-03cf2be05aff"}
+def scan_init_response(request, context):
+    # Request mock is passing POST input in the form of workspaces=<workspace_id>
+    workspace_id = request.text.split("=")[1]
+
+    w_id_vs_response: Dict[str, Any] = {
+        "64ED5CAD-7C10-4684-8180-826122881108": {"id": "4674efd1-603c-4129-8d82-03cf2be05aff"},
+        "64ED5CAD-7C22-4684-8180-826122881108": {"id": "a674efd1-603c-4129-8d82-03cf2be05aff"},
+    }
+
+    return w_id_vs_response[workspace_id]
 
 
 def register_mock_api(request_mock):
@@ -473,8 +476,6 @@ def default_source_config():
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
-    global call_number
-    call_number = 1
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -514,8 +515,6 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 def test_override_ownership(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-    global call_number
-    call_number = 1
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -556,8 +555,6 @@ def test_override_ownership(
 def test_scan_all_workspaces(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-    global call_number
-    call_number = 1
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -601,8 +598,6 @@ def test_scan_all_workspaces(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
-    global call_number
-    call_number = 1
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -641,6 +636,7 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
@@ -678,6 +674,6 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "powerbi_lineage_mces.json",
+        output_path=f"{tmp_path}/powerbi_lineage_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
