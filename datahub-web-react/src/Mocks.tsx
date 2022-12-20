@@ -153,6 +153,9 @@ export const dataset1 = {
     origin: 'PROD',
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
+    privileges: {
+        canEditLineage: false,
+    },
     properties: {
         name: 'The Great Test Dataset',
         description: 'This is the greatest dataset in the world, youre gonna love it!',
@@ -248,6 +251,9 @@ export const dataset2 = {
         },
         type: EntityType.DataPlatform,
     },
+    privileges: {
+        canEditLineage: false,
+    },
     lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'TABLE',
@@ -335,6 +341,9 @@ export const dataset3 = {
             logoUrl: '',
         },
         type: EntityType.DataPlatform,
+    },
+    privileges: {
+        canEditLineage: false,
     },
     lastIngested: null,
     dataPlatformInstance: null,
@@ -1212,6 +1221,9 @@ export const dataJob1 = {
             time: 0,
         },
     },
+    privileges: {
+        canEditLineage: false,
+    },
     properties: {
         name: 'DataJobInfoName',
         description: 'DataJobInfo1 Description',
@@ -1270,6 +1282,9 @@ export const dataJob2 = {
     type: EntityType.DataJob,
     dataFlow: dataFlow1,
     jobId: 'jobId2',
+    privileges: {
+        canEditLineage: false,
+    },
     ownership: {
         __typename: 'Ownership',
         owners: [
@@ -1336,6 +1351,9 @@ export const dataJob3 = {
     dataFlow: dataFlow1,
     jobId: 'jobId3',
     lastIngested: null,
+    privileges: {
+        canEditLineage: false,
+    },
     ownership: {
         __typename: 'Ownership',
         owners: [
