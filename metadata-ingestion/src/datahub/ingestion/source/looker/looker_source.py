@@ -60,7 +60,7 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
 )
-from datahub.ingestion.source.state.looker_state import LookerCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
@@ -234,7 +234,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.source_config,
-            state_type_class=LookerCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -841,7 +841,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _get_looker_dashboard(
         self, dashboard: Dashboard, client: LookerAPI
     ) -> LookerDashboard:
-
         self.accessed_dashboards += 1
         if dashboard.folder is None:
             logger.debug(f"{dashboard.id} has no folder")
@@ -909,7 +908,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def process_metrics_dimensions_and_fields_for_dashboard(
         self, dashboard: LookerDashboard
     ) -> List[MetadataWorkUnit]:
-
         chart_mcps = [
             self._make_metrics_dimensions_chart_mcp(element, dashboard)
             for element in dashboard.dashboard_elements
@@ -1128,7 +1126,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-
         self.reporter.report_stage_start("list_dashboards")
         dashboards = self.looker_api.all_dashboards(fields="id")
         deleted_dashboards = (

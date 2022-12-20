@@ -711,7 +711,6 @@ class PowerBiAPI:
         return datasource
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
-
         """
         Get the list of tiles from PowerBi for the given workspace identifier
 
@@ -1499,7 +1498,6 @@ class Mapper:
     def __pages_to_chart(
         self, pages: List[PowerBiAPI.Page], ds_mcps: List[MetadataChangeProposalWrapper]
     ) -> List[MetadataChangeProposalWrapper]:
-
         chart_mcps = []
 
         # Return empty list if input list is empty
@@ -1773,7 +1771,6 @@ class PowerBiDashboardSource(Source):
             workspace = self.powerbi_client.get_workspace(workspace_id)
 
             for dashboard in workspace.dashboards:
-
                 try:
                     # Fetch PowerBi users for dashboards
                     dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)

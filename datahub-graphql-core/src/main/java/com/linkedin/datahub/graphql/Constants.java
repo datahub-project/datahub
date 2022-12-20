@@ -18,6 +18,7 @@ public class Constants {
     public static final String INGESTION_SCHEMA_FILE = "ingestion.graphql";
     public static final String TIMELINE_SCHEMA_FILE = "timeline.graphql";
     public static final String TESTS_SCHEMA_FILE = "tests.graphql";
+    public static final String STEPS_SCHEMA_FILE = "step.graphql";
     public static final String BROWSE_PATH_DELIMITER = "/";
     public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
 }

@@ -5,19 +5,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-    cast,
-)
+from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from pydantic import root_validator, validator
@@ -41,7 +29,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
@@ -52,11 +39,7 @@ from datahub.ingestion.source.sql.sql_types import (
     resolve_postgres_modified_type,
     resolve_trino_modified_type,
 )
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -65,7 +48,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
-    StateType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -354,7 +336,8 @@ class DBTNode:
     alias: Optional[str]  # alias if present
     comment: str
     description: str
-    raw_sql: Optional[str]
+    language: Optional[str]
+    raw_code: Optional[str]
 
     dbt_adapter: str
     dbt_name: str
@@ -375,7 +358,7 @@ class DBTNode:
     query_tag: Dict[str, Any] = field(default_factory=dict)
 
     tags: List[str] = field(default_factory=list)
-    compiled_sql: Optional[str] = None
+    compiled_code: Optional[str] = None
 
     test_info: Optional["DBTTest"] = None  # only populated if node_type == 'test'
     test_result: Optional["DBTTestResult"] = None
@@ -410,7 +393,13 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     custom_properties = node.meta
 
     # additional node attributes to extract to custom properties
-    node_attributes = ["node_type", "materialization", "dbt_file_path", "catalog_type"]
+    node_attributes = [
+        "node_type",
+        "materialization",
+        "dbt_file_path",
+        "catalog_type",
+        "language",
+    ]
 
     for attribute in node_attributes:
         node_attribute_value = getattr(node, attribute)
@@ -677,43 +666,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=DbtCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
-
-    def get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[StateType]
-    ) -> Optional[Checkpoint]:
-        last_checkpoint: Optional[Checkpoint]
-        is_conversion_required: bool = False
-        try:
-            # Best-case that last checkpoint state is DbtCheckpointState
-            last_checkpoint = super(DBTSourceBase, self).get_last_checkpoint(
-                job_id, checkpoint_state_class
-            )
-        except Exception as e:
-            # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
-            # BaseSQLAlchemyCheckpointState
-            last_checkpoint = super(DBTSourceBase, self).get_last_checkpoint(
-                job_id, BaseSQLAlchemyCheckpointState  # type: ignore
-            )
-            logger.debug(
-                f"Found BaseSQLAlchemyCheckpointState as checkpoint state (got {e})."
-            )
-            is_conversion_required = True
-
-        if last_checkpoint is not None and is_conversion_required:
-            # Map the BaseSQLAlchemyCheckpointState to DbtCheckpointState
-            dbt_checkpoint_state: DbtCheckpointState = DbtCheckpointState()
-            dbt_checkpoint_state.encoded_node_urns = (
-                cast(BaseSQLAlchemyCheckpointState, last_checkpoint.state)
-            ).encoded_table_urns
-            # Old dbt source was not supporting the assertion
-            dbt_checkpoint_state.encoded_assertion_urns = []
-            last_checkpoint.state = dbt_checkpoint_state
-
-        return last_checkpoint
 
     def create_test_entity_mcps(
         self,
@@ -834,7 +790,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         mce_builder.make_schema_field_urn(upstream_urn, column_name)
                     ],
                     nativeType=node.name,
-                    logic=node.compiled_sql if node.compiled_sql else node.raw_sql,
+                    logic=node.compiled_code if node.compiled_code else node.raw_code,
                     aggregation=AssertionStdAggregationClass._NATIVE_,
                     nativeParameters=string_map(kw_args),
                 ),
@@ -848,7 +804,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     dataset=upstream_urn,
                     scope=DatasetAssertionScopeClass.DATASET_ROWS,
                     operator=AssertionStdOperatorClass._NATIVE_,
-                    logic=node.compiled_sql if node.compiled_sql else node.raw_sql,
+                    logic=node.compiled_code if node.compiled_code else node.raw_code,
                     nativeType=node.name,
                     aggregation=AssertionStdAggregationClass._NATIVE_,
                     nativeParameters=string_map(kw_args),
@@ -988,7 +944,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
         for node in dbt_nodes:
-
             node_datahub_urn = node.get_urn(
                 mce_platform,
                 self.config.env,
@@ -1023,7 +978,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     aspects.append(upstream_lineage_class)
 
                 # add view properties aspect
-                if node.raw_sql:
+                if node.raw_code and node.language == "sql":
                     view_prop_aspect = self._create_view_properties_aspect(node)
                     aspects.append(view_prop_aspect)
 
@@ -1157,11 +1112,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
         materialized = node.materialization in {"table", "incremental"}
         # this function is only called when raw sql is present. assert is added to satisfy lint checks
-        assert node.raw_sql is not None
+        assert node.raw_code is not None
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
-            viewLogic=node.raw_sql,
+            viewLogic=node.raw_code,
         )
         return view_properties
 

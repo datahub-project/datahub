@@ -45,7 +45,7 @@ class FileReadMode(ConfigEnum):
 
 class FileSourceConfig(ConfigModel):
     filename: Optional[str] = Field(
-        None, description="[deprecated in favor or `path`] The file to ingest."
+        None, description="[deprecated in favor of `path`] The file to ingest."
     )
     path: pathlib.Path = Field(
         description="Path to folder or file to ingest. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."

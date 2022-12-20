@@ -3,14 +3,19 @@ import pathlib
 from typing import Any, List, Optional, cast
 from unittest import mock
 
+import pydantic
+import pytest
 from freezegun import freeze_time
 from looker_sdk.sdk.api31.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.looker.lookml_source import LookMLSource
+from datahub.ingestion.source.looker.lookml_source import (
+    LookMLSource,
+    LookMLSourceConfig,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.lookml_state import LookMLCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -510,7 +515,6 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
         pipeline_run1 = Pipeline.create(
             {
@@ -564,7 +568,6 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         mock_checkpoint.return_value = mock_datahub_graph
 
         pipeline_run2 = Pipeline.create(
@@ -624,8 +627,8 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     # Perform all assertions on the states. The deleted table should not be
     # part of the second state
-    state1 = cast(LookMLCheckpointState, checkpoint1.state)
-    state2 = cast(LookMLCheckpointState, checkpoint2.state)
+    state1 = cast(GenericCheckpointState, checkpoint1.state)
+    state2 = cast(GenericCheckpointState, checkpoint2.state)
 
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
@@ -652,3 +655,26 @@ def get_current_checkpoint_from_pipeline(
     return dbt_source.get_current_checkpoint(
         dbt_source.stale_entity_removal_handler.job_id
     )
+
+
+def test_lookml_base_folder():
+    fake_api = {
+        "base_url": "https://filler.cloud.looker.com",
+        "client_id": "this-is-fake",
+        "client_secret": "this-is-also-fake",
+    }
+
+    LookMLSourceConfig.parse_obj(
+        {
+            "github_info": {
+                "repo": "acryldata/long-tail-companions-looker",
+                "deploy_key": "this-is-fake",
+            },
+            "api": fake_api,
+        }
+    )
+
+    with pytest.raises(
+        pydantic.ValidationError, match=r"base_folder.+not provided.+deploy_key"
+    ):
+        LookMLSourceConfig.parse_obj({"api": fake_api})
