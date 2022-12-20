@@ -97,7 +97,6 @@ class Checkpoint(Generic[StateType]):
 
     job_name: str
     pipeline_name: str
-    platform_instance_id: str
     run_id: str
     state: StateType
 
@@ -140,12 +139,12 @@ class Checkpoint(Generic[StateType]):
                 checkpoint = cls(
                     job_name=job_name,
                     pipeline_name=checkpoint_aspect.pipelineName,
-                    platform_instance_id=checkpoint_aspect.platformInstanceId,
                     run_id=checkpoint_aspect.runId,
                     state=state_obj,
                 )
                 logger.info(
-                    f"Successfully constructed last checkpoint state for job {job_name}"
+                    f"Successfully constructed last checkpoint state for job {job_name} "
+                    f"with timestamp {datetime.utcfromtimestamp(checkpoint_aspect.timestampMillis/1000)}"
                 )
                 return checkpoint
         return None
@@ -216,7 +215,7 @@ class Checkpoint(Generic[StateType]):
             checkpoint_aspect = DatahubIngestionCheckpointClass(
                 timestampMillis=int(datetime.utcnow().timestamp() * 1000),
                 pipelineName=self.pipeline_name,
-                platformInstanceId=self.platform_instance_id,
+                platformInstanceId="",
                 runId=self.run_id,
                 config="",
                 state=checkpoint_state,

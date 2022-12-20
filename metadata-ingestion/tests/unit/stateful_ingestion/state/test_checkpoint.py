@@ -17,7 +17,6 @@ from datahub.metadata.schema_classes import (
 
 # 1. Setup common test param values.
 test_pipeline_name: str = "test_pipeline"
-test_platform_instance_id: str = "test_platform_instance_1"
 test_job_name: str = "test_job_1"
 test_run_id: str = "test_run_1"
 
@@ -30,8 +29,8 @@ def _assert_checkpoint_deserialization(
     checkpoint_aspect = DatahubIngestionCheckpointClass(
         timestampMillis=int(datetime.utcnow().timestamp() * 1000),
         pipelineName=test_pipeline_name,
-        platformInstanceId=test_platform_instance_id,
-        config="",
+        platformInstanceId="this-can-be-anything-and-will-be-ignored",
+        config="this-is-also-ignored",
         state=serialized_checkpoint_state,
         runId=test_run_id,
     )
@@ -46,7 +45,6 @@ def _assert_checkpoint_deserialization(
     expected_checkpoint_obj = Checkpoint(
         job_name=test_job_name,
         pipeline_name=test_pipeline_name,
-        platform_instance_id=test_platform_instance_id,
         run_id=test_run_id,
         state=expected_checkpoint_state,
     )
@@ -120,7 +118,6 @@ def test_serde_idempotence(state_obj):
     orig_checkpoint_obj = Checkpoint(
         job_name=test_job_name,
         pipeline_name=test_pipeline_name,
-        platform_instance_id=test_platform_instance_id,
         run_id=test_run_id,
         state=state_obj,
     )
