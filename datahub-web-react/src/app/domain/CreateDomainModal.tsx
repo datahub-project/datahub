@@ -29,14 +29,8 @@ const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createDomainMutation] = useCreateDomainMutation();
-    const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
+    const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
-
-    const setStagedName = (name) => {
-        form.setFieldsValue({
-            name,
-        });
-    };
 
     const onCreateDomain = () => {
         createDomainMutation({
@@ -88,7 +82,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="createDomainButton" onClick={onCreateDomain} disabled={createButtonEnabled}>
+                    <Button id="createDomainButton" onClick={onCreateDomain} disabled={!createButtonEnabled}>
                         Create
                     </Button>
                 </>
@@ -98,9 +92,9 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 form={form}
                 initialValues={{}}
                 layout="vertical"
-                onFieldsChange={() =>
-                    setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
-                }
+                onFieldsChange={() => {
+                    setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
+                }}
             >
                 <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
                     <Typography.Paragraph>Give your new Domain a name. </Typography.Paragraph>
@@ -121,7 +115,15 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <SuggestedNamesGroup>
                         {SUGGESTED_DOMAIN_NAMES.map((name) => {
                             return (
-                                <ClickableTag key={name} onClick={() => setStagedName(name)}>
+                                <ClickableTag
+                                    key={name}
+                                    onClick={() => {
+                                        form.setFieldsValue({
+                                            name,
+                                        });
+                                        setCreateButtonEnabled(true);
+                                    }}
+                                >
                                     {name}
                                 </ClickableTag>
                             );
@@ -137,7 +139,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         rules={[{ whitespace: true }, { min: 1, max: 500 }]}
                         hasFeedback
                     >
-                        <Input placeholder="A description for your domain" />
+                        <Input.TextArea placeholder="A description for your domain" />
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>

@@ -28,7 +28,6 @@ from pydantic.class_validators import validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
-from datahub.configuration.github import GitHubInfo
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.report import Report
@@ -186,10 +185,6 @@ class LookerCommonConfig(DatasetSourceConfigBase):
     platform_name: str = Field(
         "looker", description="Default platform name. Don't change."
     )
-    github_info: Optional[GitHubInfo] = Field(
-        None,
-        description="Reference to your github location. If present, supplies handy links to your lookml on the dataset entity page.",
-    )
     extract_column_level_lineage: bool = Field(
         True,
         description="When enabled, extracts column-level lineage from Views and Explores",
@@ -334,11 +329,9 @@ class LookerUtil:
     def _get_field_type(
         native_type: str, reporter: SourceReport
     ) -> SchemaFieldDataType:
-
         type_class = LookerUtil.field_type_mapping.get(native_type)
 
         if type_class is None:
-
             # attempt Postgres modified type
             type_class = resolve_postgres_modified_type(native_type)
 

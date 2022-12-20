@@ -37,7 +37,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
-    _convert_to_cardinality,
+    convert_to_cardinality,
 )
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.metadata.schema_classes import (
@@ -193,12 +193,10 @@ class _SingleTableProfiler:
         column_types = {x.name: x.dataType for x in dataframe.schema.fields}
 
         if self.profiling_config.profile_table_level_only:
-
             return
 
         # get column distinct counts
         for column in dataframe.columns:
-
             if not self.profiling_config._allow_deny_patterns.allowed(column):
                 self.ignored_columns.append(column)
                 continue
@@ -303,7 +301,7 @@ class _SingleTableProfiler:
                 )
 
             column_spec.type_ = column_types[column]
-            column_spec.cardinality = _convert_to_cardinality(
+            column_spec.cardinality = convert_to_cardinality(
                 column_distinct_counts[column],
                 column_null_fractions[column],
             )
@@ -343,7 +341,6 @@ class _SingleTableProfiler:
             self.analyzer.addAnalyzer(Histogram(column, maxDetailBins=MAX_HIST_BINS))
 
     def prepare_table_profiles(self) -> None:
-
         row_count = self.row_count
 
         telemetry.telemetry_instance.ping(
@@ -469,7 +466,6 @@ class _SingleTableProfiler:
         histogram_columns = set()
 
         if len(column_histogram_metrics) > 0:
-
             # we only want the absolute counts for each histogram for now
             column_histogram_metrics = column_histogram_metrics[
                 column_histogram_metrics["name"].apply(
@@ -532,13 +528,11 @@ class _SingleTableProfiler:
                 ]
 
             if column in histogram_columns:
-
                 column_histogram = histogram_counts.loc[column]
                 # sort so output is deterministic
                 column_histogram = column_histogram.sort_index()
 
                 if column_spec.histogram_distinct:
-
                     column_profile.distinctValueFrequencies = [
                         ValueFrequencyClass(
                             value=value, frequency=int(column_histogram.loc[value])
@@ -551,7 +545,6 @@ class _SingleTableProfiler:
                     )
 
                 else:
-
                     column_profile.histogram = HistogramClass(
                         [str(x) for x in column_histogram.index],
                         [float(x) for x in column_histogram],

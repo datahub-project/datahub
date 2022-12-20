@@ -32,7 +32,6 @@ class AirflowGenerator:
     def _get_dependencies(
         task: "Operator", dag: "DAG", flow_urn: DataFlowUrn
     ) -> List[DataJobUrn]:
-
         # resolve URNs for upstream nodes in subdags upstream of the current task.
         upstream_subdag_task_urns: List[DataJobUrn] = []
 
@@ -69,7 +68,6 @@ class AirflowGenerator:
             and dag.parent_dag is not None
             and len(task.upstream_task_ids) == 0
         ):
-
             # filter through the parent dag's tasks and find the subdag trigger(s)
             subdags = [
                 x for x in dag.parent_dag.task_dict.values() if x.subdag is not None
@@ -277,7 +275,6 @@ class AirflowGenerator:
         dag: "DAG",
         data_job: Optional[DataJob] = None,
     ) -> DataProcessInstance:
-
         if data_job is None:
             data_job = AirflowGenerator.generate_datajob(cluster, task=task, dag=dag)
         dpi = DataProcessInstance.from_datajob(
@@ -293,7 +290,6 @@ class AirflowGenerator:
         start_timestamp_millis: Optional[int] = None,
         dataflow: Optional[DataFlow] = None,
     ) -> None:
-
         if dataflow is None:
             assert dag_run.dag
             dataflow = AirflowGenerator.generate_dataflow(cluster, dag_run.dag)

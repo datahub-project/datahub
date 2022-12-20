@@ -21,14 +21,13 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.powerbi import m_parser
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
-from datahub.ingestion.source.powerbi.m_parser import DataPlatformTable
+from datahub.ingestion.source.powerbi.m_query import parser, resolver
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
@@ -161,17 +160,24 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 # Check if upstreams table is available, parse them and create dataset URN for each upstream table
                 upstreams: List[UpstreamClass] = []
-                upstream_tables: List[DataPlatformTable] = m_parser.get_upstream_tables(
-                    table, self.__reporter
-                )
+                upstream_tables: List[
+                    resolver.DataPlatformTable
+                ] = parser.get_upstream_tables(table, self.__reporter)
                 for upstream_table in upstream_tables:
+                    if (
+                        upstream_table.data_platform_pair.powerbi_data_platform_name
+                        not in self.__config.dataset_type_mapping.keys()
+                    ):
+                        LOGGER.debug("Skipping upstream table for %s", ds_urn)
+                        continue
+
                     platform: Union[
                         str, PlatformDetail
-                    ] = self.__config.dataset_type_mapping[upstream_table.platform_type]
+                    ] = self.__config.dataset_type_mapping[
+                        upstream_table.data_platform_pair.powerbi_data_platform_name
+                    ]
                     platform_name: str = (
-                        m_parser.POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING[
-                            upstream_table.platform_type
-                        ]
+                        upstream_table.data_platform_pair.datahub_data_platform_name
                     )
                     platform_instance_name: Optional[str] = None
                     platform_env: str = DEFAULT_ENV
@@ -306,7 +312,7 @@ class Mapper:
             return {
                 "chartCount": str(len(dashboard.tiles)),
                 "workspaceName": dashboard.workspace_name,
-                "workspaceId": dashboard.id,
+                "workspaceId": dashboard.workspace_id,
             }
 
         # DashboardInfo mcp
@@ -730,45 +736,64 @@ class PowerBiDashboardSource(Source):
         config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_workspace_ids(self) -> Iterable[str]:
+        all_workspaces = self.powerbi_client.get_workspaces()
+        return [
+            workspace.id
+            for workspace in all_workspaces
+            if self.source_config.workspace_id_pattern.allowed(workspace.id)
+        ]
+
+    def validate_dataset_type_mapping(self):
+        powerbi_data_platforms: List[str] = [
+            data_platform.value.powerbi_data_platform_name
+            for data_platform in resolver.SupportedDataPlatform
+        ]
+
+        for key in self.source_config.dataset_type_mapping.keys():
+            if key not in powerbi_data_platforms:
+                raise ValueError(f"PowerBI DataPlatform {key} is not supported")
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
         """
         LOGGER.info("PowerBi plugin execution is started")
-
+        # Validate dataset type mapping
+        self.validate_dataset_type_mapping()
         # Fetch PowerBi workspace for given workspace identifier
-        workspace = self.powerbi_client.get_workspace(
-            self.source_config.workspace_id, self.reporter
-        )
+        for workspace_id in self.get_workspace_ids():
+            LOGGER.info(f"Scanning workspace id: {workspace_id}")
+            workspace = self.powerbi_client.get_workspace(workspace_id, self.reporter)
 
-        for dashboard in workspace.dashboards:
+            for dashboard in workspace.dashboards:
 
-            try:
-                # Fetch PowerBi users for dashboards
-                dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
-                # Increase dashboard and tiles count in report
-                self.reporter.report_dashboards_scanned()
-                self.reporter.report_charts_scanned(count=len(dashboard.tiles))
-            except Exception as e:
-                message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
+                try:
+                    # Fetch PowerBi users for dashboards
+                    dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
+                    # Increase dashboard and tiles count in report
+                    self.reporter.report_dashboards_scanned()
+                    self.reporter.report_charts_scanned(count=len(dashboard.tiles))
+                except Exception as e:
+                    message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
 
-                LOGGER.exception(message, e)
-                self.reporter.report_warning(dashboard.id, message)
-            # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
-            workunits = self.mapper.to_datahub_work_units(dashboard)
-            for workunit in workunits:
-                # Add workunit to report
-                self.reporter.report_workunit(workunit)
-                # Return workunit to Datahub Ingestion framework
-                yield workunit
+                    LOGGER.exception(message, e)
+                    self.reporter.report_warning(dashboard.id, message)
+                # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
+                workunits = self.mapper.to_datahub_work_units(dashboard)
+                for workunit in workunits:
+                    # Add workunit to report
+                    self.reporter.report_workunit(workunit)
+                    # Return workunit to Datahub Ingestion framework
+                    yield workunit
 
-        if self.source_config.extract_reports:
-            for report in self.powerbi_client.get_reports(workspace=workspace):
-                for work_unit in self.mapper.report_to_datahub_work_units(
-                    report, workspace
-                ):
-                    self.reporter.report_workunit(work_unit)
-                    yield work_unit
+            if self.source_config.extract_reports:
+                for report in self.powerbi_client.get_reports(workspace=workspace):
+                    for work_unit in self.mapper.report_to_datahub_work_units(
+                        report, workspace
+                    ):
+                        self.reporter.report_workunit(work_unit)
+                        yield work_unit
 
     def get_report(self) -> SourceReport:
         return self.reporter

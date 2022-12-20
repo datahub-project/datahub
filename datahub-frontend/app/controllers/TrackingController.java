@@ -74,7 +74,7 @@ public class TrackingController extends Controller {
         } catch (Exception e) {
             return badRequest();
         }
-        final String actor = ctx().session().get(ACTOR);
+        final String actor = request.session().data().get(ACTOR);
         try {
             _logger.debug(String.format("Emitting product analytics event. actor: %s, event: %s", actor, event));
             final ProducerRecord<String, String> record = new ProducerRecord<>(

@@ -419,8 +419,8 @@ def get_schema_metadata(
     dataset_name: str,
     platform: str,
     columns: List[dict],
-    pk_constraints: dict = None,
-    foreign_keys: List[ForeignKeyConstraint] = None,
+    pk_constraints: Optional[dict] = None,
+    foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
     canonical_schema: List[SchemaField] = [],
 ) -> SchemaMetadata:
     schema_metadata = SchemaMetadata(
@@ -725,7 +725,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         entity_type: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
@@ -985,7 +984,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         columns: List[dict],
-        pk_constraints: dict = None,
+        pk_constraints: Optional[dict] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaField]:
         canonical_schema = []
@@ -1003,7 +1002,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         column: dict,
-        pk_constraints: dict = None,
+        pk_constraints: Optional[dict] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         gtc: Optional[GlobalTagsClass] = None

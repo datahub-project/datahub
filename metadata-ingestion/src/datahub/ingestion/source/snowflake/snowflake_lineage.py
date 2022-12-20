@@ -138,13 +138,14 @@ class SnowflakeTableLineage:
         default_factory=lambda: defaultdict(SnowflakeColumnUpstreams), init=False
     )
 
-    def update_lineage(self, table: SnowflakeUpstreamTable) -> None:
+    def update_lineage(
+        self, table: SnowflakeUpstreamTable, include_column_lineage: bool = True
+    ) -> None:
         if table.upstreamDataset not in self.upstreamTables.keys():
             self.upstreamTables[table.upstreamDataset] = table
 
-        if table.downstreamColumns:
+        if include_column_lineage and table.downstreamColumns:
             for col in table.downstreamColumns:
-
                 if col.directSourceColumns:
                     self.columnLineages[col.columnName].update_column_lineage(
                         col.directSourceColumns
@@ -164,7 +165,6 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def _get_upstream_lineage_info(
         self, dataset_name: str
     ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
-
         if self._lineage_map is None or self._external_lineage_map is None:
             conn = self.config.get_connection()
         if self._lineage_map is None:
@@ -380,6 +380,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            include_column_lineage=self.config.include_column_lineage,
         )
         num_edges: int = 0
         self._lineage_map = defaultdict(SnowflakeTableLineage)
@@ -404,6 +405,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                         db_row["UPSTREAM_TABLE_COLUMNS"],
                         db_row["DOWNSTREAM_TABLE_COLUMNS"],
                     ),
+                    self.config.include_column_lineage,
                 )
                 num_edges += 1
                 logger.debug(
@@ -452,7 +454,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 # key is the downstream view name
                 self._lineage_map[view_name].update_lineage(
                     # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
-                    SnowflakeUpstreamTable.from_dict(view_upstream, None, None)
+                    SnowflakeUpstreamTable.from_dict(view_upstream, None, None),
+                    self.config.include_column_lineage,
                 )
                 num_edges += 1
                 logger.debug(
@@ -468,7 +471,6 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.report.num_table_to_view_edges_scanned = num_edges
 
     def _populate_view_downstream_lineage(self, conn: SnowflakeConnection) -> None:
-
         # This query captures the downstream table lineage for views.
         # See https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         # Eg: For viewA->viewB->ViewC->TableD, snowflake does not yet log intermediate view logs, resulting in only the viewA->TableD edge.
@@ -477,6 +479,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            include_column_lineage=self.config.include_column_lineage,
         )
 
         assert self._lineage_map is not None
@@ -512,7 +515,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                         view_name,
                         db_row["VIEW_COLUMNS"],
                         db_row["DOWNSTREAM_TABLE_COLUMNS"],
-                    )
+                    ),
+                    self.config.include_column_lineage,
                 )
                 self.report.num_view_to_table_edges_scanned += 1
 

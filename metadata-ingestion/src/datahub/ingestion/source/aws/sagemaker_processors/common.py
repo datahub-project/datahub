@@ -8,7 +8,6 @@ from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 
 
 class SagemakerSourceConfig(AwsSourceConfig):
-
     extract_feature_groups: Optional[bool] = Field(
         default=True, description="Whether to extract feature groups."
     )

@@ -94,6 +94,7 @@ export const SearchResultList = ({
     return (
         <>
             <ResultList<React.FC<ListProps<CombinedSearchResult>>>
+                id="search-result-list"
                 dataSource={searchResults}
                 split={false}
                 locale={{

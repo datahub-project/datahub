@@ -23,6 +23,11 @@ query getMe {
                 appearance {
                     showSimplifiedHomepage
                 }
+                views {
+                    defaultView {
+                        urn
+                    }
+                }
             }
         }
         platformPrivileges {
@@ -39,6 +44,7 @@ query getMe {
             manageTags
             createDomains
             createTags
+            manageGlobalViews
         }
     }
 }
