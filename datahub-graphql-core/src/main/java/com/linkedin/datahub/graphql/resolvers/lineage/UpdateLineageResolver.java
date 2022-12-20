@@ -1,11 +1,17 @@
 package com.linkedin.datahub.graphql.resolvers.lineage;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
 import com.linkedin.datahub.graphql.generated.UpdateLineageInput;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.LineageService;
 import graphql.schema.DataFetcher;
@@ -15,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -39,6 +46,9 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
     final UpdateLineageInput input = bindArgument(environment.getArgument("input"), UpdateLineageInput.class);
     final List<LineageEdge> edgesToAdd = input.getEdgesToAdd();
     final List<LineageEdge> edgesToRemove = input.getEdgesToRemove();
+
+    // loop over edgesToAdd and edgesToRemove and ensure the actor has privileges to edit lineage for each entity
+    checkPrivileges(context, edgesToAdd, edgesToRemove);
 
     // organize data to make updating lineage cleaner
     Map<Urn, List<Urn>> downstreamToUpstreamsToAdd = getDownstreamToUpstreamsMap(edgesToAdd);
@@ -144,5 +154,59 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
       upstreamToDownstreams.put(upstream, downstreams);
     }
     return upstreamToDownstreams;
+  }
+
+  private boolean isAuthorized(@Nonnull final QueryContext context, @Nonnull final Urn urn, @Nonnull final DisjunctivePrivilegeGroup orPrivilegesGroup) {
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        urn.getEntityType(),
+        urn.toString(),
+        orPrivilegesGroup);
+  }
+
+  private void checkLineageEdgePrivileges(
+      @Nonnull final QueryContext context,
+      @Nonnull final LineageEdge lineageEdge,
+      @Nonnull final DisjunctivePrivilegeGroup editLineagePrivileges
+  ) {
+    Urn upstreamUrn = UrnUtils.getUrn(lineageEdge.getUpstreamUrn());
+    if (!isAuthorized(context, upstreamUrn, editLineagePrivileges)) {
+      throw new AuthorizationException(
+          String.format("Unauthorized to edit %s lineage. Please contact your DataHub administrator.", upstreamUrn.getEntityType())
+      );
+    }
+
+    Urn downstreamUrn = UrnUtils.getUrn(lineageEdge.getDownstreamUrn());
+    if (!isAuthorized(context, downstreamUrn, editLineagePrivileges)) {
+      throw new AuthorizationException(
+          String.format("Unauthorized to edit %s lineage. Please contact your DataHub administrator.", downstreamUrn.getEntityType())
+      );
+    }
+  }
+
+  /**
+   * Loop over each edge to add and each edge to remove and ensure that the user has edit lineage privilege or edit entity privilege
+   * for every upstream and downstream urn. Throws an AuthorizationException if the actor doesn't have permissions.
+   */
+  private void checkPrivileges(
+      @Nonnull final QueryContext context,
+      @Nonnull final List<LineageEdge> edgesToAdd,
+      @Nonnull final List<LineageEdge> edgesToRemove
+  ) {
+    final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+        PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+    ));
+    DisjunctivePrivilegeGroup editLineagePrivileges = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        allPrivilegesGroup,
+        new ConjunctivePrivilegeGroup(Collections.singletonList(PoliciesConfig.EDIT_LINEAGE_PRIVILEGE.getType()))
+    ));
+
+    for (LineageEdge edgeToAdd : edgesToAdd) {
+      checkLineageEdgePrivileges(context, edgeToAdd, editLineagePrivileges);
+    }
+    for (LineageEdge edgeToRemove : edgesToRemove) {
+      checkLineageEdgePrivileges(context, edgeToRemove, editLineagePrivileges);
+    }
   }
 }

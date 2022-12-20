@@ -963,6 +963,7 @@ public class GmsGraphQLEngine {
                    "dataset",
                    "subTypes"))
                 .dataFetcher("runs", new EntityRunsResolver(entityClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient)))
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
@@ -1157,6 +1158,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
             .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
             .dataFetcher("statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
+            .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new LoadableTypeBatchResolver<>(chartType,
@@ -1208,6 +1210,7 @@ public class GmsGraphQLEngine {
             )
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
             .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
+            .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,
@@ -1284,6 +1287,7 @@ public class GmsGraphQLEngine {
                         })
                 )
                 .dataFetcher("runs", new DataJobRunsResolver(entityClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new LoadableTypeBatchResolver<>(datasetType,

@@ -82,6 +82,7 @@ export const LineageTab = ({
     const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn) || '';
     const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);
     const impactAnalysisUrn = isColumnLevelLineage && selectedColumnUrn ? selectedColumnUrn : urn;
+    const canEditLineage = !!entityData?.privileges?.canEditLineage;
 
     return (
         <>
@@ -120,13 +121,15 @@ export const LineageTab = ({
                         menuIcon={
                             <Button type="text">
                                 <ManageLineageIcon />
-                                Manage
+                                Edit
                                 <StyledCaretDown />
                             </Button>
                         }
                         showLoading
                         entityType={entityType}
                         entityPlatform={entityData?.platform?.name}
+                        canEditLineage={canEditLineage}
+                        disableDropdown={!canEditLineage}
                     />
                 </RightButtonsWrapper>
             </StyledTabToolbar>

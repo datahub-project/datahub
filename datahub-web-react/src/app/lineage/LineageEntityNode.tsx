@@ -304,6 +304,7 @@ export default function LineageEntityNode({
                         centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
                         entityType={node.data.type}
                         entityPlatform={node.data.platform?.name}
+                        canEditLineage={node.data.canEditLineage}
                     />
                 </foreignObject>
                 <Group>
