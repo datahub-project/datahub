@@ -3,11 +3,11 @@ package com.linkedin.datahub.graphql;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.post.PostService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.role.RoleService;
-import com.datahub.authentication.post.PostService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
@@ -179,13 +179,13 @@ import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateParentNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateUserSettingResolver;
-import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.operation.ReportOperationResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.post.CreatePostResolver;
+import com.linkedin.datahub.graphql.resolvers.post.DeletePostResolver;
 import com.linkedin.datahub.graphql.resolvers.post.ListPostsResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.AcceptRoleResolver;
@@ -198,10 +198,11 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
-import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
-import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
@@ -854,6 +855,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
             .dataFetcher("acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
             .dataFetcher("createPost", new CreatePostResolver(this.postService))
+            .dataFetcher("deletePost", new DeletePostResolver(this.postService))
             .dataFetcher("batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
             .dataFetcher("createView", new CreateViewResolver(this.viewService))
             .dataFetcher("updateView", new UpdateViewResolver(this.viewService))

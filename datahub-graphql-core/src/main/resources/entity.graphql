@@ -545,6 +545,11 @@ type Mutation {
     createPost(input: CreatePostInput!): Boolean
 
     """
+    Delete a post
+    """
+    deletePost(urn: String!): Boolean
+
+    """
     Create a new DataHub View (Saved Filter)
     """
     createView(
