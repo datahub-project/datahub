@@ -59,7 +59,7 @@ record DataJobInputOutput {
       "queryByDefault": false
     }
   }
-  inputDatasetEdges: optional array[Edge] = []
+  inputDatasetEdges: optional array[Edge]
 
   /**
    * Output datasets produced by the data job during processing
@@ -108,7 +108,7 @@ record DataJobInputOutput {
       "queryByDefault": false
     }
   }
-  outputDatasetEdges: optional array[Edge] = []
+  outputDatasetEdges: optional array[Edge]
 
   /**
    * Input datajobs that this data job depends on

@@ -476,6 +476,7 @@
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
           "name" : "Consumes",
+          "properties" : "inputEdges/*/properties",
           "updatedActor" : "inputEdges/*/lastModified/actor",
           "updatedOn" : "inputEdges/*/lastModified/time"
         }
@@ -1284,7 +1285,7 @@
         "items" : "com.linkedin.common.Edge"
       },
       "doc" : "Charts in a dashboard",
-      "default" : [ ],
+      "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
           "createdActor" : "chartEdges/*/created/actor",
@@ -1292,6 +1293,7 @@
           "entityTypes" : [ "chart" ],
           "isLineage" : true,
           "name" : "Contains",
+          "properties" : "chartEdges/*/properties",
           "updatedActor" : "chartEdges/*/lastModified/actor",
           "updatedOn" : "chartEdges/*/lastModified/time"
         }
@@ -1319,7 +1321,7 @@
         "items" : "com.linkedin.common.Edge"
       },
       "doc" : "Datasets consumed by a dashboard",
-      "default" : [ ],
+      "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
           "createdActor" : "datasetEdges/*/created/actor",
@@ -1327,6 +1329,7 @@
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
           "name" : "Consumes",
+          "properties" : "datasetEdges/*/properties",
           "updatedActor" : "datasetEdges/*/lastModified/actor",
           "updatedOn" : "datasetEdges/*/lastModified/time"
         }
@@ -1548,7 +1551,6 @@
         "items" : "com.linkedin.common.Edge"
       },
       "doc" : "Input datasets consumed by the data job during processing",
-      "default" : [ ],
       "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
@@ -1557,6 +1559,7 @@
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
           "name" : "Consumes",
+          "properties" : "inputDatasetEdges/*/properties",
           "updatedActor" : "inputDatasetEdges/*/lastModified/actor",
           "updatedOn" : "inputDatasetEdges/*/lastModified/time"
         }
@@ -1600,7 +1603,6 @@
         "items" : "com.linkedin.common.Edge"
       },
       "doc" : "Output datasets produced by the data job during processing",
-      "default" : [ ],
       "optional" : true,
       "Relationship" : {
         "/*/destinationUrn" : {
@@ -1610,6 +1612,7 @@
           "isLineage" : true,
           "isUpstream" : false,
           "name" : "Produces",
+          "properties" : "outputDatasetEdges/*/properties",
           "updatedActor" : "outputDatasetEdges/*/lastModified/actor",
           "updatedOn" : "outputDatasetEdges/*/lastModified/time"
         }
@@ -1653,6 +1656,7 @@
           "entityTypes" : [ "dataJob" ],
           "isLineage" : true,
           "name" : "DownstreamOf",
+          "properties" : "inputDatajobEdges/*/properties",
           "updatedActor" : "inputDatajobEdges/*/lastModified/actor",
           "updatedOn" : "inputDatajobEdges/*/lastModified/time"
         }
@@ -1927,6 +1931,7 @@
         "entityTypes" : [ "dataset" ],
         "isLineage" : true,
         "name" : "DownstreamOf",
+        "properties" : "upstreams/*/properties",
         "updatedActor" : "upstreams/*/auditStamp/actor",
         "updatedOn" : "upstreams/*/auditStamp/time"
       },

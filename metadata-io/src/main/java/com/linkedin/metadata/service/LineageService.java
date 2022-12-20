@@ -596,6 +596,12 @@ public class LineageService {
     }
   }
 
+  private void initializeOutputDatajobEdges(DataJobInputOutput dataJobInputOutput) {
+    if (!dataJobInputOutput.hasOutputDatasetEdges()) {
+      dataJobInputOutput.setOutputDatasetEdges(new EdgeArray());
+    }
+  }
+
   /**
    * Builds an MCP of DataJobInputOutput for datajob entities. Specifically this is updating this aspect for lineage in the downstream
    * direction. This includes the fields outputDatasets (deprecated) and outputDatasetEdges
@@ -616,6 +622,8 @@ public class LineageService {
       DataMap dataMap = entityResponse.getAspects().get(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME).getValue().data();
       dataJobInputOutput = new DataJobInputOutput(dataMap);
     }
+
+    initializeOutputDatajobEdges(dataJobInputOutput);
 
     final DatasetUrnArray outputDatasets = dataJobInputOutput.getOutputDatasets();
     final EdgeArray outputDatasetEdges = dataJobInputOutput.getOutputDatasetEdges();
