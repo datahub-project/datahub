@@ -465,8 +465,8 @@ class Pipeline:
     def log_ingestion_stats(self) -> None:
         source_failures = self._approx_all_vals(self.source.get_report().failures)
         source_warnings = self._approx_all_vals(self.source.get_report().warnings)
-        sink_failures = self._approx_all_vals(self.sink.get_report().failures)
-        sink_warnings = self._approx_all_vals(self.sink.get_report().warnings)
+        sink_failures = len(self.sink.get_report().failures)
+        sink_warnings = len(self.sink.get_report().warnings)
 
         telemetry.telemetry_instance.ping(
             "ingest_stats",
