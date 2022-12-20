@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, NewType, Type, TypeVar
+from typing import Any, Dict, NewType, Type, TypeVar
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -13,13 +13,6 @@ CheckpointJobStateType = DatahubIngestionCheckpointClass
 CheckpointJobStatesMap = Dict[JobId, CheckpointJobStateType]
 
 
-@dataclass
-class JobStateKey:
-    pipeline_name: str
-    platform_instance_id: str
-    job_names: List[JobId]
-
-
 class IngestionCheckpointingProviderConfig(ConfigModel):
     pass
 
@@ -28,9 +21,7 @@ _Self = TypeVar("_Self", bound="IngestionCheckpointingProviderBase")
 
 
 @dataclass()
-class IngestionCheckpointingProviderBase(
-    StatefulCommittable[JobStateKey, CheckpointJobStatesMap]
-):
+class IngestionCheckpointingProviderBase(StatefulCommittable[CheckpointJobStatesMap]):
     """
     The base class for all checkpointing state provider implementations.
     """
@@ -42,21 +33,15 @@ class IngestionCheckpointingProviderBase(
         super().__init__(name, commit_policy, {})
 
     @classmethod
+    @abstractmethod
     def create(
         cls: Type[_Self], config_dict: Dict[str, Any], ctx: PipelineContext, name: str
     ) -> "_Self":
-        raise NotImplementedError("Sub-classes must override this method.")
-
-    @abstractmethod
-    def get_last_state(
-        self,
-        state_key: JobStateKey,
-    ) -> CheckpointJobStatesMap:
-        ...
+        pass
 
     @abstractmethod
     def commit(self) -> None:
-        ...
+        pass
 
     @staticmethod
     def get_data_job_urn(
