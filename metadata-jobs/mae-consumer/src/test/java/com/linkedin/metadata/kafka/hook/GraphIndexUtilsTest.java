@@ -78,7 +78,8 @@ public class GraphIndexUtilsTest {
             CREATED_EVENT_TIME,
             _createdActorUrn,
             UPDATED_EVENT_TIME,
-            _updatedActorUrn
+            _updatedActorUrn,
+            null
         );
         Edge edge2 = new Edge(
             _datasetUrn,
@@ -87,7 +88,8 @@ public class GraphIndexUtilsTest {
             CREATED_EVENT_TIME,
             _createdActorUrn,
             UPDATED_EVENT_TIME,
-            _updatedActorUrn
+            _updatedActorUrn,
+            null
         );
         expectedEdgesToAdd.add(edge1);
         expectedEdgesToAdd.add(edge2);

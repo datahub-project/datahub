@@ -20,6 +20,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardInfo;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.Upstream;
@@ -54,6 +55,8 @@ public class LineageServiceTest {
   private LineageService _lineageService;
   private static final Authentication AUTHENTICATION =
       new Authentication(new Actor(ActorType.USER, "test"), "");
+  private static final String SOURCE_FIELD_NAME = "source";
+  private static final String UI_SOURCE = "UI";
   private static final String ACTOR_URN = "urn:li:corpuser:test";
   private static final String DATASET_URN_1 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,DEV)";
   private static final String DATASET_URN_2 = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test2,DEV)";
@@ -455,6 +458,9 @@ public class LineageServiceTest {
       upstream.setAuditStamp(_auditStamp);
       upstream.setCreated(_auditStamp);
       upstream.setType(DatasetLineageType.TRANSFORMED);
+      final StringMap properties = new StringMap();
+      properties.put(SOURCE_FIELD_NAME, UI_SOURCE);
+      upstream.setProperties(properties);
       upstreams.add(upstream);
     }
     upstreamLineage.setUpstreams(upstreams);
@@ -472,12 +478,7 @@ public class LineageServiceTest {
 
     EdgeArray inputEdges = new EdgeArray();
     for (Urn inputEdgeToAdd : inputEdgesToAdd) {
-      Edge edge = new Edge();
-      edge.setSourceUrn(entityUrn);
-      edge.setDestinationUrn(inputEdgeToAdd);
-      edge.setCreated(_auditStamp);
-      edge.setLastModified(_auditStamp);
-      inputEdges.add(edge);
+      addNewEdge(inputEdgeToAdd, entityUrn, inputEdges);
     }
     chartInfo.setInputEdges(inputEdges);
 
@@ -579,6 +580,9 @@ public class LineageServiceTest {
     newEdge.setCreated(_auditStamp);
     newEdge.setLastModified(_auditStamp);
     newEdge.setSourceUrn(downstreamUrn);
+    final StringMap properties = new StringMap();
+    properties.put(SOURCE_FIELD_NAME, UI_SOURCE);
+    newEdge.setProperties(properties);
     edgeArray.add(newEdge);
   }
 }

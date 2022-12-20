@@ -29,9 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.entity.AspectUtils.*;
@@ -41,7 +39,6 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 public class LineageService {
   private static final String SOURCE_FIELD_NAME = "source";
   private static final String UI_SOURCE = "UI";
-  private static final String INGESTION_SOURCE = "INGESTION";
   private final EntityClient _entityClient;
 
   /**
