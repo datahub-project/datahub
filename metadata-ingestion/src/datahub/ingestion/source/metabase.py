@@ -169,6 +169,7 @@ class MetabaseSource(Source):
                 key="metabase-session",
                 reason=f"Unable to logout for user {self.config.username}",
             )
+        super().close()
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -208,7 +209,6 @@ class MetabaseSource(Source):
     def construct_dashboard_from_api_data(
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
-
         dashboard_id = dashboard_info.get("id", "")
         dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
         try:

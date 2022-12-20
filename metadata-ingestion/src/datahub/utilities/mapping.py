@@ -67,7 +67,7 @@ class OperationProcessor:
         self,
         operation_defs: Dict[str, Dict],
         tag_prefix: str = "",
-        owner_source_type: str = None,
+        owner_source_type: Optional[str] = None,
         strip_owner_email_id: bool = False,
     ):
         self.operation_defs = operation_defs

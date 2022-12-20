@@ -36,6 +36,7 @@ from datahub.ingestion.source.delta_lake.delta_lake_utils import (
 from datahub.ingestion.source.delta_lake.report import DeltaLakeSourceReport
 from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.schema_inference.csv_tsv import tableschema_type_map
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -119,7 +120,6 @@ class DeltaLakeSource(Source):
         return cls(config, ctx)
 
     def get_fields(self, delta_table: DeltaTable) -> List[SchemaField]:
-
         fields: List[SchemaField] = []
 
         for raw_field in delta_table.schema().fields:
@@ -147,7 +147,6 @@ class DeltaLakeSource(Source):
         for hist in delta_table.history(
             limit=self.source_config.version_history_lookback
         ):
-
             # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = hist["timestamp"]
@@ -161,10 +160,10 @@ class DeltaLakeSource(Source):
             )
 
             operation_custom_properties = dict()
-            for key, val in hist.items():
+            for key, val in sorted(hist.items()):
                 if val is not None:
                     if isinstance(val, dict):
-                        for k, v in val.items():
+                        for k, v in sorted(val.items()):
                             if v is not None:
                                 operation_custom_properties[f"{key}_{k}"] = str(v)
                     else:
@@ -224,7 +223,7 @@ class DeltaLakeSource(Source):
         )
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         customProperties = {
@@ -235,6 +234,8 @@ class DeltaLakeSource(Source):
             "version": str(delta_table.version()),
             "location": self.source_config.complete_path,
         }
+        if not self.source_config.require_files:
+            del customProperties["number_of_files"]  # always 0
 
         dataset_properties = DatasetPropertiesClass(
             description=delta_table.metadata().description,
@@ -331,6 +332,3 @@ class DeltaLakeSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self):
-        pass

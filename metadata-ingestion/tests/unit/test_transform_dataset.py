@@ -845,7 +845,7 @@ def test_ownership_patching_intersect(mock_time):
     mce_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = server_ownership
 
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -858,7 +858,7 @@ def test_ownership_patching_with_nones(mock_time):
     mock_graph = mock.MagicMock()
     mce_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = None
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -867,7 +867,7 @@ def test_ownership_patching_with_nones(mock_time):
 
     server_ownership = gen_owners(["baz", "foo"])
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", None
     )
     assert not test_ownership
@@ -877,7 +877,7 @@ def test_ownership_patching_with_empty_mce_none_server(mock_time):
     mock_graph = mock.MagicMock()
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = None
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     # nothing to add, so we omit writing
@@ -889,7 +889,7 @@ def test_ownership_patching_with_empty_mce_nonempty_server(mock_time):
     server_ownership = gen_owners(["baz", "foo"])
     mce_ownership = gen_owners([])
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     # nothing to add, so we omit writing
@@ -901,7 +901,7 @@ def test_ownership_patching_with_different_types_1(mock_time):
     server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
     mce_ownership = gen_owners(["foo"], models.OwnershipTypeClass.DATAOWNER)
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -919,7 +919,7 @@ def test_ownership_patching_with_different_types_2(mock_time):
     server_ownership = gen_owners(["baz", "foo"], models.OwnershipTypeClass.PRODUCER)
     mce_ownership = gen_owners(["foo", "baz"], models.OwnershipTypeClass.DATAOWNER)
     mock_graph.get_ownership.return_value = server_ownership
-    test_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
+    test_ownership = AddDatasetOwnership._merge_with_server_ownership(
         mock_graph, "test_urn", mce_ownership
     )
     assert test_ownership and test_ownership.owners
@@ -1163,7 +1163,6 @@ def test_pattern_dataset_terms_transformation(mock_time):
 
 
 def test_mcp_add_tags_missing(mock_time):
-
     dataset_mcp = make_generic_dataset_mcp()
 
     transformer = SimpleAddDatasetTags.create(
@@ -1223,7 +1222,6 @@ def test_mcp_add_tags_existing(mock_time):
 
 
 def test_mcp_multiple_transformers(mock_time, tmp_path):
-
     events_file = f"{tmp_path}/multi_transformer_test.json"
 
     pipeline = Pipeline.create(
@@ -1641,7 +1639,6 @@ def run_dataset_transformer_pipeline(
     pipeline_context: PipelineContext = PipelineContext(run_id="transformer_pipe_line"),
     use_mce: bool = False,
 ) -> List[RecordEnvelope]:
-
     transformer: DatasetTransformer = cast(
         DatasetTransformer, transformer_type.create(config, pipeline_context)
     )
@@ -1833,7 +1830,6 @@ def test_simple_add_dataset_domain_semantics_patch(
 
 
 def test_simple_dataset_ownership_transformer_semantics_patch(mock_datahub_graph):
-
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
 

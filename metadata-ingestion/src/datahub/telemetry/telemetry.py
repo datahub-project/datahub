@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 from mixpanel import Consumer, Mixpanel
 
 import datahub as datahub_package
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ DATAHUB_FOLDER = Path(DATAHUB_ROOT_FOLDER)
 CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
 # also fall back to environment variable if config file is not found
-ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
+ENV_ENABLED = get_boolean_env_variable("DATAHUB_TELEMETRY_ENABLED", True)
 
 # see
 # https://adamj.eu/tech/2020/03/09/detect-if-your-tests-are-running-on-ci/
@@ -91,13 +91,11 @@ MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
 
 class Telemetry:
-
     client_id: str
     enabled: bool = True
     tracking_init: bool = False
 
     def __init__(self):
-
         # try loading the config if it exists, update it if that fails
         if not CONFIG_FILE.exists() or not self.load_config():
             # set up defaults
@@ -288,7 +286,6 @@ def get_full_class_name(obj):
 def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-
         function = f"{func.__module__}.{func.__name__}"
 
         telemetry_instance.init_tracking()

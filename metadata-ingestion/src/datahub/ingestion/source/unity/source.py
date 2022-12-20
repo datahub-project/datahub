@@ -2,8 +2,6 @@ import logging
 import re
 from typing import Iterable, List, Optional
 
-import pydantic
-
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -36,6 +34,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -46,7 +45,6 @@ from datahub.ingestion.source.unity import proxy
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import Catalog, Metastore, Schema
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.ingestion.source.unity.unity_state import UnityCatalogCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -138,7 +136,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=UnityCatalogCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -152,10 +150,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            UnityCatalogSourceConfig.Config.extra = (
-                pydantic.Extra.allow
-            )  # we are okay with extra fields during this stage
-            config = UnityCatalogSourceConfig.parse_obj(config_dict)
+            config = UnityCatalogSourceConfig.parse_obj_allow_extras(config_dict)
             report = UnityCatalogReport()
             unity_proxy = proxy.UnityCatalogApiProxy(
                 config.workspace_url, config.token, report=report
@@ -194,7 +189,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_catalogs(
         self, metastore: proxy.Metastore
     ) -> Iterable[MetadataWorkUnit]:
-
         for catalog in self.unity_catalog_api_proxy.catalogs(metastore=metastore):
             if not self.config.catalog_pattern.allowed(catalog.name):
                 self.report.filtered.append(f"{catalog.name}.*.*")
@@ -348,7 +342,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         entity_urn: str,
         entity_type: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
@@ -593,6 +586,3 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     description=column.comment,
                 )
             ]
-
-    def close(self) -> None:
-        self.prepare_for_commit()
