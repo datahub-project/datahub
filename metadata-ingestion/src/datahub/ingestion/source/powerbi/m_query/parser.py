@@ -57,7 +57,7 @@ def get_upstream_tables(
         )
         return []
 
-    return resolver.BaseMQueryResolver(
+    return resolver.MQueryResolver(
         table=table,
         parse_tree=parse_tree,
         reporter=reporter,

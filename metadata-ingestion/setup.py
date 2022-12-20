@@ -609,6 +609,7 @@ setuptools.setup(
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
+        "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"]
     },
     entry_points=entry_points,
     # Dependencies.
