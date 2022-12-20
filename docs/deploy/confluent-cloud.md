@@ -81,8 +81,6 @@ source connection config you will need to add the Python style client connection
           sasl.username: ${KAFKA_PROPERTIES_SASL_USERNAME}
           sasl.password: ${KAFKA_PROPERTIES_SASL_PASSWORD}
         schema_registry_config:
-          client.dns.lookup: ${KAFKA_PROPERTIES_CLIENT_DNS_LOOKUP:-use_all_dns_ips}
-          basic.auth.credentials.source: ${KAFKA_PROPERTIES_BASIC_AUTH_CREDENTIALS_SOURCE:-USER_INFO}
           basic.auth.user.info: ${KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO}
 ```
 
@@ -198,8 +196,6 @@ source connection config you will need to add the Python style client connection
           sasl.username: ${KAFKA_PROPERTIES_SASL_USERNAME}
           sasl.password: ${KAFKA_PROPERTIES_SASL_PASSWORD}
         schema_registry_config:
-          client.dns.lookup: ${KAFKA_PROPERTIES_CLIENT_DNS_LOOKUP:-use_all_dns_ips}
-          basic.auth.credentials.source: ${KAFKA_PROPERTIES_BASIC_AUTH_CREDENTIALS_SOURCE:-USER_INFO}
           basic.auth.user.info: ${KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO}
 ```
 
