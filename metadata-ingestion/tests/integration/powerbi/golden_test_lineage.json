@@ -57,6 +57,20 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.PBI_TEST.TEST.TESTTABLE,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-lineage-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -76,6 +90,20 @@
     "aspectName": "status",
     "aspect": {
         "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-lineage-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4,PROD)\", \"type\": \"TRANSFORMED\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -117,7 +145,7 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:oracle,salesdb.HR.EMPLOYEES,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:oracle,high_performance_production_unit.salesdb.HR.EMPLOYEES,PROD)\", \"type\": \"TRANSFORMED\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -159,7 +187,7 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,mics.public.order_date,PROD)\", \"type\": \"TRANSFORMED\"}]}",
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,operational_instance.mics.public.order_date,PROD)\", \"type\": \"TRANSFORMED\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

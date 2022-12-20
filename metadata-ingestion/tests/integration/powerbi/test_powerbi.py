@@ -453,6 +453,21 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
                 "config": {
                     **default_source_config(),
                     "extract_lineage": True,
+                    "dataset_type_mapping": {
+                        "PostgreSql": {
+                            "platform_instance": "operational_instance"
+                        },
+                        "Oracle": {
+                            "platform_instance": "high_performance_production_unit"
+                        },
+                        "Sql": {
+                            "platform_instance": "reporting-db"
+                        },
+                        "Snowflake": {
+                            "platform_instance": "sn-2"
+                        },
+                    },
+
                 },
             },
             "sink": {
