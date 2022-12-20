@@ -106,6 +106,15 @@ def register_mock_api(request_mock):
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                "name": "hr_pbi_test",
+                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
+            },
+        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/datasources": {
             "method": "GET",
             "status_code": 200,
@@ -141,6 +150,7 @@ def register_mock_api(request_mock):
                         "datasets": [
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "name": "test_sf_pbi_test",
                                 "tables": [
                                     {
                                         "name": "public issue_history",
@@ -154,9 +164,95 @@ def register_mock_api(request_mock):
                                                 "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
                                             }
                                         ],
-                                    }
+                                    },
+                                    {
+                                        "name": "SNOWFLAKE_TESTTABLE",
+                                        "source": [
+                                            {
+                                                "expression": "let\n    Source = Snowflake.Databases(\"hp123rt5.ap-southeast-2.fakecomputing.com\",\"PBI_TEST_WAREHOUSE_PROD\",[Role=\"PBI_TEST_MEMBER\"]),\n    PBI_TEST_Database = Source{[Name=\"PBI_TEST\",Kind=\"Database\"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name=\"TEST\",Kind=\"Schema\"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name=\"TESTTABLE\",Kind=\"Table\"]}[Data]\nin\n    TESTTABLE_Table",
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+                                    {
+                                        "name": "snowflake native-query",
+                                        "source": [
+                                            {
+                                                "expression": "let\n    Source = Value.NativeQuery(Snowflake.Databases(\"bu20658.ap-southeast-2.snowflakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"SELECT#(lf)concat((UPPER(REPLACE(SELLER,'-',''))), MONTHID) as AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,'-',''))), MONTHID) as CD_AGENT_KEY,#(lf) *#(lf)FROM#(lf)OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4\", null, [EnableFolding=true]),\n    #\"Added Conditional Column\" = Table.AddColumn(Source, \"SME Units ENT\", each if [DEAL_TYPE] = \"SME Unit\" then [UNIT] else 0),\n    #\"Added Conditional Column1\" = Table.AddColumn(#\"Added Conditional Column\", \"Banklink Units\", each if [DEAL_TYPE] = \"Banklink\" then [UNIT] else 0),\n    #\"Removed Columns\" = Table.RemoveColumns(#\"Added Conditional Column1\",{\"Banklink Units\"}),\n    #\"Added Custom\" = Table.AddColumn(#\"Removed Columns\", \"Banklink Units\", each if [DEAL_TYPE] = \"Banklink\" and [SALES_TYPE] = \"3 - Upsell\"\nthen [UNIT]\n\nelse if [SALES_TYPE] = \"Adjusted BL Migration\"\nthen [UNIT]\n\nelse 0),\n    #\"Added Custom1\" = Table.AddColumn(#\"Added Custom\", \"SME Units in $ (*$361)\", each if [DEAL_TYPE] = \"SME Unit\" \nand [SALES_TYPE] <> \"4 - Renewal\"\n    then [UNIT] * 361\nelse 0),\n    #\"Added Custom2\" = Table.AddColumn(#\"Added Custom1\", \"Banklink in $ (*$148)\", each [Banklink Units] * 148)\nin\n    #\"Added Custom2\"",
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+                                    {
+                                        "name": "job-history",
+                                        "source": [
+                                            {
+                                                "expression": 'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+                                    {
+                                        "name": "postgres_test_table",
+                                        "source": [
+                                            {
+                                                "expression": 'let\n    Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+
                                 ],
-                            }
+                            },
+                            {
+                                "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                                "name": "hr_pbi_test",
+                                "tables": [
+                                    {
+                                        "name": "dbo_book_issue",
+                                        "source": [
+                                            {
+                                                "expression": 'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+                                    {
+                                        "name": "ms_sql_native_table",
+                                        "source": [
+                                            {
+                                                "expression": 'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="select *,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,\'-\',\'\'))), MONTH_WID) as CD_AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_MANAGER_CLOSING_MONTH,\'-\',\'\'))), MONTH_WID) as AGENT_KEY#(lf)#(lf)from V_PS_CD_RETENTION", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Changed Type" = Table.TransformColumnTypes(Source,{{"mth_date", type date}}),\n    #"Added Custom" = Table.AddColumn(#"Changed Type", "Month", each Date.Month([mth_date])),\n    #"Added Custom1" = Table.AddColumn(#"Added Custom", "TPV Opening", each if [Month] = 1 then [TPV_AMV_OPENING]\nelse if [Month] = 2 then 0\nelse if [Month] = 3 then 0\nelse if [Month] = 4 then [TPV_AMV_OPENING]\nelse if [Month] = 5 then 0\nelse if [Month] = 6 then 0\nelse if [Month] = 7 then [TPV_AMV_OPENING]\nelse if [Month] = 8 then 0\nelse if [Month] = 9 then 0\nelse if [Month] = 10 then [TPV_AMV_OPENING]\nelse if [Month] = 11 then 0\nelse if [Month] = 12 then 0\n\nelse 0)\nin\n    #"Added Custom1"',
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+
+                                ],
+                            },
                         ],
                     },
                 ]
@@ -221,6 +317,7 @@ def default_source_config():
         "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": False,
+        "extract_reports": False,
         "dataset_type_mapping": {
             "PostgreSql": "postgres",
             "Oracle": "oracle",
@@ -243,7 +340,6 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
-                    "extract_reports": False,
                 },
             },
             "sink": {
@@ -283,7 +379,6 @@ def test_override_ownership(
                 "config": {
                     **default_source_config(),
                     "extract_ownership": False,
-                    "extract_reports": False,
                 },
             },
             "sink": {
@@ -320,6 +415,7 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
+                    "extract_reports": True,
                 },
             },
             "sink": {
@@ -333,10 +429,10 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 
     pipeline.run()
     pipeline.raise_from_status()
-    mce_out_file = "golden_test_report.json"
+    golden_file = "golden_test_report.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "powerbi_report_mces.json",
-        golden_path=f"{test_resources_dir}/{mce_out_file}",
+        golden_path=f"{test_resources_dir}/{golden_file}",
     )

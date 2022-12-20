@@ -74,7 +74,7 @@ class AbstractDataAccessMQueryResolver(ABC):
         pass
 
 
-class BaseMQueryResolver(AbstractDataAccessMQueryResolver, ABC):
+class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     @staticmethod
     def get_item_selector_tokens(
         expression_tree: Tree,

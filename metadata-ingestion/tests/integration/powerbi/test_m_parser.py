@@ -275,7 +275,7 @@ def test_snowflake_native_query():
 
 def test_native_query_disabled():
     table: PowerBiAPI.Table = PowerBiAPI.Table(
-        expression=M_QUERIES[1],
+        expression=M_QUERIES[1],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
     )
