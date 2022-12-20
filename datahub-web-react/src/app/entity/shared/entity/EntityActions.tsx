@@ -5,7 +5,7 @@ import { SearchSelectModal } from '../components/styled/search/SearchSelectModal
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
-import { getGraphqlErrorCode } from '../utils';
+import { handleBatchError } from '../utils';
 
 export enum EntityActionItem {
     /**
@@ -60,15 +60,12 @@ function EntityActions(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                if (entityUrns.length > 0 && getGraphqlErrorCode(e) === 403) {
-                    message.error({
-                        content:
-                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
+                message.error(
+                    handleBatchError(entityUrns, e, {
+                        content: `Failed to add glossary term: \n ${e.message || ''}`,
                         duration: 3,
-                    });
-                } else {
-                    message.error({ content: `Failed to add glossary term: \n ${e.message || ''}`, duration: 3 });
-                }
+                    }),
+                );
             });
     };
 
@@ -99,15 +96,12 @@ function EntityActions(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                if (entityUrns.length > 0 && getGraphqlErrorCode(e) === 403) {
-                    message.error({
-                        content:
-                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
+                message.error(
+                    handleBatchError(entityUrns, e, {
+                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
                         duration: 3,
-                    });
-                } else {
-                    message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
-                }
+                    }),
+                );
             });
     };
 

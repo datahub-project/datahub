@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useBatchUpdateDeprecationMutation } from '../../../../../../../graphql/mutations.generated';
 import { UpdateDeprecationModal } from '../../../../EntityDropdown/UpdateDeprecationModal';
 import ActionDropdown from './ActionDropdown';
-import { getGraphqlErrorCode } from '../../../../utils';
+import { handleBatchError } from '../../../../utils';
 
 type Props = {
     urns: Array<string>;
@@ -33,18 +33,12 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
             })
             .catch((e) => {
                 message.destroy();
-                if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
-                    message.error({
-                        content:
-                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
-                        duration: 3,
-                    });
-                } else {
-                    message.error({
+                message.error(
+                    handleBatchError(urns, e, {
                         content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
                         duration: 3,
-                    });
-                }
+                    }),
+                );
             });
     };
 

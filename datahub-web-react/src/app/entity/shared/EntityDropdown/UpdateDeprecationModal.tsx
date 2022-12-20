@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, DatePicker, Form, Input, message, Modal } from 'antd';
 import { useBatchUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
-import { getGraphqlErrorCode } from '../utils';
+import { handleBatchError } from '../utils';
 
 type Props = {
     urns: string[];
@@ -36,15 +36,12 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
-                    message.error({
-                        content:
-                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
-                        duration: 3,
-                    });
-                } else {
-                    message.error({ content: `Failed to update Deprecation: \n ${e.message || ''}`, duration: 2 });
-                }
+                message.error(
+                    handleBatchError(urns, e, {
+                        content: `Failed to update Deprecation: \n ${e.message || ''}`,
+                        duration: 2,
+                    }),
+                );
             }
         }
         refetch?.();

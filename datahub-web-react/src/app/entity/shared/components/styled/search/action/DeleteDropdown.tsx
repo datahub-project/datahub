@@ -2,7 +2,7 @@ import { message, Modal } from 'antd';
 import React from 'react';
 import { useBatchUpdateSoftDeletedMutation } from '../../../../../../../graphql/mutations.generated';
 import ActionDropdown from './ActionDropdown';
-import { getGraphqlErrorCode } from '../../../../utils';
+import { handleBatchError } from '../../../../utils';
 
 type Props = {
     urns: Array<string>;
@@ -31,15 +31,12 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
             })
             .catch((e) => {
                 message.destroy();
-                if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
-                    message.error({
-                        content:
-                            'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
+                message.error(
+                    handleBatchError(urns, e, {
+                        content: `Failed to delete assets: \n ${e.message || ''}`,
                         duration: 3,
-                    });
-                } else {
-                    message.error({ content: `Failed to delete assets: \n ${e.message || ''}`, duration: 3 });
-                }
+                    }),
+                );
             });
     };
 

@@ -125,7 +125,7 @@ export const getMatchPrioritizingPrimary = (
     return fromQueryGetBestMatch(matchesThatShouldBeShownOnFE, query);
 };
 
-export const getGraphqlErrorCode = (e) => {
+function getGraphqlErrorCode(e) {
     if (e.graphQLErrors && e.graphQLErrors.length) {
         const firstError = e.graphQLErrors[0];
         const { extensions } = firstError;
@@ -133,4 +133,15 @@ export const getGraphqlErrorCode = (e) => {
         return errorCode;
     }
     return undefined;
+}
+
+export const handleBatchError = (urns, e, defaultMessage) => {
+    if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
+        return {
+            content:
+                'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',
+            duration: 3,
+        };
+    }
+    return defaultMessage;
 };

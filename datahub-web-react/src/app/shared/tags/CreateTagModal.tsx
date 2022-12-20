@@ -5,7 +5,7 @@ import { useBatchAddTagsMutation } from '../../../graphql/mutations.generated';
 import { useCreateTagMutation } from '../../../graphql/tag.generated';
 import { ResourceRefInput } from '../../../types.generated';
 import { useEnterKeyListener } from '../useEnterKeyListener';
-import { getGraphqlErrorCode } from '../../entity/shared/utils';
+import { handleBatchError } from '../../entity/shared/utils';
 
 type CreateTagModalProps = {
     visible: boolean;
@@ -51,15 +51,12 @@ export default function CreateTagModal({ onClose, onBack, visible, tagName, reso
                 })
                     .catch((e) => {
                         message.destroy();
-                        if (resources.length > 1 && getGraphqlErrorCode(e) === 403) {
-                            message.error({
-                                content:
-                                    'Your bulk edit selection included entities that you do not own. The bulk edit being performed will not be saved.',
+                        message.error(
+                            handleBatchError(resources, e, {
+                                content: `Failed to add tag: \n ${e.message || ''}`,
                                 duration: 3,
-                            });
-                        } else {
-                            message.error({ content: `Failed to add tag: \n ${e.message || ''}`, duration: 3 });
-                        }
+                            }),
+                        );
                         onClose();
                     })
                     .finally(() => {
