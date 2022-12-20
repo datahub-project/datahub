@@ -333,8 +333,6 @@ class KafkaSource(StatefulIngestionSourceBase):
     def close(self) -> None:
         if self.consumer:
             self.consumer.close()
-        if self.admin_client:
-            self.admin_client.close()
         super().close()
 
     def _get_config_value_if_present(
