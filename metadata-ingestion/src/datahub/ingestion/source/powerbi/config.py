@@ -7,7 +7,6 @@ from pydantic import validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV, EnvBasedSourceConfigBase
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.powerbi import m_parser
 
 
 class Constant:
@@ -119,27 +118,30 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_ownership: bool = pydantic.Field(
         default=True, description="Whether ownership should be ingested"
     )
-    # Enable/Disable extracting lineage information of PowerBI Dataset
-    extract_lineage: bool = pydantic.Field(
-        default=True, description="Whether lineage should be ingested"
-    )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
         default=True, description="Whether reports should be ingested"
     )
+    # Enable/Disable extracting lineage information of PowerBI Dataset
+    extract_lineage: bool = pydantic.Field(
+        default=True, description="Whether lineage should be ingested"
+    )
+    # Enable/Disable extracting lineage information from PowerBI Native query
+    native_query_parsing: bool = pydantic.Field(
+        default=True,
+        description="Whether PowerBI native query should be parsed to extract lineage",
+    )
 
     @validator("dataset_type_mapping")
     @classmethod
-    def check_dataset_type_mapping(cls, value):
-        # For backward compatibility map input PostgreSql to PostgreSQL
+    def map_data_platform(cls, value):
+        # For backward compatibility convert input PostgreSql to PostgreSQL
+        # PostgreSQL is name of the data-platform in M-Query
         if "PostgreSql" in value.keys():
             platform_name = value["PostgreSql"]
             del value["PostgreSql"]
             value["PostgreSQL"] = platform_name
 
-        for key in value.keys():
-            if key not in m_parser.POWERBI_TO_DATAHUB_DATA_PLATFORM_MAPPING.keys():
-                raise ValueError(f"DataPlatform {key} is not supported")
         return value
 
 
