@@ -6,11 +6,9 @@ from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
-    CheckpointJobStatesMap,
     IngestionCheckpointingProviderBase,
     IngestionCheckpointingProviderConfig,
     JobId,
-    JobStateKey,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -101,20 +99,6 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             )
 
         return None
-
-    def get_last_state(
-        self,
-        state_key: JobStateKey,
-    ) -> CheckpointJobStatesMap:
-        last_job_checkpoint_map: CheckpointJobStatesMap = {}
-        for job_name in state_key.job_names:
-            last_job_checkpoint = self.get_latest_checkpoint(
-                state_key.pipeline_name, state_key.platform_instance_id, job_name
-            )
-            if last_job_checkpoint is not None:
-                last_job_checkpoint_map[job_name] = last_job_checkpoint
-
-        return last_job_checkpoint_map
 
     def commit(self) -> None:
         if not self.state_to_commit:
