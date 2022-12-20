@@ -2,6 +2,7 @@ import concurrent.futures
 import json
 import logging
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Type
 
 import confluent_kafka
@@ -53,6 +54,15 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
+
+
+class KafkaTopicConfigKeys(str, Enum):
+    MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
+    RETENTION_SIZE_CONFIG = "retention.bytes"
+    RETENTION_TIME_CONFIG = "retention.ms"
+    CLEANUP_POLICY_CONFIG = "cleanup.policy"
+    MAX_MESSAGE_SIZE_CONFIG = "max.message.bytes"
+    UNCLEAN_LEADER_ELECTION_CONFIG = "unclean.leader.election.enable"
 
 
 class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
@@ -301,40 +311,15 @@ class KafkaSource(StatefulIngestionSourceBase):
             if replication_factor is None or len(p_meta.replicas) > replication_factor:
                 replication_factor = len(p_meta.replicas)
 
-        MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
-        RETENTION_SIZE_CONFIG = "retention.bytes"
-        RETENTION_TIME_CONFIG = "retention.ms"
-        CLEANUP_POLICY_CONFIG = "cleanup.policy"
-        MAX_MESSAGE_SIZE_CONFIG = "max.message.bytes"
-        UNCLEAN_LEADER_ELECTION_CONFIG = "unclean.leader.election.enable"
-
         custom_props = {
             "Partitions": len(topic_detail.partitions),
             "Replication Factor": replication_factor,
         }
         if extra_topic_config is not None:
-            custom_props.update(
-                {
-                    "Retention Size (In Bytes)": self._get_config_value_if_present(
-                        extra_topic_config, RETENTION_SIZE_CONFIG
-                    ),
-                    "Retention Time (In Milliseconds)": self._get_config_value_if_present(
-                        extra_topic_config, RETENTION_TIME_CONFIG
-                    ),
-                    "Max Message Size (In Bytes)": self._get_config_value_if_present(
-                        extra_topic_config, MAX_MESSAGE_SIZE_CONFIG
-                    ),
-                    "Cleanup Policies": self._get_config_value_if_present(
-                        extra_topic_config, CLEANUP_POLICY_CONFIG
-                    ),
-                    "Minimum Number of In-Sync Replicas Required": self._get_config_value_if_present(
-                        extra_topic_config, MIN_INSYNC_REPLICAS_CONFIG
-                    ),
-                    "Unclean Leader Election Enabled": self._get_config_value_if_present(
-                        extra_topic_config, UNCLEAN_LEADER_ELECTION_CONFIG
-                    ),
-                }
-            )
+            for config_key in KafkaTopicConfigKeys:
+                custom_props[config_key] = self._get_config_value_if_present(
+                    extra_topic_config, config_key
+                )
 
         return {
             k: (json.dumps(v) if not isinstance(v, str) else v)
@@ -348,6 +333,8 @@ class KafkaSource(StatefulIngestionSourceBase):
     def close(self) -> None:
         if self.consumer:
             self.consumer.close()
+        if self.admin_client:
+            self.admin_client.close()
         super().close()
 
     def _get_config_value_if_present(
@@ -356,7 +343,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         return config_dict[key].value if key in config_dict.keys() else None
 
     def fetch_extra_topic_details(self, topics: List[str]) -> Dict[str, dict]:
-        logger.debug("Fetching config details for all topics")
+        logger.info("Fetching config details for all topics")
         extra_topic_details = {}
         configs: Dict[
             confluent_kafka.admin.ConfigResource, concurrent.futures.Future
@@ -379,11 +366,11 @@ class KafkaSource(StatefulIngestionSourceBase):
                     config_resource.name
                 ] = config_result_future.result()
             except Exception as e:
-                logger.debug(
+                logger.warning(
                     f"Config details for topic {config_resource.name} not fetched due to error {e}"
                 )
             else:
-                logger.debug(
+                logger.info(
                     f"Config details for topic {config_resource.name} fetched successfully"
                 )
         return extra_topic_details

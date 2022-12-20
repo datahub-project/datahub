@@ -93,12 +93,12 @@
                         "customProperties": {
                             "Partitions": "1",
                             "Replication Factor": "1",
-                            "Retention Size (In Bytes)": "-1",
-                            "Retention Time (In Milliseconds)": "604800000",
-                            "Max Message Size (In Bytes)": "1048588",
-                            "Cleanup Policies": "delete",
-                            "Unclean Leader Election Enabled": "false",
-                            "Minimum Number of In-Sync Replicas Required": "1"
+                            "min.insync.replicas": "1",
+                            "retention.bytes": "-1",
+                            "retention.ms": "604800000",
+                            "cleanup.policy": "delete",
+                            "max.message.bytes": "1048588",
+                            "unclean.leader.election.enable": "false"
                         },
                         "name": "value_topic",
                         "tags": []
@@ -196,12 +196,12 @@
                         "customProperties": {
                             "Partitions": "1",
                             "Replication Factor": "1",
-                            "Retention Size (In Bytes)": "-1",
-                            "Retention Time (In Milliseconds)": "604800000",
-                            "Max Message Size (In Bytes)": "1048588",
-                            "Cleanup Policies": "delete",
-                            "Unclean Leader Election Enabled": "false",
-                            "Minimum Number of In-Sync Replicas Required": "1"
+                            "min.insync.replicas": "1",
+                            "retention.bytes": "-1",
+                            "retention.ms": "604800000",
+                            "cleanup.policy": "delete",
+                            "max.message.bytes": "1048588",
+                            "unclean.leader.election.enable": "false"
                         },
                         "name": "key_topic",
                         "tags": []
@@ -335,12 +335,12 @@
                         "customProperties": {
                             "Partitions": "1",
                             "Replication Factor": "1",
-                            "Retention Size (In Bytes)": "-1",
-                            "Retention Time (In Milliseconds)": "604800000",
-                            "Max Message Size (In Bytes)": "1048588",
-                            "Cleanup Policies": "delete",
-                            "Unclean Leader Election Enabled": "false",
-                            "Minimum Number of In-Sync Replicas Required": "1"
+                            "min.insync.replicas": "1",
+                            "retention.bytes": "-1",
+                            "retention.ms": "604800000",
+                            "cleanup.policy": "delete",
+                            "max.message.bytes": "1048588",
+                            "unclean.leader.election.enable": "false"
                         },
                         "name": "key_value_topic",
                         "tags": []
