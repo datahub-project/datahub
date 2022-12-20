@@ -557,7 +557,6 @@ class QueryEvent:
     def from_exported_bigquery_audit_metadata(
         cls, row: BigQueryAuditMetadata
     ) -> "QueryEvent":
-
         payload: Dict = row["protoPayload"]
         metadata: Dict = json.loads(row["metadata"])
         job: Dict = metadata["jobChange"]["job"]
@@ -1029,7 +1028,6 @@ class BigQueryUsageSource(Source):
     def _create_operation_aspect_work_unit(
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
-
         if not event.read_event and not event.query_event:
             return None
 

@@ -289,7 +289,6 @@ class SnowflakeV2Source(
     def check_capabilities(
         conn: SnowflakeConnection, connection_conf: SnowflakeV2Config
     ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
-
         # Currently only overall capabilities are reported.
         # Resource level variations in capabilities are not considered.
 
@@ -401,7 +400,6 @@ class SnowflakeV2Source(
         }
 
         for c in capabilities:  # type:ignore
-
             # These capabilities do not work without active warehouse
             if current_warehouse is None and c in (
                 SourceCapability.SCHEMA_METADATA,
@@ -434,19 +432,7 @@ class SnowflakeV2Source(
 
     def get_workunits(self) -> Iterable[WorkUnit]:
 
-        try:
-            conn = self.get_connection()
-        except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                self.report_error("permission-error", str(e))
-            else:
-                logger.debug(e, exc_info=e)
-                self.report_error(
-                    "snowflake-connection",
-                    f"Failed to connect to snowflake instance due to error {e}.",
-                )
-            return
-
+        conn: SnowflakeConnection = self.config.get_connection()
         self.add_config_to_report()
         self.inspect_session_metadata(conn)
         if self.config.include_external_url:
@@ -604,6 +590,7 @@ class SnowflakeV2Source(
             )
 
         for snowflake_schema in snowflake_db.schemas:
+
             self.report.report_entity_scanned(snowflake_schema.name, "schema")
             if not is_schema_allowed(
                 self.config.schema_pattern,
@@ -969,7 +956,6 @@ class SnowflakeV2Source(
         entity_urn: str,
         entity_type: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
@@ -1032,7 +1018,6 @@ class SnowflakeV2Source(
     def gen_database_containers(
         self, database: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(database.name)
 
         database_container_key = self.gen_database_key(
@@ -1111,7 +1096,6 @@ class SnowflakeV2Source(
     def get_tables_for_schema(
         self, conn: SnowflakeConnection, schema_name: str, db_name: str
     ) -> List[SnowflakeTable]:
-
         if db_name not in self.db_tables.keys():
             tables = self.data_dictionary.get_tables_for_database(conn, db_name)
             self.db_tables[db_name] = tables
@@ -1132,7 +1116,6 @@ class SnowflakeV2Source(
     def get_views_for_schema(
         self, conn: SnowflakeConnection, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
-
         if db_name not in self.db_views.keys():
             views = self.data_dictionary.get_views_for_database(conn, db_name)
             self.db_views[db_name] = views
@@ -1151,7 +1134,6 @@ class SnowflakeV2Source(
     def get_columns_for_table(
         self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeColumn]:
-
         if (db_name, schema_name) not in self.schema_columns.keys():
             columns = self.data_dictionary.get_columns_for_schema(
                 conn, schema_name, db_name
@@ -1174,7 +1156,6 @@ class SnowflakeV2Source(
     def get_pk_constraints_for_table(
         self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
     ) -> Optional[SnowflakePK]:
-
         if (db_name, schema_name) not in self.schema_pk_constraints.keys():
             constraints = self.data_dictionary.get_pk_constraints_for_schema(
                 conn, schema_name, db_name
@@ -1189,7 +1170,6 @@ class SnowflakeV2Source(
     def get_fk_constraints_for_table(
         self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeFK]:
-
         if (db_name, schema_name) not in self.schema_fk_constraints.keys():
             constraints = self.data_dictionary.get_fk_constraints_for_schema(
                 conn, schema_name, db_name
@@ -1254,7 +1234,6 @@ class SnowflakeV2Source(
     # However that would require separate query per column and
     # that would be expensive, hence not done.
     def get_sample_values_for_table(self, conn, table_name, schema_name, db_name):
-
         # Create a cursor object.
         cur = conn.cursor()
         NUM_SAMPLED_ROWS = 1000

@@ -69,7 +69,6 @@ class SnowflakeQueryMixin:
 
 
 class SnowflakeCommonMixin:
-
     platform = "snowflake"
 
     @staticmethod

@@ -108,7 +108,6 @@ def test_account_id_with_snowflake_host_suffix():
 
 
 def test_snowflake_uri_default_authentication():
-
     config = SnowflakeV2Config.parse_obj(
         {
             "username": "user",
@@ -128,7 +127,6 @@ def test_snowflake_uri_default_authentication():
 
 
 def test_snowflake_uri_external_browser_authentication():
-
     config = SnowflakeV2Config.parse_obj(
         {
             "username": "user",
@@ -148,7 +146,6 @@ def test_snowflake_uri_external_browser_authentication():
 
 
 def test_snowflake_uri_key_pair_authentication():
-
     config = SnowflakeV2Config.parse_obj(
         {
             "username": "user",
@@ -236,7 +233,6 @@ def test_test_connection_failure(mock_connect):
 
 @patch("snowflake.connector.connect")
 def test_test_connection_basic_success(mock_connect):
-
     config = {
         "username": "user",
         "password": "password",

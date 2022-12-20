@@ -149,7 +149,6 @@ class SnowflakeTableLineage:
 
         if include_column_lineage and table.downstreamColumns:
             for col in table.downstreamColumns:
-
                 if col.directSourceColumns:
                     self.columnLineages[col.columnName].update_column_lineage(
                         col.directSourceColumns
@@ -473,7 +472,6 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.report.num_table_to_view_edges_scanned = num_edges
 
     def _populate_view_downstream_lineage(self, conn: SnowflakeConnection) -> None:
-
         # This query captures the downstream table lineage for views.
         # See https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         # Eg: For viewA->viewB->ViewC->TableD, snowflake does not yet log intermediate view logs, resulting in only the viewA->TableD edge.

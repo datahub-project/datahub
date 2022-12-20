@@ -386,7 +386,9 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     *s3_base,
-    "black>=21.12b0",
+    # This is pinned only to avoid spurious errors in CI.
+    # We should make an effort to keep it up to date.
+    "black==22.12.0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
