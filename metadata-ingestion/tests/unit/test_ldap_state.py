@@ -1,11 +1,11 @@
 import pytest
 
-from datahub.ingestion.source.state.ldap_state import LdapCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 
 
 @pytest.fixture
 def other_checkpoint_state():
-    state = LdapCheckpointState()
+    state = GenericCheckpointState()
     state.add_checkpoint_urn("corpuser", "urn:li:corpuser:user1")
     state.add_checkpoint_urn("corpuser", "urn:li:corpuser:user2")
     state.add_checkpoint_urn("corpuser", "urn:li:corpuser:user3")
@@ -18,7 +18,7 @@ def other_checkpoint_state():
 
 
 def test_add_checkpoint_urn():
-    state = LdapCheckpointState()
+    state = GenericCheckpointState()
     assert len(state.urns) == 0
     state.add_checkpoint_urn("corpuser", "urn:li:corpuser:user1")
     assert len(state.urns) == 1
@@ -27,7 +27,7 @@ def test_add_checkpoint_urn():
 
 
 def test_get_urns_not_in(other_checkpoint_state):
-    oldstate = LdapCheckpointState()
+    oldstate = GenericCheckpointState()
     oldstate.add_checkpoint_urn("corpuser", "urn:li:corpuser:user1")
     oldstate.add_checkpoint_urn("corpuser", "urn:li:corpuser:user2")
     oldstate.add_checkpoint_urn("corpuser", "urn:li:corpuser:user4")
@@ -44,7 +44,7 @@ def test_get_urns_not_in(other_checkpoint_state):
 
 
 def test_get_percent_entities_changed(other_checkpoint_state):
-    oldstate = LdapCheckpointState()
+    oldstate = GenericCheckpointState()
     oldstate.add_checkpoint_urn("corpuser", "urn:li:corpuser:user1")
     oldstate.add_checkpoint_urn("corpuser", "urn:li:corpuser:user2")
     oldstate.add_checkpoint_urn("corpuser", "urn:li:corpuser:user4")

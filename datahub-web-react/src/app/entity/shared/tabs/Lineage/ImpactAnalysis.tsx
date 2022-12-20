@@ -6,9 +6,11 @@ import { EmbeddedListSearchSection } from '../../components/styled/search/Embedd
 type Props = {
     urn: string;
     direction: LineageDirection;
+    shouldRefetch?: boolean;
+    resetShouldRefetch?: () => void;
 };
 
-export const ImpactAnalysis = ({ urn, direction }: Props) => {
+export const ImpactAnalysis = ({ urn, direction, shouldRefetch, resetShouldRefetch }: Props) => {
     return (
         <EmbeddedListSearchSection
             useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
@@ -17,6 +19,8 @@ export const ImpactAnalysis = ({ urn, direction }: Props) => {
             })}
             defaultShowFilters
             defaultFilters={[{ field: 'degree', values: ['1'] }]}
+            shouldRefetch={shouldRefetch}
+            resetShouldRefetch={resetShouldRefetch}
         />
     );
 };
