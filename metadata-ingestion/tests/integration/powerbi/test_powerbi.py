@@ -134,6 +134,31 @@ def register_mock_api(request_mock):
                 ]
             },
         },
+        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/users": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "identifier": "User3@foo.com",
+                        "displayName": "user3",
+                        "emailAddress": "User3@foo.com",
+                        "datasetUserAccessRight": "ReadWrite",
+                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
+                        "principalType": "User",
+                    },
+                    {
+                        "identifier": "User4@foo.com",
+                        "displayName": "user4",
+                        "emailAddress": "User4@foo.com",
+                        "datasetUserAccessRight": "ReadWrite",
+                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                        "principalType": "User",
+                    },
+                ]
+            },
+
+        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
             "method": "GET",
             "status_code": 200,
@@ -166,6 +191,15 @@ def register_mock_api(request_mock):
                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "name": "library-dataset",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
+                "name": "library-dataset",
+                "webUrl": "http://localhost/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445",
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed": {
@@ -466,12 +500,12 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 
     pipeline.run()
     pipeline.raise_from_status()
-    mce_out_file = "golden_test_ingest.json"
+    golden_file = "golden_test_ingest.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "powerbi_mces.json",
-        golden_path=f"{test_resources_dir}/{mce_out_file}",
+        golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
 
@@ -555,12 +589,12 @@ def test_scan_all_workspaces(
     pipeline.run()
     pipeline.raise_from_status()
 
-    mce_out_file = "golden_test_scan_all_workspaces.json"
+    golden_file = "golden_test_scan_all_workspaces.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "powerbi_mces_scan_all_workspaces.json",
-        golden_path=f"{test_resources_dir}/{mce_out_file}",
+        golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
 
