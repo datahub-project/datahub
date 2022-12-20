@@ -1,40 +1,80 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.validation.annotation.Validated;
-
+import javax.validation.Valid;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import javax.validation.constraints.*;
 
 /**
- * ModeUpdateRequest
+ * Mode update request
  */
+@io.swagger.v3.oas.annotations.media.Schema(description = "Mode update request")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ModeUpdateRequest {
+public class ModeUpdateRequest   {
 
+  /**
+   * Schema Registry operating mode
+   */
+  public enum ModeEnum {
+    READWRITE("READWRITE"),
+    
+    READONLY("READONLY"),
+    
+    READONLY_OVERRIDE("READONLY_OVERRIDE"),
+    
+    IMPORT("IMPORT");
+
+    private String value;
+
+    ModeEnum(String value) {
+      this.value = value;
+    }
+
+    @Override
+    @JsonValue
+    public String toString() {
+      return String.valueOf(value);
+    }
+
+    @JsonCreator
+    public static ModeEnum fromValue(String text) {
+      for (ModeEnum b : ModeEnum.values()) {
+        if (String.valueOf(b.value).equals(text)) {
+          return b;
+        }
+      }
+      return null;
+    }
+  }
   @JsonProperty("mode")
-  private String mode = null;
+  private ModeEnum mode = null;
 
-  public ModeUpdateRequest mode(String mode) {
+  public ModeUpdateRequest mode(ModeEnum mode) {
     this.mode = mode;
     return this;
   }
 
   /**
-   * Get mode
+   * Schema Registry operating mode
    * @return mode
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public String getMode() {
+  @io.swagger.v3.oas.annotations.media.Schema(example = "READWRITE", description = "Schema Registry operating mode")
+  
+    public ModeEnum getMode() {
     return mode;
   }
 
-  public void setMode(String mode) {
+  public void setMode(ModeEnum mode) {
     this.mode = mode;
   }
+
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -57,7 +97,7 @@ public class ModeUpdateRequest {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class ModeUpdateRequest {\n");
-
+    
     sb.append("    mode: ").append(toIndentedString(mode)).append("\n");
     sb.append("}");
     return sb.toString();

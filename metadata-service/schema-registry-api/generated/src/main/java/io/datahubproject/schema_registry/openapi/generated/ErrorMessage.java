@@ -10,56 +10,56 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import javax.validation.constraints.*;
 
 /**
- * Subject version pair
+ * Error message
  */
-@io.swagger.v3.oas.annotations.media.Schema(description = "Subject version pair")
+@io.swagger.v3.oas.annotations.media.Schema(description = "Error message")
 @Validated
 @javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class SubjectVersion   {
+public class ErrorMessage   {
 
-  @JsonProperty("subject")
-  private String subject = null;
+  @JsonProperty("error_code")
+  private Integer errorCode = null;
 
-  @JsonProperty("version")
-  private Integer version = null;
+  @JsonProperty("message")
+  private String message = null;
 
-  public SubjectVersion subject(String subject) {
-    this.subject = subject;
+  public ErrorMessage errorCode(Integer errorCode) {
+    this.errorCode = errorCode;
     return this;
   }
 
   /**
-   * Name of the subject
-   * @return subject
+   * Error code
+   * @return errorCode
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(example = "User", description = "Name of the subject")
+  @io.swagger.v3.oas.annotations.media.Schema(description = "Error code")
   
-    public String getSubject() {
-    return subject;
+    public Integer getErrorCode() {
+    return errorCode;
   }
 
-  public void setSubject(String subject) {
-    this.subject = subject;
+  public void setErrorCode(Integer errorCode) {
+    this.errorCode = errorCode;
   }
 
-  public SubjectVersion version(Integer version) {
-    this.version = version;
+  public ErrorMessage message(String message) {
+    this.message = message;
     return this;
   }
 
   /**
-   * Version number
-   * @return version
+   * Detailed error message
+   * @return message
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(example = "1", description = "Version number")
+  @io.swagger.v3.oas.annotations.media.Schema(description = "Detailed error message")
   
-    public Integer getVersion() {
-    return version;
+    public String getMessage() {
+    return message;
   }
 
-  public void setVersion(Integer version) {
-    this.version = version;
+  public void setMessage(String message) {
+    this.message = message;
   }
 
 
@@ -71,23 +71,23 @@ public class SubjectVersion   {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    SubjectVersion subjectVersion = (SubjectVersion) o;
-    return Objects.equals(this.subject, subjectVersion.subject) &&
-        Objects.equals(this.version, subjectVersion.version);
+    ErrorMessage errorMessage = (ErrorMessage) o;
+    return Objects.equals(this.errorCode, errorMessage.errorCode) &&
+        Objects.equals(this.message, errorMessage.message);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(subject, version);
+    return Objects.hash(errorCode, message);
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class SubjectVersion {\n");
+    sb.append("class ErrorMessage {\n");
     
-    sb.append("    subject: ").append(toIndentedString(subject)).append("\n");
-    sb.append("    version: ").append(toIndentedString(version)).append("\n");
+    sb.append("    errorCode: ").append(toIndentedString(errorCode)).append("\n");
+    sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("}");
     return sb.toString();
   }

@@ -4,73 +4,61 @@ import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.springframework.validation.annotation.Validated;
 import javax.validation.Valid;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import javax.validation.constraints.*;
 
 /**
- * ServerClusterId
+ * SchemaRegistryServerVersion
  */
 @Validated
 @javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ServerClusterId   {
+public class SchemaRegistryServerVersion   {
 
-  @JsonProperty("scope")
-  @Valid
-  private Map<String, Object> scope = null;
+  @JsonProperty("version")
+  private String version = null;
 
-  @JsonProperty("id")
-  private String id = null;
+  @JsonProperty("commitId")
+  private String commitId = null;
 
-  public ServerClusterId scope(Map<String, Object> scope) {
-    this.scope = scope;
-    return this;
-  }
-
-  public ServerClusterId putScopeItem(String key, Object scopeItem) {
-    if (this.scope == null) {
-      this.scope = new HashMap<>();
-    }
-    this.scope.put(key, scopeItem);
+  public SchemaRegistryServerVersion version(String version) {
+    this.version = version;
     return this;
   }
 
   /**
-   * Get scope
-   * @return scope
+   * Get version
+   * @return version
    **/
   @io.swagger.v3.oas.annotations.media.Schema(description = "")
   
-    public Map<String, Object> getScope() {
-    return scope;
+    public String getVersion() {
+    return version;
   }
 
-  public void setScope(Map<String, Object> scope) {
-    this.scope = scope;
+  public void setVersion(String version) {
+    this.version = version;
   }
 
-  public ServerClusterId id(String id) {
-    this.id = id;
+  public SchemaRegistryServerVersion commitId(String commitId) {
+    this.commitId = commitId;
     return this;
   }
 
   /**
-   * Get id
-   * @return id
+   * Get commitId
+   * @return commitId
    **/
   @io.swagger.v3.oas.annotations.media.Schema(description = "")
   
-    public String getId() {
-    return id;
+    public String getCommitId() {
+    return commitId;
   }
 
-  public void setId(String id) {
-    this.id = id;
+  public void setCommitId(String commitId) {
+    this.commitId = commitId;
   }
 
 
@@ -82,23 +70,23 @@ public class ServerClusterId   {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    ServerClusterId serverClusterId = (ServerClusterId) o;
-    return Objects.equals(this.scope, serverClusterId.scope) &&
-        Objects.equals(this.id, serverClusterId.id);
+    SchemaRegistryServerVersion schemaRegistryServerVersion = (SchemaRegistryServerVersion) o;
+    return Objects.equals(this.version, schemaRegistryServerVersion.version) &&
+        Objects.equals(this.commitId, schemaRegistryServerVersion.commitId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(scope, id);
+    return Objects.hash(version, commitId);
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class ServerClusterId {\n");
+    sb.append("class SchemaRegistryServerVersion {\n");
     
-    sb.append("    scope: ").append(toIndentedString(scope)).append("\n");
-    sb.append("    id: ").append(toIndentedString(id)).append("\n");
+    sb.append("    version: ").append(toIndentedString(version)).append("\n");
+    sb.append("    commitId: ").append(toIndentedString(commitId)).append("\n");
     sb.append("}");
     return sb.toString();
   }

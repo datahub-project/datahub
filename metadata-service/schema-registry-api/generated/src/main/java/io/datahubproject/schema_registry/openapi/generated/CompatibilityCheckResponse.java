@@ -1,21 +1,24 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import javax.validation.Valid;
 import org.springframework.validation.annotation.Validated;
-
+import javax.validation.Valid;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import javax.validation.constraints.*;
 
 /**
- * CompatibilityCheckResponse
+ * Compatibility check response
  */
+@io.swagger.v3.oas.annotations.media.Schema(description = "Compatibility check response")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class CompatibilityCheckResponse {
+public class CompatibilityCheckResponse   {
 
   @JsonProperty("is_compatible")
   private Boolean isCompatible = null;
@@ -30,12 +33,12 @@ public class CompatibilityCheckResponse {
   }
 
   /**
-   * Get isCompatible
+   * Whether the compared schemas are compatible
    * @return isCompatible
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public Boolean isIsCompatible() {
+  @io.swagger.v3.oas.annotations.media.Schema(description = "Whether the compared schemas are compatible")
+  
+    public Boolean isIsCompatible() {
     return isCompatible;
   }
 
@@ -57,18 +60,19 @@ public class CompatibilityCheckResponse {
   }
 
   /**
-   * Get messages
+   * Error messages
    * @return messages
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public List<String> getMessages() {
+  @io.swagger.v3.oas.annotations.media.Schema(example = "[]", description = "Error messages")
+  
+    public List<String> getMessages() {
     return messages;
   }
 
   public void setMessages(List<String> messages) {
     this.messages = messages;
   }
+
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -79,8 +83,8 @@ public class CompatibilityCheckResponse {
       return false;
     }
     CompatibilityCheckResponse compatibilityCheckResponse = (CompatibilityCheckResponse) o;
-    return Objects.equals(this.isCompatible, compatibilityCheckResponse.isCompatible) && Objects.equals(this.messages,
-        compatibilityCheckResponse.messages);
+    return Objects.equals(this.isCompatible, compatibilityCheckResponse.isCompatible) &&
+        Objects.equals(this.messages, compatibilityCheckResponse.messages);
   }
 
   @Override
@@ -92,7 +96,7 @@ public class CompatibilityCheckResponse {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class CompatibilityCheckResponse {\n");
-
+    
     sb.append("    isCompatible: ").append(toIndentedString(isCompatible)).append("\n");
     sb.append("    messages: ").append(toIndentedString(messages)).append("\n");
     sb.append("}");

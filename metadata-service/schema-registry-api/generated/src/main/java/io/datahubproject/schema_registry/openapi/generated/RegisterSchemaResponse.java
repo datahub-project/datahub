@@ -1,18 +1,22 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.validation.annotation.Validated;
-
+import javax.validation.Valid;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import javax.validation.constraints.*;
 
 /**
- * RegisterSchemaResponse
+ * Schema register response
  */
+@io.swagger.v3.oas.annotations.media.Schema(description = "Schema register response")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class RegisterSchemaResponse {
+public class RegisterSchemaResponse   {
 
   @JsonProperty("id")
   private Integer id = null;
@@ -23,18 +27,19 @@ public class RegisterSchemaResponse {
   }
 
   /**
-   * Get id
+   * Globally unique identifier of the schema
    * @return id
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public Integer getId() {
+  @io.swagger.v3.oas.annotations.media.Schema(example = "100001", description = "Globally unique identifier of the schema")
+  
+    public Integer getId() {
     return id;
   }
 
   public void setId(Integer id) {
     this.id = id;
   }
+
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -57,7 +62,7 @@ public class RegisterSchemaResponse {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class RegisterSchemaResponse {\n");
-
+    
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
     sb.append("}");
     return sb.toString();

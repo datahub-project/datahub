@@ -1,0 +1,2294 @@
+# https://raw.githubusercontent.com/confluentinc/schema-registry/v7.4.0-752/core/generated/swagger-ui/schema-registry-api-spec.yaml
+# To compile the generated code we must:
+# - Optimize imports to remove unused names that clash with classes defined in this spec.
+# Find all "//" and replace them with "/" for correct string escapes.
+openapi: 3.0.1
+info:
+  title: Confluent Schema Registry
+  version: v1
+paths:
+  /compatibility/subjects/{subject}/versions/{version}:
+    post:
+      tags:
+        - Compatibility (v1)
+      summary: Test schema compatibility against a particular schema subject-version
+      description: "Test input schema against a particular version of a subject's\
+        \ schema for compatibility. The compatibility level applied for the check\
+        \ is the configured compatibility level for the subject (http:get:: /config/(string:\
+        \ subject)). If this subject's compatibility level was never changed, then\
+        \ the global compatibility level applies (http:get:: /config)."
+      operationId: testCompatibilityBySubjectName
+      parameters:
+        - name: subject
+          in: path
+          description: Subject of the schema version against which compatibility is
+            to be tested
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          description: "Version of the subject's schema against which compatibility\
+          \ is to be tested. Valid values for versionId are between [1,2^31-1] or\
+          \ the string \"latest\".\"latest\" checks compatibility of the input schema\
+          \ with the last registered schema under the specified subject"
+          required: true
+          schema:
+            type: string
+        - name: verbose
+          in: query
+          description: Whether to return detailed error messages
+          schema:
+            type: boolean
+      requestBody:
+        description: Schema
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/vnd.schemaregistry+json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/octet-stream:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+        required: true
+      responses:
+        "200":
+          description: Compatibility check result.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/CompatibilityCheckResponse'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/CompatibilityCheckResponse'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/CompatibilityCheckResponse'
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found. Error
+            code 40402 indicates version not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "422":
+          description: Unprocessable entity. Error code 42201 indicates an invalid
+            schema or schema type. Error code 42202 indicates an invalid version.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /:
+    get:
+      summary: Schema Registry Root Resource
+      description: The Root resource is a no-op.
+      operationId: get
+      responses:
+        default:
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: string
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: string
+            application/json; qs=0.5:
+              schema:
+                type: string
+    post:
+      operationId: post
+      requestBody:
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+          application/vnd.schemaregistry+json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+          application/octet-stream:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+      responses:
+        default:
+          description: default response
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+            application/json; qs=0.5:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+  /compatibility/subjects/{subject}/versions:
+    post:
+      tags:
+        - Compatibility (v1)
+      summary: Test schema compatibility against all schemas under a subject
+      description: "Test input schema against a subject's schemas for compatibility,\
+        \ based on the configured compatibility level of the subject. In other words,\
+        \ it will perform the same compatibility check as register for that subject.\
+        \ The compatibility level applied for the check is the configured compatibility\
+        \ level for the subject (http:get:: /config/(string: subject)). If this subject's\
+        \ compatibility level was never changed, then the global compatibility level\
+        \ applies (http:get:: /config)."
+      operationId: testCompatibilityForSubject
+      parameters:
+        - name: subject
+          in: path
+          description: Subject of the schema version against which compatibility is
+            to be tested
+          required: true
+          schema:
+            type: string
+        - name: verbose
+          in: query
+          description: Whether to return detailed error messages
+          schema:
+            type: boolean
+      requestBody:
+        description: Schema
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/vnd.schemaregistry+json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/octet-stream:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+        required: true
+      responses:
+        "200":
+          description: Compatibility check result.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/CompatibilityCheckResponse'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/CompatibilityCheckResponse'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/CompatibilityCheckResponse'
+        "422":
+          description: Unprocessable Entity. Error code 42201 indicates an invalid
+            schema or schema type. Error code 42202 indicates an invalid version.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /config:
+    get:
+      tags:
+        - Config (v1)
+      summary: Get global compatibility level
+      description: Retrieves the global compatibility level.
+      operationId: getTopLevelConfig
+      responses:
+        "200":
+          description: The global compatibility level.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/Config'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/Config'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/Config'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    put:
+      tags:
+        - Config (v1)
+      summary: Update global compatibility level
+      description: "Updates the global compatibility level. On success, echoes the\
+        \ original request back to the client."
+      operationId: updateTopLevelConfig
+      requestBody:
+        description: Config Update Request
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+          application/vnd.schemaregistry+json:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+          application/octet-stream:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+        required: true
+      responses:
+        "200":
+          description: The original request.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateRequest'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateRequest'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateRequest'
+        "422":
+          description: Unprocessable Entity. Error code 42203 indicates invalid compatibility
+            level.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store. Error code 50003 indicates a failure forwarding
+            the request to the primary.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    delete:
+      tags:
+        - Config (v1)
+      summary: Delete global compatibility level
+      description: Deletes the global compatibility level config and reverts to the
+        default.
+      operationId: deleteTopLevelConfig
+      responses:
+        "200":
+          description: Operation succeeded. Returns old global compatibility level.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: string
+                enum:
+                  - NONE
+                  - BACKWARD
+                  - BACKWARD_TRANSITIVE
+                  - FORWARD
+                  - FORWARD_TRANSITIVE
+                  - FULL
+                  - FULL_TRANSITIVE
+              example: FULL_TRANSITIVE
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: string
+                enum:
+                  - NONE
+                  - BACKWARD
+                  - BACKWARD_TRANSITIVE
+                  - FORWARD
+                  - FORWARD_TRANSITIVE
+                  - FULL
+                  - FULL_TRANSITIVE
+              example: FULL_TRANSITIVE
+            application/json; qs=0.5:
+              schema:
+                type: string
+                enum:
+                  - NONE
+                  - BACKWARD
+                  - BACKWARD_TRANSITIVE
+                  - FORWARD
+                  - FORWARD_TRANSITIVE
+                  - FULL
+                  - FULL_TRANSITIVE
+              example: FULL_TRANSITIVE
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /config/{subject}:
+    get:
+      tags:
+        - Config (v1)
+      summary: Get subject compatibility level
+      description: Retrieves compatibility level for a subject.
+      operationId: getSubjectLevelConfig
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: defaultToGlobal
+          in: query
+          description: Whether to return the global compatibility level  if subject
+            compatibility level not found
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: The subject compatibility level.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/Config'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/Config'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/Config'
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    put:
+      tags:
+        - Config (v1)
+      summary: Update subject compatibility level
+      description: "Update compatibility level for the specified subject. On success,\
+        \ echoes the original request back to the client."
+      operationId: updateSubjectLevelConfig
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Config Update Request
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+          application/vnd.schemaregistry+json:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+          application/octet-stream:
+            schema:
+              $ref: '#/components/schemas/ConfigUpdateRequest'
+        required: true
+      responses:
+        "200":
+          description: The original request.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateRequest'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateRequest'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ConfigUpdateRequest'
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "422":
+          description: Unprocessable Entity. Error code 42203 indicates invalid compatibility
+            level.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store. Error code 50003 indicates a failure forwarding
+            the request to the primary.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    delete:
+      tags:
+        - Config (v1)
+      summary: Delete subject compatibility level
+      description: Deletes the specified subject-level compatibility level config
+        and reverts to the global default.
+      operationId: deleteSubjectConfig
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operation succeeded. Returns old compatibility level.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: string
+                enum:
+                  - NONE
+                  - BACKWARD
+                  - BACKWARD_TRANSITIVE
+                  - FORWARD
+                  - FORWARD_TRANSITIVE
+                  - FULL
+                  - FULL_TRANSITIVE
+              example: FULL_TRANSITIVE
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: string
+                enum:
+                  - NONE
+                  - BACKWARD
+                  - BACKWARD_TRANSITIVE
+                  - FORWARD
+                  - FORWARD_TRANSITIVE
+                  - FULL
+                  - FULL_TRANSITIVE
+              example: FULL_TRANSITIVE
+            application/json; qs=0.5:
+              schema:
+                type: string
+                enum:
+                  - NONE
+                  - BACKWARD
+                  - BACKWARD_TRANSITIVE
+                  - FORWARD
+                  - FORWARD_TRANSITIVE
+                  - FULL
+                  - FULL_TRANSITIVE
+              example: FULL_TRANSITIVE
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /contexts:
+    get:
+      tags:
+        - Contexts (v1)
+      summary: List contexts
+      description: Retrieves a list of contexts.
+      operationId: listContexts
+      responses:
+        "200":
+          description: The contexts.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: "."
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: "."
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: "."
+        "500":
+          description: 'Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store. '
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /mode:
+    get:
+      tags:
+        - Modes (v1)
+      summary: Get global mode
+      description: Retrieves global mode.
+      operationId: getTopLevelMode
+      responses:
+        "200":
+          description: The global mode
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/Mode'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/Mode'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/Mode'
+        "500":
+          description: Error code 50001 -- Error in the backend data store
+    put:
+      tags:
+        - Modes (v1)
+      summary: Update global mode
+      description: "Update global mode. On success, echoes the original request back\
+        \ to the client."
+      operationId: updateTopLevelMode
+      parameters:
+        - name: force
+          in: query
+          description: Whether to force update if setting mode to IMPORT and schemas
+            currently exist
+          schema:
+            type: boolean
+      requestBody:
+        description: Update Request
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              $ref: '#/components/schemas/ModeUpdateRequest'
+          application/vnd.schemaregistry+json:
+            schema:
+              $ref: '#/components/schemas/ModeUpdateRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModeUpdateRequest'
+          application/octet-stream:
+            schema:
+              $ref: '#/components/schemas/ModeUpdateRequest'
+        required: true
+      responses:
+        "200":
+          description: The original request.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ModeUpdateRequest'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ModeUpdateRequest'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ModeUpdateRequest'
+        "422":
+          description: Unprocessable Entity. Error code 42204 indicates an invalid
+            mode. Error code 42205 indicates operation not permitted.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store. Error code 50003 indicates a failure forwarding
+            the request to the primary. Error code 50004 indicates unknown leader.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /mode/{subject}:
+    get:
+      tags:
+        - Modes (v1)
+      summary: Get subject mode
+      description: Retrieves the subject mode.
+      operationId: getMode
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: defaultToGlobal
+          in: query
+          description: Whether to return the global mode if subject mode not found
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: The subject mode.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/Mode'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/Mode'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/Mode'
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    put:
+      tags:
+        - Modes (v1)
+      summary: Update subject mode
+      description: "Update mode for the specified subject. On success, echoes the\
+        \ original request back to the client."
+      operationId: updateMode
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: force
+          in: query
+          description: Whether to force update if setting mode to IMPORT and schemas
+            currently exist
+          schema:
+            type: boolean
+      requestBody:
+        description: Update Request
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              $ref: '#/components/schemas/ModeUpdateRequest'
+          application/vnd.schemaregistry+json:
+            schema:
+              $ref: '#/components/schemas/ModeUpdateRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModeUpdateRequest'
+          application/octet-stream:
+            schema:
+              $ref: '#/components/schemas/ModeUpdateRequest'
+        required: true
+      responses:
+        "200":
+          description: The original request.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ModeUpdateRequest'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ModeUpdateRequest'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ModeUpdateRequest'
+        "422":
+          description: Unprocessable Entity. Error code 42204 indicates an invalid
+            mode. Error code 42205 indicates operation not permitted.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store. Error code 50003 indicates a failure forwarding
+            the request to the primary. Error code 50004 indicates unknown leader.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    delete:
+      tags:
+        - Modes (v1)
+      summary: Delete subject mode
+      description: Deletes the specified subject-level mode and reverts to the global
+        default.
+      operationId: deleteSubjectMode
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Operation succeeded. Returns old mode.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/Mode'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/Mode'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/Mode'
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /schemas:
+    get:
+      tags:
+        - Schemas (v1)
+      summary: List schemas
+      description: Get the schemas matching the specified parameters.
+      operationId: getSchemas
+      parameters:
+        - name: subjectPrefix
+          in: query
+          description: Filters results by the respective subject prefix
+          schema:
+            type: string
+            default: ""
+        - name: deleted
+          in: query
+          description: Whether to return soft deleted schemas
+          schema:
+            type: boolean
+            default: false
+        - name: latestOnly
+          in: query
+          description: Whether to return latest schema versions only for each matching
+            subject
+          schema:
+            type: boolean
+            default: false
+        - name: offset
+          in: query
+          description: Pagination offset for results
+          schema:
+            type: integer
+            format: int32
+            default: 0
+        - name: limit
+          in: query
+          description: Pagination size for results. Ignored if negative
+          schema:
+            type: integer
+            format: int32
+            default: -1
+      responses:
+        "200":
+          description: List of schemas matching the specified parameters.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schema'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schema'
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schema'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /schemas/ids/{id}:
+    get:
+      tags:
+        - Schemas (v1)
+      summary: Get schema string by ID
+      description: Retrieves the schema string identified by the input ID.
+      operationId: getSchema
+      parameters:
+        - name: id
+          in: path
+          description: Globally unique identifier of the schema
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: subject
+          in: query
+          description: Name of the subject
+          schema:
+            type: string
+        - name: format
+          in: query
+          description: "Desired output format, dependent on schema type"
+          schema:
+            type: string
+            default: ""
+        - name: fetchMaxId
+          in: query
+          description: Whether to fetch the maximum schema identifier that exists
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: The schema string.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/SchemaString'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/SchemaString'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/SchemaString'
+        "404":
+          description: Not Found. Error code 40403 indicates schema not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /schemas/ids/{id}/subjects:
+    get:
+      tags:
+        - Schemas (v1)
+      summary: List subjects associated to schema ID
+      description: Retrieves all the subjects associated with a particular schema
+        ID.
+      operationId: getSubjects
+      parameters:
+        - name: id
+          in: path
+          description: Globally unique identifier of the schema
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: subject
+          in: query
+          description: Filters results by the respective subject
+          schema:
+            type: string
+        - name: deleted
+          in: query
+          description: Whether to include subjects where the schema was deleted
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of subjects matching the specified parameters.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: User
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: User
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: User
+        "404":
+          description: Not Found. Error code 40403 indicates schema not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /schemas/ids/{id}/versions:
+    get:
+      tags:
+        - Schemas (v1)
+      summary: List subject-versions associated to schema ID
+      description: Get all the subject-version pairs associated with the input ID.
+      operationId: getVersions
+      parameters:
+        - name: id
+          in: path
+          description: Globally unique identifier of the schema
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: subject
+          in: query
+          description: Filters results by the respective subject
+          schema:
+            type: string
+        - name: deleted
+          in: query
+          description: Whether to include subject versions where the schema was deleted
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of subject versions matching the specified parameters.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubjectVersion'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubjectVersion'
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubjectVersion'
+        "404":
+          description: Not Found. Error code 40403 indicates schema not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /schemas/types:
+    get:
+      tags:
+        - Schemas (v1)
+      summary: List supported schema types
+      description: Retrieve the schema types supported by this registry.
+      operationId: getSchemaTypes
+      responses:
+        "200":
+          description: List of supported schema types.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: AVRO
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: AVRO
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: AVRO
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /subjects:
+    get:
+      tags:
+        - Subjects (v1)
+      summary: List subjects
+      description: Retrieves a list of registered subjects matching specified parameters.
+      operationId: list
+      parameters:
+        - name: subjectPrefix
+          in: query
+          description: Subject name prefix
+          schema:
+            type: string
+            default: ':*:'
+        - name: deleted
+          in: query
+          description: Whether to look up deleted subjects
+          schema:
+            type: boolean
+        - name: deletedOnly
+          in: query
+          description: Whether to return deleted subjects only
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of subjects matching the specified parameters.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: User
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: User
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  type: string
+                  example: User
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /subjects/{subject}:
+    post:
+      tags:
+        - Subjects (v1)
+      summary: Lookup schema under subject
+      description: "Check if a schema has already been registered under the specified\
+        \ subject. If so, this returns the schema string along with its globally unique\
+        \ identifier, its version under this subject and the subject name."
+      operationId: lookUpSchemaUnderSubject
+      parameters:
+        - name: subject
+          in: path
+          description: Subject under which the schema will be registered
+          required: true
+          schema:
+            type: string
+        - name: normalize
+          in: query
+          description: Whether to lookup the normalized schema
+          schema:
+            type: boolean
+        - name: deleted
+          in: query
+          description: Whether to lookup deleted schemas
+          schema:
+            type: boolean
+      requestBody:
+        description: Schema
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/vnd.schemaregistry+json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/octet-stream:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+        required: true
+      responses:
+        "200":
+          description: The schema.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/Schema'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/Schema'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/Schema'
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found. Error
+            code 40403 indicates schema not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    delete:
+      tags:
+        - Subjects (v1)
+      summary: Delete subject
+      description: Deletes the specified subject and its associated compatibility
+        level if registered. It is recommended to use this API only when a topic needs
+        to be recycled or in development environment.
+      operationId: deleteSubject
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: permanent
+          in: query
+          description: Whether to perform a permanent delete
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Operation succeeded. Returns list of schema versions deleted
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 1
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 1
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 1
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /subjects/{subject}/versions:
+    get:
+      tags:
+        - Subjects (v1)
+      summary: List versions under subject
+      description: Retrieves a list of versions registered under the specified subject.
+      operationId: listVersions
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: deleted
+          in: query
+          description: Whether to include deleted schemas
+          schema:
+            type: boolean
+        - name: deletedOnly
+          in: query
+          description: Whether to return deleted schemas only
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of version numbers matching the specified parameters.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 1
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 1
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 1
+        "404":
+          description: 'Not Found. Error code 40401 indicates subject not found. '
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    post:
+      tags:
+        - Subjects (v1)
+      summary: Register schema under a subject
+      description: |-
+        Register a new schema under the specified subject. If successfully registered, this returns the unique identifier of this schema in the registry. The returned identifier should be used to retrieve this schema from the schemas resource and is different from the schema's version which is associated with the subject. If the same schema is registered under a different subject, the same identifier will be returned. However, the version of the schema may be different under different subjects.
+        A schema should be compatible with the previously registered schema or schemas (if there are any) as per the configured compatibility level. The configured compatibility level can be obtained by issuing a GET http:get:: /config/(string: subject). If that returns null, then GET http:get:: /config
+        When there are multiple instances of Schema Registry running in the same cluster, the schema registration request will be forwarded to one of the instances designated as the primary. If the primary is not available, the client will get an error code indicating that the forwarding has failed.
+      operationId: register
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: normalize
+          in: query
+          description: Whether to register the normalized schema
+          schema:
+            type: boolean
+      requestBody:
+        description: Schema
+        content:
+          application/vnd.schemaregistry.v1+json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/vnd.schemaregistry+json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+          application/octet-stream:
+            schema:
+              $ref: '#/components/schemas/RegisterSchemaRequest'
+        required: true
+      responses:
+        "200":
+          description: Schema successfully registered.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/RegisterSchemaResponse'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/RegisterSchemaResponse'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/RegisterSchemaResponse'
+        "409":
+          description: Conflict. Incompatible schema.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "422":
+          description: 'Unprocessable entity. Error code 42201 indicates an invalid
+            schema or schema type. '
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.Error code 50002 indicates operation timed out.
+            Error code 50003 indicates a failure forwarding the request to the primary.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /subjects/{subject}/versions/{version}:
+    get:
+      tags:
+        - Subjects (v1)
+      summary: Get schema by version
+      description: Retrieves a specific version of the schema registered under this
+        subject.
+      operationId: getSchemaByVersion
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          description: "Version of the schema to be returned. Valid values for versionId\
+          \ are between [1,2^31-1] or the string \"latest\". \"latest\" returns the\
+          \ last registered schema under the specified subject. Note that there may\
+          \ be a new latest schema that gets registered right after this request is\
+          \ served."
+          required: true
+          schema:
+            type: string
+        - name: deleted
+          in: query
+          description: Whether to include deleted schema
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: The schema.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/Schema'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/Schema'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/Schema'
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found. Error
+            code 40402 indicates version not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "422":
+          description: Unprocessable Entity. Error code 42202 indicates an invalid
+            version.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+    delete:
+      tags:
+        - Subjects (v1)
+      summary: Delete schema version
+      description: "Deletes a specific version of the schema registered under this\
+        \ subject. This only deletes the version and the schema ID remains intact\
+        \ making it still possible to decode data using the schema ID. This API is\
+        \ recommended to be used only in development environments or under extreme\
+        \ circumstances where-in, its required to delete a previously registered schema\
+        \ for compatibility purposes or re-register previously registered schema."
+      operationId: deleteSchemaVersion
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          description: "Version of the schema to be returned. Valid values for versionId\
+          \ are between [1,2^31-1] or the string \"latest\". \"latest\" returns the\
+          \ last registered schema under the specified subject. Note that there may\
+          \ be a new latest schema that gets registered right after this request is\
+          \ served."
+          required: true
+          schema:
+            type: string
+        - name: permanent
+          in: query
+          description: Whether to perform a permanent delete
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Operation succeeded. Returns the schema version.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: integer
+                format: int32
+                example: 1
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: integer
+                format: int32
+                example: 1
+            application/json; qs=0.5:
+              schema:
+                type: integer
+                format: int32
+                example: 1
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found. Error
+            code 40402 indicates version not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "422":
+          description: Unprocessable Entity. Error code 42202 indicates an invalid
+            version.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /subjects/{subject}/versions/{version}/referencedby:
+    get:
+      tags:
+        - Subjects (v1)
+      summary: List schemas referencing a schema
+      description: Retrieves the IDs of schemas that reference the specified schema.
+      operationId: getReferencedBy
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          description: "Version of the schema to be returned. Valid values for versionId\
+          \ are between [1,2^31-1] or the string \"latest\". \"latest\" returns the\
+          \ last registered schema under the specified subject. Note that there may\
+          \ be a new latest schema that gets registered right after this request is\
+          \ served."
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of IDs for schemas that reference the specified schema.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 100001
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 100001
+            application/json; qs=0.5:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  format: int32
+                  example: 100001
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found. Error
+            code 40402 indicates version not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "422":
+          description: Unprocessable Entity. Error code 42202 indicates an invalid
+            version.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /subjects/{subject}/versions/{version}/schema:
+    get:
+      tags:
+        - Subjects (v1)
+      summary: Get schema string by version
+      description: Retrieves the schema for the specified version of this subject.
+        Only the unescaped schema string is returned.
+      operationId: getSchemaOnly_2
+      parameters:
+        - name: subject
+          in: path
+          description: Name of the subject
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          description: "Version of the schema to be returned. Valid values for versionId\
+          \ are between [1,2^31-1] or the string \"latest\". \"latest\" returns the\
+          \ last registered schema under the specified subject. Note that there may\
+          \ be a new latest schema that gets registered right after this request is\
+          \ served."
+          required: true
+          schema:
+            type: string
+        - name: deleted
+          in: query
+          description: Whether to include deleted schema
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: The schema string.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: string
+                example: "{\"schema\": \"{\"type\": \"string\"}\"}"
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: string
+                example: "{\"schema\": \"{\"type\": \"string\"}\"}"
+            application/json; qs=0.5:
+              schema:
+                type: string
+                example: "{\"schema\": \"{\"type\": \"string\"}\"}"
+        "404":
+          description: Not Found. Error code 40401 indicates subject not found. Error
+            code 40402 indicates version not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "422":
+          description: Unprocessable Entity. Error code 42202 indicates an invalid
+            version.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /v1/metadata/id:
+    get:
+      tags:
+        - Server Metadata (v1)
+      summary: Get the server metadata
+      operationId: getClusterId
+      responses:
+        "500":
+          description: |
+            Error code 50001 -- Error in the backend data store
+  /schemas/ids/{id}/schema:
+    get:
+      tags:
+        - Schemas (v1)
+      summary: Get schema by ID
+      description: Retrieves the schema identified by the input ID.
+      operationId: getSchemaOnly
+      parameters:
+        - name: id
+          in: path
+          description: Globally unique identifier of the schema
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: subject
+          in: query
+          description: Name of the subject
+          schema:
+            type: string
+        - name: format
+          in: query
+          description: "Desired output format, dependent on schema type"
+          schema:
+            type: string
+            default: ""
+      responses:
+        "200":
+          description: Raw schema string.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                type: string
+                example: "{\"schema\": \"{\"type\": \"string\"}\"}"
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                type: string
+                example: "{\"schema\": \"{\"type\": \"string\"}\"}"
+            application/json; qs=0.5:
+              schema:
+                type: string
+                example: "{\"schema\": \"{\"type\": \"string\"}\"}"
+        "404":
+          description: Not Found. Error code 40403 indicates schema not found.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+        "500":
+          description: Internal Server Error. Error code 50001 indicates a failure
+            in the backend data store.
+          content:
+            application/vnd.schemaregistry.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/vnd.schemaregistry+json; qs=0.9:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+            application/json; qs=0.5:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+  /v1/metadata/version:
+    get:
+      tags:
+        - Server Metadata (v1)
+      summary: Get Schema Registry server version
+      operationId: getSchemaRegistryVersion
+      responses:
+        "500":
+          description: |
+            Error code 50001 -- Error in the backend data store
+components:
+  schemas:
+    CompatibilityCheckResponse:
+      type: object
+      properties:
+        is_compatible:
+          type: boolean
+          description: Whether the compared schemas are compatible
+        messages:
+          type: array
+          description: Error messages
+          example: []
+          items:
+            type: string
+            description: Error messages
+            example: "[]"
+      description: Compatibility check response
+    RegisterSchemaRequest:
+      type: object
+      properties:
+        version:
+          type: integer
+          description: Version number
+          format: int32
+        id:
+          type: integer
+          description: Globally unique identifier of the schema
+          format: int32
+        schemaType:
+          type: string
+          description: Schema type
+        references:
+          type: array
+          description: References to other schemas
+          items:
+            $ref: '#/components/schemas/SchemaReference'
+        schema:
+          type: string
+          description: Schema definition string
+      description: Schema register request
+    SchemaReference:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Reference name
+          example: io.confluent.kafka.example.User
+        subject:
+          type: string
+          description: Name of the referenced subject
+          example: User
+        version:
+          type: integer
+          description: Version number of the referenced subject
+          format: int32
+          example: 1
+      description: Schema reference
+    Config:
+      type: object
+      properties:
+        compatibilityLevel:
+          type: string
+          description: Compatibility Level
+          example: FULL_TRANSITIVE
+          enum:
+            - BACKWARD
+            - BACKWARD_TRANSITIVE
+            - FORWARD
+            - FORWARD_TRANSITIVE
+            - FULL
+            - FULL_TRANSITIVE
+            - NONE
+      description: Config
+    ConfigUpdateRequest:
+      type: object
+      properties:
+        compatibility:
+          type: string
+          description: Compatibility Level
+          example: FULL_TRANSITIVE
+          enum:
+            - BACKWARD
+            - BACKWARD_TRANSITIVE
+            - FORWARD
+            - FORWARD_TRANSITIVE
+            - FULL
+            - FULL_TRANSITIVE
+            - NONE
+      description: Config update request
+    Mode:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: Schema Registry operating mode
+          example: READWRITE
+          enum:
+            - READWRITE
+            - READONLY
+            - READONLY_OVERRIDE
+            - IMPORT
+      description: Schema Registry operating mode
+    ModeUpdateRequest:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: Schema Registry operating mode
+          example: READWRITE
+          enum:
+            - READWRITE
+            - READONLY
+            - READONLY_OVERRIDE
+            - IMPORT
+      description: Mode update request
+    SchemaString:
+      type: object
+      properties:
+        schemaType:
+          type: string
+          description: Schema type
+          example: AVRO
+        schema:
+          type: string
+          description: Schema string identified by the ID
+          example: "{\"schema\": \"{\"type\": \"string\"}\"}"
+        references:
+          type: array
+          description: References to other schemas
+          items:
+            $ref: '#/components/schemas/SchemaReference'
+        maxId:
+          type: integer
+          description: Maximum ID
+          format: int32
+          example: 1
+      description: Schema definition
+    Schema:
+      type: object
+      properties:
+        subject:
+          type: string
+          description: Name of the subject
+          example: User
+        version:
+          type: integer
+          description: Version number
+          format: int32
+          example: 1
+        id:
+          type: integer
+          description: Globally unique identifier of the schema
+          format: int32
+          example: 100001
+        schemaType:
+          type: string
+          description: Schema type
+          example: AVRO
+        references:
+          type: array
+          description: References to other schemas
+          items:
+            $ref: '#/components/schemas/SchemaReference'
+        schema:
+          type: string
+          description: Schema definition string
+          example: "{\"schema\": \"{\"type\": \"string\"}\"}"
+      description: Schema
+    SubjectVersion:
+      type: object
+      properties:
+        subject:
+          type: string
+          description: Name of the subject
+          example: User
+        version:
+          type: integer
+          description: Version number
+          format: int32
+          example: 1
+      description: Subject version pair
+    ServerClusterId:
+      type: object
+      properties:
+        scope:
+          type: object
+          additionalProperties:
+            type: object
+        id:
+          type: string
+    RegisterSchemaResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Globally unique identifier of the schema
+          format: int32
+          example: 100001
+      description: Schema register response
+    ErrorMessage:
+      type: object
+      properties:
+        error_code:
+          type: integer
+          description: Error code
+          format: int32
+        message:
+          type: string
+          description: Detailed error message
+      description: Error message
+    SchemaRegistryServerVersion:
+      type: object
+      properties:
+        version:
+          type: string
+        commitId:
+          type: string

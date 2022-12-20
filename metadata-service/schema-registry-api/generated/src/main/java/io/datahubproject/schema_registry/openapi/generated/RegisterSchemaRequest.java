@@ -1,21 +1,25 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import io.datahubproject.schema_registry.openapi.generated.SchemaReference;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import javax.validation.Valid;
 import org.springframework.validation.annotation.Validated;
-
+import javax.validation.Valid;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import javax.validation.constraints.*;
 
 /**
- * RegisterSchemaRequest
+ * Schema register request
  */
+@io.swagger.v3.oas.annotations.media.Schema(description = "Schema register request")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class RegisterSchemaRequest {
+public class RegisterSchemaRequest   {
 
   @JsonProperty("version")
   private Integer version = null;
@@ -39,12 +43,12 @@ public class RegisterSchemaRequest {
   }
 
   /**
-   * Get version
+   * Version number
    * @return version
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public Integer getVersion() {
+  @io.swagger.v3.oas.annotations.media.Schema(description = "Version number")
+  
+    public Integer getVersion() {
     return version;
   }
 
@@ -58,12 +62,12 @@ public class RegisterSchemaRequest {
   }
 
   /**
-   * Get id
+   * Globally unique identifier of the schema
    * @return id
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public Integer getId() {
+  @io.swagger.v3.oas.annotations.media.Schema(description = "Globally unique identifier of the schema")
+  
+    public Integer getId() {
     return id;
   }
 
@@ -77,12 +81,12 @@ public class RegisterSchemaRequest {
   }
 
   /**
-   * Get schemaType
+   * Schema type
    * @return schemaType
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public String getSchemaType() {
+  @io.swagger.v3.oas.annotations.media.Schema(description = "Schema type")
+  
+    public String getSchemaType() {
     return schemaType;
   }
 
@@ -104,12 +108,12 @@ public class RegisterSchemaRequest {
   }
 
   /**
-   * Get references
+   * References to other schemas
    * @return references
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-  @Valid
-  public List<SchemaReference> getReferences() {
+  @io.swagger.v3.oas.annotations.media.Schema(description = "References to other schemas")
+      @Valid
+    public List<SchemaReference> getReferences() {
     return references;
   }
 
@@ -123,18 +127,19 @@ public class RegisterSchemaRequest {
   }
 
   /**
-   * Get schema
+   * Schema definition string
    * @return schema
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public String getSchema() {
+  @io.swagger.v3.oas.annotations.media.Schema(description = "Schema definition string")
+  
+    public String getSchema() {
     return schema;
   }
 
   public void setSchema(String schema) {
     this.schema = schema;
   }
+
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -145,10 +150,11 @@ public class RegisterSchemaRequest {
       return false;
     }
     RegisterSchemaRequest registerSchemaRequest = (RegisterSchemaRequest) o;
-    return Objects.equals(this.version, registerSchemaRequest.version) && Objects.equals(this.id,
-        registerSchemaRequest.id) && Objects.equals(this.schemaType, registerSchemaRequest.schemaType)
-        && Objects.equals(this.references, registerSchemaRequest.references) && Objects.equals(this.schema,
-        registerSchemaRequest.schema);
+    return Objects.equals(this.version, registerSchemaRequest.version) &&
+        Objects.equals(this.id, registerSchemaRequest.id) &&
+        Objects.equals(this.schemaType, registerSchemaRequest.schemaType) &&
+        Objects.equals(this.references, registerSchemaRequest.references) &&
+        Objects.equals(this.schema, registerSchemaRequest.schema);
   }
 
   @Override
@@ -160,7 +166,7 @@ public class RegisterSchemaRequest {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class RegisterSchemaRequest {\n");
-
+    
     sb.append("    version: ").append(toIndentedString(version)).append("\n");
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
     sb.append("    schemaType: ").append(toIndentedString(schemaType)).append("\n");

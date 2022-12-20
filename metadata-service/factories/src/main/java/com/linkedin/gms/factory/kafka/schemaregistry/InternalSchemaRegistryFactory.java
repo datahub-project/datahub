@@ -1,7 +1,9 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.KafkaConfiguration;
 import com.linkedin.metadata.schema.registry.SchemaRegistryService;
 import com.linkedin.metadata.schema.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;
@@ -18,6 +20,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 
 
@@ -25,35 +28,21 @@ import org.springframework.context.annotation.PropertySource;
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = InternalSchemaRegistryFactory.TYPE)
+@Import({ConfigurationProvider.class})
 public class InternalSchemaRegistryFactory {
 
   public static final String TYPE = "INTERNAL";
-
-  @Value("${datahub.gms.host}")
-  private String gmsHost;
-
-  @Value("${datahub.gms.port}")
-  private int gmsPort;
-
-  @Value("${datahub.gms.useSSL}")
-  private boolean gmsUseSSL;
-
-  @Bean(name = "schemaRegistryUrl")
-  protected String schemaRegistryUrl() {
-    final String protocol = gmsUseSSL ? "https" : "http";
-    return String.format("%s://%s/%s/openapi/schema-registry", protocol, gmsHost, gmsPort);
-  }
 
   /**
    * Configure Kafka Producer/Consumer processes with a custom schema registry.
    */
   @Bean
   @Nonnull
-  protected SchemaRegistryConfig getInstance(@Qualifier("schemaRegistryUrl") final String schemaRegistryUrl) {
+  protected SchemaRegistryConfig getInstance(KafkaConfiguration kafkaConfiguration) {
     Map<String, Object> props = new HashMap<>();
 
     // TODO: Fix this url to either come by config or from the source code directly. Particularly the last endpoint
-    props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
+    props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaConfiguration.getSchemaRegistry().getUrl());
 
     log.info("Creating internal registry");
     return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);

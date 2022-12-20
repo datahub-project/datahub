@@ -1,18 +1,22 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.validation.annotation.Validated;
-
+import javax.validation.Valid;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import javax.validation.constraints.*;
 
 /**
- * SchemaReference
+ * Schema reference
  */
+@io.swagger.v3.oas.annotations.media.Schema(description = "Schema reference")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class SchemaReference {
+public class SchemaReference   {
 
   @JsonProperty("name")
   private String name = null;
@@ -29,12 +33,12 @@ public class SchemaReference {
   }
 
   /**
-   * Get name
+   * Reference name
    * @return name
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public String getName() {
+  @io.swagger.v3.oas.annotations.media.Schema(example = "io.confluent.kafka.example.User", description = "Reference name")
+  
+    public String getName() {
     return name;
   }
 
@@ -48,12 +52,12 @@ public class SchemaReference {
   }
 
   /**
-   * Get subject
+   * Name of the referenced subject
    * @return subject
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public String getSubject() {
+  @io.swagger.v3.oas.annotations.media.Schema(example = "User", description = "Name of the referenced subject")
+  
+    public String getSubject() {
     return subject;
   }
 
@@ -67,18 +71,19 @@ public class SchemaReference {
   }
 
   /**
-   * Get version
+   * Version number of the referenced subject
    * @return version
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "")
-
-  public Integer getVersion() {
+  @io.swagger.v3.oas.annotations.media.Schema(example = "1", description = "Version number of the referenced subject")
+  
+    public Integer getVersion() {
     return version;
   }
 
   public void setVersion(Integer version) {
     this.version = version;
   }
+
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -89,8 +94,9 @@ public class SchemaReference {
       return false;
     }
     SchemaReference schemaReference = (SchemaReference) o;
-    return Objects.equals(this.name, schemaReference.name) && Objects.equals(this.subject, schemaReference.subject)
-        && Objects.equals(this.version, schemaReference.version);
+    return Objects.equals(this.name, schemaReference.name) &&
+        Objects.equals(this.subject, schemaReference.subject) &&
+        Objects.equals(this.version, schemaReference.version);
   }
 
   @Override
@@ -102,7 +108,7 @@ public class SchemaReference {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class SchemaReference {\n");
-
+    
     sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("    subject: ").append(toIndentedString(subject)).append("\n");
     sb.append("    version: ").append(toIndentedString(version)).append("\n");

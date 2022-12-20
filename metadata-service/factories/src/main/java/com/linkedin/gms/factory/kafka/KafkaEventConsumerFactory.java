@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.kafka;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.KafkaConfiguration;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
@@ -11,6 +12,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -38,7 +40,6 @@ public class KafkaEventConsumerFactory {
   @Qualifier("kafkaSchemaRegistry")
   private SchemaRegistryConfig kafkaSchemaRegistryConfig;
 
-  @Autowired
   @Lazy
   @Qualifier("awsGlueSchemaRegistry")
   private SchemaRegistryConfig awsGlueSchemaRegistryConfig;
@@ -49,7 +50,7 @@ public class KafkaEventConsumerFactory {
   }
 
   @Bean(name = "kafkaEventConsumer")
-  protected KafkaListenerContainerFactory<?> createInstance(ConfigurationProvider provider,
+  protected KafkaListenerContainerFactory<?> createInstance(KafkaConfiguration kafkaConfiguration,
       KafkaProperties properties, @Qualifier("kafkaEventConsumerConcurrency") int concurrency) {
 
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
@@ -61,8 +62,8 @@ public class KafkaEventConsumerFactory {
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (provider.getKafka().getBootstrapServers() != null && provider.getKafka().getBootstrapServers().length() > 0) {
-      consumerProps.setBootstrapServers(Arrays.asList(provider.getKafka().getBootstrapServers().split(",")));
+    if (kafkaConfiguration.getBootstrapServers() != null && kafkaConfiguration.getBootstrapServers().length() > 0) {
+      consumerProps.setBootstrapServers(Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     Map<String, Object> props = properties.buildConsumerProperties();

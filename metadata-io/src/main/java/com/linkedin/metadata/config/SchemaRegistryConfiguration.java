@@ -1,13 +1,19 @@
 package com.linkedin.metadata.config;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.Setter;
 
 
 @Data
+@AllArgsConstructor
 public class SchemaRegistryConfiguration {
 
-  private String type;
+  @Setter(AccessLevel.NONE)
+  final private String type;
 
-  private String url;
+  @Setter(AccessLevel.NONE)
+  final private String url;
 
 }

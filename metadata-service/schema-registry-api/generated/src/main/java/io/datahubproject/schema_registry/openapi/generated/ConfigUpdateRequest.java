@@ -1,21 +1,64 @@
 package io.datahubproject.schema_registry.openapi.generated;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Objects;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.validation.annotation.Validated;
-
+import javax.validation.Valid;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import javax.validation.constraints.*;
 
 /**
- * ConfigUpdateRequest
+ * Config update request
  */
+@io.swagger.v3.oas.annotations.media.Schema(description = "Config update request")
 @Validated
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ConfigUpdateRequest {
+public class ConfigUpdateRequest   {
 
+  /**
+   * Compatibility Level
+   */
+  public enum CompatibilityEnum {
+    BACKWARD("BACKWARD"),
+    
+    BACKWARD_TRANSITIVE("BACKWARD_TRANSITIVE"),
+    
+    FORWARD("FORWARD"),
+    
+    FORWARD_TRANSITIVE("FORWARD_TRANSITIVE"),
+    
+    FULL("FULL"),
+    
+    FULL_TRANSITIVE("FULL_TRANSITIVE"),
+    
+    NONE("NONE");
+
+    private String value;
+
+    CompatibilityEnum(String value) {
+      this.value = value;
+    }
+
+    @Override
+    @JsonValue
+    public String toString() {
+      return String.valueOf(value);
+    }
+
+    @JsonCreator
+    public static CompatibilityEnum fromValue(String text) {
+      for (CompatibilityEnum b : CompatibilityEnum.values()) {
+        if (String.valueOf(b.value).equals(text)) {
+          return b;
+        }
+      }
+      return null;
+    }
+  }
   @JsonProperty("compatibility")
   private CompatibilityEnum compatibility = null;
 
@@ -25,18 +68,19 @@ public class ConfigUpdateRequest {
   }
 
   /**
-   * Compatability Level
+   * Compatibility Level
    * @return compatibility
    **/
-  @io.swagger.v3.oas.annotations.media.Schema(description = "Compatability Level")
-
-  public CompatibilityEnum getCompatibility() {
+  @io.swagger.v3.oas.annotations.media.Schema(example = "FULL_TRANSITIVE", description = "Compatibility Level")
+  
+    public CompatibilityEnum getCompatibility() {
     return compatibility;
   }
 
   public void setCompatibility(CompatibilityEnum compatibility) {
     this.compatibility = compatibility;
   }
+
 
   @Override
   public boolean equals(java.lang.Object o) {
@@ -59,7 +103,7 @@ public class ConfigUpdateRequest {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class ConfigUpdateRequest {\n");
-
+    
     sb.append("    compatibility: ").append(toIndentedString(compatibility)).append("\n");
     sb.append("}");
     return sb.toString();
@@ -74,35 +118,5 @@ public class ConfigUpdateRequest {
       return "null";
     }
     return o.toString().replace("\n", "\n    ");
-  }
-
-  /**
-   * Compatability Level
-   */
-  public enum CompatibilityEnum {
-    BACKWARD_BACKWARD_TRANSITIVE_FORWARD_FORWARD_TRANSITIVE_FULL_FULL_TRANSITIVE_NONE(
-        "BACKWARD, BACKWARD_TRANSITIVE, FORWARD, FORWARD_TRANSITIVE, FULL, FULL_TRANSITIVE, NONE");
-
-    private String value;
-
-    CompatibilityEnum(String value) {
-      this.value = value;
-    }
-
-    @JsonCreator
-    public static CompatibilityEnum fromValue(String text) {
-      for (CompatibilityEnum b : CompatibilityEnum.values()) {
-        if (String.valueOf(b.value).equals(text)) {
-          return b;
-        }
-      }
-      return null;
-    }
-
-    @Override
-    @JsonValue
-    public String toString() {
-      return String.valueOf(value);
-    }
   }
 }

@@ -6,7 +6,6 @@ dependencies {
     compile externalDependency.reflections
     compile externalDependency.springBoot
     compile externalDependency.springCore
-    compile externalDependency.springDocUI
     compile externalDependency.springWeb
     compile externalDependency.springWebMVC
     compile externalDependency.springBeans
@@ -16,7 +15,8 @@ dependencies {
     compile externalDependency.javaxValidation
     compile externalDependency.servletApi
     compile group: 'javax.annotation', name: 'javax.annotation-api', version: '1.3.2'
-
+    compile externalDependency.jacksonDataBind
+    compile externalDependency.slf4jApi
 
     // End of dependencies
     compile externalDependency.swaggerAnnotations
@@ -26,10 +26,9 @@ dependencies {
 }
 
 tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
-    //https://raw.githubusercontent.com/confluentinc/schema-registry/v7.2.0/core/generated/swagger-ui/schema-registry-api-spec.yaml
     it.setInputFile(
         file(
-            "$projectDir/src/main/resources/schema-registry-open-api-v7.2.0.yaml"
+            "$projectDir/src/main/resources/schema-registry-open-api-v7.4.0.yaml"
         )
     )
     it.setOutputDir(file("$projectDir/generated"))

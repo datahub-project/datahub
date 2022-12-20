@@ -6,9 +6,14 @@
 package io.swagger.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.datahubproject.schema_registry.openapi.generated.ErrorMessage;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -19,36 +24,47 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-
-@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-13T18:00:00.821813Z[Europe/Lisbon]")
+@javax.annotation.Generated(value = "io.swagger.codegen.v3.generators.java.SpringCodegen", date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @Validated
 public interface ContextsApi {
 
-  Logger log = LoggerFactory.getLogger(ContextsApi.class);
+    Logger log = LoggerFactory.getLogger(ContextsApi.class);
 
-  default Optional<ObjectMapper> getObjectMapper() {
-    return Optional.empty();
-  }
-
-  default Optional<HttpServletRequest> getRequest() {
-    return Optional.empty();
-  }
-
-  default Optional<String> getAcceptHeader() {
-    return getRequest().map(r -> r.getHeader("Accept"));
-  }
-
-  @Operation(summary = "Get a list of contexts.", description = "", tags = {})
-  @ApiResponses(value = {
-      @ApiResponse(responseCode = "500", description = "Error code 50001 -- Error in the backend datastore")})
-  @RequestMapping(value = "/contexts", method = RequestMethod.GET)
-  default ResponseEntity<Void> listContexts() {
-    if (getObjectMapper().isPresent() && getAcceptHeader().isPresent()) {
-    } else {
-      log.warn(
-          "ObjectMapper or HttpServletRequest not configured in default ContextsApi interface so no example is generated");
+    default Optional<ObjectMapper> getObjectMapper(){
+        return Optional.empty();
     }
-    return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
-  }
+
+    default Optional<HttpServletRequest> getRequest(){
+        return Optional.empty();
+    }
+
+    default Optional<String> getAcceptHeader() {
+        return getRequest().map(r -> r.getHeader("Accept"));
+    }
+
+    @Operation(summary = "List contexts", description = "Retrieves a list of contexts.", tags={ "Contexts (v1)" })
+    @ApiResponses(value = { 
+        @ApiResponse(responseCode = "200", description = "The contexts.", content = @Content(mediaType = "application/vnd.schemaregistry.v1+json", array = @ArraySchema(schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = String.class)))),
+        
+        @ApiResponse(responseCode = "500", description = "Internal Server Error. Error code 50001 indicates a failure in the backend data store. ", content = @Content(mediaType = "application/vnd.schemaregistry.v1+json", schema = @io.swagger.v3.oas.annotations.media.Schema(implementation = ErrorMessage.class))) })
+    @RequestMapping(value = "/contexts",
+        produces = { "application/vnd.schemaregistry.v1+json", "application/vnd.schemaregistry+json; qs=0.9", "application/json; qs=0.5" }, 
+        method = RequestMethod.GET)
+    default ResponseEntity<List<String>> listContexts() {
+        if(getObjectMapper().isPresent() && getAcceptHeader().isPresent()) {
+            if (getAcceptHeader().get().contains("application/json")) {
+                try {
+                    return new ResponseEntity<>(getObjectMapper().get().readValue("[ \".\", \".\" ]", List.class), HttpStatus.NOT_IMPLEMENTED);
+                } catch (IOException e) {
+                    log.error("Couldn't serialize response for content type application/json", e);
+                    return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            }
+        } else {
+            log.warn("ObjectMapper or HttpServletRequest not configured in default ContextsApi interface so no example is generated");
+        }
+        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
+    }
+
 }
 
