@@ -189,54 +189,9 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
     def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext, platform: str):
         # self.platform = platform
         super(VerticaSQLAlchemySource, self).__init__(config, ctx, platform)
-
         self.report: SQLSourceReport = SQLSourceReportVertica()
 
-    def get_column_type(sql_report: SQLSourceReport, dataset_name: str, column_type: Any
-                        ) -> SchemaFieldDataType:
-        """
-        Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
-        """
 
-        TypeClass: Optional[Type] = None
-        for sql_type in _field_type_mapping.keys():
-            if isinstance(column_type, sql_type):
-                TypeClass = _field_type_mapping[sql_type]
-                break
-        if TypeClass is None:
-            for sql_type in _known_unknown_field_types:
-                if isinstance(column_type, sql_type):
-                    TypeClass = NullTypeClass
-                    break
-
-        if TypeClass is None:
-            sql_report.report_warning(
-                dataset_name, f"unable to map type {column_type!r} to metadata schema"
-            )
-            TypeClass = NullTypeClass
-
-        return SchemaFieldDataType(type=TypeClass())
-
-    def get_schema_metadata(
-        sql_report: SQLSourceReport,
-        dataset_name: str,
-        platform: str,
-        foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
-        canonical_schema: List[SchemaField] = [],
-    ) -> SchemaMetadata:
-
-        schema_metadata = SchemaMetadata(
-            schemaName=dataset_name,
-            platform=make_data_platform_urn(platform),
-            version=0,
-            hash="",
-            platformSchema=MySqlDDL(tableSchema=""),
-            fields=canonical_schema,
-        )
-        if foreign_keys is not None and foreign_keys != []:
-            schema_metadata.foreignKeys = foreign_keys
-
-        return schema_metadata
 
     def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
         try:
@@ -257,7 +212,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 UDXsLanguage=all_properties_keys.get("Udx_langauge", ""),
             )
         except Exception as e:
-            print("Hey something went wrong, while gettting schema in gen schema key")
+            self.report.report_failure(f"Hey something went wrong, while gettting schema in gen schema key: {e}")
 
     def gen_database_key(self, database: str) -> PlatformKey:
         try:
@@ -278,8 +233,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 communalStoragePath=all_properties_keys.get("communinal_storage_path"),
             )
         except Exception as e:
-            traceback.print_exc()
-            print("Hey something went wrong, while gettting Generation of database key")
+            self.report.report_failure(f"Hey something went wrong, while gettting Generation of database key: {e}")
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
@@ -339,6 +293,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         # Clean up stale entities.
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
+    
     def loop_tables(
         self,
         inspector: Inspector,
@@ -346,6 +301,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
+        
         try:
             table_tags = self.get_extra_tags(inspector, schema, "table")
             for table in inspector.get_table_names(schema):
@@ -419,25 +375,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             customProperties=properties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
-        # if location_urn:
-        #     external_upstream_table = UpstreamClass(
-        #         dataset=location_urn,
-        #         type=DatasetLineageTypeClass.COPY,
-        #     )
-        #     lineage_mcpw = MetadataChangeProposalWrapper(
-        #         entityType="dataset",
-        #         changeType=ChangeTypeClass.UPSERT,
-        #         entityUrn=dataset_snapshot.urn,
-        #         aspectName="upstreamLineage",
-        #         aspect=UpstreamLineage(upstreams=[external_upstream_table]),
-        #     )
-        #     lineage_wu = MetadataWorkUnit(
-        #         id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
-        #         mcp=lineage_mcpw,
-        #     )
-        #     self.report.report_workunit(lineage_wu)
-        #     yield lineage_wu
-        # extra_tags = self.get_extra_tags(inspector, schema, table)
         extra_tags = list()
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
 
@@ -569,7 +506,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
 
                     except Exception as e:
                         logger.warning(
-                            f"Unable to get lieange of view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                            f"Unable to get lineage of view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                         )
                         self.report.report_warning(
                             f"{schema}.{view}", f"Ingestion error: {e}"
@@ -770,7 +707,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
 
                     except Exception as e:
                         logger.warning(
-                            f"Unable to get lieange of Projection {schema}.{projection} due to an exception.\n {traceback.format_exc()}"
+                            f"Unable to get lineage of Projection {schema}.{projection} due to an exception.\n {traceback.format_exc()}"
                         )
                         self.report.report_warning(
                             f"{schema}.{projection}", f"Ingestion error: {e}"
