@@ -8,10 +8,11 @@ import {
     dataset5WithLineage,
     dataset6WithLineage,
     dataFlow1,
+    dataset1,
 } from '../../../Mocks';
 import { DataPlatform, EntityType, RelationshipDirection } from '../../../types.generated';
 import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
-import { Direction, FetchedEntities } from '../types';
+import { Direction, FetchedEntities, UpdatedLineages } from '../types';
 import constructTree from '../utils/constructTree';
 import extendAsyncEntities from '../utils/extendAsyncEntities';
 
@@ -29,6 +30,7 @@ describe('constructTree', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         ).toEqual({
             name: 'Yet Another Dataset',
@@ -66,6 +68,7 @@ describe('constructTree', () => {
                 mockFetchedEntities,
                 Direction.Downstream,
                 testEntityRegistry,
+                {},
             ),
         ).toMatchObject({
             name: 'Display Name of Sixth',
@@ -116,6 +119,7 @@ describe('constructTree', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         ).toMatchObject({
             name: 'Display Name of Sixth',
@@ -167,6 +171,7 @@ describe('constructTree', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         ).toMatchObject({
             name: 'Yet Another Dataset',
@@ -259,6 +264,7 @@ describe('constructTree', () => {
             mockFetchedEntities,
             Direction.Upstream,
             testEntityRegistry,
+            {},
         );
 
         const fifthDatasetIntance1 = tree?.children?.[0]?.children?.[1];
@@ -288,6 +294,7 @@ describe('constructTree', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         ).toMatchObject({
             name: 'Yet Another Dataset',
@@ -373,6 +380,7 @@ describe('constructTree', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         ).toEqual({
             name: 'Display Name of Sixth',
@@ -397,6 +405,63 @@ describe('constructTree', () => {
                     status: null,
                     platform: airflowPlatform,
                     subtype: undefined,
+                },
+            ],
+        });
+    });
+
+    it('should construct a tree taking into account updatedLineages in state', () => {
+        const fetchedEntities = [
+            { entity: dataset4, direction: Direction.Upstream, fullyFetched: false },
+            { entity: dataset5, direction: Direction.Upstream, fullyFetched: false },
+        ];
+        const mockFetchedEntities = fetchedEntities.reduce(
+            (acc, entry) =>
+                extendAsyncEntities(
+                    {},
+                    acc,
+                    testEntityRegistry,
+                    { entity: entry.entity, type: EntityType.Dataset },
+                    entry.fullyFetched,
+                ),
+            {} as FetchedEntities,
+        );
+
+        const updatedLineages: UpdatedLineages = {
+            [dataset6WithLineage.urn]: {
+                lineageDirection: Direction.Upstream,
+                entitiesToAdd: [dataset1],
+                urnsToRemove: [dataset5.urn],
+            },
+        };
+
+        expect(
+            constructTree(
+                { entity: dataset6WithLineage, type: EntityType.Dataset },
+                mockFetchedEntities,
+                Direction.Upstream,
+                testEntityRegistry,
+                updatedLineages,
+            ),
+        ).toMatchObject({
+            name: 'Display Name of Sixth',
+            expandedName: 'Fully Qualified Name of Sixth Test Dataset',
+            urn: 'urn:li:dataset:6',
+            type: EntityType.Dataset,
+            unexploredChildren: 0,
+            icon: undefined,
+            platform: kafkaPlatform,
+            schemaMetadata: dataset6WithLineage.schemaMetadata,
+            children: [
+                {
+                    countercurrentChildrenUrns: [],
+                    name: dataset1.name,
+                    expandedName: dataset1.name,
+                    type: EntityType.Dataset,
+                    unexploredChildren: 0,
+                    urn: dataset1.urn,
+                    children: [],
+                    platform: dataset1.platform,
                 },
             ],
         });
