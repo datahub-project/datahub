@@ -571,6 +571,11 @@ type Mutation {
     deleteView(
       "The urn of the View to delete"
       urn: String!): Boolean
+
+    """
+    Update lineage for an entity
+    """
+    updateLineage(input: UpdateLineageInput!): Boolean
 }
 
 """
@@ -914,6 +919,16 @@ type LineageRelationship {
     Degree of relationship (number of hops to get to entity)
     """
     degree: Int!
+
+    """
+    Timestamp for when this lineage relationship was created. Could be null.
+    """
+    createdOn: Long
+
+    """
+    The actor who created this lineage relationship. Could be null.
+    """
+    createdActor: Entity
 }
 
 """
@@ -1211,6 +1226,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     fine grained lineage
     """
     fineGrainedLineages: [FineGrainedLineage!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 type FineGrainedLineage {
@@ -4485,6 +4505,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Sub Types of the dashboard
     """
     subTypes: SubTypes
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -4770,6 +4795,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Input fields to power the chart
     """
     inputFields: InputFields
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
@@ -5299,6 +5329,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     History of runs of this task
     """
     runs(start: Int, count: Int): DataProcessInstanceResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
 }
 
 """
