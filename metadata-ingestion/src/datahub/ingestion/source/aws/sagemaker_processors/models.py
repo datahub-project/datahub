@@ -436,7 +436,7 @@ class ModelProcessor:
 
         # if model is not in any groups, set a single browsepath with the model as the first entity
         if not model_browsepaths:
-            model_browsepaths.append(f"/sagemaker")
+            model_browsepaths.append("/sagemaker")
 
         model_snapshot = MLModelSnapshot(
             urn=builder.make_ml_model_urn(
