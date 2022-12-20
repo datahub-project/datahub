@@ -12,8 +12,18 @@ export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_TOKEN: RecipeField = {
     name: 'token',
     label: 'API Token',
-    tooltip:
-        'A service account API token for extracting metadata from dbt Cloud APIs. This token must have the privileges required to read metadata (Metadata permission set).',
+    tooltip: (
+        <span>
+            <TipSection>
+                A service account API token for extracting metadata from dbt Cloud APIs. This token must have the
+                privileges required to read metadata (e.g. <b>Metadata Only</b> permissions).
+            </TipSection>
+            <TipSection>
+                For more information about dbt service account tokens, check out the docs
+                <a href="missions-for-service-account-tokens">here</a>
+            </TipSection>
+        </span>
+    ),
     type: FieldType.SECRET,
     fieldPath: 'source.config.token',
     placeholder: 'dbts_ndg_m5oCuSRRC80tpx4ysYfN2tOreiHuATAu5VFcdrkIznQgl4VCOs6w==',
@@ -92,7 +102,7 @@ export const INCLUDE_MODELS: RecipeField = {
     rules: null,
     getValueFromRecipeOverride: (recipe: any) => {
         const includeModels = get(recipe, includeModelsPath);
-        if (includeModels === 'YES' || includeModels === undefined || includeModels === null) {
+        if (!includeModels || includeModels === 'YES') {
             return true;
         }
         return false;
@@ -277,7 +287,7 @@ export const TARGET_PLATFORM_INSTANCE: RecipeField = {
     tooltip: (
         <span>
             <TipSection>
-                The DataHub Platform Instance identifier that should be used for the assets extracted from dbt.{' '}
+                The DataHub Platform Instance identifier that should be used for the assets extracted from dbt.
             </TipSection>
             <TipSection>
                 This is used to correctly connect the metadata extracted from the Data Platform with that extracted from
