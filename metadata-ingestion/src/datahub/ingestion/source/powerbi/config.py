@@ -128,7 +128,8 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
-        default=True, description="Whether PowerBI native query should be parsed to extract lineage"
+        default=True,
+        description="Whether PowerBI native query should be parsed to extract lineage",
     )
 
     @validator("dataset_type_mapping")
