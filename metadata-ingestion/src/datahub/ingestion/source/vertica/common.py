@@ -300,10 +300,16 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        Loop through all the tables in the given schema. This function was rewritten due to table_tags variable being added
+        which is geeting send in _process_table .
+    
+        """
         tables_seen: Set[str] = set()
         
         try:
             table_tags = self.get_extra_tags(inspector, schema, "table")
+            
             for table in inspector.get_table_names(schema):
                 schema, table = self.standardize_schema_table_names(
                     schema=schema, entity=table
@@ -437,6 +443,11 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        Loop through all the views in the given schema. This function was rewritten due to table_tags variable being added
+        which is geeting send in _process_views .
+    
+        """
         try:
             table_tags = self.get_extra_tags(inspector, schema, "view")
             for view in inspector.get_view_names(schema):
@@ -1448,7 +1459,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
 
                     view_upstream: str = upstream.lower()
                     view_name: str = downstream.lower()
-
                     self.view_lineage_map[view_name].append(
                         # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
                         (view_upstream, "[]", "[]")
@@ -1522,8 +1532,8 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
            from vs_projections 
            where name ='%(projection)s'
         """ % {'projection': projection}))
-
-         
+      
+       
         num_edges: int = 0
 
         try:
@@ -1541,8 +1551,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     downstream = f"{db_row_value['schemaname']}.{db_row_value['name']}"
                     projection_upstream: str = upstream.lower()
                     projection_name: str = downstream.lower()
-                    
-                  
                     self.Projection_lineage_map[projection_name].append(
                             # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
                         (projection_upstream, "[]", "[]")
