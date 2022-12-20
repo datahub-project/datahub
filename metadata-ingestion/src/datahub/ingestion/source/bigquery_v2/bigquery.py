@@ -62,6 +62,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantRunSkipHandler,
+)
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -112,6 +116,7 @@ from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
 )
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -198,13 +203,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
+        if self.config.enable_legacy_sharded_table_support:
+            BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
         self.usage_extractor = BigQueryUsageExtractor(config, self.report)
-        self.profiler = BigqueryProfiler(config, self.report)
 
         # Currently caching using instance variables
         # TODO - rewrite cache for readability or use out of the box solution
@@ -228,6 +234,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
+
+        self.redundant_run_skip_handler = RedundantRunSkipHandler(
+            source=self,
+            config=self.config,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
+        self.profiling_state_handler: Optional[ProfilingHandler] = None
+        if self.config.enable_profiling_state:
+            self.profiling_state_handler = ProfilingHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+        self.profiler = BigqueryProfiler(
+            config, self.report, self.profiling_state_handler
+        )
 
         atexit.register(cleanup, config)
 
@@ -603,6 +628,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield from self.generate_lineage(project_id)
 
         if self.config.include_usage_statistics:
+            if self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            ):
+                # Skip this run
+                return
+
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )
             yield from self.generate_usage_statistics(project_id)
 
     def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:

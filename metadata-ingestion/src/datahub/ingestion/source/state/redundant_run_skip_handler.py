@@ -121,6 +121,17 @@ class RedundantRunSkipHandler(
         cur_state.begin_timestamp_millis = start_time_millis
         cur_state.end_timestamp_millis = end_time_millis
 
+    def get_last_state(self) -> Optional[BaseUsageCheckpointState]:
+        if not self.is_checkpointing_enabled() or self._ignore_old_state():
+            return None
+        last_checkpoint = self.source.get_last_checkpoint(
+            self.job_id, BaseUsageCheckpointState
+        )
+        if last_checkpoint and last_checkpoint.state:
+            return cast(BaseUsageCheckpointState, last_checkpoint.state)
+
+        return None
+
     def should_skip_this_run(self, cur_start_time_millis: int) -> bool:
         if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return False

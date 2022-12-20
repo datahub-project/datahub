@@ -68,6 +68,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeQueryMixin,
 )
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
 )
@@ -225,9 +226,20 @@ class SnowflakeV2Source(
             # For usage stats
             self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
 
+        self.profiling_state_handler: Optional[ProfilingHandler] = None
+        if self.config.enable_profiling_state:
+            self.profiling_state_handler = ProfilingHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         if config.profiling.enabled:
             # For profiling
-            self.profiler = SnowflakeProfiler(config, self.report)
+            self.profiler = SnowflakeProfiler(
+                config, self.report, self.profiling_state_handler
+            )
 
         if self.is_classification_enabled():
             self.classifiers = self.get_classifiers()

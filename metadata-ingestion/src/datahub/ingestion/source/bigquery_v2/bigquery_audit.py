@@ -8,7 +8,6 @@ from typing import Any, ClassVar, Dict, List, Optional, Pattern, Set, Tuple
 from dateutil import parser
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.ingestion.source.bigquery_v2.common import BQ_SHARDED_TABLE_SUFFIX
 from datahub.utilities.parsing_util import (
     get_first_missing_key,
     get_first_missing_key_any,
@@ -81,6 +80,7 @@ class BigqueryTableIdentifier:
     invalid_chars: ClassVar[Set[str]] = {"$", "@"}
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = "((.+)[_$])?(\\d{8})$"
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
+    _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 
     @staticmethod
     def get_table_and_shard(table_name: str) -> Tuple[str, Optional[str]]:
@@ -134,7 +134,9 @@ class BigqueryTableIdentifier:
             f"{self.project_id}.{self.dataset}.{self.get_table_display_name()}"
         )
         if self.is_sharded_table():
-            table_name = f"{table_name}{BQ_SHARDED_TABLE_SUFFIX}"
+            table_name = (
+                f"{table_name}{BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX}"
+            )
         return table_name
 
     def is_sharded_table(self) -> bool:

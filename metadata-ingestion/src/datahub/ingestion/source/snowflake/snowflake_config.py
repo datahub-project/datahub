@@ -54,6 +54,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
+    enable_profiling_state: bool = Field(
+        default=True,
+        description="Enable storing last profile date in store.",
+    )
+
     match_fully_qualified_names = bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
