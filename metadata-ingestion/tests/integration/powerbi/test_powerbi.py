@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict
 from unittest import mock
 
 from freezegun import freeze_time
@@ -24,8 +24,12 @@ def scan_init_response(request, context):
     workspace_id = request.text.split("=")[1]
 
     w_id_vs_response: Dict[str, Any] = {
-        "64ED5CAD-7C10-4684-8180-826122881108": {"id": "4674efd1-603c-4129-8d82-03cf2be05aff"},
-        "64ED5CAD-7C22-4684-8180-826122881108": {"id": "a674efd1-603c-4129-8d82-03cf2be05aff"},
+        "64ED5CAD-7C10-4684-8180-826122881108": {
+            "id": "4674efd1-603c-4129-8d82-03cf2be05aff"
+        },
+        "64ED5CAD-7C22-4684-8180-826122881108": {
+            "id": "a674efd1-603c-4129-8d82-03cf2be05aff"
+        },
     }
 
     return w_id_vs_response[workspace_id]
@@ -160,7 +164,6 @@ def register_mock_api(request_mock):
                     },
                 ]
             },
-
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
             "method": "GET",
