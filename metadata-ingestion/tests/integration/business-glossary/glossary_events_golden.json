@@ -176,6 +176,13 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.domain.Domains": {
+                        "domains": [
+                            "urn:li:domain:en.wikipedia.org"
+                        ]
+                    }
                 }
             ]
         }

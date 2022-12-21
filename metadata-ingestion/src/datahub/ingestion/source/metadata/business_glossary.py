@@ -18,6 +18,7 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
     config_class,
@@ -26,6 +27,8 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
@@ -64,6 +67,7 @@ class GlossaryTermConfig(ConfigModel):
     related_terms: Optional[List[str]]
     custom_properties: Optional[Dict[str, str]]
     knowledge_links: Optional[List[KnowledgeCard]]
+    domains: Optional[List[str]]
 
 
 class GlossaryNodeConfig(ConfigModel):
@@ -170,7 +174,9 @@ def get_owners(owners: Owners) -> models.OwnershipClass:
 
 
 def get_mces(
-    glossary: BusinessGlossaryConfig, ingestion_config: BusinessGlossarySourceConfig
+    glossary: BusinessGlossaryConfig,
+    ingestion_config: BusinessGlossarySourceConfig,
+    ctx: PipelineContext,
 ) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
     path: List[str] = []
     root_owners = get_owners(glossary.owners)
@@ -184,6 +190,7 @@ def get_mces(
                 parentOwners=root_owners,
                 defaults=glossary,
                 ingestion_config=ingestion_config,
+                ctx=ctx,
             )
 
     if glossary.terms:
@@ -195,6 +202,7 @@ def get_mces(
                 parentOwnership=root_owners,
                 defaults=glossary,
                 ingestion_config=ingestion_config,
+                ctx=ctx,
             )
 
 
@@ -237,6 +245,7 @@ def get_mces_from_node(
     parentOwners: models.OwnershipClass,
     defaults: DefaultConfig,
     ingestion_config: BusinessGlossarySourceConfig,
+    ctx: PipelineContext,
 ) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
     node_urn = make_glossary_node_urn(
         path, glossaryNode.id, ingestion_config.enable_auto_id
@@ -273,6 +282,7 @@ def get_mces_from_node(
                 parentOwners=node_owners,
                 defaults=defaults,
                 ingestion_config=ingestion_config,
+                ctx=ctx,
             )
 
     if glossaryNode.terms:
@@ -284,7 +294,20 @@ def get_mces_from_node(
                 parentOwnership=node_owners,
                 defaults=defaults,
                 ingestion_config=ingestion_config,
+                ctx=ctx,
             )
+
+
+def get_domain_class(
+    graph: Optional[DataHubGraph], domains: List[str]
+) -> models.DomainsClass:
+    domain_registry: DomainRegistry = DomainRegistry(
+        cached_domains=[k for k in domains], graph=graph
+    )
+    domain_class = models.DomainsClass(
+        domains=[domain_registry.get_domain_urn(domain) for domain in domains]
+    )
+    return domain_class
 
 
 def get_mces_from_term(
@@ -294,6 +317,7 @@ def get_mces_from_term(
     parentOwnership: models.OwnershipClass,
     defaults: DefaultConfig,
     ingestion_config: BusinessGlossarySourceConfig,
+    ctx: PipelineContext,
 ) -> Iterable[Union[models.MetadataChangeEventClass, MetadataChangeProposalWrapper]]:
     term_urn = make_glossary_term_urn(
         path, glossaryTerm.id, ingestion_config.enable_auto_id
@@ -306,6 +330,7 @@ def get_mces_from_term(
             models.StatusClass,
             models.GlossaryTermKeyClass,
             models.BrowsePathsClass,
+            models.DomainsClass,
         ]
     ] = []
     term_info = models.GlossaryTermInfoClass(
@@ -388,6 +413,9 @@ def get_mces_from_term(
         ownership = get_owners(glossaryTerm.owners)
     aspects.append(ownership)
 
+    if glossaryTerm.domains is not None:
+        aspects.append(get_domain_class(ctx.graph, glossaryTerm.domains))
+
     term_snapshot: models.GlossaryTermSnapshotClass = models.GlossaryTermSnapshotClass(
         urn=term_urn,
         aspects=aspects,
@@ -450,7 +478,9 @@ class BusinessGlossaryFileSource(Source):
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         glossary_config = self.load_glossary_config(self.config.file)
         populate_path_vs_id(glossary_config)
-        for event in get_mces(glossary_config, ingestion_config=self.config):
+        for event in get_mces(
+            glossary_config, ingestion_config=self.config, ctx=self.ctx
+        ):
             if isinstance(event, models.MetadataChangeEventClass):
                 wu = MetadataWorkUnit(f"{event.proposedSnapshot.urn}", mce=event)
                 self.report.report_workunit(wu)

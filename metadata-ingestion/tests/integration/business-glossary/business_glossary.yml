@@ -26,6 +26,9 @@ nodes:
         description: Highly Confidential Data
         custom_properties:
           is_confidential: true
+        domains:
+          - en.wikipedia.org
+
   - name: Personal Information
     description: All terms related to personal information
     owners:
