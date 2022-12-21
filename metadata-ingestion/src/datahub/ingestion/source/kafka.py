@@ -8,6 +8,13 @@ from typing import Any, Dict, Iterable, List, Optional, Type
 import confluent_kafka
 import confluent_kafka.admin
 import pydantic
+from confluent_kafka.admin import (
+    AdminClient,
+    ConfigEntry,
+    ConfigResource,
+    ResourceType,
+    TopicMetadata,
+)
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -147,14 +154,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 **self.source_config.connection.consumer_config,
             }
         )
-        # TODO: Do we require separate config than existing consumer_config ?
-        self.admin_client = confluent_kafka.admin.AdminClient(
-            {
-                "group.id": "test",
-                "bootstrap.servers": self.source_config.connection.bootstrap,
-                **self.source_config.connection.consumer_config,
-            }
-        )
+        self.init_kafka_admin_client()
         self.report: KafkaSourceReport = KafkaSourceReport()
         self.schema_registry_client: KafkaSchemaRegistryBase = (
             KafkaSource.create_schema_registry(config, self.report)
@@ -173,6 +173,23 @@ class KafkaSource(StatefulIngestionSourceBase):
             run_id=self.ctx.run_id,
         )
 
+    def init_kafka_admin_client(self) -> None:
+        try:
+            # TODO: Do we require separate config than existing consumer_config ?
+            self.admin_client = AdminClient(
+                {
+                    "group.id": "test",
+                    "bootstrap.servers": self.source_config.connection.bootstrap,
+                    **self.source_config.connection.consumer_config,
+                }
+            )
+        except Exception as e:
+            logger.debug(e, exc_info=e)
+            self.report.report_warning(
+                "kafka-admin-client",
+                f"Failed to create Kafka Admin Client due to error {e}.",
+            )
+
     def get_platform_instance_id(self) -> str:
         assert self.source_config.platform_instance is not None
         return self.source_config.platform_instance
@@ -184,7 +201,6 @@ class KafkaSource(StatefulIngestionSourceBase):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics().topics
-
         extra_topic_details = self.fetch_extra_topic_details(topics.keys())
 
         for t, t_detail in topics.items():
@@ -209,8 +225,8 @@ class KafkaSource(StatefulIngestionSourceBase):
     def _extract_record(
         self,
         topic: str,
-        topic_detail: confluent_kafka.admin.TopicMetadata,
-        extra_topic_config: Optional[Dict[str, confluent_kafka.admin.ConfigEntry]],
+        topic_detail: Optional[TopicMetadata],
+        extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
@@ -246,7 +262,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(browse_path)
 
-        custom_props = self.build_custom_properties(topic_detail, extra_topic_config)
+        custom_props = self.build_custom_properties(
+            topic, topic_detail, extra_topic_config
+        )
 
         dataset_properties = DatasetPropertiesClass(
             name=topic,
@@ -304,28 +322,64 @@ class KafkaSource(StatefulIngestionSourceBase):
                 self.report.report_workunit(wu)
                 yield wu
 
-    def build_custom_properties(self, topic_detail, extra_topic_config):
+    def build_custom_properties(
+        self,
+        topic: str,
+        topic_detail: Optional[TopicMetadata],
+        extra_topic_config: Optional[Dict[str, ConfigEntry]],
+    ) -> Dict[str, str]:
 
-        replication_factor = None
+        custom_props: Dict[str, str] = {}
+        self.update_custom_props_with_topic_details(topic, topic_detail, custom_props)
+        self.update_custom_props_with_topic_config(
+            topic, extra_topic_config, custom_props
+        )
+        return custom_props
+
+    def update_custom_props_with_topic_details(
+        self,
+        topic: str,
+        topic_detail: Optional[TopicMetadata],
+        custom_props: Dict[str, str],
+    ) -> None:
+        if topic_detail is None or topic_detail.partitions is None:
+            logger.info(
+                f"Partitions and Replication Factor not available for topic {topic}"
+            )
+            return
+
+        custom_props["Partitions"] = str(len(topic_detail.partitions))
+        replication_factor: Optional[int] = None
         for _, p_meta in topic_detail.partitions.items():
             if replication_factor is None or len(p_meta.replicas) > replication_factor:
                 replication_factor = len(p_meta.replicas)
 
-        custom_props = {
-            "Partitions": len(topic_detail.partitions),
-            "Replication Factor": replication_factor,
-        }
-        if extra_topic_config is not None:
-            for config_key in KafkaTopicConfigKeys:
-                custom_props[config_key] = self._get_config_value_if_present(
-                    extra_topic_config, config_key
-                )
+        if replication_factor is not None:
+            custom_props["Replication Factor"] = str(replication_factor)
 
-        return {
-            k: (json.dumps(v) if not isinstance(v, str) else v)
-            for k, v in custom_props.items()
-            if v is not None
-        }
+    def update_custom_props_with_topic_config(
+        self,
+        topic: str,
+        topic_config: Optional[Dict[str, ConfigEntry]],
+        custom_props: Dict[str, str],
+    ) -> None:
+        if topic_config is None:
+            return
+
+        for config_key in KafkaTopicConfigKeys:
+            try:
+                if (
+                    config_key in topic_config.keys()
+                    and topic_config[config_key] is not None
+                ):
+                    config_value = topic_config[config_key].value
+                    custom_props[config_key] = (
+                        config_value
+                        if isinstance(config_value, str)
+                        else json.dumps(config_value)
+                    )
+            except Exception as e:
+                logger.info(f"{config_key} is not available for topic due to error {e}")
 
     def get_report(self) -> KafkaSourceReport:
         return self.report
@@ -336,39 +390,59 @@ class KafkaSource(StatefulIngestionSourceBase):
         super().close()
 
     def _get_config_value_if_present(
-        self, config_dict: Dict[str, confluent_kafka.admin.ConfigEntry], key: str
+        self, config_dict: Dict[str, ConfigEntry], key: str
     ) -> Any:
-        return config_dict[key].value if key in config_dict.keys() else None
+        return
 
     def fetch_extra_topic_details(self, topics: List[str]) -> Dict[str, dict]:
-        logger.info("Fetching config details for all topics")
         extra_topic_details = {}
+
+        if not hasattr(self, "admin_client"):
+            logger.debug(
+                "Kafka Admin Client missing. Not fetching config details for topics."
+            )
+        else:
+            try:
+                extra_topic_details = self.fetch_topic_configurations(topics)
+            except Exception as e:
+                logger.debug(e, exc_info=e)
+                logger.warning(f"Failed to fetch config details due to error {e}.")
+        return extra_topic_details
+
+    def fetch_topic_configurations(self, topics: List[str]) -> Dict[str, dict]:
+        logger.info("Fetching config details for all topics")
+
         configs: Dict[
-            confluent_kafka.admin.ConfigResource, concurrent.futures.Future
+            ConfigResource, concurrent.futures.Future
         ] = self.admin_client.describe_configs(
-            resources=[
-                confluent_kafka.admin.ConfigResource(
-                    confluent_kafka.admin.ResourceType.TOPIC, t
-                )
-                for t in topics
-            ]
+            resources=[ConfigResource(ResourceType.TOPIC, t) for t in topics]
         )
         logger.debug("Waiting for config details futures to complete")
         concurrent.futures.wait(configs.values())
         logger.debug("Config details futures completed")
+
+        topic_configurations: Dict[str, dict] = {}
         for config_resource, config_result_future in configs.items():
-            try:
-                assert config_result_future.done()
-                assert config_result_future.exception() is None
-                extra_topic_details[
-                    config_resource.name
-                ] = config_result_future.result()
-            except Exception as e:
-                logger.warning(
-                    f"Config details for topic {config_resource.name} not fetched due to error {e}"
-                )
-            else:
-                logger.info(
-                    f"Config details for topic {config_resource.name} fetched successfully"
-                )
-        return extra_topic_details
+            self.process_topic_config_result(
+                config_resource, config_result_future, topic_configurations
+            )
+        return topic_configurations
+
+    def process_topic_config_result(
+        self,
+        config_resource: ConfigResource,
+        config_result_future: concurrent.futures.Future,
+        topic_configurations: dict,
+    ) -> None:
+        try:
+            assert config_result_future.done()
+            assert config_result_future.exception() is None
+            topic_configurations[config_resource.name] = config_result_future.result()
+        except Exception as e:
+            logger.warning(
+                f"Config details for topic {config_resource.name} not fetched due to error {e}"
+            )
+        else:
+            logger.info(
+                f"Config details for topic {config_resource.name} fetched successfully"
+            )
