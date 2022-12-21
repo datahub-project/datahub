@@ -2050,18 +2050,20 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
             ? extraIngestParams.getCreatedOn(oldAspect.getUrn(), oldAspect.getAspect()) : null;
     if (_aspectDao.supportTransactions() && updateIfCreatedOn != null) {
       long updateIfCreatedOnValue = updateIfCreatedOn.longValue();
-      if (oldAspect != null && updateIfCreatedOnValue == 0) {
-        throw new PreconditionFailedException("Conditional Update value must be greater then 0 for update operation,"
-                + "expected value is " + oldAspect.getCreatedOn().getTime());
+      if (updateIfCreatedOnValue == 0 && oldAspect != null) {
+        throw new PreconditionFailedException("Failed to insert " + oldAspect.getUrn() + "+" + oldAspect.getAspect()
+                + ". Expected no existing aspect, but found one created at " + oldAspect.getCreatedOn().getTime()
+                + " by " + oldAspect.getCreatedBy());
       }
-      if (oldAspect == null && updateIfCreatedOnValue != 0) {
-        throw new PreconditionFailedException("Conditional Update value must be 0 for insert operation or "
-                + "null if you don't want to apply the condition");
+      if (updateIfCreatedOnValue != 0 && oldAspect == null) {
+        throw new PreconditionFailedException("Failed to update " + oldAspect.getUrn() + "+" + oldAspect.getAspect()
+                + ". Expected an existing aspect created at " + updateIfCreatedOnValue + ", but found none.");
       }
       if (updateIfCreatedOnValue != 0 && oldAspect != null && oldAspect.getCreatedOn().getTime() != updateIfCreatedOnValue) {
-        throw new PreconditionFailedException("Condition for Conditional Update is not met. Received value is "
-                + updateIfCreatedOnValue + ", but expected value was " + oldAspect.getCreatedOn().getTime()
-                + ". Last update was done by " + oldAspect.getCreatedBy());
+        throw new PreconditionFailedException("Failed to update " + oldAspect.getUrn() + "+" + oldAspect.getAspect()
+                + ". Expected an existing aspect created at " + updateIfCreatedOnValue
+                + ", but found one created at " + oldAspect.getCreatedOn().getTime()
+                + " by " + oldAspect.getCreatedBy());
       }
     }
   }
