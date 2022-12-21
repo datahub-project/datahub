@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.kafka;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
+import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.mxe.TopicConvention;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.Producer;
@@ -30,10 +31,14 @@ public class DataHubKafkaEventProducerFactory {
   @Qualifier(TopicConventionFactory.TOPIC_CONVENTION_BEAN)
   private TopicConvention topicConvention;
 
+  @Autowired
+  private KafkaHealthChecker kafkaHealthChecker;
+
   @Bean(name = "kafkaEventProducer")
   protected KafkaEventProducer createInstance() {
     return new KafkaEventProducer(
             kafkaProducer,
-            topicConvention);
+            topicConvention,
+            kafkaHealthChecker);
   }
 }
