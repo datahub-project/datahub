@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM --platform=$BUILDPLATFORM alpine:3 AS base
+FROM alpine:3 AS base
 ENV DOCKERIZE_VERSION v0.6.1
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
