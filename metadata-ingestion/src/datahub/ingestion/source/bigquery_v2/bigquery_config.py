@@ -103,6 +103,11 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         description="Convert urns to lowercase.",
     )
 
+    enable_legacy_sharded_table_support: bool = Field(
+        default=True,
+        description="Use the legacy sharded table urn suffix added.",
+    )
+
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.

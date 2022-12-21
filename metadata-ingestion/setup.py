@@ -361,7 +361,7 @@ mypy_stubs = {
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
-    "types-requests",
+    "types-requests>=2.28.11.6",
     "types-toml",
     "types-PyMySQL",
     "types-PyYAML",
