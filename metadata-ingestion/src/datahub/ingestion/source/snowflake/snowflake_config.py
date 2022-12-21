@@ -59,9 +59,14 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="Enable storing last profile date in store.",
     )
 
-    match_fully_qualified_names = bool = Field(
+    match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
+    )
+
+    enable_usage_lastrun_state: bool = Field(
+        default=True,
+        description="Enable checking last usage date in store.",
     )
 
     @validator("include_column_lineage")

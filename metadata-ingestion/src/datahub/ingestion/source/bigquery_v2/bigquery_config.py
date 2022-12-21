@@ -113,6 +113,16 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         description="Enable storing last profile date in store.",
     )
 
+    enable_lineage_lastrun_state: bool = Field(
+        default=True,
+        description="Enable checking last lineage date in store.",
+    )
+
+    enable_usage_lastrun_state: bool = Field(
+        default=True,
+        description="Enable checking last usage date in store.",
+    )
+
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.

@@ -154,6 +154,5 @@ class RedundantRunSkipHandler(
                 f" is later than the current start_time: {get_datetime_from_ts_millis_in_utc(cur_start_time_millis)}"
             )
             logger.warning(warn_msg)
-            self.source.get_report().report_warning("skip-run", warn_msg)
             return True
         return False

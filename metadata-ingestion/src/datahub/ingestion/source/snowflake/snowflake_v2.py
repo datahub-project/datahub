@@ -467,17 +467,25 @@ class SnowflakeV2Source(
             yield from self.profiler.get_workunits(databases)
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            if (
+                self.config.enable_usage_lastrun_state
+                and self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                )
             ):
                 # Skip this run
+                self.report.report_warning(
+                    "usage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
                 return
 
-            # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
-                start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )
+            if self.config.enable_usage_lastrun_state:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
 
             discovered_datasets: List[str] = [
                 self.get_dataset_identifier(table.name, schema.name, db.name)

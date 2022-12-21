@@ -625,20 +625,48 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 continue
 
         if self.config.include_table_lineage:
+            if (
+                self.config.enable_lineage_lastrun_state
+                and self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                )
+            ):
+                # Skip this run
+                self.report.report_warning(
+                    "lineage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return
+
+            if self.config.enable_lineage_lastrun_state:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+
             yield from self.generate_lineage(project_id)
 
         if self.config.include_usage_statistics:
-            if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            if (
+                self.config.enable_usage_lastrun_state
+                and self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                )
             ):
-                # Skip this run
+                self.report.report_warning(
+                    "usage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
                 return
 
-            # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
-                start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )
+            if self.config.enable_usage_lastrun_state:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+
             yield from self.generate_usage_statistics(project_id)
 
     def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
