@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
 import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { groupIdTextValidation } from '../shared/textUtil';
+import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
 
 const SuggestedNamesGroup = styled.div`
@@ -156,7 +156,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                 rules={[
                                     () => ({
                                         validator(_, value) {
-                                            if (value && groupIdTextValidation(value)) {
+                                            if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
                                             return Promise.reject(new Error('Please enter a valid Domain id'));
