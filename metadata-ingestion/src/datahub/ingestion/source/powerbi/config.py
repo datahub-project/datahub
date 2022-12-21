@@ -143,7 +143,7 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         description="Whether PowerBI native query should be parsed to extract lineage",
     )
 
-    # convert PowerBI data-set URN to lower-case
+    # convert PowerBI dataset URN to lower-case
     convert_urns_to_lowercase: bool = pydantic.Field(
         default=False,
         description="Whether to convert the PowerBI assets urns to lowercase",
