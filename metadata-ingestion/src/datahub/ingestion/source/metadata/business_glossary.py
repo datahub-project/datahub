@@ -238,6 +238,12 @@ def make_institutional_memory_mcp(
     return None
 
 
+def make_domain_mcp(
+    term_urn: str, domain_aspect: models.DomainsClass
+) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(entityUrn=term_urn, aspect=domain_aspect)
+
+
 def get_mces_from_node(
     glossaryNode: GlossaryNodeConfig,
     path: List[str],
@@ -330,7 +336,6 @@ def get_mces_from_term(
             models.StatusClass,
             models.GlossaryTermKeyClass,
             models.BrowsePathsClass,
-            models.DomainsClass,
         ]
     ] = []
     term_info = models.GlossaryTermInfoClass(
@@ -414,7 +419,9 @@ def get_mces_from_term(
     aspects.append(ownership)
 
     if glossaryTerm.domains is not None:
-        aspects.append(get_domain_class(ctx.graph, glossaryTerm.domains))
+        yield make_domain_mcp(
+            term_urn, get_domain_class(ctx.graph, glossaryTerm.domains)
+        )
 
     term_snapshot: models.GlossaryTermSnapshotClass = models.GlossaryTermSnapshotClass(
         urn=term_urn,
