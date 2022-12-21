@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.util.Map;
 
 @Data
 @AllArgsConstructor
@@ -15,4 +16,5 @@ public class Edge {
   private Urn createdActor;
   private Long updatedOn;
   private Urn updatedActor;
+  private Map<String, Object> properties;
 }
