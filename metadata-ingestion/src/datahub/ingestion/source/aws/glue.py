@@ -225,7 +225,7 @@ class GlueSource(StatefulIngestionSourceBase):
     - Table metadata, such as owner, description and parameters
     - Jobs and their component transformations, data sources, and data sinks
 
-    ## IAM permissions
+    ### IAM permissions
 
     For ingesting datasets, the following IAM permissions are required:
     ```json

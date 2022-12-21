@@ -66,13 +66,7 @@ describe('siblings', () => {
 
     cy.contains('Add Term').click();
 
-    cy.focused().type('CypressTerm');
-
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressTerm').click({force: true}));
-
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({force: true});
-
-    cy.wait(2000);
+    cy.selectOptionInTagTermModal('CypressTerm');
 
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false');
 
