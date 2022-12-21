@@ -109,6 +109,10 @@ shadowJar {
   // https://github.com/johnrengelman/shadow/issues/729
   exclude('module-info.class', 'META-INF/versions/**')
 
+  // prevent jni conflict with spark
+  exclude '**/libzstd-jni.*'
+  exclude '**/com_github_luben_zstd_*'
+
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
   relocate 'org.slf4j','datahub.shaded.org.slf4j'
   relocate 'org.apache.http','datahub.spark2.shaded.http'
