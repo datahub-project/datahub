@@ -915,7 +915,9 @@ class LookerView:
             sql_query = derived_table["sql"]
             reporter.query_parse_attempts += 1
 
-            # Skip queries that contain liquid variables. We currently don't parse them correctly
+            # Skip queries that contain liquid variables. We currently don't parse them correctly.
+            # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
+            # TODO: also support ${EXTENDS} and ${TABLE}
             if "{%" in sql_query:
                 try:
                     # test if parsing works

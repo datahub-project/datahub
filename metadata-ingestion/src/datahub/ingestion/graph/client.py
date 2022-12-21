@@ -10,7 +10,7 @@ from requests.adapters import Response
 from requests.models import HTTPError
 
 from datahub.cli.cli_utils import get_boolean_env_variable
-from datahub.configuration.common import ConfigModel, OperationalError
+from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -157,7 +157,7 @@ class DataHubGraph(DatahubRestEmitter):
             post_json_obj = post_json_transform(aspect_json)
             return aspect_type.from_obj(post_json_obj)
         else:
-            raise OperationalError(
+            raise GraphError(
                 f"Failed to find {aspect_type_name} in response {response_json}"
             )
 
@@ -297,7 +297,7 @@ class DataHubGraph(DatahubRestEmitter):
             if aspect_json:
                 return aspect_type.from_obj(json.loads(aspect_json), tuples=False)
             else:
-                raise OperationalError(
+                raise GraphError(
                     f"Failed to find {aspect_type} in response {aspect_json}"
                 )
         return None
