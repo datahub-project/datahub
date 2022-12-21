@@ -73,7 +73,6 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
         execInput.setRequestedAt(System.currentTimeMillis());
 
         Map<String, String> arguments = new HashMap<>();
-        // might have to inject pipeline name in here as well? it might not be necessary with test connection but it's something I should test
         arguments.put(RECIPE_ARG_NAME, input.getRecipe());
         if (input.getVersion() != null) {
           arguments.put(VERSION_ARG_NAME, input.getVersion());
