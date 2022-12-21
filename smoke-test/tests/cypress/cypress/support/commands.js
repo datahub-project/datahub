@@ -104,7 +104,7 @@ Cypress.Commands.add("openThreeDotDropdown", () => {
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
-  cy.contains(text).click({force: true});
+  cy.contains(text).click();
 });
 
 Cypress.Commands.add("deleteFromDropdown", () => {
