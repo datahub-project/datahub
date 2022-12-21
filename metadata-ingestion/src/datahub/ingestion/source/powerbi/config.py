@@ -90,7 +90,7 @@ class PowerBiDashboardSourceReport(SourceReport):
 class PlatformDetail:
     platform_instance: str = pydantic.Field(
         default=None,
-        description="DataHub platform instance name. It should be same as you have used in ingestion receipe of DataHub platform ingestion source",
+        description="DataHub platform instance name. It should be same as you have used in ingestion receipe of DataHub platform ingestion source of particular platform",
     )
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
@@ -141,6 +141,17 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     native_query_parsing: bool = pydantic.Field(
         default=True,
         description="Whether PowerBI native query should be parsed to extract lineage",
+    )
+
+    # convert PowerBI data-set URN to lower-case
+    convert_urns_to_lowercase: bool = pydantic.Field(
+        default=False,
+        description="Whether to convert the PowerBI assets urns to lowercase",
+    )
+    # convert lineage dataset's urns to lowercase
+    convert_lineage_urns_to_lowercase: bool = pydantic.Field(
+        default=True,
+        description="Whether to convert the urns of ingested lineage dataset to lowercase",
     )
 
     @validator("dataset_type_mapping")
