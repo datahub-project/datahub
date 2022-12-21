@@ -47,6 +47,11 @@ public class DataHubKafkaProducerFactory {
 
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getSerializer());
 
+    props.put(ProducerConfig.RETRIES_CONFIG, kafkaConfiguration.getProducer().getRetryCount());
+    props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, kafkaConfiguration.getProducer().getDeliveryTimeout());
+    props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaConfiguration.getProducer().getRequestTimeout());
+    props.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, kafkaConfiguration.getProducer().getBackoffTimeout());
+
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()
         .stream()

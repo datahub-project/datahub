@@ -8,14 +8,17 @@ import lombok.Setter;
 
 @Data
 @AllArgsConstructor
-public class KafkaConfiguration {
+public class ProducerConfiguration {
 
   @Setter(AccessLevel.NONE)
-  private String bootstrapServers;
+  final private int retryCount;
 
   @Setter(AccessLevel.NONE)
-  private SchemaRegistryConfiguration schemaRegistry;
+  final private int deliveryTimeout;
 
   @Setter(AccessLevel.NONE)
-  private ProducerConfiguration producer;
+  final private int requestTimeout;
+
+  @Setter(AccessLevel.NONE)
+  final private int backoffTimeout;
 }

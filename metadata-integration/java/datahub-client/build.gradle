@@ -28,7 +28,6 @@ tasks.withType(Test).configureEach {
 dependencies {
 
   implementation project(':metadata-models')
-  //implementation project(':kafka-avro-serde')
   implementation externalDependency.kafkaAvroSerde
 
   compileOnly externalDependency.httpAsyncClient

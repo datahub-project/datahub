@@ -47,7 +47,8 @@ import static org.testng.Assert.*;
 @ActiveProfiles("test")
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT,
-    classes = {OpenAPISpringTestServer.class, OpenAPISpringTestServerConfiguration.class})
+    classes = {OpenAPISpringTestServer.class, OpenAPISpringTestServerConfiguration.class,
+        SchemaRegistryControllerTestConfiguration.class})
 @EnableKafka
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
 
