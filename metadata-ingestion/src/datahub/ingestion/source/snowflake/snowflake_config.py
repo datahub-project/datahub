@@ -157,8 +157,10 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         sti = values.get("statefule_ingestion")
         if not sti or not sti.get("enabled"):
-            logger.warning("Stateful ingestion is disabled, disabling related config options as well")
-            values['enable_profiling_state'] = False
-            values['enable_usage_lastrun_state'] = False
+            logger.warning(
+                "Stateful ingestion is disabled, disabling related config options as well"
+            )
+            values["enable_profiling_state"] = False
+            values["enable_usage_lastrun_state"] = False
 
         return values
