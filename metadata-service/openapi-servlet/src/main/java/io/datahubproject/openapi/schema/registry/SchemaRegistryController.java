@@ -134,7 +134,16 @@ public class SchemaRegistryController
 
   @Override
   public ResponseEntity<SchemaString> getSchema(Integer id, String subject, String format, Boolean fetchMaxId) {
-    return SchemasApi.super.getSchema(id, subject, format, fetchMaxId);
+    return _schemaRegistryService.getSchemaForId(id).map(schema -> {
+      SchemaString result = new SchemaString();
+      result.setMaxId(id);
+      result.setSchemaType("AVRO");
+      result.setSchema(schema.toString());
+      return new ResponseEntity<>(result, HttpStatus.OK);
+    }).orElseGet(() -> {
+      log.error("Couldn't find topic with id {}.", id);
+      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    });
   }
 
   @Override

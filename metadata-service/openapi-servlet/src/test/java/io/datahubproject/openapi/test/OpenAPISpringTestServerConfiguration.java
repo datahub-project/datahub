@@ -5,6 +5,8 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.config.KafkaConfiguration;
 import com.linkedin.metadata.config.SchemaRegistryConfiguration;
 import com.linkedin.mxe.Topics;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import javax.annotation.Nonnull;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -45,7 +47,9 @@ public class OpenAPISpringTestServerConfiguration {
   @Bean(name = "kafkaContainer")
   @Scope("singleton")
   public KafkaContainer kafkaContainer() {
-    final KafkaContainer container = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:5.3.1"));
+    final KafkaContainer container = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:5.3.1"))
+        .withStartupAttempts(3)
+        .withStartupTimeout(Duration.of(1, ChronoUnit.MINUTES));
     container.start();
     return container;
   }
