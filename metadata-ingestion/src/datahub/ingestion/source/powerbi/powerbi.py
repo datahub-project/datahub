@@ -57,7 +57,7 @@ LOGGER = logging.getLogger(__name__)
 
 class Mapper:
     """
-    Transfrom PowerBi concepts Dashboard, Dataset and Tile to DataHub concepts Dashboard, Dataset and Chart
+    Transform PowerBi concepts Dashboard, Dataset and Tile to DataHub concepts Dashboard, Dataset and Chart
     """
 
     class EquableMetadataWorkUnit(MetadataWorkUnit):
@@ -79,6 +79,21 @@ class Mapper:
     ):
         self.__config = config
         self.__reporter = reporter
+
+    @staticmethod
+    def urn_to_lowercase(value: str, flag: bool) -> str:
+        if flag is True:
+            return value.lower()
+
+        return value
+
+    def lineage_urn_to_lowercase(self, value):
+        return Mapper.urn_to_lowercase(
+            value, self.__config.convert_lineage_urns_to_lowercase
+        )
+
+    def assets_urn_to_lowercase(self, value):
+        return Mapper.urn_to_lowercase(value, self.__config.convert_urns_to_lowercase)
 
     def new_mcp(
         self,
@@ -131,7 +146,7 @@ class Mapper:
             # Create a URN for dataset
             ds_urn = builder.make_dataset_urn(
                 platform=self.__config.platform_name,
-                name=f"{table.full_name}",
+                name=self.assets_urn_to_lowercase(table.full_name),
                 env=self.__config.env,
             )
 
@@ -192,7 +207,7 @@ class Mapper:
                         platform=platform_name,
                         platform_instance=platform_instance_name,
                         env=platform_env,
-                        name=upstream_table.full_name,
+                        name=self.lineage_urn_to_lowercase(upstream_table.full_name),
                     )
                     upstream_table_class = UpstreamClass(
                         upstream_urn,
@@ -219,7 +234,7 @@ class Mapper:
         Map PowerBi tile to datahub chart
         """
         LOGGER.info("Converting tile {}(id={}) to chart".format(tile.title, tile.id))
-        # Create an URN for chart
+        # Create a URN for chart
         chart_urn = builder.make_chart_urn(
             self.__config.platform_name, tile.get_urn_part()
         )
