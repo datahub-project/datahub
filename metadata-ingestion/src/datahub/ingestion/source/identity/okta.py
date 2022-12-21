@@ -263,7 +263,6 @@ class OktaSource(Source):
         self.okta_client = self._create_okta_client()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         # Step 0: get or create the event loop
         # This method can be called on the main thread or an async thread, so we must create a new loop if one doesn't exist
         # See https://docs.python.org/3/library/asyncio-eventloop.html for more info.
@@ -318,7 +317,6 @@ class OktaSource(Source):
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = {}
         if self.config.ingest_group_membership and okta_groups is not None:
-
             # Fetch membership for each group.
             for okta_group in okta_groups:
                 datahub_corp_group_urn = self._map_okta_group_profile_to_urn(
@@ -365,7 +363,6 @@ class OktaSource(Source):
             for user_count, datahub_corp_user_snapshot in enumerate(
                 datahub_corp_user_snapshots
             ):
-
                 # Add GroupMembership aspect populated in Step 2 if applicable.
                 if (
                     datahub_corp_user_snapshot.urn

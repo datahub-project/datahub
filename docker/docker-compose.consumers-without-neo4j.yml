@@ -16,9 +16,6 @@ services:
     container_name: datahub-mae-consumer
     ports:
       - "9091:9091"
-    depends_on:
-      - kafka-setup
-      - elasticsearch-setup
 
   datahub-mce-consumer:
     build:
@@ -31,5 +28,4 @@ services:
     ports:
       - "9090:9090"
     depends_on:
-      - kafka-setup
       - datahub-gms

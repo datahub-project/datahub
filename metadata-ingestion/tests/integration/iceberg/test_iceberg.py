@@ -126,7 +126,6 @@ def test_iceberg_stateful_ingest(pytestconfig, tmp_path, mock_time, mock_datahub
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
     ) as mock_checkpoint:
-
         # Both checkpoint and reporting will use the same mocked graph instance.
         mock_checkpoint.return_value = mock_datahub_graph
 

@@ -297,7 +297,7 @@ class TestPipeline(object):
         with patch.object(
             FakeCommittable, "commit", wraps=fake_committable.commit
         ) as mock_commit:
-            pipeline.ctx.register_reporter(fake_committable)
+            pipeline.ctx.register_checkpointer(fake_committable)
 
             pipeline.run()
             # check that we called the commit method once only if should_commit is True

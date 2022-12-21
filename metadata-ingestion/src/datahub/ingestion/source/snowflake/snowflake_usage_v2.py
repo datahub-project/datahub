@@ -124,7 +124,6 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def get_usage_workunits(
         self, conn: SnowflakeConnection, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-
         with PerfTimer() as timer:
             logger.info("Getting aggregated usage statistics")
             results = self.query(
@@ -238,7 +237,6 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def _get_snowflake_history(
         self, conn: SnowflakeConnection
     ) -> Iterable[SnowflakeJoinedAccessEvent]:
-
         logger.info("Getting access history")
         with PerfTimer() as timer:
             query = self._make_operations_query()
@@ -254,7 +252,6 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         return SnowflakeQuery.operational_data_for_time_window(start_time, end_time)
 
     def _check_usage_date_ranges(self, conn: SnowflakeConnection) -> Any:
-
         with PerfTimer() as timer:
             try:
                 results = self.query(
@@ -303,7 +300,6 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
             # NOTE: In earlier `snowflake-usage` connector this was base_objects_accessed, which is incorrect
             for obj in event.objects_modified:
-
                 resource = obj.objectName
 
                 dataset_identifier = self.get_dataset_identifier_from_qualified_name(
