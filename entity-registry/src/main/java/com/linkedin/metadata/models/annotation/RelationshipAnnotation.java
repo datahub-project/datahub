@@ -24,6 +24,7 @@ public class RelationshipAnnotation {
   private static final String CREATED_ACTOR = "createdActor";
   private static final String UPDATED_ON = "updatedOn";
   private static final String UPDATED_ACTOR = "updatedActor";
+  private static final String PROPERTIES = "properties";
 
   String name;
   List<String> validDestinationTypes;
@@ -33,6 +34,7 @@ public class RelationshipAnnotation {
   String createdActor;
   String updatedOn;
   String updatedActor;
+  String properties;
 
   @Nonnull
   public static RelationshipAnnotation fromPegasusAnnotationObject(
@@ -82,6 +84,7 @@ public class RelationshipAnnotation {
     final Optional<String> createdActor = AnnotationUtils.getField(map, CREATED_ACTOR, String.class);
     final Optional<String> updatedOn = AnnotationUtils.getField(map, UPDATED_ON, String.class);
     final Optional<String> updatedActor = AnnotationUtils.getField(map, UPDATED_ACTOR, String.class);
+    final Optional<String> properties = AnnotationUtils.getField(map, PROPERTIES, String.class);
 
     return new RelationshipAnnotation(
         name.get(),
@@ -91,6 +94,7 @@ public class RelationshipAnnotation {
         createdOn.orElse(null),
         createdActor.orElse(null),
         updatedOn.orElse(null),
-        updatedActor.orElse(null)
+        updatedActor.orElse(null),
+        properties.orElse(null)
     );  }
 }

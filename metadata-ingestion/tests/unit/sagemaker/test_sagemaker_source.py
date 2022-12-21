@@ -50,11 +50,9 @@ def sagemaker_source() -> SagemakerSource:
 
 @freeze_time(FROZEN_TIME)
 def test_sagemaker_ingest(tmp_path, pytestconfig):
-
     sagemaker_source_instance = sagemaker_source()
 
     with Stubber(sagemaker_source_instance.sagemaker_client) as sagemaker_stubber:
-
         sagemaker_stubber.add_response(
             "list_actions",
             list_actions_response,
@@ -153,7 +151,6 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         )
 
         for job_type in job_types:
-
             job = job_stubs[job_type.value]
 
             job_info = job_type_to_info[job_type]
@@ -165,7 +162,6 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             )
 
         for job_type in job_types:
-
             job = job_stubs[job_type.value]
 
             job_info = job_type_to_info[job_type]

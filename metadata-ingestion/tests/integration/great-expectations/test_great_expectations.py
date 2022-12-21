@@ -43,7 +43,6 @@ def test_ge_ingest(
     golden_json,
     **kwargs,
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/great-expectations"
 
     with docker_compose_runner(

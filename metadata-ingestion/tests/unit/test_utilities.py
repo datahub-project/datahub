@@ -323,7 +323,6 @@ year(order_date)"""
 
 
 def test_sqllineage_sql_parser_tables_with_special_names():
-
     # The hyphen appears after the special token in tables names, and before the special token in the column names.
     sql_query = """
 SELECT `column-date`, `column-hour`, `column-timestamp`, `column-data`, `column-admin`

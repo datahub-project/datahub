@@ -93,7 +93,6 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         self.logger = logger
 
     def show_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
-
         databases: List[SnowflakeDatabase] = []
 
         cur = self.query(
@@ -114,7 +113,6 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
     def get_databases(
         self, conn: SnowflakeConnection, db_name: str
     ) -> List[SnowflakeDatabase]:
-
         databases: List[SnowflakeDatabase] = []
 
         cur = self.query(
@@ -136,7 +134,6 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
     def get_schemas_for_database(
         self, conn: SnowflakeConnection, db_name: str
     ) -> List[SnowflakeSchema]:
-
         snowflake_schemas = []
 
         cur = self.query(
