@@ -124,6 +124,19 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
     )
 
     @root_validator(pre=False)
+    def stateful_option_validator(cls, values: Dict) -> Dict:
+        # Extra default SQLAlchemy option for better connection pooling and threading.
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            logger.warning("Stateful ingestion is disabled, disabling related config options as well")
+            values['enable_profiling_state'] = False
+            values['enable_lineage_lastrun_state'] = False
+            values['enable_usage_lastrun_state'] = False
+
+        return values
+
+    @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
