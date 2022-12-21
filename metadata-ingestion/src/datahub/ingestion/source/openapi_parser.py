@@ -1,6 +1,5 @@
 import json
 import re
-import time
 import warnings
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
@@ -8,7 +7,6 @@ import requests
 import yaml
 from requests.auth import HTTPBasicAuth
 
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchemaClass,
     SchemaField,
@@ -385,16 +383,12 @@ def set_metadata(
         )
         canonical_schema.append(field)
 
-    actor = "urn:li:corpuser:etl"
-    sys_time = int(time.time() * 1000)
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,
         hash="",
         platformSchema=OtherSchemaClass(rawSchema=""),
-        created=AuditStamp(time=sys_time, actor=actor),
-        lastModified=AuditStamp(time=sys_time, actor=actor),
         fields=canonical_schema,
     )
     return schema_metadata
