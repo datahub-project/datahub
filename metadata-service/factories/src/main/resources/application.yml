@@ -169,7 +169,7 @@ kafka:
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   producer:
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
-    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:15000}
+    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:

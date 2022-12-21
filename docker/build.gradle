@@ -18,6 +18,7 @@ ext {
 
 task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
     dependsOn(quickstart_modules.collect { it + ':dockerTag-version' })
+    shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
 
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
@@ -33,6 +34,8 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
 }
 
 task quickstartNuke(type: Exec, dependsOn: ":metadata-ingestion:install") {
+    shouldRunAfter(':metadata-ingestion:clean')
+
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',
             'datahub docker nuke'
