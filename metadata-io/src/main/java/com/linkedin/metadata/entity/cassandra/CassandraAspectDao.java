@@ -152,10 +152,20 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert, @Nullable ExtraIngestParams extraIngestParams) {
     validateConnection();
-    SimpleStatement statement = generateSaveStatement(aspect, insert, extraIngestParams);
+    SimpleStatement statement = generateSaveStatement(aspect, insert, extraIngestParams, null, null);
     ResultSet resultSet = _cqlSession.execute(statement);
     if (!resultSet.wasApplied()) {
-      throw new PreconditionFailedException("Condition for Conditional Update is not met");
+      Long updateIfCreatedOn = extraIngestParams != null ? extraIngestParams.getCreatedOn(aspect.getUrn(), aspect.getAspect()) : null;
+      if (updateIfCreatedOn != null) {
+        if (insert) {
+          throw new PreconditionFailedException("Failed to insert " + aspect.getUrn() + "+" + aspect.getAspect()
+                  + ". Expected no existing aspect, but found one created");
+        } else {
+          throw new PreconditionFailedException("Failed to update " + aspect.getUrn() + "+" + aspect.getAspect()
+                  + ". Expected an existing aspect created at " + updateIfCreatedOn
+                  + ", but found another one");
+        }
+      }
     }
   }
 
@@ -515,7 +525,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               oldActor,
               oldImpersonator
       );
-      batch = batch.add(generateSaveStatement(aspect, true, extraIngestParams));
+      batch = batch.add(generateSaveStatement(aspect, true, extraIngestParams, oldTime, oldActor));
     }
 
     // Save newValue as the latest version (v0)
@@ -529,15 +539,20 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             newActor,
             newImpersonator
     );
-    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null, extraIngestParams));
+    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null, extraIngestParams, oldTime, oldActor));
     ResultSet resultSet = _cqlSession.execute(batch);
     if (!resultSet.wasApplied()) {
-      throw new PreconditionFailedException("Condition for Conditional Update is not met");
+      Long updateIfCreatedOn = extraIngestParams != null ? extraIngestParams.getCreatedOn(aspect.getUrn(), aspect.getAspect()) : null;
+      throw new PreconditionFailedException("Failed to update " + urn + "+" + aspectName
+              + ". Expected an existing aspect created at " + updateIfCreatedOn
+              + ", but found one created at " + oldTime
+              + " by " + oldActor);
     }
     return largestVersion;
   }
 
-  private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert, ExtraIngestParams extraIngestParams) {
+  private SimpleStatement generateSaveStatement(EntityAspect aspect, boolean insert, ExtraIngestParams extraIngestParams,
+                                                Timestamp oldTime, String oldActor) {
     String entity;
     Long updateIfCreatedOn = extraIngestParams != null ? extraIngestParams.getCreatedOn(aspect.getUrn(), aspect.getAspect()) : null;
     try {
@@ -558,7 +573,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
               .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()));
       if (updateIfCreatedOn != null) {
         if (updateIfCreatedOn != 0) {
-          throw new PreconditionFailedException("Conditional Update value must be 0 for insert operation");
+          throw new PreconditionFailedException("Failed to update " + aspect.getUrn() + "+" + aspect.getAspect()
+                  + ". Expected an existing aspect created at " + updateIfCreatedOn + ", but found none.");
         }
         ri = ri.ifNotExists();
       }
@@ -578,7 +594,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
       if (updateIfCreatedOn != null) {
         if (updateIfCreatedOn == 0) {
-          throw new PreconditionFailedException("Conditional Update value must be greater then 0 for update operation");
+          throw new PreconditionFailedException("Failed to insert " + aspect.getUrn() + "+" + aspect.getAspect()
+                  + ". Expected no existing aspect, but found one created at " + oldTime
+                  + " by " + oldActor);
         }
         u = u.ifColumn(CassandraAspect.CREATED_ON_COLUMN).isEqualTo(literal(updateIfCreatedOn));
       } else {
