@@ -137,6 +137,16 @@
             "type" : "int",
             "doc" : "Degree of relationship (number of hops to get to entity)",
             "default" : 1
+          }, {
+            "name" : "createdOn",
+            "type" : "long",
+            "doc" : "Timestamp for when this lineage relationship wa created. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "createdActor",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the actor that created this lineage relationship. Could be null.",
+            "optional" : true
           } ]
         }
       },

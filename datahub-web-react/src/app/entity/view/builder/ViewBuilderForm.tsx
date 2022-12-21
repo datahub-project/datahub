@@ -70,6 +70,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                         hasFeedback
                     >
                         <Input
+                            data-testid="view-name-input"
                             placeholder="Data Analyst"
                             onChange={(event) => setName(event.target.value)}
                             disabled={mode === ViewBuilderMode.PREVIEW}
@@ -80,6 +81,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                     <Typography.Paragraph>Write a description for your View.</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input.TextArea
+                            data-testid="view-description-input"
                             placeholder="This View is useful for Data Analysts"
                             onChange={(event) => setDescription(event.target.value)}
                             disabled={mode === ViewBuilderMode.PREVIEW}
