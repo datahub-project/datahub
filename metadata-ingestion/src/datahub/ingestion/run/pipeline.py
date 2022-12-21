@@ -463,6 +463,11 @@ class Pipeline:
             )
 
     def log_ingestion_stats(self) -> None:
+        source_failures = self._approx_all_vals(self.source.get_report().failures)
+        source_warnings = self._approx_all_vals(self.source.get_report().warnings)
+        sink_failures = len(self.sink.get_report().failures)
+        sink_warnings = len(self.sink.get_report().warnings)
+
         telemetry.telemetry_instance.ping(
             "ingest_stats",
             {
@@ -471,6 +476,12 @@ class Pipeline:
                 "records_written": stats.discretize(
                     self.sink.get_report().total_records_written
                 ),
+                "source_failures": stats.discretize(source_failures),
+                "source_warnings": stats.discretize(source_warnings),
+                "sink_failures": stats.discretize(sink_failures),
+                "sink_warnings": stats.discretize(sink_warnings),
+                "failures": stats.discretize(source_failures + sink_failures),
+                "warnings": stats.discretize(source_warnings + sink_warnings),
             },
             self.ctx.graph,
         )
