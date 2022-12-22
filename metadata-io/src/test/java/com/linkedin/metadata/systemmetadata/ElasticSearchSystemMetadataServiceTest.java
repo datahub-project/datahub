@@ -21,7 +21,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.linkedin.metadata.ElasticSearchTestConfiguration.syncAfterWrite;
-import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
 import static org.testng.Assert.assertEquals;
 
 @Import(ElasticSearchTestConfiguration.class)
