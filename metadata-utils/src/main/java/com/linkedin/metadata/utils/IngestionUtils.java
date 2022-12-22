@@ -3,6 +3,8 @@ package com.linkedin.metadata.utils;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import javax.annotation.Nonnull;
+
 
 public class IngestionUtils {
 
@@ -18,9 +20,9 @@ public class IngestionUtils {
    * @param pipelineName the new pipeline name in the recipe.
    * @return a modified recipe JSON string
    */
-  public static String injectPipelineName(final String originalJson, final String pipelineName) {
+  public static String injectPipelineName(@Nonnull String originalJson, @Nonnull final String pipelineName) {
     try {
-      JSONObject jsonRecipe = new JSONObject(originalJson);
+      final JSONObject jsonRecipe = new JSONObject(originalJson);
       boolean hasPipelineName = jsonRecipe.has(PIPELINE_NAME) && jsonRecipe.get(PIPELINE_NAME) != null && !jsonRecipe.get(PIPELINE_NAME).equals("");
 
       if (!hasPipelineName) {
@@ -28,7 +30,7 @@ public class IngestionUtils {
         return jsonRecipe.toString();
       }
     } catch (JSONException e) {
-      throw new IllegalArgumentException("Failed to create execution request: Invalid recipe json provided.");
+      throw new IllegalArgumentException("Failed to create execution request: Invalid recipe json provided.", e);
     }
     return originalJson;
   }
