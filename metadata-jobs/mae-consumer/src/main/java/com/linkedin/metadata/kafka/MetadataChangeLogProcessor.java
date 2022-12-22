@@ -91,8 +91,7 @@ public class MetadataChangeLogProcessor {
         // Just skip this hook and continue. - Note that this represents "at most once" processing.
         MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").increment();
         log.error("Failed to execute MCL hook with name {}", hook.getClass().getCanonicalName(), e);
-      }
-      finally {
+      } finally {
         ignored.stop();
       }
     }

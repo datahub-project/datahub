@@ -110,8 +110,7 @@ public class ESGraphQueryDAO {
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }

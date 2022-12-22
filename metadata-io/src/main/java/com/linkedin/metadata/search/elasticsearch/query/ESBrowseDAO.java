@@ -94,8 +94,7 @@ public class ESBrowseDAO {
       try {
         groupsResponse =
             client.search(constructGroupsSearchRequest(indexName, path, requestMap), RequestOptions.DEFAULT);
-      }
-      finally {
+      } finally {
         ignoredGS.stop();
       }
       final BrowseGroupsResult browseGroupsResult = extractGroupsResponse(groupsResponse, path, from, size);
@@ -113,8 +112,7 @@ public class ESBrowseDAO {
         entitiesResponse =
             client.search(constructEntitiesSearchRequest(indexName, path, requestMap, entityFrom, entitySize),
                 RequestOptions.DEFAULT);
-      }
-      finally {
+      } finally {
         ignoredES.stop();
       }
       final int numEntities = (int) entitiesResponse.getHits().getTotalHits().value;

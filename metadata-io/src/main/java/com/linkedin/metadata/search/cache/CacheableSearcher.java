@@ -78,8 +78,7 @@ public class CacheableSearcher<K> {
           .setFrom(from)
           .setPageSize(size)
           .setNumEntities(batchedResult.getNumEntities());
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }
@@ -109,8 +108,7 @@ public class CacheableSearcher<K> {
         result = searcher.apply(batch);
       }
       return result;
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }

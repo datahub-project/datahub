@@ -50,8 +50,7 @@ public class ESSearchDAO {
     } catch (IOException e) {
       log.error("Count query failed:" + e.getMessage());
       throw new ESQueryException("Count query failed:", e);
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }
@@ -76,8 +75,7 @@ public class ESSearchDAO {
       }
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }
@@ -184,8 +182,7 @@ public class ESSearchDAO {
     } catch (Exception e) {
       log.error("Aggregation query failed", e);
       throw new ESQueryException("Aggregation query failed:", e);
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }

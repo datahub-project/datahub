@@ -73,8 +73,7 @@ public class PlatformEventProcessor {
         // Just skip this hook and continue.
         MetricUtils.counter(this.getClass(), hook.getClass().getSimpleName() + "_failure").increment();
         log.error("Failed to execute PE hook with name {}", hook.getClass().getCanonicalName(), e);
-      }
-      finally {
+      } finally {
         ignored.stop();
       }
     }

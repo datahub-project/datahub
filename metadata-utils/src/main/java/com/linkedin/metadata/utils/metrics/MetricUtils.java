@@ -16,8 +16,8 @@ public class MetricUtils {
   public static final String DELIMITER = "_";
 
   private static final PrometheusMeterRegistry PROMETHEUS_METER_REGISTRY = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
-  private static final Map<String, LongTaskTimer> timerMap = new HashMap<>();
-  private static final Map<String, DistributionSummary> histogramMap = new HashMap<>();
+  private static final Map<String, LongTaskTimer> TIMER_MAP = new HashMap<>();
+  private static final Map<String, DistributionSummary> HISTOGRAM_MAP = new HashMap<>();
 
   public static Counter counter(Class<?> klass, String... subNames) {
     return counter(klass.toString(), subNames);
@@ -34,10 +34,10 @@ public class MetricUtils {
 
   public static LongTaskTimer timer(String metricName, String... subNames) {
     String name = buildName(metricName, subNames);
-    if (!timerMap.containsKey(name)) {
-      timerMap.put(name, LongTaskTimer.builder(name).register(PROMETHEUS_METER_REGISTRY));
+    if (!TIMER_MAP.containsKey(name)) {
+      TIMER_MAP.put(name, LongTaskTimer.builder(name).register(PROMETHEUS_METER_REGISTRY));
     }
-    return timerMap.get(name);
+    return TIMER_MAP.get(name);
   }
 
   public static DistributionSummary histogram(Class<?> klass, String... subNames) {
@@ -46,10 +46,10 @@ public class MetricUtils {
 
   public static DistributionSummary histogram(String metricName, String... subNames) {
     String name = buildName(metricName, subNames);
-    if (!histogramMap.containsKey(name)) {
-      histogramMap.put(name, DistributionSummary.builder(name).register(PROMETHEUS_METER_REGISTRY));
+    if (!HISTOGRAM_MAP.containsKey(name)) {
+      HISTOGRAM_MAP.put(name, DistributionSummary.builder(name).register(PROMETHEUS_METER_REGISTRY));
     }
-    return histogramMap.get(name);
+    return HISTOGRAM_MAP.get(name);
   }
 
   public static void exceptionCounter(Class<?> klass, String metricName, Throwable t) {

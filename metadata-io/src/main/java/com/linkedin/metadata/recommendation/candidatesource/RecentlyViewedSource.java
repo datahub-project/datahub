@@ -96,8 +96,7 @@ public class RecentlyViewedSource implements RecommendationSource {
     } catch (Exception e) {
       log.error("Search query to get most recently viewed entities failed", e);
       throw new ESQueryException("Search query failed:", e);
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }

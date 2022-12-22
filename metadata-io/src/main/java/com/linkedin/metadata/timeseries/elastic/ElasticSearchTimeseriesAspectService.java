@@ -175,8 +175,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     } catch (Exception e) {
       log.error("Search query failed:", e);
       throw new ESQueryException("Search query failed:", e);
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
     return Arrays.stream(hits.getHits())

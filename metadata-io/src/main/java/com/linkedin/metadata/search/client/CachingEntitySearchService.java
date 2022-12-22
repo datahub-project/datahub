@@ -150,8 +150,7 @@ public class CachingEntitySearchService {
         result = getRawAutoCompleteResults(entityName, input, field, filters, limit);
       }
       return result;
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }
@@ -186,8 +185,7 @@ public class CachingEntitySearchService {
         result = getRawBrowseResults(entityName, path, filters, from, size);
       }
       return result;
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }

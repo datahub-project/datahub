@@ -72,8 +72,7 @@ public class AllEntitiesSearchAggregator {
     LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").start();
     try {
       nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
     if (!entities.isEmpty()) {
@@ -166,8 +165,7 @@ public class AllEntitiesSearchAggregator {
           _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags)))
           .stream()
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
     return searchResults;

@@ -432,8 +432,7 @@ public class Neo4jGraphService implements GraphService {
     LongTaskTimer.Sample ignored = MetricUtils.timer(this.getClass(), "runQuery").start();
     try {
       return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
-    }
-    finally {
+    } finally {
       ignored.stop();
     }
   }
