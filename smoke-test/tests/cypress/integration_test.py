@@ -1,5 +1,6 @@
 from typing import List
 
+import datetime
 import pytest
 import subprocess
 import os
@@ -99,7 +100,12 @@ for id_list in ONBOARDING_ID_LISTS:
     ONBOARDING_IDS.extend(id_list)
 
 
+def print_now():
+    print(f"current time is {datetime.datetime.now()}")
+
+
 def ingest_data():
+    print_now()
     print("creating onboarding data file")
     create_datahub_step_state_aspects(
         get_admin_username(),
@@ -107,26 +113,33 @@ def ingest_data():
         f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}",
     )
 
+    print_now()
     print("ingesting test data")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_SCHEMA_BLAME_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
+    print_now()
+    print("completed ingesting test data")
 
 
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data():
     ingest_data()
     yield
+    print_now()
     print("removing test data")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_SCHEMA_BLAME_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
 
+    print_now()
     print("deleting onboarding data file")
     if os.path.exists(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"):
         os.remove(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
+    print_now()
+    print("deleted onboarding data")
 
 
 def test_run_cypress(frontend_session, wait_for_healthchecks):
