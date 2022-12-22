@@ -155,7 +155,7 @@ public class GlossaryUtilsTest {
 
     final ResourceSpec resourceSpec = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn.toString());
     mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec);
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn, mockClient));
   }
@@ -167,13 +167,13 @@ public class GlossaryUtilsTest {
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
     final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.ALLOW, resourceSpec3);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.ALLOW, resourceSpec3);
 
     final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec2);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
 
     final ResourceSpec resourceSpec1 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec1);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
   }
@@ -185,13 +185,13 @@ public class GlossaryUtilsTest {
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
     final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec3);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
 
     final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec2);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
 
     final ResourceSpec resourceSpec1 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec1);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
   }
@@ -203,10 +203,10 @@ public class GlossaryUtilsTest {
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
     final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.ALLOW, resourceSpec2);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.ALLOW, resourceSpec2);
 
     final ResourceSpec resourceSpec1 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec1);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
 
     assertTrue(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn1, mockClient));
   }
@@ -218,10 +218,10 @@ public class GlossaryUtilsTest {
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
     final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec3);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
 
     final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec2);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn2, mockClient));
   }
@@ -233,7 +233,7 @@ public class GlossaryUtilsTest {
     mockAuthRequest("MANAGE_GLOSSARIES", AuthorizationResult.Type.DENY, null);
 
     final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN_RECURSIVELY", AuthorizationResult.Type.DENY, resourceSpec3);
+    mockAuthRequest("MANAGE_ALL_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
 
     assertFalse(GlossaryUtils.canManageChildrenEntities(mockContext, parentNodeUrn3, mockClient));
   }
