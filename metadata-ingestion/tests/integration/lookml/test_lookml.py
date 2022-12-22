@@ -325,11 +325,8 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
     pipeline.run()
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=False)
-    try:
+    with pytest.raises(PipelineExecutionError):  # we expect the source to have warnings
         pipeline.raise_from_status(raise_warnings=True)
-        assert False, "Pipeline should have generated warnings"
-    except PipelineExecutionError:
-        pass
 
     mce_helpers.check_golden_file(
         pytestconfig,

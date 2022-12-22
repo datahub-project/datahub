@@ -83,7 +83,7 @@ import {
     PROJECT_NAME,
 } from './lookml';
 import { PRESTO, PRESTO_HOST_PORT, PRESTO_DATABASE, PRESTO_USERNAME, PRESTO_PASSWORD } from './presto';
-import { BIGQUERY_BETA, MYSQL, UNITY_CATALOG } from '../constants';
+import { BIGQUERY_BETA, DBT_CLOUD, MYSQL, UNITY_CATALOG } from '../constants';
 import { BIGQUERY_BETA_PROJECT_ID, DATASET_ALLOW, DATASET_DENY, PROJECT_ALLOW, PROJECT_DENY } from './bigqueryBeta';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from './mysql';
 import { MSSQL, MSSQL_DATABASE, MSSQL_HOST_PORT, MSSQL_PASSWORD, MSSQL_USERNAME } from './mssql';
@@ -100,6 +100,22 @@ import {
     UNITY_TABLE_DENY,
     WORKSPACE_URL,
 } from './unity_catalog';
+import {
+    DBT_CLOUD_ACCOUNT_ID,
+    DBT_CLOUD_JOB_ID,
+    DBT_CLOUD_PROJECT_ID,
+    INCLUDE_MODELS,
+    INCLUDE_SEEDS,
+    INCLUDE_SOURCES,
+    INCLUDE_TEST_DEFINITIONS,
+    INCLUDE_TEST_RESULTS,
+    EXTRACT_OWNERS as DBT_EXTRACT_OWNERS,
+    NODE_ALLOW,
+    NODE_DENY,
+    TARGET_PLATFORM,
+    TARGET_PLATFORM_INSTANCE,
+    DBT_CLOUD_TOKEN,
+} from './dbt_cloud';
 
 export enum RecipeSections {
     Connection = 0,
@@ -363,6 +379,27 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         advancedFields: [INCLUDE_TABLE_LINEAGE, INCLUDE_COLUMN_LINEAGE, STATEFUL_INGESTION_ENABLED],
         filterSectionTooltip: 'Include or exclude specific Metastores, Catalogs, Schemas, and Tables from ingestion.',
+    },
+    [DBT_CLOUD]: {
+        fields: [
+            DBT_CLOUD_ACCOUNT_ID,
+            DBT_CLOUD_PROJECT_ID,
+            DBT_CLOUD_JOB_ID,
+            DBT_CLOUD_TOKEN,
+            TARGET_PLATFORM,
+            TARGET_PLATFORM_INSTANCE,
+        ],
+        filterFields: [NODE_ALLOW, NODE_DENY],
+        advancedFields: [
+            INCLUDE_MODELS,
+            INCLUDE_SOURCES,
+            INCLUDE_SEEDS,
+            INCLUDE_TEST_DEFINITIONS,
+            INCLUDE_TEST_RESULTS,
+            DBT_EXTRACT_OWNERS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific dbt Node (resources) from ingestion.',
     },
 };
 

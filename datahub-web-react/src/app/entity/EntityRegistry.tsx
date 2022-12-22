@@ -128,6 +128,10 @@ export default class EntityRegistry {
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
+                downstreamRelationships: genericEntityProperties?.downstream?.relationships
+                    ?.filter((relationship) => relationship.entity)
+                    // eslint-disable-next-line @typescript-eslint/dot-notation
+                    ?.filter((relationship) => !relationship.entity?.['status']?.removed),
                 numDownstreamChildren: genericEntityProperties?.downstream?.total,
                 upstreamChildren: genericEntityProperties?.upstream?.relationships
                     ?.filter((relationship) => relationship.entity)
@@ -137,12 +141,17 @@ export default class EntityRegistry {
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
+                upstreamRelationships: genericEntityProperties?.upstream?.relationships
+                    ?.filter((relationship) => relationship.entity)
+                    // eslint-disable-next-line @typescript-eslint/dot-notation
+                    ?.filter((relationship) => !relationship.entity?.['status']?.removed),
                 numUpstreamChildren: genericEntityProperties?.upstream?.total,
                 status: genericEntityProperties?.status,
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
                 fineGrainedLineages: genericEntityProperties?.fineGrainedLineages,
                 schemaMetadata: genericEntityProperties?.schemaMetadata,
                 inputFields: genericEntityProperties?.inputFields,
+                canEditLineage: genericEntityProperties?.privileges?.canEditLineage,
             } as FetchedEntity) || undefined
         );
     }

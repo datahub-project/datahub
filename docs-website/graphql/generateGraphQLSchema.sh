@@ -15,3 +15,4 @@ cat ../../datahub-graphql-core/src/main/resources/search.graphql >> combined.gra
 cat ../../datahub-graphql-core/src/main/resources/tests.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/timeline.graphql >> combined.graphql
 cat ../../datahub-graphql-core/src/main/resources/step.graphql >> combined.graphql
+cat ../../datahub-graphql-core/src/main/resources/lineage.graphql >> combined.graphql
