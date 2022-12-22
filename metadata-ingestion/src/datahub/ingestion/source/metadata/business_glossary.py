@@ -307,6 +307,10 @@ def get_mces_from_node(
 def get_domain_class(
     graph: Optional[DataHubGraph], domains: List[str]
 ) -> models.DomainsClass:
+    # FIXME: In the ideal case, the domain registry would be an instance variable so that it
+    # preserves its cache across calls to this function. However, the current implementation
+    # requires the full list of domains to be passed in at instantiation time, so we can't
+    # actually do that.
     domain_registry: DomainRegistry = DomainRegistry(
         cached_domains=[k for k in domains], graph=graph
     )
