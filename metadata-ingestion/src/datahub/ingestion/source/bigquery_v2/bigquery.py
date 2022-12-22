@@ -626,7 +626,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_table_lineage:
             if (
-                self.config.enable_lineage_lastrun_state
+                self.config.enable_lineage_extraction_state
                 and self.redundant_run_skip_handler.should_skip_this_run(
                     cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
                 )
@@ -638,7 +638,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 return
 
-            if self.config.enable_lineage_lastrun_state:
+            if self.config.enable_lineage_extraction_state:
                 # Update the checkpoint state for this run.
                 self.redundant_run_skip_handler.update_state(
                     start_time_millis=datetime_to_ts_millis(self.config.start_time),
@@ -649,7 +649,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_usage_statistics:
             if (
-                self.config.enable_usage_lastrun_state
+                self.config.enable_usage_extraction_state
                 and self.redundant_run_skip_handler.should_skip_this_run(
                     cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
                 )
@@ -660,7 +660,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 return
 
-            if self.config.enable_usage_lastrun_state:
+            if self.config.enable_usage_extraction_state:
                 # Update the checkpoint state for this run.
                 self.redundant_run_skip_handler.update_state(
                     start_time_millis=datetime_to_ts_millis(self.config.start_time),

@@ -4,7 +4,12 @@ from typing import Dict, List, Optional
 
 from pydantic import Field, PositiveInt, root_validator
 
-from datahub.configuration.common import AllowDenyPattern, LineageConfig
+from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    LineageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
 
@@ -23,7 +28,12 @@ class BigQueryUsageConfig(BaseUsageConfig):
     )
 
 
-class BigQueryV2Config(BigQueryConfig, LineageConfig):
+class BigQueryV2Config(
+    BigQueryConfig,
+    LineageStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
@@ -107,36 +117,6 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         default=True,
         description="Use the legacy sharded table urn suffix added.",
     )
-
-    enable_profiling_state: bool = Field(
-        default=True,
-        description="Enable storing last profile date in store.",
-    )
-
-    enable_lineage_lastrun_state: bool = Field(
-        default=True,
-        description="Enable checking last lineage date in store.",
-    )
-
-    enable_usage_lastrun_state: bool = Field(
-        default=True,
-        description="Enable checking last usage date in store.",
-    )
-
-    @root_validator(pre=False)
-    def stateful_option_validator(cls, values: Dict) -> Dict:
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        sti = values.get("stateful_ingestion")
-        if not sti or not sti.enabled:
-            logger.warning(
-                "Stateful ingestion is disabled, disabling related config options as well"
-            )
-            values["enable_profiling_state"] = False
-            values["enable_lineage_lastrun_state"] = False
-            values["enable_usage_lastrun_state"] = False
-
-        return values
 
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:

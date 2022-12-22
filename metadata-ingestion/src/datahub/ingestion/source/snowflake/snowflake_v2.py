@@ -468,7 +468,7 @@ class SnowflakeV2Source(
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
             if (
-                self.config.enable_usage_lastrun_state
+                self.config.enable_usage_extraction_state
                 and self.redundant_run_skip_handler.should_skip_this_run(
                     cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
                 )
@@ -480,7 +480,7 @@ class SnowflakeV2Source(
                 )
                 return
 
-            if self.config.enable_usage_lastrun_state:
+            if self.config.enable_usage_extraction_state:
                 # Update the checkpoint state for this run.
                 self.redundant_run_skip_handler.update_state(
                     start_time_millis=datetime_to_ts_millis(self.config.start_time),

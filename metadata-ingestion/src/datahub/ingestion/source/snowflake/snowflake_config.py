@@ -5,6 +5,10 @@ from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.glossary.classifier import ClassificationConfig
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    ProfilingStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+)
 from datahub.ingestion.source_config.sql.snowflake import (
     BaseSnowflakeConfig,
     SnowflakeConfig,
@@ -15,7 +19,12 @@ from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsage
 logger = logging.Logger(__name__)
 
 
-class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
+class SnowflakeV2Config(
+    SnowflakeConfig,
+    SnowflakeUsageConfig,
+    UsageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+):
     convert_urns_to_lowercase: bool = Field(
         default=True,
     )
@@ -54,19 +63,9 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
-    enable_profiling_state: bool = Field(
-        default=True,
-        description="Enable storing last profile date in store.",
-    )
-
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
-    )
-
-    enable_usage_lastrun_state: bool = Field(
-        default=True,
-        description="Enable checking last usage date in store.",
     )
 
     @validator("include_column_lineage")
@@ -150,17 +149,3 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         return BaseSnowflakeConfig.get_sql_alchemy_url(
             self, database=database, username=username, password=password, role=role
         )
-
-    @root_validator(pre=False)
-    def stateful_option_validator(cls, values: Dict) -> Dict:
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        sti = values.get("statefule_ingestion")
-        if not sti or not sti.get("enabled"):
-            logger.warning(
-                "Stateful ingestion is disabled, disabling related config options as well"
-            )
-            values["enable_profiling_state"] = False
-            values["enable_usage_lastrun_state"] = False
-
-        return values

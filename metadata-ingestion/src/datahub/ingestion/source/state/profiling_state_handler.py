@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from typing import Dict, Optional, cast
+from typing import Optional, cast
 
 import pydantic
 
@@ -21,11 +21,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class StatefulProfilingConfig(StatefulIngestionConfig):
     """
-    Base specialized config of Stateful Ingestion to skip redundant runs.
+    Base specialized config of Stateful Profiling.
     """
-
-    # Defines the alias 'force_rerun' for ignore_old_state field.
-    ignore_old_state = pydantic.Field(False, alias="force_rerun")
 
 
 class ProfilingHandler(StatefulIngestionUsecaseHandlerBase[ProfilingCheckpointState]):
@@ -70,14 +67,7 @@ class ProfilingHandler(StatefulIngestionUsecaseHandlerBase[ProfilingCheckpointSt
         return False
 
     def _init_job_id(self) -> JobId:
-        platform: Optional[str] = None
-        source_class = type(self.source)
-        if hasattr(source_class, "get_platform_name"):
-            platform = source_class.get_platform_name()  # type: ignore
-
-        # Default name for everything else
-        job_name_suffix = "profiling"
-        return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
+        return JobId("profiling")
 
     @property
     def job_id(self) -> JobId:
@@ -114,17 +104,6 @@ class ProfilingHandler(StatefulIngestionUsecaseHandlerBase[ProfilingCheckpointSt
         cur_state = self.get_current_state()
         if cur_state:
             cur_state.last_profiled[urn] = profile_time_millis
-
-    def add_all_to_state(
-        self,
-        urns: Dict[str, pydantic.PositiveInt],
-    ) -> None:
-        if not self.is_checkpointing_enabled() or self._ignore_new_state():
-            return
-        cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
-        assert cur_checkpoint is not None
-        cur_state = cast(ProfilingCheckpointState, cur_checkpoint.state)
-        cur_state.last_profiled.update(urns)
 
     def get_last_state(self) -> Optional[ProfilingCheckpointState]:
         if not self.is_checkpointing_enabled() or self._ignore_old_state():

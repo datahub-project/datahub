@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
 
 import pydantic
+from pydantic import root_validator
 from pydantic.fields import Field
 from pydantic.generics import GenericModel
 
@@ -10,6 +11,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
+    LineageConfig,
 )
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.ingestion.api.common import PipelineContext
@@ -98,6 +100,59 @@ class StatefulIngestionConfigBase(
     stateful_ingestion: Optional[CustomConfig] = Field(
         default=None, description="Stateful Ingestion Config"
     )
+
+
+class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig):
+    enable_lineage_extraction_state: bool = Field(
+        default=True,
+        description="Enable checking last lineage extraction date in store.",
+    )
+
+    @root_validator(pre=False)
+    def stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("enable_lineage_extraction_state"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling enable_lineage_extraction_state config option as well"
+                )
+
+        return values
+
+
+class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
+    enable_profiling_state: bool = Field(
+        default=True,
+        description="Enable storing last profile date in store.",
+    )
+
+    @root_validator(pre=False)
+    def stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("enable_profiling_state"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling enable_profiling_state config option as well"
+                )
+
+        return values
+
+
+class UsageStatefulIngestionConfig(StatefulIngestionConfigBase):
+    enable_usage_extraction_state: bool = Field(
+        default=True,
+        description="Enable checking last usage date in store.",
+    )
+
+    @root_validator(pre=False)
+    def stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("enable_usage_extraction_state"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling enable_usage_extraction_state config option as well"
+                )
+        return values
 
 
 @dataclass
