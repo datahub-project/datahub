@@ -232,7 +232,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         for (Urn downstream : fineGrainedLineage.getDownstreams()) {
           for (Urn upstream : fineGrainedLineage.getUpstreams()) {
             // TODO: add edges uniformly across aspects
-            edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF, null, null, null, null));
+            edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF, null, null, null, null, null));
             Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(downstream, new HashSet<>());
             relationshipTypes.add(DOWNSTREAM_OF);
             urnToRelationshipTypesBeingAdded.put(downstream, relationshipTypes);
@@ -261,7 +261,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         if (field.hasSchemaFieldUrn() && field.hasSchemaField() && field.getSchemaField().hasFieldPath()) {
           final Urn sourceFieldUrn = generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
           // TODO: add edges uniformly across aspects
-          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF, null, null, null, null));
+          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF, null, null, null, null, null));
           final Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
           relationshipTypes.add(DOWNSTREAM_OF);
           urnToRelationshipTypesBeingAdded.put(sourceFieldUrn, relationshipTypes);
@@ -356,16 +356,16 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
             .filter(edge -> !newEdgeSet.contains(edge))
             .collect(Collectors.toList());
 
-    // Add new edges
-    if (additiveDifference.size() > 0) {
-      log.debug("Adding edges: {}", additiveDifference);
-      additiveDifference.forEach(_graphService::addEdge);
-    }
-
-    // Remove any old edges that no longer exist
+    // Remove any old edges that no longer exist first
     if (subtractiveDifference.size() > 0) {
       log.debug("Removing edges: {}", subtractiveDifference);
       subtractiveDifference.forEach(_graphService::removeEdge);
+    }
+
+    // Then add new edges
+    if (additiveDifference.size() > 0) {
+      log.debug("Adding edges: {}", additiveDifference);
+      additiveDifference.forEach(_graphService::addEdge);
     }
   }
 

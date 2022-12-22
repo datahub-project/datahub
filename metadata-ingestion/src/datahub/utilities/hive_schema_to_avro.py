@@ -12,7 +12,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class HiveColumnToAvroConverter:
-
     _BRACKETS = {"(": ")", "[": "]", "{": "}", "<": ">"}
 
     _PRIVIMITE_HIVE_TYPE_TO_AVRO_TYPE = {
@@ -265,7 +264,6 @@ def get_schema_fields_for_hive_column(
     default_nullable: bool = False,
     is_part_of_key: bool = False,
 ) -> List[SchemaField]:
-
     try:
         avro_schema_json = get_avro_schema_for_hive_column(
             hive_column_name=hive_column_name, hive_column_type=hive_column_type

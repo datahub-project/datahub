@@ -14,7 +14,7 @@ You can use either the DataHub Airflow lineage plugin (recommended) or the Airfl
 
 The Airflow lineage plugin is only supported with Airflow version >= 2.0.2 or on MWAA with an Airflow version >= 2.0.2.
 
-If you're using Airflow 1.x, we recommend using the Airflow lineage backend with acryl-datahub <= 0.9.1.0.
+If you're using Airflow 1.x, use the Airflow lineage plugin with acryl-datahub-airflow-plugin <= 0.9.1.0.
 
 :::
 

@@ -28,7 +28,6 @@ if feast.__version__ <= "0.18.0":
     help="Path to write output JSON file to",
 )
 def cli(core_url, output_path):
-
     client = Client(core_url=core_url)
 
     tables = client.list_feature_tables()
@@ -39,7 +38,6 @@ def cli(core_url, output_path):
     parsed_tables = []
 
     for table in tables:
-
         # sort entities by name for consistent outputs
         entities = sorted(table.entities)
 
@@ -132,15 +130,12 @@ def cli(core_url, output_path):
         )
 
     if output_path is not None:
-
         with open(output_path, "w") as f:
             json.dump(parsed_tables, f)
 
     else:
-
         print(parsed_tables)
 
 
 if __name__ == "__main__":
-
     cli()

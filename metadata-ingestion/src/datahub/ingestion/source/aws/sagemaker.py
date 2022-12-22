@@ -56,7 +56,6 @@ class SagemakerSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         # get common lineage graph
         lineage_processor = LineageProcessor(
             sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
@@ -65,7 +64,6 @@ class SagemakerSource(Source):
 
         # extract feature groups if specified
         if self.source_config.extract_feature_groups:
-
             feature_group_processor = FeatureGroupProcessor(
                 sagemaker_client=self.sagemaker_client, env=self.env, report=self.report
             )
@@ -78,7 +76,6 @@ class SagemakerSource(Source):
 
         # extract jobs if specified
         if self.source_config.extract_jobs is not False:
-
             job_processor = JobProcessor(
                 sagemaker_client=self.sagemaker_client,
                 env=self.env,
@@ -93,7 +90,6 @@ class SagemakerSource(Source):
 
         # extract models if specified
         if self.source_config.extract_models:
-
             model_processor = ModelProcessor(
                 sagemaker_client=self.sagemaker_client,
                 env=self.env,

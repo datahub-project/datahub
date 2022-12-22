@@ -48,6 +48,10 @@ assemble {
   dependsOn shadowJar
 }
 
+jar {
+  archiveName = "$project.name-lib.jar"
+}
+
 publishing {
   publications {
     shadow(MavenPublication) {

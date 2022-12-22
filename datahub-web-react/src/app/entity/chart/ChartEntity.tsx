@@ -100,14 +100,6 @@ export class ChartEntity implements Entity<Chart> {
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
                     },
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, chart: GetChartQuery) => {
-                            return (
-                                (chart?.chart?.upstream?.total || 0) > 0 || (chart?.chart?.downstream?.total || 0) > 0
-                            );
-                        },
-                    },
                 },
                 {
                     name: 'Dashboards',

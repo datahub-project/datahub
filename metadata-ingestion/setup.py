@@ -36,7 +36,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.7",
+    "avro-gen3==0.7.8",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
@@ -361,7 +361,7 @@ mypy_stubs = {
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
-    "types-requests",
+    "types-requests>=2.28.11.6",
     "types-toml",
     "types-PyMySQL",
     "types-PyYAML",
@@ -386,7 +386,9 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     *s3_base,
-    "black>=21.12b0",
+    # This is pinned only to avoid spurious errors in CI.
+    # We should make an effort to keep it up to date.
+    "black==22.12.0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",

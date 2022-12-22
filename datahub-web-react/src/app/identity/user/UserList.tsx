@@ -82,7 +82,7 @@ export const UserList = () => {
     };
 
     const handleDelete = (urn: string) => {
-        removeUserFromListUsersCache(urn, client);
+        removeUserFromListUsersCache(urn, client, page, pageSize);
     };
 
     const {

@@ -70,6 +70,7 @@ export default ({ children, initialEntries }: Props) => {
                             setVisibleColumnsByUrn: () => {},
                             columnsByUrn: {},
                             setColumnsByUrn: () => {},
+                            refetchCenterNode: () => {},
                         }}
                     >
                         {children}
