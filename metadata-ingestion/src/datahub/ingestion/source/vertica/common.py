@@ -5,7 +5,9 @@ from datahub.configuration.common import AllowDenyPattern
 from dataclasses import dataclass
 from datahub.ingestion.api.common import PipelineContext
 from collections import defaultdict
-from pydantic.fields import Field
+# from pydantic.fields import Field
+import pydantic
+from pydantic.class_validators import validator
 from sqlalchemy import sql, create_engine
 import json
 from textwrap import dedent
@@ -78,6 +80,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     ViewPropertiesClass,
 )
+from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -86,10 +89,12 @@ if TYPE_CHECKING:
 MISSING_COLUMN_INFO = "missing column information"
 logger: logging.Logger = logging.getLogger(__name__)
 
-#Extended SQLSourceReport from sql_common.py to add support for projection , MLModels and Oauth metadata reports .
+# Extended SQLSourceReport from sql_common.py to add support for projection , MLModels and Oauth metadata reports .
+
+
 @dataclass
-class SQLSourceReportVertica(SQLSourceReport):
-    Projection_scanned: int = 0
+class VerticaSourceReport(SQLSourceReport):
+    projection_scanned: int = 0
     models_scanned: int = 0
     oauth_scanned: int = 0
 
@@ -99,8 +104,7 @@ class SQLSourceReportVertica(SQLSourceReport):
         """
 
         if ent_type == "projection":
-
-            self.Projection_scanned += 1
+            self.projection_scanned += 1
         elif ent_type == "models":
             self.models_scanned += 1
         elif ent_type == "OAuth":
@@ -108,40 +112,50 @@ class SQLSourceReportVertica(SQLSourceReport):
         else:
             super().report_entity_scanned(name, ent_type)
 
-#Extended BasicSQLAlchemyConfig to config for projections,models and oauth metadata.
-class SQLAlchemyConfigVertica(BasicSQLAlchemyConfig):
+# Extended BasicSQLAlchemyConfig to config for projections,models and oauth metadata.
 
-    projection_pattern: AllowDenyPattern = Field(
+
+class VerticaConfig(BasicSQLAlchemyConfig):
+
+    projection_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for projection to filter in ingestion. Specify regex to match the entire projection name in database.schema.projection format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
-    models_pattern: AllowDenyPattern = Field(
+    models_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for ml models to filter in ingestion. "
     )
-    oauth_pattern: AllowDenyPattern = Field(
+    oauth_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for OAuth to filter in ingestion. "
     )
 
-    include_projections: Optional[bool] = Field(
+    include_projections: Optional[bool] = pydantic.Field(
         default=True, description="Whether projections should be ingested."
     )
-    include_models: Optional[bool] = Field(
+    include_models: Optional[bool] = pydantic.Field(
         default=True, description="Whether Models should be ingested."
     )
-    include_oauth: Optional[bool] = Field(
+    include_oauth: Optional[bool] = pydantic.Field(
         default=True, description="Whether OAuth should be ingested."
     )
-    include_view_lineage: Optional[bool] = Field(
+    include_view_lineage: Optional[bool] = pydantic.Field(
         default=True, description="Whether lineages should be ingested for views"
     )
-    include_projection_lineage: Optional[bool] = Field(
+    include_projection_lineage: Optional[bool] = pydantic.Field(
         default=True, description="Whether lineages should be ingested for Projection"
     )
 
+    # defaults
+    scheme: str = pydantic.Field(default="vertica+vertica_python")
+
+    @validator("host_port")
+    def clean_host_port(cls, v):
+        return config_clean.remove_protocol(v)
+
 
 # config flags to emit telemetry for
+# this variable is used in config report from sql_common
 config_options_to_report = [
     "include_views",
     "include_tables",
@@ -149,35 +163,46 @@ config_options_to_report = [
     "include_models",
     "include_oauth",
     "include_view_lineage",
-    "include_projection_lineage"
-
+    "include_projection_lineage",
 ]
 
-# flags to emit telemetry for
-profiling_flags_to_report = [
-    "turn_off_expensive_profiling_metrics",
-    "profile_table_level_only",
-    "include_field_null_count",
-    "include_field_min_value",
-    "include_field_max_value",
-    "include_field_mean_value",
-    "include_field_median_value",
-    "include_field_stddev_value",
-    "include_field_quantiles",
-    "include_field_distinct_value_frequencies",
-    "include_field_histogram",
-    "include_field_sample_values",
-    "query_combiner_enabled",
-]
+# # flags to emit telemetry for
+# profiling_flags_to_report = [
+#     "turn_off_expensive_profiling_metrics",
+#     "profile_table_level_only",
+#     "include_field_null_count",
+#     "include_field_min_value",
+#     "include_field_max_value",
+#     "include_field_mean_value",
+#     "include_field_median_value",
+#     "include_field_stddev_value",
+#     "include_field_quantiles",
+#     "include_field_distinct_value_frequencies",
+#     "include_field_histogram",
+#     "include_field_sample_values",
+#     "query_combiner_enabled",
+# ]
 
 
 class SchemaKeyHelper(SchemaKey):
-    numberOfProjection: Optional[str]
+    """
+        This class is helper class which is inherited from schema key
+        for additional properties at schema level
+    Args:
+        SchemaKey
+    """
+    numberOfProjection: Optional[str] = None
     udxsFunctions : Optional[str] = None
     UDXsLanguage : Optional[str] = None
 
 
 class DatabaseKeyHelper(DatabaseKey):
+    """
+        This class is helper class which is inherited from database key
+        for additional properties at database level
+    Args:
+        DatabaseKey
+    """
     clusterType : Optional[str] = None
     clusterSize : Optional[str] = None
     subClusters : Optional[str] = None
@@ -189,9 +214,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
     def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext, platform: str):
         # self.platform = platform
         super(VerticaSQLAlchemySource, self).__init__(config, ctx, platform)
-        self.report: SQLSourceReport = SQLSourceReportVertica()
-
-
+        self.report: SQLSourceReport = VerticaSourceReport()
 
     def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
         """
@@ -199,7 +222,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         eg. udx : what all udx (user defined extension) function are defined and in which language
                 for specific schema
             projection : the projection count for schema
-        
+
         Args:
             db_name (str): database name
             schema  (str): schema name
@@ -222,14 +245,14 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 UDXsLanguage=all_properties_keys.get("Udx_langauge", ""),
             )
         except Exception as ex:
-            self.report.report_failure(f"unable to get schema level information due to an error: {ex}")
+            self.report.report_failure(f"{schema}", f"unable to get schema level information error: {ex}")
 
     def gen_database_key(self, database: str) -> PlatformKey:
         """
-        This function generates database level information in properties tab 
+        This function generates database level information in properties tab
         eg. cluster : information about the cluster type, size and subcluster details
                     for the database and also projects communal path.
-              
+
         Args:
             database (str): database name
 
@@ -252,7 +275,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 communalStoragePath=all_properties_keys.get("communinal_storage_path"),
             )
         except Exception as ex:
-            self.report.report_failure(f"unable to get database level information due to an error: {ex}")
+            self.report.report_failure(f"{database}", f"unable to get database level information error: {ex}")
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
@@ -312,7 +335,37 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         # Clean up stale entities.
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
-    
+    def _get_columns(
+        self, dataset_name: str, inspector: Inspector, schema: str, table: str
+    ) -> List[dict]:
+        """
+        Return information about columns in `table_name`.
+
+        Given a string `table_name` and  `schema`, return
+        column information as a list of dicts with these keys:
+
+        Args:
+            dataset_name (str)
+            inspector (Inspector):
+            schema (str): schema name
+            table (str): table name
+
+        Returns:
+            List[dict]: list of dictionaries, each representing the definition of
+            a database column.
+        """
+        columns = []
+        try:
+            columns = inspector.get_columns(table, schema)
+            if len(columns) == 0:
+                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
+        except Exception as e:
+            self.report.report_warning(
+                dataset_name,
+                f"unable to get column information due to an error -> {e}",
+            )
+        return columns
+
     def loop_tables(
         self,
         inspector: Inspector,
@@ -320,15 +373,25 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
-        Loop through all the tables in the given schema. This function was re-written due to table_tags variable being added
-        which is getting send in _process_table .
-    
+        loop through all the tables in the given schema. This function was re-written due to table_tags variable being added
+        which is getting send to _process_table
+
+        Args:
+            inspector (Inspector): inspector obj of reflaction
+            schema (str): schema name
+            sql_config (SQLAlchemyConfig):
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+
+        Yields:
+            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]:
         """
         tables_seen: Set[str] = set()
-        
+
         try:
             table_tags = self.get_extra_tags(inspector, schema, "table")
-            
+
             for table in inspector.get_table_names(schema):
                 schema, table = self.standardize_schema_table_names(
                     schema=schema, entity=table
@@ -369,6 +432,22 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         sql_config: SQLAlchemyConfig,
         table_tags: Dict[str, str] = dict()
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        This function is used for performing operation and gets data for every table inside a schema
+        Args:
+            dataset_name (str):
+            inspector (Inspector):
+            schema (str): schema name
+            table (str): table name
+            sql_config (SQLAlchemyConfig):
+            table_tags (Dict[str, str], optional):sending tags as key value pair. Defaults to dict().
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+
+        Yields:
+            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]:
+        """
         columns = self._get_columns(dataset_name, inspector, schema, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
@@ -403,8 +482,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         extra_tags = list()
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
 
-        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
-
         schema_fields = self.get_schema_fields(
             dataset_name, columns, pk_constraints, tags=extra_tags
         )
@@ -414,13 +491,10 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             self.platform,
             columns,
             pk_constraints,
-            foreign_keys,
             schema_fields,
         )
         dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
-
-        # table_tags = self.get_extra_tags(inspector, schema, table)
 
         tags_to_add = []
         if table_tags:
@@ -463,9 +537,19 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
-        Loop through all the views in the given schema. This function was rewritten due to table_tags variable being added
-        which is getting send in _process_views .
-    
+        loop through all the views in the given schema. This function was re-written due to table_tags variable being added
+        which is getting send to _process_view
+
+        Args:
+            inspector (Inspector): inspector obj of reflaction
+            schema (str): schema name
+            sql_config (SQLAlchemyConfig):
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+
+        Yields:
+            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]:
         """
         try:
             table_tags = self.get_extra_tags(inspector, schema, "view")
@@ -499,7 +583,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     )
 
                 if sql_config.include_view_lineage:
-
                     try:
                         dataset_urn = make_dataset_urn_with_platform_instance(
                             self.platform,
@@ -552,6 +635,23 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         sql_config: SQLAlchemyConfig,
         table_tags: Dict[str, str] = dict()
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        This function is used for performing operation and gets data for every view inside a schema
+
+        Args:
+            dataset_name (str)
+            inspector (Inspector)
+            schema (str): schame name
+            view (str): name of the view to inspect
+            sql_config (SQLAlchemyConfig)
+            table_tags (Dict[str, str], optional) Defaults to dict().
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
+
+        Yields:
+            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]
+        """
         try:
             columns = inspector.get_columns(view, schema)
         except KeyError:
@@ -660,6 +760,22 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        this function loop through all the projection in the given schema.
+        projection is just like table is introduced by vertica db to store data
+        a super projection is automatically created when a table is created
+
+        Args:
+            inspector (Inspector): inspector obj from reflection
+            schema (str): schema name
+            sql_config (SQLAlchemyConfig): config
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
+
+        Yields:
+            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]: [description]
+        """
         projections_seen: Set[str] = set()
 
         try:
@@ -711,9 +827,9 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
 
                         if lineage_info is not None:
                             # Emit the lineage work unit
-                            
+
                             upstream_lineage = lineage_info
-                            
+
                             lineage_mcpw = MetadataChangeProposalWrapper(
                                 entityType="dataset",
                                 changeType=ChangeTypeClass.UPSERT,
@@ -721,18 +837,14 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                                 aspectName="upstreamLineage",
                                 aspect=upstream_lineage,
                             )
-                          
-                           
+
                             lineage_wu = MetadataWorkUnit(
                                 id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
                                 mcp=lineage_mcpw,
                             )
-                           
+
                             self.report.report_workunit(lineage_wu)
                             yield lineage_wu
-                            
-                            
-                            
 
                     except Exception as e:
                         logger.warning(
@@ -743,303 +855,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                         )
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Projection error: {e}")
-
-    def loop_models(
-        self,
-        inspector: Inspector,
-        schema: str,
-        sql_config: SQLAlchemyConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        models_seen: Set[str] = set()
-        try:
-            # models_tags = self.get_extra_tags(inspector, schema, "table")
-
-            for models in inspector.get_models_names(schema):
-
-                schema, models = self.standardize_schema_table_names(
-                    schema=schema, entity=models
-                )
-                dataset_name = self.get_identifier(
-                    schema="Entities", entity=models, inspector=inspector
-                )
-
-                dataset_name = self.normalise_dataset_name(dataset_name)
-                if dataset_name not in models_seen:
-                    models_seen.add(dataset_name)
-                else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
-                    continue
-                self.report.report_entity_scanned(dataset_name, ent_type="models")
-                if not sql_config.table_pattern.allowed(dataset_name):
-                    self.report.report_dropped(dataset_name)
-                    continue
-                try:
-                    yield from self._process_models(
-                        dataset_name, inspector, schema, models, sql_config,)
-                except Exception as e:
-                    logger.warning(
-                        f"Unable to ingest {schema}.{models} due to an exception.\n {traceback.format_exc()}"
-                    )
-                    self.report.report_warning(
-                        f"{schema}.{models}", f"Ingestion error: {e}"
-                    )
-        except Exception as e:
-            self.report.report_failure(f"{schema}", f"Model error: {e}")
-
-    def _get_columns(
-        self, dataset_name: str, inspector: Inspector, schema: str, table: str
-    ) -> List[dict]:
-        columns = []
-        try:
-            columns = inspector.get_columns(table, schema)
-            if len(columns) == 0:
-                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
-        except Exception as e:
-            self.report.report_warning(
-                dataset_name,
-                f"unable to get column information due to an error -> {e}",
-            )
-        return columns
-
-    def _process_models(
-        self,
-        dataset_name: str,
-        inspector: Inspector,
-        schema: str,
-        table: str,
-        sql_config: SQLAlchemyConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        # columns = self._get_columns(dataset_name, inspector, schema, table)
-        columns = []
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
-        )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("model", dataset_urn)
-        description, properties, location_urn = self.get_model_properties(
-            inspector, schema, table
-        )
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = table
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != table:
-                properties["original_table_name"] = table
-        dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
-            description=description,
-            customProperties=properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
-
-        # extra_tags = self.get_extra_tags(inspector, schema, table)
-        extra_tags = list()
-        pk_constraints: dict = inspector.get_pk_constraint(table, schema)
-
-        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
-
-        schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints, tags=extra_tags
-        )
-
-        schema_metadata = get_schema_metadata(
-            self.report,
-            dataset_name,
-            self.platform,
-            columns,
-            pk_constraints,
-            foreign_keys,
-            schema_fields,
-        )
-
-        dataset_snapshot.aspects.append(schema_metadata)
-        db_name = self.get_db_name(inspector)
-
-        # table_tags = self.get_extra_tags(inspector, schema, table)
-
-        # tags_to_add = []
-        # if table_tags:
-        #     tags_to_add.extend(
-        #         [make_tag_urn(f"{table_tags.get(table)}")]
-        #     )
-        #     yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
-
-        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
-            id=f"{dataset_name}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["ML Models"]),
-            ),
-        )
-        self.report.report_workunit(subtypes_aspect)
-        yield subtypes_aspect
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            entity_type="dataset",
-            sql_config=sql_config,
-        )
-
-    def loop_Oauth(
-        self,
-        inspector: Inspector,
-        schema: str,
-        sql_config: SQLAlchemyConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        oauth_seen: Set[str] = set()
-        try:
-
-            for OAuth in inspector.get_Oauth_names(schema):
-
-                schema, OAuth = self.standardize_schema_table_names(
-                    schema=schema, entity=OAuth
-                )
-                dataset_name = self.get_identifier(
-                    schema=schema, entity=OAuth, inspector=inspector
-                )
-
-                dataset_name = self.normalise_dataset_name(dataset_name)
-                if dataset_name not in oauth_seen:
-                    oauth_seen.add(dataset_name)
-                else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
-                    continue
-                self.report.report_entity_scanned(dataset_name, ent_type="OAuth")
-                if not sql_config.oauth_pattern.allowed(dataset_name):
-                    self.report.report_dropped(dataset_name)
-                    continue
-                try:
-                    yield from self._process_Oauth(
-                        dataset_name, inspector, schema, OAuth, sql_config,)
-                except Exception as e:
-                    logger.warning(
-                        f"Unable to ingest {schema}.{OAuth} due to an exception.\n {traceback.format_exc()}"
-                    )
-                    self.report.report_warning(
-                        f"{schema}.{OAuth}", f"Ingestion error: {e}"
-                    )
-        except Exception as e:
-            self.report.report_failure(f"{schema}", f"Oauth error: {e}")
-
-    def _process_Oauth(
-        self,
-        dataset_name: str,
-        inspector: Inspector,
-        schema: str,
-        OAuth: str,
-        sql_config: SQLAlchemyConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        # columns = self._get_columns(dataset_name, inspector, schema, table)
-        columns = []
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
-        )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("OAuth", dataset_urn)
-        description, properties, location_urn = self.get_oauth_properties(
-            inspector, schema, OAuth
-        )
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = OAuth
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != OAuth:
-                properties["original_table_name"] = OAuth
-        dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
-            description=description,
-            customProperties=properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
-
-        # extra_tags = self.get_extra_tags(inspector, schema, table)
-        extra_tags = list()
-        pk_constraints: dict = inspector.get_pk_constraint(OAuth, schema)
-
-        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, OAuth)
-
-        schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints, tags=extra_tags
-        )
-        schema_metadata = get_schema_metadata(
-            self.report,
-            dataset_name,
-            self.platform,
-            columns,
-            pk_constraints,
-            foreign_keys,
-            schema_fields,
-        )
-        dataset_snapshot.aspects.append(schema_metadata)
-        db_name = self.get_db_name(inspector)
-
-        # table_tags = self.get_extra_tags(inspector, schema, table)
-
-        tags_to_add = []
-        # if table_tags:
-        #     tags_to_add.extend(
-        #         [make_tag_urn(f"{table_tags.get(table)}")]
-        #     )
-        #     yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
-
-        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
-            id=f"{dataset_name}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["OAuth"]),
-            ),
-        )
-        self.report.report_workunit(subtypes_aspect)
-        yield subtypes_aspect
-
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            entity_type="dataset",
-            sql_config=sql_config,
-        )
 
     def _process_projections(
         self,
@@ -1142,36 +957,21 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             sql_config=sql_config,
         )
 
-    def _get_projection(
-        self, dataset_name: str, inspector: Inspector, schema: str, projection: str
-    ) -> List[dict]:
-        columns = []
-        try:
-            columns = inspector.get_projection(projection, schema)
-
-            if len(columns) == 0:
-                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
-        except Exception as e:
-            self.report.report_warning(
-                dataset_name,
-                f"unable to get column information due to an error -> {e}",
-            )
-        return columns
-
-    def get_extra_tags(
-        self, inspector: Inspector, schema: str, table: str
-    ) -> Optional[Dict[str, str]]:
-        try:
-
-            tags = inspector._get_extra_tags(table, schema)
-
-            return tags
-        except Exception as e:
-            print("Exception : ", e)
-
     def get_projection_properties(
         self, inspector: Inspector, schema: str, projection: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        """
+        Returns projection related metadata information to show in properties tab
+            eg. projection type like super, segmented etc
+                partition key, segmentation and so on
+
+        Args:
+            inspector (Inspector): inspector obj from reflection engine
+            schema (str): schema name
+            projection (str): projection name
+        Returns:
+            Tuple[Optional[str], Dict[str, str], Optional[str]]: [description]
+        """
         description: Optional[str] = None
         properties: Dict[str, str] = {}
         # The location cannot be fetched generically, but subclasses may override
@@ -1197,9 +997,177 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         properties = projection_info.get("properties", {})
         return description, properties, location
 
+    def loop_models(
+        self,
+        inspector: Inspector,
+        schema: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        This function is for iterating over the ml models in vertica db
+
+        Args:
+            inspector (Inspector) : inspector obj from reflection engine
+            schema (str): schema name
+            sql_config (SQLAlchemyConfig): config
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
+
+        Yields:
+            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]:
+        """
+        models_seen: Set[str] = set()
+        try:
+
+            for models in inspector.get_models_names(schema):
+
+                schema, models = self.standardize_schema_table_names(
+                    schema=schema, entity=models
+                )
+                dataset_name = self.get_identifier(
+                    schema="Entities", entity=models, inspector=inspector
+                )
+
+                dataset_name = self.normalise_dataset_name(dataset_name)
+                if dataset_name not in models_seen:
+                    models_seen.add(dataset_name)
+                else:
+                    logger.debug(f"{dataset_name} has already been seen, skipping...")
+                    continue
+                self.report.report_entity_scanned(dataset_name, ent_type="models")
+                if not sql_config.table_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+                try:
+                    yield from self._process_models(
+                        dataset_name, inspector, schema, models, sql_config,)
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to ingest {schema}.{models} due to an exception.\n {traceback.format_exc()}"
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{models}", f"Ingestion error: {e}"
+                    )
+        except Exception as e:
+            self.report.report_failure(f"{schema}", f"Model error: {e}")
+
+    def _process_models(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        To fetch ml models related information of ml_model from vertica db
+        Args:
+            dataset_name (str): dataset name
+            inspector (Inspector): inspector obj from reflection
+            schema (str): schema name entity
+            table (str): name of ml model
+            sql_config (SQLAlchemyConfig)
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
+        """
+        columns = []
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[StatusClass(removed=False)],
+        )
+        # Add table to the checkpoint state
+        self.stale_entity_removal_handler.add_entity_to_state("model", dataset_urn)
+        description, properties, location_urn = self.get_model_properties(
+            inspector, schema, table
+        )
+        # Tablename might be different from the real table if we ran some normalisation ont it.
+        # Getting normalized table name from the dataset_name
+        # Table is the last item in the dataset name
+        normalised_table = table
+        splits = dataset_name.split(".")
+        if splits:
+            normalised_table = splits[-1]
+            if properties and normalised_table != table:
+                properties["original_table_name"] = table
+        dataset_properties = DatasetPropertiesClass(
+            name=normalised_table,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+
+        # extra_tags = self.get_extra_tags(inspector, schema, table)
+        extra_tags = list()
+        pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+
+        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
+
+        schema_fields = self.get_schema_fields(
+            dataset_name, columns, pk_constraints, tags=extra_tags
+        )
+
+        schema_metadata = get_schema_metadata(
+            self.report,
+            dataset_name,
+            self.platform,
+            columns,
+            pk_constraints,
+            foreign_keys,
+            schema_fields,
+        )
+
+        dataset_snapshot.aspects.append(schema_metadata)
+        db_name = self.get_db_name(inspector)
+
+        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = SqlWorkUnit(id=dataset_name, mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        subtypes_aspect = MetadataWorkUnit(
+            id=f"{dataset_name}-subtypes",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=["ML Models"]),
+            ),
+        )
+        self.report.report_workunit(subtypes_aspect)
+        yield subtypes_aspect
+        yield from self._get_domain_wu(
+            dataset_name=dataset_name,
+            entity_urn=dataset_urn,
+            entity_type="dataset",
+            sql_config=sql_config,
+        )
+
     def get_model_properties(
         self, inspector: Inspector, schema: str, model: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        """
+        Returns ml models related metadata information to show in properties tab
+            eg. ml model attribute and ml model specification information.
+
+        Args:
+            inspector (Inspector): inspector obj from reflection engine
+            schema (str): schema name
+            model (str): ml model name
+        Returns:
+            Tuple[Optional[str], Dict[str, str], Optional[str]]
+        """
         description: Optional[str] = None
         properties: Dict[str, str] = {}
         # The location cannot be fetched generically, but subclasses may override
@@ -1225,9 +1193,163 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         properties = table_info.get("properties", {})
         return description, properties, location
 
+    def loop_Oauth(
+        self,
+        inspector: Inspector,
+        schema: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        This function is for iterating over the oauth in vertica db
+        Args:
+            inspector (Inspector):
+            schema (str): schema name
+            sql_config (SQLAlchemyConfig): configuration
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
+        """
+        oauth_seen: Set[str] = set()
+        try:
+
+            for OAuth in inspector.get_Oauth_names(schema):
+
+                schema, OAuth = self.standardize_schema_table_names(
+                    schema=schema, entity=OAuth
+                )
+                dataset_name = self.get_identifier(
+                    schema=schema, entity=OAuth, inspector=inspector
+                )
+
+                dataset_name = self.normalise_dataset_name(dataset_name)
+                if dataset_name not in oauth_seen:
+                    oauth_seen.add(dataset_name)
+                else:
+                    logger.debug(f"{dataset_name} has already been seen, skipping...")
+                    continue
+                self.report.report_entity_scanned(dataset_name, ent_type="OAuth")
+                if not sql_config.oauth_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+                try:
+                    yield from self._process_Oauth(
+                        dataset_name, inspector, schema, OAuth, sql_config,)
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to ingest {schema}.{OAuth} due to an exception.\n {traceback.format_exc()}"
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{OAuth}", f"Ingestion error: {e}"
+                    )
+        except Exception as e:
+            self.report.report_failure(f"{schema}", f"Oauth error: {e}")
+
+    def _process_Oauth(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        OAuth: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        To fetch oauth related metadata of oauth from vertica db
+        Args:
+            dataset_name (str): dataset name
+            inspector (Inspector): inspector object from reflection
+            schema (str): schema name
+            OAuth (str): oauth name
+            sql_config (SQLAlchemyConfig): configuration
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
+        """
+        columns = []
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[StatusClass(removed=False)],
+        )
+        # Add table to the checkpoint state
+        self.stale_entity_removal_handler.add_entity_to_state("OAuth", dataset_urn)
+        description, properties, location_urn = self.get_oauth_properties(
+            inspector, schema, OAuth
+        )
+        # Tablename might be different from the real table if we ran some normalisation ont it.
+        # Getting normalized table name from the dataset_name
+        # Table is the last item in the dataset name
+        normalised_table = OAuth
+        splits = dataset_name.split(".")
+        if splits:
+            normalised_table = splits[-1]
+            if properties and normalised_table != OAuth:
+                properties["original_table_name"] = OAuth
+        dataset_properties = DatasetPropertiesClass(
+            name=normalised_table,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+
+        schema_fields = self.get_schema_fields(
+            dataset_name, columns
+        )
+        schema_metadata = get_schema_metadata(
+            self.report,
+            dataset_name,
+            self.platform,
+            columns,
+            schema_fields,
+        )
+        dataset_snapshot.aspects.append(schema_metadata)
+        db_name = self.get_db_name(inspector)
+
+        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        wu = SqlWorkUnit(id=dataset_name, mce=mce)
+        self.report.report_workunit(wu)
+        yield wu
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        subtypes_aspect = MetadataWorkUnit(
+            id=f"{dataset_name}-subtypes",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="subTypes",
+                aspect=SubTypesClass(typeNames=["OAuth"]),
+            ),
+        )
+        self.report.report_workunit(subtypes_aspect)
+        yield subtypes_aspect
+
+        yield from self._get_domain_wu(
+            dataset_name=dataset_name,
+            entity_urn=dataset_urn,
+            entity_type="dataset",
+            sql_config=sql_config,
+        )
+
     def get_oauth_properties(
         self, inspector: Inspector, schema: str, model: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        """
+        Returns oauth related metadata information to show in properties tab
+            eg. is_auth_enabled , auth_priority and all auth related info.
+            
+        Args:
+            inspector (Inspector): inspector obj from reflection engine
+            schema (str): schema name
+            model (str): ml model name
+        Returns:
+            Tuple[Optional[str], Dict[str, str], Optional[str]]
+        """
         description: Optional[str] = None
         properties: Dict[str, str] = {}
         # The location cannot be fetched generically, but subclasses may override
@@ -1253,29 +1375,47 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         properties = table_info.get("properties", {})
         return description, properties, location
 
-    # def get_dataplatform_instance_aspect(
-    #     self, dataset_urn: str
-    # ) -> Optional[SqlWorkUnit]:
-    #     # If we are a platform instance based source, emit the instance aspect
-    #     if self.config.platform_instance:
-    #         mcp = MetadataChangeProposalWrapper(
-    #             entityType="dataset",
-    #             changeType=ChangeTypeClass.UPSERT,
-    #             entityUrn=dataset_urn,
-    #             aspectName="dataPlatformInstance",
-    #             aspect=DataPlatformInstanceClass(
-    #                 platform=make_data_platform_urn(self.platform),
-    #                 instance=make_dataplatform_instance_urn(
-    #                     self.platform, self.config.platform_instance
-    #                 ),
-    #             ),
-    #         )
-    #         wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
-    #         self.report.report_workunit(wu)
-    #         return wu
-    #     else:
-    #         return None
+    def get_extra_tags(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Optional[Dict[str, str]]:
+        """
+        This function is for projecting the tags at table, view and 
+        projection level 
+        
+        :args: 
+            schema: the name of the schema
+            table: variable name 
+        :return: Dict[str, str]
+        """
+        try:
 
+            tags = inspector._get_extra_tags(table, schema)
+
+            return tags
+        except Exception as e:
+            logger.debug(
+                f"{table}: failure in tags extraction for table"
+            )
+
+    def gen_tags_aspect_workunit(
+        self, dataset_urn: str, tags_to_add: List[str]
+    ) -> MetadataWorkUnit:
+        """
+        Returns metadata work units object for projecting into tags
+        Args:
+            dataset_urn (str): urn for any dataset
+            tags_to_add (List[str]): tags in form of list of str
+
+        Returns:
+            MetadataWorkUnit
+        """
+        tags = GlobalTagsClass(
+            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+        )
+        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
+        self.report.report_workunit(wu)
+        return wu
+    
     def is_dataset_eligible_for_profiling(
         self,
         dataset_name: str,
@@ -1283,6 +1423,17 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         inspector: Inspector,
         profile_candidates: Optional[List[str]],
     ) -> bool:
+        """Return whether table, view or projection is  eligible for profiling 
+
+        Args:
+            dataset_name (str): dataset name
+            sql_config (SQLAlchemyConfig): configuration
+            inspector (Inspector): inspector obj from reflection
+            profile_candidates (Optional[List[str]]): 
+
+        Returns:
+            bool: returns bool
+        """
         return (
             sql_config.table_pattern.allowed(dataset_name)
             and sql_config.profile_pattern.allowed(dataset_name)
@@ -1300,6 +1451,14 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable["GEProfilerRequest"]:
+        """Function is used for collecting profiling related information for every projections
+            inside an schema.
+            
+        Args: schema: schema name
+
+        Yields:
+            [type]: GEProfilerRequest object
+        """
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
@@ -1383,16 +1542,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 ),
             )
 
-    def gen_tags_aspect_workunit(
-        self, dataset_urn: str, tags_to_add: List[str]
-    ) -> MetadataWorkUnit:
-        tags = GlobalTagsClass(
-            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
-        )
-        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
-        self.report.report_workunit(wu)
-        return wu
-
     def _get_upstream_lineage_info(
         self, dataset_urn: str, view
     ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
@@ -1429,7 +1578,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         if upstream_tables:
 
             logger.debug(
-                f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
+                f" lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
             )
        
             return UpstreamLineage(upstreams=upstream_tables)
@@ -1437,6 +1586,15 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         return None
 
     def _populate_view_lineage(self, view) -> None:
+        
+        """ Collects upstream and downstream lineage information for views .
+
+        Args:
+            view ([type]): name of the view
+
+        """
+        
+        
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
@@ -1540,6 +1698,14 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         return None
 
     def _populate_projection_lineage(self, projection) -> None:
+        """
+        Collects upstream and downstream lineage information for views .
+
+        Args:
+            projection ([type]): name of the projection
+
+        
+        """
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
