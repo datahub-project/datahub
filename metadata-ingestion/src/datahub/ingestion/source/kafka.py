@@ -200,7 +200,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        topics = self.consumer.list_topics().topics
+        topics = self.consumer.list_topics(
+            timeout=self.source_config.connection.client_timeout_seconds
+        ).topics
         extra_topic_details = self.fetch_extra_topic_details(topics.keys())
 
         for t, t_detail in topics.items():
