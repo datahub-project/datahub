@@ -151,7 +151,7 @@
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\": [\"urn:li:domain:en.wikipedia.org\"]}",
+        "value": "{\"domains\": [\"urn:li:domain:Marketing\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

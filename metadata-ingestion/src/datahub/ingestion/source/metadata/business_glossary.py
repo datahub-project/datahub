@@ -67,7 +67,7 @@ class GlossaryTermConfig(ConfigModel):
     related_terms: Optional[List[str]]
     custom_properties: Optional[Dict[str, str]]
     knowledge_links: Optional[List[KnowledgeCard]]
-    domains: Optional[List[str]]
+    domain: Optional[str]
 
 
 class GlossaryNodeConfig(ConfigModel):
@@ -418,9 +418,9 @@ def get_mces_from_term(
         ownership = get_owners(glossaryTerm.owners)
     aspects.append(ownership)
 
-    if glossaryTerm.domains is not None:
+    if glossaryTerm.domain is not None:
         yield make_domain_mcp(
-            term_urn, get_domain_class(ctx.graph, glossaryTerm.domains)
+            term_urn, get_domain_class(ctx.graph, [glossaryTerm.domain])
         )
 
     term_snapshot: models.GlossaryTermSnapshotClass = models.GlossaryTermSnapshotClass(
