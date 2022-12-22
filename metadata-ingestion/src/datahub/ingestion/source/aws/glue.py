@@ -47,7 +47,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
@@ -225,7 +225,7 @@ class GlueSource(StatefulIngestionSourceBase):
     - Table metadata, such as owner, description and parameters
     - Jobs and their component transformations, data sources, and data sinks
 
-    ## IAM permissions
+    ### IAM permissions
 
     For ingesting datasets, the following IAM permissions are required:
     ```json
