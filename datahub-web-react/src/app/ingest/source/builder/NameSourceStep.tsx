@@ -75,6 +75,8 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 >
                     <Typography.Paragraph>Give this ingestion source a name.</Typography.Paragraph>
                     <Input
+                        data-testid="source-name-input"
+                        className="source-name-input"
                         placeholder="My Redshift Source #2"
                         value={state.name}
                         onChange={(event) => setName(event.target.value)}
@@ -98,6 +100,8 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 Advanced: Provide a custom CLI version to use for ingestion.
                             </Typography.Paragraph>
                             <Input
+                                data-testid="cli-version-input"
+                                className="cli-version-input"
                                 placeholder="(e.g. 0.9.3)"
                                 value={state.config?.version || ''}
                                 onChange={(event) => setVersion(event.target.value)}
