@@ -27,6 +27,7 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.entity.exception.PreconditionFailedException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
@@ -34,6 +35,8 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.params.ExtraIngestParamsHelper;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -942,6 +945,99 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName, 0, 10).getTotalCount(), 1);
         assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
+    }
+
+    @Test
+    public void testInsertIngestProposalWithoutConditionalUpdate() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        String aspectName = "datasetProperties";
+        String propName = "propName";
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false);
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
+    }
+
+    @Test
+    public void testInsertIngestProposalWithValidConditionalUpdate() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        String aspectName = "datasetProperties";
+        String propName = "propName";
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 0L));
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
+    }
+
+    @Test(expectedExceptions = PreconditionFailedException.class)
+    public void testInsertIngestProposalWithInvalidConditionalUpdate() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        String aspectName = "datasetProperties";
+        String propName = "propName";
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 5L));
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
+    }
+
+    @Test
+    public void testUpdateIngestProposalWithoutConditionalUpdate() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        String aspectName = "datasetProperties";
+        String propName = "propName";
+        String propNameUpdated = "propNameUpdated";
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false);
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propNameUpdated), TEST_AUDIT_STAMP, false);
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propNameUpdated);
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 1).data().getString("name"), propName);
+    }
+
+    @Test
+    public void testUpdateIngestProposalWithValidConditionalUpdate() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        String aspectName = "datasetProperties";
+        String propName = "propName";
+        String propNameUpdated = "propNameUpdated";
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 0L));
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propNameUpdated), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 123L));
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propNameUpdated);
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 1).data().getString("name"), propName);
+    }
+
+    @Test(expectedExceptions = PreconditionFailedException.class)
+    public void test() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        String aspectName = "datasetProperties";
+        String propName = "propName";
+        String propNameUpdated = "propNameUpdated";
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propName), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 0L));
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0).data().getString("name"), propName);
+        _entityService.ingestProposal(generateProposal(entityUrn, aspectName, propNameUpdated), TEST_AUDIT_STAMP, false,
+                generateExtraParams(entityUrn.toString(), aspectName, 5L));
+    }
+
+    private MetadataChangeProposal generateProposal(Urn urn, String aspectName, String propName) throws Exception {
+        DatasetProperties datasetProperties = new DatasetProperties();
+        datasetProperties.setName(propName);
+        MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(urn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType("dataset");
+        gmce.setAspectName(aspectName);
+        JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+        byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+        GenericAspect genericAspect = new GenericAspect();
+        genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+        genericAspect.setContentType("application/json");
+        gmce.setAspect(genericAspect);
+        return gmce;
+    }
+
+    private ExtraIngestParams generateExtraParams(String urn, String aspectName, Long value) {
+        return ExtraIngestParams.builder()
+                .createdOnMap(ExtraIngestParamsHelper.extractCondUpdate(urn + "+" + aspectName + "=" + value))
+                .build();
     }
 
     @Nonnull

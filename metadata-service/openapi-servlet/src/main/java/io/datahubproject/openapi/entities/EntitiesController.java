@@ -7,7 +7,10 @@ import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.params.ExtraIngestParamsHelper;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
@@ -38,6 +41,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -103,19 +107,22 @@ public class EntitiesController {
 
   @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
-      @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests) {
+      @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
+      @RequestHeader(name = Constants.IF_UNMODIFIED_SINCE) String condUpdate) {
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-
+    ExtraIngestParams extraIngestParams = ExtraIngestParams.builder()
+            .createdOnMap(ExtraIngestParamsHelper.extractCondUpdate(condUpdate))
+            .build();
     List<Pair<String, Boolean>> responses = aspectRequests.stream()
-        .map(MappingUtil::mapToProposal)
-        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper))
-        .collect(Collectors.toList());
+            .map(MappingUtil::mapToProposal)
+            .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper, extraIngestParams))
+            .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
-          .body(responses.stream().filter(Pair::getSecond).map(Pair::getFirst).collect(Collectors.toList()));
+            .body(responses.stream().filter(Pair::getSecond).map(Pair::getFirst).collect(Collectors.toList()));
     } else {
       return ResponseEntity.ok(Collections.emptyList());
     }

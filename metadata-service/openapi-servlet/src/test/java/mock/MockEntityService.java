@@ -26,6 +26,7 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.mxe.SystemMetadata;
@@ -153,7 +154,7 @@ public class MockEntityService extends EntityService {
   @Override
   protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull Urn urn, @Nonnull String aspectName,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
-      @Nonnull SystemMetadata systemMetadata) {
+      @Nonnull SystemMetadata systemMetadata, @Nullable final ExtraIngestParams extraIngestParams) {
     return new UpdateAspectResult(UrnUtils.getUrn(DATASET_URN), null,
         null, null, null, null, null, 0L);
   }

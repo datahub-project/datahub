@@ -19,6 +19,7 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
@@ -234,7 +235,12 @@ public class MappingUtil {
   }
 
   public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, String actorUrn, EntityService entityService,
-      ObjectMapper objectMapper) {
+                                                     ObjectMapper objectMapper) {
+    return ingestProposal(metadataChangeProposal, actorUrn, entityService, objectMapper, null);
+  }
+
+  public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, String actorUrn, EntityService entityService,
+                                                     ObjectMapper objectMapper, ExtraIngestParams extraIngestParams) {
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
@@ -294,9 +300,9 @@ public class MappingUtil {
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false);
+      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false, extraIngestParams);
       Urn urn = proposalResult.getUrn();
-      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false));
+      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false, extraIngestParams));
       return new Pair<>(urn.toString(), proposalResult.isDidUpdate());
     } catch (ValidationException ve) {
       exceptionally = ve;

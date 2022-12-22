@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.params.ExtraIngestParams;
 import io.ebean.PagedList;
 
 import javax.annotation.Nonnull;
@@ -53,9 +54,10 @@ public interface AspectDao {
         @Nonnull final Timestamp timestamp,
         @Nonnull final String systemMetadata,
         final long version,
-        final boolean insert);
+        final boolean insert,
+        @Nullable final ExtraIngestParams extraIngestParams);
 
-    void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert);
+    void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert, final ExtraIngestParams extraIngestParams);
 
     long saveLatestAspect(
         @Nonnull final String urn,
@@ -70,7 +72,8 @@ public interface AspectDao {
         @Nullable final String newImpersonator,
         @Nonnull final Timestamp newTime,
         @Nullable final String newSystemMetadata,
-        final Long nextVersion);
+        final Long nextVersion,
+        @Nullable final ExtraIngestParams extraIngestParams);
 
     void deleteAspect(@Nonnull final EntityAspect aspect);
 
@@ -116,4 +119,6 @@ public interface AspectDao {
 
     @Nonnull
     <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry);
+
+    boolean supportTransactions();
 }
