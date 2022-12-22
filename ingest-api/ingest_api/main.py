@@ -202,7 +202,7 @@ async def update_browsepath(item: browsepath_params):
         )
         all_paths = []
         for path in item.browsePaths:
-            all_paths.append(path['browsepath'] + "dataset")
+            all_paths.append(path['browsepath'])
         browsepath_aspect = make_browsepath_mce(path=all_paths)
         dataset_snapshot.aspects.append(browsepath_aspect)
         metadata_record = MetadataChangeEvent(
@@ -520,7 +520,7 @@ async def create_item(item: create_dataset_params) -> None:
         ]
         # this line is in case the endpoint is called by API and not UI,
         # which will enforce ending with /.
-        browsepaths = [path + "dataset" for path in browsepathList]        
+        browsepaths = [path for path in browsepathList]        
         properties = {
             "dataset_origin": item.dict().get("dataset_origin", ""),
             "dataset_location": item.dict().get("dataset_location", ""),
