@@ -9,7 +9,7 @@ from freezegun import freeze_time
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.kafka import KafkaSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
     run_and_get_pipeline,
@@ -83,7 +83,7 @@ class KafkaTopicsCxtManager:
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
-) -> Optional[Checkpoint[KafkaCheckpointState]]:
+) -> Optional[Checkpoint[GenericCheckpointState]]:
     kafka_source = cast(KafkaSource, pipeline.source)
     return kafka_source.get_current_checkpoint(
         kafka_source.stale_entity_removal_handler.job_id

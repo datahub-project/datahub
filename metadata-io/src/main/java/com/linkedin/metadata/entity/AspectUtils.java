@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
@@ -21,6 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.joda.time.DateTimeUtils;
 
 
 @Slf4j
@@ -106,5 +108,12 @@ public class AspectUtils {
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
     return proposal;
+  }
+
+  public static AuditStamp getAuditStamp(Urn actor) {
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(DateTimeUtils.currentTimeMillis());
+    auditStamp.setActor(actor);
+    return auditStamp;
   }
 }
