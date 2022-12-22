@@ -34,7 +34,7 @@ public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpring
   @Autowired
   private ESIndexBuilder _esIndexBuilder;
   private final IndexConvention _indexConvention = new IndexConventionImpl("es_system_metadata_service_test");
-  private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
+
   private ElasticSearchSystemMetadataService _client;
 
   @BeforeClass

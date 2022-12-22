@@ -17,6 +17,7 @@ import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.internal.server.methods.AnyRecord;
@@ -40,8 +41,10 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
-import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_FILTER;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_LIMIT;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN;
+import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN_LIKE;
 
 
 /**
@@ -153,15 +156,18 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     String actorUrnStr = authentication.getActor().toUrnStr();
     final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
-    final List<MetadataChangeProposal> additionalChanges =
-        AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
-
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool).getUrn();
-        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
-        tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+        EntityService.IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
+        Urn urn = result.getUrn();
+        if (!result.isDidUpdate()) {
+          // If not async, also perform the additional changes & update runId
+          final List<MetadataChangeProposal> additionalChanges =
+                  AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
+          additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
+          tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+        }
         return urn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
@@ -200,5 +206,12 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       result.put("result", _entityService.restoreIndices(args, log::info));
       return result.toString();
     }, MetricRegistry.name(this.getClass(), "restoreIndices"));
+  }
+
+  private static void tryIndexRunId(final Urn urn, final @Nullable SystemMetadata systemMetadata,
+                                   final EntitySearchService entitySearchService) {
+    if (systemMetadata != null && systemMetadata.hasRunId()) {
+      entitySearchService.appendRunId(urn.getEntityType(), urn, systemMetadata.getRunId());
+    }
   }
 }

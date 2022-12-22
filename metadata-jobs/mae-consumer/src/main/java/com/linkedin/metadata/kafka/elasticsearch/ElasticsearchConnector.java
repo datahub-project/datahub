@@ -9,6 +9,7 @@ import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.common.xcontent.XContentType;
 
 
 @Slf4j
@@ -46,11 +47,12 @@ public class ElasticsearchConnector {
 
   @Nonnull
   private UpdateRequest createUpsertRequest(@Nonnull ElasticEvent event) {
-    final IndexRequest indexRequest = new IndexRequest(event.getIndex()).id(event.getId()).source(event.buildJson());
-    return new UpdateRequest(event.getIndex(), event.getId()).doc(event.buildJson())
-        .detectNoop(false)
-        .retryOnConflict(_numRetries)
-        .upsert(indexRequest);
+    return new UpdateRequest(
+            event.getIndex(), event.getId())
+            .detectNoop(false)
+            .docAsUpsert(true)
+            .doc(event.buildJson(), XContentType.JSON)
+            .retryOnConflict(_numRetries);
   }
 }
 
