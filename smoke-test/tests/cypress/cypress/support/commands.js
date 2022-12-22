@@ -58,6 +58,11 @@ Cypress.Commands.add("goToViewsSettings", () => {
   cy.waitTextVisible("Manage Views");
 });
 
+Cypress.Commands.add("goToIngestionPage", () => {
+  cy.visit("/ingestion");
+  cy.waitTextVisible("Manage Ingestion");
+});
+
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
