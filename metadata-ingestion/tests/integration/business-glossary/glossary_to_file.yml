@@ -1,0 +1,10 @@
+source:
+  type: datahub-business-glossary
+  config:
+    # Coordinates
+    file: ./business_glossary.yml
+
+sink:
+  type: file
+  config:
+    filename: glossary_events.json

@@ -2,7 +2,6 @@ from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 
 import json
 import logging
-import os
 import sys
 import time
 from dataclasses import dataclass
@@ -33,6 +32,7 @@ from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
+from datahub.cli.cli_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
@@ -64,7 +64,7 @@ if TYPE_CHECKING:
 
 assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
-if os.getenv("DATAHUB_DEBUG", False):
+if get_boolean_env_variable("DATAHUB_DEBUG", False):
     handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
@@ -164,7 +164,6 @@ class DataHubValidationAction(ValidationAction):
             logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
 
             for assertion in assertions:
-
                 logger.info(
                     "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
                 )
@@ -220,7 +219,6 @@ class DataHubValidationAction(ValidationAction):
         payload,
         datasets,
     ):
-
         dataPlatformInstance = DataPlatformInstance(
             platform=builder.make_data_platform_urn(GE_PLATFORM_NAME)
         )
@@ -354,7 +352,6 @@ class DataHubValidationAction(ValidationAction):
     def get_assertion_info(
         self, expectation_type, kwargs, dataset, fields, expectation_suite_name
     ):
-
         # TODO - can we find exact type of min and max value
         def get_min_max(kwargs, type=AssertionStdParameterType.UNKNOWN):
             return AssertionStdParameters(
@@ -717,7 +714,6 @@ def make_dataset_urn_from_sqlalchemy_uri(
     exclude_dbname=None,
     platform_alias=None,
 ):
-
     data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
     url_instance = make_url(sqlalchemy_uri)
 

@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Tuple
+from typing import Any, Dict, List, Tuple
 from time import sleep
 
 import requests_wrapper as requests
@@ -9,6 +9,8 @@ import requests_wrapper as requests
 from datahub.cli import cli_utils
 from datahub.cli.docker_cli import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
+
+TIME: int = 1581407189000
 
 
 def get_frontend_session():
@@ -23,6 +25,10 @@ def get_frontend_session():
     response.raise_for_status()
 
     return session
+
+
+def get_admin_username() -> str:
+    return os.getenv("ADMIN_USERNAME", "datahub")
 
 
 def get_admin_credentials():
@@ -163,3 +169,36 @@ def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
 
 def get_strftime_from_timestamp_millis(ts_millis: int) -> str:
     return datetime.fromtimestamp(ts_millis / 1000).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def create_datahub_step_state_aspect(
+    username: str, onboarding_id: str
+) -> Dict[str, Any]:
+    entity_urn = f"urn:li:dataHubStepState:urn:li:corpuser:{username}-{onboarding_id}"
+    print(f"Creating dataHubStepState aspect for {entity_urn}")
+    return {
+        "auditHeader": None,
+        "entityType": "dataHubStepState",
+        "entityUrn": entity_urn,
+        "changeType": "UPSERT",
+        "aspectName": "dataHubStepStateProperties",
+        "aspect": {
+            "value": f'{{"properties":{{}},"lastModified":{{"actor":"urn:li:corpuser:{username}","time":{TIME}}}}}',
+            "contentType": "application/json",
+        },
+        "systemMetadata": None,
+    }
+
+
+def create_datahub_step_state_aspects(
+    username: str, onboarding_ids: str, onboarding_filename
+) -> None:
+    """
+    For a specific user, creates dataHubStepState aspects for each onboarding id in the list
+    """
+    aspects_dict: List[Dict[str, any]] = [
+        create_datahub_step_state_aspect(username, onboarding_id)
+        for onboarding_id in onboarding_ids
+    ]
+    with open(onboarding_filename, "w") as f:
+        json.dump(aspects_dict, f, indent=2)

@@ -48,14 +48,14 @@ def docker_compose_runner(
 ):
     @contextlib.contextmanager
     def run(
-        compose_file_path: Union[str, list], key: str
+        compose_file_path: Union[str, list], key: str, cleanup: bool = True
     ) -> pytest_docker.plugin.Services:
         with pytest_docker.plugin.get_docker_services(
             docker_compose_command=docker_compose_command,
             docker_compose_file=compose_file_path,
             docker_compose_project_name=f"{docker_compose_project_name}-{key}",
             docker_setup=docker_setup,
-            docker_cleanup=docker_cleanup,
+            docker_cleanup=docker_cleanup if cleanup else False,
         ) as docker_services:
             yield docker_services
 

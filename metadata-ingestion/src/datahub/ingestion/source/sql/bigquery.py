@@ -796,7 +796,7 @@ class BigQuerySource(SQLAlchemySource):
                 # Compat with sqlalchemy 1.4 Row type.
                 row = row._asdict()
             if row:
-                return BigQueryPartitionColumn(**row.items())
+                return BigQueryPartitionColumn(**dict(row.items()))
             return None
 
     def get_shard_from_table(self, table: str) -> Tuple[str, Optional[str]]:

@@ -47,6 +47,7 @@ export const HomePagePosts = () => {
                 count: 10,
             },
         },
+        fetchPolicy: 'cache-first',
     });
 
     const textPosts =

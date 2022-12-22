@@ -30,6 +30,10 @@ NUM_OPS = 10
 
 
 def default_query_results(query):
+    if query == SnowflakeQuery.current_account():
+        return [{"CURRENT_ACCOUNT()": "ABC12345"}]
+    if query == SnowflakeQuery.current_region():
+        return [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}]
     if query == SnowflakeQuery.current_role():
         return [{"CURRENT_ROLE()": "TEST_ROLE"}]
     elif query == SnowflakeQuery.current_version():
@@ -48,6 +52,15 @@ def default_query_results(query):
                 "comment": "Comment for TEST_DB",
             }
         ]
+    elif query == SnowflakeQuery.get_databases("TEST_DB"):
+        return [
+            {
+                "DATABASE_NAME": "TEST_DB",
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "COMMENT": "Comment for TEST_DB",
+            }
+        ]
     elif query == SnowflakeQuery.schemas_for_database("TEST_DB"):
         return [
             {
@@ -55,7 +68,13 @@ def default_query_results(query):
                 "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
-            }
+            },
+            {
+                "SCHEMA_NAME": "TEST2_SCHEMA",
+                "CREATED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "LAST_ALTERED": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "COMMENT": "comment for TEST_DB.TEST_SCHEMA",
+            },
         ]
     elif query == SnowflakeQuery.tables_for_database("TEST_DB"):
         return [
@@ -243,9 +262,14 @@ def default_query_results(query):
             }
             for op_idx in range(1, NUM_OPS + 1)
         ]
-    elif query == snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-        1654499820000,
-        1654586220000,
+    elif query in (
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+            1654499820000,
+            1654586220000,
+        ),
+        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
+            1654499820000, 1654586220000, False
+        ),
     ):
         return [
             {
@@ -339,7 +363,8 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         username="TST_USR",
                         password="TST_PWD",
                         include_views=False,
-                        table_pattern=AllowDenyPattern(allow=["test_db.test_schema.*"]),
+                        match_fully_qualified_names=True,
+                        schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_view_lineage=False,
@@ -408,9 +433,10 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         username="TST_USR",
                         password="TST_PWD",
                         include_views=False,
-                        table_pattern=AllowDenyPattern(allow=["test_db.test_schema.*"]),
+                        schema_pattern=AllowDenyPattern(allow=["test_schema"]),
                         include_technical_schema=True,
-                        include_table_lineage=False,
+                        include_table_lineage=True,
+                        include_column_lineage=False,
                         include_view_lineage=False,
                         include_usage_stats=False,
                         include_operational_stats=False,

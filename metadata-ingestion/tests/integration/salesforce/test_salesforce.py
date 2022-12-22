@@ -57,7 +57,6 @@ def side_effect_call_salesforce(type, url):
 
 @freeze_time(FROZEN_TIME)
 def test_salesforce_ingest(pytestconfig, tmp_path):
-
     global test_resources_dir
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/salesforce"

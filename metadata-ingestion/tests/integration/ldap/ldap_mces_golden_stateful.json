@@ -1,0 +1,81 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:bsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Bart Simpson",
+                        "email": "bsimpson",
+                        "title": "Mr. Boss",
+                        "firstName": "Bart",
+                        "lastName": "Simpson",
+                        "fullName": "Bart Simpson"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+            "urn": "urn:li:corpuser:hsimpson",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "active": true,
+                        "displayName": "Homer Simpson",
+                        "email": "hsimpson",
+                        "title": "Mr. Everything",
+                        "managerUrn": "urn:li:corpuser:bsimpson",
+                        "departmentId": 1001,
+                        "departmentName": "1001",
+                        "firstName": "Homer",
+                        "lastName": "Simpson",
+                        "fullName": "Homer Simpson"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:bsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:hsimpson",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1660460400000,
+        "runId": "ldap-test"
+    }
+}
+]
