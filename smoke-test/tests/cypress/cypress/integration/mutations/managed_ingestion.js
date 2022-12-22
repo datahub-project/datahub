@@ -5,7 +5,8 @@ function readyToTypeEditor() {
 
 describe("run managed ingestion", () => {
     it("create run managed ingestion source", () => {
-        let testName = "cypress test source"
+        let number = Math.floor(Math.random() * 100000);
+        let testName = `cypress test source ${number}`
         let cli_version = "0.9.3.3rc5";
         cy.login();
         cy.goToIngestionPage();
