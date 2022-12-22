@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { EntityType, OrFilter, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import { EntityType, AndFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
@@ -36,7 +36,7 @@ type Props = {
         input: SearchAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
-    filters: OrFilter[];
+    filters: AndFilterInput[];
     query: string;
     isSelectMode: boolean;
     isSelectAll: boolean;

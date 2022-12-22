@@ -335,7 +335,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def gen_schema_containers(
         self, schema: str, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
-
         assert isinstance(self.config, PrestoOnHiveConfig)
         where_clause_suffix: str = ""
         if (
@@ -398,7 +397,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-
         # In mysql we get tables for all databases and we should filter out the non metastore one
         if (
             "mysql" in self.config.scheme
@@ -625,7 +623,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
         schema: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-
         assert isinstance(sql_config, PrestoOnHiveConfig)
 
         # In mysql we get tables for all databases and we should filter out the non metastore one

@@ -163,6 +163,11 @@ kafka:
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
+  producer:
+    retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
+    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:15000}
+    requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
+    backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081} # Application only for type = kafka
@@ -214,3 +219,6 @@ featureFlags:
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
+
+views:
+  enabled: ${VIEWS_ENABLED:true}

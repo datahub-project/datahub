@@ -55,7 +55,6 @@ class GenericProfiler:
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
-
         ge_profile_requests: List[GEProfilerRequest] = [
             cast(GEProfilerRequest, request)
             for request in requests

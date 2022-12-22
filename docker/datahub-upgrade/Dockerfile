@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.14 AS base
+FROM --platform=$BUILDPLATFORM alpine:3 AS base
 ENV DOCKERIZE_VERSION v0.6.1
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
@@ -22,7 +22,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && cp /usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks \
     && curl -sSL https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
-FROM --platform=$BUILDPLATFORM alpine:3.14 AS prod-build
+FROM --platform=$BUILDPLATFORM alpine:3 AS prod-build
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \

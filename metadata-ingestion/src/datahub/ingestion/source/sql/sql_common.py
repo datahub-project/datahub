@@ -725,7 +725,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         entity_type: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(

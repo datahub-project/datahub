@@ -1,4 +1,4 @@
-FROM alpine:3
+FROM --platform=$BUILDPLATFORM alpine:3
 
 ENV DOCKERIZE_VERSION v0.6.1
 RUN apk add --no-cache mysql-client curl tar bash \

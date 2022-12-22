@@ -1,17 +1,23 @@
 package com.linkedin.datahub.graphql.resolvers.entity;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
@@ -35,6 +41,14 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
           return getGlossaryTermPrivileges(urn, context);
         case Constants.GLOSSARY_NODE_ENTITY_NAME:
           return getGlossaryNodePrivileges(urn, context);
+        case Constants.DATASET_ENTITY_NAME:
+          return getDatasetPrivileges(urn, context);
+        case Constants.CHART_ENTITY_NAME:
+          return getChartPrivileges(urn, context);
+        case Constants.DASHBOARD_ENTITY_NAME:
+          return getDashboardPrivileges(urn, context);
+        case Constants.DATA_JOB_ENTITY_NAME:
+          return getDataJobPrivileges(urn, context);
         default:
           log.warn("Tried to get entity privileges for entity type {} but nothing is implemented for it yet", urn.getEntityType());
           return new EntityPrivileges();
@@ -73,6 +87,47 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
       Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn);
       result.setCanManageEntity(canManage);
     }
+    return result;
+  }
+
+  private boolean canEditEntityLineage(Urn urn, QueryContext context) {
+    final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+        PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+    ));
+    DisjunctivePrivilegeGroup orPrivilegesGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        allPrivilegesGroup,
+        new ConjunctivePrivilegeGroup(Collections.singletonList(PoliciesConfig.EDIT_LINEAGE_PRIVILEGE.getType()))
+    ));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        urn.getEntityType(),
+        urn.toString(),
+        orPrivilegesGroup);
+  }
+
+  private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    result.setCanEditLineage(canEditEntityLineage(urn, context));
+    return result;
+  }
+
+  private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    result.setCanEditLineage(canEditEntityLineage(urn, context));
+    return result;
+  }
+
+  private EntityPrivileges getDashboardPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    result.setCanEditLineage(canEditEntityLineage(urn, context));
+    return result;
+  }
+
+  private EntityPrivileges getDataJobPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    result.setCanEditLineage(canEditEntityLineage(urn, context));
     return result;
   }
 }

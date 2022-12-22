@@ -68,7 +68,6 @@ class AddDatasetTerms(DatasetTermsTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-
         in_glossary_terms: Optional[GlossaryTermsClass] = cast(
             Optional[GlossaryTermsClass], aspect
         )

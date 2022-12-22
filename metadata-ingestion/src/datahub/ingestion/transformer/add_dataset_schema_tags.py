@@ -81,7 +81,6 @@ class AddDatasetSchemaTags(DatasetSchemaMetadataTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
     ) -> Optional[builder.Aspect]:
-
         schema_metadata_aspect: SchemaMetadataClass = cast(SchemaMetadataClass, aspect)
         assert schema_metadata_aspect is None or isinstance(
             schema_metadata_aspect, SchemaMetadataClass

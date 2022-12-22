@@ -204,22 +204,22 @@ export const IngestionSourceList = () => {
                 });
         } else {
             // Create
-            const newSource = {
-                urn: PLACEHOLDER_URN,
-                name: input.name,
-                type: input.type,
-                config: null,
-                schedule: {
-                    interval: input.schedule?.interval || null,
-                    timezone: input.schedule?.timezone || null,
-                },
-                platform: null,
-                executions: null,
-            };
-            addToListIngestionSourcesCache(client, newSource, pageSize, query);
             createIngestionSource({ variables: { input } })
                 .then((result) => {
                     message.loading({ content: 'Loading...', duration: 2 });
+                    const newSource = {
+                        urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
+                        name: input.name,
+                        type: input.type,
+                        config: null,
+                        schedule: {
+                            interval: input.schedule?.interval || null,
+                            timezone: input.schedule?.timezone || null,
+                        },
+                        platform: null,
+                        executions: null,
+                    };
+                    addToListIngestionSourcesCache(client, newSource, pageSize, query);
                     setTimeout(() => {
                         refetch();
                         analytics.event({
@@ -245,7 +245,6 @@ export const IngestionSourceList = () => {
                         content: `Failed to create ingestion source!: \n ${e.message || ''}`,
                         duration: 3,
                     });
-                    removeFromListIngestionSourcesCache(client, PLACEHOLDER_URN, page, pageSize, query);
                 });
         }
     };

@@ -374,6 +374,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
             user=self.username,
             account=self.account_id,
             token=token,
+            role=self.role,
             warehouse=self.warehouse,
             authenticator=VALID_AUTH_TYPES.get(self.authentication_type),
             application=APPLICATION_NAME,

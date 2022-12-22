@@ -169,7 +169,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Enabled by default, can be disabled via configuration `include_table_lineage` and `include_view_lineage`",
+    "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
 @capability(
     SourceCapability.USAGE_STATS,
@@ -192,6 +192,7 @@ class SnowflakeV2Source(
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
         self.logger = logger
+        self.snowsight_base_url = None
         # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
@@ -230,6 +231,7 @@ class SnowflakeV2Source(
 
         if self.is_classification_enabled():
             self.classifiers = self.get_classifiers()
+
         # Currently caching using instance variables
         # TODO - rewrite cache for readability or use out of the box solution
         self.db_tables: Dict[str, Optional[Dict[str, List[SnowflakeTable]]]] = {}
@@ -283,7 +285,6 @@ class SnowflakeV2Source(
     def check_capabilities(
         conn: SnowflakeConnection, connection_conf: SnowflakeV2Config
     ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
-
         # Currently only overall capabilities are reported.
         # Resource level variations in capabilities are not considered.
 
@@ -395,7 +396,6 @@ class SnowflakeV2Source(
         }
 
         for c in capabilities:  # type:ignore
-
             # These capabilities do not work without active warehouse
             if current_warehouse is None and c in (
                 SourceCapability.SCHEMA_METADATA,
@@ -427,10 +427,11 @@ class SnowflakeV2Source(
         return _report
 
     def get_workunits(self) -> Iterable[WorkUnit]:
-
         conn: SnowflakeConnection = self.config.get_connection()
         self.add_config_to_report()
         self.inspect_session_metadata(conn)
+        if self.config.include_external_url:
+            self.snowsight_base_url = self.get_snowsight_base_url(conn)
 
         self.report.include_technical_schema = self.config.include_technical_schema
         databases: List[SnowflakeDatabase] = []
@@ -529,7 +530,6 @@ class SnowflakeV2Source(
             return
 
         for snowflake_schema in snowflake_db.schemas:
-
             self.report.report_entity_scanned(snowflake_schema.name, "schema")
 
             if not is_schema_allowed(
@@ -859,7 +859,6 @@ class SnowflakeV2Source(
         entity_urn: str,
         entity_type: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
@@ -922,7 +921,6 @@ class SnowflakeV2Source(
     def gen_database_containers(
         self, database: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(database.name)
 
         database_container_key = self.gen_database_key(
@@ -1001,7 +999,6 @@ class SnowflakeV2Source(
     def get_tables_for_schema(
         self, conn: SnowflakeConnection, schema_name: str, db_name: str
     ) -> List[SnowflakeTable]:
-
         if db_name not in self.db_tables.keys():
             tables = self.data_dictionary.get_tables_for_database(conn, db_name)
             self.db_tables[db_name] = tables
@@ -1022,7 +1019,6 @@ class SnowflakeV2Source(
     def get_views_for_schema(
         self, conn: SnowflakeConnection, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
-
         if db_name not in self.db_views.keys():
             views = self.data_dictionary.get_views_for_database(conn, db_name)
             self.db_views[db_name] = views
@@ -1041,7 +1037,6 @@ class SnowflakeV2Source(
     def get_columns_for_table(
         self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeColumn]:
-
         if (db_name, schema_name) not in self.schema_columns.keys():
             columns = self.data_dictionary.get_columns_for_schema(
                 conn, schema_name, db_name
@@ -1064,7 +1059,6 @@ class SnowflakeV2Source(
     def get_pk_constraints_for_table(
         self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
     ) -> Optional[SnowflakePK]:
-
         if (db_name, schema_name) not in self.schema_pk_constraints.keys():
             constraints = self.data_dictionary.get_pk_constraints_for_schema(
                 conn, schema_name, db_name
@@ -1079,7 +1073,6 @@ class SnowflakeV2Source(
     def get_fk_constraints_for_table(
         self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeFK]:
-
         if (db_name, schema_name) not in self.schema_fk_constraints.keys():
             constraints = self.data_dictionary.get_fk_constraints_for_schema(
                 conn, schema_name, db_name
@@ -1101,6 +1094,7 @@ class SnowflakeV2Source(
         self.report.check_role_grants = self.config.check_role_grants
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
+        self.report.include_column_lineage = self.config.include_column_lineage
         if self.report.include_usage_stats or self.config.include_operational_stats:
             self.report.window_start_time = self.config.start_time
             self.report.window_end_time = self.config.end_time
@@ -1133,7 +1127,6 @@ class SnowflakeV2Source(
     # However that would require separate query per column and
     # that would be expensive, hence not done.
     def get_sample_values_for_table(self, conn, table_name, schema_name, db_name):
-
         # Create a cursor object.
         cur = conn.cursor()
         NUM_SAMPLED_ROWS = 1000
@@ -1152,21 +1145,55 @@ class SnowflakeV2Source(
     def get_external_url_for_table(
         self, table_name: str, schema_name: str, db_name: str, domain: str
     ) -> Optional[str]:
-        base_url = self.get_snowsight_base_url()
-        if base_url is not None:
-            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+        if self.snowsight_base_url is not None:
+            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
         return None
 
     def get_external_url_for_schema(
         self, schema_name: str, db_name: str
     ) -> Optional[str]:
-        base_url = self.get_snowsight_base_url()
-        if base_url is not None:
-            return f"{base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
+        if self.snowsight_base_url is not None:
+            return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/"
         return None
 
     def get_external_url_for_database(self, db_name: str) -> Optional[str]:
-        base_url = self.get_snowsight_base_url()
-        if base_url is not None:
-            return f"{base_url}#/data/databases/{db_name}/"
+        if self.snowsight_base_url is not None:
+            return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
         return None
+
+    def get_snowsight_base_url(self, conn):
+        try:
+            # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
+            for db_row in self.query(conn, SnowflakeQuery.current_account()):
+                account_locator = db_row["CURRENT_ACCOUNT()"]
+
+            for db_row in self.query(conn, SnowflakeQuery.current_region()):
+                region = db_row["CURRENT_REGION()"]
+
+            self.report.account_locator = account_locator
+            self.report.region = region
+
+            # Returned region may be in the form <region_group>.<region>, see https://docs.snowflake.com/en/sql-reference/functions/current_region.html
+            region = region.split(".")[-1].lower()
+            account_locator = account_locator.lower()
+
+            cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(
+                region
+            )
+
+            # For privatelink, account identifier ends with .privatelink
+            # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
+            return self.create_snowsight_base_url(
+                account_locator,
+                cloud_region_id,
+                cloud,
+                self.config.account_id.endswith(".privatelink"),  # type:ignore
+            )
+
+        except Exception as e:
+            self.warn(
+                self.logger,
+                "snowsight url",
+                f"unable to get snowsight base url due to an error -> {e}",
+            )
+            return None
