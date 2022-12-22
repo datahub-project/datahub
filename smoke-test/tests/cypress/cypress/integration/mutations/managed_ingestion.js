@@ -30,11 +30,8 @@ describe("run managed ingestion", () => {
         cy.clickOptionWithText("Save & Run")
         cy.waitTextVisible(testName)
 
-        // managed ingestion takes few seconds
-        cy.wait(10000)
-
         cy.contains(testName).parent().within(() => {
-            cy.waitTextVisible("Succeeded");
+            cy.contains("Succeeded", {timeout: 30000})
             cy.clickOptionWithTestId("delete-button");
         })
         cy.clickOptionWithText("Yes")
