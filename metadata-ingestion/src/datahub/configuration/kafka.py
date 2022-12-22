@@ -16,9 +16,7 @@ class _KafkaConnectionConfig(ConfigModel):
         description="Extra schema registry config serialized as JSON. These options will be passed into Kafka's SchemaRegistryClient. https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html?#schemaregistryclient",
     )
 
-     client_timeout_seconds: int = Field(
-        default=3, description="Client Timeout Config"
-    )
+    client_timeout_seconds: int = Field(default=3, description="Client Timeout Config")
 
     @validator("bootstrap")
     def bootstrap_host_colon_port_comma(cls, val: str) -> str:
