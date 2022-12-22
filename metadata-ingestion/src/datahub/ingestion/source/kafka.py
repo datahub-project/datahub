@@ -161,7 +161,7 @@ class KafkaSource(StatefulIngestionSourceBase):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics(
-            timeout=self.source_config.connection.list_topics_timeout_seconds
+            timeout=self.source_config.connection.client_timeout_seconds
         ).topics
         for t in topics:
             self.report.report_topic_scanned(t)
