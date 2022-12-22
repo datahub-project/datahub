@@ -88,15 +88,6 @@ public class GlossaryUtilsTest {
       Mockito.eq(ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME)),
       Mockito.any(Authentication.class)
     )).thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentNode3Aspects)));
-
-    final ResourceSpec resourceSpec3 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn3.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec3);
-
-    final ResourceSpec resourceSpec2 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn2.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec2);
-
-    final ResourceSpec resourceSpec1 = new ResourceSpec(parentNodeUrn.getEntityType(), parentNodeUrn1.toString());
-    mockAuthRequest("MANAGE_GLOSSARY_CHILDREN", AuthorizationResult.Type.DENY, resourceSpec1);
   }
 
   private void mockAuthRequest(String privilege, AuthorizationResult.Type allowOrDeny, ResourceSpec resourceSpec) {

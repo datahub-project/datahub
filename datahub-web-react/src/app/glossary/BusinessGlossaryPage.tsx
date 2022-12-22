@@ -78,7 +78,7 @@ function BusinessGlossaryPage() {
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
     const user = useGetAuthenticatedUser();
-    const allowAdd = user?.platformPrivileges?.manageGlossaries;
+    const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
 
     return (
         <>
@@ -113,7 +113,7 @@ function BusinessGlossaryPage() {
                         <div>
                             <Button
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
-                                hidden={!allowAdd}
+                                hidden={!canManageGlossaries}
                                 type="text"
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
@@ -121,7 +121,7 @@ function BusinessGlossaryPage() {
                             </Button>
                             <Button
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
-                                hidden={!allowAdd}
+                                hidden={!canManageGlossaries}
                                 type="text"
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >

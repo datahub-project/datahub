@@ -53,10 +53,10 @@ public class GlossaryUtils {
       return true;
     }
 
-    //Check for the MANAGE_GLOSSARY_CHILDREN_RECURSIVELY_PRIVILEGE privilege recursively until there is no parent associated.
+    //Check for the MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE privilege recursively until there is no parent associated.
     Urn currentParentNodeUrn = parentNodeUrn;
     while (currentParentNodeUrn != null) {
-      if (hasManagePrivilege(context, currentParentNodeUrn, PoliciesConfig.MANAGE_GLOSSARY_CHILDREN_RECURSIVELY_PRIVILEGE)) {
+      if (hasManagePrivilege(context, currentParentNodeUrn, PoliciesConfig.MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE)) {
         return true;
       }
       currentParentNodeUrn = getParentUrn(currentParentNodeUrn, context, entityClient);
