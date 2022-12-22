@@ -1899,7 +1899,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
 
     // 1. Check if the condition update is met
-    checkConditionalUpdate(latest, extraIngestParams);
+    checkConditionalUpdate(latest, extraIngestParams, urn, aspectName);
 
     // 2. Compare the latest existing and new.
     final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
@@ -2045,9 +2045,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return null;
   }
 
-  private void checkConditionalUpdate(EntityAspect oldAspect, ExtraIngestParams extraIngestParams) {
-    Long updateIfCreatedOn = extraIngestParams != null && oldAspect != null
-            ? extraIngestParams.getCreatedOn(oldAspect.getUrn(), oldAspect.getAspect()) : null;
+  private void checkConditionalUpdate(EntityAspect oldAspect, ExtraIngestParams extraIngestParams, Urn urn, String aspectName) {
+    Long updateIfCreatedOn = extraIngestParams != null ? extraIngestParams.getCreatedOn(urn.toString(), aspectName) : null;
     if (_aspectDao.supportTransactions() && updateIfCreatedOn != null) {
       long updateIfCreatedOnValue = updateIfCreatedOn.longValue();
       if (updateIfCreatedOnValue == 0 && oldAspect != null) {
@@ -2056,7 +2055,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
                 + " by " + oldAspect.getCreatedBy());
       }
       if (updateIfCreatedOnValue != 0 && oldAspect == null) {
-        throw new PreconditionFailedException("Failed to update " + oldAspect.getUrn() + "+" + oldAspect.getAspect()
+        throw new PreconditionFailedException("Failed to update " + urn + "+" + aspectName
                 + ". Expected an existing aspect created at " + updateIfCreatedOnValue + ", but found none.");
       }
       if (updateIfCreatedOnValue != 0 && oldAspect != null && oldAspect.getCreatedOn().getTime() != updateIfCreatedOnValue) {
