@@ -194,10 +194,21 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
 
 
     def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
+        """
+        This function generates some additional schema level details in properties tab
+        eg. udx : what all udx (user defined extension) function are defined and in which language
+                for specific schema
+            projection : the projection count for schema
+        
+        Args:
+            db_name (str): database name
+            schema  (str): schema name
+        Returns:
+            PlatformKey: obj of PaltformKey
+        """
         try:
             all_properties_keys = dict()
             for inspector in self.get_inspectors():
-
                 all_properties_keys = inspector._get_properties_keys(db_name , schema, level='schema')
 
             return SchemaKeyHelper(
@@ -206,15 +217,25 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 platform=self.platform,
                 instance=self.config.platform_instance,
                 backcompat_instance_for_guid=self.config.env,
-
                 numberOfProjection=all_properties_keys.get("projection_count", ""),
                 udxsFunctions=all_properties_keys.get("udx_list", ""),
                 UDXsLanguage=all_properties_keys.get("Udx_langauge", ""),
             )
-        except Exception as e:
-            self.report.report_failure(f"Hey something went wrong, while gettting schema in gen schema key: {e}")
+        except Exception as ex:
+            self.report.report_failure(f"unable to get schema level information due to an error: {ex}")
 
     def gen_database_key(self, database: str) -> PlatformKey:
+        """
+        This function generates database level information in properties tab 
+        eg. cluster : information about the cluster type, size and subcluster details
+                    for the database and also projects communal path.
+              
+        Args:
+            database (str): database name
+
+        Returns:
+            PlatformKey: obj of PaltformKey
+        """
         try:
             all_properties_keys = dict()
             for inspector in self.get_inspectors():
@@ -225,15 +246,13 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 platform=self.platform,
                 instance=self.config.platform_instance,
                 backcompat_instance_for_guid=self.config.env,
-
-
                 clusterType=all_properties_keys.get("cluster_type"),
                 clusterSize=all_properties_keys.get("cluster_size"),
                 subClusters=all_properties_keys.get("Subcluster"),
                 communalStoragePath=all_properties_keys.get("communinal_storage_path"),
             )
-        except Exception as e:
-            self.report.report_failure(f"Hey something went wrong, while gettting Generation of database key: {e}")
+        except Exception as ex:
+            self.report.report_failure(f"unable to get database level information due to an error: {ex}")
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
@@ -301,8 +320,8 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
-        Loop through all the tables in the given schema. This function was rewritten due to table_tags variable being added
-        which is geeting send in _process_table .
+        Loop through all the tables in the given schema. This function was re-written due to table_tags variable being added
+        which is getting send in _process_table .
     
         """
         tables_seen: Set[str] = set()
@@ -445,7 +464,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
         Loop through all the views in the given schema. This function was rewritten due to table_tags variable being added
-        which is geeting send in _process_views .
+        which is getting send in _process_views .
     
         """
         try:
@@ -463,7 +482,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     self.report.report_dropped(dataset_name)
                     continue
                 try:
-
                     yield from self._process_view(
                         dataset_name=dataset_name,
                         inspector=inspector,
@@ -724,7 +742,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                             f"{schema}.{projection}", f"Ingestion error: {e}"
                         )
         except Exception as e:
-            self.report.report_failure(f"{schema}", f"Tables error: {e}")
+            self.report.report_failure(f"{schema}", f"Projection error: {e}")
 
     def loop_models(
         self,
@@ -766,7 +784,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                         f"{schema}.{models}", f"Ingestion error: {e}"
                     )
         except Exception as e:
-            self.report.report_failure(f"{schema}", f"Tables error: {e}")
+            self.report.report_failure(f"{schema}", f"Model error: {e}")
 
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
@@ -922,7 +940,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                         f"{schema}.{OAuth}", f"Ingestion error: {e}"
                     )
         except Exception as e:
-            self.report.report_failure(f"{schema}", f"Tables error: {e}")
+            self.report.report_failure(f"{schema}", f"Oauth error: {e}")
 
     def _process_Oauth(
         self,
@@ -1235,28 +1253,28 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         properties = table_info.get("properties", {})
         return description, properties, location
 
-    def get_dataplatform_instance_aspect(
-        self, dataset_urn: str
-    ) -> Optional[SqlWorkUnit]:
-        # If we are a platform instance based source, emit the instance aspect
-        if self.config.platform_instance:
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
-                    ),
-                ),
-            )
-            wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
-            self.report.report_workunit(wu)
-            return wu
-        else:
-            return None
+    # def get_dataplatform_instance_aspect(
+    #     self, dataset_urn: str
+    # ) -> Optional[SqlWorkUnit]:
+    #     # If we are a platform instance based source, emit the instance aspect
+    #     if self.config.platform_instance:
+    #         mcp = MetadataChangeProposalWrapper(
+    #             entityType="dataset",
+    #             changeType=ChangeTypeClass.UPSERT,
+    #             entityUrn=dataset_urn,
+    #             aspectName="dataPlatformInstance",
+    #             aspect=DataPlatformInstanceClass(
+    #                 platform=make_data_platform_urn(self.platform),
+    #                 instance=make_dataplatform_instance_urn(
+    #                     self.platform, self.config.platform_instance
+    #                 ),
+    #             ),
+    #         )
+    #         wu = SqlWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+    #         self.report.report_workunit(wu)
+    #         return wu
+    #     else:
+    #         return None
 
     def is_dataset_eligible_for_profiling(
         self,
@@ -1467,7 +1485,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     num_edges += 1
 
         except Exception as e:
-            traceback.print_exc()
             self.warn(
                 logger,
                 "view_upstream_lineage",
@@ -1559,7 +1576,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     num_edges += 1
 
         except Exception as e:
-            traceback.print_exc()
             self.warn(
                 logger,
                 "Extracting the upstream & downstream Projection lineage from Vertica failed."
