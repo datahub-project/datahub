@@ -45,6 +45,7 @@ public class MetadataChangeLogProcessor {
 
   private final Histogram kafkaLagStats = MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
+  private static final String DEFAULT_GROUP = "DEFAULT_GROUP";
   private static final String GROUP_1 = "GROUP_1";
   private static final String GROUP_2 = "GROUP_2";
   private static final String GROUP_3 = "GROUP_3";
@@ -54,6 +55,9 @@ public class MetadataChangeLogProcessor {
   private static final String HOOK_NAME_2 = "ingestionSchedulerHook";
   private static final String HOOK_NAME_3 = "entityChangeEventHook";
   private static final String HOOK_NAME_4 = "siblingAssociationHook";
+
+  @Value("${kafka.mae.consumer.group.default:}")
+  private String consumerGroupHooks;
 
   @Value("${kafka.mae.consumer.group.1:}")
   private String consumerGroup1Hooks;
@@ -84,14 +88,27 @@ public class MetadataChangeLogProcessor {
     hookMap.values().forEach(MetadataChangeLogHook::init);
 
     groupMap = new HashMap<>();
+    groupMap.put(DEFAULT_GROUP, getHooksFromConfiguration(consumerGroupHooks, hookMap));
     groupMap.put(GROUP_1, getHooksFromConfiguration(consumerGroup1Hooks, hookMap));
-    groupMap.put(GROUP_1, getHooksFromConfiguration(consumerGroup2Hooks, hookMap));
-    groupMap.put(GROUP_1, getHooksFromConfiguration(consumerGroup3Hooks, hookMap));
-    groupMap.put(GROUP_1, getHooksFromConfiguration(consumerGroup4Hooks, hookMap));
+    groupMap.put(GROUP_2, getHooksFromConfiguration(consumerGroup2Hooks, hookMap));
+    groupMap.put(GROUP_3, getHooksFromConfiguration(consumerGroup3Hooks, hookMap));
+    groupMap.put(GROUP_4, getHooksFromConfiguration(consumerGroup4Hooks, hookMap));
+  }
+
+  @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}", topics = {
+          "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
+          "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
+                  + "}"}, containerFactory = "kafkaEventConsumer")
+  public void consumeForGroupDefault(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+    try {
+      consume(consumerRecord, DEFAULT_GROUP);
+    } catch (Exception e) {
+      log.error("Unexpected exception in the default MCL Kafka Listener. Exception: {}", e);
+    }
   }
 
   @KafkaListener(id = "${METADATA_CHANGE_LOG_KAFKA_UPDATE_INDICES_CONSUMER_GROUP_ID:"
-          + "generic-mae-consumer-job-client-update-indices-hook}", topics = {  // TODO: MOZDA DA SE PROMENI OVO ID GRUPE
+          + "generic-mae-consumer-job-client-update-indices-hook}", topics = {
           "${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}",
           "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES
                   + "}"}, containerFactory = "kafkaEventConsumerWithRetry")
@@ -145,17 +162,25 @@ public class MetadataChangeLogProcessor {
                 event.getEntityKeyAspect());
       } catch (Exception e) {
         MetricUtils.counter(this.getClass(), "avro_to_pegasus_conversion_failure").inc();
-        log.error("Error deserializing message due to: ", e);
+        log.error("Error deserializing message due to: {}", e);
         log.error("Message: {}", record.toString());
         return;
       }
 
       log.debug("Invoking MCL hooks for urn: {}, key: {}", event.getEntityUrn(), event.getEntityKeyAspect());
       if (hook.isEnabled()) {
-        hook.invoke(event);
-        MetricUtils.counter(this.getClass(), "consumed_mcl_count").inc();
-        log.debug("Successfully completed MCL hook {} for urn: {}, key: {}", hook.getClass(), event.getEntityUrn(),
-                event.getEntityKeyAspect());
+        try {
+          hook.invoke(event);
+          MetricUtils.counter(this.getClass(), groupName).inc();
+          log.debug("Successfully completed MCL hook {} for urn: {}, key: {}", hook.getClass(), event.getEntityUrn(),
+                  event.getEntityKeyAspect());
+        } catch (Exception e) {
+          MetricUtils.counter(this.getClass(), groupName + "_failure").inc();
+          log.error("Failed to execute MCL hook with name: {}, error: {}", hook.getClass().getCanonicalName(), e);
+          if (!groupName.equals(DEFAULT_GROUP)) {
+            throw e;
+          }
+        }
       }
     }
   }
@@ -182,8 +207,9 @@ public class MetadataChangeLogProcessor {
           addHookClassToList(hooks, SiblingAssociationHook.class, hookMap);
           break;
         default:
-          log.error("Unsupported hook type " + hookName + ". Allowed values: " +
-                  HOOK_NAME_1 + ", " + HOOK_NAME_2 + ", " + HOOK_NAME_3 + ", " + HOOK_NAME_4);
+          log.error("Unsupported hook type " + hookName + ". Allowed values: "
+                   + HOOK_NAME_1 + ", " + HOOK_NAME_2 + ", " + HOOK_NAME_3 + ", " + HOOK_NAME_4);
+          break;
       }
     }
     return hooks;
