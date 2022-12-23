@@ -4,6 +4,7 @@ import com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKaf
 import com.amazonaws.services.schemaregistry.serializers.GlueSchemaRegistryKafkaSerializer;
 import com.amazonaws.services.schemaregistry.utils.AWSSchemaRegistryConstants;
 import com.amazonaws.services.schemaregistry.utils.AvroRecordType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,8 +33,9 @@ public class AwsGlueSchemaRegistryFactory {
 
   @Bean
   @Nonnull
-  protected SchemaRegistryConfig getInstance() {
+  protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
     Map<String, Object> props = new HashMap<>();
+    //TODO: FIXME
     props.put(AWSSchemaRegistryConstants.AWS_REGION, awsRegion);
     props.put(AWSSchemaRegistryConstants.DATA_FORMAT, "AVRO");
     props.put(AWSSchemaRegistryConstants.SCHEMA_AUTO_REGISTRATION_SETTING, "true");

@@ -13,7 +13,6 @@ import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.concurrent.Future;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.kafka.clients.producer.RecordMetadata;
 
 
 /**

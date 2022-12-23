@@ -103,6 +103,7 @@ public class GraphQLEngineFactory {
   private EntityRegistry _entityRegistry;
 
   @Autowired
+  @Qualifier("configurationProvider")
   private ConfigurationProvider _configProvider;
 
   @Autowired

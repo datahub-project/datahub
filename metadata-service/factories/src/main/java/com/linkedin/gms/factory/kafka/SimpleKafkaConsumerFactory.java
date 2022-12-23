@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.time.Duration;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
@@ -19,13 +19,13 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
-@EnableConfigurationProperties({ConfigurationProvider.class, KafkaProperties.class})
+@EnableConfigurationProperties({KafkaProperties.class})
 public class SimpleKafkaConsumerFactory {
 
   @Bean(name = "simpleKafkaConsumer")
-  protected KafkaListenerContainerFactory<?> createInstance(KafkaConfiguration kafkaConfiguration,
-      KafkaProperties properties) {
-
+  protected KafkaListenerContainerFactory<?> createInstance(@Qualifier("configurationProvider") ConfigurationProvider
+      provider, KafkaProperties properties) {
+    KafkaConfiguration kafkaConfiguration = provider.getKafka();
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
 
     // Specify (de)serializers for record keys and for record values.

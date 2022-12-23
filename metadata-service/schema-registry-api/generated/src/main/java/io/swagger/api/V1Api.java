@@ -55,7 +55,7 @@ public interface V1Api {
         return getRequest().map(r -> r.getHeader("Accept"));
     }
 
-    @Operation(summary = "Get the server metadata", description = "", tags={ "Server Metadata (v1)" })
+    @Operation(summary = "Get the server metadata", description = "", tags={ "Server Metadata (v1)" }, hidden = true)
     @ApiResponses(value = { 
         @ApiResponse(responseCode = "500", description = "Error code 50001 -- Error in the backend data store ") })
     @RequestMapping(value = "/v1/metadata/id",

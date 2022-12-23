@@ -24,6 +24,8 @@ import com.linkedin.platform.event.v1.EntityChangeEvent;
 import io.datahubproject.openapi.test.OpenAPISpringTestServer;
 import io.datahubproject.openapi.test.OpenAPISpringTestServerConfiguration;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +39,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;
@@ -45,12 +52,27 @@ import static org.testng.Assert.*;
 
 
 @ActiveProfiles("test")
+@ContextConfiguration
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT,
     classes = {OpenAPISpringTestServer.class, OpenAPISpringTestServerConfiguration.class,
         SchemaRegistryControllerTestConfiguration.class})
 @EnableKafka
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
+
+  static KafkaContainer kafka = new KafkaContainer(
+      DockerImageName.parse("confluentinc/cp-kafka:5.3.1"))
+      .withReuse(true)
+      .withStartupAttempts(5)
+      .withStartupTimeout(Duration.of(30, ChronoUnit.SECONDS));
+
+  @DynamicPropertySource
+  static void kafkaProperties(DynamicPropertyRegistry registry) {
+    kafka.start();
+    registry.add("kafka.bootstrapServers", kafka::getBootstrapServers);
+    registry.add("kafka.schemaRegistry.type", () -> "INTERNAL");
+    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/schema-registry");
+  }
 
   @Autowired
   EventProducer _producer;
@@ -155,7 +177,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
         new PlatformEventHeader().setTimestampMillis(123L));
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
 
-    _producer.producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME,"Some key",platformEvent)
+    _producer.producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "Some key", platformEvent)
         .get(10, TimeUnit.SECONDS);
 
     final boolean messageConsumed = peLatch.await(10, TimeUnit.SECONDS);

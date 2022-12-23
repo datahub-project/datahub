@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClientConfig;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
@@ -44,11 +45,10 @@ public class KafkaSchemaRegistryFactory {
   private String securityProtocol;
 
   @Bean
-  //@ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = TYPE)
   @Nonnull
-  protected SchemaRegistryConfig getInstance() {
+  protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
     Map<String, Object> props = new HashMap<>();
-
+    //TODO: FIXME
     props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaSchemaRegistryUrl);
     props.put(withNamespace(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG), sslTruststoreLocation);
     props.put(withNamespace(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG), sslTruststorePassword);

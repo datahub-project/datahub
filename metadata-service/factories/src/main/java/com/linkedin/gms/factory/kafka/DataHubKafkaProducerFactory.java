@@ -5,8 +5,8 @@ import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactor
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
-import com.linkedin.metadata.config.KafkaConfiguration;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.avro.generic.IndexedRecord;
@@ -15,6 +15,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -25,7 +26,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-@EnableConfigurationProperties(KafkaProperties.class)
+@EnableConfigurationProperties({ConfigurationProvider.class, KafkaProperties.class})
 @Import({ConfigurationProvider.class, KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class, InternalSchemaRegistryFactory.class})
 public class DataHubKafkaProducerFactory {
 
@@ -33,8 +34,9 @@ public class DataHubKafkaProducerFactory {
   private SchemaRegistryConfig schemaRegistryConfig;
 
   @Bean(name = "kafkaProducer")
-  protected Producer<String, IndexedRecord> createInstance(KafkaConfiguration kafkaConfiguration,
-      KafkaProperties properties) {
+  protected Producer<String, IndexedRecord> createInstance(@Qualifier("configurationProvider") ConfigurationProvider
+      provider, KafkaProperties properties) {
+    KafkaConfiguration kafkaConfiguration = provider.getKafka();
     KafkaProperties.Producer producerProps = properties.getProducer();
 
     producerProps.setKeySerializer(StringSerializer.class);

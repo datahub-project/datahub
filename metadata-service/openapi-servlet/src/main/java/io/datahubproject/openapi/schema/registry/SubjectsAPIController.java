@@ -1,5 +1,5 @@
 package io.datahubproject.openapi.schema.registry;
-
+/*
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.schema.registry.SchemaRegistryService;
@@ -14,7 +14,6 @@ import io.swagger.api.ModeApi;
 import io.swagger.api.SchemasApi;
 import io.swagger.api.SubjectsApi;
 import io.swagger.api.V1Api;
-import io.swagger.v3.oas.annotations.Operation;
 import java.util.Optional;
 import javax.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -25,18 +24,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+*/
 
 /**
  * DataHub Rest Controller implementation for Confluent's Schema Registry OpenAPI spec.
  */
+/*
 @Slf4j
 @RestController
 @RequestMapping("/schema-registry")
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = InternalSchemaRegistryFactory.TYPE)
-public class SchemaRegistryController
-    implements CompatibilityApi, ConfigApi, ContextsApi, DefaultApi, ModeApi, SchemasApi, SubjectsApi, V1Api {
+public class SubjectsAPIController implements SubjectsApi {
 
   private final ObjectMapper objectMapper;
 
@@ -56,12 +55,6 @@ public class SchemaRegistryController
   }
 
   @Override
-  public Optional<String> getAcceptHeader() {
-    return CompatibilityApi.super.getAcceptHeader();
-  }
-
-  @Override
-  @Operation(hidden = false)
   public ResponseEntity<RegisterSchemaResponse> register(String subject, RegisterSchemaRequest body,
       Boolean normalize) {
     final String topicName = subject.replaceFirst("-value", "");
@@ -74,17 +67,6 @@ public class SchemaRegistryController
     });
   }
 
-  @Override
-  public ResponseEntity<SchemaString> getSchema(Integer id, String subject, String format, Boolean fetchMaxId) {
-    return _schemaRegistryService.getSchemaForId(id).map(schema -> {
-      SchemaString result = new SchemaString();
-      result.setMaxId(id);
-      result.setSchemaType("AVRO");
-      result.setSchema(schema.toString());
-      return new ResponseEntity<>(result, HttpStatus.OK);
-    }).orElseGet(() -> {
-      log.error("Couldn't find topic with id {}.", id);
-      return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-    });
-  }
+
 }
+*/

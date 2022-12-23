@@ -30,27 +30,27 @@ services:
       - broker:/var/lib/kafka/data/
 
   # This "container" is a workaround to pre-create topics
-  kafka-setup:
-    build:
-      context: kafka-setup
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
-    env_file: kafka-setup/env/docker.env
-    hostname: kafka-setup
-    container_name: kafka-setup
-    depends_on:
-      - broker
-      - schema-registry
+  #kafka-setup:
+  #  build:
+  #    context: kafka-setup
+  #  image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+  #  env_file: kafka-setup/env/docker.env
+  #  hostname: kafka-setup
+  #  container_name: kafka-setup
+  #  depends_on:
+  #    - broker
+  #    - schema-registry
 
-  schema-registry:
-    image: confluentinc/cp-schema-registry:5.4.0
-    env_file: schema-registry/env/docker.env
-    hostname: schema-registry
-    container_name: schema-registry
-    depends_on:
-      - zookeeper
-      - broker
-    ports:
-      - "8081:8081"
+  #schema-registry:
+  #  image: confluentinc/cp-schema-registry:5.4.0
+  #  env_file: schema-registry/env/docker.env
+  #  hostname: schema-registry
+  #  container_name: schema-registry
+  #  depends_on:
+  #    - zookeeper
+  #    - broker
+  #  ports:
+  #    - "8081:8081"
 
   elasticsearch:
     image: elasticsearch:7.9.3

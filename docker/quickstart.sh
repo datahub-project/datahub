@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 MONITORING_COMPOSE=""
 if [[ $MONITORING == true ]]; then
   MONITORING_COMPOSE="-f quickstart/docker-compose.monitoring.quickstart.yml"

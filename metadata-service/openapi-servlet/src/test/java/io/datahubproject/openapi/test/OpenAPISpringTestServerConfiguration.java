@@ -11,7 +11,7 @@ import org.springframework.web.servlet.DispatcherServlet;
 
 
 @TestConfiguration
-@ComponentScan(basePackages={"io.datahubproject.openapi.schema.registry", "com.linkedin.metadata.schema.registry",
+@ComponentScan(basePackages = {"io.datahubproject.openapi.schema.registry", "com.linkedin.metadata.schema.registry",
     "io.datahubproject.openapi.schema.registry"})
 public class OpenAPISpringTestServerConfiguration {
 
