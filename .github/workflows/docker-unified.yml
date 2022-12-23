@@ -488,7 +488,7 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download MCE Consumer image
+      - name: Download MAE Consumer image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
@@ -501,10 +501,10 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
         run: |
-          datahub docker quickstart --standalone_consumers --dump-logs-on-failure
+          ./smoke-test/run-quickstart.sh
       - name: Smoke test
         env:
-          SKIP_QUICKSTART: true
+          RUN_QUICKSTART: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           CLEANUP_DATA: "false"
