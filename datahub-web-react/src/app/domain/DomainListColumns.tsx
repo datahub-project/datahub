@@ -34,7 +34,7 @@ export function DomainListMenuColumn(handleDelete: (urn: string) => void) {
 
 export function DomainNameColumn(logoIcon: JSX.Element) {
     return (record: DomainEntry) => (
-        <Link to={record.url}>
+        <Link to={record.url} data-testid={record.urn}>
             {logoIcon}
             <DomainNameContainer>
                 <Typography.Text>{record.name}</Typography.Text>
