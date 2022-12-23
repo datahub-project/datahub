@@ -30,7 +30,9 @@ SNOWFLAKE_DATABASE = "SNOWFLAKE"
 
 
 # We will always compare with lowercase
+# Complete list for objectDomain - https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html
 class SnowflakeObjectDomain(str, Enum):
     TABLE = "table"
+    EXTERNAL_TABLE = "external table"
     VIEW = "view"
-    MATERIALIZED_VIEW = "materialized_view"
+    MATERIALIZED_VIEW = "materialized view"

@@ -122,6 +122,7 @@ class SnowflakeCommonMixin:
         dataset_params = dataset_name.split(".")
         if dataset_type.lower() not in (
             SnowflakeObjectDomain.TABLE,
+            SnowflakeObjectDomain.EXTERNAL_TABLE,
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
         ):
