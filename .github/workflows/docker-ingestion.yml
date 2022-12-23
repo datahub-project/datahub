@@ -63,14 +63,14 @@ jobs:
           fetch-depth: 0
       - name: Docker meta
         id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+        uses: docker/metadata-action@v4
         with:
           # list of Docker images to use as base name for tags
           images: |
             linkedin/datahub-ingestion
           # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
+          tags: |
+            type=raw,value=${{ needs.setup.outputs.tag }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx

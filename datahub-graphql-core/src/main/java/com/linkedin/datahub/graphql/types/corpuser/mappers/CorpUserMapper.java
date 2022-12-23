@@ -7,6 +7,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserAppearanceSettings;
+import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
+import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -70,10 +72,25 @@ public class CorpUserMapper {
         if (envelopedAspect != null) {
             corpUserSettings = new CorpUserSettings(envelopedAspect.getValue().data());
         }
-
         com.linkedin.datahub.graphql.generated.CorpUserSettings result =
             new com.linkedin.datahub.graphql.generated.CorpUserSettings();
 
+        // Map Appearance Settings -- Appearance settings always exist.
+        result.setAppearance(mapCorpUserAppearanceSettings(corpUserSettings, featureFlags));
+
+        // Map Views Settings.
+        if (corpUserSettings.hasViews()) {
+            result.setViews(mapCorpUserViewsSettings(corpUserSettings.getViews()));
+        }
+
+        corpUser.setSettings(result);
+    }
+
+    @Nonnull
+    private CorpUserAppearanceSettings mapCorpUserAppearanceSettings(
+        @Nonnull final CorpUserSettings corpUserSettings,
+        @Nullable final FeatureFlags featureFlags
+    ) {
         CorpUserAppearanceSettings appearanceResult = new CorpUserAppearanceSettings();
         if (featureFlags != null) {
             appearanceResult.setShowSimplifiedHomepage(featureFlags.isShowSimplifiedHomepageByDefault());
@@ -84,10 +101,21 @@ public class CorpUserMapper {
         if (corpUserSettings.hasAppearance()) {
             appearanceResult.setShowSimplifiedHomepage(corpUserSettings.getAppearance().isShowSimplifiedHomepage());
         }
+        return appearanceResult;
+    }
 
-        result.setAppearance(appearanceResult);
+    @Nonnull
+    private CorpUserViewsSettings mapCorpUserViewsSettings(@Nonnull final com.linkedin.identity.CorpUserViewsSettings viewsSettings) {
+        CorpUserViewsSettings viewsResult = new CorpUserViewsSettings();
 
-        corpUser.setSettings(result);
+        if (viewsSettings.hasDefaultView()) {
+            final DataHubView unresolvedView = new DataHubView();
+            unresolvedView.setUrn(viewsSettings.getDefaultView().toString());
+            unresolvedView.setType(EntityType.DATAHUB_VIEW);
+            viewsResult.setDefaultView(unresolvedView);
+        }
+
+        return viewsResult;
     }
 
     private void mapCorpUserKey(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {

@@ -16,6 +16,7 @@ export const LineageExplorerContext = React.createContext<LineageExplorerContext
     setVisibleColumnsByUrn: () => {},
     columnsByUrn: {},
     setColumnsByUrn: () => {},
+    refetchCenterNode: () => {},
 });
 
 type LineageExplorerContextType = {
@@ -32,4 +33,5 @@ type LineageExplorerContextType = {
     setVisibleColumnsByUrn: any;
     columnsByUrn: Record<string, SchemaField[]>;
     setColumnsByUrn: React.Dispatch<React.SetStateAction<Record<string, SchemaField[]>>>;
+    refetchCenterNode: () => void;
 };

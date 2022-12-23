@@ -139,7 +139,6 @@ class ModelProcessor:
         )
 
     def get_all_endpoints(self) -> List["EndpointSummaryTypeDef"]:
-
         endpoints = []
 
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.list_endpoints
@@ -153,7 +152,6 @@ class ModelProcessor:
     def get_endpoint_details(
         self, endpoint_name: str
     ) -> "DescribeEndpointOutputTypeDef":
-
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker.html#SageMaker.Client.describe_endpoint
         return self.sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
 
@@ -163,7 +161,6 @@ class ModelProcessor:
         endpoint_status = ENDPOINT_STATUS_MAP.get(sagemaker_status)
 
         if endpoint_status is None:
-
             self.report.report_warning(
                 endpoint_arn,
                 f"Unknown status for {endpoint_name} ({endpoint_arn}): {sagemaker_status}",
@@ -299,7 +296,6 @@ class ModelProcessor:
     def match_model_jobs(
         self, model_details: "DescribeModelOutputTypeDef"
     ) -> Tuple[Set[str], Set[str], List[MLHyperParamClass], List[MLMetricClass]]:
-
         model_training_jobs: Set[str] = set()
         model_downstream_jobs: Set[str] = set()
 
@@ -319,7 +315,6 @@ class ModelProcessor:
         model_metrics_raw = {}
 
         for model_data_url in model_data_urls:
-
             data_url_matched_jobs = self.model_image_to_jobs.get(model_data_url, dict())
             # extend set of training jobs
             model_training_jobs = model_training_jobs.union(
@@ -486,7 +481,6 @@ class ModelProcessor:
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         endpoints = self.get_all_endpoints()
         # sort endpoints for consistency
         endpoints = sorted(endpoints, key=lambda x: x["EndpointArn"])
@@ -495,7 +489,6 @@ class ModelProcessor:
 
         # ingest endpoints first since we need to know the endpoint ARN -> name mapping
         for endpoint in endpoints:
-
             endpoint_details = self.get_endpoint_details(endpoint["EndpointName"])
 
             endpoint_arn_to_name[endpoint["EndpointArn"]] = endpoint_details[
@@ -513,7 +506,6 @@ class ModelProcessor:
 
         # ingest endpoints first since we need to know the endpoint ARN -> name mapping
         for group in groups:
-
             group_details = self.get_group_details(group["ModelPackageGroupName"])
 
             self.report.report_group_scanned()
@@ -526,7 +518,6 @@ class ModelProcessor:
         models = sorted(models, key=lambda x: x["ModelArn"])
 
         for model in models:
-
             model_details = self.get_model_details(model["ModelName"])
 
             self.report.report_model_scanned()

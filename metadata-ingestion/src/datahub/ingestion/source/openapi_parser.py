@@ -52,7 +52,6 @@ def request_call(
     username: Optional[str] = None,
     password: Optional[str] = None,
 ) -> requests.Response:
-
     headers = {"accept": "application/json"}
 
     if username is not None and password is not None:
@@ -121,7 +120,6 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
     for p_k, p_o in sw_dict["paths"].items():
         # will track only the "get" methods, which are the ones that give us data
         if "get" in p_o.keys():
-
             if "200" in p_o["get"]["responses"].keys():
                 base_res = p_o["get"]["responses"]["200"]
             elif 200 in p_o["get"]["responses"].keys():
