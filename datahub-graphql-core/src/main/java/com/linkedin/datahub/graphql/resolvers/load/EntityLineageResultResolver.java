@@ -11,6 +11,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -57,7 +58,8 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
                 start != null ? start : 0,
                 count != null ? count : 100,
                 1,
-                separateSiblings != null ? input.getSeparateSiblings() : false
+                separateSiblings != null ? input.getSeparateSiblings() : false,
+                new HashSet<>()
             ));
       } catch (URISyntaxException e) {
         log.error("Failed to fetch lineage for {}", urn);
