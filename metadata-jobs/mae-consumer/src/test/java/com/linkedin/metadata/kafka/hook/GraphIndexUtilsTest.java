@@ -71,8 +71,26 @@ public class GraphIndexUtilsTest {
         List<Edge> edgesToAdd = GraphIndexUtils.extractGraphEdges(entry, upstreamLineage, _datasetUrn, event);
         List<Edge> expectedEdgesToAdd = new ArrayList<>();
         // edges contain default created event time and created actor from system metadata
-        Edge edge1 = new Edge(_datasetUrn, _upstreamDataset1, entry.getKey().getRelationshipName(), CREATED_EVENT_TIME, _createdActorUrn, null, null);
-        Edge edge2 = new Edge(_datasetUrn, _upstreamDataset2, entry.getKey().getRelationshipName(), CREATED_EVENT_TIME, _createdActorUrn, null, null);
+        Edge edge1 = new Edge(
+            _datasetUrn,
+            _upstreamDataset1,
+            entry.getKey().getRelationshipName(),
+            CREATED_EVENT_TIME,
+            _createdActorUrn,
+            UPDATED_EVENT_TIME,
+            _updatedActorUrn,
+            null
+        );
+        Edge edge2 = new Edge(
+            _datasetUrn,
+            _upstreamDataset2,
+            entry.getKey().getRelationshipName(),
+            CREATED_EVENT_TIME,
+            _createdActorUrn,
+            UPDATED_EVENT_TIME,
+            _updatedActorUrn,
+            null
+        );
         expectedEdgesToAdd.add(edge1);
         expectedEdgesToAdd.add(edge2);
         Assert.assertEquals(expectedEdgesToAdd.size(), edgesToAdd.size());

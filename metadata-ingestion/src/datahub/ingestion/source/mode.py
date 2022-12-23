@@ -68,9 +68,9 @@ class ModeConfig(DatasetLineageProviderConfigBase):
     connect_uri: str = Field(
         default="https://app.mode.com", description="Mode host URL."
     )
-    token: Optional[str] = Field(default=None, description="Mode user token.")
-    password: Optional[pydantic.SecretStr] = Field(
-        default=None, description="Mode password for authentication."
+    token: str = Field(description="Mode user token.")
+    password: pydantic.SecretStr = Field(
+        description="Mode password for authentication."
     )
     workspace: Optional[str] = Field(default=None, description="")
     default_schema: str = Field(
@@ -172,7 +172,7 @@ class ModeSource(Source):
         self.session = requests.session()
         self.session.auth = HTTPBasicAuth(
             self.config.token,
-            self.config.password.get_secret_value() if self.config.password else None,
+            self.config.password.get_secret_value(),
         )
         self.session.headers.update(
             {
