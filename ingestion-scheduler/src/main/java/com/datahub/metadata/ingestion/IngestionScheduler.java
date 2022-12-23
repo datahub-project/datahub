@@ -21,6 +21,7 @@ import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
@@ -347,7 +348,8 @@ public class IngestionScheduler {
         input.setRequestedAt(System.currentTimeMillis());
 
         Map<String, String> arguments = new HashMap<>();
-        arguments.put(RECIPE_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().getRecipe());
+        String recipe = IngestionUtils.injectPipelineName(_ingestionSourceInfo.getConfig().getRecipe(), _ingestionSourceUrn.toString());
+        arguments.put(RECIPE_ARGUMENT_NAME, recipe);
         arguments.put(VERSION_ARGUMENT_NAME, _ingestionSourceInfo.getConfig().hasVersion()
             ? _ingestionSourceInfo.getConfig().getVersion()
             : _ingestionConfiguration.getDefaultCliVersion());

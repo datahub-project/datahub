@@ -24,10 +24,13 @@ import play.test.WithBrowser;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static play.mvc.Http.Status.NOT_FOUND;
 import static play.mvc.Http.Status.OK;
 import static play.test.Helpers.fakeRequest;
@@ -72,11 +75,14 @@ public class ApplicationTest extends WithBrowser {
 
   private String _wellKnownUrl;
 
+  private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
+  private static final String TEST_TOKEN = "faketoken_YCpYIrjQH4sD3_rAc3VPPFg4";
+
   @BeforeAll
   public void init() throws IOException, InterruptedException {
     _gmsServer = new MockWebServer();
-    _gmsServer.enqueue(new MockResponse().setBody("{\"value\":\"urn:li:corpuser:testUser@myCompany.com\"}"));
-    _gmsServer.enqueue(new MockResponse().setBody("{\"accessToken\":\"faketoken_YCpYIrjQH4sD3_rAc3VPPFg4\"}"));
+    _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
+    _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
     _gmsServer.start(gmsServerPort());
 
     _oauthServer = new MockOAuth2Server();
@@ -140,8 +146,13 @@ public class ApplicationTest extends WithBrowser {
   public void testHappyPathOidc() throws InterruptedException {
     browser.goTo("/authenticate");
     assertEquals("", browser.url());
+
     Cookie actorCookie = browser.getCookie("actor");
-    assertEquals("urn:li:corpuser:testUser@myCompany.com", actorCookie.getValue());
+    assertEquals(TEST_USER, actorCookie.getValue());
+
+    Cookie sessionCookie = browser.getCookie("PLAY_SESSION");
+    assertTrue(sessionCookie.getValue().contains("token=" + TEST_TOKEN));
+    assertTrue(sessionCookie.getValue().contains("actor=" + URLEncoder.encode(TEST_USER, StandardCharsets.UTF_8)));
   }
 
 }
