@@ -151,8 +151,11 @@ def _get_spec_map(items: Set[str]) -> str:
 def test_run_cypress(frontend_session, wait_for_healthchecks):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = os.getenv("CYPRESS_RECORD_KEY")
-    if record_key is None:
+    tag_arg = ""
+    test_strategy = os.getenv("TEST_STRATEGY", None)
+    if record_key is not None:
         record_arg = " --record "
+        tag_arg = f" --tag {test_strategy} "
     else:
         record_arg = " "
 
@@ -163,14 +166,11 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         "cypress_suite1": cypress_suite1_specs,
         "cypress_rest": rest_specs,
     }
-    test_strategy = os.getenv("TEST_STRATEGY", None)
     print(f"test strategy is {test_strategy}")
     test_spec_arg = ""
-    tag_arg = ""
     if test_strategy is not None:
         specs = _get_spec_map(strategy_spec_map.get(test_strategy))
         test_spec_arg = f" --spec '{specs}' "
-        tag_arg = f" --tag {test_strategy} "
 
     print("Running Cypress tests with command")
     command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
