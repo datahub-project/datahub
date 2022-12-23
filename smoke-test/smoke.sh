@@ -25,19 +25,22 @@ echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 DATAHUB_TELEMETRY_ENABLED=false  \
 DOCKER_COMPOSE_BASE="file://$( dirname "$DIR" )" \
-datahub docker quickstart --standalone_consumers --dump-logs-on-failure
+
+if [ "${SKIP_QUICKSTART:-false}" == "false" ]; then
+    datahub docker quickstart --standalone_consumers --dump-logs-on-failure
+fi
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
 export CYPRESS_ADMIN_USERNAME=${ADMIN_USERNAME:-datahub}
 export CYPRESS_ADMIN_PASSWORD=${ADMIN_PASSWORD:-datahub}
 
-if [[ -z "${CYPRESS_ONLY}" ]]; then
+if [[ -z "${TEST_STRATEGY}" ]]; then
     pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
 else
-    if [ "$CYPRESS_ONLY" == "true" ]; then
-        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml tests/cypress/integration_test.py
+    if [ "$TEST_STRATEGY" == "no_cypress" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress'
     else
-        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml -k 'not test_run_cypress'
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_cypress.xml tests/cypress/integration_test.py
     fi
 fi
