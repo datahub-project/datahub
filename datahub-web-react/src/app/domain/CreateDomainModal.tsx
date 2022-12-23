@@ -18,7 +18,7 @@ const ClickableTag = styled(Tag)`
 
 type Props = {
     onClose: () => void;
-    onCreate: (urn: string, id: string | undefined, name: string, description: string) => void;
+    onCreate: (urn: string, id: string | undefined, name: string, description: string | undefined) => void;
 };
 
 const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
