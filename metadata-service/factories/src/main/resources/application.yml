@@ -34,14 +34,6 @@ authorization:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
 
-  # Optional: A set of custom authorizers, serving in addition to the default DataHub policies-based authorizer.
-  authorizers:
-    - type: com.datahub.authorization.ranger.RangerAuthorizer
-      enabled: ${RANGER_AUTHORIZER_ENABLED:false}
-      configs:
-        username: ${RANGER_USERNAME}
-        password: ${RANGER_PASSWORD}
-
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
   defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}'
@@ -65,10 +57,13 @@ datahub:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
   plugin:
+    pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
     entityRegistry:
-      path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+        path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
     retention:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
+    auth:
+      path: ${AUTH_PLUGIN_PATH:/etc/datahub/plugins/auth}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
@@ -110,6 +105,7 @@ ebean:
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
+  postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
 
 # Only required if entityService.impl is cassandra
 cassandra:
@@ -130,6 +126,8 @@ elasticsearch:
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:#{null}}
   useSSL: ${ELASTICSEARCH_USE_SSL:false}
+  opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
+  region: ${AWS_REGION:#{null}}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
     secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}
@@ -165,6 +163,11 @@ kafka:
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
+  producer:
+    retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
+    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:15000}
+    requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
+    backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081} # Application only for type = kafka
@@ -216,3 +219,6 @@ featureFlags:
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
+
+views:
+  enabled: ${VIEWS_ENABLED:true}

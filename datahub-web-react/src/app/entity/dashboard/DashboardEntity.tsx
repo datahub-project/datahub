@@ -78,7 +78,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             subHeader={{
                 component: DashboardStatsSummarySubHeader,
             }}
@@ -106,15 +106,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                     component: LineageTab,
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
-                    },
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, dashboard: GetDashboardQuery) => {
-                            return (
-                                (dashboard?.dashboard?.upstream?.total || 0) > 0 ||
-                                (dashboard?.dashboard?.downstream?.total || 0) > 0
-                            );
-                        },
                     },
                 },
                 {

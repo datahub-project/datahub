@@ -4,7 +4,7 @@ import textwrap
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Set, Union, cast
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
@@ -66,7 +66,7 @@ class OperationalDataMeta:
 def bigquery_audit_metadata_query_template(
     dataset: str,
     use_date_sharded_tables: bool,
-    table_allow_filter: str = None,
+    table_allow_filter: Optional[str] = None,
     limit: Optional[int] = None,
 ) -> str:
     """
@@ -275,7 +275,8 @@ class BigQueryUsageExtractor:
                 e,
             )
             self.report.report_failure(
-                f"{client.project}", f"unable to retrieve log entries {e}"
+                "lineage-extraction",
+                f"{client.project} - unable to retrieve log entries {e}",
             )
 
     def _get_exported_bigquery_audit_metadata(
@@ -367,7 +368,8 @@ class BigQueryUsageExtractor:
                 e,
             )
             self.report.report_failure(
-                f"{client.project}", f"unable to retrive log entrires {e}"
+                "usage-extraction",
+                f"{client.project} - unable to retrive log entrires {e}",
             )
 
     def _generate_filter(self, audit_templates: Dict[str, str]) -> str:
@@ -443,7 +445,6 @@ class BigQueryUsageExtractor:
     ) -> Optional[OperationalDataMeta]:
         # If we don't have Query object that means this is a queryless read operation or a read operation which was not executed as JOB
         # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason/
-        operation_meta: OperationalDataMeta
         if not event.query_event and event.read_event:
             return OperationalDataMeta(
                 statement_type=OperationTypeClass.CUSTOM,
@@ -487,7 +488,6 @@ class BigQueryUsageExtractor:
     def _create_operation_aspect_work_unit(
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
-
         if not event.read_event and not event.query_event:
             return None
 
@@ -623,10 +623,8 @@ class BigQueryUsageExtractor:
                 self.report.num_query_events += 1
 
             if event is None:
-                self.error(
-                    logger,
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
+                logger.warning(
+                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
                 )
             else:
                 yield event
@@ -665,10 +663,8 @@ class BigQueryUsageExtractor:
             else:
                 self.error(
                     logger,
-                    f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
-                    f"Unable to parse audit metadata missing "
-                    f"QueryEvent keys:{str(missing_query_event_exported_audit)},"
-                    f" ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
+                    "usage-extraction",
+                    f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event_exported_audit)} ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
                 )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> Any:
@@ -762,7 +758,7 @@ class BigQueryUsageExtractor:
             resource = event.read_event.resource.get_sanitized_table_ref()
             if (
                 resource.table_identifier.dataset not in tables
-                or resource.table_identifier.get_table_display_name()
+                or resource.table_identifier.get_table_name()
                 not in tables[resource.table_identifier.dataset]
             ):
                 logger.debug(f"Skipping non existing {resource} from usage")
@@ -839,7 +835,6 @@ class BigQueryUsageExtractor:
             )
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: Dict[str, Set[str]]
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):
             logger.debug(f"Connection test got one {entry}")
             return

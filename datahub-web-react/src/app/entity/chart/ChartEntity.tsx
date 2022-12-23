@@ -73,7 +73,7 @@ export class ChartEntity implements Entity<Chart> {
             useEntityQuery={useGetChartQuery}
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             subHeader={{
                 component: ChartStatsSummarySubHeader,
             }}
@@ -99,14 +99,6 @@ export class ChartEntity implements Entity<Chart> {
                     component: LineageTab,
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
-                    },
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, chart: GetChartQuery) => {
-                            return (
-                                (chart?.chart?.upstream?.total || 0) > 0 || (chart?.chart?.downstream?.total || 0) > 0
-                            );
-                        },
                     },
                 },
                 {

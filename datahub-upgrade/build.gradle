@@ -14,7 +14,15 @@ dependencies {
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
     exclude group: "org.apache.htrace", module: "htrace-core4"
   }
-  compile externalDependency.lombok
+
+  constraints {
+    implementation(externalDependency.hadoopCommon3) {
+      because("previous versions are vulnerable to CVE-2021-37404")
+    }
+  }
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   compile externalDependency.picocli
   compile externalDependency.parquet
   compile externalDependency.springBeans
@@ -26,6 +34,8 @@ dependencies {
   runtime externalDependency.mariadbConnector
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql
+
+  implementation externalDependency.awsMskIamAuth
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli

@@ -68,8 +68,7 @@ class MetadataSQLSQLParser(SQLParser):
 
 
 def sql_lineage_parser_impl_func_wrapper(
-    queue: Optional[multiprocessing.Queue],
-    sql_query: str,
+    queue: Optional[multiprocessing.Queue], sql_query: str, use_raw_names: bool = False
 ) -> Optional[Tuple[List[str], List[str], Any]]:
     """
     The wrapper function that computes the tables and columns using the SqlLineageSQLParserImpl
@@ -78,13 +77,14 @@ def sql_lineage_parser_impl_func_wrapper(
     the sqllineage module.
     :param queue: The shared IPC queue on to which the results will be put.
     :param sql_query: The SQL query to extract the tables & columns from.
+    :param use_raw_names: Parameter used to ignore sqllineage's default lowercasing.
     :return: None.
     """
     exception_details: Optional[Tuple[Optional[Type[BaseException]], str]] = None
     tables: List[str] = []
     columns: List[str] = []
     try:
-        parser = SqlLineageSQLParserImpl(sql_query)
+        parser = SqlLineageSQLParserImpl(sql_query, use_raw_names)
         tables = parser.get_tables()
         columns = parser.get_columns()
     except BaseException:
@@ -101,14 +101,21 @@ def sql_lineage_parser_impl_func_wrapper(
 
 
 class SqlLineageSQLParser(SQLParser):
-    def __init__(self, sql_query: str, use_external_process: bool = True) -> None:
+    def __init__(
+        self,
+        sql_query: str,
+        use_external_process: bool = True,
+        use_raw_names: bool = False,
+    ) -> None:
         super().__init__(sql_query, use_external_process)
         if use_external_process:
             self.tables, self.columns = self._get_tables_columns_process_wrapped(
-                sql_query
+                sql_query, use_raw_names
             )
         else:
-            return_tuple = sql_lineage_parser_impl_func_wrapper(None, sql_query)
+            return_tuple = sql_lineage_parser_impl_func_wrapper(
+                None, sql_query, use_raw_names
+            )
             if return_tuple is not None:
                 (
                     self.tables,
@@ -118,7 +125,7 @@ class SqlLineageSQLParser(SQLParser):
 
     @staticmethod
     def _get_tables_columns_process_wrapped(
-        sql_query: str,
+        sql_query: str, use_raw_names: bool = False
     ) -> Tuple[List[str], List[str]]:
         # Invoke sql_lineage_parser_impl_func_wrapper in a separate process to avoid
         # memory leaks from sqllineage module used by SqlLineageSQLParserImpl. This will help
@@ -127,10 +134,7 @@ class SqlLineageSQLParser(SQLParser):
         queue: multiprocessing.Queue = Queue()
         process: multiprocessing.Process = Process(
             target=sql_lineage_parser_impl_func_wrapper,
-            args=(
-                queue,
-                sql_query,
-            ),
+            args=(queue, sql_query, use_raw_names),
         )
         process.start()
         tables, columns, exception_details = queue.get(block=True)

@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.14 AS base
+FROM --platform=$BUILDPLATFORM alpine:3 AS base
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 
@@ -33,6 +33,8 @@ COPY ./metadata-utils ./datahub-src/metadata-utils
 COPY ./metadata-service ./datahub-src/metadata-service
 COPY ./metadata-io ./datahub-src/metadata-io
 COPY ./datahub-graphql-core ./datahub-src/datahub-graphql-core
+COPY ./metadata-auth ./datahub-src/metadata-auth
+COPY ./metadata-integration ./datahub-src/metadata-integration
 COPY ./gradle ./datahub-src/gradle
 COPY repositories.gradle gradle.properties gradlew settings.gradle build.gradle ./datahub-src/
 
@@ -45,7 +47,7 @@ RUN cd datahub-src \
 FROM base as prod-install
 COPY --from=prod-build /datahub-frontend /datahub-frontend/
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
-RUN wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.4.1/opentelemetry-javaagent-all.jar -O opentelemetry-javaagent-all.jar \
+RUN wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.18.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
     && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 

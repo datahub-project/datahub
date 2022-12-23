@@ -16,8 +16,6 @@ source:
     # Options
     top_n_queries: 10
     email_domain: mycompany.com
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
-sink:
-  type: datahub-rest
-  config:
-    server: http://localhost:8080
+
+    classification:
+      enabled: True

@@ -6,8 +6,6 @@ services:
   datahub-mae-consumer:
     container_name: datahub-mae-consumer
     depends_on:
-    - kafka-setup
-    - elasticsearch-setup
     - neo4j
     environment:
     - DATAHUB_GMS_HOST=datahub-gms
@@ -18,6 +16,7 @@ services:
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
+    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
     - NEO4J_HOST=http://neo4j:7474
     - NEO4J_URI=bolt://neo4j
     - NEO4J_USERNAME=neo4j
@@ -31,7 +30,6 @@ services:
   datahub-mce-consumer:
     container_name: datahub-mce-consumer
     depends_on:
-    - kafka-setup
     - datahub-gms
     environment:
     - MCE_CONSUMER_ENABLED=true

@@ -30,14 +30,17 @@ import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
 import com.linkedin.datahub.graphql.generated.Container;
+import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
+import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DashboardUserUsageCounts;
 import com.linkedin.datahub.graphql.generated.DataFlow;
+import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
@@ -58,7 +61,9 @@ import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
+import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
+import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
@@ -138,6 +143,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSources
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.DataJobRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.EntityRunsResolver;
+import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
@@ -180,6 +186,7 @@ import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolve
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.post.CreatePostResolver;
+import com.linkedin.datahub.graphql.resolvers.post.DeletePostResolver;
 import com.linkedin.datahub.graphql.resolvers.post.ListPostsResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.AcceptRoleResolver;
@@ -192,6 +199,11 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
+import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
@@ -212,6 +224,11 @@ import com.linkedin.datahub.graphql.resolvers.user.CreateNativeUserResetTokenRes
 import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
 import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
 import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
+import com.linkedin.datahub.graphql.resolvers.view.CreateViewResolver;
+import com.linkedin.datahub.graphql.resolvers.view.DeleteViewResolver;
+import com.linkedin.datahub.graphql.resolvers.view.ListGlobalViewsResolver;
+import com.linkedin.datahub.graphql.resolvers.view.ListMyViewsResolver;
+import com.linkedin.datahub.graphql.resolvers.view.UpdateViewResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
@@ -248,10 +265,12 @@ import com.linkedin.datahub.graphql.types.role.DataHubRoleType;
 import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
+import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.config.DatahubConfiguration;
+import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
+import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
@@ -259,6 +278,9 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -318,6 +340,9 @@ public class GmsGraphQLEngine {
     private final RoleService roleService;
     private final InviteTokenService inviteTokenService;
     private final PostService postService;
+    private final SettingsService settingsService;
+    private final ViewService viewService;
+    private final LineageService lineageService;
 
     private final FeatureFlags featureFlags;
 
@@ -327,7 +352,8 @@ public class GmsGraphQLEngine {
     private final VisualConfiguration visualConfiguration;
     private final TelemetryConfiguration telemetryConfiguration;
     private final TestsConfiguration testsConfiguration;
-    private final DatahubConfiguration datahubConfiguration;
+    private final DataHubConfiguration datahubConfiguration;
+    private final ViewsConfiguration viewsConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -357,6 +383,7 @@ public class GmsGraphQLEngine {
     private final DataHubPolicyType dataHubPolicyType;
     private final DataHubRoleType dataHubRoleType;
     private final SchemaFieldType schemaFieldType;
+    private final DataHubViewType dataHubViewType;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -393,9 +420,13 @@ public class GmsGraphQLEngine {
         final AuthorizationConfiguration authorizationConfiguration, final GitVersion gitVersion,
         final TimelineService timelineService, final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
-        final TestsConfiguration testsConfiguration, final DatahubConfiguration datahubConfiguration,
-        final SiblingGraphService siblingGraphService, final GroupService groupService, final RoleService roleService,
-        final InviteTokenService inviteTokenService, final PostService postService, final FeatureFlags featureFlags) {
+        final TestsConfiguration testsConfiguration, final DataHubConfiguration datahubConfiguration,
+        final ViewsConfiguration viewsConfiguration, final SiblingGraphService siblingGraphService,
+        final GroupService groupService, final RoleService roleService,
+        final InviteTokenService inviteTokenService, final PostService postService,
+        final ViewService viewService,
+        final SettingsService settingsService, final LineageService lineageService,
+        final FeatureFlags featureFlags) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -417,6 +448,9 @@ public class GmsGraphQLEngine {
         this.roleService = roleService;
         this.inviteTokenService = inviteTokenService;
         this.postService = postService;
+        this.viewService = viewService;
+        this.settingsService = settingsService;
+        this.lineageService = lineageService;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
         this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
@@ -425,6 +459,7 @@ public class GmsGraphQLEngine {
         this.telemetryConfiguration = telemetryConfiguration;
         this.testsConfiguration = testsConfiguration;
         this.datahubConfiguration = datahubConfiguration;
+        this.viewsConfiguration = viewsConfiguration;
         this.featureFlags = featureFlags;
 
         this.datasetType = new DatasetType(entityClient);
@@ -455,6 +490,8 @@ public class GmsGraphQLEngine {
         this.dataHubPolicyType = new DataHubPolicyType(entityClient);
         this.dataHubRoleType = new DataHubRoleType(entityClient);
         this.schemaFieldType = new SchemaFieldType();
+        this.dataHubViewType = new DataHubViewType(entityClient);
+
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
@@ -483,7 +520,8 @@ public class GmsGraphQLEngine {
             testType,
             dataHubPolicyType,
             dataHubRoleType,
-            schemaFieldType
+            schemaFieldType,
+            dataHubViewType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -544,6 +582,7 @@ public class GmsGraphQLEngine {
         configureRoleResolvers(builder);
         configureSchemaFieldResolvers(builder);
         configureEntityPathResolvers(builder);
+        configureViewResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -557,6 +596,8 @@ public class GmsGraphQLEngine {
             .addSchema(fileBasedSchema(INGESTION_SCHEMA_FILE))
             .addSchema(fileBasedSchema(TIMELINE_SCHEMA_FILE))
             .addSchema(fileBasedSchema(TESTS_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(STEPS_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
             .configureRuntimeWiring(this::configureRuntimeWiring);
@@ -632,11 +673,12 @@ public class GmsGraphQLEngine {
                     this.visualConfiguration,
                     this.telemetryConfiguration,
                     this.testsConfiguration,
-                    this.datahubConfiguration
+                    this.datahubConfiguration,
+                    this.viewsConfiguration
             ))
             .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
             .dataFetcher("search", new SearchResolver(this.entityClient))
-            .dataFetcher("searchAcrossEntities", new SearchAcrossEntitiesResolver(this.entityClient))
+            .dataFetcher("searchAcrossEntities", new SearchAcrossEntitiesResolver(this.entityClient, this.viewService))
             .dataFetcher("searchAcrossLineage", new SearchAcrossLineageResolver(this.entityClient))
             .dataFetcher("autoComplete", new AutoCompleteResolver(searchableTypes))
             .dataFetcher("autoCompleteForMultiple", new AutoCompleteForMultipleResolver(searchableTypes))
@@ -691,6 +733,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("listRoles", new ListRolesResolver(this.entityClient))
             .dataFetcher("getInviteToken", new GetInviteTokenResolver(this.inviteTokenService))
             .dataFetcher("listPosts", new ListPostsResolver(this.entityClient))
+            .dataFetcher("batchGetStepStates", new BatchGetStepStatesResolver(this.entityClient))
+            .dataFetcher("listMyViews", new ListMyViewsResolver(this.entityClient))
+            .dataFetcher("listGlobalViews", new ListGlobalViewsResolver(this.entityClient))
+            .dataFetcher("globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
         );
     }
 
@@ -814,6 +860,14 @@ public class GmsGraphQLEngine {
             .dataFetcher("createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
             .dataFetcher("acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
             .dataFetcher("createPost", new CreatePostResolver(this.postService))
+            .dataFetcher("deletePost", new DeletePostResolver(this.postService))
+            .dataFetcher("batchUpdateStepStates", new BatchUpdateStepStatesResolver(this.entityClient))
+            .dataFetcher("createView", new CreateViewResolver(this.viewService))
+            .dataFetcher("updateView", new UpdateViewResolver(this.viewService))
+            .dataFetcher("deleteView", new DeleteViewResolver(this.viewService))
+            .dataFetcher("updateGlobalViewsSettings", new UpdateGlobalViewsSettingsResolver(this.settingsService))
+            .dataFetcher("updateCorpUserViewsSettings", new UpdateCorpUserViewsSettingsResolver(this.settingsService))
+            .dataFetcher("updateLineage", new UpdateLineageResolver(this.entityService, this.lineageService))
         );
     }
 
@@ -850,6 +904,13 @@ public class GmsGraphQLEngine {
             .type("LineageRelationship", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((LineageRelationship) env.getSource()).getEntity()))
+                .dataFetcher("createdActor",
+                    new EntityTypeResolver(entityTypes,
+                        (env) -> {
+                            final LineageRelationship relationship = env.getSource();
+                            return relationship.getCreatedActor() != null ? relationship.getCreatedActor() : null;
+                        })
+                )
             )
             .type("ListDomainsResult", typeWiring -> typeWiring
                 .dataFetcher("domains", new LoadableTypeBatchResolver<>(domainType,
@@ -942,6 +1003,7 @@ public class GmsGraphQLEngine {
                    "dataset",
                    "subTypes"))
                 .dataFetcher("runs", new EntityRunsResolver(entityClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient)))
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
@@ -1064,6 +1126,12 @@ public class GmsGraphQLEngine {
                             (env) -> ((CorpGroupInfo) env.getSource()).getMembers().stream()
                                     .map(CorpUser::getUrn)
                                     .collect(Collectors.toList())))
+        )
+        .type("ListGroupsResult", typeWiring -> typeWiring
+            .dataFetcher("groups", new LoadableTypeBatchResolver<>(corpGroupType,
+                (env) -> ((ListGroupsResult) env.getSource()).getGroups().stream()
+                    .map(CorpGroup::getUrn)
+                    .collect(Collectors.toList())))
         );
     }
 
@@ -1130,6 +1198,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
             .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
             .dataFetcher("statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
+            .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new LoadableTypeBatchResolver<>(chartType,
@@ -1181,6 +1250,7 @@ public class GmsGraphQLEngine {
             )
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
             .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
+            .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,
@@ -1257,6 +1327,7 @@ public class GmsGraphQLEngine {
                         })
                 )
                 .dataFetcher("runs", new DataJobRunsResolver(entityClient))
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new LoadableTypeBatchResolver<>(datasetType,
@@ -1474,6 +1545,31 @@ public class GmsGraphQLEngine {
     private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
         builder.type("DataHubRole",
             typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+    }
+
+    private void configureViewResolvers(final RuntimeWiring.Builder builder) {
+        builder
+        .type("DataHubView",
+            typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
+        .type("ListViewsResult", typeWiring -> typeWiring
+            .dataFetcher("views", new LoadableTypeBatchResolver<>(
+                dataHubViewType,
+                (env) -> ((ListViewsResult) env.getSource()).getViews().stream()
+                    .map(DataHubView::getUrn)
+                    .collect(Collectors.toList())))
+        )
+        .type("CorpUserViewsSettings", typeWiring -> typeWiring
+            .dataFetcher("defaultView", new LoadableTypeResolver<>(
+                dataHubViewType,
+                (env) -> {
+                   final CorpUserViewsSettings settings = env.getSource();
+                   if (settings.getDefaultView() != null) {
+                       return settings.getDefaultView().getUrn();
+                   }
+                   return null;
+                }
+            )
+        ));
     }
 
     private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {

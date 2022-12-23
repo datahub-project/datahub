@@ -66,13 +66,7 @@ describe('siblings', () => {
 
     cy.contains('Add Term').click();
 
-    cy.focused().type('CypressTerm');
-
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressTerm').click({force: true}));
-
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({force: true});
-
-    cy.wait(2000);
+    cy.selectOptionInTagTermModal('CypressTerm');
 
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false');
 
@@ -117,10 +111,11 @@ describe('siblings', () => {
     // check the names
     cy.get('text:contains(raw_orders)').should('have.length', 1);
     cy.get('text:contains(customers)').should('have.length', 1);
-    cy.get('text:contains(stg_orders)').should('have.length', 1);
+    // center counts twice since we secretely render two center nodes
+    cy.get('text:contains(stg_orders)').should('have.length', 2);
 
     // check the platform
-    cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 4);
+    cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 5);
   });
 
   it('can separate results in lineage if flag is set', () => {
@@ -136,12 +131,12 @@ describe('siblings', () => {
 
     // check the names
     cy.get('text:contains(raw_orders)').should('have.length', 1);
-    // center node plus the downstream bigquery
-    cy.get('text:contains(stg_orders)').should('have.length', 2);
+    // center counts twice since we secretely render two center nodes, plus the downstream bigquery
+    cy.get('text:contains(stg_orders)').should('have.length', 3);
 
     // check the platform
     cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 0);
-    cy.get('svg').get('text:contains(Dbt)').should('have.length', 2);
+    cy.get('svg').get('text:contains(Dbt)').should('have.length', 3);
     cy.get('svg').get('text:contains(Bigquery)').should('have.length', 1);
   });
 });

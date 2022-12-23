@@ -46,7 +46,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     )
     uri_args: Dict[str, str] = Field(
         default={},
-        desscription="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
+        description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
     )
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),

@@ -39,17 +39,16 @@ runs:
   steps:
     - name: Docker meta
       id: docker_meta
-      uses: crazy-max/ghaction-docker-meta@v1
+      uses: docker/metadata-action@v4
       with:
         # list of Docker images to use as base name for tags
         images: ${{ inputs.images }}
         # add git short SHA as Docker tag
-        tag-custom: ${{ inputs.tags }}
-        tag-custom-only: true
-    
+        tags: |
+          type=raw,value=${{ inputs.tags }}
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       if: ${{ inputs.publish != 'true' }}
       with:
         context: ${{ inputs.context }}
@@ -68,19 +67,19 @@ runs:
     
     # Code for building multi-platform images and pushing to Docker Hub.
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v2
       if: ${{ inputs.publish == 'true' }}
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v2
       if: ${{ inputs.publish == 'true' }}
     - name: Login to DockerHub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v2
       if: ${{ inputs.publish == 'true' }}
       with:
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
     - name: Build and Push Multi-Platform image
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       if: ${{ inputs.publish == 'true' }}
       with:
         context: ${{ inputs.context }}
