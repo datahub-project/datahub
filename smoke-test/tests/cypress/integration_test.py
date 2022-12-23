@@ -144,22 +144,25 @@ def ingest_cleanup_data():
 
 def test_run_cypress(frontend_session, wait_for_healthchecks):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
-    test_strategy = os.getenv("TEST_STRATEGY", None)
     record_key = os.getenv("CYPRESS_RECORD_KEY")
-    if record_key:
-        print("Running Cypress tests with recording")
-        if test_strategy == "cypress_suite1":
-            command = "NO_COLOR=1 npx cypress run --record --spec '**/(mutations|search|glossary|views)/*.js' "
-        elif test_strategy == "cypress_rest":
-            command = "NO_COLOR=1 npx cypress run --record --spec '**/!(mutations|search|glossary|views)/*.js' "
-        else:
-            command = "NO_COLOR=1 npx cypress run --record"
+    if record_key is None:
+        record_arg = " --record "
     else:
-        print("Running Cypress tests without recording")
-        # command = "NO_COLOR=1 npx cypress --version"
-        command = "NO_COLOR=1 npx cypress run"
-        # Add --headed --spec '**/mutations/mutations.js' (change spec name)
-        # in case you want to see the browser for debugging
+        record_arg = " "
+
+    test_strategy = os.getenv("TEST_STRATEGY", None)
+    print(f"test strategy is {test_strategy}")
+    if test_strategy == "cypress_suite1":
+        test_spec_arg = " --spec '**/(mutations|search|glossary|views)/*.js' "
+    elif test_strategy == "cypress_rest":
+        test_spec_arg = " --spec '**/!(mutations|search|glossary|views)/*.js' "
+    else:
+        test_spec_arg = " "
+
+    print("Running Cypress tests")
+    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg}"
+    # Add --headed --spec '**/mutations/mutations.js' (change spec name)
+    # in case you want to see the browser for debugging
     proc = subprocess.Popen(
         command,
         shell=True,
