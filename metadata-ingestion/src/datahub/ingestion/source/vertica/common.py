@@ -25,10 +25,6 @@ from typing import (
 )
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.engine.reflection import Inspector
-from datahub.emitter.mcp_builder import (
-    DatabaseKey,
-    PlatformKey
-)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -37,8 +33,7 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SqlWorkUnit,
     get_schema_metadata,
-    _field_type_mapping,
-    _known_unknown_field_types
+
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mce_builder import (
@@ -51,20 +46,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import (
     DatabaseKey,
     SchemaKey,
+    PlatformKey,
     wrap_aspect_as_workunit
 )
 
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 
-    ForeignKeyConstraint,
-    MySqlDDL,
-    NullTypeClass,
-
-    SchemaField,
-    SchemaFieldDataType,
-    SchemaMetadata,
-
-)
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -150,38 +136,10 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     scheme: str = pydantic.Field(default="vertica+vertica_python")
 
     @validator("host_port")
-    def clean_host_port(cls, v):
+    def clean_host_port(self, v):
         return config_clean.remove_protocol(v)
 
 
-# config flags to emit telemetry for
-# this variable is used in config report from sql_common
-config_options_to_report = [
-    "include_views",
-    "include_tables",
-    "include_projections",
-    "include_models",
-    "include_oauth",
-    "include_view_lineage",
-    "include_projection_lineage",
-]
-
-# # flags to emit telemetry for
-# profiling_flags_to_report = [
-#     "turn_off_expensive_profiling_metrics",
-#     "profile_table_level_only",
-#     "include_field_null_count",
-#     "include_field_min_value",
-#     "include_field_max_value",
-#     "include_field_mean_value",
-#     "include_field_median_value",
-#     "include_field_stddev_value",
-#     "include_field_quantiles",
-#     "include_field_distinct_value_frequencies",
-#     "include_field_histogram",
-#     "include_field_sample_values",
-#     "query_combiner_enabled",
-# ]
 
 
 class SchemaKeyHelper(SchemaKey):
@@ -250,7 +208,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
     def gen_database_key(self, database: str) -> PlatformKey:
         """
         This function generates database level information in properties tab
-        eg. cluster : information about the cluster type, size and subcluster details
+        eg. cluster:information about the cluster type, size and subcluster details
                     for the database and also projects communal path.
 
         Args:
@@ -310,6 +268,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
 
+                
                 if sql_config.include_projections:
                     yield from self.loop_projections(inspector, schema, sql_config)
                 if sql_config.include_models:
