@@ -37,16 +37,12 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
+
     make_dataset_urn_with_platform_instance,
     make_tag_urn,
     dataset_urn_to_key
 )
 from datahub.emitter.mcp_builder import (
-    DatabaseKey,
-    SchemaKey,
-    PlatformKey,
     wrap_aspect_as_workunit
 )
 
@@ -136,35 +132,8 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     scheme: str = pydantic.Field(default="vertica+vertica_python")
 
     @validator("host_port")
-    def clean_host_port(self, v):
+    def clean_host_port(cls, v):
         return config_clean.remove_protocol(v)
-
-
-
-
-class SchemaKeyHelper(SchemaKey):
-    """
-        This class is helper class which is inherited from schema key
-        for additional properties at schema level
-    Args:
-        SchemaKey
-    """
-    numberOfProjection: Optional[str] = None
-    udxsFunctions : Optional[str] = None
-    UDXsLanguage : Optional[str] = None
-
-
-class DatabaseKeyHelper(DatabaseKey):
-    """
-        This class is helper class which is inherited from database key
-        for additional properties at database level
-    Args:
-        DatabaseKey
-    """
-    clusterType : Optional[str] = None
-    clusterSize : Optional[str] = None
-    subClusters : Optional[str] = None
-    communalStoragePath : Optional[str] = None
 
 
 class VerticaSQLAlchemySource(SQLAlchemySource):
@@ -174,66 +143,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         super(VerticaSQLAlchemySource, self).__init__(config, ctx, platform)
         self.report: SQLSourceReport = VerticaSourceReport()
 
-    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
-        """
-        This function generates some additional schema level details in properties tab
-        eg. udx : what all udx (user defined extension) function are defined and in which language
-                for specific schema
-            projection : the projection count for schema
-
-        Args:
-            db_name (str): database name
-            schema  (str): schema name
-        Returns:
-            PlatformKey: obj of PaltformKey
-        """
-        try:
-            all_properties_keys = dict()
-            for inspector in self.get_inspectors():
-                all_properties_keys = inspector._get_properties_keys(db_name , schema, level='schema')
-
-            return SchemaKeyHelper(
-                database=db_name,
-                schema=schema,
-                platform=self.platform,
-                instance=self.config.platform_instance,
-                backcompat_instance_for_guid=self.config.env,
-                numberOfProjection=all_properties_keys.get("projection_count", ""),
-                udxsFunctions=all_properties_keys.get("udx_list", ""),
-                UDXsLanguage=all_properties_keys.get("Udx_langauge", ""),
-            )
-        except Exception as ex:
-            self.report.report_failure(f"{schema}", f"unable to get schema level information error: {ex}")
-
-    def gen_database_key(self, database: str) -> PlatformKey:
-        """
-        This function generates database level information in properties tab
-        eg. cluster:information about the cluster type, size and subcluster details
-                    for the database and also projects communal path.
-
-        Args:
-            database (str): database name
-
-        Returns:
-            PlatformKey: obj of PaltformKey
-        """
-        try:
-            all_properties_keys = dict()
-            for inspector in self.get_inspectors():
-                all_properties_keys = inspector._get_properties_keys(database , "schema", level='database')
-
-            return DatabaseKeyHelper(
-                database=database,
-                platform=self.platform,
-                instance=self.config.platform_instance,
-                backcompat_instance_for_guid=self.config.env,
-                clusterType=all_properties_keys.get("cluster_type"),
-                clusterSize=all_properties_keys.get("cluster_size"),
-                subClusters=all_properties_keys.get("Subcluster"),
-                communalStoragePath=all_properties_keys.get("communinal_storage_path"),
-            )
-        except Exception as ex:
-            self.report.report_failure(f"{database}", f"unable to get database level information error: {ex}")
+    
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
@@ -255,12 +165,16 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(db_name)
+            yield from self.gen_database_containers(
+                inspector=inspector, database=db_name
+            )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(schema, db_name)
+                yield from self.gen_schema_containers(
+                    inspector=inspector, schema=schema, db_name=db_name
+                )
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -268,7 +182,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
 
-                
                 if sql_config.include_projections:
                     yield from self.loop_projections(inspector, schema, sql_config)
                 if sql_config.include_models:
@@ -294,200 +207,117 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         # Clean up stale entities.
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
-    def _get_columns(
-        self, dataset_name: str, inspector: Inspector, schema: str, table: str
-    ) -> List[dict]:
-        """
-        Return information about columns in `table_name`.
-
-        Given a string `table_name` and  `schema`, return
-        column information as a list of dicts with these keys:
-
-        Args:
-            dataset_name (str)
-            inspector (Inspector):
-            schema (str): schema name
-            table (str): table name
-
-        Returns:
-            List[dict]: list of dictionaries, each representing the definition of
-            a database column.
-        """
-        columns = []
-        try:
-            columns = inspector.get_columns(table, schema)
-            if len(columns) == 0:
-                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
-        except Exception as e:
-            self.report.report_warning(
-                dataset_name,
-                f"unable to get column information due to an error -> {e}",
-            )
-        return columns
-
-    def loop_tables(
-        self,
-        inspector: Inspector,
-        schema: str,
-        sql_config: SQLAlchemyConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        """
-        loop through all the tables in the given schema. This function was re-written due to table_tags variable being added
-        which is getting send to _process_table
-
-        Args:
-            inspector (Inspector): inspector obj of reflaction
-            schema (str): schema name
-            sql_config (SQLAlchemyConfig):
-
-        Returns:
-            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-
-        Yields:
-            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]:
-        """
-        tables_seen: Set[str] = set()
+    def get_database_properties(
+        self, inspector: Inspector, database: str
+    ) -> Optional[Dict[str, str]]:
 
         try:
-            table_tags = self.get_extra_tags(inspector, schema, "table")
 
-            for table in inspector.get_table_names(schema):
-                schema, table = self.standardize_schema_table_names(
-                    schema=schema, entity=table
-                )
-                dataset_name = self.get_identifier(
-                    schema=schema, entity=table, inspector=inspector
-                )
-                dataset_name = self.normalise_dataset_name(dataset_name)
-                if dataset_name not in tables_seen:
-                    tables_seen.add(dataset_name)
-                else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
-                    continue
-                self.report.report_entity_scanned(dataset_name, ent_type="table")
-                if not sql_config.table_pattern.allowed(dataset_name):
-                    self.report.report_dropped(dataset_name)
-                    continue
-                try:
-                    yield from self._process_table(
-                        dataset_name, inspector, schema, table, sql_config, table_tags
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Unable to ingest {schema}.{table} due to an exception.\n {traceback.format_exc()}"
-                    )
-                    self.report.report_warning(
-                        f"{schema}.{table}", f"Ingestion error: {e}"
-                    )
-        except Exception as e:
-            self.report.report_failure(f"{schema}", f"Tables error: {e}")
+            url = self.config.get_sql_alchemy_url()
+            engine = create_engine(url, **self.config.options)
 
-    def _process_table(
-        self,
-        dataset_name: str,
-        inspector: Inspector,
-        schema: str,
-        table: str,
-        sql_config: SQLAlchemyConfig,
-        table_tags: Dict[str, str] = dict()
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        """
-        This function is used for performing operation and gets data for every table inside a schema
-        Args:
-            dataset_name (str):
-            inspector (Inspector):
-            schema (str): schema name
-            table (str): table name
-            sql_config (SQLAlchemyConfig):
-            table_tags (Dict[str, str], optional):sending tags as key value pair. Defaults to dict().
+            cluster_type_qry = sql.text(dedent("""
+                    SELECT 
+                    CASE COUNT(*) 
+                        WHEN 0 
+                        THEN 'Enterprise' 
+                        ELSE 'Eon' 
+                    END AS database_mode 
+                    FROM v_catalog.shards
+                """))
 
-        Returns:
-            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+            communal_storage_path = sql.text(dedent("""
+                    SELECT location_path from storage_locations 
+                        WHERE sharing_type = 'COMMUNAL'
+                """))
 
-        Yields:
-            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]:
-        """
-        columns = self._get_columns(dataset_name, inspector, schema, table)
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
-        )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
-        description, properties, location_urn = self.get_table_properties(
-            inspector, schema, table
-        )
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = table
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != table:
-                properties["original_table_name"] = table
-        dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
-            description=description,
-            customProperties=properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
-        extra_tags = list()
-        pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+            cluster_type = ""
+            communal_path = ""
+            cluster_type_res = engine.execute(cluster_type_qry)
+            for each in cluster_type_res:
+                cluster_type = each.database_mode
+                if cluster_type.lower() == 'eon':
+                    for each in engine.execute(communal_storage_path):
+                        communal_path += str(each.location_path) + " | "
+            SUBCLUSTER_SIZE = sql.text(dedent("""
+                            SELECT subclusters.subcluster_name , CAST(sum(disk_space_used_mb // 1024) as varchar(10)) as subclustersize from subclusters  
+                            inner join disk_storage using (node_name) 
+                            group by subclusters.subcluster_name
+                            """))
+            subclusters = " "
+            for data in engine.execute(SUBCLUSTER_SIZE):
+                subclusters += f"{data['subcluster_name']} -- {data['subclustersize']} GB |  "
 
-        schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints, tags=extra_tags
-        )
-        schema_metadata = get_schema_metadata(
-            self.report,
-            dataset_name,
-            self.platform,
-            columns,
-            pk_constraints,
-            schema_fields,
-        )
-        dataset_snapshot.aspects.append(schema_metadata)
-        db_name = self.get_db_name(inspector)
+            cluster__size = sql.text(dedent("""
+                select ROUND(SUM(disk_space_used_mb) //1024 ) as cluster_size
+                from disk_storage
+            """))
+            cluster_size = ""
+            for each in engine.execute(cluster__size):
+                cluster_size = str(each.cluster_size) + " GB"
 
-        tags_to_add = []
-        if table_tags:
-            tags_to_add.extend(
-                [make_tag_urn(f"{table_tags.get(table)}")]
-            )
-            yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
+            return {"cluster_type": cluster_type, "cluster_size": cluster_size, 'subcluster': subclusters,
+                    "communal_storage_path": communal_path}
 
-        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
-            id=f"{dataset_name}-subtypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["table"]),
-            ),
-        )
-        self.report.report_workunit(subtypes_aspect)
-        yield subtypes_aspect
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            entity_type="dataset",
-            sql_config=sql_config,
-        )
+        except Exception as ex:
+            self.report.report_failure(f"{database}", f"unable to get extra_properties : {ex}")
+
+    def get_schema_properties(
+        self, inspector: Inspector, database: str, schema: str
+    ) -> Optional[Dict[str, str]]:
+
+        try:
+            url = self.config.get_sql_alchemy_url()
+            engine = create_engine(url, **self.config.options)
+            
+            # Projection count
+            projection_count_query = sql.text(dedent("""
+                SELECT 
+                    COUNT(projection_name)  as pc
+                from 
+                    v_catalog.projections 
+                WHERE lower(projection_schema) = '%(schema)s'
+            """ % {"schema": schema}))
+
+            projection_count = None
+            for each in engine.execute(projection_count_query):
+                projection_count = each.pc
+
+            UDL_LANGUAGE = sql.text(dedent("""
+                SELECT lib_name , description 
+                    FROM USER_LIBRARIES
+                WHERE lower(schema_name) = '%(schema)s'
+            """ % {"schema": schema}))
+
+            # UDX list
+            UDX_functions_qry = sql.text(dedent("""
+                SELECT 
+                    function_name 
+                FROM 
+                    USER_FUNCTIONS
+                Where schema_name  = '%(schema)s'
+            """ % {'schema': schema, }))
+            udx_list = ""
+            for each in engine.execute(UDX_functions_qry):
+                udx_list += each.function_name + ", "
+
+            # UDX Language
+            user_defined_library = ""
+            for data in engine.execute(UDL_LANGUAGE):
+                user_defined_library += f"{data['lib_name']} -- {data['description']} |  "
+
+            # print("projection_count: " + str(projection_count)
+            return {"projection_count": str(projection_count),
+                    'udx_list': str(udx_list), 'udx_language': str(user_defined_library)}
+            
+            # return {"projection_count": "projection_count"}
+
+        except Exception as ex:
+            self.report.report_failure(f"{schema}", f"unable to get extra_properties : {ex}")
+            
+
+
+
 
     def loop_views(
         self,
@@ -511,7 +341,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]:
         """
         try:
-            table_tags = self.get_extra_tags(inspector, schema, "view")
+            # table_tags = self.get_extra_tags(inspector, schema, "view")
             for view in inspector.get_view_names(schema):
                 schema, view = self.standardize_schema_table_names(
                     schema=schema, entity=view
@@ -531,7 +361,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                         schema=schema,
                         view=view,
                         sql_config=sql_config,
-                        table_tags=table_tags,
+                       
                     )
                 except Exception as e:
                     logger.warning(
@@ -592,7 +422,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         schema: str,
         view: str,
         sql_config: SQLAlchemyConfig,
-        table_tags: Dict[str, str] = dict()
+      
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
         This function is used for performing operation and gets data for every view inside a schema
@@ -658,13 +488,13 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         db_name = self.get_db_name(inspector)
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         # table_tags = self.get_extra_tags(inspector, schema, table)
-        tags_to_add = []
-        if table_tags:
-            tags_to_add.extend(
-                [make_tag_urn(f"{table_tags.get(view)}")]
-            )
+        # tags_to_add = []
+        # if table_tags:
+        #     tags_to_add.extend(
+        #         [make_tag_urn(f"{table_tags.get(view)}")]
+        #     )
 
-            yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
+        #     yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
         # Add view to the checkpoint state
         self.stale_entity_removal_handler.add_entity_to_state("view", dataset_urn)
@@ -738,7 +568,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         projections_seen: Set[str] = set()
 
         try:
-            table_tags = self.get_extra_tags(inspector, schema, "projection")
+            # table_tags = self.get_extra_tags(inspector, schema, "projection")
             for projection in inspector.get_projection_names(schema):
 
                 schema, projection = self.standardize_schema_table_names(
@@ -759,7 +589,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     continue
                 try:
                     yield from self._process_projections(
-                        dataset_name, inspector, schema, projection, sql_config, table_tags
+                        dataset_name, inspector, schema, projection, sql_config
                     )
                 except Exception as e:
                     logger.warning(
@@ -821,8 +651,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         inspector: Inspector,
         schema: str,
         projection: str,
-        sql_config: SQLAlchemyConfig,
-        table_tags: Dict[str, str] = dict()
+        sql_config: SQLAlchemyConfig
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = self._get_columns(dataset_name, inspector, schema, projection)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -859,20 +688,18 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         dataset_snapshot.aspects.append(dataset_properties)
 
         # extra_tags = self.get_extra_tags(inspector, schema, table)
-        extra_tags = list()
+        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, projection)
         pk_constraints: dict = inspector.get_pk_constraint(projection, schema)
 
-        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, projection)
 
         schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints, tags=extra_tags
+            dataset_name, columns, pk_constraints,tags = []
         )
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
             self.platform,
             columns,
-            pk_constraints,
             foreign_keys,
             schema_fields,
         )
@@ -881,12 +708,12 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
 
         # table_tags = self.get_extra_tags(inspector, schema, table)
 
-        tags_to_add = []
-        if table_tags:
-            tags_to_add.extend(
-                [make_tag_urn(f"{table_tags.get(projection)}")]
-            )
-            yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
+        # tags_to_add = []
+        # if table_tags:
+        #     tags_to_add.extend(
+        #         [make_tag_urn(f"{table_tags.get(projection)}")]
+        #     )
+        #     yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -916,6 +743,36 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             sql_config=sql_config,
         )
 
+    # def _get_columns(
+    #     self, dataset_name: str, inspector: Inspector, schema: str, table: str
+    # ) -> List[dict]:
+    #     """
+    #     Return information about columns in `table_name`.
+
+    #     Given a string `table_name` and  `schema`, return
+    #     column information as a list of dicts with these keys:
+
+    #     Args:
+    #         dataset_name (str)
+    #         inspector (Inspector):
+    #         schema (str): schema name
+    #         table (str): table name
+
+    #     Returns:
+    #         List[dict]: list of dictionaries, each representing the definition of
+    #         a database column.
+    #     """
+    #     columns = []
+    #     try:
+    #         columns = inspector.get_columns(table, schema)
+    #         if len(columns) == 0:
+    #             self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
+    #     except Exception as e:
+    #         self.report.report_warning(
+    #             dataset_name,
+    #             f"unable to get column information due to an error -> {e}",
+    #         )
+    #     return columns
     def get_projection_properties(
         self, inspector: Inspector, schema: str, projection: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
@@ -1064,13 +921,10 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         dataset_snapshot.aspects.append(dataset_properties)
 
         # extra_tags = self.get_extra_tags(inspector, schema, table)
-        extra_tags = list()
-        pk_constraints: dict = inspector.get_pk_constraint(table, schema)
-
-        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
+      
 
         schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints, tags=extra_tags
+            dataset_name, columns
         )
 
         schema_metadata = get_schema_metadata(
@@ -1078,8 +932,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             dataset_name,
             self.platform,
             columns,
-            pk_constraints,
-            foreign_keys,
             schema_fields,
         )
 
@@ -1301,7 +1153,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         """
         Returns oauth related metadata information to show in properties tab
             eg. is_auth_enabled , auth_priority and all auth related info.
-            
+
         Args:
             inspector (Inspector): inspector obj from reflection engine
             schema (str): schema name
@@ -1334,27 +1186,27 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         properties = table_info.get("properties", {})
         return description, properties, location
 
-    def get_extra_tags(
-        self, inspector: Inspector, schema: str, table: str
-    ) -> Optional[Dict[str, str]]:
-        """
-        This function is for projecting the tags at table, view and 
-        projection level 
-        
-        :args: 
-            schema: the name of the schema
-            table: variable name 
-        :return: Dict[str, str]
-        """
-        try:
+    # def get_extra_tags(
+    #     self, inspector: Inspector, schema: str, table: str
+    # ) -> Optional[Dict[str, str]]:
+    #     """
+    #     This function is for projecting the tags at table, view and 
+    #     projection level 
 
-            tags = inspector._get_extra_tags(table, schema)
+    #     :args: 
+    #         schema: the name of the schema
+    #         table: variable name 
+    #     :return: Dict[str, str]
+    #     """
+    #     try:
 
-            return tags
-        except Exception as e:
-            logger.debug(
-                f"{table}: failure in tags extraction for table"
-            )
+    #         tags = inspector._get_extra_tags(table, schema)
+
+    #         return tags
+    #     except Exception as e:
+    #         logger.debug(
+    #             f"{table}: failure in tags extraction for table"
+    #         )
 
     def gen_tags_aspect_workunit(
         self, dataset_urn: str, tags_to_add: List[str]
@@ -1374,7 +1226,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         wu = wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
         self.report.report_workunit(wu)
         return wu
-    
+
     def is_dataset_eligible_for_profiling(
         self,
         dataset_name: str,
@@ -1412,7 +1264,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
     ) -> Iterable["GEProfilerRequest"]:
         """Function is used for collecting profiling related information for every projections
             inside an schema.
-            
+
         Args: schema: schema name
 
         Yields:
@@ -1522,7 +1374,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         for lineage_entry in lineage:
             # Update the view-lineage
             upstream_table_name = lineage_entry[0]
-      
+
             upstream_table = UpstreamClass(
                 dataset=make_dataset_urn_with_platform_instance(
                     self.platform,
@@ -1539,21 +1391,19 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             logger.debug(
                 f" lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
             )
-       
+
             return UpstreamLineage(upstreams=upstream_tables)
 
         return None
 
     def _populate_view_lineage(self, view) -> None:
-        
         """ Collects upstream and downstream lineage information for views .
 
         Args:
             view ([type]): name of the view
 
         """
-        
-        
+
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
@@ -1629,7 +1479,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             logger.debug(f"No lineage found for {dataset_name}")
             return None
         upstream_tables: List[UpstreamClass] = []
-       
+
         for lineage_entry in lineage:
             # Update the projection-lineage
             upstream_table_name = lineage_entry[0]
@@ -1644,9 +1494,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
-            
-            
-          
 
         if upstream_tables:
 
@@ -1663,7 +1510,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         Args:
             projection ([type]): name of the projection
 
-        
+
         """
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
@@ -1674,8 +1521,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
            from vs_projections 
            where name ='%(projection)s'
         """ % {'projection': projection}))
-      
-       
+
         num_edges: int = 0
 
         try:
@@ -1694,10 +1540,10 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
                     projection_upstream: str = upstream.lower()
                     projection_name: str = downstream.lower()
                     self.Projection_lineage_map[projection_name].append(
-                            # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
+                        # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
                         (projection_upstream, "[]", "[]")
                     )
-                       
+
                     num_edges += 1
 
         except Exception as e:

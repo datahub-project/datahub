@@ -25,7 +25,7 @@ from datahub.ingestion.api.decorators import (
 @capability(SourceCapability.DELETION_DETECTION, "Optionally enabled via `stateful_ingestion.remove_stale_metadata`", supported=True)
 class VerticaSource(VerticaSQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext) -> None:
-        super().__init__(config, ctx, "vertica")
+        super().__init__(config, ctx, "vertica__2")
         self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
         self.Projection_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
 
