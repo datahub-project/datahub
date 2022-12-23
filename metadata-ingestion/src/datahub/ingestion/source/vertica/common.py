@@ -35,12 +35,15 @@ from datahub.ingestion.source.sql.sql_common import (
     get_schema_metadata,
 
 )
+# Imports for metadata model classes
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mce_builder import (
 
     make_dataset_urn_with_platform_instance,
     make_tag_urn,
-    dataset_urn_to_key
+    dataset_urn_to_key,
+    make_user_urn
 )
 from datahub.emitter.mcp_builder import (
     wrap_aspect_as_workunit
@@ -61,6 +64,9 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     ViewPropertiesClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
 )
 from datahub.utilities import config_clean
 
@@ -481,20 +487,14 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             self.config.platform_instance,
             self.config.env,
         )
+       
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
         db_name = self.get_db_name(inspector)
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-        # table_tags = self.get_extra_tags(inspector, schema, table)
-        # tags_to_add = []
-        # if table_tags:
-        #     tags_to_add.extend(
-        #         [make_tag_urn(f"{table_tags.get(view)}")]
-        #     )
 
-        #     yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
         # Add view to the checkpoint state
         self.stale_entity_removal_handler.add_entity_to_state("view", dataset_urn)
@@ -665,7 +665,7 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
             aspects=[StatusClass(removed=False)],
         )
         # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("projection", dataset_urn)
+        self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
         description, properties, location_urn = self.get_projection_properties(
             inspector, schema, projection
         )
@@ -687,34 +687,42 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        # extra_tags = self.get_extra_tags(inspector, schema, table)
-        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, projection)
+        if location_urn:
+            external_upstream_table = UpstreamClass(
+                dataset=location_urn,
+                type=DatasetLineageTypeClass.COPY,
+            )
+            lineage_mcpw = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_snapshot.urn,
+                aspectName="upstreamLineage",
+                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
+            )
+            lineage_wu = MetadataWorkUnit(
+                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
+                mcp=lineage_mcpw,
+            )
+            self.report.report_workunit(lineage_wu)
+            yield lineage_wu
+
+        extra_tags = self.get_extra_tags(inspector, schema, projection)
         pk_constraints: dict = inspector.get_pk_constraint(projection, schema)
-
-
+        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, projection)
         schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints,tags = []
+            dataset_name, columns, pk_constraints, tags=extra_tags
         )
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
             self.platform,
             columns,
+            pk_constraints,
             foreign_keys,
             schema_fields,
         )
         dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
-
-        # table_tags = self.get_extra_tags(inspector, schema, table)
-
-        # tags_to_add = []
-        # if table_tags:
-        #     tags_to_add.extend(
-        #         [make_tag_urn(f"{table_tags.get(projection)}")]
-        #     )
-        #     yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
-
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = SqlWorkUnit(id=dataset_name, mce=mce)
@@ -1555,6 +1563,6 @@ class VerticaSQLAlchemySource(SQLAlchemySource):
 
         logger.info(f"A total of {num_edges} Projection lineage edges found for {projection}.")
         self.report.num_table_to_view_edges_scanned = num_edges
-
+    
     def close(self):
         self.prepare_for_commit()
