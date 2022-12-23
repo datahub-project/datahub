@@ -1,9 +1,6 @@
-import re
-from textwrap import dedent
-from typing import Any, Dict, Optional, List, Tuple
-from datahub.ingestion.source.vertica.common import VerticaSQLAlchemySource , SQLAlchemyConfigVertica 
-import pydantic
-from pydantic.class_validators import validator
+
+from typing import  Dict, Optional, List, Tuple
+from datahub.ingestion.source.vertica.common import VerticaSQLAlchemySource , VerticaConfig 
 
 
 from datahub.ingestion.api.common import PipelineContext
@@ -16,18 +13,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 
-
-from datahub.utilities import config_clean
-
-
-
-class VerticaConfig(SQLAlchemyConfigVertica):
-    # defaults
-    scheme: str = pydantic.Field(default="vertica+vertica_python")
-
-    @validator("host_port")
-    def clean_host_port(cls, v):
-        return config_clean.remove_protocol(v)
 
 
 @platform_name("Vertica")
