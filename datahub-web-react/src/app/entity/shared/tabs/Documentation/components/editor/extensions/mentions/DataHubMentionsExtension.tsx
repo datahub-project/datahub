@@ -36,6 +36,15 @@ interface DataHubMentionsOptions {
     handleEvents?: Handler<(action: AutocompleteAction) => boolean>;
 }
 
+/**
+ * The DataHub mentions extensions wraps @-mentions as a prosemirror node. It adds capability to
+ * use and render @-mentions within the editor. The implementation was inspired by Notion where a
+ * dedicated search bar is displayed for users to search. Mentions cannot be edited once being inserted
+ * into the document.
+ *
+ * This Remirror plugin is simply a wrapper on top of `prosemirror-autocomplete` which provides the
+ * suggestion engine, allowing spaces to be used within the search bar.
+ */
 class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
     get name() {
         return 'datahubMention' as const;
@@ -45,6 +54,9 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
         return [ExtensionTag.InlineNode, ExtensionTag.Behavior];
     }
 
+    /**
+     * Add the 'prosemirror-autocomplete' plugin to the editor.
+     */
     createExternalPlugins(): Plugin[] {
         return autocomplete({
             triggers: [{ name: 'mention', trigger: '@', cancelOnFirstSpace: false }],
@@ -95,10 +107,19 @@ class DataHubMentionsExtension extends NodeExtension<DataHubMentionsOptions> {
         };
     }
 
+    /**
+     * Renders a React Component in place of the dom node spec
+     */
     ReactComponent: ComponentType<NodeViewComponentProps> = (props) => <MentionsNodeView {...props} />;
 
     createCommands() {
         return {
+            /**
+             * Creates a mention at the provided range.
+             *
+             * @param attrs - the attributes that should be passed through. Required values are 'name' and 'urn'.
+             * @param range - the range of the selection that would be replaced.
+             */
             createDataHubMention: (attrs: DataHubAtomNodeAttributes, range?: FromToProps): CommandFunction => {
                 return ({ state, tr, dispatch }) => {
                     const acState: ActiveAutocompleteState = acPluginKey.getState(state);

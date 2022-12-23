@@ -43,6 +43,7 @@ module.exports = {
     jest: {
         configure: (jestConfig) => {
             jestConfig.transformIgnorePatterns = [
+                // Ensures that lib0 and y-protocol libraries are transformed through babel as well
                 'node_modules/(?!(lib0|y-protocols)).+\\.(js|jsx|mjs|cjs|ts|tsx)$',
                 '^.+\\.module\\.(css|sass|scss)$',
             ];

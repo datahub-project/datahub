@@ -14,6 +14,12 @@ type UseDataHubMentionsProps<T> = {
     onEnter?(item: T): boolean;
 };
 
+/**
+ * This hook is a helper utility to read actions from prosemirror-autocomplete, allowing components
+ * to react to these changes accordingly. It provides the postional and query metadata of the currently
+ * active autocomplete menu. In addition, this hooks stores the selected index triggered
+ * when using the arrow keys to navigate the autocomplete menu.
+ */
 export function useDataHubMentions<Item = any>(props: UseDataHubMentionsProps<Item>) {
     const [index, selectedIndex] = useState(0);
     const rmrCtx = useRemirrorContext();
