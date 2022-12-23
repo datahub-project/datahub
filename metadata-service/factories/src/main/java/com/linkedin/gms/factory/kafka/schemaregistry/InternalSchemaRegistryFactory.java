@@ -36,8 +36,6 @@ public class InternalSchemaRegistryFactory {
     Map<String, Object> props = new HashMap<>();
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
 
-    log.error("SCHEMA URL: {}", kafkaConfiguration.getSchemaRegistry().getUrl());
-    // TODO: Fix this url to either come by config or from the source code directly. Particularly the last endpoint
     props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaConfiguration
         .getSchemaRegistry().getUrl());
 

@@ -10,7 +10,6 @@ from confluent_kafka.serialization import SerializationContext, StringSerializer
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.internal.schema_registry import InternalSchemaRegistryClient
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
@@ -62,27 +61,17 @@ class DatahubKafkaEmitter:
             "url": self.config.connection.schema_registry_url,
             **self.config.connection.schema_registry_config,
         }
-        serializer_conf = None
-        print(f"Connecting to schema registry {schema_registry_conf}")
-        if schema_registry_conf["url"] is not None:
-            schema_registry_client = SchemaRegistryClient(schema_registry_conf)
-        else:
-            schema_registry_client = InternalSchemaRegistryClient()
-            serializer_conf = {
-                "auto.register.schemas": False,
-            }
+        schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
         def convert_mce_to_dict(
             mce: MetadataChangeEvent, ctx: SerializationContext
         ) -> dict:
             return mce.to_obj(tuples=True)
 
-        # todo change this
         mce_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeEventSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mce_to_dict,
-            conf=serializer_conf,
         )
 
         def convert_mcp_to_dict(
@@ -91,12 +80,10 @@ class DatahubKafkaEmitter:
         ) -> dict:
             return mcp.to_obj(tuples=True)
 
-        # todo change this
         mcp_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeProposalSchema(),
             schema_registry_client=schema_registry_client,
             to_dict=convert_mcp_to_dict,
-            conf=serializer_conf,
         )
 
         # We maintain a map of producers for each kind of event
