@@ -415,6 +415,9 @@ jobs:
   smoke_test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cypress: ["true", "false"]
     needs:
       [
         setup,
@@ -481,6 +484,8 @@ jobs:
         env:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CLEANUP_DATA: "false"
+          CYPRESS_ONLY: ${{ matrix.cypress }}
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh

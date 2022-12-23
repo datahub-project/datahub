@@ -32,4 +32,12 @@ datahub docker quickstart --standalone_consumers --dump-logs-on-failure
 export CYPRESS_ADMIN_USERNAME=${ADMIN_USERNAME:-datahub}
 export CYPRESS_ADMIN_PASSWORD=${ADMIN_PASSWORD:-datahub}
 
-pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
+if [[ -z "${CYPRESS_ONLY}" ]]; then
+    pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
+else
+    if [ "$CYPRESS_ONLY" == "true" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml tests/cypress/integration_test.py
+    else
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml -k 'not test_run_cypress'
+    fi
+fi
