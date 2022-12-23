@@ -8,6 +8,7 @@ dependencies {
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
   compile externalDependency.neo4jJavaDriver
+  compile externalDependency.json
 
   compile spec.product.pegasus.restliClient
   compile spec.product.pegasus.restliCommon

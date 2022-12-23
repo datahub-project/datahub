@@ -374,7 +374,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         name=field["table_calculation"],
                         view_field=ViewField(
                             name=field["table_calculation"],
-                            label=field["label"],
+                            label=field.get("label"),
                             field_type=ViewFieldType.UNKNOWN,
                             type="string",
                             description="",
@@ -383,7 +383,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
             if "measure" in field:
                 # for measure, we can also make sure to index the underlying field that the measure uses
-                based_on = field["based_on"]
+                based_on = field.get("based_on")
                 if based_on is not None:
                     result.append(
                         InputFieldElement(
@@ -398,7 +398,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         name=field["measure"],
                         view_field=ViewField(
                             name=field["measure"],
-                            label=field["label"],
+                            label=field.get("label"),
                             field_type=ViewFieldType.MEASURE,
                             type="string",
                             description="",
@@ -411,7 +411,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         name=field["dimension"],
                         view_field=ViewField(
                             name=field["dimension"],
-                            label=field["label"],
+                            label=field.get("label"),
                             field_type=ViewFieldType.DIMENSION,
                             type="string",
                             description="",
