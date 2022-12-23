@@ -201,13 +201,13 @@ def test_entities():
             [Dataset("snowflake", "mydb.schema.tableConsumed")],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
             False,
-            id="airflow-2-lineage-syntax",
+            id="airflow-lineage-no-executions",
         ),
         pytest.param(
             [Dataset("snowflake", "mydb.schema.tableConsumed")],
             [Dataset("snowflake", "mydb.schema.tableProduced")],
             True,
-            id="airflow-2-lineage-syntax",
+            id="airflow-lineage-capture-executions",
         ),
     ],
 )
