@@ -148,6 +148,13 @@ def _get_spec_map(items: List[str]) -> str:
     return ",".join([f"**/{item}/*.js" for item in items])
 
 
+def _get_negative_spec(items) -> str:
+    if len(items) == 0:
+        return ""
+    item_str = "|".join(items)
+    return f"**/!({item_str})/*.js"
+
+
 def test_run_cypress(frontend_session, wait_for_healthchecks):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = os.getenv("CYPRESS_RECORD_KEY")
@@ -156,13 +163,18 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     else:
         record_arg = " "
 
+    cypress_suite1_specs = ["mutations", "search", "glossary", "views"]
+
     test_strategy = os.getenv("TEST_STRATEGY", None)
     print(f"test strategy is {test_strategy}")
     if test_strategy == "cypress_suite1":
-        specs = _get_spec_map(["mutations", "search", "glossary", "views"])
+        specs = _get_spec_map(cypress_suite1_specs)
         test_spec_arg = f" --spec '{specs}' "
     elif test_strategy == "cypress_rest":
-        test_spec_arg = " --spec '**/!(mutations|search|glossary|views)/*.js' "
+        used_specs = set()
+        used_specs.update(cypress_suite1_specs)
+        negative_spec_map = _get_negative_spec(used_specs)
+        test_spec_arg = f" --spec '{negative_spec_map}' "
     else:
         test_spec_arg = " "
 
