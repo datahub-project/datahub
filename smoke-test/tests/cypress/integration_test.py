@@ -157,23 +157,23 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         record_arg = " "
 
     rest_specs = set(os.listdir("tests/cypress/cypress/integration"))
-
     cypress_suite1_specs = {"mutations", "search", "glossary", "views"}
     rest_specs.difference_update(set(cypress_suite1_specs))
-
+    strategy_spec_map = {
+        "cypress_suite1": cypress_suite1_specs,
+        "cypress_rest": rest_specs,
+    }
     test_strategy = os.getenv("TEST_STRATEGY", None)
     print(f"test strategy is {test_strategy}")
-    if test_strategy == "cypress_suite1":
-        specs = _get_spec_map(cypress_suite1_specs)
+    test_spec_arg = ""
+    tag_arg = ""
+    if test_strategy is not None:
+        specs = _get_spec_map(strategy_spec_map.get(test_strategy))
         test_spec_arg = f" --spec '{specs}' "
-    elif test_strategy == "cypress_rest":
-        specs = _get_spec_map(rest_specs)
-        test_spec_arg = f" --spec '{specs}' "
-    else:
-        test_spec_arg = " "
+        tag_arg = f" --tag {test_strategy} "
 
     print("Running Cypress tests with command")
-    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg}"
+    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
     print(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
