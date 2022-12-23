@@ -59,6 +59,8 @@ runs:
         tags: ${{ steps.docker_meta.outputs.tags }}
         load: true
         push: false
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
     - name: Upload image locally for testing (if not publishing)
       uses: ishworkh/docker-image-artifact-upload@v1
       if: ${{ inputs.publish != 'true' }}
@@ -87,5 +89,7 @@ runs:
         platforms: ${{ inputs.platforms }}
         tags: ${{ steps.docker_meta.outputs.tags }}
         push: true
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     # TODO add code for vuln scanning?
