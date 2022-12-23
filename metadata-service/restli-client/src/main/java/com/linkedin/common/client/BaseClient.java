@@ -59,7 +59,7 @@ public abstract class BaseClient implements AutoCloseable {
 
         if (attemptCount == _retryCount - 1) {
           throw ex;
-        } else  {
+        } else {
           attemptCount = attemptCount + 1;
           Thread.sleep(_backoffPolicy.nextBackoff(attemptCount, ex) * 1000);
         }

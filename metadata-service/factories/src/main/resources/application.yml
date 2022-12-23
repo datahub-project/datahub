@@ -55,6 +55,7 @@ datahub:
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
 
     # URI instead of above host/port/ssl
+    # Priority is given to the URI setting over separate host/port/useSSL parameters
     uri: ${DATAHUB_GMS_URI:#{null}}
 
     sslContext:
@@ -84,6 +85,7 @@ searchService:
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
+  # Priority is given to the `path` setting above (outside jar)
   resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
 
 platformAnalytics:
