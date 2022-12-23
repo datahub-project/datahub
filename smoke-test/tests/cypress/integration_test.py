@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import datetime
 import pytest
@@ -142,6 +142,12 @@ def ingest_cleanup_data():
     print("deleted onboarding data")
 
 
+def _get_spec_map(items: List[str]) -> str:
+    if len(items) == 0:
+        return ""
+    return ",".join([f"**/{item}/*.js" for item in items])
+
+
 def test_run_cypress(frontend_session, wait_for_healthchecks):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = os.getenv("CYPRESS_RECORD_KEY")
@@ -153,14 +159,16 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     test_strategy = os.getenv("TEST_STRATEGY", None)
     print(f"test strategy is {test_strategy}")
     if test_strategy == "cypress_suite1":
-        test_spec_arg = " --spec '**/(mutations|search|glossary|views)/*.js' "
+        specs = _get_spec_map(["mutations", "search", "glossary", "views"])
+        test_spec_arg = f" --spec '{specs}' "
     elif test_strategy == "cypress_rest":
         test_spec_arg = " --spec '**/!(mutations|search|glossary|views)/*.js' "
     else:
         test_spec_arg = " "
 
-    print("Running Cypress tests")
+    print("Running Cypress tests with command")
     command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg}"
+    print(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
     proc = subprocess.Popen(
