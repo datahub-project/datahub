@@ -1,6 +1,6 @@
 import dataclasses
-import datetime
 import logging
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
@@ -41,8 +41,8 @@ class BigqueryProfiler(GenericProfiler):
 
     @staticmethod
     def get_partition_range_from_partition_id(
-        partition_id: str, partition_datetime: Optional[datetime.datetime]
-    ) -> Tuple[datetime.datetime, datetime.datetime]:
+        partition_id: str, partition_datetime: Optional[datetime]
+    ) -> Tuple[datetime, datetime]:
         partition_range_map: Dict[int, Tuple[relativedelta, str]] = {
             4: (relativedelta(years=1), "%Y"),
             6: (relativedelta(months=1), "%Y%m"),
@@ -55,7 +55,12 @@ class BigqueryProfiler(GenericProfiler):
             (delta, format) = partition_range_map[len(partition_id)]
             duration = delta
             if not partition_datetime:
-                partition_datetime = datetime.datetime.strptime(partition_id, format)
+                partition_datetime = datetime.strptime(partition_id, format)
+            else:
+                partition_datetime = datetime.strptime(
+                    partition_datetime.strftime(format), format
+                )
+
         else:
             raise ValueError(
                 f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
@@ -68,7 +73,7 @@ class BigqueryProfiler(GenericProfiler):
         project: str,
         schema: str,
         table: BigqueryTable,
-        partition_datetime: Optional[datetime.datetime],
+        partition_datetime: Optional[datetime],
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
