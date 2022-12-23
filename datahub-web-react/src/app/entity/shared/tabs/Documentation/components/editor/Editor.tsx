@@ -35,13 +35,13 @@ import { DataHubMentionsExtension } from './extensions/mentions/DataHubMentionsE
 import { MentionsComponent } from './extensions/mentions/MentionsComponent';
 
 type EditorProps = {
-    readonly?: boolean;
+    readOnly?: boolean;
     content?: string;
     onChange?: (md: string) => void;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readonly, onChange } = props;
+    const { content, readOnly, onChange } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -55,7 +55,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new HeadingExtension(),
             new HistoryExtension(),
             new HorizontalRuleExtension(),
-            new ImageExtension({ enableResizing: !readonly }),
+            new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true }),
             new ListItemExtension(),
@@ -64,7 +64,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new UnderlineExtension(),
             new StrikeExtension(),
             new TableExtension({ resizable: false }),
-            ...(readonly ? [] : [new HistoryExtension()]),
+            ...(readOnly ? [] : [new HistoryExtension()]),
         ],
         content,
         stringHandler: 'markdown',
@@ -78,8 +78,8 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     return (
         <EditorContainer>
             <ThemeProvider theme={EditorTheme}>
-                <Remirror classNames={['ant-typography']} editable={!readonly} manager={manager} initialContent={state}>
-                    {!readonly && (
+                <Remirror classNames={['ant-typography']} editable={!readOnly} manager={manager} initialContent={state}>
+                    {!readOnly && (
                         <>
                             <Toolbar />
                             <CodeBlockToolbar />

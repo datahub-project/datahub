@@ -70,7 +70,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </TabToolbar>
                     <div>
                         {description ? (
-                            <Editor readonly ref={editorRef} content={description} />
+                            <Editor readOnly ref={editorRef} content={description} />
                         ) : (
                             <DocumentationContainer>
                                 <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
