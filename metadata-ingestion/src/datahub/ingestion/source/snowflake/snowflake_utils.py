@@ -12,6 +12,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_DEFAULT_CLOUD,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
+    SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -119,8 +120,14 @@ class SnowflakeCommonMixin:
         if not dataset_type or not dataset_name:
             return True
         dataset_params = dataset_name.split(".")
+        if dataset_type.lower() not in (
+            SnowflakeObjectDomain.TABLE,
+            SnowflakeObjectDomain.VIEW,
+            SnowflakeObjectDomain.MATERIALIZED_VIEW,
+        ):
+            return False
         if len(dataset_params) != 3:
-            self.report.report_warning(
+            self.report_warning(
                 "invalid-dataset-pattern",
                 f"Found {dataset_params} of type {dataset_type}",
             )
@@ -137,7 +144,9 @@ class SnowflakeCommonMixin:
         ):
             return False
 
-        if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(
+        if dataset_type.lower() in {
+            SnowflakeObjectDomain.TABLE
+        } and not self.config.table_pattern.allowed(
             self.get_dataset_identifier_from_qualified_name(dataset_name)
         ):
             return False

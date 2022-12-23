@@ -46,6 +46,7 @@ from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_DATABASE,
     SnowflakeEdition,
+    SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
@@ -432,7 +433,19 @@ class SnowflakeV2Source(
 
     def get_workunits(self) -> Iterable[WorkUnit]:
 
-        conn: SnowflakeConnection = self.config.get_connection()
+        try:
+            conn = self.get_connection()
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                self.report_error("permission-error", str(e))
+            else:
+                logger.debug(e, exc_info=e)
+                self.report_error(
+                    "snowflake-connection",
+                    f"Failed to connect to snowflake instance due to error {e}.",
+                )
+            return
+
         self.add_config_to_report()
         self.inspect_session_metadata(conn)
         if self.config.include_external_url:
@@ -472,6 +485,7 @@ class SnowflakeV2Source(
                 return
 
         conn.close()
+
         # Emit Stale entity workunits
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
@@ -559,35 +573,15 @@ class SnowflakeV2Source(
             # We can not run show queries on database in such case.
             # This need not be a failure case.
             self.report_warning(
-                "permission-warning",
-                f"Insufficient privileges to operate on database {db_name}, skipping. Please grant USAGE permissions on database to extract its metadata.",
+                "Insufficient privileges to operate on database, skipping. Please grant USAGE permissions on database to extract its metadata.",
+                db_name,
             )
             return
 
         if self.config.include_technical_schema:
             yield from self.gen_database_containers(snowflake_db)
 
-        try:
-            snowflake_db.schemas = self.data_dictionary.get_schemas_for_database(
-                conn, db_name
-            )
-        except SnowflakePermissionError as e:
-            error_msg = f"Failed to list schemas for database {db_name}. Please check permissions."
-            # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
-            raise SnowflakePermissionError(error_msg) from e.__cause__
-
-        except Exception as e:
-            logger.debug(e, exc_info=e)
-            self.report_warning(
-                "schemas-for-database",
-                f"Failed to get schemas for database {db_name} due to error {e}",
-            )
-
-        if not snowflake_db.schemas:
-            self.report_warning(
-                "schemas-for-database",
-                f"No schemas found in database {db_name}. If schemas exist, please grant USAGE permissions on them.",
-            )
+        self.fetch_schemas_for_database(conn, snowflake_db, db_name)
 
         for snowflake_schema in snowflake_db.schemas:
 
@@ -603,48 +597,49 @@ class SnowflakeV2Source(
 
             yield from self._process_schema(conn, snowflake_schema, db_name)
 
+    def fetch_schemas_for_database(self, conn, snowflake_db, db_name):
+        try:
+            snowflake_db.schemas = self.data_dictionary.get_schemas_for_database(
+                conn, db_name
+            )
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                error_msg = f"Failed to get schemas for database {db_name}. Please check permissions."
+                # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                logger.debug(
+                    f"Failed to get schemas for database {db_name} due to error {e}",
+                    exc_info=e,
+                )
+                self.report_warning(
+                    "Failed to get schemas for database",
+                    db_name,
+                )
+
+        if not snowflake_db.schemas:
+            self.report_warning(
+                "No schemas found in database. If schemas exist, please grant USAGE permissions on them.",
+                db_name,
+            )
+
     def _process_schema(
         self, conn: SnowflakeConnection, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
+
         schema_name = snowflake_schema.name
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
         if self.config.include_tables:
-            try:
-                snowflake_schema.tables = self.get_tables_for_schema(
-                    conn, schema_name, db_name
-                )
-            except SnowflakePermissionError as e:
-                # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
-                error_msg = f"Failed to list tables for schema {db_name}.{schema_name}. Please check permissions."
-                raise SnowflakePermissionError(error_msg) from e.__cause__
-            except Exception as e:
-                self.report_warning(
-                    "tables-for-schema",
-                    f"Failed to get tables for schema {db_name}.{schema_name} due to error {e}",
-                )
+            self.fetch_tables_for_schema(conn, snowflake_schema, db_name, schema_name)
 
             if self.config.include_technical_schema:
                 for table in snowflake_schema.tables:
                     yield from self._process_table(conn, table, schema_name, db_name)
 
         if self.config.include_views:
-            try:
-                snowflake_schema.views = self.get_views_for_schema(
-                    conn, schema_name, db_name
-                )
-
-            except SnowflakePermissionError as e:
-                # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
-                error_msg = f"Failed to list views for schema {db_name}.{schema_name}. Please check permissions."
-
-                raise SnowflakePermissionError(error_msg) from e.__cause__
-            except Exception as e:
-                self.report_warning(
-                    "views-for-schema",
-                    f"Failed to get views for schema {db_name}.{schema_name} due to error {e}",
-                )
+            self.fetch_views_for_schema(conn, snowflake_schema, db_name, schema_name)
 
             if self.config.include_technical_schema:
                 for view in snowflake_schema.views:
@@ -652,9 +647,51 @@ class SnowflakeV2Source(
 
         if not snowflake_schema.views and not snowflake_schema.tables:
             self.report_warning(
-                "tables-for-schema",
-                f"No tables/views found in schema {db_name}.{schema_name}. If tables exist, please grant REFERENCES or SELECT permissions on them.",
+                "No tables/views found in schema. If tables exist, please grant REFERENCES or SELECT permissions on them.",
+                f"{db_name}.{schema_name}",
             )
+
+    def fetch_views_for_schema(self, conn, snowflake_schema, db_name, schema_name):
+        try:
+            snowflake_schema.views = self.get_views_for_schema(
+                conn, schema_name, db_name
+            )
+
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
+                error_msg = f"Failed to get views for schema {db_name}.{schema_name}. Please check permissions."
+
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                logger.debug(
+                    f"Failed to get views for schema {db_name}.{schema_name} due to error {e}",
+                    exc_info=e,
+                )
+                self.report_warning(
+                    "Failed to get views for schema",
+                    f"{db_name}.{schema_name}",
+                )
+
+    def fetch_tables_for_schema(self, conn, snowflake_schema, db_name, schema_name):
+        try:
+            snowflake_schema.tables = self.get_tables_for_schema(
+                conn, schema_name, db_name
+            )
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
+                error_msg = f"Failed to get tables for schema {db_name}.{schema_name}. Please check permissions."
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                logger.debug(
+                    f"Failed to get tables for schema {db_name}.{schema_name} due to error {e}",
+                    exc_info=e,
+                )
+                self.report_warning(
+                    "Failed to get tables for schema",
+                    f"{db_name}.{schema_name}",
+                )
 
     def _process_table(
         self,
@@ -671,53 +708,87 @@ class SnowflakeV2Source(
             self.report.report_dropped(table_identifier)
             return
 
-        try:
-            table.columns = self.get_columns_for_table(
-                conn, table.name, schema_name, db_name
-            )
-        except Exception as e:
-            self.report_warning(
-                "columns-for-table",
-                f"Failed to get columns for table {table_identifier} due to error {e}",
-            )
+        self.fetch_columns_for_table(
+            conn, table, schema_name, db_name, table_identifier
+        )
 
-        try:
-            table.pk = self.get_pk_constraints_for_table(
-                conn, table.name, schema_name, db_name
-            )
-        except Exception as e:
-            self.report_warning(
-                "keys-for-table",
-                f"Failed to get primary key for table {table_identifier} due to error {e}",
-            )
+        self.fetch_pk_for_table(conn, table, schema_name, db_name, table_identifier)
 
-        try:
-            table.foreign_keys = self.get_fk_constraints_for_table(
-                conn, table.name, schema_name, db_name
-            )
-        except Exception as e:
-            self.report_warning(
-                "keys-for-table",
-                f"Failed to get foreign key for table {table_identifier} due to error {e}",
-            )
+        self.fetch_foreign_keys_for_table(
+            conn, table, schema_name, db_name, table_identifier
+        )
 
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
 
+        self.fetch_sample_data_for_classification(
+            conn, table, schema_name, db_name, dataset_name
+        )
+
+        yield from self.gen_dataset_workunits(table, schema_name, db_name)
+
+    def fetch_sample_data_for_classification(
+        self, conn, table, schema_name, db_name, dataset_name
+    ):
         if table.columns and self.is_classification_enabled_for_table(dataset_name):
             try:
                 table.sample_data = self.get_sample_values_for_table(
                     conn, table.name, schema_name, db_name
                 )
-            except SnowflakePermissionError:
-                error_msg = f"Failed to get sample values for dataset {dataset_name}. Please grant SELECT permissions are {dataset_name}."
-                self.report_warning("permission-error", error_msg)
             except Exception as e:
-                self.report_warning(
-                    "sample-for-table",
+                logger.debug(
                     f"Failed to get sample values for dataset {dataset_name} due to error {e}",
+                    exc_info=e,
                 )
+                if isinstance(e, SnowflakePermissionError):
+                    self.report_warning(
+                        "Failed to get sample values for dataset. Please grant SELECT permissions on dataset.",
+                        dataset_name,
+                    )
+                else:
+                    self.report_warning(
+                        "Failed to get sample values for dataset",
+                        dataset_name,
+                    )
 
-        yield from self.gen_dataset_workunits(table, schema_name, db_name)
+    def fetch_foreign_keys_for_table(
+        self, conn, table, schema_name, db_name, table_identifier
+    ):
+        try:
+            table.foreign_keys = self.get_fk_constraints_for_table(
+                conn, table.name, schema_name, db_name
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to get foreign key for table {table_identifier} due to error {e}",
+                exc_info=e,
+            )
+            self.report_warning("Failed to get foreign key for table", table_identifier)
+
+    def fetch_pk_for_table(self, conn, table, schema_name, db_name, table_identifier):
+        try:
+            table.pk = self.get_pk_constraints_for_table(
+                conn, table.name, schema_name, db_name
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to get primary key for table {table_identifier} due to error {e}",
+                exc_info=e,
+            )
+            self.report_warning("Failed to get primary key for table", table_identifier)
+
+    def fetch_columns_for_table(
+        self, conn, table, schema_name, db_name, table_identifier
+    ):
+        try:
+            table.columns = self.get_columns_for_table(
+                conn, table.name, schema_name, db_name
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to get columns for table {table_identifier} due to error {e}",
+                exc_info=e,
+            )
+            self.report_warning("Failed to get columns for table", table_identifier)
 
     def _process_view(
         self,
@@ -739,10 +810,11 @@ class SnowflakeV2Source(
                 conn, view.name, schema_name, db_name
             )
         except Exception as e:
-            self.report_warning(
-                "columns-for-view",
+            logger.debug(
                 f"Failed to get columns for view {view_name} due to error {e}",
+                exc_info=e,
             )
+            self.report_warning("Failed to get columns for view", view_name)
 
         yield from self.gen_dataset_workunits(view, schema_name, db_name)
 
@@ -761,7 +833,11 @@ class SnowflakeV2Source(
         )
 
         # Add the entity to the state.
-        type = "table" if isinstance(table, SnowflakeTable) else "view"
+        type = (
+            SnowflakeObjectDomain.TABLE
+            if isinstance(table, SnowflakeTable)
+            else SnowflakeObjectDomain.VIEW
+        )
         self.stale_entity_removal_handler.add_entity_to_state(
             type=type, urn=dataset_urn
         )
@@ -774,27 +850,8 @@ class SnowflakeV2Source(
             "dataset", dataset_urn, "schemaMetadata", schema_metadata
         )
 
-        dataset_properties = DatasetProperties(
-            name=table.name,
-            created=TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created is not None
-            else None,
-            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
-            if table.last_altered is not None
-            else TimeStamp(time=int(table.created.timestamp() * 1000))
-            if table.created is not None
-            else None,
-            description=table.comment,
-            qualifiedName=dataset_name,
-            customProperties={},
-            externalUrl=self.get_external_url_for_table(
-                table.name,
-                schema_name,
-                db_name,
-                "table" if isinstance(table, SnowflakeTable) else "view",
-            )
-            if self.config.include_external_url
-            else None,
+        dataset_properties = self.get_dataset_properties(
+            table, schema_name, db_name, dataset_name
         )
         yield self.wrap_aspect_as_workunit(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
@@ -834,6 +891,32 @@ class SnowflakeV2Source(
                 view_properties_aspect,
             )
 
+    def get_dataset_properties(self, table, schema_name, db_name, dataset_name):
+        return DatasetProperties(
+            name=table.name,
+            created=TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
+            else None,
+            lastModified=TimeStamp(time=int(table.last_altered.timestamp() * 1000))
+            if table.last_altered is not None
+            else TimeStamp(time=int(table.created.timestamp() * 1000))
+            if table.created is not None
+            else None,
+            description=table.comment,
+            qualifiedName=dataset_name,
+            customProperties={},
+            externalUrl=self.get_external_url_for_table(
+                table.name,
+                schema_name,
+                db_name,
+                SnowflakeObjectDomain.TABLE
+                if isinstance(table, SnowflakeTable)
+                else SnowflakeObjectDomain.VIEW,
+            )
+            if self.config.include_external_url
+            else None,
+        )
+
     def get_schema_metadata(
         self,
         table: Union[SnowflakeTable, SnowflakeView],
@@ -842,35 +925,7 @@ class SnowflakeV2Source(
     ) -> SchemaMetadata:
         foreign_keys: Optional[List[ForeignKeyConstraint]] = None
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:
-            foreign_keys = []
-            for fk in table.foreign_keys:
-                foreign_dataset = make_dataset_urn(
-                    self.platform,
-                    self.get_dataset_identifier(
-                        fk.referred_table, fk.referred_schema, fk.referred_database
-                    ),
-                    self.config.env,
-                )
-                foreign_keys.append(
-                    ForeignKeyConstraint(
-                        name=fk.name,
-                        foreignDataset=foreign_dataset,
-                        foreignFields=[
-                            make_schema_field_urn(
-                                foreign_dataset,
-                                self.snowflake_identifier(col),
-                            )
-                            for col in fk.referred_column_names
-                        ],
-                        sourceFields=[
-                            make_schema_field_urn(
-                                dataset_urn,
-                                self.snowflake_identifier(col),
-                            )
-                            for col in fk.column_names
-                        ],
-                    )
-                )
+            foreign_keys = self.build_foreign_keys(table, dataset_urn, foreign_keys)
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
@@ -899,6 +954,43 @@ class SnowflakeV2Source(
 
         # TODO: classification is only run for snowflake tables.
         # Should we run classification for snowflake views as well?
+        self.classify_snowflake_table(table, dataset_name, schema_metadata)
+
+        return schema_metadata
+
+    def build_foreign_keys(self, table, dataset_urn, foreign_keys):
+        foreign_keys = []
+        for fk in table.foreign_keys:
+            foreign_dataset = make_dataset_urn(
+                self.platform,
+                self.get_dataset_identifier(
+                    fk.referred_table, fk.referred_schema, fk.referred_database
+                ),
+                self.config.env,
+            )
+            foreign_keys.append(
+                ForeignKeyConstraint(
+                    name=fk.name,
+                    foreignDataset=foreign_dataset,
+                    foreignFields=[
+                        make_schema_field_urn(
+                            foreign_dataset,
+                            self.snowflake_identifier(col),
+                        )
+                        for col in fk.referred_column_names
+                    ],
+                    sourceFields=[
+                        make_schema_field_urn(
+                            dataset_urn,
+                            self.snowflake_identifier(col),
+                        )
+                        for col in fk.column_names
+                    ],
+                )
+            )
+        return foreign_keys
+
+    def classify_snowflake_table(self, table, dataset_name, schema_metadata):
         if isinstance(
             table, SnowflakeTable
         ) and self.is_classification_enabled_for_table(dataset_name):
@@ -917,12 +1009,14 @@ class SnowflakeV2Source(
                     else {},
                 )
             except Exception as e:
-                self.report_warning(
-                    dataset_name,
-                    f"unable to classify table columns due to error -> {e}",
+                logger.debug(
+                    f"Failed to classify table columns for {dataset_name} due to error -> {e}",
+                    exc_info=e,
                 )
-
-        return schema_metadata
+                self.report_warning(
+                    "Failed to classify table columns",
+                    dataset_name,
+                )
 
     def get_report(self) -> SourceReport:
         return self.report

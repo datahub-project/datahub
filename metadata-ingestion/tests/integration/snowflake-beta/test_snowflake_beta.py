@@ -509,12 +509,6 @@ def snowflake_pipeline_config(tmp_path):
     return config
 
 
-def role_not_granted_to_user(**kwargs):
-    raise Exception(
-        "250001 (08001): Failed to connect to DB: abc12345.ap-south-1.snowflakecomputing.com:443. Role 'TEST_ROLE' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC"
-    )
-
-
 @freeze_time(FROZEN_TIME)
 def test_snowflake_missing_role_access_causes_pipeline_failure(
     pytestconfig,
@@ -522,7 +516,9 @@ def test_snowflake_missing_role_access_causes_pipeline_failure(
 ):
     with mock.patch("snowflake.connector.connect") as mock_connect:
         # Snowflake connection fails role not granted error
-        mock_connect.side_effect = role_not_granted_to_user
+        mock_connect.side_effect = Exception(
+            "250001 (08001): Failed to connect to DB: abc12345.ap-south-1.snowflakecomputing.com:443. Role 'TEST_ROLE' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC"
+        )
 
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
@@ -616,7 +612,10 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
         )
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert "columns-for-table" in pipeline.source.get_report().warnings.keys()
+        assert (
+            "Failed to get columns for table"
+            in pipeline.source.get_report().warnings.keys()
+        )
         assert len(pipeline.source.get_report().failures) == 0
 
 
@@ -639,7 +638,10 @@ def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
         )
         pipeline = Pipeline(snowflake_pipeline_config)
         pipeline.run()
-        assert "keys-for-table" in pipeline.source.get_report().warnings.keys()
+        assert (
+            "Failed to get primary key for table"
+            in pipeline.source.get_report().warnings.keys()
+        )
         assert len(pipeline.source.get_report().failures) == 0
 
 

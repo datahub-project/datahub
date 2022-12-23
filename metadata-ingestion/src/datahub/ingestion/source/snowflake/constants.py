@@ -27,3 +27,10 @@ SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
 
 # https://docs.snowflake.com/en/sql-reference/snowflake-db.html
 SNOWFLAKE_DATABASE = "SNOWFLAKE"
+
+
+# We will always compare with lowercase
+class SnowflakeObjectDomain(str, Enum):
+    TABLE = "table"
+    VIEW = "view"
+    MATERIALIZED_VIEW = "materialized_view"

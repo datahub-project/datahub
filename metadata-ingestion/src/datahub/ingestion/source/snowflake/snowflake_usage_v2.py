@@ -112,7 +112,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
         if self.report.edition == SnowflakeEdition.STANDARD.value:
             logger.info(
-                "Snowflake Account is Standard Edition. Usage Feature is not supported."
+                "Snowflake Account is Standard Edition. Usage and Operation History Feature is not supported."
             )
             return
 
@@ -162,7 +162,6 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             self.report.usage_aggregation_query_secs = timer.elapsed_seconds()
 
         for row in results:
-            assert row["OBJECT_NAME"] is not None, "Null objectName not allowed"
             if not self._is_dataset_pattern_allowed(
                 row["OBJECT_NAME"],
                 row["OBJECT_DOMAIN"],
@@ -178,6 +177,10 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 )
                 continue
 
+            yield from self.build_usage_statistics_for_dataset(dataset_identifier, row)
+
+    def build_usage_statistics_for_dataset(self, dataset_identifier, row):
+        try:
             stats = DatasetUsageStatistics(
                 timestampMillis=int(row["BUCKET_START_TIME"].timestamp() * 1000),
                 eventGranularity=TimeWindowSize(
@@ -204,6 +207,14 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 dataset_urn,
                 "datasetUsageStatistics",
                 stats,
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse usage statistics for dataset {dataset_identifier} due to error {e}.",
+                exc_info=e,
+            )
+            self.report_warning(
+                "Failed to parse usage statistics for dataset", dataset_identifier
             )
 
     def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
@@ -279,15 +290,18 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 results = self.query(
                     conn, SnowflakeQuery.get_access_history_date_range()
                 )
-            except SnowflakePermissionError:
-                error_msg = "Failed to get usage. Please grant imported privileges on SNOWFLAKE database. "
-                self.warn_if_stateful_else_error("usage-permission-error", error_msg)
             except Exception as e:
-                logger.debug(e, exc_info=e)
-                self.report_warning(
-                    "usage",
-                    f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
-                )
+                if isinstance(e, SnowflakePermissionError):
+                    error_msg = "Failed to get usage. Please grant imported privileges on SNOWFLAKE database. "
+                    self.warn_if_stateful_else_error(
+                        "usage-permission-error", error_msg
+                    )
+                else:
+                    logger.debug(e, exc_info=e)
+                    self.report_warning(
+                        "usage",
+                        f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
+                    )
             else:
                 for db_row in results:
                     if (
@@ -297,7 +311,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     ):
                         self.report_warning(
                             "check-usage-data",
-                            f"Missing data for access_history {db_row} - Check if using Enterprise Edition of Snowflake",
+                            f"Missing data for access_history {db_row}.",
                         )
                         continue
                     self.report.min_access_history_time = db_row["MIN_TIME"].astimezone(
@@ -430,8 +444,8 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         except Exception as e:
             self.report.rows_parsing_error += 1
             self.report_warning(
-                "usage",
-                f"Failed to parse usage line {event_dict}, {e}",
+                "operation",
+                f"Failed to parse operation history row {event_dict}, {e}",
             )
 
     def _is_unsupported_object_accessed(self, obj: Dict[str, Any]) -> bool:
