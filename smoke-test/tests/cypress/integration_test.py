@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Set, List
 
 import datetime
 import pytest
@@ -142,17 +142,10 @@ def ingest_cleanup_data():
     print("deleted onboarding data")
 
 
-def _get_spec_map(items: List[str]) -> str:
+def _get_spec_map(items: Set[str]) -> str:
     if len(items) == 0:
         return ""
     return ",".join([f"**/{item}/*.js" for item in items])
-
-
-def _get_negative_spec(items) -> str:
-    if len(items) == 0:
-        return ""
-    item_str = "|".join(items)
-    return f"**/!({item_str})/*.js"
 
 
 def test_run_cypress(frontend_session, wait_for_healthchecks):
@@ -163,7 +156,10 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     else:
         record_arg = " "
 
-    cypress_suite1_specs = ["mutations", "search", "glossary", "views"]
+    rest_specs = set(os.listdir("tests/cypress/cypress/integration"))
+
+    cypress_suite1_specs = {"mutations", "search", "glossary", "views"}
+    rest_specs.difference_update(set(cypress_suite1_specs))
 
     test_strategy = os.getenv("TEST_STRATEGY", None)
     print(f"test strategy is {test_strategy}")
@@ -171,10 +167,8 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         specs = _get_spec_map(cypress_suite1_specs)
         test_spec_arg = f" --spec '{specs}' "
     elif test_strategy == "cypress_rest":
-        used_specs = set()
-        used_specs.update(cypress_suite1_specs)
-        negative_spec_map = _get_negative_spec(used_specs)
-        test_spec_arg = f" --spec '{negative_spec_map}' "
+        specs = _get_spec_map(rest_specs)
+        test_spec_arg = f" --spec '{specs}' "
     else:
         test_spec_arg = " "
 
