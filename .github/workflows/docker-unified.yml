@@ -416,6 +416,7 @@ jobs:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         cypress: ["true", "false"]
     needs:
