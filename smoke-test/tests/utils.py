@@ -113,7 +113,7 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
 
 
 def delete_urns_from_file(filename: str) -> None:
-    if not os.getenv("CLEANUP_DATA", True):
+    if not cli_utils.get_boolean_env_variable("CLEANUP_DATA", True):
         print("Not cleaning data to save time")
         return
     session = requests.Session()
