@@ -90,7 +90,7 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
                     yield inspector
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         return []
 

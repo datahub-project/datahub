@@ -25,7 +25,6 @@ from tests.test_helpers.type_helpers import assert_not_null
 class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
     # Static members for the tests
     pipeline_name: str = "test_pipeline"
-    platform_instance_id: str = "test_platform_instance_1"
     job_names: List[JobId] = [JobId("job1"), JobId("job2")]
     run_id: str = "test_run"
 
@@ -95,7 +94,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             filter_criteria_map,
             {
                 "pipelineName": self.pipeline_name,
-                "platformInstanceId": self.platform_instance_id,
             },
         )
         # Retrieve the cached mcpw and return its aspect value.
@@ -111,7 +109,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         job1_checkpoint = Checkpoint(
             job_name=self.job_names[0],
             pipeline_name=self.pipeline_name,
-            platform_instance_id=self.platform_instance_id,
             run_id=self.run_id,
             state=job1_state_obj,
         )
@@ -122,7 +119,6 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         job2_checkpoint = Checkpoint(
             job_name=self.job_names[1],
             pipeline_name=self.pipeline_name,
-            platform_instance_id=self.platform_instance_id,
             run_id=self.run_id,
             state=job2_state_obj,
         )
@@ -146,10 +142,10 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         # 4. Get last committed state. This must match what has been committed earlier.
         # NOTE: This will retrieve from in-memory self.mcps_emitted because of the monkey-patching.
         job1_last_state = self.provider.get_latest_checkpoint(
-            self.pipeline_name, self.platform_instance_id, self.job_names[0]
+            self.pipeline_name, self.job_names[0]
         )
         job2_last_state = self.provider.get_latest_checkpoint(
-            self.pipeline_name, self.platform_instance_id, self.job_names[1]
+            self.pipeline_name, self.job_names[1]
         )
 
         # 5. Validate individual job checkpoint state values that have been committed and retrieved

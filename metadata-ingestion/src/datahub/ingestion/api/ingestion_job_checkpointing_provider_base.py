@@ -48,11 +48,19 @@ class IngestionCheckpointingProviderBase(StatefulCommittable[CheckpointJobStates
         orchestrator: str,
         pipeline_name: str,
         job_name: JobId,
-        platform_instance_id: str,
     ) -> str:
         """
         Standardizes datajob urn minting for all ingestion job state providers.
         """
-        return builder.make_data_job_urn(
+        return builder.make_data_job_urn(orchestrator, pipeline_name, job_name)
+
+    @staticmethod
+    def get_data_job_legacy_urn(
+        orchestrator: str,
+        pipeline_name: str,
+        job_name: JobId,
+        platform_instance_id: str,
+    ) -> str:
+        return IngestionCheckpointingProviderBase.get_data_job_urn(
             orchestrator, f"{pipeline_name}_{platform_instance_id}", job_name
         )

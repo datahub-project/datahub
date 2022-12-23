@@ -49,6 +49,13 @@
         "recipe": "source:\n    type: tableau\n    config:\n        # Coordinates\n        connect_uri: null\n        stateful_ingestion:\n            enabled: true"
     },
     {
+        "urn": "urn:li:dataPlatform:dbt",
+        "name": "dbt-cloud",
+        "displayName": "dbt Cloud",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/dbt/#module-dbt-cloud",
+        "recipe": "source:\n  type: dbt-cloud\n  config:\n    account_id: null\n    project_id: null\n    job_id: null\n    target_platform: null\n    stateful_ingestion:\n      enabled: true"
+    },
+    {
         "urn": "urn:li:dataPlatform:mysql",
         "name": "mysql",
         "displayName": "MySQL",

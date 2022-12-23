@@ -34,7 +34,7 @@ public class SiblingGraphService {
   @Nonnull
   public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
       int count, int maxHops) {
-    return getLineage(entityUrn, direction, offset, count, maxHops, false);
+    return getLineage(entityUrn, direction, offset, count, maxHops, false, new HashSet<>());
   }
 
   /**
@@ -45,7 +45,7 @@ public class SiblingGraphService {
    */
   @Nonnull
   public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
-     int offset, int count, int maxHops, boolean separateSiblings) {
+     int offset, int count, int maxHops, boolean separateSiblings, @Nonnull Set<Urn> visitedUrns) {
     if (separateSiblings) {
       return _graphService.getLineage(entityUrn, direction, offset, count, maxHops);
     }
@@ -73,10 +73,15 @@ public class SiblingGraphService {
       offset = Math.max(0, offset - entityLineage.getTotal());
       count = Math.max(0, count - entityLineage.getRelationships().size());
 
+      visitedUrns.add(entityUrn);
       // iterate through each sibling and include their lineage in the bunch
       for (Urn siblingUrn : siblingUrns) {
+        if (visitedUrns.contains(siblingUrn)) {
+          continue;
+        }
+        // need to call siblingGraphService to get sibling results for this sibling entity in case there is more than one sibling
         EntityLineageResult nextEntityLineage = filterLineageResultFromSiblings(siblingUrn, allSiblingsInGroup,
-            _graphService.getLineage(siblingUrn, direction, offset, count, maxHops), entityLineage);
+            getLineage(siblingUrn, direction, offset, count, maxHops, false, visitedUrns), entityLineage);
 
         // Update offset and count to fetch the correct number of edges from the next sibling node
         offset = Math.max(0, offset - nextEntityLineage.getTotal());
