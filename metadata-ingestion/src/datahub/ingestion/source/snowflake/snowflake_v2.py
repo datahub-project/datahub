@@ -227,7 +227,7 @@ class SnowflakeV2Source(
             self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
-        if self.config.enable_profiling_state:
+        if self.config.store_last_profiling_timestamps:
             self.profiling_state_handler = ProfilingHandler(
                 source=self,
                 config=self.config,
@@ -468,7 +468,7 @@ class SnowflakeV2Source(
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
             if (
-                self.config.enable_usage_extraction_state
+                self.config.store_last_usage_extraction_timestamp
                 and self.redundant_run_skip_handler.should_skip_this_run(
                     cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
                 )
@@ -480,7 +480,7 @@ class SnowflakeV2Source(
                 )
                 return
 
-            if self.config.enable_usage_extraction_state:
+            if self.config.store_last_usage_extraction_timestamp:
                 # Update the checkpoint state for this run.
                 self.redundant_run_skip_handler.update_state(
                     start_time_millis=datetime_to_ts_millis(self.config.start_time),
