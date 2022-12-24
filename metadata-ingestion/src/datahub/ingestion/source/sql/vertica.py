@@ -135,7 +135,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "Vertica__5")
+        super(VerticaSource, self).__init__(config, ctx, "Vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
         self.Projection_lineage_map: Optional[
@@ -1236,8 +1236,8 @@ class VerticaSource(SQLAlchemySource):
 
                     upstream = f"{db_row_value['reference_table_schema']}.{db_row_value['reference_table_name']}"
 
-                    view_upstream: str = upstream.lower()
-                    view_name: str = downstream.lower()
+                    view_upstream: str = upstream
+                    view_name: str = downstream
                     self.view_lineage_map[view_name].append(
                         # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
                         (view_upstream, "[]", "[]")
@@ -1339,13 +1339,12 @@ class VerticaSource(SQLAlchemySource):
                 )
                 for db_row_value in engine.execute(view_downstream_query):
                     downstream = f"{db_row_value['schemaname']}.{db_row_value['name']}"
-                    projection_upstream: str = upstream.lower()
-                    projection_name: str = downstream.lower()
+                    projection_upstream: str = upstream
+                    projection_name: str = downstream
                     self.Projection_lineage_map[projection_name].append(
                         # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
                         (projection_upstream, "[]", "[]")
                     )
-
                     num_edges += 1
 
         except Exception as error:
