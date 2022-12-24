@@ -160,7 +160,7 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
         record_arg = " "
 
     rest_specs = set(os.listdir("tests/cypress/cypress/integration"))
-    cypress_suite1_specs = {"mutations", "search", "glossary", "views"}
+    cypress_suite1_specs = {"mutations", "search", "views"}
     rest_specs.difference_update(set(cypress_suite1_specs))
     strategy_spec_map = {
         "cypress_suite1": cypress_suite1_specs,
