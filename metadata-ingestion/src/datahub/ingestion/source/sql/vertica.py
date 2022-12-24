@@ -1,45 +1,54 @@
+import datetime
 import logging
 import traceback
-import datetime
 from collections import defaultdict
 from dataclasses import dataclass
 from textwrap import dedent
-from typing import (TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple,
-                    Union)
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
-from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import (
-    dataset_urn_to_key, make_dataset_urn_with_platform_instance)
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_owner_to_entity_wu
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (SourceCapability, SupportStatus,
-                                              capability, config_class,
-                                              platform_name, support_status)
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_common import (BasicSQLAlchemyConfig,
-                                                     SQLAlchemyConfig,
-                                                     SQLAlchemySource,
-                                                     SQLSourceReport,
-                                                     SqlWorkUnit,
-                                                     get_schema_metadata)
-from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
-    DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (ChangeTypeClass,
-                                             DatasetLineageTypeClass,
-                                             DatasetPropertiesClass,
-                                             GlobalTagsClass, SubTypesClass,
-                                             TagAssociationClass,
-                                             UpstreamClass)
-from datahub.utilities import config_clean
 from pydantic.class_validators import validator
 from sqlalchemy import create_engine, sql
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
+
+from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import (
+    dataset_urn_to_key,
+    make_dataset_urn_with_platform_instance,
+)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import add_owner_to_entity_wu
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_common import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemyConfig,
+    SQLAlchemySource,
+    SQLSourceReport,
+    SqlWorkUnit,
+    get_schema_metadata,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    SubTypesClass,
+    UpstreamClass,
+)
+from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
@@ -62,14 +71,13 @@ class VerticaSourceReport(SQLSourceReport):
             self.projection_scanned += 1
         elif ent_type == "models":
             self.models_scanned += 1
-        elif ent_type == "OAuth":
+        elif ent_type == "oauth":
             self.oauth_scanned += 1
         else:
             super().report_entity_scanned(name, ent_type)
 
+
 # Extended BasicSQLAlchemyConfig to config for projections,models and oauth metadata.
-
-
 class VerticaConfig(BasicSQLAlchemyConfig):
 
     projection_pattern: AllowDenyPattern = pydantic.Field(
@@ -78,11 +86,11 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     )
     models_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for ml models to filter in ingestion. "
+        description="Regex patterns for ml models to filter in ingestion. ",
     )
     oauth_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for OAuth to filter in ingestion. "
+        description="Regex patterns for OAuth to filter in ingestion. ",
     )
 
     include_projections: Optional[bool] = pydantic.Field(
@@ -115,16 +123,24 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`")
-@capability(SourceCapability.DELETION_DETECTION, "Optionally enabled via `stateful_ingestion.remove_stale_metadata`", supported=True)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`",
+)
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
 class VerticaSource(SQLAlchemySource):
-
     def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "Vertica")
+        super(VerticaSource, self).__init__(config, ctx, "Vertica__5")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
-        self.Projection_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
+        self.Projection_lineage_map: Optional[
+            Dict[str, List[Tuple[str, str, str]]]
+        ] = None
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
@@ -178,7 +194,9 @@ class VerticaSource(SQLAlchemySource):
                         self.loop_profiler_requests(inspector, schema, sql_config)
                     )
                     profile_requests += list(
-                        self.loop_profiler_requests_for_projections(inspector, schema, sql_config)
+                        self.loop_profiler_requests_for_projections(
+                            inspector, schema, sql_config
+                        )
                     )
 
             if profiler and profile_requests:
@@ -196,110 +214,24 @@ class VerticaSource(SQLAlchemySource):
     def get_database_properties(
         self, inspector: Inspector, database: str
     ) -> Optional[Dict[str, str]]:
-
         try:
-
-            url = self.config.get_sql_alchemy_url()
-            engine = create_engine(url, **self.config.options)
-
-            cluster_type_qry = sql.text(dedent("""
-                    SELECT 
-                    CASE COUNT(*) 
-                        WHEN 0 
-                        THEN 'Enterprise' 
-                        ELSE 'Eon' 
-                    END AS database_mode 
-                    FROM v_catalog.shards
-                """))
-
-            communal_storage_path = sql.text(dedent("""
-                    SELECT location_path from storage_locations 
-                        WHERE sharing_type = 'COMMUNAL'
-                """))
-
-            cluster_type = ""
-            communal_path = ""
-            cluster_type_res = engine.execute(cluster_type_qry)
-            for each in cluster_type_res:
-                cluster_type = each.database_mode
-                if cluster_type.lower() == 'eon':
-                    for each in engine.execute(communal_storage_path):
-                        communal_path += str(each.location_path) + " | "
-            SUBCLUSTER_SIZE = sql.text(dedent("""
-                            SELECT subclusters.subcluster_name , CAST(sum(disk_space_used_mb // 1024) as varchar(10)) as subclustersize from subclusters  
-                            inner join disk_storage using (node_name) 
-                            group by subclusters.subcluster_name
-                            """))
-            subclusters = " "
-            for data in engine.execute(SUBCLUSTER_SIZE):
-                subclusters += f"{data['subcluster_name']} -- {data['subclustersize']} GB |  "
-
-            cluster__size = sql.text(dedent("""
-                select ROUND(SUM(disk_space_used_mb) //1024 ) as cluster_size
-                from disk_storage
-            """))
-            cluster_size = ""
-            for each in engine.execute(cluster__size):
-                cluster_size = str(each.cluster_size) + " GB"
-
-            return {"cluster_type": cluster_type, "cluster_size": cluster_size, 'subcluster': subclusters,
-                    "communal_storage_path": communal_path}
-
+            custom_properties = inspector._get_database_properties(database)
+            return custom_properties
         except Exception as ex:
-            self.report.report_failure(f"{database}", f"unable to get extra_properties : {ex}")
+            self.report.report_failure(
+                f"{database}", f"unable to get extra_properties : {ex}"
+            )
 
     def get_schema_properties(
         self, inspector: Inspector, database: str, schema: str
     ) -> Optional[Dict[str, str]]:
-
         try:
-            url = self.config.get_sql_alchemy_url()
-            engine = create_engine(url, **self.config.options)
-
-            # Projection count
-            projection_count_query = sql.text(dedent("""
-                SELECT 
-                    COUNT(projection_name)  as pc
-                from 
-                    v_catalog.projections 
-                WHERE lower(projection_schema) = '%(schema)s'
-            """ % {"schema": schema}))
-
-            projection_count = None
-            for each in engine.execute(projection_count_query):
-                projection_count = each.pc
-
-            UDL_LANGUAGE = sql.text(dedent("""
-                SELECT lib_name , description 
-                    FROM USER_LIBRARIES
-                WHERE lower(schema_name) = '%(schema)s'
-            """ % {"schema": schema}))
-
-            # UDX list
-            UDX_functions_qry = sql.text(dedent("""
-                SELECT 
-                    function_name 
-                FROM 
-                    USER_FUNCTIONS
-                Where schema_name  = '%(schema)s'
-            """ % {'schema': schema, }))
-            udx_list = ""
-            for each in engine.execute(UDX_functions_qry):
-                udx_list += each.function_name + ", "
-
-            # UDX Language
-            user_defined_library = ""
-            for data in engine.execute(UDL_LANGUAGE):
-                user_defined_library += f"{data['lib_name']} -- {data['description']} |  "
-
-            # print("projection_count: " + str(projection_count)
-            return {"projection_count": str(projection_count),
-                    'udx_list': str(udx_list), 'udx_language': str(user_defined_library)}
-
-            # return {"projection_count": "projection_count"}
-
+            custom_properties = inspector._get_schema_properties(schema)
+            return custom_properties
         except Exception as ex:
-            self.report.report_failure(f"{schema}", f"unable to get extra_properties : {ex}")
+            self.report.report_failure(
+                f"{schema}", f"unable to get extra_properties : {ex}"
+            )
 
     def _process_table(
         self,
@@ -316,8 +248,93 @@ class VerticaSource(SQLAlchemySource):
             self.config.env,
         )
         table_owner = self._get_owner_information(table, "table")
-        yield from add_owner_to_entity_wu(entity_type="dataset", entity_urn=dataset_urn, owner_urn=f"urn:li:corpuser:{table_owner}")
-        yield from super()._process_table(dataset_name, inspector, schema, table, sql_config)
+        yield from add_owner_to_entity_wu(
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+            owner_urn=f"urn:li:corpuser:{table_owner}",
+        )
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config
+        )
+
+    def loop_views(
+        self,
+        inspector: Inspector,
+        schema: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        try:
+            for view in inspector.get_view_names(schema):
+                schema, view = self.standardize_schema_table_names(
+                    schema=schema, entity=view
+                )
+                dataset_name = self.get_identifier(
+                    schema=schema, entity=view, inspector=inspector
+                )
+                dataset_name = self.normalise_dataset_name(dataset_name)
+
+                self.report.report_entity_scanned(dataset_name, ent_type="view")
+
+                if not sql_config.view_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
+                    continue
+
+                try:
+                    yield from self._process_view(
+                        dataset_name=dataset_name,
+                        inspector=inspector,
+                        schema=schema,
+                        view=view,
+                        sql_config=sql_config,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                    )
+                    self.report.report_warning(
+                        f"{schema}.{view}", f"Ingestion error: {e}"
+                    )
+                if sql_config.include_view_lineage:
+                    try:
+                        dataset_urn = make_dataset_urn_with_platform_instance(
+                            self.platform,
+                            dataset_name,
+                            self.config.platform_instance,
+                            self.config.env,
+                        )
+                        dataset_snapshot = DatasetSnapshot(
+                            urn=dataset_urn, aspects=[StatusClass(removed=False)]
+                        )
+                        lineage_info = self._get_upstream_lineage_info(
+                            dataset_urn, view
+                        )
+                        if lineage_info is not None:
+                            # Emit the lineage work unit
+                            # upstream_column_props = []
+                            upstream_lineage = lineage_info
+                            lineage_mcpw = MetadataChangeProposalWrapper(
+                                entityType="dataset",
+                                changeType=ChangeTypeClass.UPSERT,
+                                entityUrn=dataset_snapshot.urn,
+                                aspectName="upstreamLineage",
+                                aspect=upstream_lineage,
+                            )
+                            lineage_wu = MetadataWorkUnit(
+                                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
+                                mcp=lineage_mcpw,
+                            )
+                            self.report.report_workunit(lineage_wu)
+                            yield lineage_wu
+
+                    except Exception as e:
+                        logger.warning(
+                            f"Unable to get lineage of view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
+                        )
+                        self.report.report_warning(
+                            f"{schema}.{view}", f"Ingestion error: {e}"
+                        )
+        except Exception as e:
+            self.report.report_failure(f"{schema}", f"Views error: {e}")
 
     def _process_view(
         self,
@@ -326,7 +343,6 @@ class VerticaSource(SQLAlchemySource):
         schema: str,
         view: str,
         sql_config: SQLAlchemyConfig,
-
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
         This function is used for performing operation and gets data for every view inside a schema
@@ -352,8 +368,14 @@ class VerticaSource(SQLAlchemySource):
             self.config.env,
         )
         view_owner = self._get_owner_information(view, "view")
-        yield from add_owner_to_entity_wu(entity_type="dataset", entity_urn=dataset_urn, owner_urn=f"urn:li:corpuser:{view_owner}")
-        yield from super()._process_view(dataset_name, inspector, schema, view, sql_config)
+        yield from add_owner_to_entity_wu(
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+            owner_urn=f"urn:li:corpuser:{view_owner}",
+        )
+        yield from super()._process_view(
+            dataset_name, inspector, schema, view, sql_config
+        )
 
     def loop_projections(
         self,
@@ -393,7 +415,7 @@ class VerticaSource(SQLAlchemySource):
                 if dataset_name not in projections_seen:
                     projections_seen.add(dataset_name)
                 else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
+                    logger.debug("has already been seen, skipping... %s", dataset_name)
                     continue
                 self.report.report_entity_scanned(dataset_name, ent_type="projection")
                 if not sql_config.projection_pattern.allowed(dataset_name):
@@ -405,10 +427,11 @@ class VerticaSource(SQLAlchemySource):
                     )
                 except Exception as ex:
                     logger.warning(
-                        f"Unable to ingest {schema}.{projection} due to an exception.\n {ex}"
+                        f"Unable to ingest {schema}.{projection} due to an exception %s",
+                        ex,
                     )
                     self.report.report_warning(
-                        f"{schema}.{projection}", f"Ingestion error: {e}"
+                        f"{schema}.{projection}", f"Ingestion error: {ex}"
                     )
                 if sql_config.include_projection_lineage:
 
@@ -424,7 +447,9 @@ class VerticaSource(SQLAlchemySource):
                             urn=dataset_urn,
                             aspects=[StatusClass(removed=False)],
                         )
-                        lineage_info = self._get_upstream_lineage_info_Projection(dataset_urn, projection)
+                        lineage_info = self._get_upstream_lineage_info_Projection(
+                            dataset_urn, projection
+                        )
 
                         if lineage_info is not None:
                             # Emit the lineage work unit
@@ -449,7 +474,8 @@ class VerticaSource(SQLAlchemySource):
 
                     except Exception as ex:
                         logger.warning(
-                            f"Unable to get lineage of Projection {schema}.{projection} due to an exception.\n {traceback.format_exc()}"
+                            f"Unable to get lineage of Projection {schema}.{projection} due to an exception %s",
+                            ex,
                         )
                         self.report.report_warning(
                             f"{schema}.{projection}", f"Ingestion error: {ex}"
@@ -463,7 +489,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: Inspector,
         schema: str,
         projection: str,
-        sql_config: SQLAlchemyConfig
+        sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = self._get_columns(dataset_name, inspector, schema, projection)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -519,13 +545,17 @@ class VerticaSource(SQLAlchemySource):
             yield lineage_wu
 
         projection_owner = self._get_owner_information(projection, "projection")
-        yield from add_owner_to_entity_wu(entity_type="dataset", entity_urn=dataset_urn, owner_urn=f"urn:li:corpuser:{projection_owner}")
+        yield from add_owner_to_entity_wu(
+            entity_type="dataset",
+            entity_urn=dataset_urn,
+            owner_urn=f"urn:li:corpuser:{projection_owner}",
+        )
         # extra_tags = self.get_extra_tags(inspector, schema, projection)
         pk_constraints: dict = inspector.get_pk_constraint(projection, schema)
-        foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, projection)
-        schema_fields = self.get_schema_fields(
-            dataset_name, columns, pk_constraints
+        foreign_keys = self._get_foreign_keys(
+            dataset_urn, inspector, schema, projection
         )
+        schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
@@ -591,14 +621,14 @@ class VerticaSource(SQLAlchemySource):
             projection_info: dict = inspector.get_projection_comment(projection, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
-        except ProgrammingError as pe:
+        except ProgrammingError as error:
             logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {properties}",
-                pe,
+                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {properties} %s",
+                error,
             )
             projection_info: dict = inspector.get_projection_comment(properties, f'"{schema}"')  # type: ignore
         description = projection_info.get("text")
-        if type(description) is tuple:
+        if isinstance(description, tuple):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = projection_info["text"][0]
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
@@ -641,7 +671,7 @@ class VerticaSource(SQLAlchemySource):
                 if dataset_name not in models_seen:
                     models_seen.add(dataset_name)
                 else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
+                    logger.debug("has already been seen, skipping... %s", dataset_name)
                     continue
                 self.report.report_entity_scanned(dataset_name, ent_type="models")
                 if not sql_config.table_pattern.allowed(dataset_name):
@@ -649,16 +679,21 @@ class VerticaSource(SQLAlchemySource):
                     continue
                 try:
                     yield from self._process_models(
-                        dataset_name, inspector, schema, models, sql_config,)
-                except Exception as e:
+                        dataset_name,
+                        inspector,
+                        schema,
+                        models,
+                        sql_config,
+                    )
+                except Exception as error:
                     logger.warning(
-                        f"Unable to ingest {schema}.{models} due to an exception.\n {traceback.format_exc()}"
+                        f"Unable to ingest {schema}.{models} due to an exception. %s {traceback.format_exc()}"
                     )
                     self.report.report_warning(
-                        f"{schema}.{models}", f"Ingestion error: {e}"
+                        f"{schema}.{models}", f"Ingestion error: {error}"
                     )
-        except Exception as e:
-            self.report.report_failure(f"{schema}", f"Model error: {e}")
+        except Exception as error:
+            self.report.report_failure(f"{schema}", f"Model error: {error}")
 
     def _process_models(
         self,
@@ -680,7 +715,7 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
         """
-        columns = []
+        columns: List[str] = None
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
@@ -693,7 +728,7 @@ class VerticaSource(SQLAlchemySource):
         )
         # Add table to the checkpoint state
         self.stale_entity_removal_handler.add_entity_to_state("model", dataset_urn)
-        description, properties, location_urn = self.get_model_properties(
+        description, properties, location = self.get_model_properties(
             inspector, schema, table
         )
         # Tablename might be different from the real table if we ran some normalisation ont it.
@@ -714,9 +749,7 @@ class VerticaSource(SQLAlchemySource):
 
         dataset_snapshot.aspects.append(dataset_properties)
 
-        schema_fields = self.get_schema_fields(
-            dataset_name, columns
-        )
+        schema_fields = self.get_schema_fields(dataset_name, columns)
 
         schema_metadata = get_schema_metadata(
             self.report,
@@ -781,10 +814,10 @@ class VerticaSource(SQLAlchemySource):
             table_info: dict = inspector.get_model_comment(model, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
-        except ProgrammingError as pe:
+        except ProgrammingError as error:
             logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {model}",
-                pe,
+                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and {model} %s",
+                error,
             )
             table_info: dict = inspector.get_model_comment(model, f'"{schema}"')  # type: ignore
         description = table_info.get("text")
@@ -814,37 +847,39 @@ class VerticaSource(SQLAlchemySource):
         oauth_seen: Set[str] = set()
         try:
 
-            for OAuth in inspector.get_Oauth_names(schema):
+            for oauth in inspector.get_Oauth_names(schema):
 
-                schema, OAuth = self.standardize_schema_table_names(
-                    schema=schema, entity=OAuth
+                schema, oauth = self.standardize_schema_table_names(
+                    schema=schema, entity=oauth
                 )
                 dataset_name = self.get_identifier(
-                    schema=schema, entity=OAuth, inspector=inspector
+                    schema=schema, entity=oauth, inspector=inspector
                 )
 
                 dataset_name = self.normalise_dataset_name(dataset_name)
                 if dataset_name not in oauth_seen:
                     oauth_seen.add(dataset_name)
                 else:
-                    logger.debug(f"{dataset_name} has already been seen, skipping...")
+                    logger.debug("has already been seen, skipping %s", dataset_name)
                     continue
-                self.report.report_entity_scanned(dataset_name, ent_type="OAuth")
+                self.report.report_entity_scanned(dataset_name, ent_type="oauth")
                 if not sql_config.oauth_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
                 try:
                     yield from self._process_Oauth(
-                        dataset_name, inspector, schema, OAuth, sql_config,)
-                except Exception as e:
-                    logger.warning(
-                        f"Unable to ingest {schema}.{OAuth} due to an exception.\n {traceback.format_exc()}"
+                        dataset_name,
+                        inspector,
+                        schema,
+                        oauth,
+                        sql_config,
                     )
+                except Exception as error:
                     self.report.report_warning(
-                        f"{schema}.{OAuth}", f"Ingestion error: {e}"
+                        f"{schema}.{oauth}", f"Ingestion error: {error}"
                     )
-        except Exception as e:
-            self.report.report_failure(f"{schema}", f"Oauth error: {e}")
+        except Exception as error:
+            self.report.report_failure(f"{schema}", f"Oauth error: {error}")
 
     def _process_Oauth(
         self,
@@ -865,7 +900,7 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
         """
-        columns = []
+        columns: List[str] = None
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
@@ -897,9 +932,7 @@ class VerticaSource(SQLAlchemySource):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        schema_fields = self.get_schema_fields(
-            dataset_name, columns
-        )
+        schema_fields = self.get_schema_fields(dataset_name, columns)
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
@@ -963,38 +996,19 @@ class VerticaSource(SQLAlchemySource):
             table_info: dict = inspector.get_oauth_comment(model, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
-        except ProgrammingError as pe:
+        except ProgrammingError as error:
             logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {model}",
-                pe,
+                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and oauth {model} %s",
+                error,
             )
             table_info: dict = inspector.get_oauth_comment(model, f'"{schema}"')  # type: ignore
         description = table_info.get("text")
-        if type(description) is tuple:
+        if isinstance(description, tuple):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = table_info["text"][0]
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
         return description, properties, location
-
-    def gen_tags_aspect_workunit(
-        self, dataset_urn: str, tags_to_add: List[str]
-    ) -> MetadataWorkUnit:
-        """
-        Returns metadata work units object for projecting into tags
-        Args:
-            dataset_urn (str): urn for any dataset
-            tags_to_add (List[str]): tags in form of list of str
-
-        Returns:
-            MetadataWorkUnit
-        """
-        tags = GlobalTagsClass(
-            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
-        )
-        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
-        self.report.report_workunit(wu)
-        return wu
 
     def is_dataset_eligible_for_profiling(
         self,
@@ -1003,26 +1017,31 @@ class VerticaSource(SQLAlchemySource):
         inspector: Inspector,
         profile_candidates: Optional[List[str]],
     ) -> bool:
-        """Return whether table, view or projection is  eligible for profiling 
-
+        """Return whether table, view or projection is  eligible for profiling
         Args:
             dataset_name (str): dataset name
             sql_config (SQLAlchemyConfig): configuration
             inspector (Inspector): inspector obj from reflection
-            profile_candidates (Optional[List[str]]): 
-
+            profile_candidates (Optional[List[str]])
         Returns:
             bool: returns bool
         """
         return (
-            sql_config.table_pattern.allowed(dataset_name)
-            and sql_config.profile_pattern.allowed(dataset_name)
-        ) and (
-            sql_config.projection_pattern.allowed(dataset_name)
-            and sql_config.profile_pattern.allowed(dataset_name)
-        ) and (
-            profile_candidates is None
-            or (profile_candidates is not None and dataset_name in profile_candidates)
+            (
+                sql_config.table_pattern.allowed(dataset_name)
+                and sql_config.profile_pattern.allowed(dataset_name)
+            )
+            and (
+                sql_config.projection_pattern.allowed(dataset_name)
+                and sql_config.profile_pattern.allowed(dataset_name)
+            )
+            and (
+                profile_candidates is None
+                or (
+                    profile_candidates is not None
+                    and dataset_name in profile_candidates
+                )
+            )
         )
 
     def loop_profiler_requests_for_projections(
@@ -1040,6 +1059,7 @@ class VerticaSource(SQLAlchemySource):
             [type]: GEProfilerRequest object
         """
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
         if (
@@ -1123,7 +1143,7 @@ class VerticaSource(SQLAlchemySource):
             )
 
     def _get_upstream_lineage_info(
-        self, dataset_urn: str, view
+        self, dataset_urn: str, view: str
     ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
 
         dataset_key = dataset_urn_to_key(dataset_urn)
@@ -1165,8 +1185,8 @@ class VerticaSource(SQLAlchemySource):
 
         return None
 
-    def _populate_view_lineage(self, view) -> None:
-        """ Collects upstream and downstream lineage information for views .
+    def _populate_view_lineage(self, view: str) -> None:
+        """Collects upstream and downstream lineage information for views .
 
         Args:
             view ([type]): name of the view
@@ -1174,31 +1194,36 @@ class VerticaSource(SQLAlchemySource):
         """
 
         url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
-        get_refrence_table = sql.text(dedent("""
-            select reference_table_name 
-            from v_catalog.view_tables                                
-            where table_name = '%(view)s'
-        """ % {'view': view}))
+        get_refrence_table = sql.text(
+            dedent(
+                """ select reference_table_name from v_catalog.view_tables where table_name = '%(view)s' """
+                % {"view": view}
+            )
+        )
 
         refrence_table = ""
         for data in engine.execute(get_refrence_table):
             # refrence_table.append(data)
-            refrence_table = data['reference_table_name']
+            refrence_table = data["reference_table_name"]
 
-        view_upstream_lineage_query = sql.text(dedent("""
-            select reference_table_name ,reference_table_schema
-            from v_catalog.view_tables 
-            where table_name = '%(view)s'
-        """ % {'view': view}))
+        view_upstream_lineage_query = sql.text(
+            dedent(
+                """
+            select reference_table_name ,reference_table_schema from v_catalog.view_tables where table_name = '%(view)s' """
+                % {"view": view}
+            )
+        )
 
-        view_downstream_query = sql.text(dedent("""
-            select table_name ,table_schema
-            from v_catalog.view_tables 
-            where reference_table_name = '%(view)s'
-        """ % {'view': refrence_table}))
+        view_downstream_query = sql.text(
+            dedent(
+                """
+            select table_name ,table_schema from v_catalog.view_tables where reference_table_name = '%(view)s'
+        """
+                % {"view": refrence_table}
+            )
+        )
         num_edges: int = 0
 
         try:
@@ -1228,11 +1253,12 @@ class VerticaSource(SQLAlchemySource):
                 + f"Please check your permissions. Continuing...\nError was {e}.",
             )
 
-        logger.info(f"A total of {num_edges} View upstream edges found found for {view}")
-        self.report.num_table_to_view_edges_scanned = num_edges
+        logger.info(
+            f"A total of {num_edges} View upstream edges found found for {view}"
+        )
 
     def _get_upstream_lineage_info_Projection(
-        self, dataset_urn: str, projection
+        self, dataset_urn: str, projection: str
     ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
 
         dataset_key = dataset_urn_to_key(dataset_urn)
@@ -1272,7 +1298,7 @@ class VerticaSource(SQLAlchemySource):
             return UpstreamLineage(upstreams=upstream_tables)
         return None
 
-    def _populate_projection_lineage(self, projection) -> None:
+    def _populate_projection_lineage(self, projection: str) -> None:
         """
         Collects upstream and downstream lineage information for views .
 
@@ -1285,25 +1311,32 @@ class VerticaSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
-        view_upstream_lineage_query = sql.text(dedent("""
-           select basename , schemaname
-           from vs_projections 
-           where name ='%(projection)s'
-        """ % {'projection': projection}))
+        view_upstream_lineage_query = sql.text(
+            dedent(
+                """ select basename , schemaname from vs_projections where name ='%(projection)s'
+        """
+                % {"projection": projection}
+            )
+        )
 
         num_edges: int = 0
 
         try:
             self.Projection_lineage_map = defaultdict(list)
             for db_row_key in engine.execute(view_upstream_lineage_query):
-                basename = db_row_key['basename']
+                basename = db_row_key["basename"]
                 upstream = f"{db_row_key['schemaname']}.{db_row_key['basename']}"
 
-                view_downstream_query = sql.text(dedent("""
-                    select name,schemaname 
-                    from vs_projections 
+                view_downstream_query = sql.text(
+                    dedent(
+                        """
+                    select name,schemaname
+                    from vs_projections
                     where basename='%(basename)s'
-                    """ % {'basename': basename}))
+                    """
+                        % {"basename": basename}
+                    )
+                )
                 for db_row_value in engine.execute(view_downstream_query):
                     downstream = f"{db_row_value['schemaname']}.{db_row_value['name']}"
                     projection_upstream: str = upstream.lower()
@@ -1315,52 +1348,62 @@ class VerticaSource(SQLAlchemySource):
 
                     num_edges += 1
 
-        except Exception as e:
-            self.warn(
-                logger,
-                "Extracting the upstream & downstream Projection lineage from Vertica failed."
-                + f"Please check your permissions. Continuing...\nError was {e}.",
+        except Exception as error:
+            logger.warning(
+                "Extracting the upstream & downstream Projection lineage from Vertica failed %s",
+                error,
             )
 
-        logger.info(f"A total of {num_edges} Projection lineage edges found for {projection}.")
-        self.report.num_table_to_view_edges_scanned = num_edges
+        logger.info(
+            f"A total of {num_edges} Projection lineage edges found for {projection}."
+        )
 
     def _get_owner_information(self, table: str, lable: str):
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
         if lable == "table":
-            get_owner_query = sql.text(dedent("""
+            get_owner_query = sql.text(
+                dedent(
+                    """
                     SELECT owner_name
                     FROM v_catalog.tables
                     WHERE table_name = '%(table)s'
-                    """ % {'table': table}))
+                    """
+                    % {"table": table}
+                )
+            )
 
             for each in engine.execute(get_owner_query):
-                return each['owner_name']
+                return each["owner_name"]
         elif lable == "view":
-            get_owner_query = sql.text(dedent("""
+            get_owner_query = sql.text(
+                dedent(
+                    """
                     SELECT owner_name
                     FROM v_catalog.views
                     WHERE table_name =  '%(view)s'
-                    """ % {'view': table}))
+                    """
+                    % {"view": table}
+                )
+            )
 
             for each in engine.execute(get_owner_query):
-                return each['owner_name']
+                return each["owner_name"]
 
         elif lable == "projection":
-            get_owner_query = sql.text(dedent("""
+            get_owner_query = sql.text(
+                dedent(
+                    """
                     SELECT owner_name
                     FROM v_catalog.projections
                     WHERE projection_name = '%(projection)s'
-                    """ % {'projection': table}))
+                    """
+                    % {"projection": table}
+                )
+            )
 
             for each in engine.execute(get_owner_query):
-                return each['owner_name']
+                return each["owner_name"]
 
     def close(self):
         self.prepare_for_commit()
-
-
-# class VerticaSource(VerticaSQLAlchemySource):
-#     def __init__(self, config: VerticaConfig, ctx: PipelineContext) -> None:
-#         super().__init__(config, ctx, "vertica__2")
