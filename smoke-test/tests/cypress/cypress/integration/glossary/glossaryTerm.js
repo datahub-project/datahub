@@ -50,14 +50,8 @@ describe("glossaryTerm", () => {
     cy.contains("Add Filter").click();
     cy.contains(/^Tag$/).click({ force: true });
 
-    cy.get('[data-testid="tag-term-modal-input"]').type("Cypress2");
-    cy.wait(2000);
-    cy.get('[data-testid="tag-term-option"]').click({ force: true });
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-      force: true,
-    });
+    cy.selectOptionInTagTermModal("Cypress2");
 
-    cy.wait(2000);
     cy.contains("SampleCypressHdfsDataset");
     // Only 1 result.
     cy.contains("of 1");
@@ -72,13 +66,9 @@ describe("glossaryTerm", () => {
     cy.contains("Advanced").click();
     cy.contains("Add Filter").click();
     cy.contains(/^Tag$/).click({ force: true });
-    cy.get('[data-testid="tag-term-modal-input"]').type("Cypress2");
-    cy.wait(2000);
-    cy.get('[data-testid="tag-term-option"]').click({ force: true });
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-      force: true,
-    });
-    cy.wait(2000);
+
+    cy.selectOptionInTagTermModal("Cypress2")
+
     cy.contains("Add Filter").click();
     cy.get('[data-testid="adv-search-add-filter-description"]').click({
       force: true,
@@ -105,13 +95,8 @@ describe("glossaryTerm", () => {
     cy.wait(2000);
     cy.contains("Add Filter").click();
     cy.contains(/^Tag$/).click({ force: true });
-    cy.get('[data-testid="tag-term-modal-input"]').type("Cypress2");
-    cy.wait(2000);
-    cy.get('[data-testid="tag-term-option"]').click({ force: true });
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-      force: true,
-    });
-    cy.wait(2000);
+
+    cy.selectOptionInTagTermModal("Cypress2");
 
     cy.contains("all filters").click();
     cy.contains("any filter").click({ force: true });
