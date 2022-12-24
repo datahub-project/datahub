@@ -163,7 +163,7 @@ class AthenaSource(SQLAlchemySource):
         return schemas
 
     def gen_database_containers(
-        self, database: str
+        self, inspector: Inspector, database: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         # In Athena the schema is the database and database is not existing
         return []
@@ -177,7 +177,7 @@ class AthenaSource(SQLAlchemySource):
         )
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         database_container_key = self.gen_database_key(database=schema)
 

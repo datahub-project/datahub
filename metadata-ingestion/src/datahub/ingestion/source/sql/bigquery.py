@@ -1196,7 +1196,9 @@ WHERE
             backcompat_instance_for_guid=self.config.env,
         )
 
-    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+    def gen_database_containers(
+        self, inspector: Inspector, database: str
+    ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database)
 
         database_container_key = self.gen_database_key(database)
@@ -1213,7 +1215,7 @@ WHERE
             yield wu
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_schema_key(db_name, schema)
 

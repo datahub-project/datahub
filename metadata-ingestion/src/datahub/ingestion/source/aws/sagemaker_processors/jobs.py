@@ -406,7 +406,7 @@ class JobProcessor:
                         "jobType": job_type.value,
                     },
                 ),
-                BrowsePathsClass(paths=[f"/{job_type.value}/{name}"]),
+                BrowsePathsClass(paths=[f"/{job_type.value}"]),
             ],
         )
 

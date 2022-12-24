@@ -12,8 +12,6 @@ import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
@@ -32,8 +30,6 @@ import play.mvc.Result;
 import play.mvc.Results;
 import security.AuthenticationManager;
 
-import static auth.AuthUtils.ACCESS_TOKEN;
-import static auth.AuthUtils.ACTOR;
 import static auth.AuthUtils.DEFAULT_ACTOR_URN;
 import static auth.AuthUtils.DEFAULT_SESSION_TTL_HOURS;
 import static auth.AuthUtils.EMAIL;
@@ -46,6 +42,7 @@ import static auth.AuthUtils.SESSION_TTL_CONFIG_PATH;
 import static auth.AuthUtils.TITLE;
 import static auth.AuthUtils.USER_NAME;
 import static auth.AuthUtils.createActorCookie;
+import static auth.AuthUtils.createSessionMap;
 import static org.pac4j.core.client.IndirectClient.ATTEMPTED_AUTHENTICATION_SUFFIX;
 
 
@@ -328,12 +325,5 @@ public class AuthenticationController extends Controller {
             : DEFAULT_SESSION_TTL_HOURS;
         return Results.ok().withSession(createSessionMap(userUrnString, accessToken))
             .withCookies(createActorCookie(userUrnString, ttlInHours));
-    }
-
-    private Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {
-        final Map<String, String> sessionAttributes = new HashMap<>();
-        sessionAttributes.put(ACTOR, userUrnStr);
-        sessionAttributes.put(ACCESS_TOKEN, accessToken);
-        return sessionAttributes;
     }
 }
