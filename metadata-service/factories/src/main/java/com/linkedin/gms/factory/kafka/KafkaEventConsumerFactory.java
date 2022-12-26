@@ -1,6 +1,9 @@
 package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.kafka.schemaregistry.AwsGlueSchemaRegistryFactory;
+import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
+import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import java.time.Duration;
@@ -10,34 +13,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
+@Import({ConfigurationProvider.class, KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class, InternalSchemaRegistryFactory.class})
 public class KafkaEventConsumerFactory {
 
-  @Value("${kafka.listener.concurrency:1}")
-  private Integer kafkaListenerConcurrency;
-
-  // CHANGE THIS
-  @Autowired
-  @Lazy
-  @Qualifier("kafkaSchemaRegistry")
-  private SchemaRegistryConfig kafkaSchemaRegistryConfig;
-
-  @Lazy
-  @Qualifier("awsGlueSchemaRegistry")
-  private SchemaRegistryConfig awsGlueSchemaRegistryConfig;
-
   @Bean(name = "kafkaEventConsumerConcurrency")
-  protected int kafkaEventConsumerConcurrency() {
-    return kafkaListenerConcurrency;
+  protected int kafkaEventConsumerConcurrency(@Qualifier("configurationProvider") ConfigurationProvider provider) {
+    return provider.getKafka().getListener().getConcurrency();
   }
 
   @Bean(name = "kafkaEventConsumer")
@@ -63,24 +57,16 @@ public class KafkaEventConsumerFactory {
 
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getDeserializer());
 
-    // TODO: Change if using in memory schema registry
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()
         .stream()
         .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
         .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
 
-    // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
-    schemaRegistryConfig.getProperties().entrySet()
-      .stream()
-      .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
-      .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
-
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props));
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
-    factory.setConcurrency(kafkaConfiguration.getListener().getConcurrency());
     factory.setConcurrency(concurrency);
 
     log.info(String.format("Event-based KafkaListenerContainerFactory built successfully. Consumers = %s",
