@@ -12,6 +12,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.snowflake.constants import (
+    LINEAGE_PERMISSION_ERROR,
     SnowflakeEdition,
     SnowflakeObjectDomain,
 )
@@ -186,17 +187,8 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self, discovered_tables: List[str], discovered_views: List[str]
     ) -> Iterable[MetadataWorkUnit]:
 
-        try:
-            conn = self.get_connection()
-        except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                self.report_error("permission-error", str(e))
-            else:
-                logger.debug(e, exc_info=e)
-                self.report_error(
-                    "snowflake-connection",
-                    f"Failed to connect to snowflake instance due to error {e}.",
-                )
+        conn = self.get_connection()
+        if conn is None:
             return
 
         self._populate_table_lineage(conn)
@@ -312,6 +304,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         with PerfTimer() as timer:
             self._populate_view_upstream_lineage(conn)
             self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
+
         if self.report.edition == SnowflakeEdition.STANDARD:
             logger.info(
                 "Snowflake Account is Standard Edition. View to Table Lineage Feature is not supported."
@@ -323,25 +316,26 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
     def _populate_external_lineage(self, conn: SnowflakeConnection) -> None:
         with PerfTimer() as timer:
-            num_edges: int = 0
+            self.report.num_external_table_edges_scanned = 0
 
             if self.report.edition == SnowflakeEdition.STANDARD:
                 logger.info(
                     "Snowflake Account is Standard Edition. External Lineage Feature via Access History is not supported."
                 )  # See Edition Note above for why
             else:
-                self._populate_external_lineage_from_access_history(conn, num_edges)
+                self._populate_external_lineage_from_access_history(conn)
 
-            self._populate_external_lineage_from_show_query(conn, num_edges)
+            self._populate_external_lineage_from_show_query(conn)
 
-            logger.info(f"Found {num_edges} external lineage edges.")
+            logger.info(
+                f"Found {self.report.num_external_table_edges_scanned} external lineage edges."
+            )
 
-            self.report.num_external_table_edges_scanned = num_edges
             self.report.external_lineage_queries_secs = timer.elapsed_seconds()
 
     # Handles the case for explicitly created external tables.
     # NOTE: Snowflake does not log this information to the access_history table.
-    def _populate_external_lineage_from_show_query(self, conn, num_edges):
+    def _populate_external_lineage_from_show_query(self, conn):
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
             for db_row in self.query(conn, external_tables_query):
@@ -357,7 +351,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 logger.debug(
                     f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via show external tables"
                 )
-                num_edges += 1
+                self.report.num_external_table_edges_scanned += 1
         except Exception as e:
             logger.debug(e, exc_info=e)
             self.report_warning(
@@ -367,7 +361,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
     # Handles the case where a table is populated from an external location via copy.
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
-    def _populate_external_lineage_from_access_history(self, conn, num_edges):
+    def _populate_external_lineage_from_access_history(self, conn):
         query: str = SnowflakeQuery.external_table_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
@@ -377,11 +371,11 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
         try:
             for db_row in self.query(conn, query):
-                self._process_external_lineage_result_row(db_row, num_edges)
+                self._process_external_lineage_result_row(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get external lineage. Please grant imported privileges on SNOWFLAKE database. "
-                self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
+                self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
             else:
                 logger.debug(e, exc_info=e)
                 self.report_warning(
@@ -389,7 +383,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     f"Populating table external lineage from Snowflake failed due to error {e}.",
                 )
 
-    def _process_external_lineage_result_row(self, db_row, num_edges):
+    def _process_external_lineage_result_row(self, db_row):
         # key is the down-stream table name
         key: str = self.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
@@ -403,7 +397,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             for loc in external_locations:
                 if loc not in self._external_lineage_map[key]:
                     self._external_lineage_map[key].add(loc)
-                    num_edges += 1
+                    self.report.num_external_table_edges_scanned += 1
 
             logger.debug(
                 f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
@@ -417,42 +411,14 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
             include_column_lineage=self.config.include_column_lineage,
         )
-        num_edges: int = 0
+        self.report.num_table_to_table_edges_scanned = 0
         try:
             for db_row in self.query(conn, query):
-                # key is the down-stream table name
-                key: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["DOWNSTREAM_TABLE_NAME"]
-                )
-                upstream_table_name = self.get_dataset_identifier_from_qualified_name(
-                    db_row["UPSTREAM_TABLE_NAME"]
-                )
-                if not self._is_dataset_pattern_allowed(
-                    key, SnowflakeObjectDomain.TABLE
-                ) or not (
-                    self._is_dataset_pattern_allowed(
-                        upstream_table_name, SnowflakeObjectDomain.TABLE
-                    )
-                ):
-                    continue
-
-                self._lineage_map[key].update_lineage(
-                    # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
-                    SnowflakeUpstreamTable.from_dict(
-                        upstream_table_name,
-                        db_row["UPSTREAM_TABLE_COLUMNS"],
-                        db_row["DOWNSTREAM_TABLE_COLUMNS"],
-                    ),
-                    self.config.include_column_lineage,
-                )
-                num_edges += 1
-                logger.debug(
-                    f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}"
-                )
+                self._process_table_lineage_row(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get table to table lineage. Please grant imported privileges on SNOWFLAKE database. "
-                self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
+                self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
             else:
                 logger.debug(e, exc_info=e)
                 self.report_warning(
@@ -460,10 +426,37 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     f"Extracting lineage from Snowflake failed due to error {e}.",
                 )
         logger.info(
-            f"A total of {num_edges} Table->Table edges found"
+            f"A total of {self.report.num_table_to_table_edges_scanned} Table->Table edges found"
             f" for {len(self._lineage_map)} downstream tables.",
         )
-        self.report.num_table_to_table_edges_scanned = num_edges
+
+    def _process_table_lineage_row(self, db_row):
+        # key is the down-stream table name
+        key: str = self.get_dataset_identifier_from_qualified_name(
+            db_row["DOWNSTREAM_TABLE_NAME"]
+        )
+        upstream_table_name = self.get_dataset_identifier_from_qualified_name(
+            db_row["UPSTREAM_TABLE_NAME"]
+        )
+        if not self._is_dataset_pattern_allowed(
+            key, SnowflakeObjectDomain.TABLE
+        ) or not (
+            self._is_dataset_pattern_allowed(
+                upstream_table_name, SnowflakeObjectDomain.TABLE
+            )
+        ):
+            return
+        self._lineage_map[key].update_lineage(
+            # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
+            SnowflakeUpstreamTable.from_dict(
+                upstream_table_name,
+                db_row["UPSTREAM_TABLE_COLUMNS"],
+                db_row["DOWNSTREAM_TABLE_COLUMNS"],
+            ),
+            self.config.include_column_lineage,
+        )
+        self.report.num_table_to_table_edges_scanned += 1
+        logger.debug(f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}")
 
     def _populate_view_upstream_lineage(self, conn: SnowflakeConnection) -> None:
         # NOTE: This query captures only the upstream lineage of a view (with no column lineage).
@@ -471,49 +464,51 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         # and also https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         view_upstream_lineage_query: str = SnowflakeQuery.view_dependencies()
 
-        num_edges: int = 0
+        self.report.num_table_to_view_edges_scanned = 0
 
         try:
             for db_row in self.query(conn, view_upstream_lineage_query):
-                # Process UpstreamTable/View/ExternalTable/Materialized View->View edge.
-                view_upstream: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["VIEW_UPSTREAM"]
-                )
-                view_name: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["DOWNSTREAM_VIEW"]
-                )
-
-                if not self._is_dataset_pattern_allowed(
-                    dataset_name=view_name,
-                    dataset_type=db_row["REFERENCING_OBJECT_DOMAIN"],
-                ) or not self._is_dataset_pattern_allowed(
-                    view_upstream, db_row["REFERENCED_OBJECT_DOMAIN"]
-                ):
-                    continue
-
-                # key is the downstream view name
-                self._lineage_map[view_name].update_lineage(
-                    # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
-                    SnowflakeUpstreamTable.from_dict(view_upstream, None, None),
-                    self.config.include_column_lineage,
-                )
-                num_edges += 1
-                logger.debug(
-                    f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
-                )
+                self._process_view_upstream_lineage_row(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get table to view lineage. Please grant imported privileges on SNOWFLAKE database."
-                self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
+                self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
             else:
                 logger.debug(e, exc_info=e)
                 self.report_warning(
                     "view-upstream-lineage",
                     f"Extracting the upstream view lineage from Snowflake failed due to error {e}.",
                 )
-        else:
-            logger.info(f"A total of {num_edges} View upstream edges found.")
-        self.report.num_table_to_view_edges_scanned = num_edges
+        logger.info(
+            f"A total of {self.report.num_table_to_view_edges_scanned} View upstream edges found."
+        )
+
+    def _process_view_upstream_lineage_row(self, db_row):
+        # Process UpstreamTable/View/ExternalTable/Materialized View->View edge.
+        view_upstream: str = self.get_dataset_identifier_from_qualified_name(
+            db_row["VIEW_UPSTREAM"]
+        )
+        view_name: str = self.get_dataset_identifier_from_qualified_name(
+            db_row["DOWNSTREAM_VIEW"]
+        )
+
+        if not self._is_dataset_pattern_allowed(
+            dataset_name=view_name,
+            dataset_type=db_row["REFERENCING_OBJECT_DOMAIN"],
+        ) or not self._is_dataset_pattern_allowed(
+            view_upstream, db_row["REFERENCED_OBJECT_DOMAIN"]
+        ):
+            return
+            # key is the downstream view name
+        self._lineage_map[view_name].update_lineage(
+            # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
+            SnowflakeUpstreamTable.from_dict(view_upstream, None, None),
+            self.config.include_column_lineage,
+        )
+        self.report.num_table_to_view_edges_scanned += 1
+        logger.debug(
+            f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
+        )
 
     def _populate_view_downstream_lineage(self, conn: SnowflakeConnection) -> None:
         # This query captures the downstream table lineage for views.
@@ -530,50 +525,51 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.report.num_view_to_table_edges_scanned = 0
 
         try:
-            db_rows = self.query(conn, view_lineage_query)
+            for db_row in self.query(conn, view_lineage_query):
+                self._process_view_downstream_lineage_row(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get view to table lineage. Please grant imported privileges on SNOWFLAKE database. "
-                self.warn_if_stateful_else_error("lineage-permission-error", error_msg)
+                self.warn_if_stateful_else_error(LINEAGE_PERMISSION_ERROR, error_msg)
             else:
                 logger.debug(e, exc_info=e)
                 self.report_warning(
                     "view-downstream-lineage",
                     f"Extracting the view lineage from Snowflake failed due to error {e}.",
                 )
-        else:
-            for db_row in db_rows:
-                view_name: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["VIEW_NAME"]
-                )
-                downstream_table: str = self.get_dataset_identifier_from_qualified_name(
-                    db_row["DOWNSTREAM_TABLE_NAME"]
-                )
-                if not self._is_dataset_pattern_allowed(
-                    view_name, db_row["VIEW_DOMAIN"]
-                ) or not self._is_dataset_pattern_allowed(
-                    downstream_table, db_row["DOWNSTREAM_TABLE_DOMAIN"]
-                ):
-                    continue
-
-                # Capture view->downstream table lineage.
-                self._lineage_map[downstream_table].update_lineage(
-                    # (<upstream_view_name>, <json_list_of_upstream_view_columns>, <json_list_of_downstream_columns>)
-                    SnowflakeUpstreamTable.from_dict(
-                        view_name,
-                        db_row["VIEW_COLUMNS"],
-                        db_row["DOWNSTREAM_TABLE_COLUMNS"],
-                    ),
-                    self.config.include_column_lineage,
-                )
-                self.report.num_view_to_table_edges_scanned += 1
-
-                logger.debug(
-                    f"View->Table: Lineage[Table(Down)={downstream_table}]:View(Up)={self._lineage_map[downstream_table]}"
-                )
 
         logger.info(
             f"Found {self.report.num_view_to_table_edges_scanned} View->Table edges."
+        )
+
+    def _process_view_downstream_lineage_row(self, db_row):
+        view_name: str = self.get_dataset_identifier_from_qualified_name(
+            db_row["VIEW_NAME"]
+        )
+        downstream_table: str = self.get_dataset_identifier_from_qualified_name(
+            db_row["DOWNSTREAM_TABLE_NAME"]
+        )
+        if not self._is_dataset_pattern_allowed(
+            view_name, db_row["VIEW_DOMAIN"]
+        ) or not self._is_dataset_pattern_allowed(
+            downstream_table, db_row["DOWNSTREAM_TABLE_DOMAIN"]
+        ):
+            return
+
+            # Capture view->downstream table lineage.
+        self._lineage_map[downstream_table].update_lineage(
+            # (<upstream_view_name>, <json_list_of_upstream_view_columns>, <json_list_of_downstream_columns>)
+            SnowflakeUpstreamTable.from_dict(
+                view_name,
+                db_row["VIEW_COLUMNS"],
+                db_row["DOWNSTREAM_TABLE_COLUMNS"],
+            ),
+            self.config.include_column_lineage,
+        )
+        self.report.num_view_to_table_edges_scanned += 1
+
+        logger.debug(
+            f"View->Table: Lineage[Table(Down)={downstream_table}]:View(Up)={self._lineage_map[downstream_table]}"
         )
 
     def update_upstream_tables_lineage(

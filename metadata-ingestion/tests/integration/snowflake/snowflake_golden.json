@@ -10,7 +10,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -24,7 +24,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -38,7 +38,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -52,7 +52,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -66,7 +66,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -80,7 +80,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -94,7 +94,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -108,7 +108,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -122,7 +122,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -136,7 +136,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -150,7 +150,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -164,7 +164,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -178,7 +178,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -192,21 +192,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -220,7 +206,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -234,7 +220,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -248,7 +234,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -262,7 +248,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -276,21 +262,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -304,7 +276,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -318,7 +290,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -332,7 +304,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -346,7 +318,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -360,21 +332,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -388,7 +346,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -402,7 +360,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -416,7 +374,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -430,7 +388,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -444,21 +402,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -472,7 +416,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -486,7 +430,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -500,7 +444,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -514,7 +458,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -528,21 +472,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -556,7 +486,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -570,7 +500,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -584,7 +514,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -598,7 +528,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -612,21 +542,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -640,7 +556,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -654,7 +570,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -668,7 +584,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -682,7 +598,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -696,21 +612,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -724,7 +626,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -738,7 +640,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -752,7 +654,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -766,7 +668,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -780,21 +682,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -808,7 +696,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -822,7 +710,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -836,7 +724,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -850,7 +738,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -864,21 +752,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -892,7 +766,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -906,7 +780,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -920,7 +794,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -934,7 +808,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -948,7 +822,273 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"test_db.test_schema.view_1\", \"platform\": \"urn:li:dataPlatform:snowflake\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"col_1\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"NUMBER(38,0)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_2\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_3\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_4\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_5\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_6\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_7\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_8\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_9\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_10\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_1/\", \"name\": \"VIEW_1\", \"qualifiedName\": \"test_db.test_schema.view_1\", \"description\": \"Comment for View\", \"created\": {\"time\": 1623110400000}, \"lastModified\": {\"time\": 1623110400000}, \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:94c696a054bab40b73e640a7f82e3b1c\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "value": "{\"schemaName\": \"test_db.test_schema.view_2\", \"platform\": \"urn:li:dataPlatform:snowflake\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.MySqlDDL\": {\"tableSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"col_1\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"NUMBER(38,0)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_2\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_3\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_4\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_5\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_6\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_7\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_8\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_9\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"col_10\", \"nullable\": false, \"description\": \"Comment for column\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"VARCHAR(255)\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {}, \"externalUrl\": \"https://app.snowflake.com/ap-south-1/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_2/\", \"name\": \"VIEW_2\", \"qualifiedName\": \"test_db.test_schema.view_2\", \"description\": \"Comment for View\", \"created\": {\"time\": 1623110400000}, \"lastModified\": {\"time\": 1623110400000}, \"tags\": []}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:94c696a054bab40b73e640a7f82e3b1c\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_5,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_6,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_7,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_8,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_1)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_10)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_10)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_2)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_2)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_3)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_4)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_4)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_5)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_6)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_6)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_7)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_8)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_8)\"], \"confidenceScore\": 1.0}, {\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_9,PROD),col_9)\"], \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -962,7 +1102,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -976,7 +1116,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -990,7 +1130,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -1004,7 +1144,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -1018,7 +1158,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -1032,7 +1172,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -1046,7 +1186,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -1060,7 +1200,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -1074,7 +1214,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -1088,7 +1228,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 },
 {
@@ -1102,7 +1242,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-beta-2022_06_07-17_00_00"
+        "runId": "snowflake-2022_06_07-17_00_00"
     }
 }
 ]

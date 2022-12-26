@@ -97,17 +97,8 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def get_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        try:
-            conn = self.get_connection()
-        except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                self.report_error("permission-error", str(e))
-            else:
-                logger.debug(e, exc_info=e)
-                self.report_error(
-                    "snowflake-connection",
-                    f"Failed to connect to snowflake instance due to error {e}.",
-                )
+        conn = self.get_connection()
+        if conn is None:
             return
 
         if self.report.edition == SnowflakeEdition.STANDARD.value:
@@ -148,17 +139,27 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
             logger.info("Getting aggregated usage statistics")
-            results = self.query(
-                conn,
-                SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
-                    start_time_millis=int(self.config.start_time.timestamp() * 1000),
-                    end_time_millis=int(self.config.end_time.timestamp() * 1000),
-                    time_bucket_size=self.config.bucket_duration,
-                    use_base_objects=self.config.apply_view_usage_to_tables,
-                    top_n_queries=self.config.top_n_queries,
-                    include_top_n_queries=self.config.include_top_n_queries,
-                ),
-            )
+            try:
+                results = self.query(
+                    conn,
+                    SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
+                        start_time_millis=int(
+                            self.config.start_time.timestamp() * 1000
+                        ),
+                        end_time_millis=int(self.config.end_time.timestamp() * 1000),
+                        time_bucket_size=self.config.bucket_duration,
+                        use_base_objects=self.config.apply_view_usage_to_tables,
+                        top_n_queries=self.config.top_n_queries,
+                        include_top_n_queries=self.config.include_top_n_queries,
+                    ),
+                )
+            except Exception as e:
+                logger.debug(e, exc_info=e)
+                self.report_warning(
+                    "usage-statistics",
+                    f"Populating table usage statistics from Snowflake failed due to error {e}.",
+                )
+                return
             self.report.usage_aggregation_query_secs = timer.elapsed_seconds()
 
         for row in results:
@@ -273,7 +274,15 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         logger.info("Getting access history")
         with PerfTimer() as timer:
             query = self._make_operations_query()
-            results = self.query(conn, query)
+            try:
+                results = self.query(conn, query)
+            except Exception as e:
+                logger.debug(e, exc_info=e)
+                self.report_warning(
+                    "operation",
+                    f"Populating table operation history from Snowflake failed due to error {e}.",
+                )
+                return
             self.report.access_history_query_secs = round(timer.elapsed_seconds(), 2)
 
         for row in results:
@@ -313,7 +322,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                             "check-usage-data",
                             f"Missing data for access_history {db_row}.",
                         )
-                        continue
+                        break
                     self.report.min_access_history_time = db_row["MIN_TIME"].astimezone(
                         tz=timezone.utc
                     )
@@ -380,20 +389,33 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def _process_snowflake_history_row(
         self, row: Any
     ) -> Iterable[SnowflakeJoinedAccessEvent]:
-        self.report.rows_processed += 1
-        # Make some minor type conversions.
-        if hasattr(row, "_asdict"):
-            # Compat with SQLAlchemy 1.3 and 1.4
-            # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
-            event_dict = row._asdict()
-        else:
-            event_dict = dict(row)
+        try:  # big hammer try block to ensure we don't fail on parsing events
+            self.report.rows_processed += 1
+            # Make some minor type conversions.
+            if hasattr(row, "_asdict"):
+                # Compat with SQLAlchemy 1.3 and 1.4
+                # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
+                event_dict = row._asdict()
+            else:
+                event_dict = dict(row)
 
-        # no use processing events that don't have a query text
-        if not event_dict["QUERY_TEXT"]:
-            self.report.rows_missing_query_text += 1
-            return
+            # no use processing events that don't have a query text
+            if not event_dict["QUERY_TEXT"]:
+                self.report.rows_missing_query_text += 1
+                return
+            self.parse_event_objects(event_dict)
+            event = SnowflakeJoinedAccessEvent(
+                **{k.lower(): v for k, v in event_dict.items()}
+            )
+            yield event
+        except Exception as e:
+            self.report.rows_parsing_error += 1
+            self.report_warning(
+                "operation",
+                f"Failed to parse operation history row {event_dict}, {e}",
+            )
 
+    def parse_event_objects(self, event_dict):
         event_dict["BASE_OBJECTS_ACCESSED"] = [
             obj
             for obj in json.loads(event_dict["BASE_OBJECTS_ACCESSED"])
@@ -435,18 +457,6 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
         if not event_dict["EMAIL"]:
             self.report.rows_missing_email += 1
-
-        try:  # big hammer try block to ensure we don't fail on parsing events
-            event = SnowflakeJoinedAccessEvent(
-                **{k.lower(): v for k, v in event_dict.items()}
-            )
-            yield event
-        except Exception as e:
-            self.report.rows_parsing_error += 1
-            self.report_warning(
-                "operation",
-                f"Failed to parse operation history row {event_dict}, {e}",
-            )
 
     def _is_unsupported_object_accessed(self, obj: Dict[str, Any]) -> bool:
         unsupported_keys = ["locations"]

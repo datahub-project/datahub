@@ -179,7 +179,7 @@ class SnowflakeProfiler(SnowflakeCommonMixin, GenericProfiler, SnowflakeCommonPr
 
     def callable_for_db_connection(self, db_name: str) -> Callable:
         def get_db_connection():
-            conn = self.get_connection()
+            conn = self.config.get_connection()
             conn.cursor().execute(SnowflakeQuery.use_database(db_name))
             return conn
 

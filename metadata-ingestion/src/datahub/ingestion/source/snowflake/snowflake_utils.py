@@ -10,6 +10,7 @@ from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import (
+    GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DEFAULT_CLOUD,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
     SnowflakeObjectDomain,
@@ -99,16 +100,24 @@ class SnowflakeCommonMixin:
             raise Exception(f"Unknown snowflake region {region}")
         return cloud, cloud_region_id
 
-    def get_connection(self: SnowflakeCommonProtocol) -> SnowflakeConnection:
+    # If connection succeds, return connection, else return None and report failure
+    def get_connection(self: SnowflakeCommonProtocol) -> Optional[SnowflakeConnection]:
         try:
             conn = self.config.get_connection()
         except Exception as e:
-            # 250001 (08001): Failed to connect to DB: xxxx.snowflakecomputing.com:443. Role 'XXXXX' specified in the connect string is not granted to this user. Contact your local system administrator, or attempt to login with another role, e.g. PUBLIC.
+            logger.debug(e, exc_info=e)
             if "not granted to this user" in str(e):
-                raise SnowflakePermissionError(
-                    f"Failed to connect with snowflake due to error {e}"
-                ) from e
-            raise
+                self.report_error(
+                    GENERIC_PERMISSION_ERROR_KEY,
+                    f"Failed to connect with snowflake due to error {e}",
+                )
+            else:
+                logger.debug(e, exc_info=e)
+                self.report_error(
+                    "snowflake-connection",
+                    f"Failed to connect to snowflake instance due to error {e}.",
+                )
+            return None
         else:
             return conn
 

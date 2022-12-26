@@ -44,6 +44,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
 from datahub.ingestion.source.snowflake.constants import (
+    GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DATABASE,
     SnowflakeEdition,
     SnowflakeObjectDomain,
@@ -197,7 +198,7 @@ class SnowflakeV2Source(
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
         self.logger = logger
-        self.snowsight_base_url = None
+        self.snowsight_base_url: Optional[str] = None
         # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
@@ -433,61 +434,40 @@ class SnowflakeV2Source(
 
     def get_workunits(self) -> Iterable[WorkUnit]:
 
-        try:
-            conn = self.get_connection()
-        except Exception as e:
-            if isinstance(e, SnowflakePermissionError):
-                self.report_error("permission-error", str(e))
-            else:
-                logger.debug(e, exc_info=e)
-                self.report_error(
-                    "snowflake-connection",
-                    f"Failed to connect to snowflake instance due to error {e}.",
-                )
+        conn = self.get_connection()
+        if conn is None:
             return
 
         self.add_config_to_report()
         self.inspect_session_metadata(conn)
+
         if self.config.include_external_url:
             self.snowsight_base_url = self.get_snowsight_base_url(conn)
 
         if self.report.default_warehouse is None:
-            if self.config.warehouse is not None:
-                self.report_error(
-                    "permission-error",
-                    f"Current role does not have permissions to use warehouse {self.config.warehouse}. Please update permissions.",
-                )
-            else:
-                self.report_error(
-                    "no-active-warehouse",
-                    "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe.",
-                )
+            self.report_warehouse_failure()
             return
 
         databases = self.get_databases(conn)
 
-        if not databases:
-            self.report_error(
-                "permission-error",
-                "No databases found. Please check permissions.",
-            )
+        if databases is None or len(databases) == 0:
             return
 
         for snowflake_db in databases:
             try:
-                self.report.report_entity_scanned(snowflake_db.name, "database")
-                if not self.config.database_pattern.allowed(snowflake_db.name):
-                    self.report.report_dropped(f"{snowflake_db.name}.*")
-                    continue
                 yield from self._process_database(conn, snowflake_db)
             except SnowflakePermissionError as e:
-                self.report_error("permission-error", str(e))
+                # FIXME - This may break satetful ingestion if new tables than previous run are emitted above
+                # and stateful ingestion is enabled
+                self.report_error(GENERIC_PERMISSION_ERROR_KEY, str(e))
                 return
 
         conn.close()
 
         # Emit Stale entity workunits
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+
+        # TODO: The checkpoint state for stale entity detection can be comitted here.
 
         if self.config.profiling.enabled and len(databases) != 0:
             yield from self.profiler.get_workunits(databases)
@@ -507,7 +487,8 @@ class SnowflakeV2Source(
 
         if len(discovered_tables) == 0 and len(discovered_views) == 0:
             self.report_error(
-                "permission-error", "No tables/views found. Please check permissions."
+                GENERIC_PERMISSION_ERROR_KEY,
+                "No tables/views found. Please check permissions.",
             )
             return
 
@@ -533,10 +514,45 @@ class SnowflakeV2Source(
 
             yield from self.usage_extractor.get_workunits(discovered_datasets)
 
-    def get_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
-        # `show databases` is required only to get one  of the databases
-        # whose information_schema can be queried to start with.
-        databases = self.data_dictionary.show_databases(conn)
+    def report_warehouse_failure(self):
+        if self.config.warehouse is not None:
+            self.report_error(
+                GENERIC_PERMISSION_ERROR_KEY,
+                f"Current role does not have permissions to use warehouse {self.config.warehouse}. Please update permissions.",
+            )
+        else:
+            self.report_error(
+                "no-active-warehouse",
+                "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe.",
+            )
+
+    def get_databases(
+        self, conn: SnowflakeConnection
+    ) -> Optional[List[SnowflakeDatabase]]:
+        try:
+            # `show databases` is required only to get one  of the databases
+            # whose information_schema can be queried to start with.
+            databases = self.data_dictionary.show_databases(conn)
+        except Exception as e:
+            logger.debug(f"Failed to list databases due to error {e}", exc_info=e)
+            self.report_error(
+                "list-databases",
+                f"Failed to list databases due to error {e}",
+            )
+            return None
+        else:
+            ischema_databases: List[
+                SnowflakeDatabase
+            ] = self.get_databases_from_ischema(conn, databases)
+
+            if len(ischema_databases) == 0:
+                self.report_error(
+                    GENERIC_PERMISSION_ERROR_KEY,
+                    "No databases found. Please check permissions.",
+                )
+            return ischema_databases
+
+    def get_databases_from_ischema(self, conn, databases):
         ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
             try:
@@ -563,19 +579,34 @@ class SnowflakeV2Source(
     def _process_database(
         self, conn: SnowflakeConnection, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
+
+        self.report.report_entity_scanned(snowflake_db.name, "database")
+        if not self.config.database_pattern.allowed(snowflake_db.name):
+            self.report.report_dropped(f"{snowflake_db.name}.*")
+            return
+
         db_name = snowflake_db.name
 
-        # Extract metadata from its information_schema
         try:
             self.query(conn, SnowflakeQuery.use_database(db_name))
-        except SnowflakePermissionError:
-            # This may happen if REFERENCE_USAGE permissions are set
-            # We can not run show queries on database in such case.
-            # This need not be a failure case.
-            self.report_warning(
-                "Insufficient privileges to operate on database, skipping. Please grant USAGE permissions on database to extract its metadata.",
-                db_name,
-            )
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                # This may happen if REFERENCE_USAGE permissions are set
+                # We can not run show queries on database in such case.
+                # This need not be a failure case.
+                self.report_warning(
+                    "Insufficient privileges to operate on database, skipping. Please grant USAGE permissions on database to extract its metadata.",
+                    db_name,
+                )
+            else:
+                logger.debug(
+                    f"Failed to use database {db_name} due to error {e}",
+                    exc_info=e,
+                )
+                self.report_warning(
+                    "Failed to get schemas for database",
+                    db_name,
+                )
             return
 
         if self.config.include_technical_schema:
@@ -584,17 +615,6 @@ class SnowflakeV2Source(
         self.fetch_schemas_for_database(conn, snowflake_db, db_name)
 
         for snowflake_schema in snowflake_db.schemas:
-
-            self.report.report_entity_scanned(snowflake_schema.name, "schema")
-            if not is_schema_allowed(
-                self.config.schema_pattern,
-                snowflake_schema.name,
-                db_name,
-                self.config.match_fully_qualified_names,
-            ):
-                self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
-                continue
-
             yield from self._process_schema(conn, snowflake_schema, db_name)
 
     def fetch_schemas_for_database(self, conn, snowflake_db, db_name):
@@ -626,6 +646,16 @@ class SnowflakeV2Source(
     def _process_schema(
         self, conn: SnowflakeConnection, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
+
+        self.report.report_entity_scanned(snowflake_schema.name, "schema")
+        if not is_schema_allowed(
+            self.config.schema_pattern,
+            snowflake_schema.name,
+            db_name,
+            self.config.match_fully_qualified_names,
+        ):
+            self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
+            return
 
         schema_name = snowflake_schema.name
         if self.config.include_technical_schema:
@@ -877,7 +907,10 @@ class SnowflakeV2Source(
             entity_type="dataset",
         )
 
-        if isinstance(table, SnowflakeView):
+        if (
+            isinstance(table, SnowflakeView)
+            and cast(SnowflakeView, table).view_definition is not None
+        ):
             view = cast(SnowflakeView, table)
             view_properties_aspect = ViewProperties(
                 materialized=False,
@@ -1362,7 +1395,7 @@ class SnowflakeV2Source(
             return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
         return None
 
-    def get_snowsight_base_url(self, conn):
+    def get_snowsight_base_url(self, conn: SnowflakeConnection) -> Optional[str]:
         try:
             # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
             for db_row in self.query(conn, SnowflakeQuery.current_account()):

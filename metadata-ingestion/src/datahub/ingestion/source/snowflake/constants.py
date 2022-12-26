@@ -36,3 +36,7 @@ class SnowflakeObjectDomain(str, Enum):
     EXTERNAL_TABLE = "external table"
     VIEW = "view"
     MATERIALIZED_VIEW = "materialized view"
+
+
+GENERIC_PERMISSION_ERROR_KEY = "permission-error"
+LINEAGE_PERMISSION_ERROR = "lineage-permission-error"
