@@ -101,7 +101,7 @@ for id_list in ONBOARDING_ID_LISTS:
 
 
 def print_now():
-    print(f"current time is {datetime.datetime.now()}")
+    print(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
 
 
 def ingest_data():
@@ -177,6 +177,7 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     print(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging
+    print_now()
     proc = subprocess.Popen(
         command,
         shell=True,
@@ -191,4 +192,5 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     print("stderr output:")
     print(stderr.decode("utf-8"))
     print("return code", return_code)
+    print_now()
     assert return_code == 0
