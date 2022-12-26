@@ -27,6 +27,7 @@ M_QUERIES = [
     'let\n    Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
     'let\n    Source = Oracle.Database("localhost:1521/salesdb.GSLAB.COM", [HierarchicalNavigation=true]), HR = Source{[Schema="HR"]}[Data], EMPLOYEES1 = HR{[Name="EMPLOYEES"]}[Data] \n in EMPLOYEES1',
     'let\n    Source = Sql.Database("localhost", "library"),\n dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]\n in dbo_book_issue',
+    'let\n    Source = Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]),\n    GSL_TEST_DB_Database = Source{[Name="GSL_TEST_DB",Kind="Database"]}[Data],\n    PUBLIC_Schema = GSL_TEST_DB_Database{[Name="PUBLIC",Kind="Schema"]}[Data],\n    SALES_FORECAST_Table = PUBLIC_Schema{[Name="SALES_FORECAST",Kind="Table"]}[Data],\n    SALES_ANALYST_Table = PUBLIC_Schema{[Name="SALES_ANALYST",Kind="Table"]}[Data],\n    RESULT = Table.Combine({SALES_FORECAST_Table, SALES_ANALYST_Table})\n\nin\n    RESULT',
 ]
 
 
@@ -285,5 +286,58 @@ def test_native_query_disabled():
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table, reporter, native_query_enabled=False
     )
-
     assert len(data_platform_tables) == 0
+
+
+def test_multi_source_table():
+
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=M_QUERIES[12],  # 1st index has the native query
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter, native_query_enabled=False
+    )
+
+    assert len(data_platform_tables) == 2
+    assert data_platform_tables[0].full_name == "mics.public.order_date"
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.POSTGRES_SQL.value.powerbi_data_platform_name
+    )
+
+    assert data_platform_tables[1].full_name == "GSL_TEST_DB.PUBLIC.SALES_ANALYST_VIEW"
+    assert (
+        data_platform_tables[1].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+    )
+
+
+def test_table_combine():
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=M_QUERIES[16],  # 1st index has the native query
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter
+    )
+
+    assert len(data_platform_tables) == 2
+    assert data_platform_tables[0].full_name == "GSL_TEST_DB.PUBLIC.SALES_FORECAST"
+    assert (
+        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+    )
+
+    assert data_platform_tables[1].full_name == "GSL_TEST_DB.PUBLIC.SALES_ANALYST"
+    assert (
+        data_platform_tables[1].data_platform_pair.powerbi_data_platform_name
+        == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+    )

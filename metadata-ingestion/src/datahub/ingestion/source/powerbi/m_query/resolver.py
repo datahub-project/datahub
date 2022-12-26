@@ -2,12 +2,16 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Type, cast
+from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 
 from lark import Tree
 
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    DataAccessFunctionDetail,
+    IdentifierAccessor,
+)
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 
 LOGGER = logging.getLogger(__name__)
@@ -46,7 +50,9 @@ class SupportedDataPlatform(Enum):
 
 class AbstractTableFullNameCreator(ABC):
     @abstractmethod
-    def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
+    def get_full_table_names(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
         pass
 
     @abstractmethod
@@ -58,6 +64,7 @@ class AbstractDataAccessMQueryResolver(ABC):
     table: PowerBiAPI.Table
     parse_tree: Tree
     reporter: PowerBiDashboardSourceReport
+    data_access_functions: List[str]
 
     def __init__(
         self,
@@ -68,6 +75,7 @@ class AbstractDataAccessMQueryResolver(ABC):
         self.table = table
         self.parse_tree = parse_tree
         self.reporter = reporter
+        self.data_access_functions = SupportedResolver.get_function_names()
 
     @abstractmethod
     def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
@@ -106,21 +114,16 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         identifier: List[str] = tree_function.token_values(
             cast(Tree, identifier_tree)
         )  # type :ignore
+
         # convert tokens to dict
         iterator = iter(tokens)
-        # cast to satisfy lint
-        return identifier[0], dict(zip(iterator, iterator))
 
-    def get_argument_list(self, variable_statement: Tree) -> Optional[Tree]:
-        expression_tree: Optional[Tree] = tree_function.first_expression_func(
-            variable_statement
-        )
-        if expression_tree is None:
-            LOGGER.debug("First expression rule not found in input tree")
-            return None
+        return "".join(identifier), dict(zip(iterator, iterator))
 
+    @staticmethod
+    def get_argument_list(invoke_expression: Tree) -> Optional[Tree]:
         argument_list: Optional[Tree] = tree_function.first_arg_list_func(
-            expression_tree
+            invoke_expression
         )
         if argument_list is None:
             LOGGER.debug("First argument-list rule not found in input tree")
@@ -128,13 +131,111 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         return argument_list
 
-    def make_token_dict(self, identifier: str) -> Dict[str, Any]:
-        token_dict: Dict[str, Any] = {}
+    def _process_invoke_expression(
+        self, invoke_expression: Tree
+    ) -> Union[DataAccessFunctionDetail, List[str], None]:
 
-        def fill_token_dict(
-            identifier: str,
-            supported_data_access_func: List[str],
-            t_dict: Dict[str, Any],
+        letter_tree: Tree = invoke_expression.children[0]
+        data_access_func: str = tree_function.make_function_name(letter_tree)
+        # The invoke function is either DataAccess function like PostgreSQL.Database(<argument-list>) or
+        # some other function like Table.AddColumn or Table.Combine and so on
+        if data_access_func in self.data_access_functions:
+            arg_list: Optional[Tree] = MQueryResolver.get_argument_list(
+                invoke_expression
+            )
+            if arg_list is None:
+                self.reporter.report_warning(
+                    f"{self.table.full_name}-arg-list",
+                    f"Argument list not found for data-access-function {data_access_func}",
+                )
+                return None
+
+            return DataAccessFunctionDetail(
+                arg_list=arg_list,
+                data_access_function_name=data_access_func,
+                identifier_accessor=None,
+            )
+
+        # function is not data-access function, lets process function argument
+        first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(
+            invoke_expression
+        )
+
+        if first_arg_tree is None:
+            LOGGER.debug(
+                "Function invocation without argument in expression = %s",
+                invoke_expression.pretty(),
+            )
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "Function invocation without argument",
+            )
+            return None
+
+        first_argument: Tree = tree_function.flat_argument_list(first_arg_tree)[
+            0
+        ]  # take first argument only
+        expression: Optional[Tree] = tree_function.first_list_expression_func(
+            first_argument
+        )
+
+        LOGGER.debug("Extracting token from tree %s", first_argument.pretty())
+        if expression is None:
+            expression = tree_function.first_type_expression_func(first_argument)
+            if expression is None:
+                LOGGER.debug(
+                    "Either list_expression or type_expression is not found = %s",
+                    invoke_expression.pretty(),
+                )
+                self.reporter.report_warning(
+                    f"{self.table.full_name}-variable-statement",
+                    "Function argument expression is not supported",
+                )
+                return None
+
+        tokens: List[str] = tree_function.remove_whitespaces_from_list(
+            tree_function.token_values(expression)
+        )
+
+        LOGGER.debug("Tokens in invoke expression are %s", tokens)
+        return tokens
+
+    def _process_item_selector_expression(
+        self, rh_tree: Tree
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+        new_identifier, key_vs_value = self.get_item_selector_tokens(  # type: ignore
+            cast(Tree, tree_function.first_expression_func(rh_tree))
+        )
+
+        return new_identifier, key_vs_value
+
+    @staticmethod
+    def _create_or_update_identifier_accessor(
+        identifier_accessor: Optional[IdentifierAccessor],
+        new_identifier: str,
+        key_vs_value: Dict[str, Any],
+    ) -> IdentifierAccessor:
+
+        # It is first identifier_accessor
+        if identifier_accessor is None:
+            return IdentifierAccessor(
+                identifier=new_identifier, items=key_vs_value, next=None
+            )
+
+        new_identifier_accessor: IdentifierAccessor = IdentifierAccessor(
+            identifier=new_identifier, items=key_vs_value, next=identifier_accessor
+        )
+
+        return new_identifier_accessor
+
+    def create_data_access_functional_detail(
+        self, identifier: str
+    ) -> List[DataAccessFunctionDetail]:
+        table_links: List[DataAccessFunctionDetail] = []
+
+        def internal(
+            current_identifier: str,
+            identifier_accessor: Optional[IdentifierAccessor],
         ) -> None:
             """
             1) Find statement where identifier appear in the left-hand side i.e. identifier  = expression
@@ -146,105 +247,74 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             5) This recursion will continue till we reach to data-access function and during recursion we will fill
                token_dict dictionary for all item_selector we find during traversal.
 
-            :param identifier: variable to look for
-            :param supported_data_access_func: List of supported data-access functions
-            :param t_dict: dict where key is identifier and value is key-value pair which represent item selected from
-                           identifier
+            :param current_identifier: variable to look for
+            :param identifier_accessor:
             :return: None
             """
+            # Grammar of variable_statement is <variable-name> = <expression>
+            # Examples: Source = PostgreSql.Database(<arg-list>)
+            #           public_order_date = Source{[Schema="public",Item="order_date"]}[Data]
             v_statement: Optional[Tree] = tree_function.get_variable_statement(
-                self.parse_tree, identifier
+                self.parse_tree, current_identifier
             )
             if v_statement is None:
                 self.reporter.report_warning(
                     f"{self.table.full_name}-variable-statement",
-                    f"output variable ({identifier}) statement not found in table expression",
+                    f"output variable ({current_identifier}) statement not found in table expression",
                 )
                 return None
 
-            expression_tree: Optional[Tree] = tree_function.first_expression_func(
-                v_statement
-            )
-            if expression_tree is None:
+            # Any expression after "=" sign of variable-statement
+            rh_tree: Optional[Tree] = tree_function.first_expression_func(v_statement)
+            if rh_tree is None:
                 LOGGER.debug("Expression tree not found")
                 LOGGER.debug(v_statement.pretty())
                 return None
+
             invoke_expression: Optional[
                 Tree
-            ] = tree_function.first_invoke_expression_func(expression_tree)
+            ] = tree_function.first_invoke_expression_func(rh_tree)
+
             if invoke_expression is not None:
-                letter_tree: Tree = invoke_expression.children[0]
-                data_access_func: str = tree_function.make_function_name(letter_tree)
-                if data_access_func in supported_data_access_func:
-                    token_dict.update(
-                        {
-                            f"{data_access_func}": {
-                                "arg_list": self.get_argument_list(expression_tree),
-                                **t_dict,
-                            }
-                        }
+                result: Union[
+                    DataAccessFunctionDetail, List[str], None
+                ] = self._process_invoke_expression(invoke_expression)
+                if result is None:
+                    return None  # No need to process some un-expected grammar found while processing invoke_expression
+                if isinstance(result, DataAccessFunctionDetail):
+                    cast(
+                        DataAccessFunctionDetail, result
+                    ).identifier_accessor = identifier_accessor
+                    table_links.append(result)  # Link of a table is completed
+                    identifier_accessor = (
+                        None  # reset the identifier_accessor for other table
                     )
-                    return
+                    return None
+                # Process first argument of the function.
+                # The first argument can be a single table argument or list of table.
+                # For example Table.Combine({t1,t2},....), here first argument is list of table.
+                # Table.AddColumn(t1,....), here first argument is single table.
+                for token in cast(List[str], result):
+                    internal(token, identifier_accessor)
 
-                first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(
-                    invoke_expression
-                )
-                if first_arg_tree is None:
-                    LOGGER.debug(
-                        "Function invocation without argument in expression = %s",
-                        invoke_expression.pretty(),
-                    )
-                    self.reporter.report_warning(
-                        f"{self.table.full_name}-variable-statement",
-                        "Function invocation without argument",
-                    )
-                    return None
-                type_expression: Optional[
-                    Tree
-                ] = tree_function.first_type_expression_func(first_arg_tree)
-                if type_expression is None:
-                    LOGGER.debug(
-                        "Type expression not found in expression = %s",
-                        first_arg_tree.pretty(),
-                    )
-                    self.reporter.report_warning(
-                        f"{self.table.full_name}-variable-statement",
-                        "Type expression not found",
-                    )
-                    return None
-
-                tokens: List[str] = tree_function.token_values(type_expression)
-                if len(tokens) != 1:
-                    LOGGER.debug(
-                        "type-expression has more than one identifier = %s",
-                        type_expression.pretty(),
-                    )
-                    self.reporter.report_warning(
-                        f"{self.table.full_name}-variable-statement",
-                        "Unsupported type expression",
-                    )
-                    return None
-                new_identifier: str = tokens[0]
-                fill_token_dict(new_identifier, supported_data_access_func, t_dict)
             else:
-                new_identifier, key_vs_value = self.get_item_selector_tokens(  # type: ignore
-                    cast(Tree, tree_function.first_expression_func(expression_tree))
+                new_identifier, key_vs_value = self._process_item_selector_expression(
+                    rh_tree
                 )
-                current_selector: Dict[str, Any] = {
-                    f"{new_identifier}": {
-                        "item_selectors": [
-                            {"items": key_vs_value, "assigned_to": identifier}
-                        ],
-                        **t_dict,
-                    }
-                }
-                fill_token_dict(
-                    new_identifier, supported_data_access_func, current_selector
+                if new_identifier is None or key_vs_value is None:
+                    LOGGER.debug("Required information not found in rh_tree")
+                    return None
+                new_identifier_accessor: IdentifierAccessor = (
+                    self._create_or_update_identifier_accessor(
+                        identifier_accessor, new_identifier, key_vs_value
+                    )
                 )
 
-        fill_token_dict(identifier, SupportedResolver.get_function_names(), {})
+                return internal(new_identifier, new_identifier_accessor)
 
-        return token_dict
+        internal(identifier, None)
+
+        return table_links
 
     def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
         data_platform_tables: List[DataPlatformTable] = []
@@ -252,6 +322,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         output_variable: Optional[str] = tree_function.get_output_variable(
             self.parse_tree
         )
+
         if output_variable is None:
             self.reporter.report_warning(
                 f"{self.table.full_name}-output-variable",
@@ -259,27 +330,32 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             return data_platform_tables
 
-        token_dict: Dict[str, Any] = self.make_token_dict(output_variable)
+        table_links: List[
+            DataAccessFunctionDetail
+        ] = self.create_data_access_functional_detail(output_variable)
 
-        # each key is data-access function
-        for data_access_func in token_dict.keys():
-            supported_resolver = SupportedResolver.get_resolver(data_access_func)
+        # Each item is data-access function
+        for f_detail in table_links:
+            supported_resolver = SupportedResolver.get_resolver(
+                f_detail.data_access_function_name
+            )
             if supported_resolver is None:
                 LOGGER.debug(
                     "Resolver not found for the data-access-function %s",
-                    data_access_func,
+                    f_detail.data_access_function_name,
                 )
                 self.reporter.report_warning(
                     f"{self.table.full_name}-data-access-function",
-                    f"Resolver not found for data-access-function = {data_access_func}",
+                    f"Resolver not found for data-access-function = {f_detail.data_access_function_name}",
                 )
                 continue
 
             table_full_name_creator: AbstractTableFullNameCreator = (
                 supported_resolver.get_table_full_name_creator()()
             )
+
             for table_full_name in table_full_name_creator.get_full_table_names(
-                token_dict
+                f_detail
             ):
                 data_platform_tables.append(
                     DataPlatformTable(
@@ -302,34 +378,37 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
             dbo_book_issue
     """
 
-    def two_level_access_pattern(self, token_dict: Dict[str, Any]) -> List[str]:
+    def two_level_access_pattern(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
         full_table_names: List[str] = []
 
-        LOGGER.debug("Processing PostgreSQL token-dict %s", token_dict)
+        LOGGER.debug(
+            "Processing PostgreSQL data-access function detail %s",
+            data_access_func_detail,
+        )
+        arguments: List[str] = tree_function.strip_char_from_list(
+            values=tree_function.remove_whitespaces_from_list(
+                tree_function.token_values(data_access_func_detail.arg_list)
+            ),
+            char='"',
+        )
 
-        for data_access_function in token_dict:
-            arguments: List[str] = tree_function.strip_char_from_list(
-                values=tree_function.remove_whitespaces_from_list(
-                    tree_function.token_values(
-                        token_dict[data_access_function]["arg_list"]
-                    )
-                ),
-                char='"',
-            )
-            # delete arg_list as we consumed it and don't want to process it in next step
-            if len(arguments) != 2:
-                LOGGER.debug("Expected 2 arguments, but got {%s}", len(arguments))
-                return full_table_names
+        if len(arguments) != 2:
+            LOGGER.debug("Expected 2 arguments, but got {%s}", len(arguments))
+            return full_table_names
 
-            del token_dict[data_access_function]["arg_list"]
+        db_name: str = arguments[1]
 
-            db_name: str = arguments[1]
-            for source in token_dict[data_access_function]:
-                source_dict: Dict[str, Any] = token_dict[data_access_function][source]
-                for schema in source_dict["item_selectors"]:
-                    schema_name: str = schema["items"]["Schema"]
-                    table_name: str = schema["items"]["Item"]
-                    full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
+        schema_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Schema"]
+
+        table_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Item"]
+
+        full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
 
         LOGGER.debug("PostgreSQL full-table-names = %s", full_table_names)
 
@@ -337,8 +416,10 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
 
 
 class PostgresTableFullNameCreator(DefaultTwoStepDataAccessSources):
-    def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
-        return self.two_level_access_pattern(token_dict)
+    def get_full_table_names(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
+        return self.two_level_access_pattern(data_access_func_detail)
 
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.POSTGRES_SQL.value
@@ -348,13 +429,13 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.MS_SQL.value
 
-    def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
+    def get_full_table_names(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
         full_table_names: List[str] = []
-        data_access_dict: Dict[str, Any] = list(token_dict.values())[0]
-
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(data_access_dict["arg_list"])
+                tree_function.token_values(data_access_func_detail.arg_list)
             ),
             char='"',
         )
@@ -362,7 +443,7 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
         if len(arguments) == 2:
             # It is regular case of MS-SQL
             LOGGER.debug("Handling with regular case")
-            return self.two_level_access_pattern(token_dict)
+            return self.two_level_access_pattern(data_access_func_detail)
 
         if len(arguments) >= 4 and arguments[2] != "Query":
             LOGGER.debug("Unsupported case is found. Second index is not the Query")
@@ -380,6 +461,7 @@ class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
             full_table_names.append(
                 f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
             )
+
         LOGGER.debug("MS-SQL full-table-names %s", full_table_names)
 
         return full_table_names
@@ -400,35 +482,33 @@ class OracleTableFullNameCreator(AbstractTableFullNameCreator):
 
         return db_name
 
-    def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
+    def get_full_table_names(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
         full_table_names: List[str] = []
 
-        LOGGER.debug("Processing Oracle token-dict %s", token_dict)
+        LOGGER.debug(
+            "Processing Oracle data-access function detail %s", data_access_func_detail
+        )
 
-        for data_access_function in token_dict:
-            arguments: List[str] = tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(token_dict[data_access_function]["arg_list"])
-            )
-            # delete arg_list as we consumed it and don't want to process it in next step
-            del token_dict[data_access_function]["arg_list"]
+        arguments: List[str] = tree_function.remove_whitespaces_from_list(
+            tree_function.token_values(data_access_func_detail.arg_list)
+        )
 
-            for source in token_dict[data_access_function]:
-                source_dict: Dict[str, Any] = token_dict[data_access_function][source]
+        db_name: Optional[str] = self._get_db_name(arguments[0])
+        if db_name is None:
+            return full_table_names
 
-                db_name: Optional[str] = self._get_db_name(arguments[0])
-                if db_name is None:
-                    return full_table_names
+        schema_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Schema"]
 
-                for schema in source_dict["item_selectors"]:
-                    schema_name: str = schema["items"]["Schema"]
-                    for item_selectors in source_dict[schema["assigned_to"]]:
-                        for item_selector in source_dict[schema["assigned_to"]][
-                            item_selectors
-                        ]:
-                            table_name: str = item_selector["items"]["Name"]
-                            full_table_names.append(
-                                f"{db_name}.{schema_name}.{table_name}"
-                            )
+        table_name: str = cast(
+            IdentifierAccessor,
+            cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
+        ).items["Name"]
+
+        full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
 
         return full_table_names
 
@@ -437,41 +517,39 @@ class SnowflakeTableFullNameCreator(AbstractTableFullNameCreator):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.SNOWFLAKE.value
 
-    def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
-        full_table_names: List[str] = []
+    def get_full_table_names(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
 
-        LOGGER.debug("Processing Snowflake token-dict %s", token_dict)
+        LOGGER.debug("Processing Snowflake function detail %s", data_access_func_detail)
+        # First is database name
+        db_name: str = data_access_func_detail.identifier_accessor.items["Name"]  # type: ignore
+        # Second is schema name
+        schema_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor.next  # type: ignore
+        ).items["Name"]
+        # Third is table name
+        table_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor.next.next  # type: ignore
+        ).items["Name"]
 
-        data_access_dict: Dict[str, Any] = list(token_dict.values())[0]
-        del data_access_dict["arg_list"]
+        full_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
-        for source in data_access_dict:
-            for db_its in data_access_dict[source]["item_selectors"]:
-                db_name: str = db_its["items"]["Name"]
-                for schema_its in data_access_dict[source][db_its["assigned_to"]][
-                    "item_selectors"
-                ]:
-                    schema_name: str = schema_its["items"]["Name"]
-                    for table_its in data_access_dict[source][db_its["assigned_to"]][
-                        schema_its["assigned_to"]
-                    ]["item_selectors"]:
-                        table_name: str = table_its["items"]["Name"]
-                        full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
+        LOGGER.debug("Snowflake full-table-name %s", full_table_name)
 
-        LOGGER.debug("Snowflake full-table-name %s", full_table_names)
-
-        return full_table_names
+        return [full_table_name]
 
 
 class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.SNOWFLAKE.value
 
-    def get_full_table_names(self, token_dict: Dict[str, Any]) -> List[str]:
+    def get_full_table_names(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
         full_table_names: List[str] = []
-        data_access_dict: Dict[str, Any] = list(token_dict.values())[0]
         t1: Tree = cast(
-            Tree, tree_function.first_arg_list_func(data_access_dict["arg_list"])
+            Tree, tree_function.first_arg_list_func(data_access_func_detail.arg_list)
         )
         flat_argument_list: List[Tree] = tree_function.flat_argument_list(t1)
 

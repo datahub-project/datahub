@@ -156,3 +156,4 @@ first_primary_expression_func = partial(get_first_rule, rule="primary_expression
 first_identifier_func = partial(get_first_rule, rule="identifier")
 first_invoke_expression_func = partial(get_first_rule, rule="invoke_expression")
 first_type_expression_func = partial(get_first_rule, rule="type_expression")
+first_list_expression_func = partial(get_first_rule, rule="list_expression")

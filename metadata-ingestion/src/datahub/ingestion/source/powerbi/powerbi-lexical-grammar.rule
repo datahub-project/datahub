@@ -428,7 +428,7 @@ each_expression_body:   function_body
 
 let_expression: "let" NEWLINE WS_INLINE? variable_list WS_INLINE? NEWLINE? in_expression
 
-in_expression: "in" NEWLINE? WS_INLINE NEWLINE? expression
+in_expression: "in" NEWLINE? WS_INLINE? NEWLINE? expression
 
 variable_list:    variable
             |     variable NEWLINE? WS_INLINE? "," NEWLINE? WS_INLINE? variable_list

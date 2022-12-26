@@ -144,13 +144,17 @@ public class DatasetExtractor {
 
       Map<String, String> options = JavaConversions.mapAsJavaMap(cmd.options());
       String url = options.getOrDefault("url", ""); // e.g. jdbc:postgresql://localhost:5432/sparktestdb
-      if (!url.contains("jdbc")) {
+      if (url.contains("jdbc")) {
+        String tbl = options.get("dbtable");
+        return Optional.of(Collections.singletonList(
+            new JdbcDataset(url, tbl, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      } else if (options.containsKey("path")) {
+        return Optional.of(Collections.singletonList(new HdfsPathDataset(new Path(options.get("path")),
+            getCommonPlatformInstance(datahubConfig), getIncludeScheme(datahubConfig),
+            getCommonFabricType(datahubConfig))));
+      } else {
         return Optional.empty();
       }
-
-      String tbl = options.get("dbtable");
-      return Optional.of(Collections.singletonList(
-          new JdbcDataset(url, tbl, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(CreateDataSourceTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
