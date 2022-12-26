@@ -222,7 +222,7 @@ class PowerBiAPI:
         users: List[PowerBiAPI.User] = []
         if self.__config.extract_ownership is False:
             LOGGER.info(
-                "ExtractOwnership capabilities is disabled from configuration and hence returning empty users list"
+                "Extract ownership capabilities is disabled from configuration and hence returning empty users list"
             )
             return users
 
