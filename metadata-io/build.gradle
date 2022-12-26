@@ -40,7 +40,6 @@ dependencies {
   compile externalDependency.swaggerAnnotations
   swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
   compile externalDependency.mixpanel
-  //compile externalDependency.springBoot
 
   annotationProcessor externalDependency.lombok
 

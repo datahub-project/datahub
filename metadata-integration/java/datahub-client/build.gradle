@@ -28,7 +28,15 @@ tasks.withType(Test).configureEach {
 dependencies {
 
   implementation project(':metadata-models')
-  implementation externalDependency.kafkaAvroSerde
+  implementation(externalDependency.kafkaAvroSerializer) {
+    exclude group: "org.apache.avro"
+  }
+  compile externalDependency.avro_1_7
+  constraints {
+    implementation('commons-collections:commons-collections:3.2.2') {
+      because 'Vulnerability Issue'
+    }
+  }
 
   compileOnly externalDependency.httpAsyncClient
   implementation externalDependency.jacksonDataBind
@@ -45,11 +53,6 @@ dependencies {
   testCompile externalDependency.mockServerClient
   testCompile externalDependency.testContainers
   testCompile externalDependency.httpAsyncClient
-
-  testCompile(externalDependency.kafkaAvroSerializer) {
-    exclude group: "org.apache.avro"
-    exclude group: "org.projectlombok"
-  }
 
   swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }

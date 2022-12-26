@@ -19,6 +19,6 @@ public class OpenAPISpringTestServerConfiguration {
 
   @Bean
   public ServletRegistrationBean<DispatcherServlet> servletRegistrationBean(DispatcherServlet dispatcherServlet) {
-    return new ServletRegistrationBean<>(dispatcherServlet, "/openapi/");
+    return new ServletRegistrationBean<>(dispatcherServlet, "/");
   }
 }

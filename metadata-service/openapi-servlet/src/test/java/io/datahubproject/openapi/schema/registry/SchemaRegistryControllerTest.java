@@ -71,7 +71,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     kafka.start();
     registry.add("kafka.bootstrapServers", kafka::getBootstrapServers);
     registry.add("kafka.schemaRegistry.type", () -> "INTERNAL");
-    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/openapi/schema-registry/");
+    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/schema-registry/");
   }
 
   @Autowired
