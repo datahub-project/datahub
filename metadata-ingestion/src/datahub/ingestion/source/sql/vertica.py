@@ -715,7 +715,7 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
         """
-        columns: List[str] = None
+        columns: List[str] = []
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
@@ -900,7 +900,7 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
         """
-        columns: List[str] = None
+        columns: List[str] = []
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
