@@ -399,12 +399,15 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
             return full_table_names
 
         db_name: str = arguments[1]
+
         schema_name: str = cast(
             IdentifierAccessor, data_access_func_detail.identifier_accessor
         ).items["Schema"]
+
         table_name: str = cast(
             IdentifierAccessor, data_access_func_detail.identifier_accessor
         ).items["Item"]
+
         full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
 
         LOGGER.debug("PostgreSQL full-table-names = %s", full_table_names)
@@ -499,10 +502,12 @@ class OracleTableFullNameCreator(AbstractTableFullNameCreator):
         schema_name: str = cast(
             IdentifierAccessor, data_access_func_detail.identifier_accessor
         ).items["Schema"]
+
         table_name: str = cast(
             IdentifierAccessor,
             cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
         ).items["Name"]
+
         full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
 
         return full_table_names
