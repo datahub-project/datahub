@@ -71,6 +71,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-service:war:build -x test --parallel
+          mv ./metadata-service/war/build/libs/war.war .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -127,6 +131,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
+          mv ./metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -183,6 +191,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
+          mv ./metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -239,6 +251,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :datahub-upgrade:build -x test --parallel
+          mv ./datahub-upgrade/build/libs/datahub-upgrade.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -294,6 +310,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          export USE_SYSTEM_NODE="true"
+          ./gradlew :datahub-frontend:dist -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint --parallel
+          mv ./datahub-frontend/build/distributions/datahub-frontend-*.zip datahub-frontend.zip
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -358,7 +379,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
-          context: ./docker/kafka-setup
+          context: .
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
 
