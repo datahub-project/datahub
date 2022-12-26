@@ -216,31 +216,6 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         key_vs_value: Dict[str, Any],
     ) -> IdentifierAccessor:
 
-        # def create_item_selector(items: Dict[str, Any], _next: IdentifierAccessor):
-        #     return ItemSelector(
-        #         items=items,
-        #         next=_next,
-        #     )
-        #
-        # def update_identifier_accessor(node: IdentifierAccessor, identifier: str, items: Dict[str, Any]) -> bool:
-        #     flag: bool = False
-        #     if node.identifier == identifier:
-        #         node.item_selectors.append(
-        #             create_item_selector(
-        #                 items=items
-        #             )
-        #         )
-        #         return True
-        #
-        #     for item_selector in node.item_selectors:
-        #         if item_selector.next is None:
-        #             continue
-        #         flag = update_identifier_accessor(item_selector.next, identifier, items)
-        #         if flag is True:
-        #             break
-        #
-        #     return flag
-
         # It is first identifier_accessor
         if identifier_accessor is None:
             return IdentifierAccessor(
