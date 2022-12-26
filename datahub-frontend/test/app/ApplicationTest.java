@@ -5,12 +5,15 @@ import no.nav.security.mock.oauth2.MockOAuth2Server;
 import no.nav.security.mock.oauth2.token.DefaultOAuth2TokenCallback;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.awaitility.Awaitility;
+import org.awaitility.Durations;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.openqa.selenium.Cookie;
+import org.openqa.selenium.htmlunit.HtmlUnitDriver;
 import play.Application;
 import play.Environment;
 import play.Mode;
@@ -57,17 +60,19 @@ public class ApplicationTest extends WithBrowser {
             .in(new Environment(Mode.TEST)).build();
   }
 
+  @Override
+  protected TestBrowser provideBrowser(int port) {
+    HtmlUnitDriver webClient = new HtmlUnitDriver();
+    webClient.setJavascriptEnabled(false);
+    return Helpers.testBrowser(webClient, providePort());
+  }
+
   public int oauthServerPort() {
     return providePort() + 1;
   }
 
   public int gmsServerPort() {
     return providePort() + 2;
-  }
-
-  @Override
-  protected TestBrowser provideBrowser(int port) {
-    return Helpers.testBrowser(providePort());
   }
 
   private MockOAuth2Server _oauthServer;
@@ -79,7 +84,7 @@ public class ApplicationTest extends WithBrowser {
   private static final String TEST_TOKEN = "faketoken_YCpYIrjQH4sD3_rAc3VPPFg4";
 
   @BeforeAll
-  public void init() throws IOException, InterruptedException {
+  public void init() throws IOException {
     _gmsServer = new MockWebServer();
     _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
@@ -99,7 +104,8 @@ public class ApplicationTest extends WithBrowser {
 
     startServer();
     createBrowser();
-    Thread.sleep(5000);
+
+    Awaitility.await().timeout(Durations.TEN_SECONDS).until(() -> app != null);
   }
 
   @AfterAll

@@ -12,7 +12,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
-## 0.9.4
+## 0.9.4 / 0.9.5
 
 ### Breaking Changes
 

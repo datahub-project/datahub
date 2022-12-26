@@ -34,15 +34,17 @@ export function DomainListMenuColumn(handleDelete: (urn: string) => void) {
 
 export function DomainNameColumn(logoIcon: JSX.Element) {
     return (record: DomainEntry) => (
-        <Link to={record.url}>
-            {logoIcon}
-            <DomainNameContainer>
-                <Typography.Text>{record.name}</Typography.Text>
-            </DomainNameContainer>
-            <Tooltip title={`There are ${record.entities} entities in this domain.`}>
-                <Tag>{record.entities} entities</Tag>
-            </Tooltip>
-        </Link>
+        <span data-testid={record.urn}>
+            <Link to={record.url}>
+                {logoIcon}
+                <DomainNameContainer>
+                    <Typography.Text>{record.name}</Typography.Text>
+                </DomainNameContainer>
+                <Tooltip title={`There are ${record.entities} entities in this domain.`}>
+                    <Tag>{record.entities} entities</Tag>
+                </Tooltip>
+            </Link>
+        </span>
     );
 }
 
