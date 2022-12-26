@@ -222,7 +222,7 @@ class PowerBiAPI:
         users: List[PowerBiAPI.User] = []
         if self.__config.extract_ownership is False:
             LOGGER.info(
-                "ExtractOwnership capabilities is disabled from configuration and hence returning empty users list"
+                "Extract ownership capabilities is disabled from configuration and hence returning empty users list"
             )
             return users
 
@@ -269,7 +269,7 @@ class PowerBiAPI:
 
         return users
 
-    def __get_report(
+    def _get_report(
         self, workspace_id: str, report_id: str
     ) -> Optional["PowerBiAPI.Report"]:
         """
@@ -527,7 +527,7 @@ class PowerBiAPI:
                     else None
                 ),
                 "report": (
-                    self.__get_report(
+                    self._get_report(
                         workspace_id=workspace.id,
                         report_id=tile_instance.get("reportId"),
                     )

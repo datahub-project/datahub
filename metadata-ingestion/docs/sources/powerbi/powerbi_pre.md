@@ -29,7 +29,7 @@ PowerBI Source supports M-Query expression for below listed PowerBI Data Sources
 1.  Snowflake 
 2.  Oracle 
 3.  PostgreSQL
-4.  MS-SQL 
+4.  Microsoft SQL Server
 
 Native SQL query parsing is only supported for `Snowflake` data-source and only first table from `FROM` clause will be ingested as upstream table. Advance SQL construct like JOIN and SUB-QUERIES in `FROM` clause are not supported.
 
