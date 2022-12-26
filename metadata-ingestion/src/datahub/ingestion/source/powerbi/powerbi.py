@@ -114,7 +114,7 @@ class Mapper:
             aspect=aspect,
         )
 
-    def __to_work_unit(
+    def _to_work_unit(
         self, mcp: MetadataChangeProposalWrapper
     ) -> EquableMetadataWorkUnit:
         return Mapper.EquableMetadataWorkUnit(
@@ -126,7 +126,67 @@ class Mapper:
             mcp=mcp,
         )
 
-    def __to_datahub_dataset(
+    def extract_lineage(
+        self, table: PowerBiAPI.Table, ds_urn: str
+    ) -> List[MetadataChangeProposalWrapper]:
+        mcps: List[MetadataChangeProposalWrapper] = []
+
+        upstreams: List[UpstreamClass] = []
+        upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
+            table, self.__reporter
+        )
+
+        for upstream_table in upstream_tables:
+            if (
+                upstream_table.data_platform_pair.powerbi_data_platform_name
+                not in self.__config.dataset_type_mapping.keys()
+            ):
+                LOGGER.debug("Skipping upstream table for %s", ds_urn)
+                continue
+
+            platform: Union[str, PlatformDetail] = self.__config.dataset_type_mapping[
+                upstream_table.data_platform_pair.powerbi_data_platform_name
+            ]
+
+            platform_name: str = (
+                upstream_table.data_platform_pair.datahub_data_platform_name
+            )
+
+            platform_instance_name: Optional[str] = None
+            platform_env: str = DEFAULT_ENV
+            # Determine if PlatformDetail is provided
+            if isinstance(platform, PlatformDetail):
+                platform_instance_name = cast(
+                    PlatformDetail, platform
+                ).platform_instance
+                platform_env = cast(PlatformDetail, platform).env
+
+            upstream_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=platform_name,
+                platform_instance=platform_instance_name,
+                env=platform_env,
+                name=self.lineage_urn_to_lowercase(upstream_table.full_name),
+            )
+
+            upstream_table_class = UpstreamClass(
+                upstream_urn,
+                DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstreams.append(upstream_table_class)
+
+            if len(upstreams) > 0:
+                upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+                mcp = MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=ds_urn,
+                    aspect=upstream_lineage,
+                )
+                mcps.append(mcp)
+
+        return mcps
+
+    def to_datahub_dataset(
         self, dataset: Optional[PowerBiAPI.PowerBIDataset]
     ) -> List[MetadataChangeProposalWrapper]:
         """
@@ -173,61 +233,11 @@ class Mapper:
             dataset_mcps.extend([info_mcp, status_mcp])
 
             if self.__config.extract_lineage is True:
-                # Check if upstreams table is available, parse them and create dataset URN for each upstream table
-                upstreams: List[UpstreamClass] = []
-                upstream_tables: List[
-                    resolver.DataPlatformTable
-                ] = parser.get_upstream_tables(table, self.__reporter)
-                for upstream_table in upstream_tables:
-                    if (
-                        upstream_table.data_platform_pair.powerbi_data_platform_name
-                        not in self.__config.dataset_type_mapping.keys()
-                    ):
-                        LOGGER.debug("Skipping upstream table for %s", ds_urn)
-                        continue
-
-                    platform: Union[
-                        str, PlatformDetail
-                    ] = self.__config.dataset_type_mapping[
-                        upstream_table.data_platform_pair.powerbi_data_platform_name
-                    ]
-                    platform_name: str = (
-                        upstream_table.data_platform_pair.datahub_data_platform_name
-                    )
-                    platform_instance_name: Optional[str] = None
-                    platform_env: str = DEFAULT_ENV
-                    # Determine if PlatformDetail is provided
-                    if isinstance(platform, PlatformDetail):
-                        platform_instance_name = cast(
-                            PlatformDetail, platform
-                        ).platform_instance
-                        platform_env = cast(PlatformDetail, platform).env
-
-                    upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                        platform=platform_name,
-                        platform_instance=platform_instance_name,
-                        env=platform_env,
-                        name=self.lineage_urn_to_lowercase(upstream_table.full_name),
-                    )
-                    upstream_table_class = UpstreamClass(
-                        upstream_urn,
-                        DatasetLineageTypeClass.TRANSFORMED,
-                    )
-                    upstreams.append(upstream_table_class)
-
-                    if len(upstreams) > 0:
-                        upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
-                        mcp = MetadataChangeProposalWrapper(
-                            entityType="dataset",
-                            changeType=ChangeTypeClass.UPSERT,
-                            entityUrn=ds_urn,
-                            aspect=upstream_lineage,
-                        )
-                        dataset_mcps.extend([mcp])
+                dataset_mcps.extend(self.extract_lineage(table, ds_urn))
 
         return dataset_mcps
 
-    def __to_datahub_chart(
+    def to_datahub_chart_mcp(
         self, tile: PowerBiAPI.Tile, ds_mcps: List[MetadataChangeProposalWrapper]
     ) -> List[MetadataChangeProposalWrapper]:
         """
@@ -306,7 +316,7 @@ class Mapper:
             ]
         )
 
-    def __to_datahub_dashboard(
+    def to_datahub_dashboard_mcp(
         self,
         dashboard: PowerBiAPI.Dashboard,
         chart_mcps: List[MetadataChangeProposalWrapper],
@@ -485,9 +495,9 @@ class Mapper:
             if tile is None:
                 continue
             # First convert the dataset to MCP, because dataset mcp is used in input attribute of chart mcp
-            dataset_mcps = self.__to_datahub_dataset(tile.dataset)
+            dataset_mcps = self.to_datahub_dataset(tile.dataset)
             # Now convert tile to chart MCP
-            chart_mcp = self.__to_datahub_chart(tile, dataset_mcps)
+            chart_mcp = self.to_datahub_chart_mcp(tile, dataset_mcps)
 
             ds_mcps.extend(dataset_mcps)
             chart_mcps.extend(chart_mcp)
@@ -514,7 +524,7 @@ class Mapper:
         # Lets convert dashboard to datahub dashboard
         dashboard_mcps: List[
             MetadataChangeProposalWrapper
-        ] = self.__to_datahub_dashboard(dashboard, chart_mcps, user_mcps)
+        ] = self.to_datahub_dashboard_mcp(dashboard, chart_mcps, user_mcps)
 
         # Now add MCPs in sequence
         mcps.extend(ds_mcps)
@@ -523,11 +533,11 @@ class Mapper:
         mcps.extend(dashboard_mcps)
 
         # Convert MCP to work_units
-        work_units = map(self.__to_work_unit, mcps)
+        work_units = map(self._to_work_unit, mcps)
         # Return set of work_unit
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
-    def __pages_to_chart(
+    def pages_to_chart(
         self, pages: List[PowerBiAPI.Page], ds_mcps: List[MetadataChangeProposalWrapper]
     ) -> List[MetadataChangeProposalWrapper]:
 
@@ -588,7 +598,7 @@ class Mapper:
 
         return chart_mcps
 
-    def __report_to_dashboard(
+    def report_to_dashboard(
         self,
         workspace_name: str,
         report: PowerBiAPI.Report,
@@ -701,11 +711,11 @@ class Mapper:
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(report.users)
         # Convert pages to charts. A report has single dataset and same dataset used in pages to create visualization
-        ds_mcps = self.__to_datahub_dataset(report.dataset)
-        chart_mcps = self.__pages_to_chart(report.pages, ds_mcps)
+        ds_mcps = self.to_datahub_dataset(report.dataset)
+        chart_mcps = self.pages_to_chart(report.pages, ds_mcps)
 
         # Let's convert report to datahub dashboard
-        report_mcps = self.__report_to_dashboard(
+        report_mcps = self.report_to_dashboard(
             workspace.name, report, chart_mcps, user_mcps
         )
 
@@ -716,7 +726,7 @@ class Mapper:
         mcps.extend(report_mcps)
 
         # Convert MCP to work_units
-        work_units = map(self.__to_work_unit, mcps)
+        work_units = map(self._to_work_unit, mcps)
         return work_units
 
 
