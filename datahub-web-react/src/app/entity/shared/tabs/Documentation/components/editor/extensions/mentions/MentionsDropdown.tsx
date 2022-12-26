@@ -59,12 +59,12 @@ const flattenOptions = (suggestions: AutoCompleteResultForEntity[]): Option[] =>
     }, []);
 };
 
-export const MentionsDropdown = ({ suggestions: _suggestions }: Props) => {
+export const MentionsDropdown = ({ suggestions }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [options, setOptions] = useState<Option[]>([]);
     const { createDataHubMention } = useCommands();
 
-    useDebounce(() => setOptions(flattenOptions(_suggestions)), 250, [_suggestions]);
+    useDebounce(() => setOptions(flattenOptions(suggestions)), 250, [suggestions]);
     const onSubmit = useCallback(
         (item: Option) => {
             if (item.entity) {
