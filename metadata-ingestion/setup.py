@@ -464,7 +464,6 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast-legacy",
             "hana",
             "hive",
             "iceberg",
