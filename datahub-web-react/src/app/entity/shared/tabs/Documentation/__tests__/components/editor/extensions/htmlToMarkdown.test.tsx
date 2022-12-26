@@ -37,7 +37,7 @@ const cases = [
         '```\n;(function () {})()\n```',
     ],
     [
-        'should parse HTML Datahub mention',
+        'should parse datahub mention',
         '<span class="mentions" data-datahub-mention-urn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)">@SampleHiveDataset</span>',
         '[@SampleHiveDataset](urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD))',
     ],

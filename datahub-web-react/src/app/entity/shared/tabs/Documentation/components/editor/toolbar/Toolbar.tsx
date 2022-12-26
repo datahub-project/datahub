@@ -21,7 +21,7 @@ import { CodeBlockIcon, CodeIcon } from './Icons';
 const Container = styled.div`
     position: sticky;
     top: 0;
-    z-index: 300;
+    z-index: 99;
     background-color: #fff;
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};
     padding: 4px 20px;
