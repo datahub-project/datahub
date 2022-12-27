@@ -575,10 +575,10 @@ def test_ingest_with_system_metadata():
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
                                     "active": True,
-                                    "displayName": "Data Hub",
+                                    "displayName": "DataHub",
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
-                                    "fullName": "Data Hub",
+                                    "fullName": "DataHub",
                                 }
                             }
                         ],
@@ -608,10 +608,10 @@ def test_ingest_with_blank_system_metadata():
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
                                     "active": True,
-                                    "displayName": "Data Hub",
+                                    "displayName": "DataHub",
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
-                                    "fullName": "Data Hub",
+                                    "fullName": "DataHub",
                                 }
                             }
                         ],
@@ -638,10 +638,10 @@ def test_ingest_without_system_metadata():
                             {
                                 "com.linkedin.identity.CorpUserInfo": {
                                     "active": True,
-                                    "displayName": "Data Hub",
+                                    "displayName": "DataHub",
                                     "email": "datahub@linkedin.com",
                                     "title": "CEO",
-                                    "fullName": "Data Hub",
+                                    "fullName": "DataHub",
                                 }
                             }
                         ],

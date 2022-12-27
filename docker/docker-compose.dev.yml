@@ -18,6 +18,8 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
+    depends_on:
+      - elasticsearch
     volumes:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
       - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
@@ -29,6 +31,9 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
+    depends_on:
+      - broker:
+      - schema-registry:
 
   datahub-gms:
     image: linkedin/datahub-gms:debug

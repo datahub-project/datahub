@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import functools
 import logging
+import sys
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple, TypeVar
@@ -351,6 +352,7 @@ def maybe_print_upgrade_message(  # noqa: C901
                     f'You seem to be running a slightly old quickstart image {get_days(version_stats.server.current.release_date)}. Run "datahub docker quickstart" to get the latest updates without losing any data!',
                     "cyan",
                 ),
+                file=sys.stderr,
             )
         except Exception as e:
             log.debug(f"Failed to suggest quickstart upgrade due to {e}")

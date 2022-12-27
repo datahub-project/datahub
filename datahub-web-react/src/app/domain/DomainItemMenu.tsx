@@ -59,7 +59,7 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
                 </Menu>
             }
         >
-            <MenuIcon fontSize={20} />
+            <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
         </Dropdown>
     );
 }

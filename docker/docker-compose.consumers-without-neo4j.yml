@@ -27,5 +27,3 @@ services:
     container_name: datahub-mce-consumer
     ports:
       - "9090:9090"
-    depends_on:
-      - datahub-gms
