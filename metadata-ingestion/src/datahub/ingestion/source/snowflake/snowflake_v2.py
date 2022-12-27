@@ -71,6 +71,7 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
+    SnowflakeConnectionMixin,
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
@@ -189,6 +190,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 class SnowflakeV2Source(
     ClassificationMixin,
     SnowflakeQueryMixin,
+    SnowflakeConnectionMixin,
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
     TestableSource,

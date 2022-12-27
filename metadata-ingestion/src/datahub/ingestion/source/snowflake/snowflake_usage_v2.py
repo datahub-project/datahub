@@ -19,6 +19,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
+    SnowflakeConnectionMixin,
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
@@ -88,7 +89,9 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     role_name: str
 
 
-class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
+class SnowflakeUsageExtractor(
+    SnowflakeQueryMixin, SnowflakeConnectionMixin, SnowflakeCommonMixin
+):
     def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report

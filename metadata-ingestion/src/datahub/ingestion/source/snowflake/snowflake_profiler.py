@@ -38,13 +38,10 @@ class SnowflakeProfilerRequest(GEProfilerRequest):
 
 
 class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
-    config: SnowflakeV2Config
-    report: SnowflakeV2Report
-
     def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
         super().__init__(config, report, self.platform)
-        self.config = config
-        self.report = report
+        self.config: SnowflakeV2Config = config
+        self.report: SnowflakeV2Report = report
         self.logger = logger
 
     def get_workunits(self, databases: List[SnowflakeDatabase]) -> Iterable[WorkUnit]:

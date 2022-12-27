@@ -24,6 +24,7 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
+    SnowflakeConnectionMixin,
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
@@ -159,7 +160,9 @@ class SnowflakeTableLineage:
                     )
 
 
-class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
+class SnowflakeLineageExtractor(
+    SnowflakeQueryMixin, SnowflakeConnectionMixin, SnowflakeCommonMixin
+):
     """
     Extracts Lineage from Snowflake.
     Following lineage edges are considered.
