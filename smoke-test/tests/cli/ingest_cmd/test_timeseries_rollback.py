@@ -35,7 +35,7 @@ def datahub_get_and_verify_profile(
     get_args: List[str] = ["get", "--urn", urn, "-a", aspect_name]
     get_result: Result = runner.invoke(datahub, get_args)
     assert get_result.exit_code == 0
-    get_result_output_obj: Dict = json.loads(get_result.output)
+    get_result_output_obj: Dict = json.loads(get_result.stdout)
     if expected_profile is None:
         assert not get_result_output_obj
     else:

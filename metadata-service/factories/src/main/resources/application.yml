@@ -53,6 +53,11 @@ datahub:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+
+    # URI instead of above host/port/ssl
+    # Priority is given to the URI setting over separate host/port/useSSL parameters
+    uri: ${DATAHUB_GMS_URI:#{null}}
+
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
@@ -79,8 +84,9 @@ searchService:
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
 
 configEntityRegistry:
-  # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
+  # Priority is given to the `path` setting above (outside jar)
+  resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
@@ -165,7 +171,7 @@ kafka:
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   producer:
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
-    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:15000}
+    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
     backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:
@@ -222,3 +228,7 @@ entityChangeEvents:
 
 views:
   enabled: ${VIEWS_ENABLED:true}
+
+entityClient:
+  retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
+  numRetries: ${ENTITY_CLIENT_NUM_RETRIES:3}
