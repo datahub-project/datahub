@@ -19,7 +19,7 @@ services:
       args:
         APP_ENV: dev
     depends_on:
-      - elasticsearch:
+      - elasticsearch
     volumes:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
       - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index

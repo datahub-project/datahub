@@ -4,7 +4,6 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.callback.FutureCallback;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
-import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
 
 import java.util.Objects;
@@ -25,10 +24,6 @@ public abstract class BaseClient implements AutoCloseable {
   protected final Client _client;
   protected final BackoffPolicy _backoffPolicy;
   protected final int _retryCount;
-
-  protected BaseClient(@Nonnull Client restliClient) {
-    this(restliClient, new ExponentialBackoff(2), 3);
-  }
 
   protected BaseClient(@Nonnull Client restliClient, BackoffPolicy backoffPolicy, int retryCount) {
     _client = Objects.requireNonNull(restliClient);
@@ -59,7 +54,7 @@ public abstract class BaseClient implements AutoCloseable {
 
         if (attemptCount == _retryCount - 1) {
           throw ex;
-        } else  {
+        } else {
           attemptCount = attemptCount + 1;
           Thread.sleep(_backoffPolicy.nextBackoff(attemptCount, ex) * 1000);
         }

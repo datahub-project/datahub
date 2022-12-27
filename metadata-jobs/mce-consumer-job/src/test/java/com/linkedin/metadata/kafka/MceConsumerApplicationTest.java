@@ -25,7 +25,6 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
     @Autowired
     private EntityService mockEntityService;
 
-    //@Ignore("Temp ignore for gha build")
     @Test
     public void testRestliServletConfig() {
         RestoreIndicesResult mockResult = new RestoreIndicesResult();

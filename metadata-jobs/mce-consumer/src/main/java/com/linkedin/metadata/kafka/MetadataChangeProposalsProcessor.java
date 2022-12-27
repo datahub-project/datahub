@@ -17,7 +17,6 @@ import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import javax.annotation.Nonnull;
 
-import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -43,7 +42,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MetadataChangeProposalsProcessor {
 
-  @NonNull
   private final Authentication systemAuthentication;
   private final RestliEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;

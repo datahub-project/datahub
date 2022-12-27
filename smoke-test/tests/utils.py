@@ -7,7 +7,6 @@ from time import sleep
 import requests_wrapper as requests
 
 from datahub.cli import cli_utils
-from datahub.cli.docker_cli import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
 
 TIME: int = 1581407189000
@@ -114,6 +113,9 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
 
 
 def delete_urns_from_file(filename: str) -> None:
+    if not cli_utils.get_boolean_env_variable("CLEANUP_DATA", True):
+        print("Not cleaning data to save time")
+        return
     session = requests.Session()
     session.headers.update(
         {
@@ -196,7 +198,7 @@ def create_datahub_step_state_aspects(
     """
     For a specific user, creates dataHubStepState aspects for each onboarding id in the list
     """
-    aspects_dict: List[Dict[str, any]] = [
+    aspects_dict: List[Dict[str, Any]] = [
         create_datahub_step_state_aspect(username, onboarding_id)
         for onboarding_id in onboarding_ids
     ]

@@ -42,8 +42,10 @@ dependencies {
 
 bootJar {
     mainClassName = 'com.linkedin.metadata.kafka.MceConsumerApplication'
-    requiresUnpack '**/restli-servlet-impl.jar'
     archiveFileName = "${project.name}.jar"
+
+    // working around the restli error when it tries to open a jar within the spring boot fat jar
+    requiresUnpack '**/restli-servlet-impl.jar'
 }
 
 docker {
