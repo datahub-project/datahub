@@ -5,7 +5,11 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationError, OauthConfiguration
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.source.snowflake.constants import SnowflakeCloudProvider
+from datahub.ingestion.source.snowflake.constants import (
+    CLIENT_PREFETCH_THREADS,
+    CLIENT_SESSION_KEEP_ALIVE,
+    SnowflakeCloudProvider,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 
@@ -226,8 +230,8 @@ def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
     )
     assert config.get_options()["connect_args"] is not None
     assert config.get_options()["connect_args"] == {
-        "client_prefetch_threads": 10,
-        "client_session_keep_alive": True,
+        CLIENT_PREFETCH_THREADS: 10,
+        CLIENT_SESSION_KEEP_ALIVE: True,
     }
 
 
@@ -241,12 +245,12 @@ def test_snowflake_config_with_connect_args_overrides_base_connect_args():
             "warehouse": "COMPUTE_WH",
             "role": "sysadmin",
             "connect_args": {
-                "client_prefetch_threads": 5,
+                CLIENT_PREFETCH_THREADS: 5,
             },
         }
     )
     assert config.get_options()["connect_args"] is not None
-    assert config.get_options()["connect_args"]["client_prefetch_threads"] == 5
+    assert config.get_options()["connect_args"][CLIENT_PREFETCH_THREADS] == 5
 
 
 @patch("snowflake.connector.connect")

@@ -40,3 +40,9 @@ class SnowflakeObjectDomain(str, Enum):
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"
 LINEAGE_PERMISSION_ERROR = "lineage-permission-error"
+
+
+# Snowflake connection arguments
+# https://docs.snowflake.com/en/user-guide/python-connector-api.html#connect
+CLIENT_PREFETCH_THREADS = "client_prefetch_threads"
+CLIENT_SESSION_KEEP_ALIVE = "client_session_keep_alive"

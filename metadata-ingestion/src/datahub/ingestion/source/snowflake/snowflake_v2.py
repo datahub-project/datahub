@@ -1418,3 +1418,10 @@ class SnowflakeV2Source(
             if "Unsupported feature 'TAG'" in str(e):
                 return True
             raise
+
+    def close(self) -> None:
+        super().close()
+        if hasattr(self, "lineage_extractor"):
+            self.lineage_extractor.close()
+        if hasattr(self, "usage_extractor"):
+            self.usage_extractor.close()

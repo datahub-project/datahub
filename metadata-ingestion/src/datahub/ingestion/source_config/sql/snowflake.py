@@ -19,6 +19,10 @@ from datahub.configuration.common import (
     OauthConfiguration,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.source.snowflake.constants import (
+    CLIENT_PREFETCH_THREADS,
+    CLIENT_SESSION_KEEP_ALIVE,
+)
 from datahub.ingestion.source.sql.oauth_generator import OauthTokenGenerator
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -297,10 +301,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         """
 
         base_connect_args = {
-            # Improves performance for larger query result
-            # https://docs.snowflake.com/en/user-guide/python-connector-api.html#connect
-            "client_prefetch_threads": 10,
-            "client_session_keep_alive": True,
+            # Improves performance and avoids timeout errors for larger query result
+            CLIENT_PREFETCH_THREADS: 10,
+            CLIENT_SESSION_KEEP_ALIVE: True,
         }
 
         if self.connect_args is None:

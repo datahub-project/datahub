@@ -20,10 +20,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDatabase,
     SnowflakeTable,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeCommonProtocol,
-)
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
@@ -40,7 +37,7 @@ class SnowflakeProfilerRequest(GEProfilerRequest):
     profile_table_level_only: bool = False
 
 
-class SnowflakeProfiler(SnowflakeCommonMixin, GenericProfiler, SnowflakeCommonProtocol):
+class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     config: SnowflakeV2Config
     report: SnowflakeV2Report
 
