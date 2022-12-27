@@ -161,11 +161,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       try {
         EntityService.IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
         Urn urn = result.getUrn();
+
+        AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
+                .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
+
         if (!result.isDidUpdate()) {
-          // If not async, also perform the additional changes & update runId
-          final List<MetadataChangeProposal> additionalChanges =
-                  AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
-          additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
           tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
         return urn.toString();
