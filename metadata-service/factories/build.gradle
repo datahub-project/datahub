@@ -33,6 +33,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   compile spec.product.pegasus.restliSpringBridge
+  implementation spec.product.pegasus.restliDocgen
 
   testImplementation externalDependency.springBootTest
 
