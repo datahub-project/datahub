@@ -1,4 +1,4 @@
-from datahub_provider._airflow_compat import BaseOperator, MappedOperator, Operator
+from datahub_provider._airflow_compat import AIRFLOW_PATCHED
 
 import contextlib
 import logging
@@ -7,15 +7,18 @@ from typing import Any, Callable, Iterable, List, Optional, Union
 
 from airflow.configuration import conf
 from airflow.lineage import PIPELINE_OUTLETS
+from airflow.models.baseoperator import BaseOperator
 from airflow.plugins_manager import AirflowPlugin
 from airflow.utils.module_loading import import_string
 from cattr import structure
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub_provider._airflow_shims import MappedOperator, Operator
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.hooks.datahub import DatahubGenericHook
 from datahub_provider.lineage.datahub import DatahubLineageConfig
 
+assert AIRFLOW_PATCHED
 logger = logging.getLogger(__name__)
 
 TASK_ON_FAILURE_CALLBACK = "on_failure_callback"
