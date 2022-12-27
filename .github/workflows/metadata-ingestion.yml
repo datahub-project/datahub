@@ -49,6 +49,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
       - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
         with:
           spark-version: "3.0.3"
@@ -62,8 +63,7 @@ jobs:
           pip install pip -U # only 22.2 and above contains the --dry-run flag
 
           # only the last line of the output is the packages that will be installed
-          pip install --dry-run -e .  | tail -n 1 > /tmp/would_be_installed.txt
-          echo ${{ matrix.extraPythonRequirement }} --dry-run >> /tmp/would_be_installed.txt
+          pip install --dry-run -e .  ${{ matrix.extraPythonRequirement }} | tail -n 1 > /tmp/would_be_installed.txt
           CHECKSUM=$(shasum /tmp/would_be_installed.txt | awk '{print $1}')
           echo "packages_checksum=$CHECKSUM" >> $GITHUB_OUTPUT
       - uses: actions/cache@v3
