@@ -19,7 +19,7 @@ from datahub.ingestion.source.state.use_case_handler import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class StatefulProfilingConfig(StatefulIngestionConfig):
+class ProfilingStatefulIngestionConfig(StatefulIngestionConfig):
     """
     Base specialized config of Stateful Profiling.
     """
@@ -36,13 +36,13 @@ class ProfilingHandler(StatefulIngestionUsecaseHandlerBase[ProfilingCheckpointSt
     def __init__(
         self,
         source: StatefulIngestionSourceBase,
-        config: StatefulIngestionConfigBase[StatefulProfilingConfig],
+        config: StatefulIngestionConfigBase[ProfilingStatefulIngestionConfig],
         pipeline_name: Optional[str],
         run_id: str,
     ):
         self.source = source
         self.stateful_ingestion_config: Optional[
-            StatefulProfilingConfig
+            ProfilingStatefulIngestionConfig
         ] = config.stateful_ingestion
         self.pipeline_name = pipeline_name
         self.run_id = run_id

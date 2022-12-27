@@ -109,13 +109,14 @@ class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig)
     )
 
     @root_validator(pre=False)
-    def stateful_option_validator(cls, values: Dict) -> Dict:
+    def lineage_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
             if values.get("store_last_lineage_extraction_timestamp"):
                 logger.warning(
                     "Stateful ingestion is disabled, disabling store_last_lineage_extraction_timestamp config option as well"
                 )
+                values["store_last_lineage_extraction_timestamp"] = False
 
         return values
 
@@ -127,14 +128,14 @@ class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
     )
 
     @root_validator(pre=False)
-    def stateful_option_validator(cls, values: Dict) -> Dict:
+    def profiling_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
             if values.get("store_last_profiling_timestamps"):
                 logger.warning(
                     "Stateful ingestion is disabled, disabling store_last_profiling_timestamps config option as well"
                 )
-
+                values["store_last_profiling_timestamps"] = False
         return values
 
 
@@ -145,13 +146,14 @@ class UsageStatefulIngestionConfig(StatefulIngestionConfigBase):
     )
 
     @root_validator(pre=False)
-    def stateful_option_validator(cls, values: Dict) -> Dict:
+    def last_usage_extraction_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
             if values.get("store_last_usage_extraction_timestamp"):
                 logger.warning(
                     "Stateful ingestion is disabled, disabling store_last_usage_extraction_timestamp config option as well"
                 )
+                values["store_last_usage_extraction_timestamp"] = False
         return values
 
 
