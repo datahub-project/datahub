@@ -20,6 +20,11 @@ See the
 If Tile is created from report then Chart.externalUrl is set to Report.webUrl.
 
 ## Lineage
+
+This source extract table lineage for tables present in Power BI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset. 
+
+Consider `SALES_REPORT` PowerBI Dataset has a table `SALES_ANALYSIS` which is backed by `SALES_ANALYSIS_VIEW` of PostgreSQL Database then in this case `SALES_ANALYSIS_VIEW` will appear as upstream dataset for `SALES_ANALYSIS` table.
+
 You can control table lineage ingestion using `extract_lineage` configuration parameter, by default it is set to `true`. 
 
 PowerBI Source extracts the lineage information by parsing PowerBI M-Query expression.
@@ -62,3 +67,31 @@ in
   #"Added Conditional Column"
 ```
 
+## M-Query Pattern Supported For Lineage Extraction
+Lets consider a M-Query which combine two PostgreSQL tables. Such M-Query can be written as per below patterns.
+
+**Pattern-1**
+
+```shell
+let
+Source = PostgreSQL.Database("localhost", "book_store"),
+book_date = Source{[Schema="public",Item="book"]}[Data],
+issue_history = Source{[Schema="public",Item="issue_history"]}[Data],
+combine_result  = Table.Combine({book_date, issue_history})
+in
+combine_result
+```
+
+**Pattern-2**
+
+```shell
+let
+Source = PostgreSQL.Database("localhost", "book_store"),
+combine_result  = Table.Combine({Source{[Schema="public",Item="book"]}[Data], Source{[Schema="public",Item="issue_history"]}[Data]})
+in
+combine_result
+```
+
+`Pattern-2` is *not* supported for upstream table lineage extraction as it uses nested item-selector i.e. {Source{[Schema="public",Item="book"]}[Data], Source{[Schema="public",Item="issue_history"]}[Data]} as argument to M-QUery table function i.e. Table.Combine
+
+`Pattern-1` is supported as it first assign the table from schema to variable and then variable is used in M-Query Table function i.e. Table.Combine
