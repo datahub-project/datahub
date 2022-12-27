@@ -11,7 +11,7 @@ from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.utils import ingest_file_via_rest
 import requests_wrapper as requests
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def sync_elastic() -> None:

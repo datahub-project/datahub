@@ -15,7 +15,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 class UnityCatalogSourceConfig(StatefulIngestionConfigBase):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(description="Databricks workspace url")
-    workspace_name: str = pydantic.Field(
+    workspace_name: Optional[str] = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
