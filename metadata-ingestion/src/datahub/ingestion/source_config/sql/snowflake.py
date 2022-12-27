@@ -290,10 +290,30 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             },
         )
 
-    def get_sql_alchemy_connect_args(self) -> dict:
-        if self.authentication_type != "KEY_PAIR_AUTHENTICATOR":
-            return {}
+    def get_connect_args(self) -> dict:
+        """
+        Builds connect args and updates self.connect_args so that
+        Subsequent calls to this method are efficient, i.e. do not read files again
+        """
+
+        base_connect_args = {
+            # Improves performance for larger query result
+            # https://docs.snowflake.com/en/user-guide/python-connector-api.html#connect
+            "client_prefetch_threads": 10,
+            "client_session_keep_alive": True,
+        }
+
         if self.connect_args is None:
+            self.connect_args = base_connect_args
+        else:
+            # Let user override the default config values
+            base_connect_args.update(self.connect_args)
+            self.connect_args = base_connect_args
+
+        if (
+            self.authentication_type == "KEY_PAIR_AUTHENTICATOR"
+            and "private_key" not in self.connect_args.keys()
+        ):
             if self.private_key is not None:
                 pkey_bytes = self.private_key.replace("\\n", "\n").encode()
             else:
@@ -316,7 +336,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption(),
             )
-            self.connect_args = {"private_key": pkb}
+            self.connect_args.update({"private_key": pkb})
         return self.connect_args
 
 
@@ -341,11 +361,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         )
 
     def get_options(self) -> dict:
-        options_connect_args: Dict = super().get_sql_alchemy_connect_args()
+        options_connect_args: Dict = super().get_connect_args()
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
-        if self.connect_args is not None:
-            self.options["connect_args"].update(self.connect_args)
         return self.options
 
     def get_oauth_connection(self):

@@ -182,24 +182,25 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.platform = "snowflake"
         self.report = report
         self.logger = logger
+        self.connection: Optional[SnowflakeConnection] = None
 
     def get_workunits(
         self, discovered_tables: List[str], discovered_views: List[str]
     ) -> Iterable[MetadataWorkUnit]:
 
-        conn = self.get_connection()
-        if conn is None:
+        self.connection = self.create_connection()
+        if self.connection is None:
             return
 
-        self._populate_table_lineage(conn)
+        self._populate_table_lineage()
 
         if self.config.include_view_lineage:
             if len(discovered_views) > 0:
-                self._populate_view_lineage(conn)
+                self._populate_view_lineage()
             else:
                 logger.info("No views found. Skipping View Lineage Extraction.")
 
-        self._populate_external_lineage(conn)
+        self._populate_external_lineage()
 
         if (
             len(self._lineage_map.keys()) == 0
@@ -211,14 +212,14 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         yield from self.get_table_upstream_workunits(discovered_tables)
         yield from self.get_view_upstream_workunits(discovered_views)
 
-    def _populate_table_lineage(self, conn):
+    def _populate_table_lineage(self):
         if self.report.edition == SnowflakeEdition.STANDARD:
             logger.info(
                 "Snowflake Account is Standard Edition. Table to Table Lineage Feature is not supported."
             )  # See Edition Note above for why
         else:
             with PerfTimer() as timer:
-                self._populate_lineage(conn)
+                self._populate_lineage()
                 self.report.table_lineage_query_secs = timer.elapsed_seconds()
 
     def get_table_upstream_workunits(self, discovered_tables):
@@ -300,9 +301,9 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         else:
             return None
 
-    def _populate_view_lineage(self, conn: SnowflakeConnection) -> None:
+    def _populate_view_lineage(self) -> None:
         with PerfTimer() as timer:
-            self._populate_view_upstream_lineage(conn)
+            self._populate_view_upstream_lineage()
             self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
 
         if self.report.edition == SnowflakeEdition.STANDARD:
@@ -311,10 +312,10 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             )  # See Edition Note above for why
         else:
             with PerfTimer() as timer:
-                self._populate_view_downstream_lineage(conn)
+                self._populate_view_downstream_lineage()
                 self.report.view_downstream_lineage_query_secs = timer.elapsed_seconds()
 
-    def _populate_external_lineage(self, conn: SnowflakeConnection) -> None:
+    def _populate_external_lineage(self) -> None:
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
@@ -323,9 +324,9 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                     "Snowflake Account is Standard Edition. External Lineage Feature via Access History is not supported."
                 )  # See Edition Note above for why
             else:
-                self._populate_external_lineage_from_access_history(conn)
+                self._populate_external_lineage_from_access_history()
 
-            self._populate_external_lineage_from_show_query(conn)
+            self._populate_external_lineage_from_show_query()
 
             logger.info(
                 f"Found {self.report.num_external_table_edges_scanned} external lineage edges."
@@ -335,10 +336,10 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
     # Handles the case for explicitly created external tables.
     # NOTE: Snowflake does not log this information to the access_history table.
-    def _populate_external_lineage_from_show_query(self, conn):
+    def _populate_external_lineage_from_show_query(self):
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
-            for db_row in self.query(conn, external_tables_query):
+            for db_row in self.query(external_tables_query):
                 key = self.get_dataset_identifier(
                     db_row["name"], db_row["schema_name"], db_row["database_name"]
                 )
@@ -361,7 +362,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
     # Handles the case where a table is populated from an external location via copy.
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
-    def _populate_external_lineage_from_access_history(self, conn):
+    def _populate_external_lineage_from_access_history(self):
         query: str = SnowflakeQuery.external_table_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
@@ -370,7 +371,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         )
 
         try:
-            for db_row in self.query(conn, query):
+            for db_row in self.query(query):
                 self._process_external_lineage_result_row(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
@@ -403,7 +404,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
             )
 
-    def _populate_lineage(self, conn: SnowflakeConnection) -> None:
+    def _populate_lineage(self) -> None:
         query: str = SnowflakeQuery.table_to_table_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
@@ -413,7 +414,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         )
         self.report.num_table_to_table_edges_scanned = 0
         try:
-            for db_row in self.query(conn, query):
+            for db_row in self.query(query):
                 self._process_table_lineage_row(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
@@ -458,7 +459,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.report.num_table_to_table_edges_scanned += 1
         logger.debug(f"Lineage[Table(Down)={key}]:Table(Up)={self._lineage_map[key]}")
 
-    def _populate_view_upstream_lineage(self, conn: SnowflakeConnection) -> None:
+    def _populate_view_upstream_lineage(self) -> None:
         # NOTE: This query captures only the upstream lineage of a view (with no column lineage).
         # For more details see: https://docs.snowflake.com/en/user-guide/object-dependencies.html#object-dependencies
         # and also https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
@@ -467,7 +468,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.report.num_table_to_view_edges_scanned = 0
 
         try:
-            for db_row in self.query(conn, view_upstream_lineage_query):
+            for db_row in self.query(view_upstream_lineage_query):
                 self._process_view_upstream_lineage_row(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
@@ -510,7 +511,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             f"Upstream->View: Lineage[View(Down)={view_name}]:Upstream={view_upstream}"
         )
 
-    def _populate_view_downstream_lineage(self, conn: SnowflakeConnection) -> None:
+    def _populate_view_downstream_lineage(self) -> None:
         # This query captures the downstream table lineage for views.
         # See https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         # Eg: For viewA->viewB->ViewC->TableD, snowflake does not yet log intermediate view logs, resulting in only the viewA->TableD edge.
@@ -525,7 +526,7 @@ class SnowflakeLineageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.report.num_view_to_table_edges_scanned = 0
 
         try:
-            for db_row in self.query(conn, view_lineage_query):
+            for db_row in self.query(view_lineage_query):
                 self._process_view_downstream_lineage_row(db_row)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):

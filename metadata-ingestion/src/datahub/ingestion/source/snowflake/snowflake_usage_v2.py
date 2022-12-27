@@ -93,12 +93,13 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
         self.logger = logger
+        self.connection: Optional[SnowflakeConnection] = None
 
     def get_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        conn = self.get_connection()
-        if conn is None:
+        self.connection = self.create_connection()
+        if self.connection is None:
             return
 
         if self.report.edition == SnowflakeEdition.STANDARD.value:
@@ -109,7 +110,7 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
         logger.info("Checking usage date ranges")
 
-        self._check_usage_date_ranges(conn)
+        self._check_usage_date_ranges()
 
         # If permission error, execution returns from here
         if (
@@ -122,26 +123,23 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         # Now, we report the usage as well as operation metadata even if user email is absent
 
         if self.config.include_usage_stats:
-            yield from self.get_usage_workunits(conn, discovered_datasets)
+            yield from self.get_usage_workunits(discovered_datasets)
 
         if self.config.include_operational_stats:
             # Generate the operation workunits.
-            access_events = self._get_snowflake_history(conn)
+            access_events = self._get_snowflake_history()
             for event in access_events:
                 yield from self._get_operation_aspect_work_unit(
                     event, discovered_datasets
                 )
 
-        conn.close()
-
     def get_usage_workunits(
-        self, conn: SnowflakeConnection, discovered_datasets: List[str]
+        self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
             logger.info("Getting aggregated usage statistics")
             try:
                 results = self.query(
-                    conn,
                     SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
                         start_time_millis=int(
                             self.config.start_time.timestamp() * 1000
@@ -268,14 +266,12 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             key=lambda v: v.fieldPath,
         )
 
-    def _get_snowflake_history(
-        self, conn: SnowflakeConnection
-    ) -> Iterable[SnowflakeJoinedAccessEvent]:
+    def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
         logger.info("Getting access history")
         with PerfTimer() as timer:
             query = self._make_operations_query()
             try:
-                results = self.query(conn, query)
+                results = self.query(query)
             except Exception as e:
                 logger.debug(e, exc_info=e)
                 self.report_warning(
@@ -293,12 +289,10 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         end_time = int(self.config.end_time.timestamp() * 1000)
         return SnowflakeQuery.operational_data_for_time_window(start_time, end_time)
 
-    def _check_usage_date_ranges(self, conn: SnowflakeConnection) -> Any:
+    def _check_usage_date_ranges(self) -> Any:
         with PerfTimer() as timer:
             try:
-                results = self.query(
-                    conn, SnowflakeQuery.get_access_history_date_range()
-                )
+                results = self.query(SnowflakeQuery.get_access_history_date_range())
             except Exception as e:
                 if isinstance(e, SnowflakePermissionError):
                     error_msg = "Failed to get usage. Please grant imported privileges on SNOWFLAKE database. "

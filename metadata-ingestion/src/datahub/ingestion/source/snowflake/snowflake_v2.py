@@ -199,6 +199,7 @@ class SnowflakeV2Source(
         self.report: SnowflakeV2Report = SnowflakeV2Report()
         self.logger = logger
         self.snowsight_base_url: Optional[str] = None
+        self.connection: Optional[SnowflakeConnection] = None
         # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
@@ -434,35 +435,36 @@ class SnowflakeV2Source(
 
     def get_workunits(self) -> Iterable[WorkUnit]:
 
-        conn = self.get_connection()
-        if conn is None:
+        self.connection = self.create_connection()
+        if self.connection is None:
             return
 
         self.add_config_to_report()
-        self.inspect_session_metadata(conn)
+        self.inspect_session_metadata()
 
         if self.config.include_external_url:
-            self.snowsight_base_url = self.get_snowsight_base_url(conn)
+            self.snowsight_base_url = self.get_snowsight_base_url()
 
         if self.report.default_warehouse is None:
             self.report_warehouse_failure()
             return
 
-        databases = self.get_databases(conn)
+        self.data_dictionary.set_connection(self.connection)
+        databases = self.get_databases()
 
         if databases is None or len(databases) == 0:
             return
 
         for snowflake_db in databases:
             try:
-                yield from self._process_database(conn, snowflake_db)
+                yield from self._process_database(snowflake_db)
             except SnowflakePermissionError as e:
                 # FIXME - This may break satetful ingestion if new tables than previous run are emitted above
                 # and stateful ingestion is enabled
                 self.report_error(GENERIC_PERMISSION_ERROR_KEY, str(e))
                 return
 
-        conn.close()
+        self.connection.close()
 
         # Emit Stale entity workunits
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
@@ -526,13 +528,11 @@ class SnowflakeV2Source(
                 "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe.",
             )
 
-    def get_databases(
-        self, conn: SnowflakeConnection
-    ) -> Optional[List[SnowflakeDatabase]]:
+    def get_databases(self) -> Optional[List[SnowflakeDatabase]]:
         try:
             # `show databases` is required only to get one  of the databases
             # whose information_schema can be queried to start with.
-            databases = self.data_dictionary.show_databases(conn)
+            databases = self.data_dictionary.show_databases()
         except Exception as e:
             logger.debug(f"Failed to list databases due to error {e}", exc_info=e)
             self.report_error(
@@ -543,7 +543,7 @@ class SnowflakeV2Source(
         else:
             ischema_databases: List[
                 SnowflakeDatabase
-            ] = self.get_databases_from_ischema(conn, databases)
+            ] = self.get_databases_from_ischema(databases)
 
             if len(ischema_databases) == 0:
                 self.report_error(
@@ -552,13 +552,11 @@ class SnowflakeV2Source(
                 )
             return ischema_databases
 
-    def get_databases_from_ischema(self, conn, databases):
+    def get_databases_from_ischema(self, databases):
         ischema_databases: List[SnowflakeDatabase] = []
         for database in databases:
             try:
-                ischema_databases = self.data_dictionary.get_databases(
-                    conn, database.name
-                )
+                ischema_databases = self.data_dictionary.get_databases(database.name)
                 break
             except Exception:
                 # query fails if "USAGE" access is not granted for database
@@ -577,7 +575,7 @@ class SnowflakeV2Source(
         return ischema_databases
 
     def _process_database(
-        self, conn: SnowflakeConnection, snowflake_db: SnowflakeDatabase
+        self, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
 
         self.report.report_entity_scanned(snowflake_db.name, "database")
@@ -588,7 +586,7 @@ class SnowflakeV2Source(
         db_name = snowflake_db.name
 
         try:
-            self.query(conn, SnowflakeQuery.use_database(db_name))
+            self.query(SnowflakeQuery.use_database(db_name))
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 # This may happen if REFERENCE_USAGE permissions are set
@@ -612,15 +610,15 @@ class SnowflakeV2Source(
         if self.config.include_technical_schema:
             yield from self.gen_database_containers(snowflake_db)
 
-        self.fetch_schemas_for_database(conn, snowflake_db, db_name)
+        self.fetch_schemas_for_database(snowflake_db, db_name)
 
         for snowflake_schema in snowflake_db.schemas:
-            yield from self._process_schema(conn, snowflake_schema, db_name)
+            yield from self._process_schema(snowflake_schema, db_name)
 
-    def fetch_schemas_for_database(self, conn, snowflake_db, db_name):
+    def fetch_schemas_for_database(self, snowflake_db, db_name):
         try:
             snowflake_db.schemas = self.data_dictionary.get_schemas_for_database(
-                conn, db_name
+                db_name
             )
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
@@ -644,7 +642,7 @@ class SnowflakeV2Source(
             )
 
     def _process_schema(
-        self, conn: SnowflakeConnection, snowflake_schema: SnowflakeSchema, db_name: str
+        self, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
 
         self.report.report_entity_scanned(snowflake_schema.name, "schema")
@@ -662,18 +660,18 @@ class SnowflakeV2Source(
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
         if self.config.include_tables:
-            self.fetch_tables_for_schema(conn, snowflake_schema, db_name, schema_name)
+            self.fetch_tables_for_schema(snowflake_schema, db_name, schema_name)
 
             if self.config.include_technical_schema:
                 for table in snowflake_schema.tables:
-                    yield from self._process_table(conn, table, schema_name, db_name)
+                    yield from self._process_table(table, schema_name, db_name)
 
         if self.config.include_views:
-            self.fetch_views_for_schema(conn, snowflake_schema, db_name, schema_name)
+            self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
 
             if self.config.include_technical_schema:
                 for view in snowflake_schema.views:
-                    yield from self._process_view(conn, view, schema_name, db_name)
+                    yield from self._process_view(view, schema_name, db_name)
 
         if not snowflake_schema.views and not snowflake_schema.tables:
             self.report_warning(
@@ -681,11 +679,9 @@ class SnowflakeV2Source(
                 f"{db_name}.{schema_name}",
             )
 
-    def fetch_views_for_schema(self, conn, snowflake_schema, db_name, schema_name):
+    def fetch_views_for_schema(self, snowflake_schema, db_name, schema_name):
         try:
-            snowflake_schema.views = self.get_views_for_schema(
-                conn, schema_name, db_name
-            )
+            snowflake_schema.views = self.get_views_for_schema(schema_name, db_name)
 
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
@@ -703,11 +699,9 @@ class SnowflakeV2Source(
                     f"{db_name}.{schema_name}",
                 )
 
-    def fetch_tables_for_schema(self, conn, snowflake_schema, db_name, schema_name):
+    def fetch_tables_for_schema(self, snowflake_schema, db_name, schema_name):
         try:
-            snowflake_schema.tables = self.get_tables_for_schema(
-                conn, schema_name, db_name
-            )
+            snowflake_schema.tables = self.get_tables_for_schema(schema_name, db_name)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 # Ideal implementation would use PEP 678 – Enriching Exceptions with Notes
@@ -725,7 +719,6 @@ class SnowflakeV2Source(
 
     def _process_table(
         self,
-        conn: SnowflakeConnection,
         table: SnowflakeTable,
         schema_name: str,
         db_name: str,
@@ -738,31 +731,27 @@ class SnowflakeV2Source(
             self.report.report_dropped(table_identifier)
             return
 
-        self.fetch_columns_for_table(
-            conn, table, schema_name, db_name, table_identifier
-        )
+        self.fetch_columns_for_table(table, schema_name, db_name, table_identifier)
 
-        self.fetch_pk_for_table(conn, table, schema_name, db_name, table_identifier)
+        self.fetch_pk_for_table(table, schema_name, db_name, table_identifier)
 
-        self.fetch_foreign_keys_for_table(
-            conn, table, schema_name, db_name, table_identifier
-        )
+        self.fetch_foreign_keys_for_table(table, schema_name, db_name, table_identifier)
 
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
 
         self.fetch_sample_data_for_classification(
-            conn, table, schema_name, db_name, dataset_name
+            table, schema_name, db_name, dataset_name
         )
 
         yield from self.gen_dataset_workunits(table, schema_name, db_name)
 
     def fetch_sample_data_for_classification(
-        self, conn, table, schema_name, db_name, dataset_name
+        self, table, schema_name, db_name, dataset_name
     ):
         if table.columns and self.is_classification_enabled_for_table(dataset_name):
             try:
                 table.sample_data = self.get_sample_values_for_table(
-                    conn, table.name, schema_name, db_name
+                    table.name, schema_name, db_name
                 )
             except Exception as e:
                 logger.debug(
@@ -781,11 +770,11 @@ class SnowflakeV2Source(
                     )
 
     def fetch_foreign_keys_for_table(
-        self, conn, table, schema_name, db_name, table_identifier
+        self, table, schema_name, db_name, table_identifier
     ):
         try:
             table.foreign_keys = self.get_fk_constraints_for_table(
-                conn, table.name, schema_name, db_name
+                table.name, schema_name, db_name
             )
         except Exception as e:
             logger.debug(
@@ -794,10 +783,10 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get foreign key for table", table_identifier)
 
-    def fetch_pk_for_table(self, conn, table, schema_name, db_name, table_identifier):
+    def fetch_pk_for_table(self, table, schema_name, db_name, table_identifier):
         try:
             table.pk = self.get_pk_constraints_for_table(
-                conn, table.name, schema_name, db_name
+                table.name, schema_name, db_name
             )
         except Exception as e:
             logger.debug(
@@ -806,13 +795,9 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get primary key for table", table_identifier)
 
-    def fetch_columns_for_table(
-        self, conn, table, schema_name, db_name, table_identifier
-    ):
+    def fetch_columns_for_table(self, table, schema_name, db_name, table_identifier):
         try:
-            table.columns = self.get_columns_for_table(
-                conn, table.name, schema_name, db_name
-            )
+            table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
         except Exception as e:
             logger.debug(
                 f"Failed to get columns for table {table_identifier} due to error {e}",
@@ -822,7 +807,6 @@ class SnowflakeV2Source(
 
     def _process_view(
         self,
-        conn: SnowflakeConnection,
         view: SnowflakeView,
         schema_name: str,
         db_name: str,
@@ -836,9 +820,7 @@ class SnowflakeV2Source(
             return
 
         try:
-            view.columns = self.get_columns_for_table(
-                conn, view.name, schema_name, db_name
-            )
+            view.columns = self.get_columns_for_table(view.name, schema_name, db_name)
         except Exception as e:
             logger.debug(
                 f"Failed to get columns for view {view_name} due to error {e}",
@@ -1221,10 +1203,10 @@ class SnowflakeV2Source(
             yield wu
 
     def get_tables_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> List[SnowflakeTable]:
         if db_name not in self.db_tables.keys():
-            tables = self.data_dictionary.get_tables_for_database(conn, db_name)
+            tables = self.data_dictionary.get_tables_for_database(db_name)
             self.db_tables[db_name] = tables
         else:
             tables = self.db_tables[db_name]
@@ -1233,18 +1215,16 @@ class SnowflakeV2Source(
         # falling back to get tables for schema
         if tables is None:
             self.report.num_get_tables_for_schema_queries += 1
-            return self.data_dictionary.get_tables_for_schema(
-                conn, schema_name, db_name
-            )
+            return self.data_dictionary.get_tables_for_schema(schema_name, db_name)
 
         # Some schema may not have any table
         return tables.get(schema_name, [])
 
     def get_views_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
         if db_name not in self.db_views.keys():
-            views = self.data_dictionary.get_views_for_database(conn, db_name)
+            views = self.data_dictionary.get_views_for_database(db_name)
             self.db_views[db_name] = views
         else:
             views = self.db_views[db_name]
@@ -1253,18 +1233,16 @@ class SnowflakeV2Source(
         # falling back to get views for schema
         if views is None:
             self.report.num_get_views_for_schema_queries += 1
-            return self.data_dictionary.get_views_for_schema(conn, schema_name, db_name)
+            return self.data_dictionary.get_views_for_schema(schema_name, db_name)
 
         # Some schema may not have any table
         return views.get(schema_name, [])
 
     def get_columns_for_table(
-        self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
+        self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeColumn]:
         if (db_name, schema_name) not in self.schema_columns.keys():
-            columns = self.data_dictionary.get_columns_for_schema(
-                conn, schema_name, db_name
-            )
+            columns = self.data_dictionary.get_columns_for_schema(schema_name, db_name)
             self.schema_columns[(db_name, schema_name)] = columns
         else:
             columns = self.schema_columns[(db_name, schema_name)]
@@ -1274,18 +1252,18 @@ class SnowflakeV2Source(
         if columns is None:
             self.report.num_get_columns_for_table_queries += 1
             return self.data_dictionary.get_columns_for_table(
-                conn, table_name, schema_name, db_name
+                table_name, schema_name, db_name
             )
 
         # Access to table but none of its columns - is this possible ?
         return columns.get(table_name, [])
 
     def get_pk_constraints_for_table(
-        self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
+        self, table_name: str, schema_name: str, db_name: str
     ) -> Optional[SnowflakePK]:
         if (db_name, schema_name) not in self.schema_pk_constraints.keys():
             constraints = self.data_dictionary.get_pk_constraints_for_schema(
-                conn, schema_name, db_name
+                schema_name, db_name
             )
             self.schema_pk_constraints[(db_name, schema_name)] = constraints
         else:
@@ -1295,11 +1273,11 @@ class SnowflakeV2Source(
         return constraints.get(table_name)
 
     def get_fk_constraints_for_table(
-        self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
+        self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeFK]:
         if (db_name, schema_name) not in self.schema_fk_constraints.keys():
             constraints = self.data_dictionary.get_fk_constraints_for_schema(
-                conn, schema_name, db_name
+                schema_name, db_name
             )
             self.schema_fk_constraints[(db_name, schema_name)] = constraints
         else:
@@ -1324,29 +1302,29 @@ class SnowflakeV2Source(
             self.report.window_start_time = self.config.start_time
             self.report.window_end_time = self.config.end_time
 
-    def inspect_session_metadata(self, conn: SnowflakeConnection) -> None:
+    def inspect_session_metadata(self) -> None:
         try:
             logger.info("Checking current version")
-            for db_row in self.query(conn, SnowflakeQuery.current_version()):
+            for db_row in self.query(SnowflakeQuery.current_version()):
                 self.report.saas_version = db_row["CURRENT_VERSION()"]
         except Exception as e:
             self.report_error("version", f"Error: {e}")
         try:
             logger.info("Checking current role")
-            for db_row in self.query(conn, SnowflakeQuery.current_role()):
+            for db_row in self.query(SnowflakeQuery.current_role()):
                 self.report.role = db_row["CURRENT_ROLE()"]
         except Exception as e:
             self.report_error("version", f"Error: {e}")
         try:
             logger.info("Checking current warehouse")
-            for db_row in self.query(conn, SnowflakeQuery.current_warehouse()):
+            for db_row in self.query(SnowflakeQuery.current_warehouse()):
                 self.report.default_warehouse = db_row["CURRENT_WAREHOUSE()"]
         except Exception as e:
             self.report_error("current_warehouse", f"Error: {e}")
 
         try:
             logger.info("Checking current edition")
-            if self.is_standard_edition(conn):
+            if self.is_standard_edition():
                 self.report.edition = SnowflakeEdition.STANDARD
             else:
                 self.report.edition = SnowflakeEdition.ENTERPRISE
@@ -1360,9 +1338,9 @@ class SnowflakeV2Source(
     # Ideally we do not want null values in sample data for a column.
     # However that would require separate query per column and
     # that would be expensive, hence not done.
-    def get_sample_values_for_table(self, conn, table_name, schema_name, db_name):
+    def get_sample_values_for_table(self, table_name, schema_name, db_name):
         # Create a cursor object.
-        cur = conn.cursor()
+        cur = self.get_connection().cursor()
         NUM_SAMPLED_ROWS = 1000
         # Execute a statement that will generate a result set.
         sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
@@ -1395,13 +1373,13 @@ class SnowflakeV2Source(
             return f"{self.snowsight_base_url}#/data/databases/{db_name}/"
         return None
 
-    def get_snowsight_base_url(self, conn: SnowflakeConnection) -> Optional[str]:
+    def get_snowsight_base_url(self) -> Optional[str]:
         try:
             # See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#finding-the-region-and-locator-for-an-account
-            for db_row in self.query(conn, SnowflakeQuery.current_account()):
+            for db_row in self.query(SnowflakeQuery.current_account()):
                 account_locator = db_row["CURRENT_ACCOUNT()"]
 
-            for db_row in self.query(conn, SnowflakeQuery.current_region()):
+            for db_row in self.query(SnowflakeQuery.current_region()):
                 region = db_row["CURRENT_REGION()"]
 
             self.report.account_locator = account_locator
@@ -1432,9 +1410,9 @@ class SnowflakeV2Source(
             )
             return None
 
-    def is_standard_edition(self, conn):
+    def is_standard_edition(self):
         try:
-            self.query(conn, SnowflakeQuery.show_tags())
+            self.query(SnowflakeQuery.show_tags())
             return False
         except Exception as e:
             if "Unsupported feature 'TAG'" in str(e):

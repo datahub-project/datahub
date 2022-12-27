@@ -33,9 +33,15 @@ class SnowflakeLoggingProtocol(Protocol):
     logger: logging.Logger
 
 
-class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
+class SnowflakeQueryProtocol(SnowflakeLoggingProtocol, Protocol):
+    def get_connection(self) -> SnowflakeConnection:
+        ...
+
+
+class SnowflakeCommonProtocol(SnowflakeQueryProtocol, Protocol):
     config: SnowflakeV2Config
     report: SnowflakeV2Report
+    connection: Optional[SnowflakeConnection]
 
     def get_dataset_identifier(
         self, table_name: str, schema_name: str, db_name: str
@@ -54,14 +60,15 @@ class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
     def report_error(self, key: str, reason: str) -> None:
         ...
 
+    def create_connection(self) -> Optional[SnowflakeConnection]:
+        ...
+
 
 class SnowflakeQueryMixin:
-    def query(
-        self: SnowflakeLoggingProtocol, conn: SnowflakeConnection, query: str
-    ) -> Any:
+    def query(self: SnowflakeQueryProtocol, query: str) -> Any:
         try:
             self.logger.debug("Query : {}".format(query))
-            resp = conn.cursor(DictCursor).execute(query)
+            resp = self.get_connection().cursor(DictCursor).execute(query)
             return resp
 
         except Exception as e:
@@ -100,8 +107,21 @@ class SnowflakeCommonMixin:
             raise Exception(f"Unknown snowflake region {region}")
         return cloud, cloud_region_id
 
-    # If connection succeds, return connection, else return None and report failure
-    def get_connection(self: SnowflakeCommonProtocol) -> Optional[SnowflakeConnection]:
+    def get_connection(self: SnowflakeCommonProtocol) -> SnowflakeConnection:
+        if self.connection is None:
+            # Ideally this is never called here
+            self.logger.info("Did you forget to initialize connection for module?")
+            self.connection = self.create_connection()
+
+        # Connection is already present by the time its used for query
+        # Every module initializes the connection or fails and returns
+        assert self.connection is not None
+        return self.connection
+
+    # If connection succeeds, return connection, else return None and report failure
+    def create_connection(
+        self: SnowflakeCommonProtocol,
+    ) -> Optional[SnowflakeConnection]:
         try:
             conn = self.config.get_connection()
         except Exception as e:
@@ -255,6 +275,10 @@ class SnowflakeCommonMixin:
     def report_error(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         self.logger.error(f"{key} => {reason}")
+
+    def close(self: SnowflakeCommonProtocol) -> None:
+        if self.connection is not None and not self.connection.is_closed():
+            self.connection.close()
 
 
 def is_permission_error(e: Exception) -> bool:

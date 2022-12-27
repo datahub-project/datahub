@@ -213,6 +213,42 @@ def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
         )
 
 
+def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
+    config: SnowflakeV2Config = SnowflakeV2Config.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
+            "warehouse": "COMPUTE_WH",
+            "role": "sysadmin",
+        }
+    )
+    assert config.get_options()["connect_args"] is not None
+    assert config.get_options()["connect_args"] == {
+        "client_prefetch_threads": 10,
+        "client_session_keep_alive": True,
+    }
+
+
+def test_snowflake_config_with_connect_args_overrides_base_connect_args():
+    config: SnowflakeV2Config = SnowflakeV2Config.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
+            "warehouse": "COMPUTE_WH",
+            "role": "sysadmin",
+            "connect_args": {
+                "client_prefetch_threads": 5,
+            },
+        }
+    )
+    assert config.get_options()["connect_args"] is not None
+    assert config.get_options()["connect_args"]["client_prefetch_threads"] == 5
+
+
 @patch("snowflake.connector.connect")
 def test_test_connection_failure(mock_connect):
     mock_connect.side_effect = Exception("Failed to connect to snowflake")
