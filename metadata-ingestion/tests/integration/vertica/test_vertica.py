@@ -24,15 +24,15 @@ def vertica_runner(docker_compose_runner, pytestconfig):
 # Test needs more work to be done , currently it is working fine.
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_vertica_ingest_with_db(pytestconfig):
+def test_vertica_ingest_with_db(pytestconfig,tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/vertica"
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "vertica_to_file.yml").resolve()
-    run_datahub_cmd(["ingest", "--strict-warnings", "-c", f"{config_file}"])
+    run_datahub_cmd(["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path="vertica.json",
+        output_path=tmp_path / "vertica.json",
         golden_path=test_resources_dir / "vertica_mces_with_db_golden.json",
     )

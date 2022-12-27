@@ -64,7 +64,7 @@ class VerticaSourceReport(SQLSourceReport):
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
-        Entity could be a projection or a models or OAuth .
+        Entity could be a projection or a models or Oauth .
         """
 
         if ent_type == "projection":
@@ -90,7 +90,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     )
     oauth_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for OAuth to filter in ingestion. ",
+        description="Regex patterns for Oauth to filter in ingestion. ",
     )
 
     include_projections: Optional[bool] = pydantic.Field(
@@ -100,7 +100,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
         default=True, description="Whether Models should be ingested."
     )
     include_oauth: Optional[bool] = pydantic.Field(
-        default=True, description="Whether OAuth should be ingested."
+        default=True, description="Whether Oauth should be ingested."
     )
     include_view_lineage: Optional[bool] = pydantic.Field(
         default=True, description="Whether lineages should be ingested for views"
@@ -135,10 +135,10 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "Vertica")
+        super(VerticaSource, self).__init__(config, ctx, "vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
-        self.Projection_lineage_map: Optional[
+        self.projection_lineage_map: Optional[
             Dict[str, List[Tuple[str, str, str]]]
         ] = None
 
@@ -206,7 +206,7 @@ class VerticaSource(SQLAlchemySource):
 
             oauth_schema = "Entities"
             if sql_config.include_oauth:
-                yield from self.loop_Oauth(inspector, oauth_schema, sql_config)
+                yield from self.loop_oauth(inspector, oauth_schema, sql_config)
 
         # Clean up stale entities.
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
@@ -230,7 +230,7 @@ class VerticaSource(SQLAlchemySource):
             return custom_properties
         except Exception as ex:
             self.report.report_failure(
-                f"{schema}", f"unable to get extra_properties : {ex}"
+                f"{database}.{schema}", f"unable to get extra_properties : {ex}"
             )
 
     def _process_table(
@@ -447,7 +447,7 @@ class VerticaSource(SQLAlchemySource):
                             urn=dataset_urn,
                             aspects=[StatusClass(removed=False)],
                         )
-                        lineage_info = self._get_upstream_lineage_info_Projection(
+                        lineage_info = self._get_upstream_lineage_info_projection(
                             dataset_urn, projection
                         )
 
@@ -809,8 +809,6 @@ class VerticaSource(SQLAlchemySource):
         # this method and provide a location.
         location: Optional[str] = None
         try:
-            # SQLAlchemy stubs are incomplete and missing this method.
-            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             table_info: dict = inspector.get_model_comment(model, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
@@ -828,7 +826,7 @@ class VerticaSource(SQLAlchemySource):
         properties = table_info.get("properties", {})
         return description, properties, location
 
-    def loop_Oauth(
+    def loop_oauth(
         self,
         inspector: Inspector,
         schema: str,
@@ -867,7 +865,7 @@ class VerticaSource(SQLAlchemySource):
                     self.report.report_dropped(dataset_name)
                     continue
                 try:
-                    yield from self._process_Oauth(
+                    yield from self._process_oauth(
                         dataset_name,
                         inspector,
                         schema,
@@ -879,14 +877,14 @@ class VerticaSource(SQLAlchemySource):
                         f"{schema}.{oauth}", f"Ingestion error: {error}"
                     )
         except Exception as error:
-            self.report.report_failure(f"{schema}", f"Oauth error: {error}")
+            self.report.report_failure(f"{schema}", f"oauth error: {error}")
 
-    def _process_Oauth(
+    def _process_oauth(
         self,
         dataset_name: str,
         inspector: Inspector,
         schema: str,
-        OAuth: str,
+        oauth: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
@@ -895,7 +893,7 @@ class VerticaSource(SQLAlchemySource):
             dataset_name (str): dataset name
             inspector (Inspector): inspector object from reflection
             schema (str): schema name
-            OAuth (str): oauth name
+            Oauth (str): oauth name
             sql_config (SQLAlchemyConfig): configuration
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
@@ -912,19 +910,19 @@ class VerticaSource(SQLAlchemySource):
             aspects=[StatusClass(removed=False)],
         )
         # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("OAuth", dataset_urn)
+        self.stale_entity_removal_handler.add_entity_to_state("oauth", dataset_urn)
         description, properties, location_urn = self.get_oauth_properties(
-            inspector, schema, OAuth
+            inspector, schema, Oauth
         )
         # Tablename might be different from the real table if we ran some normalisation ont it.
         # Getting normalized table name from the dataset_name
         # Table is the last item in the dataset name
-        normalised_table = OAuth
+        normalised_table = oauth
         splits = dataset_name.split(".")
         if splits:
             normalised_table = splits[-1]
-            if properties and normalised_table != OAuth:
-                properties["original_table_name"] = OAuth
+            if properties and normalised_table != oauth:
+                properties["original_table_name"] = oauth
         dataset_properties = DatasetPropertiesClass(
             name=normalised_table,
             description=description,
@@ -958,7 +956,7 @@ class VerticaSource(SQLAlchemySource):
                 changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
                 aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["OAuth"]),
+                aspect=SubTypesClass(typeNames=["oauth"]),
             ),
         )
         self.report.report_workunit(subtypes_aspect)
@@ -991,8 +989,7 @@ class VerticaSource(SQLAlchemySource):
         # this method and provide a location.
         location: Optional[str] = None
         try:
-            # SQLAlchemy stubs are incomplete and missing this method.
-            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
+
             table_info: dict = inspector.get_oauth_comment(model, schema)  # type: ignore
         except NotImplementedError:
             return description, properties, location
@@ -1026,22 +1023,18 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             bool: returns bool
         """
+        
+        super().is_dataset_eligible_for_profiling(
+                dataset_name,
+                sql_config,
+                inspector, 
+                profile_candidates
+        )
         return (
-            (
-                sql_config.table_pattern.allowed(dataset_name)
-                and sql_config.profile_pattern.allowed(dataset_name)
-            )
-            and (
-                sql_config.projection_pattern.allowed(dataset_name)
-                and sql_config.profile_pattern.allowed(dataset_name)
-            )
-            and (
-                profile_candidates is None
-                or (
-                    profile_candidates is not None
-                    and dataset_name in profile_candidates
-                )
-            )
+
+            sql_config.projection_pattern.allowed(dataset_name)
+            and sql_config.profile_pattern.allowed(dataset_name)
+
         )
 
     def loop_profiler_requests_for_projections(
@@ -1055,31 +1048,32 @@ class VerticaSource(SQLAlchemySource):
 
         Args: schema: schema name
 
-        Yields:
-            [type]: GEProfilerRequest object
         """
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
-        if (
-            sql_config.profiling.profile_if_updated_since_days is not None
-            or sql_config.profiling.profile_table_size_limit is not None
-            or sql_config.profiling.profile_table_row_limit is None
-        ):
-            try:
-                threshold_time: Optional[datetime.datetime] = None
-                if sql_config.profiling.profile_if_updated_since_days is not None:
-                    threshold_time = datetime.datetime.now(
-                        datetime.timezone.utc
-                    ) - datetime.timedelta(
-                        sql_config.profiling.profile_if_updated_since_days
-                    )
-                profile_candidates = self.generate_profile_candidates(
-                    inspector, threshold_time, schema
-                )
-            except NotImplementedError:
-                logger.debug("Source does not support generating profile candidates.")
+        # if (
+        #     sql_config.profiling.profile_if_updated_since_days is not None
+        #     or sql_config.profiling.profile_table_size_limit is not None
+        #     or sql_config.profiling.profile_table_row_limit is None
+        # ):
+        #     try:
+        #         threshold_time: Optional[datetime.datetime] = None
+        #         if sql_config.profiling.profile_if_updated_since_days is not None:
+        #             threshold_time = datetime.datetime.now(
+        #                 datetime.timezone.utc
+        #             ) - datetime.timedelta(
+        #                 sql_config.profiling.profile_if_updated_since_days
+        #             )
+        #         profile_candidates = self.generate_profile_candidates(
+        #             inspector, threshold_time, schema
+        #         )
+        #     except NotImplementedError:
+        #         logger.debug("Source does not support generating profile candidates.")
+        super().loop_profiler_requests(
+            inspector,schema, sql_config
+        )
         for projection in inspector.get_projection_names(schema):
 
             schema, projection = self.standardize_schema_table_names(
@@ -1189,7 +1183,7 @@ class VerticaSource(SQLAlchemySource):
         """Collects upstream and downstream lineage information for views .
 
         Args:
-            view ([type]): name of the view
+            view (str): name of the view
 
         """
 
@@ -1257,7 +1251,7 @@ class VerticaSource(SQLAlchemySource):
             f"A total of {num_edges} View upstream edges found found for {view}"
         )
 
-    def _get_upstream_lineage_info_Projection(
+    def _get_upstream_lineage_info_projection(
         self, dataset_urn: str, projection: str
     ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
 
@@ -1268,7 +1262,7 @@ class VerticaSource(SQLAlchemySource):
 
         self._populate_projection_lineage(projection)
         dataset_name = dataset_key.name
-        lineage = self.Projection_lineage_map[dataset_name]
+        lineage = self.projection_lineage_map[dataset_name]
 
         if not (lineage):
             logger.debug(f"No lineage found for {dataset_name}")
@@ -1303,7 +1297,7 @@ class VerticaSource(SQLAlchemySource):
         Collects upstream and downstream lineage information for views .
 
         Args:
-            projection ([type]): name of the projection
+            projection (str): name of the projection
 
 
         """
@@ -1322,7 +1316,7 @@ class VerticaSource(SQLAlchemySource):
         num_edges: int = 0
 
         try:
-            self.Projection_lineage_map = defaultdict(list)
+            self.projection_lineage_map = defaultdict(list)
             for db_row_key in engine.execute(view_upstream_lineage_query):
                 basename = db_row_key["basename"]
                 upstream = f"{db_row_key['schemaname']}.{db_row_key['basename']}"
@@ -1341,7 +1335,7 @@ class VerticaSource(SQLAlchemySource):
                     downstream = f"{db_row_value['schemaname']}.{db_row_value['name']}"
                     projection_upstream: str = upstream
                     projection_name: str = downstream
-                    self.Projection_lineage_map[projection_name].append(
+                    self.projection_lineage_map[projection_name].append(
                         # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
                         (projection_upstream, "[]", "[]")
                     )
@@ -1357,10 +1351,10 @@ class VerticaSource(SQLAlchemySource):
             f"A total of {num_edges} Projection lineage edges found for {projection}."
         )
 
-    def _get_owner_information(self, table: str, lable: str):
+    def _get_owner_information(self, table: str, label: str):
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
-        if lable == "table":
+        if label == "table":
             get_owner_query = sql.text(
                 dedent(
                     """
@@ -1374,7 +1368,7 @@ class VerticaSource(SQLAlchemySource):
 
             for each in engine.execute(get_owner_query):
                 return each["owner_name"]
-        elif lable == "view":
+        elif label == "view":
             get_owner_query = sql.text(
                 dedent(
                     """
@@ -1389,7 +1383,7 @@ class VerticaSource(SQLAlchemySource):
             for each in engine.execute(get_owner_query):
                 return each["owner_name"]
 
-        elif lable == "projection":
+        elif label == "projection":
             get_owner_query = sql.text(
                 dedent(
                     """
