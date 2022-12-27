@@ -1,8 +1,9 @@
-from datahub_provider._airflow_compat import BaseOperator, ExternalTaskSensor, Operator
+from datahub_provider._airflow_compat import AIRFLOW_PATCHED
 
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Union, cast
 
 from airflow.configuration import conf
+from airflow.models.baseoperator import BaseOperator
 
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -12,6 +13,9 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
+from datahub_provider._airflow_shims import ExternalTaskSensor, Operator
+
+assert AIRFLOW_PATCHED
 
 if TYPE_CHECKING:
     from airflow import DAG

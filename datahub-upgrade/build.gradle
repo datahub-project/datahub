@@ -46,6 +46,10 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
+
+  testImplementation externalDependency.springBootTest
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
 }
 
 bootJar {
