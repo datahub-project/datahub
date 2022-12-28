@@ -24,6 +24,7 @@ from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -102,6 +103,8 @@ logger = logging.getLogger(__name__)
 class LookerDashboardSourceConfig(
     LookerAPIConfig, LookerCommonConfig, StatefulIngestionConfigBase
 ):
+    _removed_github_info = pydantic_removed_field("github_info")
+
     dashboard_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting dashboard ids that are to be included",

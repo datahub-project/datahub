@@ -63,7 +63,7 @@ export const DomainsList = () => {
                 query,
             },
         },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: query && query.length > 0 ? 'no-cache' : 'cache-first',
     });
 
     const totalDomains = data?.listDomains?.total || 0;
@@ -76,7 +76,7 @@ export const DomainsList = () => {
     };
 
     const handleDelete = (urn: string) => {
-        removeFromListDomainsCache(client, urn, page, pageSize, query);
+        removeFromListDomainsCache(client, urn, page, pageSize);
         setTimeout(function () {
             refetch?.();
         }, 2000);
@@ -116,9 +116,9 @@ export const DomainsList = () => {
         const url = entityRegistry.getEntityUrl(EntityType.Domain, domain.urn);
 
         return {
+            urn: domain.urn,
             name: displayName,
             entities: totalEntitiesText,
-            urn: domain.urn,
             ownership: domain.ownership,
             url,
         };
@@ -147,7 +147,7 @@ export const DomainsList = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => setQuery(q && q.length > 0 ? q : undefined)}
                         entityRegistry={entityRegistry}
                         hideRecommendations
                     />
@@ -186,13 +186,12 @@ export const DomainsList = () => {
                                     urn,
                                     properties: {
                                         name,
-                                        description,
+                                        description: description || null,
                                     },
                                     ownership: null,
                                     entities: null,
                                 },
                                 pageSize,
-                                query,
                             );
                             setTimeout(() => refetch(), 2000);
                         }}

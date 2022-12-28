@@ -87,6 +87,10 @@ class GEProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the sample values for all columns.",
     )
+    field_sample_values_limit: int = Field(
+        default=20,
+        description="Upper limit for number of sample values to collect for all columns.",
+    )
 
     _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
         default=AllowDenyPattern.allow_all(),

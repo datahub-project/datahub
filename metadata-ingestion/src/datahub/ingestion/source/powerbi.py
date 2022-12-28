@@ -116,7 +116,7 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter PowerBI workspaces in ingestion",
     )
-    workspace_id: str = pydantic.Field(
+    workspace_id: Optional[str] = pydantic.Field(
         description="[deprecated] Use workspace_id_pattern instead",
         default=None,
     )

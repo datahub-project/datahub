@@ -5,13 +5,12 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigurationError,
-    LineageConfig,
+from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    LineageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
 )
-from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
@@ -32,7 +31,10 @@ class BigQueryUsageConfig(BaseUsageConfig):
 
 
 class BigQueryV2Config(
-    BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig, LineageConfig
+    BigQueryConfig,
+    LineageStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
 ):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
