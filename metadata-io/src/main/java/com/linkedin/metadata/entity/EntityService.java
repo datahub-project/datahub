@@ -883,7 +883,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         _producer.produceMetadataChangeProposal(mcp);
         return new IngestProposalResult(mcp.getEntityUrn(), false);
       }
-  } else {
+    } else {
       // For timeseries aspects
       newAspect = convertToRecordTemplate(mcp, aspectSpec);
       newSystemMetadata = mcp.getSystemMetadata();
