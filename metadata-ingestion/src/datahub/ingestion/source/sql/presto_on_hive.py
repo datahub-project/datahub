@@ -15,9 +15,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-)
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (

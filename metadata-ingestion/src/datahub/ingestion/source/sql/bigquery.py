@@ -22,11 +22,7 @@ from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    BigQueryDatasetKey,
-    PlatformKey,
-    ProjectIdKey,
-)
+from datahub.emitter.mcp_builder import BigQueryDatasetKey, PlatformKey, ProjectIdKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,

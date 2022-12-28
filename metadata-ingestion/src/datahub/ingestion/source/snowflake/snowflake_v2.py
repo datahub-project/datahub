@@ -65,9 +65,9 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.sql.sql_utils import (
-    gen_schema_containers,
-    gen_database_containers,
     add_table_to_schema_container,
+    gen_database_containers,
+    gen_schema_containers,
     get_dataplatform_instance_aspect,
     get_domain_wu,
 )
