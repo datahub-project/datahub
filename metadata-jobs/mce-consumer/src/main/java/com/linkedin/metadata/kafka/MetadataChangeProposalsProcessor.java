@@ -16,6 +16,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;

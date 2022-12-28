@@ -25,6 +25,10 @@ export const OnboardingTour = ({ stepIds }: Props) => {
                 setReshow(true);
                 setIsOpen(true);
             }
+            if (e.metaKey && e.ctrlKey && e.key === 'h') {
+                setReshow(false);
+                setIsOpen(false);
+            }
         }
         document.addEventListener('keydown', handleKeyDown);
     }, []);

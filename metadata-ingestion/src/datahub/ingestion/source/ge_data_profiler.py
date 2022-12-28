@@ -481,7 +481,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_values_to_be_in_set(
-                column, [], result_format="SUMMARY"
+                column,
+                [],
+                result_format={
+                    "result_format": "SUMMARY",
+                    "partial_unexpected_count": self.config.field_sample_values_limit,
+                },
             ).result
 
             column_profile.sampleValues = [
@@ -865,8 +870,19 @@ class DatahubGEProfiler:
                         bq_sql += f" LIMIT {self.config.limit}"
                     if self.config.offset:
                         bq_sql += f" OFFSET {self.config.offset}"
-
-                cursor.execute(bq_sql)
+                try:
+                    cursor.execute(bq_sql)
+                except Exception as e:
+                    if not self.config.catch_exceptions:
+                        raise e
+                    logger.exception(
+                        f"Encountered exception while profiling {pretty_name}"
+                    )
+                    self.report.report_warning(
+                        pretty_name,
+                        f"Profiling exception {e} when running custom sql {bq_sql}",
+                    )
+                    return None
 
                 # Great Expectations batch v2 API, which is the one we're using, requires
                 # a concrete table name against which profiling is executed. Normally, GE
@@ -960,7 +976,7 @@ class DatahubGEProfiler:
                 if not self.config.catch_exceptions:
                     raise e
                 logger.exception(f"Encountered exception while profiling {pretty_name}")
-                self.report.report_failure(pretty_name, f"Profiling exception {e}")
+                self.report.report_warning(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
                 if self.base_engine.engine.name == "trino":

@@ -209,7 +209,6 @@ class MetabaseSource(Source):
     def construct_dashboard_from_api_data(
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
-
         dashboard_id = dashboard_info.get("id", "")
         dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
         try:

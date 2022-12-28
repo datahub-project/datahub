@@ -271,7 +271,6 @@ class ConfluentJDBCSourceConnector:
         self,
         connector_manifest: ConnectorManifest,
     ) -> JdbcParser:
-
         url = remove_prefix(
             str(connector_manifest.config.get("connection.url")), "jdbc:"
         )
@@ -479,7 +478,6 @@ class ConfluentJDBCSourceConnector:
             return
 
         if SINGLE_TRANSFORM and transforms[0]["type"] == self.REGEXROUTER:
-
             tables = self.get_table_names()
             topic_names = list(self.connector_manifest.topic_names)
 
@@ -983,7 +981,6 @@ class KafkaConnectSource(Source):
 
             # Populate Source Connector metadata
             if connector_manifest.type == "source":
-
                 tasks = self.session.get(
                     f"{self.config.connect_uri}/connectors/{c}/tasks",
                 ).json()
@@ -1088,7 +1085,6 @@ class KafkaConnectSource(Source):
     def construct_job_workunits(
         self, connector: ConnectorManifest
     ) -> Iterable[MetadataWorkUnit]:
-
         connector_name = connector.name
         flow_urn = builder.make_data_flow_urn(
             "kafka-connect", connector_name, self.config.env
@@ -1183,7 +1179,6 @@ class KafkaConnectSource(Source):
     def construct_lineage_workunits(
         self, connector: ConnectorManifest
     ) -> Iterable[MetadataWorkUnit]:
-
         lineages = connector.lineages
         if lineages:
             for lineage in lineages:

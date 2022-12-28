@@ -60,7 +60,7 @@ export const ManageIngestionPage = () => {
             <PageHeaderContainer>
                 <PageTitle level={3}>Manage Ingestion</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    Create, schedule, and run DataHub ingestion pipelines.
+                    Create, schedule, and run DataHub ingestion sources.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
