@@ -1,4 +1,5 @@
 import typing
+from typing import Iterable
 
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
@@ -14,6 +15,7 @@ from datahub.ingestion.source.sql.sql_common import (
     logger,
     make_sqlalchemy_uri,
 )
+from datahub.ingestion.source.sql.sql_utils import gen_database_key
 
 
 class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
@@ -56,7 +58,12 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,
         # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
         assert db_name == schema
-        return self.gen_database_key(db_name)
+        return gen_database_key(
+            db_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
     def get_allowed_schemas(
         self, inspector: Inspector, db_name: str
@@ -90,8 +97,10 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
                     yield inspector
 
     def gen_schema_containers(
-        self, inspector: Inspector, schema: str, db_name: str
-    ) -> typing.Iterable[MetadataWorkUnit]:
+        self,
+        schema: str,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
         return []
 
     def get_db_name(self, inspector: Inspector) -> str:

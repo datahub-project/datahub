@@ -1,14 +1,14 @@
 import json
 import logging
 import typing
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.emitter.mcp_builder import DatabaseKey, gen_containers
+from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -23,6 +23,9 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
     make_sqlalchemy_uri,
+)
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_schema_containers,
 )
 
 
@@ -163,7 +166,7 @@ class AthenaSource(SQLAlchemySource):
         return schemas
 
     def gen_database_containers(
-        self, inspector: Inspector, database: str
+        self, database: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         # In Athena the schema is the database and database is not existing
         return []
@@ -177,19 +180,21 @@ class AthenaSource(SQLAlchemySource):
         )
 
     def gen_schema_containers(
-        self, inspector: Inspector, schema: str, db_name: str
-    ) -> typing.Iterable[MetadataWorkUnit]:
-        database_container_key = self.gen_database_key(database=schema)
-
-        container_workunits = gen_containers(
-            database_container_key,
-            schema,
-            ["Database"],
+        self,
+        schema: str,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from gen_schema_containers(
+            database=database,
+            schema=schema,
+            sub_types=["Schema"],
+            platform=self.platform,
+            domain_config=self.config.domain,
+            domain_registry=self.domain_registry,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            report=self.report,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def close(self):
         if self.cursor:

@@ -26,7 +26,6 @@ from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
     PlatformKey,
     ProjectIdKey,
-    gen_containers,
 )
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -44,6 +43,10 @@ from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     make_sqlalchemy_type,
     register_custom_type,
+)
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_database_containers,
+    gen_schema_containers,
 )
 from datahub.ingestion.source.usage.bigquery_usage import (
     BQ_DATE_SHARD_FORMAT,
@@ -1196,38 +1199,39 @@ WHERE
             backcompat_instance_for_guid=self.config.env,
         )
 
-    def gen_database_containers(
-        self, inspector: Inspector, database: str
-    ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(database)
-
+    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
         database_container_key = self.gen_database_key(database)
 
-        container_workunits = gen_containers(
-            container_key=database_container_key,
-            name=database,
+        yield from gen_database_containers(
+            database=database,
             sub_types=["Project"],
-            domain_urn=domain_urn,
+            platform=self.platform,
+            domain_config=self.config.domain,
+            domain_registry=self.domain_registry,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            report=self.report,
+            database_container_key=database_container_key,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def gen_schema_containers(
-        self, inspector: Inspector, schema: str, db_name: str
+        self,
+        schema: str,
+        database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        schema_container_key = self.gen_schema_key(db_name, schema)
+        schema_container_key = self.gen_schema_key(database, schema)
+        database_container_key = self.gen_database_key(database=database)
 
-        database_container_key = self.gen_database_key(database=db_name)
-
-        container_workunits = gen_containers(
-            schema_container_key,
-            schema,
-            ["Dataset"],
-            database_container_key,
+        yield from gen_schema_containers(
+            database=database,
+            schema=schema,
+            sub_types=["Dataset"],
+            platform=self.platform,
+            domain_config=self.config.domain,
+            domain_registry=self.domain_registry,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            report=self.report,
+            schema_container_key=schema_container_key,
+            database_container_key=database_container_key,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
