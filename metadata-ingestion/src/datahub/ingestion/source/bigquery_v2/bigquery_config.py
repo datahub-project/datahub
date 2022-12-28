@@ -5,7 +5,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     LineageStatefulIngestionConfig,
     ProfilingStatefulIngestionConfig,
@@ -31,7 +32,8 @@ class BigQueryUsageConfig(BaseUsageConfig):
 
 
 class BigQueryV2Config(
-    BigQueryConfig,
+    BigQueryBaseConfig,
+    SQLAlchemyConfig,
     LineageStatefulIngestionConfig,
     UsageStatefulIngestionConfig,
     ProfilingStatefulIngestionConfig,

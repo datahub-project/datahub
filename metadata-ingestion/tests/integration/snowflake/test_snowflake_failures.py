@@ -40,7 +40,6 @@ def query_permission_response_override(fn, override_for_query, response):
 
 @fixture(scope="function")
 def snowflake_pipeline_config(tmp_path):
-
     output_file = tmp_path / "snowflake_test_events_permission_error.json"
     config = PipelineConfig(
         source=SourceConfig(
@@ -160,7 +159,6 @@ def test_snowflake_list_columns_error_causes_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
 ):
-
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -192,7 +190,6 @@ def test_snowflake_list_primary_keys_error_causes_pipeline_warning(
     pytestconfig,
     snowflake_pipeline_config,
 ):
-
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -219,7 +216,6 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
     pytestconfig,
     snowflake_pipeline_config,
 ):
-
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -249,7 +245,6 @@ def test_snowflake_missing_snowflake_operations_permission_causes_pipeline_failu
     pytestconfig,
     snowflake_pipeline_config,
 ):
-
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
@@ -272,7 +267,6 @@ def test_snowflake_unexpected_snowflake_view_lineage_error_causes_pipeline_warni
     pytestconfig,
     snowflake_pipeline_config,
 ):
-
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
