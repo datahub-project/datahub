@@ -236,6 +236,7 @@ export const dataset1 = {
     deprecation: null,
     testResults: null,
     statsSummary: null,
+    embed: null,
 };
 
 export const dataset2 = {
@@ -327,6 +328,7 @@ export const dataset2 = {
     deprecation: null,
     testResults: null,
     statsSummary: null,
+    embed: null,
 };
 
 export const dataset3 = {
@@ -555,6 +557,7 @@ export const dataset3 = {
     testResults: null,
     siblings: null,
     statsSummary: null,
+    embed: null,
 } as Dataset;
 
 export const dataset4 = {
