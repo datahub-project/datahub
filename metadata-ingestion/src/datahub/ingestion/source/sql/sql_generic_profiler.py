@@ -147,7 +147,10 @@ class GenericProfiler:
             if last_profiled
             else None
         )
-        if self.config.profiling.profile_if_updated_since_days is not None:
+        if (
+            not threshold_time
+            and self.config.profiling.profile_if_updated_since_days is not None
+        ):
             threshold_time = datetime.now(timezone.utc) - timedelta(
                 self.config.profiling.profile_if_updated_since_days
             )

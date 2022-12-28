@@ -330,7 +330,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         topic_detail: Optional[TopicMetadata],
         extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Dict[str, str]:
-
         custom_props: Dict[str, str] = {}
         self.update_custom_props_with_topic_details(topic, topic_detail, custom_props)
         self.update_custom_props_with_topic_config(
