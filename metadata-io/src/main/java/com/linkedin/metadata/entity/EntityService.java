@@ -147,6 +147,7 @@ public class EntityService {
   public static class IngestProposalResult {
     Urn urn;
     boolean didUpdate;
+    boolean queued;
   }
 
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
@@ -881,7 +882,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       } else {
         // When async is turned on, we write to proposal log and return without waiting
         _producer.produceMetadataChangeProposal(mcp);
-        return new IngestProposalResult(mcp.getEntityUrn(), false);
+        return new IngestProposalResult(mcp.getEntityUrn(), false, true);
       }
     } else {
       // For timeseries aspects
@@ -893,7 +894,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         emitChangeLog(oldAspect, oldSystemMetadata, newAspect, newSystemMetadata, mcp, entityUrn, auditStamp,
             aspectSpec);
 
-    return new IngestProposalResult(entityUrn, didUpdate);
+    return new IngestProposalResult(entityUrn, didUpdate, false);
   }
 
   private AspectSpec validateAspect(MetadataChangeProposal mcp, EntitySpec entitySpec) {
