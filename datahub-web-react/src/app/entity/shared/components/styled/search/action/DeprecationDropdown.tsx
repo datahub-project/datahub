@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useBatchUpdateDeprecationMutation } from '../../../../../../../graphql/mutations.generated';
 import { UpdateDeprecationModal } from '../../../../EntityDropdown/UpdateDeprecationModal';
 import ActionDropdown from './ActionDropdown';
+import { handleBatchError } from '../../../../utils';
 
 type Props = {
     urns: Array<string>;
@@ -32,10 +33,12 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
             })
             .catch((e) => {
                 message.destroy();
-                message.error({
-                    content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
-                    duration: 3,
-                });
+                message.error(
+                    handleBatchError(urns, e, {
+                        content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
+                        duration: 3,
+                    }),
+                );
             });
     };
 
