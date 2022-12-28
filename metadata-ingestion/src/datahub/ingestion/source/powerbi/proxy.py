@@ -752,26 +752,28 @@ class PowerBiAPI:
             LOGGER.info("Scan id({})".format(id))
             return id
 
-        def wait_for_scan_to_complete(scan_id: str, timeout: int) -> Any:
-            """
-            Poll the PowerBi service for workspace scan to complete
-            """
-            minimum_sleep = 3
+        def calculate_max_trial(minimum_sleep: int, timeout: int) -> int:
             if timeout < minimum_sleep:
                 LOGGER.info(
                     f"Setting timeout to minimum_sleep time {minimum_sleep} seconds"
                 )
                 timeout = minimum_sleep
 
-            max_trial = timeout // minimum_sleep
+            return timeout // minimum_sleep
+
+        def wait_for_scan_to_complete(scan_id: str, timeout: int) -> Any:
+            """
+            Poll the PowerBi service for workspace scan to complete
+            """
+            minimum_sleep = 3
+            max_trial: int = calculate_max_trial(minimum_sleep, timeout)
             LOGGER.info(f"Max trial {max_trial}")
+
             scan_get_endpoint = PowerBiAPI.API_ENDPOINTS[Constant.SCAN_GET]
             scan_get_endpoint = scan_get_endpoint.format(
                 POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL, SCAN_ID=scan_id
             )
-
             LOGGER.info(f"Hitting URL={scan_get_endpoint}")
-
             trail = 1
             while True:
                 LOGGER.info(f"Trial = {trail}")
@@ -781,9 +783,7 @@ class PowerBiAPI:
                 )
                 if res.status_code != 200:
                     message = f"API({scan_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
-
                     LOGGER.warning(message)
-
                     raise ConnectionError(message)
 
                 if res.json()["status"].upper() == "Succeeded".upper():
@@ -792,6 +792,7 @@ class PowerBiAPI:
 
                 if trail == max_trial:
                     break
+
                 LOGGER.info(f"Sleeping for {minimum_sleep} seconds")
                 sleep(minimum_sleep)
                 trail += 1
