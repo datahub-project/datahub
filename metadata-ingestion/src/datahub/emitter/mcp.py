@@ -132,9 +132,13 @@ class MetadataChangeProposalWrapper:
             return False
         return True
 
-    def to_obj(self, tuples: bool = False, for_file: bool = False) -> dict:
+    def to_obj(self, tuples: bool = False, simplified_structure: bool = False) -> dict:
+        # The simplified_structure parameter is used to make the output
+        # not contain nested JSON strings. Instead, it unpacks the JSON
+        # string into an object.
+
         obj = self.make_mcp().to_obj(tuples=tuples)
-        if for_file:
+        if simplified_structure:
             # Undo the double JSON serialization that happens in the MCP aspect.
             if (
                 obj.get("aspect")

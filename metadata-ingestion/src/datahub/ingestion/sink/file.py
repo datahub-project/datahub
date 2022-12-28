@@ -22,15 +22,18 @@ def _to_obj_for_file(
         MetadataChangeProposal,
         MetadataChangeProposalWrapper,
         UsageAggregation,
-    ]
+    ],
+    simplified_structure: bool = True,
 ) -> dict:
     if isinstance(obj, MetadataChangeProposalWrapper):
-        return obj.to_obj(for_file=True)
+        return obj.to_obj(simplified_structure=simplified_structure)
     return obj.to_obj()
 
 
 class FileSinkConfig(ConfigModel):
     filename: str
+
+    legacy_nested_json_string: bool = False
 
 
 class FileSink(Sink[FileSinkConfig, SinkReport]):
@@ -53,7 +56,9 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record
-        obj = _to_obj_for_file(record)
+        obj = _to_obj_for_file(
+            record, simplified_structure=not self.config.legacy_nested_json_string
+        )
 
         if self.wrote_something:
             self.file.write(",\n")
