@@ -590,6 +590,8 @@ class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
                     "Skipping table (%s) as it is not as per full_table_name format",
                     table,
                 )
+                continue
+
             full_table_names.append(table)
 
         return full_table_names

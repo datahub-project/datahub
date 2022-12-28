@@ -43,7 +43,6 @@ def get_upstream_tables(
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
-        print(parse_tree.pretty())
         valid, message = validator.validate_parse_tree(
             parse_tree, native_query_enabled=native_query_enabled
         )
