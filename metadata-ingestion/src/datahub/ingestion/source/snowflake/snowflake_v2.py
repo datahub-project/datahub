@@ -446,7 +446,7 @@ class SnowflakeV2Source(
 
         return _report
 
-    def get_workunits_internal(self) -> Iterable[WorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.connection = self.create_connection()
         if self.connection is None:
             return
