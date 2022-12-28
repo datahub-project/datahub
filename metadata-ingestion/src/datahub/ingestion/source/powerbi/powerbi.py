@@ -141,7 +141,11 @@ class Mapper:
                 upstream_table.data_platform_pair.powerbi_data_platform_name
                 not in self.__config.dataset_type_mapping.keys()
             ):
-                LOGGER.debug("Skipping upstream table for %s", ds_urn)
+                LOGGER.debug(
+                    "Skipping upstream table for %s. The platform (%s) is not part of dataset_type_mapping",
+                    ds_urn,
+                    upstream_table.data_platform_pair.powerbi_data_platform_name,
+                )
                 continue
 
             platform: Union[str, PlatformDetail] = self.__config.dataset_type_mapping[

@@ -317,6 +317,19 @@ def register_mock_api(request_mock):
                                         ],
                                     },
                                     {
+                                        "name": "snowflake native-query-with-join",
+                                        "source": [
+                                            {
+                                                "expression": 'let\n    Source = Value.NativeQuery(Snowflake.Databases("xaa48144.snowflakecomputing.com","GSL_TEST_WH",[Role="ACCOUNTADMIN"]){[Name="GSL_TEST_DB"]}[Data], "select A.name from GSL_TEST_DB.PUBLIC.SALES_ANALYST as A inner join GSL_TEST_DB.PUBLIC.SALES_FORECAST as B on A.name = B.name where startswith(A.name, \'mo\')", null, [EnableFolding=true])\nin\n    Source',
+                                            }
+                                        ],
+                                        "datasourceUsages": [
+                                            {
+                                                "datasourceInstanceId": "DCE90B40-84D6-467A-9A5C-648E830E72D3",
+                                            }
+                                        ],
+                                    },
+                                    {
                                         "name": "job-history",
                                         "source": [
                                             {
