@@ -8,9 +8,6 @@ describe("add remove domain", () => {
         cy.clickOptionWithText("New Domain");
         cy.addViaModel(test_domain, "Create new Domain")
         cy.waitTextVisible("Created domain!")
-        
-        cy.waitTextVisible(test_domain)
-
         cy.waitTextVisible(test_domain)
             .parents("[data-testid^='urn:li:domain:']")
             .invoke('attr', 'data-testid')
@@ -55,9 +52,7 @@ describe("add remove domain", () => {
     it("delete a domain and ensure dangling reference is deleted on entities", () => {
         cy.login();
         cy.goToDomainList();
-        cy.get('[data-testid="' + domain_created_urn + '"]').within(() => {
-            cy.get(".ant-dropdown-trigger").click();
-        });
+        cy.get('[data-testid="dropdown-menu-' + domain_created_urn + '"]').click();
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
         cy.ensureTextNotPresent(test_domain)

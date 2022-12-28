@@ -29,7 +29,7 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
         description="The number of log item will be queried per page for lineage collection",
     )
     credential: Optional[BigQueryCredential] = pydantic.Field(
-        description="BigQuery credential informations"
+        default=None, description="BigQuery credential informations"
     )
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
     extra_client_options: Dict[str, Any] = pydantic.Field(

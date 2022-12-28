@@ -24,6 +24,7 @@ from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -102,6 +103,8 @@ logger = logging.getLogger(__name__)
 class LookerDashboardSourceConfig(
     LookerAPIConfig, LookerCommonConfig, StatefulIngestionConfigBase
 ):
+    _removed_github_info = pydantic_removed_field("github_info")
+
     dashboard_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting dashboard ids that are to be included",
@@ -374,7 +377,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         name=field["table_calculation"],
                         view_field=ViewField(
                             name=field["table_calculation"],
-                            label=field["label"],
+                            label=field.get("label"),
                             field_type=ViewFieldType.UNKNOWN,
                             type="string",
                             description="",
@@ -383,7 +386,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
             if "measure" in field:
                 # for measure, we can also make sure to index the underlying field that the measure uses
-                based_on = field["based_on"]
+                based_on = field.get("based_on")
                 if based_on is not None:
                     result.append(
                         InputFieldElement(
@@ -398,7 +401,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         name=field["measure"],
                         view_field=ViewField(
                             name=field["measure"],
-                            label=field["label"],
+                            label=field.get("label"),
                             field_type=ViewFieldType.MEASURE,
                             type="string",
                             description="",
@@ -411,7 +414,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         name=field["dimension"],
                         view_field=ViewField(
                             name=field["dimension"],
-                            label=field["label"],
+                            label=field.get("label"),
                             field_type=ViewFieldType.DIMENSION,
                             type="string",
                             description="",

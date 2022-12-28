@@ -396,12 +396,11 @@ base_dev_requirements = {
     "mypy==0.991",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    # Restricting top version to <1.10 until we can fix our types.
-    "pydantic >=1.9.0, <1.10",
+    "pydantic >=1.9.0",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker[docker-compose-v1]>=1.0.1",
+    "pytest-docker>=1.0.1",
     "deepdiff",
     "requests-mock",
     "freezegun",
