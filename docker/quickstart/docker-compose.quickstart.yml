@@ -145,7 +145,6 @@ services:
     container_name: kafka-setup
     depends_on:
     - broker
-    - datahub-gms
     environment:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092

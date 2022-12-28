@@ -33,7 +33,7 @@ services:
         APP_ENV: dev
     depends_on:
       - broker
-      - schema-registry
+      - datahub-gms
 
   datahub-gms:
     image: linkedin/datahub-gms:debug
