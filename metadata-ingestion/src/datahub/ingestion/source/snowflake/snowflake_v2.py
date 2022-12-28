@@ -68,6 +68,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeQueryMixin,
 )
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
 )
@@ -225,9 +226,20 @@ class SnowflakeV2Source(
             # For usage stats
             self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
 
+        self.profiling_state_handler: Optional[ProfilingHandler] = None
+        if self.config.store_last_profiling_timestamps:
+            self.profiling_state_handler = ProfilingHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         if config.profiling.enabled:
             # For profiling
-            self.profiler = SnowflakeProfiler(config, self.report)
+            self.profiler = SnowflakeProfiler(
+                config, self.report, self.profiling_state_handler
+            )
 
         if self.is_classification_enabled():
             self.classifiers = self.get_classifiers()
@@ -455,17 +467,25 @@ class SnowflakeV2Source(
             yield from self.profiler.get_workunits(databases)
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            if (
+                self.config.store_last_usage_extraction_timestamp
+                and self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                )
             ):
                 # Skip this run
+                self.report.report_warning(
+                    "usage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
                 return
 
-            # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
-                start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )
+            if self.config.store_last_usage_extraction_timestamp:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
 
             discovered_datasets: List[str] = [
                 self.get_dataset_identifier(table.name, schema.name, db.name)
