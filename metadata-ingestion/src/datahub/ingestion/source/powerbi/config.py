@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import pydantic
 from pydantic import validator
@@ -102,7 +102,9 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organisation Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
-    workspace_id: str = pydantic.Field(description="PowerBI workspace identifier")
+    workspace_id: Optional[str] = pydantic.Field(
+        description="[deprecated] Use workspace_id_pattern instead", default=None
+    )
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
