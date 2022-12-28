@@ -215,7 +215,7 @@ async def update_browsepath(item: browsepath_params):
             metadata_record=metadata_record,
             owner=item.requestor,
             event="UI Update Browsepath",
-            token=item.user_token,
+            token=token,
             eventid=eventid,
         )
         
@@ -248,7 +248,7 @@ async def update_samples(item: add_sample_params):
             metadata_record=generated_mcp,
             owner=item.requestor,
             event="Update Dataset Profile",
-            token=item.user_token,
+            token=token,
         )
         
         return JSONResponse(
@@ -343,7 +343,7 @@ async def update_schema(item: schema_params):
             metadata_record=metadata_record,
             owner=item.requestor,
             event="UI Update Schema",
-            token=item.user_token,
+            token=token,
             eventid=eventid,
         )
         rootLogger.error(f"{eventid} : {response}")        
@@ -408,7 +408,7 @@ async def update_prop(item: prop_params):
             metadata_record=mcp,
             owner=item.requestor,
             event="UI Update Properties",
-            token=item.user_token,
+            token=token,
             eventid=eventid,
         )
         rootLogger.error(f"{eventid} : {response}")
@@ -609,7 +609,7 @@ async def create_item(item: create_dataset_params) -> None:
                 metadata_record=container_mcp,
                 owner=requestor,
                 event=f"Make-Dataset: update_container:{item.parentContainer}",
-                token=item.user_token,
+                token=token,
                 eventid=eventid
             )
         
@@ -643,7 +643,7 @@ async def delete_item(item: dataset_status_params) -> None:
             metadata_record=mce,
             owner=item.requestor,
             event=f"Status Update removed:{item.desired_state}",
-            token=item.user_token,
+            token=item.token,
             eventid=eventid,
         )
         rootLogger.error(f"{eventid} : {response}")
@@ -684,7 +684,7 @@ async def update_container(item: container_param) -> None:
             metadata_record=mcp,
             owner=item.requestor,
             event=f"Update container:{item.container}",
-            token=item.user_token,
+            token=token,
             eventid=eventid
         )
         rootLogger.error(f"{eventid} : {response}")
@@ -739,7 +739,7 @@ async def update_container(item: name_param) -> None:
             metadata_record=mcp,
             owner=item.requestor,
             event=f"Update dataset name:{item.displayName}",
-            token=item.user_token,
+            token=token,
             eventid=eventid
         )
         rootLogger.error(f"{eventid} : {response}")
