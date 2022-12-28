@@ -427,7 +427,7 @@ def check_platform_container_test(item: create_dataset_params):
         return True
     query_endpoint = urljoin(datahub_url, "/api/graphql")
     container_urn = item.parentContainer
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     headers = {}
     headers["Authorization"] = f"Bearer {token}"
     headers["Content-Type"] = "application/json"
