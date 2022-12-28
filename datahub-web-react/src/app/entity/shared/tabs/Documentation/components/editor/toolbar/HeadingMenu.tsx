@@ -14,9 +14,15 @@ const OPTIONS = [
     { tag: 'p', label: 'Normal', value: 0 },
 ];
 
-const StyledSelect = styled(Select)`
+/* To mitigate overrides of the Select's width when using it in modals */
+const Wrapper = styled.div`
+    display: inline-block;
     width: 120px;
+`;
+
+const StyledSelect = styled(Select)`
     font-weight: 500;
+    width: 100%;
 `;
 
 export const HeadingMenu = () => {
@@ -30,29 +36,31 @@ export const HeadingMenu = () => {
     }, []);
 
     return (
-        <StyledSelect
-            defaultValue={0}
-            bordered={false}
-            dropdownMatchSelectWidth={false}
-            value={`${activeHeading}`}
-            optionLabelProp="label"
-            onChange={(value) => {
-                const level = +`${value}`;
-                if (level) {
-                    toggleHeading({ level });
-                } else {
-                    toggleHeading();
-                }
-            }}
-            onMouseDown={handleMouseDown}
-        >
-            {OPTIONS.map((option) => {
-                return (
-                    <Option key={option.value} label={option.label} value={`${option.value}`}>
-                        {React.createElement(option.tag, null, option.label)}
-                    </Option>
-                );
-            })}
-        </StyledSelect>
+        <Wrapper>
+            <StyledSelect
+                defaultValue={0}
+                bordered={false}
+                dropdownMatchSelectWidth={false}
+                value={`${activeHeading}`}
+                optionLabelProp="label"
+                onChange={(value) => {
+                    const level = +`${value}`;
+                    if (level) {
+                        toggleHeading({ level });
+                    } else {
+                        toggleHeading();
+                    }
+                }}
+                onMouseDown={handleMouseDown}
+            >
+                {OPTIONS.map((option) => {
+                    return (
+                        <Option key={option.value} label={option.label} value={`${option.value}`}>
+                            {React.createElement(option.tag, null, option.label)}
+                        </Option>
+                    );
+                })}
+            </StyledSelect>
+        </Wrapper>
     );
 };

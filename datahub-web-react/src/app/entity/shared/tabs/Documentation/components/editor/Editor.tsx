@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
 import DOMPurify from 'dompurify';
 import {
     BlockquoteExtension,
@@ -37,11 +37,13 @@ import { MentionsComponent } from './extensions/mentions/MentionsComponent';
 type EditorProps = {
     readOnly?: boolean;
     content?: string;
+    controlledContent?: string /* Updates editor content automatically on readOnly mode */;
     onChange?: (md: string) => void;
+    className?: string;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange } = props;
+    const { content, controlledContent, readOnly, onChange, className } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -71,12 +73,19 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     });
 
     useImperativeHandle(ref, () => getContext(), [getContext]);
+
     useMount(() => {
         manager.view.focus();
     });
+    useEffect(() => {
+        if (readOnly && controlledContent) {
+            manager.store.commands.setContent(controlledContent);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [readOnly, controlledContent]);
 
     return (
-        <EditorContainer>
+        <EditorContainer className={className}>
             <ThemeProvider theme={EditorTheme}>
                 <Remirror classNames={['ant-typography']} editable={!readOnly} manager={manager} initialContent={state}>
                     {!readOnly && (

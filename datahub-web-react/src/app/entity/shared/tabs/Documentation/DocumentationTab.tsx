@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import queryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 
@@ -27,7 +27,6 @@ interface Props {
 }
 
 export const DocumentationTab = ({ properties }: { properties?: Props }) => {
-    const editorRef = useRef<any>();
     const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
     const refetch = useRefetch();
@@ -44,10 +43,6 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
             routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
         }
     }, [urn, routeToTab, localStorageDictionary]);
-
-    useEffect(() => {
-        editorRef?.current?.setContent?.(description);
-    }, [description]);
 
     return isEditing ? (
         <>
@@ -70,7 +65,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </TabToolbar>
                     <div>
                         {description ? (
-                            <Editor readOnly ref={editorRef} content={description} />
+                            <Editor readOnly controlledContent={description} />
                         ) : (
                             <DocumentationContainer>
                                 <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
