@@ -140,7 +140,7 @@ class RedshiftAccessEvent(BaseModel):
     username: str
     query: int
     tbl: int
-    text: str = Field(None, alias="querytxt")
+    text: Optional[str] = Field(None, alias="querytxt")
     database: str
     schema_: str = Field(alias="schema")
     table: str

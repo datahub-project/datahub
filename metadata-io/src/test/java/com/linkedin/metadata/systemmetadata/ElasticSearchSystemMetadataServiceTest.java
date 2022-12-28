@@ -21,7 +21,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.linkedin.metadata.ElasticSearchTestConfiguration.syncAfterWrite;
-import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
 import static org.testng.Assert.assertEquals;
 
 @Import(ElasticSearchTestConfiguration.class)
@@ -34,7 +33,7 @@ public class ElasticSearchSystemMetadataServiceTest extends AbstractTestNGSpring
   @Autowired
   private ESIndexBuilder _esIndexBuilder;
   private final IndexConvention _indexConvention = new IndexConventionImpl("es_system_metadata_service_test");
-  private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
+
   private ElasticSearchSystemMetadataService _client;
 
   @BeforeClass

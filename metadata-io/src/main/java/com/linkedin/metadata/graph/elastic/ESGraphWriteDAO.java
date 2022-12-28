@@ -11,7 +11,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -37,13 +36,12 @@ public class ESGraphWriteDAO {
    * @param docId the ID of the document
    */
   public void upsertDocument(@Nonnull String docId, @Nonnull String document) {
-    final IndexRequest indexRequest =
-        new IndexRequest(indexConvention.getIndexName(INDEX_NAME)).id(docId).source(document, XContentType.JSON);
-    final UpdateRequest updateRequest =
-        new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId).doc(document, XContentType.JSON)
-                .detectNoop(false)
-                .retryOnConflict(numRetries)
-                .upsert(indexRequest);
+    final UpdateRequest updateRequest = new UpdateRequest(
+            indexConvention.getIndexName(INDEX_NAME), docId)
+            .detectNoop(false)
+            .docAsUpsert(true)
+            .doc(document, XContentType.JSON)
+            .retryOnConflict(numRetries);
     bulkProcessor.add(updateRequest);
   }
 
