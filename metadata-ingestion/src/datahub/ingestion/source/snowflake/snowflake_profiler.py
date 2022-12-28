@@ -51,7 +51,9 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         self.report: SnowflakeV2Report = report
         self.logger = logger
 
-    def get_workunits(self, databases: List[SnowflakeDatabase]) -> Iterable[MetadataWorkUnit]:
+    def get_workunits(
+        self, databases: List[SnowflakeDatabase]
+    ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if self.config.profiling.enabled:

@@ -202,8 +202,8 @@ def add_table_to_schema_container(
 ) -> Iterable[MetadataWorkUnit]:
     schema_container_key = (
         gen_schema_key(
-            db_name,
-            schema,
+            db_name=db_name,
+            schema=schema,
             platform=platform,
             platform_instance=platform_instance,
             env=env,
