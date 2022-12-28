@@ -90,8 +90,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         mappingHelper.mapToResult(INPUT_FIELDS_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setInputFields(InputFieldsMapper.map(new InputFields(dataMap), entityUrn)));
         mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
-        mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dataset, dataMap) ->
-            dataset.setEmbed(EmbedMapper.map(new Embed(dataMap))));
+        mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dashboard, dataMap) ->
+            dashboard.setEmbed(EmbedMapper.map(new Embed(dataMap))));
         return mappingHelper.getResult();
     }
 
