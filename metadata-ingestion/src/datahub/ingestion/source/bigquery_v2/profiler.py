@@ -120,7 +120,8 @@ class BigqueryProfiler(GenericProfiler):
                         f"{schema}.{table.name}"
                     ] = partition
                     return None, None
-
+                
+                # ingestion time partitoned tables partition column is not in the schema, so we default to TIMESTAMP type 
                 partition_column_type: str = "TIMESTAMP"
                 for c in table.columns:
                     if c.is_partition_column:
