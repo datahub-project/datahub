@@ -107,21 +107,41 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         orPrivilegesGroup);
   }
 
+  private boolean canEditEmbed(Urn urn, QueryContext context) {
+    final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+        PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+    ));
+    DisjunctivePrivilegeGroup orPrivilegesGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(
+        allPrivilegesGroup,
+        new ConjunctivePrivilegeGroup(Collections.singletonList(PoliciesConfig.EDIT_ENTITY_EMBED_PRIVILEGE.getType()))
+    ));
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        urn.getEntityType(),
+        urn.toString(),
+        orPrivilegesGroup);
+  }
+
+
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditLineage(canEditEntityLineage(urn, context));
+    result.setCanEditEmbed(canEditEmbed(urn, context));
     return result;
   }
 
   private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditLineage(canEditEntityLineage(urn, context));
+    result.setCanEditEmbed(canEditEmbed(urn, context));
     return result;
   }
 
   private EntityPrivileges getDashboardPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditLineage(canEditEntityLineage(urn, context));
+    result.setCanEditEmbed(canEditEmbed(urn, context));
     return result;
   }
 

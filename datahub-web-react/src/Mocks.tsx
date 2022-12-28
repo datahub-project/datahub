@@ -155,6 +155,7 @@ export const dataset1 = {
     uri: 'www.google.com',
     privileges: {
         canEditLineage: false,
+        canEditEmbed: false,
     },
     properties: {
         name: 'The Great Test Dataset',
@@ -253,6 +254,7 @@ export const dataset2 = {
     },
     privileges: {
         canEditLineage: false,
+        canEditEmbed: false,
     },
     lastIngested: null,
     dataPlatformInstance: null,
@@ -344,6 +346,7 @@ export const dataset3 = {
     },
     privileges: {
         canEditLineage: false,
+        canEditEmbed: false,
     },
     lastIngested: null,
     dataPlatformInstance: null,
@@ -1223,6 +1226,7 @@ export const dataJob1 = {
     },
     privileges: {
         canEditLineage: false,
+        canEditEmbed: false,
     },
     properties: {
         name: 'DataJobInfoName',
@@ -1284,6 +1288,7 @@ export const dataJob2 = {
     jobId: 'jobId2',
     privileges: {
         canEditLineage: false,
+        canEditEmbed: false,
     },
     ownership: {
         __typename: 'Ownership',
@@ -1353,6 +1358,7 @@ export const dataJob3 = {
     lastIngested: null,
     privileges: {
         canEditLineage: false,
+        canEditEmbed: false,
     },
     ownership: {
         __typename: 'Ownership',
