@@ -41,7 +41,8 @@ class SnowflakeUsageConfig(
         description="List of regex patterns for databases to include/exclude in usage ingestion.",
     )
     email_domain: Optional[str] = pydantic.Field(
-        description="Email domain of your organisation so users can be displayed on UI appropriately."
+        default=None,
+        description="Email domain of your organisation so users can be displayed on UI appropriately.",
     )
     schema_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

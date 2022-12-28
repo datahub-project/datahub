@@ -83,7 +83,7 @@ class SnowflakeProvisionRoleConfig(ConfigModel):
         description="The username to be used for provisioning of role."
     )
 
-    admin_password: pydantic.SecretStr = pydantic.Field(
+    admin_password: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None,
         exclude=True,
         description="The password to be used for provisioning of role.",
@@ -131,13 +131,16 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
     )
     host_port: Optional[str] = pydantic.Field(
-        description="DEPRECATED: Snowflake account. e.g. abc48144"
+        default=None, description="DEPRECATED: Snowflake account. e.g. abc48144"
     )  # Deprecated
     account_id: Optional[str] = pydantic.Field(
-        description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details."
+        default=None,
+        description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details.",
     )  # Once host_port is removed this will be made mandatory
-    warehouse: Optional[str] = pydantic.Field(description="Snowflake warehouse.")
-    role: Optional[str] = pydantic.Field(description="Snowflake role.")
+    warehouse: Optional[str] = pydantic.Field(
+        default=None, description="Snowflake warehouse."
+    )
+    role: Optional[str] = pydantic.Field(default=None, description="Snowflake role.")
     include_table_lineage: bool = pydantic.Field(
         default=True,
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role.",
