@@ -110,7 +110,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import auto_stale_entity_removal, auto_status_aspect
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -597,7 +600,6 @@ class SnowflakeV2Source(
     def _process_database(
         self, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-
         self.report.report_entity_scanned(snowflake_db.name, "database")
         if not self.config.database_pattern.allowed(snowflake_db.name):
             self.report.report_dropped(f"{snowflake_db.name}.*")
@@ -664,7 +666,6 @@ class SnowflakeV2Source(
     def _process_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
-
         self.report.report_entity_scanned(snowflake_schema.name, "schema")
         if not is_schema_allowed(
             self.config.schema_pattern,

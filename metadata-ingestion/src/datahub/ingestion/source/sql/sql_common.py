@@ -93,7 +93,10 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import telemetry
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import auto_stale_entity_removal, auto_status_aspect
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -626,6 +629,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,

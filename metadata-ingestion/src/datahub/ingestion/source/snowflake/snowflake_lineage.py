@@ -190,7 +190,6 @@ class SnowflakeLineageExtractor(
     def get_workunits(
         self, discovered_tables: List[str], discovered_views: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-
         self.connection = self.create_connection()
         if self.connection is None:
             return
