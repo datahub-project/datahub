@@ -146,6 +146,7 @@ def gen_database_containers(
     env: Optional[str] = None,
     report: Optional[SourceReport] = None,
     database_container_key: Optional[PlatformKey] = None,
+    name: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
     external_url: Optional[str] = None,
@@ -171,7 +172,7 @@ def gen_database_containers(
 
     container_workunits = gen_containers(
         container_key=database_container_key,
-        name=database,
+        name=name if name else database,
         sub_types=sub_types,
         domain_urn=domain_urn,
         external_url=external_url,

@@ -1063,7 +1063,8 @@ class SnowflakeV2Source(
         self, database: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
         yield from gen_database_containers(
-            database=database.name,
+            name=database.name,
+            database=self.snowflake_identifier(database.name),
             sub_types=[SqlContainerSubTypes.DATABASE],
             platform=self.platform,
             platform_instance=self.config.platform_instance,
