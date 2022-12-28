@@ -251,6 +251,7 @@ def test_snowflake_config_with_connect_args_overrides_base_connect_args():
     )
     assert config.get_options()["connect_args"] is not None
     assert config.get_options()["connect_args"][CLIENT_PREFETCH_THREADS] == 5
+    assert config.get_options()["connect_args"][CLIENT_SESSION_KEEP_ALIVE] is True
 
 
 @patch("snowflake.connector.connect")
