@@ -417,7 +417,8 @@ class KafkaSource(StatefulIngestionSourceBase):
         configs: Dict[
             ConfigResource, concurrent.futures.Future
         ] = self.admin_client.describe_configs(
-            resources=[ConfigResource(ResourceType.TOPIC, t) for t in topics]
+            resources=[ConfigResource(ResourceType.TOPIC, t) for t in topics],
+            request_timeout=self.source_config.connection.client_timeout_seconds,
         )
         logger.debug("Waiting for config details futures to complete")
         concurrent.futures.wait(configs.values())

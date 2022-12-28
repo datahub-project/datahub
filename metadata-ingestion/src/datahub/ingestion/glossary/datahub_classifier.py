@@ -57,13 +57,15 @@ class InfoTypeConfig(ConfigModel):
         description="Factors and their weights to consider when predicting info types",
         alias="prediction_factors_and_weights",
     )
-    Name: Optional[NameFactorConfig] = Field(alias="name")
+    Name: Optional[NameFactorConfig] = Field(default=None, alias="name")
 
-    Description: Optional[DescriptionFactorConfig] = Field(alias="description")
+    Description: Optional[DescriptionFactorConfig] = Field(
+        default=None, alias="description"
+    )
 
-    Datatype: Optional[DataTypeFactorConfig] = Field(alias="datatype")
+    Datatype: Optional[DataTypeFactorConfig] = Field(default=None, alias="datatype")
 
-    Values: Optional[ValuesFactorConfig] = Field(alias="values")
+    Values: Optional[ValuesFactorConfig] = Field(default=None, alias="values")
 
 
 # TODO: Generate Classification doc (classification.md) from python source.

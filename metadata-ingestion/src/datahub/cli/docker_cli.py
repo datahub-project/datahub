@@ -882,7 +882,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
 
     if path is None:
         click.echo("Downloading sample data...")
-        path = download_sample_data()
+        path = str(download_sample_data())
 
     # Verify that docker is up.
     issues = check_local_docker_containers()
