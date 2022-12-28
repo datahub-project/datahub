@@ -91,8 +91,8 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
         mappingHelper.mapToResult(INPUT_FIELDS_ASPECT_NAME, (chart, dataMap) ->
             chart.setInputFields(InputFieldsMapper.map(new InputFields(dataMap), entityUrn)));
-        mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dataset, dataMap) ->
-            dataset.setEmbed(EmbedMapper.map(new Embed(dataMap))));
+        mappingHelper.mapToResult(EMBED_ASPECT_NAME, (chart, dataMap) ->
+            chart.setEmbed(EmbedMapper.map(new Embed(dataMap))));
         return mappingHelper.getResult();
     }
 

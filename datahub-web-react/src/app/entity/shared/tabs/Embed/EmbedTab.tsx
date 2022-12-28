@@ -23,7 +23,6 @@ const StyledEmpty = styled(Empty)`
 export const EmbedTab = () => {
     const { entityData } = useEntityData();
     const embedRenderUrl = entityData?.embed?.renderUrl;
-    // TODO: Deal with cases where render URL does not work properly.
     return (
         <EmbedContainer>
             {(embedRenderUrl && <StyledIframe src={embedRenderUrl} title={entityData?.urn} frameBorder={0} />) || (
