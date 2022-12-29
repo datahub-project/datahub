@@ -470,11 +470,11 @@ jobs:
       - name: Pull images in background
         run: |
           docker pull acryldata/datahub-actions:head &
-          docker pull confluentinc/cp-kafka:7.2.0 &
+          docker pull confluentinc/cp-kafka:7.2.2 &
           docker pull elasticsearch:7.9.3 &
           docker pull mariadb:10.5.8 &
           docker pull confluentinc/cp-schema-registry:7.2.0 &
-          docker pull confluentinc/cp-zookeeper:7.2.0 &
+          docker pull confluentinc/cp-zookeeper:7.2.2 &
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build datahub cli
