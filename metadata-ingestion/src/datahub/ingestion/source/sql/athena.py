@@ -1,14 +1,13 @@
 import json
 import logging
 import typing
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from typing import Dict, List, Optional, Tuple, cast
 
 import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -17,23 +16,21 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemyConfig,
-    SQLAlchemySource,
-    make_sqlalchemy_uri,
+from datahub.ingestion.source.sql.sql_common import make_sqlalchemy_uri
+from datahub.ingestion.source.sql.two_tier_sql_source import (
+    TwoTierSQLAlchemyConfig,
+    TwoTierSQLAlchemySource,
 )
-from datahub.ingestion.source.sql.sql_utils import gen_schema_containers
 
 
-class AthenaConfig(SQLAlchemyConfig):
+class AthenaConfig(TwoTierSQLAlchemyConfig):
     scheme: str = "awsathena+rest"
     username: Optional[str] = pydantic.Field(
         default=None,
         description="Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
     )
-    password: Optional[str] = pydantic.Field(
+    password: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None, description="Same detection scheme as username"
     )
     database: Optional[str] = pydantic.Field(
@@ -67,7 +64,7 @@ class AthenaConfig(SQLAlchemyConfig):
         return make_sqlalchemy_uri(
             self.scheme,
             self.username or "",
-            self.password,
+            self.password.get_secret_value() if self.password else None,
             f"athena.{self.aws_region}.amazonaws.com:443",
             self.database,
             uri_opts={
@@ -90,7 +87,7 @@ class AthenaConfig(SQLAlchemyConfig):
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-class AthenaSource(SQLAlchemySource):
+class AthenaSource(TwoTierSQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
@@ -162,37 +159,6 @@ class AthenaSource(SQLAlchemySource):
         if athena_config.database:
             return [schema for schema in schemas if schema == athena_config.database]
         return schemas
-
-    def gen_database_containers(
-        self, database: str
-    ) -> typing.Iterable[MetadataWorkUnit]:
-        # In Athena the schema is the database and database is not existing
-        return []
-
-    def gen_schema_key(self, db_name: str, schema: str) -> DatabaseKey:
-        return DatabaseKey(
-            database=schema,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
-        )
-
-    def gen_schema_containers(
-        self,
-        schema: str,
-        database: str,
-    ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_schema_containers(
-            database=database,
-            schema=schema,
-            sub_types=["Schema"],
-            platform=self.platform,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            report=self.report,
-        )
 
     def close(self):
         if self.cursor:

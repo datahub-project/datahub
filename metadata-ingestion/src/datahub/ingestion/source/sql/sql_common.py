@@ -614,15 +614,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
-            yield from gen_database_containers(
+            yield from self.gen_database_containers(
                 database=db_name,
-                platform=self.platform,
-                sub_types=["Database"],
-                domain_config=self.config.domain,
-                domain_registry=self.domain_registry,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                report=self.report,
             )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
