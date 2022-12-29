@@ -682,7 +682,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        for node in test_nodes:
+        for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
@@ -727,7 +727,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
-            for upstream_urn in upstream_urns:
+            for upstream_urn in sorted(upstream_urns):
                 if self.config.entities_enabled.can_emit_node_type("test"):
                     wu = self._make_assertion_from_test(
                         custom_props,
@@ -957,7 +957,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
         )
-        for node in dbt_nodes:
+        for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
+
             node_datahub_urn = node.get_urn(
                 mce_platform,
                 self.config.env,
