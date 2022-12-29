@@ -11,6 +11,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
+#6851 - Sources bigquery-legacy and bigquery-usage-legacy have been removed.
 
 ### Other notable Changes
 
