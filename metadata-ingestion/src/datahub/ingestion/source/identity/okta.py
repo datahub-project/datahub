@@ -274,6 +274,7 @@ class OktaSource(Source):
             asyncio.set_event_loop(event_loop)
 
         # Step 1: Produce MetadataWorkUnits for CorpGroups.
+        okta_groups: Optional[Iterable[Group]] = None
         if self.config.ingest_groups:
             okta_groups = list(self._get_okta_groups(event_loop))
             datahub_corp_group_snapshots = self._map_okta_groups(okta_groups)

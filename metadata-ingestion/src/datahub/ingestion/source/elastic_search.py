@@ -260,7 +260,7 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         return None if self.username is None else (self.username, self.password or "")
 
 
-@platform_name("Elastic Search")
+@platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
