@@ -35,6 +35,10 @@ class SnowflakeQuery:
         return "show databases"
 
     @staticmethod
+    def show_tags() -> str:
+        return "show tags"
+
+    @staticmethod
     def use_database(db_name: str) -> str:
         return f'use database "{db_name}"'
 
@@ -541,7 +545,7 @@ class SnowflakeQuery:
                 'View',
                 'Materialized view',
                 'External table'
-            )
+            ) and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
             basic_usage_counts.bucket_start_time
