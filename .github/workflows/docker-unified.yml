@@ -312,8 +312,7 @@ jobs:
           fetch-depth: 0
       - name: Pre-build artifacts for docker image
         run: |
-          export USE_SYSTEM_NODE="true"
-          ./gradlew :datahub-frontend:dist -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint --parallel
+          ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
           mv ./datahub-frontend/build/distributions/datahub-frontend-*.zip datahub-frontend.zip
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
