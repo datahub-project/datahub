@@ -1,13 +1,14 @@
 import json
 import logging
 import typing
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -16,15 +17,22 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.sql.sql_common import make_sqlalchemy_uri
-from datahub.ingestion.source.sql.two_tier_sql_source import (
-    TwoTierSQLAlchemyConfig,
-    TwoTierSQLAlchemySource,
+from datahub.ingestion.source.sql.sql_common import (
+    SQLAlchemyConfig,
+    SQLAlchemySource,
+    SqlContainerSubTypes,
+    make_sqlalchemy_uri,
+)
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    gen_database_containers,
+    gen_database_key,
 )
 
 
-class AthenaConfig(TwoTierSQLAlchemyConfig):
+class AthenaConfig(SQLAlchemyConfig):
     scheme: str = "awsathena+rest"
     username: Optional[str] = pydantic.Field(
         default=None,
@@ -87,7 +95,7 @@ class AthenaConfig(TwoTierSQLAlchemyConfig):
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-class AthenaSource(TwoTierSQLAlchemySource):
+class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
@@ -151,6 +159,58 @@ class AthenaSource(TwoTierSQLAlchemySource):
                 location = None
 
         return description, custom_properties, location
+
+    def gen_database_containers(
+        self,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        # In Athena the schema is the database and database is not existing
+        return []
+
+    def gen_schema_containers(
+        self,
+        schema: str,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from gen_database_containers(
+            database=database,
+            sub_types=[SqlContainerSubTypes.DATABASE],
+            platform=self.platform,
+            domain_config=self.config.domain,
+            domain_registry=self.domain_registry,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            report=self.report,
+        )
+
+    def get_database_container_key(self, db_name: str, schema: str) -> PlatformKey:
+        # Because our overridden get_allowed_schemas method returns db_name as the schema name,
+        # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
+        assert db_name == schema
+        return gen_database_key(
+            db_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def add_table_to_schema_container(
+        self,
+        dataset_urn: str,
+        db_name: str,
+        schema: str,
+        schema_container_key: Optional[PlatformKey] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            db_name=db_name,
+            schema=schema,
+            schema_container_key=self.get_database_container_key(db_name, schema),
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            report=self.report,
+        )
 
     # It seems like database/schema filter in the connection string does not work and this to work around that
     def get_schema_names(self, inspector: Inspector) -> List[str]:
