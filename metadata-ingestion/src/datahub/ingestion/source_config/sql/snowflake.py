@@ -19,6 +19,10 @@ from datahub.configuration.common import (
     OauthConfiguration,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.source.snowflake.constants import (
+    CLIENT_PREFETCH_THREADS,
+    CLIENT_SESSION_KEEP_ALIVE,
+)
 from datahub.ingestion.source.sql.oauth_generator import OauthTokenGenerator
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -143,11 +147,11 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     role: Optional[str] = pydantic.Field(default=None, description="Snowflake role.")
     include_table_lineage: bool = pydantic.Field(
         default=True,
-        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role.",
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
     )
     include_view_lineage: bool = pydantic.Field(
         default=True,
-        description="If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and include_table_lineage to be True.",
+        description="If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
     )
     connect_args: Optional[Dict] = pydantic.Field(
         default=None,
@@ -293,10 +297,29 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             },
         )
 
-    def get_sql_alchemy_connect_args(self) -> dict:
-        if self.authentication_type != "KEY_PAIR_AUTHENTICATOR":
-            return {}
+    def get_connect_args(self) -> dict:
+        """
+        Builds connect args and updates self.connect_args so that
+        Subsequent calls to this method are efficient, i.e. do not read files again
+        """
+
+        base_connect_args = {
+            # Improves performance and avoids timeout errors for larger query result
+            CLIENT_PREFETCH_THREADS: 10,
+            CLIENT_SESSION_KEEP_ALIVE: True,
+        }
+
         if self.connect_args is None:
+            self.connect_args = base_connect_args
+        else:
+            # Let user override the default config values
+            base_connect_args.update(self.connect_args)
+            self.connect_args = base_connect_args
+
+        if (
+            self.authentication_type == "KEY_PAIR_AUTHENTICATOR"
+            and "private_key" not in self.connect_args.keys()
+        ):
             if self.private_key is not None:
                 pkey_bytes = self.private_key.replace("\\n", "\n").encode()
             else:
@@ -319,7 +342,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption(),
             )
-            self.connect_args = {"private_key": pkb}
+            self.connect_args.update({"private_key": pkb})
         return self.connect_args
 
 
@@ -344,11 +367,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         )
 
     def get_options(self) -> dict:
-        options_connect_args: Dict = super().get_sql_alchemy_connect_args()
+        options_connect_args: Dict = super().get_connect_args()
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
-        if self.connect_args is not None:
-            self.options["connect_args"].update(self.connect_args)
         return self.options
 
     def get_oauth_connection(self):

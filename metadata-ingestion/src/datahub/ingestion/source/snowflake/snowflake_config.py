@@ -5,6 +5,10 @@ from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.glossary.classifier import ClassificationConfig
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    ProfilingStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+)
 from datahub.ingestion.source_config.sql.snowflake import (
     BaseSnowflakeConfig,
     SnowflakeConfig,
@@ -15,7 +19,12 @@ from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsage
 logger = logging.Logger(__name__)
 
 
-class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
+class SnowflakeV2Config(
+    SnowflakeConfig,
+    SnowflakeUsageConfig,
+    UsageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+):
     convert_urns_to_lowercase: bool = Field(
         default=True,
     )
@@ -54,7 +63,7 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
-    match_fully_qualified_names = bool = Field(
+    match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )

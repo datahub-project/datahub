@@ -91,12 +91,20 @@ class SnowflakeDatabase:
 class SnowflakeDataDictionary(SnowflakeQueryMixin):
     def __init__(self) -> None:
         self.logger = logger
+        self.connection: Optional[SnowflakeConnection] = None
 
-    def show_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
+    def set_connection(self, connection: SnowflakeConnection) -> None:
+        self.connection = connection
+
+    def get_connection(self) -> SnowflakeConnection:
+        # Connection is already present by the time this is called
+        assert self.connection is not None
+        return self.connection
+
+    def show_databases(self) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.show_databases(),
         )
 
@@ -110,13 +118,10 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
 
         return databases
 
-    def get_databases(
-        self, conn: SnowflakeConnection, db_name: str
-    ) -> List[SnowflakeDatabase]:
+    def get_databases(self, db_name: str) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.get_databases(db_name),
         )
 
@@ -131,13 +136,10 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
 
         return databases
 
-    def get_schemas_for_database(
-        self, conn: SnowflakeConnection, db_name: str
-    ) -> List[SnowflakeSchema]:
+    def get_schemas_for_database(self, db_name: str) -> List[SnowflakeSchema]:
         snowflake_schemas = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.schemas_for_database(db_name),
         )
 
@@ -152,12 +154,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return snowflake_schemas
 
     def get_tables_for_database(
-        self, conn: SnowflakeConnection, db_name: str
+        self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.query(
-                conn,
                 SnowflakeQuery.tables_for_database(db_name),
             )
         except Exception as e:
@@ -184,12 +185,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return tables
 
     def get_tables_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.tables_for_schema(schema_name, db_name),
         )
 
@@ -208,11 +208,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return tables
 
     def get_views_for_database(
-        self, conn: SnowflakeConnection, db_name: str
+        self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         views: Dict[str, List[SnowflakeView]] = {}
         try:
-            cur = self.query(conn, SnowflakeQuery.show_views_for_database(db_name))
+            cur = self.query(SnowflakeQuery.show_views_for_database(db_name))
         except Exception as e:
             logger.debug(
                 f"Failed to get all views for database - {db_name}", exc_info=e
@@ -236,13 +236,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return views
 
     def get_views_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
         views: List[SnowflakeView] = []
 
-        cur = self.query(
-            conn, SnowflakeQuery.show_views_for_schema(schema_name, db_name)
-        )
+        cur = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name))
         for table in cur:
             views.append(
                 SnowflakeView(
@@ -257,13 +255,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return views
 
     def get_columns_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeColumn]]]:
         columns: Dict[str, List[SnowflakeColumn]] = {}
         try:
-            cur = self.query(
-                conn, SnowflakeQuery.columns_for_schema(schema_name, db_name)
-            )
+            cur = self.query(SnowflakeQuery.columns_for_schema(schema_name, db_name))
         except Exception as e:
             logger.debug(
                 f"Failed to get all columns for schema - {schema_name}", exc_info=e
@@ -290,12 +286,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return columns
 
     def get_columns_for_table(
-        self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
+        self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeColumn]:
         columns: List[SnowflakeColumn] = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.columns_for_table(table_name, schema_name, db_name),
         )
 
@@ -315,11 +310,10 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return columns
 
     def get_pk_constraints_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> Dict[str, SnowflakePK]:
         constraints: Dict[str, SnowflakePK] = {}
         cur = self.query(
-            conn,
             SnowflakeQuery.show_primary_keys_for_schema(schema_name, db_name),
         )
 
@@ -332,13 +326,12 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return constraints
 
     def get_fk_constraints_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeFK]]:
         constraints: Dict[str, List[SnowflakeFK]] = {}
         fk_constraints_map: Dict[str, SnowflakeFK] = {}
 
         cur = self.query(
-            conn,
             SnowflakeQuery.show_foreign_keys_for_schema(schema_name, db_name),
         )
 

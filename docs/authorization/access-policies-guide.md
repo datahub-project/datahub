@@ -12,7 +12,7 @@ There are 2 types of Access Policy within DataHub:
 2. **Metadata** Policies
 
 <p align="center">
-  <img width="20%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-policy-type.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-policy-type.png"/>
 </p>
 
 **Platform** Policies determine who has platform-level Privileges on DataHub. These include:
@@ -68,7 +68,7 @@ Policies can be created by first navigating to **Settings > Permissions > Polici
 To begin building a new Policy, click **Create new Policy**.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/manage-permissions.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/manage-permissions.png"/>
 </p>
 
 ### Creating a Platform Policy
@@ -88,7 +88,7 @@ You can optionally provide a text description to add richer details about the pu
 In the second step, we can simply select the Privileges that this Platform Policy will grant.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-platform-privileges.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-platform-privileges.png"/>
 </p>
 
 **Platform** Privileges most often provide access to perform administrative functions on the Platform. These include:
@@ -118,13 +118,13 @@ In this step, we can select the actors who should be granted Privileges appearin
 To do so, simply search and select the Users or Groups that the Policy should apply to.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
 </p>
 
 **Assigning a Policy to a User**
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
 </p>
 
 **Assigning a Policy to a Group**
@@ -155,7 +155,7 @@ For example, if we only want to grant access for `Datasets` on DataHub, we can s
 `Datasets`.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-type.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-type.png"/>
 </p>
 
 Next, we can search for specific Entities of the that the Policy should grant privileges on. 
@@ -165,7 +165,7 @@ For example, if we only want to grant access for a specific sample dataset, we c
 select it directly.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-urn.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-urn.png"/>
 </p>
 
 We can also limit the scope of the Policy to assets that live in a specific **Domain**. If left blank,
@@ -175,14 +175,14 @@ For example, if we only want to grant access for assets part of a "Marketing" Do
 select it.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-domain.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-resource-domain.png"/>
 </p>
 
 Finally, we will choose the Privileges to grant when the selected entities fall into the defined
 scope.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-metadata-privileges.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-metadata-privileges.png"/>
 </p>
 
 **Metadata** Privileges grant access to change specific *entities* (i.e. data assets) on DataHub.
@@ -228,18 +228,18 @@ can target specific Users & Groups, or the *owners* of the Entities that are inc
 To do so, simply search and select the Users or Groups that the Policy should apply to.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
 </p>
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
 </p>
 
 We can also grant the Privileges to the *owners* of Entities (or *Resources*) that are in scope for the Policy. 
 This advanced functionality allows of Admins of DataHub to closely control which actions can or cannot be performed by owners.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-owners.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-owners.png"/>
 </p>
 
 ### Updating an Existing Policy
@@ -247,7 +247,7 @@ This advanced functionality allows of Admins of DataHub to closely control which
 To update an existing Policy, simply click the **Edit** on the Policy you wish to change.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/edit-policy.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/edit-policy.png"/>
 </p>
 
 Then, make the changes required and click **Save**. When you save a Policy, it may take up to 2 minutes for changes
@@ -271,7 +271,7 @@ To deactivate a Policy, simply click the **Deactivate** button on the Policy you
 the state of a Policy, it may take up to 2 minutes for the changes to be reflected.
 
 <p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/deactivate-policy.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/deactivate-policy.png"/>
 </p>
 
 After deactivating, you can re-enable a Policy by clicking **Activate**.
