@@ -153,7 +153,7 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     record_key = os.getenv("CYPRESS_RECORD_KEY")
     tag_arg = ""
     test_strategy = os.getenv("TEST_STRATEGY", None)
-    if record_key is not None:
+    if record_key:
         record_arg = " --record "
         tag_arg = f" --tag {test_strategy} "
     else:

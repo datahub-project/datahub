@@ -467,14 +467,6 @@ jobs:
         with:
           python-version: "3.7"
           cache: 'pip'
-      - name: Pull images in background
-        run: |
-          docker pull acryldata/datahub-actions:head &
-          docker pull confluentinc/cp-kafka:7.2.0 &
-          docker pull elasticsearch:7.9.3 &
-          docker pull mariadb:10.5.8 &
-          docker pull confluentinc/cp-schema-registry:7.2.0 &
-          docker pull confluentinc/cp-zookeeper:7.2.0 &
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build datahub cli
@@ -521,7 +513,7 @@ jobs:
           pip install pip -U # only 22.2 and above contains the --dry-run flag
 
           # only the last line of the output is the packages that will be installed
-          pip install --dry-run -r ./smoke/requirements.txt  | tail -n 1 > /tmp/would_be_installed.txt
+          pip install --dry-run -r ./smoke-test/requirements.txt  | tail -n 1 > /tmp/would_be_installed.txt
           CHECKSUM=$(shasum /tmp/would_be_installed.txt | awk '{print $1}')
           echo "packages_checksum=$CHECKSUM" >> $GITHUB_OUTPUT
       - uses: actions/cache@v3
@@ -529,15 +521,17 @@ jobs:
         with:
           path: ./smoke-test/venv/
           key: smoke-venv-${{ runner.os }}-${{ steps.packages_checksum.outputs.packages_checksum }}
-      - name: check background image download status
-        run: |
-          jobs
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
         run: |
           ./smoke-test/run-quickstart.sh
+      - name: sleep 60s
+        run: |
+          # we are doing this because gms takes time to get ready
+          # and we don't have a better readiness check when bootstrap is done
+          sleep 60s
       - name: Smoke test
         env:
           RUN_QUICKSTART: false

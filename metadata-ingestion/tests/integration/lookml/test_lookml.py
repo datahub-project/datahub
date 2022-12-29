@@ -10,6 +10,7 @@ from looker_sdk.sdk.api31.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.lookml_source import (
     LookMLSource,
     LookMLSourceConfig,
@@ -482,15 +483,13 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=True)
 
-    maybe_events = mce_helpers.load_json_file(tmp_path / mce_out)
-    assert isinstance(maybe_events, list)
-    for mce in maybe_events:
-        if "proposedSnapshot" in mce:
-            mce_concrete = MetadataChangeEventClass.from_obj(mce)
-            if isinstance(mce_concrete.proposedSnapshot, DatasetSnapshotClass):
+    events = read_metadata_file(tmp_path / mce_out)
+    for mce in events:
+        if isinstance(mce, MetadataChangeEventClass):
+            if isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
                 lineage_aspects = [
                     a
-                    for a in mce_concrete.proposedSnapshot.aspects
+                    for a in mce.proposedSnapshot.aspects
                     if isinstance(a, UpstreamLineageClass)
                 ]
                 for a in lineage_aspects:
