@@ -24,7 +24,7 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=1.5.1",
+    "pydantic>=1.5.1,<1.10.3",
     "mixpanel>=4.9.0",
 }
 
