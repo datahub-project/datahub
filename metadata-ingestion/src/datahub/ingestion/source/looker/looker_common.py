@@ -68,6 +68,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     DatasetPropertiesClass,
+    EmbedClass,
     EnumTypeClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
@@ -163,12 +164,10 @@ class LookerCommonConfig(DatasetSourceConfigBase):
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="{model}.explore.{name}"),
     )
-
     explore_browse_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
     )
-
     view_naming_pattern: LookerNamingPattern = Field(
         LookerNamingPattern(pattern="{project}.view.{name}"),
         description=f"Pattern for providing dataset names to views. {LookerNamingPattern.allowed_docstring()}",
@@ -177,7 +176,6 @@ class LookerCommonConfig(DatasetSourceConfigBase):
         LookerNamingPattern(pattern="/{env}/{platform}/{project}/views"),
         description=f"Pattern for providing browse paths to views. {LookerNamingPattern.allowed_docstring()}",
     )
-
     tag_measures_and_dimensions: bool = Field(
         True,
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more discoverable. When disabled, adds this information to the description of the column.",
@@ -188,6 +186,10 @@ class LookerCommonConfig(DatasetSourceConfigBase):
     extract_column_level_lineage: bool = Field(
         True,
         description="When enabled, extracts column-level lineage from Views and Explores",
+    )
+    embed_urls_enabled: bool = Field(
+        True,
+        description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI.",
     )
 
 
@@ -762,6 +764,25 @@ class LookerExplore:
             base_url = m[1]
         return f"{base_url}/explore/{self.model_name}/{self.name}"
 
+    def _get_embed_url(self, base_url: str) -> str:
+        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
+        m = re.match("^(.*):([0-9]+)$", base_url)
+        if m is not None:
+            base_url = m[1]
+        return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
+
+    def _create_embed_mcp(
+        self, urn: str, base_url: str
+    ) -> MetadataChangeProposalWrapper:
+        explore_embed_url = self._get_embed_url(base_url)
+        return MetadataChangeProposalWrapper(
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=urn,
+            aspectName="embed",
+            aspect=EmbedClass(renderUrl=explore_embed_url),
+        )
+
     def _to_metadata_events(  # noqa: C901
         self, config: LookerCommonConfig, reporter: SourceReport, base_url: str
     ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
@@ -862,7 +883,17 @@ class LookerExplore:
             aspect=SubTypesClass(typeNames=["explore"]),
         )
 
-        return [mce, mcp]
+        proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
+            mce,
+            mcp,
+        ]
+
+        # If extracting embeds is enabled, produce an MCP for embed URL.
+        if config.embed_urls_enabled:
+            embed_mcp = self._create_embed_mcp(dataset_snapshot.urn, base_url)
+            proposals.append(embed_mcp)
+
+        return proposals
 
 
 class LookerExploreRegistry:
@@ -1057,6 +1088,18 @@ class LookerDashboardElement:
         else:
             return f"{base_url}/x/{self.query_slug}"
 
+    def embed_url(self, base_url: str) -> Optional[str]:
+        # A dashboard element can use a look or just a raw query against an explore
+        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
+        m = re.match("^(.*):([0-9]+)$", base_url)
+        if m is not None:
+            base_url = m[1]
+        if self.look_id is not None:
+            return f"{base_url}/embed/looks/{self.look_id}"
+        else:
+            # No embeddable URL
+            return None
+
     def get_urn_element_id(self):
         # A dashboard element can use a look or just a raw query against an explore
         return f"dashboard_elements.{self.id}"
@@ -1100,6 +1143,13 @@ class LookerDashboard:
         if m is not None:
             base_url = m[1]
         return f"{base_url}/dashboards/{self.id}"
+
+    def embed_url(self, base_url: str) -> str:
+        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
+        m = re.match("^(.*):([0-9]+)$", base_url)
+        if m is not None:
+            base_url = m[1]
+        return f"{base_url}/embed/dashboards/{self.id}"
 
     def get_urn_dashboard_id(self):
         return get_urn_looker_dashboard_id(self.id)

@@ -86,6 +86,7 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    EmbedClass,
     InputFieldClass,
     InputFieldsClass,
     OwnerClass,
@@ -649,9 +650,20 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return chart_type
 
-    def _make_chart_mce(
+    def _create_embed_mcp(
+        self, urn: str, embed_url: str
+    ) -> MetadataChangeProposalWrapper:
+        return MetadataChangeProposalWrapper(
+            entityType=urn.split(":")[2],
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=urn,
+            aspectName="embed",
+            aspect=EmbedClass(renderUrl=embed_url),
+        )
+
+    def _make_chart_metadata_events(
         self, dashboard_element: LookerDashboardElement, dashboard: LookerDashboard
-    ) -> MetadataChangeEvent:
+    ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
         chart_urn = builder.make_chart_urn(
             self.source_config.platform_name, dashboard_element.get_urn_element_id()
         )
@@ -683,7 +695,81 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if ownership is not None:
             chart_snapshot.aspects.append(ownership)
 
-        return MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+        chart_mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+
+        proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
+            chart_mce
+        ]
+
+        # If extracting embeds is enabled, produce an MCP for embed URL.
+        if (
+            self.source_config.embed_urls_enabled
+            and self.source_config.external_base_url
+        ):
+            maybe_embed_url = dashboard_element.embed_url(
+                self.source_config.external_base_url
+            )
+            if maybe_embed_url:
+                proposals.append(
+                    self._create_embed_mcp(
+                        chart_snapshot.urn,
+                        maybe_embed_url,
+                    )
+                )
+
+        return proposals
+
+    def _make_dashboard_metadata_events(
+        self, looker_dashboard: LookerDashboard, chart_urns: List[str]
+    ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
+        dashboard_urn = builder.make_dashboard_urn(
+            self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
+        )
+        dashboard_snapshot = DashboardSnapshot(
+            urn=dashboard_urn,
+            aspects=[],
+        )
+
+        dashboard_info = DashboardInfoClass(
+            description=looker_dashboard.description or "",
+            title=looker_dashboard.title,
+            charts=chart_urns,
+            lastModified=self._get_change_audit_stamps(looker_dashboard),
+            dashboardUrl=looker_dashboard.url(self.source_config.external_base_url),
+        )
+
+        dashboard_snapshot.aspects.append(dashboard_info)
+        if looker_dashboard.folder_path is not None:
+            browse_path = BrowsePathsClass(
+                paths=[f"/looker/{looker_dashboard.folder_path}"]
+            )
+            dashboard_snapshot.aspects.append(browse_path)
+
+        ownership = self.get_ownership(looker_dashboard)
+        if ownership is not None:
+            dashboard_snapshot.aspects.append(ownership)
+
+        dashboard_snapshot.aspects.append(Status(removed=looker_dashboard.is_deleted))
+
+        dashboard_mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+
+        proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
+            dashboard_mce
+        ]
+
+        # If extracting embeds is enabled, produce an MCP for embed URL.
+        if (
+            self.source_config.embed_urls_enabled
+            and self.source_config.external_base_url
+        ):
+            proposals.append(
+                self._create_embed_mcp(
+                    dashboard_snapshot.urn,
+                    looker_dashboard.embed_url(self.source_config.external_base_url),
+                )
+            )
+
+        return proposals
 
     def _make_explore_metadata_events(
         self,
@@ -732,48 +818,42 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return events, f"{model}:{explore}", start_time, datetime.datetime.now()
 
+    def _extract_event_urn(
+        self, event: Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
+    ) -> Optional[str]:
+        if isinstance(event, MetadataChangeEvent):
+            return event.proposedSnapshot.urn
+        else:
+            return event.entityUrn
+
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
     ) -> Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
-        chart_mces = [
-            self._make_chart_mce(element, looker_dashboard)
-            for element in looker_dashboard.dashboard_elements
-            if element.type == "vis"
-        ]
-        for chart_mce in chart_mces:
-            yield chart_mce
 
-        dashboard_urn = builder.make_dashboard_urn(
-            self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
+        # Step 1: Emit metadata for each Chart inside the Dashboard.
+        chart_events = []
+        for element in looker_dashboard.dashboard_elements:
+            if element.type == "vis":
+                chart_events.extend(
+                    self._make_chart_metadata_events(element, looker_dashboard)
+                )
+        for chart_event in chart_events:
+            yield chart_event
+
+        # Step 2: Emit metadata events for the Dashboard itself.
+        chart_urns: Set[
+            str
+        ] = set()  # Collect the unique child chart urns for dashboard input lineage.
+        for chart_event in chart_events:
+            chart_event_urn = self._extract_event_urn(chart_event)
+            if chart_event_urn:
+                chart_urns.add(chart_event_urn)
+
+        dashboard_events = self._make_dashboard_metadata_events(
+            looker_dashboard, list(chart_urns)
         )
-        dashboard_snapshot = DashboardSnapshot(
-            urn=dashboard_urn,
-            aspects=[],
-        )
-
-        dashboard_info = DashboardInfoClass(
-            description=looker_dashboard.description or "",
-            title=looker_dashboard.title,
-            charts=[mce.proposedSnapshot.urn for mce in chart_mces],
-            lastModified=self._get_change_audit_stamps(looker_dashboard),
-            dashboardUrl=looker_dashboard.url(self.source_config.external_base_url),
-        )
-
-        dashboard_snapshot.aspects.append(dashboard_info)
-        if looker_dashboard.folder_path is not None:
-            browse_path = BrowsePathsClass(
-                paths=[f"/looker/{looker_dashboard.folder_path}"]
-            )
-            dashboard_snapshot.aspects.append(browse_path)
-
-        ownership = self.get_ownership(looker_dashboard)
-        if ownership is not None:
-            dashboard_snapshot.aspects.append(ownership)
-
-        dashboard_snapshot.aspects.append(Status(removed=looker_dashboard.is_deleted))
-
-        dashboard_mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-        yield dashboard_mce
+        for dashboard_event in dashboard_events:
+            yield dashboard_event
 
     def get_ownership(
         self, looker_dashboard: LookerDashboard
