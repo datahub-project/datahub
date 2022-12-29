@@ -16,8 +16,8 @@ from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
-    gen_database_key,
     add_table_to_schema_container,
+    gen_database_key,
 )
 
 
