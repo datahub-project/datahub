@@ -249,6 +249,7 @@ async def update_samples(item: add_sample_params):
             owner=item.requestor,
             event="Update Dataset Profile",
             token=token,
+            eventid=eventid
         )
         
         return JSONResponse(
