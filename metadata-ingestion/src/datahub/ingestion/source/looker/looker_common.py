@@ -189,7 +189,7 @@ class LookerCommonConfig(DatasetSourceConfigBase):
     )
     embed_urls_enabled: bool = Field(
         True,
-        description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI.",
+        description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI. Embeds must be enabled inside of Looker to use this feature.",
     )
 
 
