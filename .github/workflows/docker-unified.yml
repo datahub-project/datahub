@@ -538,6 +538,11 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
         run: |
           ./smoke-test/run-quickstart.sh
+      - name: sleep 60s
+        run: |
+          # we are doing this because gms takes time to get ready
+          # and we don't have a better readiness check when bootstrap is done
+          sleep 60s
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
