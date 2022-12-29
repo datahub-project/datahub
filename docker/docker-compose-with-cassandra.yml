@@ -156,7 +156,7 @@ services:
     build:
       context: ../
       dockerfile: docker/datahub-upgrade/Dockerfile
-    image: ${DATAHUB_UPGRADE_IMAGE:-linkedin/datahub-upgrade}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
     env_file: datahub-upgrade/env/docker-without-neo4j.env
     hostname: datahub-upgrade
     container_name: datahub-upgrade
