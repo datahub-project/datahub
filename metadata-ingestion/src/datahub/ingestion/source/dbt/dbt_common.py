@@ -251,13 +251,18 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     )
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
-        description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
+        description="[deprecated] Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
     )
 
     incremental_lineage: bool = Field(
         # Copied from LineageConfig, and changed the default.
         default=False,
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
+    include_env_in_assertion_guid: bool = Field(
+        default=False,
+        description="Prior to version 0.9.4.2, the assertion GUIDs did not include the environment. If you're using multiple dbt ingestion "
+        "that are only distinguished by env, then you should set this flag to True.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
@@ -677,13 +682,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        for node in test_nodes:
+        for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
                         "platform": DBT_PLATFORM,
                         "name": node.dbt_name,
                         "instance": self.config.platform_instance,
+                        **(
+                            # Ideally we'd include the env unconditionally. However, we started out
+                            # not including env in the guid, so we need to maintain backwards compatibility
+                            # with existing PROD assertions.
+                            {"env": self.config.env}
+                            if self.config.env != mce_builder.DEFAULT_ENV
+                            and self.config.include_env_in_assertion_guid
+                            else {}
+                        ),
                     }
                 )
             )
@@ -713,7 +727,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
-            for upstream_urn in upstream_urns:
+            for upstream_urn in sorted(upstream_urns):
                 if self.config.entities_enabled.can_emit_node_type("test"):
                     wu = self._make_assertion_from_test(
                         custom_props,
@@ -943,7 +957,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
         )
-        for node in dbt_nodes:
+        for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
+
             node_datahub_urn = node.get_urn(
                 mce_platform,
                 self.config.env,
