@@ -8131,7 +8131,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Projections\"]}",
+        "value": "{\"typeNames\": [\"Projection\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
