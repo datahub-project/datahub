@@ -131,7 +131,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
         <DescriptionContainer>
             {expanded ? (
                 <>
-                    {!!description && <StyledViewer controlledContent={description} readOnly />}
+                    {!!description && <StyledViewer content={description} readOnly />}
                     {!!description && (
                         <ExpandedActions>
                             {overLimit && (

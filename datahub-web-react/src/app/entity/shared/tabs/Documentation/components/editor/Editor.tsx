@@ -37,13 +37,12 @@ import { MentionsComponent } from './extensions/mentions/MentionsComponent';
 type EditorProps = {
     readOnly?: boolean;
     content?: string;
-    controlledContent?: string /* Updates editor content automatically on readOnly mode */;
     onChange?: (md: string) => void;
     className?: string;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, controlledContent, readOnly, onChange, className } = props;
+    const { content, readOnly, onChange, className } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -78,11 +77,11 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         manager.view.focus();
     });
     useEffect(() => {
-        if (readOnly && controlledContent) {
-            manager.store.commands.setContent(controlledContent);
+        if (readOnly && content) {
+            manager.store.commands.setContent(content);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [readOnly, controlledContent]);
+    }, [readOnly, content]);
 
     return (
         <EditorContainer className={className}>

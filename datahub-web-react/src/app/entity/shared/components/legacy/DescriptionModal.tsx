@@ -53,7 +53,7 @@ export default function UpdateDescriptionModal({ title, description, original, o
                 </Form.Item>
                 {!isAddDesc && description && original && (
                     <Form.Item label={<FormLabel>Original:</FormLabel>}>
-                        <StyledViewer controlledContent={original || ''} readOnly />
+                        <StyledViewer content={original || ''} readOnly />
                     </Form.Item>
                 )}
             </Form>
