@@ -71,7 +71,7 @@ class Architectures(Enum):
 
 @functools.lru_cache()
 def _docker_subprocess_env() -> Dict[str, str]:
-    # platform.machine() saves a subprocess here and works on windows, too
+    # platform.machine() is equivalent to `uname -m`, as per https://stackoverflow.com/a/45124927/5004662
     DOCKER_COMPOSE_PLATFORM: str = "linux/" + platform.machine()
 
     env = {
