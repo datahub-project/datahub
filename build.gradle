@@ -16,6 +16,8 @@ buildscript {
   ext.slf4jVersion = '1.7.32'
   ext.logbackClassic = '1.2.11'
 
+  ext.docker_registry = 'linkedin'
+
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {
