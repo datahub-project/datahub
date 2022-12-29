@@ -1,5 +1,5 @@
 import typing
-from typing import Iterable
+from typing import Iterable, Optional
 
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
@@ -15,7 +15,10 @@ from datahub.ingestion.source.sql.sql_common import (
     logger,
     make_sqlalchemy_uri,
 )
-from datahub.ingestion.source.sql.sql_utils import gen_database_key
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_database_key,
+    add_table_to_schema_container,
+)
 
 
 class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
@@ -54,7 +57,7 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         super().__init__(config, ctx, platform)
         self.config: TwoTierSQLAlchemyConfig = config
 
-    def get_parent_container_key(self, db_name: str, schema: str) -> PlatformKey:
+    def get_database_container_key(self, db_name: str, schema: str) -> PlatformKey:
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,
         # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
         assert db_name == schema
@@ -63,6 +66,24 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+        )
+
+    def add_table_to_schema_container(
+        self,
+        dataset_urn: str,
+        db_name: str,
+        schema: str,
+        schema_container_key: Optional[PlatformKey] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            db_name=db_name,
+            schema=schema,
+            schema_container_key=self.get_database_container_key(db_name, schema),
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            report=self.report,
         )
 
     def get_allowed_schemas(

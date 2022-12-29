@@ -37,6 +37,7 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -575,6 +576,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             report=self.report,
         )
 
+    def add_table_to_schema_container(
+        self,
+        dataset_urn: str,
+        db_name: str,
+        schema: str,
+        schema_container_key: Optional[PlatformKey] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            db_name=db_name,
+            schema=schema,
+            schema_container_key=schema_container_key,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            report=self.report,
+        )
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
@@ -822,13 +841,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
-        yield from add_table_to_schema_container(
-            dataset_urn=dataset_urn,
-            db_name=db_name,
-            schema=schema,
-            platform=self.platform,
-            env=self.config.env,
-            report=self.report,
+
+        yield from self.add_table_to_schema_container(
+            dataset_urn=dataset_urn, db_name=db_name, schema=schema
         )
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = SqlWorkUnit(id=dataset_name, mce=mce)
@@ -1093,13 +1108,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             aspects=[StatusClass(removed=False)],
         )
         db_name = self.get_db_name(inspector)
-        yield from add_table_to_schema_container(
+        yield from self.add_table_to_schema_container(
             dataset_urn=dataset_urn,
             db_name=db_name,
             schema=schema,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            report=self.report,
         )
 
         dataset_properties = DatasetPropertiesClass(
