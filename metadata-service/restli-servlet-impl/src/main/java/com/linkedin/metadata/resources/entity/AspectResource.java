@@ -164,7 +164,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
                 .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
 
-        if (!result.isDidUpdate()) {
+        if (!result.isQueued()) {
           tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
         return urn.toString();

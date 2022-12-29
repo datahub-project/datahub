@@ -52,7 +52,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.dedup_list import deduplicate_list
 
 # Logger instance
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Mapper:
@@ -141,7 +141,7 @@ class Mapper:
                 upstream_table.data_platform_pair.powerbi_data_platform_name
                 not in self.__config.dataset_type_mapping.keys()
             ):
-                LOGGER.debug(
+                logger.debug(
                     "Skipping upstream table for %s. The platform (%s) is not part of dataset_type_mapping",
                     ds_urn,
                     upstream_table.data_platform_pair.powerbi_data_platform_name,
@@ -202,8 +202,8 @@ class Mapper:
         if dataset is None:
             return dataset_mcps
 
-        LOGGER.info(
-            f"Converting dataset={dataset.name}(id={dataset.id}) to datahub dataset"
+        logger.debug(
+            f"Mapping dataset={dataset.name}(id={dataset.id}) to datahub dataset"
         )
 
         for table in dataset.tables:
@@ -214,7 +214,7 @@ class Mapper:
                 env=self.__config.env,
             )
 
-            LOGGER.info(f"{Constant.Dataset_URN}={ds_urn}")
+            logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(
                 name=table.name, description=table.name
@@ -247,13 +247,13 @@ class Mapper:
         """
         Map PowerBi tile to datahub chart
         """
-        LOGGER.info("Converting tile {}(id={}) to chart".format(tile.title, tile.id))
+        logger.info("Converting tile {}(id={}) to chart".format(tile.title, tile.id))
         # Create a URN for chart
         chart_urn = builder.make_chart_urn(
             self.__config.platform_name, tile.get_urn_part()
         )
 
-        LOGGER.info("{}={}".format(Constant.CHART_URN, chart_urn))
+        logger.info("{}={}".format(Constant.CHART_URN, chart_urn))
 
         ds_input: List[str] = self.to_urn_set(ds_mcps)
 
@@ -431,9 +431,7 @@ class Mapper:
         Map PowerBi user to datahub user
         """
 
-        LOGGER.info(
-            f"Converting user {user.displayName}(id={user.id}) to datahub's user"
-        )
+        logger.debug(f"Mapping user {user.displayName}(id={user.id}) to datahub's user")
 
         # Create an URN for user
         user_urn = builder.make_user_urn(user.get_urn_part())
@@ -493,7 +491,7 @@ class Mapper:
         if not tiles:
             return [], []
 
-        LOGGER.info(f"Converting tiles(count={len(tiles)}) to charts")
+        logger.info(f"Converting tiles(count={len(tiles)}) to charts")
 
         for tile in tiles:
             if tile is None:
@@ -515,7 +513,7 @@ class Mapper:
     ) -> List[EquableMetadataWorkUnit]:
         mcps = []
 
-        LOGGER.info(
+        logger.info(
             f"Converting dashboard={dashboard.displayName} to datahub dashboard"
         )
 
@@ -551,18 +549,18 @@ class Mapper:
         if not pages:
             return []
 
-        LOGGER.debug(f"Converting pages(count={len(pages)}) to charts")
+        logger.debug(f"Converting pages(count={len(pages)}) to charts")
 
         def to_chart_mcps(
             page: PowerBiAPI.Page, ds_mcps: List[MetadataChangeProposalWrapper]
         ) -> List[MetadataChangeProposalWrapper]:
-            LOGGER.debug("Converting page {} to chart".format(page.displayName))
+            logger.debug("Converting page {} to chart".format(page.displayName))
             # Create a URN for chart
             chart_urn = builder.make_chart_urn(
                 self.__config.platform_name, page.get_urn_part()
             )
 
-            LOGGER.debug("{}={}".format(Constant.CHART_URN, chart_urn))
+            logger.debug("{}={}".format(Constant.CHART_URN, chart_urn))
 
             ds_input: List[str] = self.to_urn_set(ds_mcps)
 
@@ -710,7 +708,7 @@ class Mapper:
     ) -> Iterable[MetadataWorkUnit]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
-        LOGGER.debug(f"Converting dashboard={report.name} to datahub dashboard")
+        logger.debug(f"Converting dashboard={report.name} to datahub dashboard")
 
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(report.users)
@@ -787,12 +785,12 @@ class PowerBiDashboardSource(Source):
         """
         Datahub Ingestion framework invoke this method
         """
-        LOGGER.info("PowerBi plugin execution is started")
+        logger.info("PowerBi plugin execution is started")
         # Validate dataset type mapping
         self.validate_dataset_type_mapping()
         # Fetch PowerBi workspace for given workspace identifier
         for workspace_id in self.get_workspace_ids():
-            LOGGER.info(f"Scanning workspace id: {workspace_id}")
+            logger.info(f"Scanning workspace id: {workspace_id}")
             workspace = self.powerbi_client.get_workspace(workspace_id, self.reporter)
 
             for dashboard in workspace.dashboards:
@@ -806,7 +804,7 @@ class PowerBiDashboardSource(Source):
                 except Exception as e:
                     message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
 
-                    LOGGER.exception(message, e)
+                    logger.exception(message, e)
                     self.reporter.report_warning(dashboard.id, message)
                 # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
                 workunits = self.mapper.to_datahub_work_units(dashboard)
