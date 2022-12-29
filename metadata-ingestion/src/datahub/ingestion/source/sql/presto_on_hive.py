@@ -37,6 +37,7 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
+    gen_database_containers,
     gen_schema_containers,
     get_domain_wu,
 )
@@ -316,6 +317,21 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = PrestoOnHiveConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def gen_database_containers(
+        self,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from gen_database_containers(
+            database=database,
+            sub_types=[self.database_container_subtype],
+            platform=self.platform,
+            domain_config=self.config.domain,
+            domain_registry=self.domain_registry,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            report=self.report,
+        )
 
     def gen_schema_containers(
         self,
