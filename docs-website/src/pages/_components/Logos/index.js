@@ -268,7 +268,7 @@ const platformLogos = [
   { name: "PowerBI", imageUrl: "/img/logos/platforms/powerbi.png" },
   { name: "Presto", imageUrl: "/img/logos/platforms/presto.svg" },
   { name: "Protobuf", imageUrl: "/img/logos/platforms/protobuf.png" },
-  { name: "Pulsar", imageUrl: "/img/logos/platforms/pulsar.svg" },
+  { name: "Pulsar", imageUrl: "/img/logos/platforms/pulsar.png" },
   { name: "Redash", imageUrl: "/img/logos/platforms/redash.svg" },
   {
     name: "Redshift",
@@ -301,10 +301,6 @@ const platformLogos = [
   {
     name: "Trino",
     imageUrl: "/img/logos/platforms/trino.png",
-  },
-  {
-    name: "Vertica",
-    imageUrl: "/img/logos/platforms/vertica.png",
   },
 ];
 
