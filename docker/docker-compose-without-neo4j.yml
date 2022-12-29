@@ -124,9 +124,6 @@ services:
     hostname: datahub-upgrade
     container_name: datahub-upgrade
     command: ["-u", "BuildIndices"]
-    depends_on:
-      - elasticsearch-setup
-      - kafka-setup
 
 networks:
   default:
