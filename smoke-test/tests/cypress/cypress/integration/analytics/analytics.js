@@ -5,13 +5,12 @@ describe('analytics', () => {
     cy.goToChart("urn:li:chart:(looker,cypress_baz1)");
     cy.waitTextVisible("Baz Chart 1");
     cy.openEntityTab("Dashboards");
+    cy.wait(1000);
 
     cy.goToAnalytics();
-    cy.wait(1000);
     cy.contains("Section Views across Entity Types").scrollIntoView({
       ensureScrollable: false
     })
-    cy.wait(1000);
     cy.waitTextPresent("dashboards");
   });
 })
