@@ -1075,6 +1075,7 @@ class SnowflakeV2Source(
             external_url=self.get_external_url_for_database(database.name)
             if self.config.include_external_url
             else None,
+            description=database.comment,
             created=int(database.created.timestamp() * 1000)
             if database.created is not None
             else None,
@@ -1089,8 +1090,9 @@ class SnowflakeV2Source(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         yield from gen_schema_containers(
-            schema=schema.name,
-            database=db_name,
+            name=schema.name,
+            schema=self.snowflake_identifier(schema.name),
+            database=self.snowflake_identifier(db_name),
             sub_types=[SqlContainerSubTypes.SCHEMA],
             platform=self.platform,
             platform_instance=self.config.platform_instance,
@@ -1098,6 +1100,7 @@ class SnowflakeV2Source(
             report=self.report,
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
+            description=schema.comment,
             external_url=self.get_external_url_for_schema(schema.name, db_name)
             if self.config.include_external_url
             else None,

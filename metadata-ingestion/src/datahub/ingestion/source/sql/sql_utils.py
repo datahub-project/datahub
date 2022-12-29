@@ -61,6 +61,7 @@ def gen_schema_containers(
     report: Optional[SourceReport] = None,
     database_container_key: Optional[PlatformKey] = None,
     schema_container_key: Optional[PlatformKey] = None,
+    name: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
     external_url: Optional[str] = None,
@@ -99,10 +100,10 @@ def gen_schema_containers(
         )
 
     container_workunits = gen_containers(
-        schema_container_key,
-        schema,
-        sub_types,
-        database_container_key,
+        container_key=schema_container_key,
+        name=name if name else schema,
+        sub_types=sub_types,
+        parent_container_key=database_container_key,
         domain_urn=domain_urn,
         external_url=external_url,
         description=description,
