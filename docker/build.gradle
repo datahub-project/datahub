@@ -9,6 +9,7 @@ ext {
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
             ':docker:kafka-setup',
+            ':datahub-upgrade',
             ':metadata-jobs:mce-consumer-job',
             ':metadata-jobs:mae-consumer-job',
             ':metadata-service:war',
