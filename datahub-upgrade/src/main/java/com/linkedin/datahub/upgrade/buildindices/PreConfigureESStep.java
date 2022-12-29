@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
@@ -26,6 +27,7 @@ public class PreConfigureESStep implements UpgradeStep {
 
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents _esComponents;
   private final EntityRegistry _entityRegistry;
+  private final ConfigurationProvider _configurationProvider;
 
   @Override
   public String id() {
@@ -70,13 +72,16 @@ public class PreConfigureESStep implements UpgradeStep {
           }
 
           // Clone indices
-          String clonedName = indexName + "_clone_" + System.currentTimeMillis();
-          ResizeRequest resizeRequest = new ResizeRequest(indexName, clonedName);
-          boolean cloneAck = _esComponents.getSearchClient().indices().clone(resizeRequest, RequestOptions.DEFAULT).isAcknowledged();
-          log.info("Cloned index {} into {}, Acknowledged: {}", indexName, clonedName, cloneAck);
-          if (!cloneAck) {
-            log.error("Partial index settings update, cloned indices may need to be cleaned up: {}", clonedName);
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          if (_configurationProvider.getElasticSearch().getBuildIndices().isCloneIndices()) {
+            String clonedName = indexName + "_clone_" + System.currentTimeMillis();
+            ResizeRequest resizeRequest = new ResizeRequest(indexName, clonedName);
+            boolean cloneAck =
+                _esComponents.getSearchClient().indices().clone(resizeRequest, RequestOptions.DEFAULT).isAcknowledged();
+            log.info("Cloned index {} into {}, Acknowledged: {}", indexName, clonedName, cloneAck);
+            if (!cloneAck) {
+              log.error("Partial index settings update, cloned indices may need to be cleaned up: {}", clonedName);
+              return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+            }
           }
         }
       } catch (Exception e) {
