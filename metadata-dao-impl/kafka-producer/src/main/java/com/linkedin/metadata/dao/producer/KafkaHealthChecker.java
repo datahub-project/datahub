@@ -1,6 +1,5 @@
 package com.linkedin.metadata.dao.producer;
 
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.Callback;
@@ -39,8 +38,8 @@ public class KafkaHealthChecker {
             sendMessageEnded(moment);
             if (e != null) {
                 log.error(String.format("Failed to emit %s for entity %s", eventType, entityDesc), e);
-                MetricUtils.counter(this.getClass(),
-                        MetricRegistry.name("producer_failed_count", eventType.replaceAll(" ", "_"))).inc();
+                MetricUtils.counterInc(this.getClass().getName(),
+                        "producer_failed_count", eventType.replaceAll(" ", "_"));
             } else {
                 log.debug(String.format(
                         "Successfully emitted %s for entity %s at offset %s, partition %s, topic %s",

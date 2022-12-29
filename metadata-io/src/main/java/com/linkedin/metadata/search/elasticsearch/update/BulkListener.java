@@ -60,13 +60,13 @@ public class BulkListener implements BulkProcessor.Listener {
   private static void incrementMetrics(BulkResponse response) {
     Arrays.stream(response.getItems())
             .map(req -> buildMetricName(req.getOpType(), req.status().name()))
-            .forEach(metricName -> MetricUtils.counter(BulkListener.class, metricName).inc());
+            .forEach(metricName -> MetricUtils.counterInc(BulkListener.class.getName(), metricName));
   }
 
   private static void incrementMetrics(BulkRequest request, Throwable failure) {
     request.requests().stream()
             .map(req -> buildMetricName(req.opType(), "exception"))
-            .forEach(metricName -> MetricUtils.exceptionCounter(BulkListener.class, metricName, failure));
+            .forEach(metricName -> MetricUtils.exceptionCounter(failure, BulkListener.class.getName(), metricName));
   }
 
   private static String buildMetricName(DocWriteRequest.OpType opType, String status) {

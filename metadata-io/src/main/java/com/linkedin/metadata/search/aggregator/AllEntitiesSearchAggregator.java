@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.aggregator;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -31,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,8 +69,11 @@ public class AllEntitiesSearchAggregator {
     // 1. Get entities to query for (Do not query entities without a single document)
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "getNonEmptyEntities");
+    try {
       nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "getNonEmptyEntities");
     }
     if (!entities.isEmpty()) {
       nonEmptyEntities = nonEmptyEntities.stream().filter(lowercaseEntities::contains).collect(Collectors.toList());
@@ -95,7 +98,7 @@ public class AllEntitiesSearchAggregator {
       return getEmptySearchResult(from, size);
     }
 
-    Timer.Context postProcessTimer = MetricUtils.timer(this.getClass(), "postProcessTimer").time();
+    UUID postProcessTimer = MetricUtils.timerStart(this.getClass().getName(), "postProcessTimer");
 
     // 3. Combine search results from all entities
     int numEntities = 0;
@@ -134,7 +137,7 @@ public class AllEntitiesSearchAggregator {
     SearchResultMetadata finalMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray(rankFilterGroups(finalAggregations)));
 
-    postProcessTimer.stop();
+    MetricUtils.timerStop(postProcessTimer, this.getClass().getName(), "postProcessTimer");
     return new SearchResult().setEntities(new SearchEntityArray(rankedResult))
         .setNumEntities(numEntities)
         .setFrom(from)
@@ -156,11 +159,14 @@ public class AllEntitiesSearchAggregator {
       @Nullable SearchFlags searchFlags) {
     Map<String, SearchResult> searchResults;
     // Query the entity search service for all entities asynchronously
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "searchEntities");
+    try {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
           _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags)))
           .stream()
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "searchEntities");
     }
     return searchResults;
   }

@@ -70,7 +70,7 @@ public class ESBulkProcessor implements Closeable {
     }
 
     public ESBulkProcessor add(DocWriteRequest<?> request) {
-        MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc();
+        MetricUtils.counterInc(this.getClass().getName(), ES_WRITES_METRIC);
         bulkProcessor.add(request);
         return this;
     }
@@ -99,11 +99,11 @@ public class ESBulkProcessor implements Closeable {
             bulkProcessor.flush();
             // perform delete after local flush
             final BulkByScrollResponse deleteResponse = searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
-            MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc(deleteResponse.getTotal());
+            MetricUtils.counterInc(deleteResponse.getTotal(), this.getClass().getName(), ES_WRITES_METRIC);
             return Optional.of(deleteResponse);
         } catch (Exception e) {
             log.error("ERROR: Failed to delete by query. See stacktrace for a more detailed error:", e);
-            MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_DELETE_EXCEPTION_METRIC, e);
+            MetricUtils.exceptionCounter(e, ESBulkProcessor.class.getName(), ES_DELETE_EXCEPTION_METRIC);
         }
 
         return Optional.empty();

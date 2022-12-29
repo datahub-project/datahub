@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.types.BatchMutableType;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -8,6 +7,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +36,7 @@ public class MutableTypeBatchResolver<I, B, T> implements DataFetcher<Completabl
     final B[] input = bindArgument(environment.getArgument("input"), _batchMutableType.batchInputClass());
 
     return CompletableFuture.supplyAsync(() -> {
-      Timer.Context timer = MetricUtils.timer(this.getClass(), "batchMutate").time();
+      UUID timer = MetricUtils.timerStart(this.getClass().getName(), "batchMutate");
 
       try {
         return _batchMutableType.batchUpdate(input, environment.getContext());
@@ -46,7 +46,7 @@ public class MutableTypeBatchResolver<I, B, T> implements DataFetcher<Completabl
         _logger.error("Failed to perform batchUpdate", e);
         throw new IllegalArgumentException(e);
       } finally {
-        timer.stop();
+        MetricUtils.timerStop(timer, this.getClass().getName(), "batchMutate");
       }
     });
   }

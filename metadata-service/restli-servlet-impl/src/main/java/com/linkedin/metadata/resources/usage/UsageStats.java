@@ -1,6 +1,5 @@
 package com.linkedin.metadata.resources.usage;
 
-import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +22,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
@@ -104,7 +104,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         this.ingest(agg);
       }
       return null;
-    }, MetricRegistry.name(this.getClass(), "batchIngest"));
+    }, MetricUtils.buildName(this.getClass().getName(), "batchIngest"));
   }
 
   private CalendarInterval windowToInterval(@Nonnull WindowDuration duration) {
@@ -334,7 +334,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
 
       // 5. Populate and return the result.
       return new UsageQueryResult().setBuckets(buckets).setAggregations(aggregations);
-    }, MetricRegistry.name(this.getClass(), "query"));
+    }, MetricUtils.buildName(this.getClass().getName(), "query"));
   }
 
   @Action(name = ACTION_QUERY_RANGE)

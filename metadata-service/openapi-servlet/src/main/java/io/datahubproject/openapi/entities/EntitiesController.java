@@ -1,7 +1,5 @@
 package io.datahubproject.openapi.entities;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +21,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,7 +65,7 @@ public class EntitiesController {
       @RequestParam("urns") @Nonnull String[] urns,
       @Parameter(name = "aspectNames", description = "The list of aspect names to retrieve")
       @RequestParam(name = "aspectNames", required = false) @Nullable String[] aspectNames) {
-    Timer.Context context = MetricUtils.timer("getEntities").time();
+    UUID context = MetricUtils.timerStart("getEntities");
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
             // Have to decode here because of frontend routing, does No-op for already unencoded through direct API access
@@ -93,11 +92,11 @@ public class EntitiesController {
               projectedAspects), e);
     } finally {
       if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "failed")).inc();
+        MetricUtils.counterInc("getEntities", "failed");
       } else {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
+        MetricUtils.counterInc("getEntities", "success");
       }
-      context.stop();
+      MetricUtils.timerStop(context, "getEntities");
     }
   }
 
@@ -127,7 +126,7 @@ public class EntitiesController {
       @RequestParam("urns") @Nonnull String[] urns,
       @Parameter(name = "soft", description = "Determines whether the delete will be soft or hard, defaults to true for soft delete")
       @RequestParam(value = "soft", defaultValue = "true") boolean soft) {
-    Timer.Context context = MetricUtils.timer("deleteEntities").time();
+    UUID context = MetricUtils.timerStart("deleteEntities");
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
             // Have to decode here because of frontend routing, does No-op for already unencoded through direct API access
@@ -166,11 +165,11 @@ public class EntitiesController {
           String.format("Failed to batch delete entities with urns: %s", entityUrns), e);
     } finally {
       if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "failed")).inc();
+        MetricUtils.counterInc("getEntities", "failed");
       } else {
-        MetricUtils.counter(MetricRegistry.name("getEntities", "success")).inc();
+        MetricUtils.counterInc("getEntities", "success");
       }
-      context.stop();
+      MetricUtils.timerStop(context, "deleteEntities");
     }
   }
 }

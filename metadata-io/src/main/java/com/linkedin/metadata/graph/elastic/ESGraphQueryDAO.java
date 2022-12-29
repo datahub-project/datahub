@@ -1,6 +1,5 @@
 package com.linkedin.metadata.graph.elastic;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -30,6 +29,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -105,12 +105,15 @@ public class ESGraphQueryDAO {
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
-      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "esQuery");
+    try {
+      MetricUtils.counterInc(this.getClass().getName(), SEARCH_EXECUTIONS_METRIC);
       return client.search(searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "esQuery");
     }
   }
 

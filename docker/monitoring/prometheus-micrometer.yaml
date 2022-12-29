@@ -1,0 +1,6 @@
+scrape_configs:
+  - job_name: 'Metrics Scraper'
+    metrics_path: '/openapi/metrics/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: [ 'datahub-gms:8080' ]

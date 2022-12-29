@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.cache;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -8,6 +7,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,7 +44,8 @@ public class CacheableSearcher<K> {
    * This let's us have batches that return a variable number of results (we have no idea which batch the "from" "size" page corresponds to)
    */
   public SearchResult getSearchResults(int from, int size) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getSearchResults").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "getSearchResults");
+    try {
       int resultsSoFar = 0;
       int batchId = 0;
       boolean foundStart = false;
@@ -76,6 +77,8 @@ public class CacheableSearcher<K> {
           .setFrom(from)
           .setPageSize(size)
           .setNumEntities(batchedResult.getNumEntities());
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "getSearchResults");
     }
   }
 
@@ -84,25 +87,28 @@ public class CacheableSearcher<K> {
   }
 
   private SearchResult getBatch(int batchId) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getBatch").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "getBatch");
+    try {
       QueryPagination batch = getBatchQuerySize(batchId);
       SearchResult result;
       if (enableCache()) {
-        Timer.Context cacheAccess = MetricUtils.timer(this.getClass(), "getBatch_cache_access").time();
+        UUID cacheAccess = MetricUtils.timerStart(this.getClass().getName(), "getBatch_cache_access");
         K cacheKey = cacheKeyGenerator.apply(batch);
         result = cache.get(cacheKey, SearchResult.class);
-        cacheAccess.stop();
+        MetricUtils.timerStop(cacheAccess, this.getClass().getName(), "getBatch_cache_access");
         if (result == null) {
-          Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "getBatch_cache_miss").time();
+          UUID cacheMiss = MetricUtils.timerStart(this.getClass().getName(), "getBatch_cache_miss");
           result = searcher.apply(batch);
           cache.put(cacheKey, result);
-          cacheMiss.stop();
-          MetricUtils.counter(this.getClass(), "getBatch_cache_miss_count").inc();
+          MetricUtils.timerStop(cacheMiss, this.getClass().getName(), "getBatch_cache_miss");
+          MetricUtils.counterInc(this.getClass().getName(), "getBatch_cache_miss_count");
         }
       } else {
         result = searcher.apply(batch);
       }
       return result;
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "getBatch");
     }
   }
 

@@ -61,12 +61,12 @@ public class LocalEbeanServerConfigFactory {
     return new DataSourcePoolListener() {
       @Override
       public void onAfterBorrowConnection(Connection connection) {
-        MetricUtils.counter(counterName).inc();
+        MetricUtils.counterInc(counterName + "_connect");
       }
 
       @Override
       public void onBeforeReturnConnection(Connection connection) {
-        MetricUtils.counter(counterName).dec();
+        MetricUtils.counterInc(counterName + "_disconnect");
       }
     };
   }

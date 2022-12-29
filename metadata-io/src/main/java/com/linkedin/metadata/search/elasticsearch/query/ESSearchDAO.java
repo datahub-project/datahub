@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -15,6 +14,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -44,11 +44,14 @@ public class ESSearchDAO {
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     CountRequest countRequest =
         new CountRequest(indexConvention.getIndexName(entitySpec)).query(SearchRequestHandler.getFilterQuery(null));
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "docCount").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "docCount");
+    try {
       return client.count(countRequest, RequestOptions.DEFAULT).getCount();
     } catch (IOException e) {
       log.error("Count query failed:" + e.getMessage());
       throw new ESQueryException("Count query failed:", e);
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "docCount");
     }
   }
 
@@ -56,7 +59,8 @@ public class ESSearchDAO {
   @WithSpan
   private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, @Nullable Filter filter, int from,
       int size) {
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_search").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "executeAndExtract_search");
+    try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, filter, from, size);
@@ -71,6 +75,8 @@ public class ESSearchDAO {
       }
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "executeAndExtract_search");
     }
   }
 
@@ -89,13 +95,13 @@ public class ESSearchDAO {
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     final String finalInput = input.isEmpty() ? "*" : input;
-    Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
+    UUID searchRequestTimer = MetricUtils.timerStart(this.getClass().getName(), "searchRequest");
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     // Step 1: construct the query
     final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpec)
         .getSearchRequest(finalInput, postFilters, sortCriterion, from, size);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
-    searchRequestTimer.stop();
+    MetricUtils.timerStop(searchRequestTimer, this.getClass().getName(), "searchRequest");
     // Step 2: execute the query and extract results, validated against document model as well
     return executeAndExtract(entitySpec, searchRequest, postFilters, from, size);
   }
@@ -168,13 +174,16 @@ public class ESSearchDAO {
     }
     searchRequest.indices(indexName);
 
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "aggregateByValue_search").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "aggregateByValue_search");
+    try {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return SearchRequestHandler.extractTermAggregations(searchResponse, field);
     } catch (Exception e) {
       log.error("Aggregation query failed", e);
       throw new ESQueryException("Aggregation query failed:", e);
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "aggregateByValue_search");
     }
   }
 }

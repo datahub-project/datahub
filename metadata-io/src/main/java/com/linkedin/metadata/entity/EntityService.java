@@ -1,6 +1,5 @@
 package com.linkedin.metadata.entity;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -77,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -682,9 +682,9 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
+    UUID ingestToLocalDBTimer = MetricUtils.timerStart(this.getClass().getName(), "ingestAspectsToLocalDB");
     List<Pair<String, UpdateAspectResult>> ingestResults = wrappedIngestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, systemMetadata);
-    ingestToLocalDBTimer.stop();
+    MetricUtils.timerStop(ingestToLocalDBTimer, this.getClass().getName(), "ingestAspectsToLocalDB");
 
     for (Pair<String, UpdateAspectResult> result: ingestResults) {
       sendEventForUpdateAspectResult(urn, result.getFirst(), result.getSecond());
@@ -711,9 +711,9 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+    UUID ingestToLocalDBTimer = MetricUtils.timerStart(this.getClass().getName(), "ingestAspectToLocalDB");
     UpdateAspectResult result = wrappedIngestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
-    ingestToLocalDBTimer.stop();
+    MetricUtils.timerStop(ingestToLocalDBTimer, this.getClass().getName(), "ingestAspectToLocalDB");
 
     return sendEventForUpdateAspectResult(urn, aspectName, result);
   }
@@ -740,7 +740,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     final SystemMetadata internalSystemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+    UUID ingestToLocalDBTimer = MetricUtils.timerStart(this.getClass().getName(), "ingestAspectToLocalDB");
     UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
       final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
@@ -755,7 +755,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       return new UpdateAspectResult(urn, oldValue, oldValue, oldMetadata, oldMetadata, MetadataAuditOperation.UPDATE, auditStamp,
           latest.getVersion());
     }, DEFAULT_MAX_TRANSACTION_RETRY);
-    ingestToLocalDBTimer.stop();
+    MetricUtils.timerStop(ingestToLocalDBTimer, this.getClass().getName(), "ingestAspectToLocalDB");
 
     return sendEventForUpdateAspectResult(urn, aspectName, result);
   }
@@ -784,17 +784,17 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
       }
 
-      Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
+      UUID produceMCLTimer = MetricUtils.timerStart(this.getClass().getName(), "produceMCL");
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
           updatedSystemMetadata, result.getAuditStamp(), ChangeType.UPSERT);
-      produceMCLTimer.stop();
+      MetricUtils.timerStop(produceMCLTimer, this.getClass().getName(), "produceMCL");
 
       // For legacy reasons, keep producing to the MAE event stream without blocking ingest
       try {
-        Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
+        UUID produceMAETimer = MetricUtils.timerStart(this.getClass().getName(), "produceMAE");
         produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
             result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
-        produceMAETimer.stop();
+        MetricUtils.timerStop(produceMAETimer, this.getClass().getName(), "produceMAE");
       } catch (Exception e) {
         log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema.", e);
       }
@@ -966,11 +966,11 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
   private UpdateAspectResult upsertAspect(final RecordTemplate aspect, final SystemMetadata systemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn, AuditStamp auditStamp, AspectSpec aspectSpec) {
-    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestProposalToLocalDB").time();
+    UUID ingestToLocalDBTimer = MetricUtils.timerStart(this.getClass().getName(), "ingestProposalToLocalDB");
     UpdateAspectResult result =
         wrappedIngestAspectToLocalDB(entityUrn, mcp.getAspectName(), ignored -> aspect, auditStamp,
             systemMetadata);
-    ingestToLocalDBTimer.stop();
+    MetricUtils.timerStop(ingestToLocalDBTimer, this.getClass().getName(), "ingestProposalToLocalDB");
     RecordTemplate oldAspect = result.getOldValue();
     RecordTemplate newAspect = result.getNewValue();
     // Apply retention policies asynchronously if there was an update to existing aspect value
@@ -983,9 +983,9 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
   private UpdateAspectResult patchAspect(final Patch patch, final SystemMetadata systemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn, AuditStamp auditStamp, AspectSpec aspectSpec) {
-    Timer.Context patchAspectToLocalDBTimer = MetricUtils.timer(this.getClass(), "patchAspect").time();
+    UUID patchAspectToLocalDBTimer = MetricUtils.timerStart(this.getClass().getName(), "patchAspect");
     UpdateAspectResult result = patchAspectToLocalDB(entityUrn, aspectSpec, patch, auditStamp, systemMetadata);
-    patchAspectToLocalDBTimer.stop();
+    MetricUtils.timerStop(patchAspectToLocalDBTimer, this.getClass().getName(), "patchAspect");
     RecordTemplate oldAspect = result.getOldValue();
     RecordTemplate newAspect = result.getNewValue();
     // Apply retention policies asynchronously if there was an update to existing aspect value

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.graph.neo4j;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -32,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -428,8 +428,11 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   private Result runQuery(@Nonnull Statement statement) {
     log.debug(String.format("Running Neo4j query %s", statement.toString()));
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "runQuery").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "runQuery");
+    try {
       return _driver.session(_sessionConfig).run(statement.getCommandText(), statement.getParams());
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "runQuery");
     }
   }
 

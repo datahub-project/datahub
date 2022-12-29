@@ -1,12 +1,11 @@
 package com.linkedin.metadata.restli;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -45,14 +44,14 @@ public class RestliUtil {
 
   @Nonnull
   public static <T> Task<T> toTask(@Nonnull Supplier<T> supplier, String metricName) {
-    Timer.Context context = MetricUtils.timer(metricName).time();
+    UUID context = MetricUtils.timerStart(metricName);
     // Stop timer on success and failure
     return toTask(supplier).transform(orig -> {
-      context.stop();
+      MetricUtils.timerStop(context, metricName);
       if (orig.isFailed()) {
-        MetricUtils.counter(MetricRegistry.name(metricName, "failed")).inc();
+        MetricUtils.counterInc(metricName, "failed");
       } else {
-        MetricUtils.counter(MetricRegistry.name(metricName, "success")).inc();
+        MetricUtils.counterInc(metricName, "success");
       }
       return orig;
     });

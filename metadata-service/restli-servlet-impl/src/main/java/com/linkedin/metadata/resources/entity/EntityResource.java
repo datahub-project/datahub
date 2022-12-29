@@ -1,6 +1,5 @@
 package com.linkedin.metadata.resources.entity;
 
-import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +39,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -164,7 +164,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         throw RestliUtil.resourceNotFoundException();
       }
       return new AnyRecord(entity.data());
-    }, MetricRegistry.name(this.getClass(), "get"));
+    }, MetricUtils.buildName(this.getClass().getName(), "get"));
   }
 
   @RestMethod.BatchGet
@@ -185,7 +185,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           .stream()
           .collect(
               Collectors.toMap(entry -> entry.getKey().toString(), entry -> new AnyRecord(entry.getValue().data())));
-    }, MetricRegistry.name(this.getClass(), "batchGet"));
+    }, MetricUtils.buildName(this.getClass().getName(), "batchGet"));
   }
 
   private SystemMetadata populateDefaultFieldsIfEmpty(@Nullable SystemMetadata systemMetadata) {
@@ -226,7 +226,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata,
           _entitySearchService);
       return null;
-    }, MetricRegistry.name(this.getClass(), "ingest"));
+    }, MetricUtils.buildName(this.getClass().getName(), "ingest"));
   }
 
   @Action(name = ACTION_BATCH_INGEST)
@@ -269,7 +269,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             _entitySearchService);
       }
       return null;
-    }, MetricRegistry.name(this.getClass(), "batchIngest"));
+    }, MetricUtils.buildName(this.getClass().getName(), "batchIngest"));
   }
 
   @Action(name = ACTION_SEARCH)
@@ -284,7 +284,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     // TODO - change it to use _searchService once we are confident on it's latency
     return RestliUtil.toTask(
         () -> validateSearchResult(_entitySearchService.search(entityName, input, filter, sortCriterion, start, count),
-            _entityService), MetricRegistry.name(this.getClass(), "search"));
+            _entityService), MetricUtils.buildName(this.getClass().getName(), "search"));
   }
 
   @Action(name = ACTION_SEARCH_ACROSS_ENTITIES)
@@ -332,7 +332,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(() -> validateListResult(
             toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)), _entityService),
-        MetricRegistry.name(this.getClass(), "filter"));
+            MetricUtils.buildName(this.getClass().getName(), "filter"));
   }
 
   @Action(name = ACTION_AUTOCOMPLETE)
@@ -343,7 +343,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_LIMIT) int limit) {
 
     return RestliUtil.toTask(() -> _entitySearchService.autoComplete(entityName, query, field, filter, limit),
-        MetricRegistry.name(this.getClass(), "autocomplete"));
+            MetricUtils.buildName(this.getClass().getName(), "autocomplete"));
   }
 
   @Action(name = ACTION_BROWSE)
@@ -356,7 +356,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtil.toTask(
         () -> validateBrowseResult(_entitySearchService.browse(entityName, path, filter, start, limit), _entityService),
-        MetricRegistry.name(this.getClass(), "browse"));
+            MetricUtils.buildName(this.getClass().getName(), "browse"));
   }
 
   @Action(name = ACTION_GET_BROWSE_PATHS)
@@ -366,7 +366,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
     log.info("GET BROWSE PATHS for {}", urn);
     return RestliUtil.toTask(() -> new StringArray(_entitySearchService.getBrowsePaths(urnToEntityName(urn), urn)),
-        MetricRegistry.name(this.getClass(), "getBrowsePaths"));
+            MetricUtils.buildName(this.getClass().getName(), "getBrowsePaths"));
   }
 
   private String stringifyRowCount(int size) {
@@ -420,7 +420,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         _entityService.rollbackWithConditions(aspectRowsToDelete, conditions, false);
       }
       return response;
-    }, MetricRegistry.name(this.getClass(), "deleteAll"));
+    }, MetricUtils.buildName(this.getClass().getName(), "deleteAll"));
   }
 
   /**
@@ -464,7 +464,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       response.setTimeseriesRows(numTimeseriesDocsDeleted);
 
       return response;
-    }, MetricRegistry.name(this.getClass(), "delete"));
+    }, MetricUtils.buildName(this.getClass().getName(), "delete"));
   }
 
   /**
@@ -515,7 +515,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun),
-        MetricRegistry.name(this.getClass(), "deleteReferences"));
+            MetricUtils.buildName(this.getClass().getName(), "deleteReferences"));
   }
 
   /*
@@ -579,7 +579,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(
         () -> validateSearchResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count),
-            _entityService), MetricRegistry.name(this.getClass(), "search"));
+            _entityService), MetricUtils.buildName(this.getClass().getName(), "search"));
   }
 
   @Action(name = ACTION_EXISTS)
@@ -588,6 +588,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
     log.info("EXISTS for {}", urnStr);
     Urn urn = Urn.createFromString(urnStr);
-    return RestliUtil.toTask(() -> _entityService.exists(urn), MetricRegistry.name(this.getClass(), "exists"));
+    return RestliUtil.toTask(() -> _entityService.exists(urn), MetricUtils.buildName(this.getClass().getName(), "exists"));
   }
 }

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.resources.entity;
 
-import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
@@ -16,6 +15,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
@@ -98,7 +98,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         throw RestliUtil.resourceNotFoundException();
       }
       return new AnyRecord(aspect.data());
-    }, MetricRegistry.name(this.getClass(), "get"));
+    }, MetricUtils.buildName(this.getClass().getName(), "get"));
   }
 
   @Action(name = ACTION_GET_TIMESERIES_ASPECT)
@@ -131,7 +131,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit,
               latestValue, filter)));
       return response;
-    }, MetricRegistry.name(this.getClass(), "getTimeseriesAspectValues"));
+    }, MetricUtils.buildName(this.getClass().getName(), "getTimeseriesAspectValues"));
   }
 
   @Action(name = ACTION_INGEST_PROPOSAL)
@@ -166,7 +166,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }
-    }, MetricRegistry.name(this.getClass(), "ingestProposal"));
+    }, MetricUtils.buildName(this.getClass().getName(), "ingestProposal"));
   }
 
   @Action(name = ACTION_GET_COUNT)
@@ -176,7 +176,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                 @ActionParam(PARAM_URN_LIKE) @Optional @Nullable String urnLike) {
     return RestliUtil.toTask(() -> {
       return _entityService.getCountAspect(aspectName, urnLike);
-    }, MetricRegistry.name(this.getClass(), "getCount"));
+    }, MetricUtils.buildName(this.getClass().getName(), "getCount"));
   }
 
   @Action(name = ACTION_RESTORE_INDICES)
@@ -199,6 +199,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       result.put("args", args);
       result.put("result", _entityService.restoreIndices(args, log::info));
       return result.toString();
-    }, MetricRegistry.name(this.getClass(), "restoreIndices"));
+    }, MetricUtils.buildName(this.getClass().getName(), "restoreIndices"));
   }
 }

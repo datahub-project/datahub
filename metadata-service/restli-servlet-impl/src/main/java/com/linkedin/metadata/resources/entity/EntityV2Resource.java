@@ -1,10 +1,10 @@
 package com.linkedin.metadata.resources.entity;
 
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.QueryParam;
@@ -60,7 +60,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
         throw new RuntimeException(
             String.format("Failed to get entity with urn: %s, aspects: %s", urn, projectedAspects), e);
       }
-    }, MetricRegistry.name(this.getClass(), "get"));
+    }, MetricUtils.buildName(this.getClass().getName(), "get"));
   }
 
   @RestMethod.BatchGet
@@ -87,6 +87,6 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
             String.format("Failed to batch get entities with urns: %s, projectedAspects: %s", urns, projectedAspects),
             e);
       }
-    }, MetricRegistry.name(this.getClass(), "batchGet"));
+    }, MetricUtils.buildName(this.getClass().getName(), "batchGet"));
   }
 }

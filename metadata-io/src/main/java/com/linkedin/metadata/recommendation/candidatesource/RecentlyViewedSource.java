@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -24,6 +23,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -99,7 +99,8 @@ public class RecentlyViewedSource implements RecommendationSource {
   public List<RecommendationContent> getRecommendations(@Nonnull Urn userUrn,
       @Nonnull RecommendationRequestContext requestContext) {
     SearchRequest searchRequest = buildSearchRequest(userUrn);
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlyViewed").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "getRecentlyViewed");
+    try {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       // extract results
       ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
@@ -112,6 +113,8 @@ public class RecentlyViewedSource implements RecommendationSource {
     } catch (Exception e) {
       log.error("Search query to get most recently viewed entities failed", e);
       throw new ESQueryException("Search query failed:", e);
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "getRecentlyViewed");
     }
   }
 

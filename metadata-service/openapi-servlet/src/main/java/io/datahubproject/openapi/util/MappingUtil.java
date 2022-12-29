@@ -1,7 +1,5 @@
 package io.datahubproject.openapi.util;
 
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -236,7 +234,7 @@ public class MappingUtil {
   public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, String actorUrn, EntityService entityService,
       ObjectMapper objectMapper) {
     // TODO: Use the actor present in the IC.
-    Timer.Context context = MetricUtils.timer("postEntity").time();
+    java.util.UUID context = MetricUtils.timerStart("postEntity");
     final com.linkedin.common.AuditStamp auditStamp =
         new com.linkedin.common.AuditStamp().setTime(System.currentTimeMillis())
             .setActor(UrnUtils.getUrn(actorUrn));
@@ -306,11 +304,11 @@ public class MappingUtil {
       throw e;
     } finally {
       if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("postEntity", "failed")).inc();
+        MetricUtils.counterInc("postEntity", "failed");
       } else {
-        MetricUtils.counter(MetricRegistry.name("postEntity", "success")).inc();
+        MetricUtils.counterInc("postEntity", "success");
       }
-      context.stop();
+      MetricUtils.timerStop(context, "postEntity");
     }
   }
 

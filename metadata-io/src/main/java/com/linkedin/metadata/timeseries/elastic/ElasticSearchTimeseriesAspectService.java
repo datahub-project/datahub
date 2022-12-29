@@ -1,6 +1,5 @@
 package com.linkedin.metadata.timeseries.elastic;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -35,6 +34,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -167,12 +167,15 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
 
     log.debug("Search request is: " + searchRequest);
     SearchHits hits;
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchAspectValues_search").time()) {
+    UUID ignored = MetricUtils.timerStart(this.getClass().getName(), "searchAspectValues_search");
+    try {
       final SearchResponse searchResponse = _searchClient.search(searchRequest, RequestOptions.DEFAULT);
       hits = searchResponse.getHits();
     } catch (Exception e) {
       log.error("Search query failed:", e);
       throw new ESQueryException("Search query failed:", e);
+    } finally {
+      MetricUtils.timerStop(ignored, this.getClass().getName(), "searchAspectValues_search");
     }
     return Arrays.stream(hits.getHits())
         .map(ElasticSearchTimeseriesAspectService::parseDocument)

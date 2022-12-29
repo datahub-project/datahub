@@ -1,6 +1,5 @@
 package com.linkedin.metadata.resources.lineage;
 
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -12,6 +11,7 @@ import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.UpdateResponse;
@@ -109,7 +109,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
           .setCount(relatedEntitiesResult.getCount())
           .setTotal(relatedEntitiesResult.getTotal())
           .setRelationships(entityArray);
-    }, MetricRegistry.name(this.getClass(), "getLineage"));
+    }, MetricUtils.buildName(this.getClass().getName(), "getLineage"));
   }
 
   @Nonnull
@@ -131,6 +131,6 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     return RestliUtil.toTask(
         () -> _graphService.getLineage(urn, LineageDirection.valueOf(direction), start != null ? start : 0,
             count != null ? count : 100, maxHops != null ? maxHops : 1),
-        MetricRegistry.name(this.getClass(), "getLineage"));
+            MetricUtils.buildName(this.getClass().getName(), "getLineage"));
   }
 }
