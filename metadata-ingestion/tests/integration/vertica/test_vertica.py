@@ -24,7 +24,7 @@ def vertica_runner(docker_compose_runner, pytestconfig):
 # Test needs more work to be done , currently it is working fine.
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_vertica_ingest_with_db(pytestconfig,tmp_path):
+def test_vertica_ingest_with_db(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/vertica"
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "vertica_to_file.yml").resolve()

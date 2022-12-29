@@ -97,7 +97,7 @@ export const UNITY_CATALOG = 'unity-catalog';
 export const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
-export const VERTICA = 'vertica'
+export const VERTICA = 'vertica';
 export const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 
 export const PLATFORM_URN_TO_LOGO = {
@@ -143,5 +143,5 @@ export const SOURCE_TO_PLATFORM_URN = {
     [SNOWFLAKE_USAGE]: SNOWFLAKE_URN,
     [STARBURST_TRINO_USAGE]: TRINO_URN,
     [DBT_CLOUD]: DBT_URN,
-    [VERTICA]:VERTICA_URN,
+    [VERTICA]: VERTICA_URN,
 };

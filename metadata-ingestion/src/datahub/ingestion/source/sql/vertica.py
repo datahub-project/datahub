@@ -1,4 +1,4 @@
-import datetime
+
 import logging
 import traceback
 from collections import defaultdict
@@ -912,7 +912,7 @@ class VerticaSource(SQLAlchemySource):
         # Add table to the checkpoint state
         self.stale_entity_removal_handler.add_entity_to_state("oauth", dataset_urn)
         description, properties, location_urn = self.get_oauth_properties(
-            inspector, schema, Oauth
+            inspector, schema, oauth
         )
         # Tablename might be different from the real table if we ran some normalisation ont it.
         # Getting normalized table name from the dataset_name
@@ -1023,13 +1023,9 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             bool: returns bool
         """
-        
-        super().is_dataset_eligible_for_profiling(
-                dataset_name,
-                sql_config,
-                inspector, 
-                profile_candidates
-        )
+        super().is_dataset_eligible_for_profiling(dataset_name,
+                                                  sql_config, inspector, profile_candidates
+                                                  )
         return (
 
             sql_config.projection_pattern.allowed(dataset_name)
@@ -1072,7 +1068,7 @@ class VerticaSource(SQLAlchemySource):
         #     except NotImplementedError:
         #         logger.debug("Source does not support generating profile candidates.")
         super().loop_profiler_requests(
-            inspector,schema, sql_config
+            inspector, schema, sql_config
         )
         for projection in inspector.get_projection_names(schema):
 

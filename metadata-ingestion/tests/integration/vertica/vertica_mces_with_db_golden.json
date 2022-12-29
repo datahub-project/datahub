@@ -5,7 +5,7 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"vertica\", \"instance\": \"PROD\", \"database\": \"vmart\", \"cluster_type\": \"Enterprise\", \"cluster_size\": \"59 GB\", \"subcluster\": \" \", \"communal_storage_path\": \"\"}, \"name\": \"vmart\"}",
+        "value": "{\"customProperties\": {\"platform\": \"vertica\", \"instance\": \"PROD\", \"database\": \"vmart\", \"cluster_type\": \"Enterprise\", \"cluster_size\": \"74 GB\", \"subcluster\": \" \", \"communal_storage_path\": \"\"}, \"name\": \"vmart\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
