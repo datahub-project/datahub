@@ -448,7 +448,6 @@ class SnowflakeV2Source(
         return _report
 
     def get_workunits(self) -> Iterable[WorkUnit]:
-
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -599,7 +598,6 @@ class SnowflakeV2Source(
     def _process_database(
         self, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-
         self.report.report_entity_scanned(snowflake_db.name, "database")
         if not self.config.database_pattern.allowed(snowflake_db.name):
             self.report.report_dropped(f"{snowflake_db.name}.*")
@@ -666,7 +664,6 @@ class SnowflakeV2Source(
     def _process_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
-
         self.report.report_entity_scanned(snowflake_schema.name, "schema")
         if not is_schema_allowed(
             self.config.schema_pattern,
