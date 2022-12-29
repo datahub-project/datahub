@@ -32,8 +32,8 @@ services:
       args:
         APP_ENV: dev
     depends_on:
-      - broker:
-      - schema-registry:
+      - broker
+      - schema-registry
 
   datahub-gms:
     image: linkedin/datahub-gms:debug
