@@ -11,7 +11,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DEFAULT_ENV, EnvBasedSourceConfigBase
 from datahub.ingestion.api.source import SourceReport
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Constant:
@@ -88,7 +88,7 @@ class PowerBiDashboardSourceReport(SourceReport):
 
 @dataclass
 class PlatformDetail:
-    platform_instance: str = pydantic.Field(
+    platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="DataHub platform instance name. It should be same as you have used in ingestion receipe of DataHub platform ingestion source of particular platform",
     )
@@ -174,14 +174,14 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         workspace_id_pattern = values.get("workspace_id_pattern")
 
         if workspace_id_pattern == AllowDenyPattern.allow_all() and workspace_id:
-            LOGGER.warning(
+            logger.warning(
                 "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
             )
             values["workspace_id_pattern"] = AllowDenyPattern(
                 allow=[f"^{workspace_id}$"]
             )
         elif workspace_id_pattern != AllowDenyPattern.allow_all() and workspace_id:
-            LOGGER.warning(
+            logger.warning(
                 "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern only."
             )
             values.pop("workspace_id")

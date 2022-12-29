@@ -4,7 +4,7 @@ from typing import Any, List, Optional, Union, cast
 
 from lark import Token, Tree
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_output_variable(root: Tree) -> Optional[str]:
@@ -28,13 +28,13 @@ def get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
     for tree in _filter:
         values: List[str] = token_values(tree.children[0])
         actual_value: str = "".join(strip_char_from_list(values, " "))
-        LOGGER.debug("Actual Value = %s", actual_value)
-        LOGGER.debug("Expected Value = %s", variable)
+        logger.debug("Actual Value = %s", actual_value)
+        logger.debug("Expected Value = %s", variable)
 
         if actual_value.lower() == variable.lower():
             return tree
 
-    LOGGER.info("Provided variable(%s) not found in variable rule", variable)
+    logger.info("Provided variable(%s) not found in variable rule", variable)
 
     return None
 
@@ -120,7 +120,7 @@ def get_all_function_name(tree: Tree) -> List[str]:
     _filter: Any = tree.find_data("invoke_expression")
 
     for node in _filter:
-        LOGGER.debug("Tree = %s", node.pretty())
+        logger.debug("Tree = %s", node.pretty())
         primary_expression_node: Optional[Tree] = first_primary_expression_func(node)
         if primary_expression_node is None:
             continue
