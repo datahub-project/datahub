@@ -14,6 +14,7 @@ from datahub.configuration.common import (
     LineageConfig,
 )
 from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
@@ -139,7 +140,7 @@ class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
         return values
 
 
-class UsageStatefulIngestionConfig(StatefulIngestionConfigBase):
+class UsageStatefulIngestionConfig(BaseTimeWindowConfig, StatefulIngestionConfigBase):
     store_last_usage_extraction_timestamp: bool = Field(
         default=True,
         description="Enable checking last usage timestamp in store.",
