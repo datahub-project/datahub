@@ -157,7 +157,7 @@ Cypress.Commands.add("enterTextInTestId", (id, text) => {
 })
 
 Cypress.Commands.add("clickOptionWithTestId", (id) => {
-  cy.get(selectorWithtestId(id)).click({
+  cy.get(selectorWithtestId(id)).first().click({
     force: true,
   });
 })
