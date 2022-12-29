@@ -121,7 +121,7 @@ services:
     - DATAHUB_GMS_PORT=8080
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     hostname: datahub-upgrade
-    image: ${DATAHUB_UPGRADE_IMAGE:-linkedin/datahub-upgrade}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
   elasticsearch:
     container_name: elasticsearch
     environment:
