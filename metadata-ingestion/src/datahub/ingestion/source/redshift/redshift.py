@@ -9,7 +9,6 @@ import pydantic
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
-    make_dataset_urn,
     make_tag_urn,
     make_dataset_urn_with_platform_instance,
 )
@@ -43,10 +42,10 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.state import RedshiftCheckpointState
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, SqlContainerSubTypes
 from datahub.ingestion.source.sql.sql_types import resolve_postgres_modified_type
 from datahub.ingestion.source.sql.sql_utils import (
-    add_table_to_dataset_container,
+    add_table_to_schema_container,
     gen_database_containers,
     gen_schema_containers,
     get_dataplatform_instance_aspect,
@@ -341,6 +340,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 database=database,
                 platform=self.platform,
                 platform_instance=self.config.platform_instance,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                sub_types=[SqlContainerSubTypes.SCHEMA],
                 env=self.config.env,
                 report=self.report,
             )
@@ -623,7 +625,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         # if tags_to_add:
         #    yield gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
-        yield from add_table_to_dataset_container(
+        yield from add_table_to_schema_container(
             dataset_urn,
             database,
             schema,
@@ -672,6 +674,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
             platform=self.platform,
             env=self.config.env,
+            sub_types=[SqlContainerSubTypes.DATABASE],
         )
         tables, views = RedshiftDataDictionary.get_tables_and_views(conn=connection)
         self.db_tables[database].update(tables)

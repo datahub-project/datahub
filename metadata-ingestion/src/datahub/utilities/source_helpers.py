@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Optional, Set
+from typing import Callable, Iterable, Optional, Set, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
