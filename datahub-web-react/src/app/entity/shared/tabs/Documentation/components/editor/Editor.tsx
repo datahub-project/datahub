@@ -58,7 +58,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new HorizontalRuleExtension(),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
-            new LinkExtension({ autoLink: true }),
+            new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),
             new ListItemExtension(),
             new MarkdownExtension({ htmlSanitizer: DOMPurify.sanitize, htmlToMarkdown, markdownToHtml }),
             new OrderedListExtension(),
