@@ -23,6 +23,9 @@ inputs:
     # e.g. linkedin/datahub-gms
     description: "List of Docker images to use as base name for tags"
     required: true
+  build-args:
+    description: "List of build-time variables. Same as docker/build-push-action"
+    required: false
   tags:
     # e.g. latest,head,sha12345
     description: "List of tags to use for the Docker image"
@@ -39,13 +42,14 @@ runs:
   steps:
     - name: Docker meta
       id: docker_meta
-      uses: docker/metadata-action@v4
+      uses: crazy-max/ghaction-docker-meta@v1
       with:
         # list of Docker images to use as base name for tags
         images: ${{ inputs.images }}
         # add git short SHA as Docker tag
-        tags: |
-          type=raw,value=${{ inputs.tags }}
+        tag-custom: ${{ inputs.tags }}
+        tag-custom-only: true
+    
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
       uses: docker/build-push-action@v3
@@ -56,6 +60,7 @@ runs:
         # TODO this only does single-platform builds in testing?
         # leaving it for now since it matches the previous behavior
         platforms: linux/amd64
+        build-args: ${{ inputs.build-args }}
         tags: ${{ steps.docker_meta.outputs.tags }}
         load: true
         push: false
@@ -85,6 +90,7 @@ runs:
         context: ${{ inputs.context }}
         file: ${{ inputs.file }}
         platforms: ${{ inputs.platforms }}
+        build-args: ${{ inputs.build-args }}
         tags: ${{ steps.docker_meta.outputs.tags }}
         push: true
 

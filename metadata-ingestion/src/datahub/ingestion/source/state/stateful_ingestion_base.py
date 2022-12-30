@@ -1,9 +1,9 @@
 import logging
-from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
 
 import pydantic
+from pydantic import root_validator
 from pydantic.fields import Field
 from pydantic.generics import GenericModel
 
@@ -11,8 +11,10 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
+    LineageConfig,
 )
 from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
@@ -99,6 +101,61 @@ class StatefulIngestionConfigBase(
     stateful_ingestion: Optional[CustomConfig] = Field(
         default=None, description="Stateful Ingestion Config"
     )
+
+
+class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig):
+    store_last_lineage_extraction_timestamp: bool = Field(
+        default=False,
+        description="Enable checking last lineage extraction date in store.",
+    )
+
+    @root_validator(pre=False)
+    def lineage_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_lineage_extraction_timestamp"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_lineage_extraction_timestamp config option as well"
+                )
+                values["store_last_lineage_extraction_timestamp"] = False
+
+        return values
+
+
+class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
+    store_last_profiling_timestamps: bool = Field(
+        default=False,
+        description="Enable storing last profile timestamp in store.",
+    )
+
+    @root_validator(pre=False)
+    def profiling_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_profiling_timestamps"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_profiling_timestamps config option as well"
+                )
+                values["store_last_profiling_timestamps"] = False
+        return values
+
+
+class UsageStatefulIngestionConfig(BaseTimeWindowConfig, StatefulIngestionConfigBase):
+    store_last_usage_extraction_timestamp: bool = Field(
+        default=True,
+        description="Enable checking last usage timestamp in store.",
+    )
+
+    @root_validator(pre=False)
+    def last_usage_extraction_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_usage_extraction_timestamp"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_usage_extraction_timestamp config option as well"
+                )
+                values["store_last_usage_extraction_timestamp"] = False
+        return values
 
 
 @dataclass
@@ -224,10 +281,11 @@ class StatefulIngestionSourceBase(Source):
             raise ValueError(f"No use-case handler for job_id{job_id}")
         return self._usecase_handlers[job_id].is_checkpointing_enabled()
 
-    # Methods that sub-classes must implement
-    @abstractmethod
     def get_platform_instance_id(self) -> str:
-        raise NotImplementedError("Sub-classes must implement this method.")
+        # This method is retained for backwards compatibility, but it is not
+        # required that new sources implement it. We mainly need it for the
+        # fallback logic in _get_last_checkpoint.
+        raise NotImplementedError("no platform_instance_id configured")
 
     def _get_last_checkpoint(
         self, job_id: JobId, checkpoint_state_class: Type[StateType]
@@ -237,12 +295,29 @@ class StatefulIngestionSourceBase(Source):
         """
         last_checkpoint: Optional[Checkpoint] = None
         if self.is_stateful_ingestion_configured():
+            # TRICKY: We currently don't include the platform_instance_id in the
+            # checkpoint urn, but we previously did. As such, we need to fallback
+            # and try the old urn format if the new format doesn't return anything.
+
             # Obtain the latest checkpoint from GMS for this job.
+            assert self.ctx.pipeline_name
             last_checkpoint_aspect = self.ingestion_checkpointing_state_provider.get_latest_checkpoint(  # type: ignore
-                pipeline_name=self.ctx.pipeline_name,  # type: ignore
-                platform_instance_id=self.get_platform_instance_id(),
+                pipeline_name=self.ctx.pipeline_name,
                 job_name=job_id,
             )
+            if last_checkpoint_aspect is None:
+                # Try again with the platform_instance_id, if implemented.
+                try:
+                    platform_instance_id = self.get_platform_instance_id()
+                except NotImplementedError:
+                    pass
+                else:
+                    last_checkpoint_aspect = self.ingestion_checkpointing_state_provider.get_latest_checkpoint(  # type: ignore
+                        pipeline_name=self.ctx.pipeline_name,
+                        job_name=job_id,
+                        platform_instance_id=platform_instance_id,
+                    )
+
             # Convert it to a first-class Checkpoint object.
             last_checkpoint = Checkpoint[StateType].create_from_checkpoint_aspect(
                 job_name=job_id,

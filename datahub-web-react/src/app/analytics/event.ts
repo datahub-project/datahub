@@ -1,4 +1,5 @@
 import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import { Direction } from '../lineage/types';
 
 /**
  * Valid event types.
@@ -53,6 +54,8 @@ export enum EventType {
     UpdateViewEvent,
     SetGlobalDefaultViewEvent,
     SetUserDefaultViewEvent,
+    ManuallyCreateLineageEvent,
+    ManuallyDeleteLineageEvent,
 }
 
 /**
@@ -386,6 +389,24 @@ export interface SsoEvent extends BaseEvent {
     type: EventType.SsoEvent;
 }
 
+export interface ManuallyCreateLineageEvent extends BaseEvent {
+    type: EventType.ManuallyCreateLineageEvent;
+    direction: Direction;
+    sourceEntityType?: EntityType;
+    sourceEntityPlatform?: string;
+    destinationEntityType?: EntityType;
+    destinationEntityPlatform?: string;
+}
+
+export interface ManuallyDeleteLineageEvent extends BaseEvent {
+    type: EventType.ManuallyDeleteLineageEvent;
+    direction: Direction;
+    sourceEntityType?: EntityType;
+    sourceEntityPlatform?: string;
+    destinationEntityType?: EntityType;
+    destinationEntityPlatform?: string;
+}
+
 /**
  * Emitted when a new View is created.
  */
@@ -472,4 +493,6 @@ export type Event =
     | CreateViewEvent
     | UpdateViewEvent
     | SetUserDefaultViewEvent
-    | SetGlobalDefaultViewEvent;
+    | SetGlobalDefaultViewEvent
+    | ManuallyCreateLineageEvent
+    | ManuallyDeleteLineageEvent;
