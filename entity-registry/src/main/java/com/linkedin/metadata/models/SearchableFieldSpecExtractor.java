@@ -32,7 +32,6 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
     URN_SEARCH_PROPERTIES = new DataMap();
     URN_SEARCH_PROPERTIES.putAll(
             Map.of(
-                    "fieldName", "urn",
                     "enableAutocomplete", "true",
                     "fieldType", "URN",
                     "boostScore", "4.0"
@@ -98,9 +97,8 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
     final boolean isUrn = ((DataMap) context.getParentSchema().getProperties()
             .getOrDefault("java", new DataMap()))
             .getOrDefault("class", "").equals("com.linkedin.common.urn.Urn");
-    final boolean hasUrnSpec = getSpecs().stream().anyMatch(spec -> spec.getSearchableAnnotation().getFieldName().equals("urn"));
 
-    if (isUrn && !hasUrnSpec) {
+    if (isUrn) {
       return URN_SEARCH_PROPERTIES;
     } else {
       // Next, check resolved properties for annotations on primitives.
@@ -113,14 +111,23 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       final TraverserContext context) {
     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
     final Optional<PathSpec> fullPath = FieldSpecUtils.getPathSpecWithAspectName(context);
-    final SearchableAnnotation annotation =
+    SearchableAnnotation annotation =
         SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, FieldSpecUtils.getSchemaFieldName(path),
             currentSchema.getDereferencedType(), path.toString());
+    String schemaPathSpec = context.getSchemaPathSpec().toString();
     if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName()) && !_searchFieldNamesToPatch.get(
-        annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
-      throw new ModelValidationException(
-          String.format("Entity has multiple searchable fields with the same field name %s, path: %s",
-              annotation.getFieldName(), fullPath.orElse(path)));
+        annotation.getFieldName()).equals(schemaPathSpec)) {
+      // Try to use path
+      String pathName = path.toString();
+      if (_searchFieldNamesToPatch.containsKey(pathName) && !_searchFieldNamesToPatch.get(pathName).equals(schemaPathSpec)) {
+        throw new ModelValidationException(
+            String.format("Entity has multiple searchable fields with the same field name %s, path: %s", annotation.getFieldName(), fullPath.orElse(path)));
+      } else {
+        annotation = new SearchableAnnotation(pathName, annotation.getFieldType(), annotation.isQueryByDefault(),
+            annotation.isEnableAutocomplete(), annotation.isAddToFilters(), annotation.getFilterNameOverride(),
+            annotation.getBoostScore(), annotation.getHasValuesFieldName(), annotation.getNumValuesFieldName(),
+            annotation.getWeightsPerFieldValue());
+      }
     }
     final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
     _specs.add(fieldSpec);
