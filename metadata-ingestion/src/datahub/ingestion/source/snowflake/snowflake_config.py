@@ -1,10 +1,14 @@
 import logging
 from typing import Dict, Optional, cast
 
-from pydantic import Field, SecretStr, root_validator
+from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.glossary.classifier import ClassificationConfig
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    ProfilingStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+)
 from datahub.ingestion.source_config.sql.snowflake import (
     BaseSnowflakeConfig,
     SnowflakeConfig,
@@ -15,7 +19,12 @@ from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsage
 logger = logging.Logger(__name__)
 
 
-class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
+class SnowflakeV2Config(
+    SnowflakeConfig,
+    SnowflakeUsageConfig,
+    UsageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+):
     convert_urns_to_lowercase: bool = Field(
         default=True,
     )
@@ -28,6 +37,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
     include_technical_schema: bool = Field(
         default=True,
         description="If enabled, populates the snowflake technical schema and descriptions.",
+    )
+
+    include_column_lineage: bool = Field(
+        default=True,
+        description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role.",
     )
 
     check_role_grants: bool = Field(
@@ -49,14 +63,21 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
-    match_fully_qualified_names = bool = Field(
+    match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
+    @validator("include_column_lineage")
+    def validate_include_column_lineage(cls, v, values):
+        if not values.get("include_table_lineage") and v:
+            raise ValueError(
+                "include_table_lineage must be True for include_column_lineage to be set."
+            )
+        return v
+
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
-
         value = values.get("provision_role")
         if value is not None and value.enabled:
             raise ValueError(

@@ -15,10 +15,12 @@ import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
+import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
+import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.version.GitVersion;
@@ -43,6 +45,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final TelemetryConfiguration _telemetryConfiguration;
   private final TestsConfiguration _testsConfiguration;
   private final DataHubConfiguration _datahubConfiguration;
+  private final ViewsConfiguration _viewsConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -54,7 +57,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final VisualConfiguration visualConfiguration,
       final TelemetryConfiguration telemetryConfiguration,
       final TestsConfiguration testsConfiguration,
-      final DataHubConfiguration datahubConfiguration) {
+      final DataHubConfiguration datahubConfiguration,
+      final ViewsConfiguration viewsConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -65,6 +69,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _telemetryConfiguration = telemetryConfiguration;
     _testsConfiguration = testsConfiguration;
     _datahubConfiguration = datahubConfiguration;
+    _viewsConfiguration = viewsConfiguration;
   }
 
   @Override
@@ -126,6 +131,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final TestsConfig testsConfig = new TestsConfig();
     testsConfig.setEnabled(_testsConfiguration.isEnabled());
     appConfig.setTestsConfig(testsConfig);
+
+    final ViewsConfig viewsConfig = new ViewsConfig();
+    viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
+    appConfig.setViewsConfig(viewsConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

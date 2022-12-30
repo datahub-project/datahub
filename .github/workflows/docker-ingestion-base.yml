@@ -8,6 +8,12 @@ on:
     paths:
       - "docker/datahub-ingestion/**"
       - "gradle*"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "docker/datahub-ingestion/**"
+      - "gradle*"
   workflow_dispatch:
 
 concurrency:

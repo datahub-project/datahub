@@ -46,7 +46,14 @@
         "name": "tableau",
         "displayName": "Tableau",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/tableau/",
-        "recipe": "source:\n  type: tableau\n  config:\n    # Coordinates\n    connect_uri: null\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: tableau\n    config:\n        # Coordinates\n        connect_uri: null\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:dbt",
+        "name": "dbt-cloud",
+        "displayName": "dbt Cloud",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/dbt/#module-dbt-cloud",
+        "recipe": "source:\n  type: dbt-cloud\n  config:\n    account_id: null\n    project_id: null\n    job_id: null\n    target_platform: null\n    stateful_ingestion:\n      enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:mysql",
@@ -96,6 +103,13 @@
         "displayName": "MariaDB",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mariadb/",
         "recipe": "source:\n    type: mariadb\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:unity-catalog",
+        "name": "unity-catalog",
+        "displayName": "Databricks Unity Catalog",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/databricks/#module-unity-catalog",
+        "recipe": "source:\n    type: unity-catalog\n    config:\n        # Coordinates\n        workspace_url: null\n        include_table_lineage: true\n        include_column_lineage: false\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:mongodb",

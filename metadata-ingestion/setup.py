@@ -24,7 +24,7 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=1.5.1",
+    "pydantic>=1.5.1,<1.10.3",
     "mixpanel>=4.9.0",
 }
 
@@ -36,7 +36,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.7",
+    "avro-gen3==0.7.8",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
@@ -254,10 +254,6 @@ plugins: Dict[str, Set[str]] = {
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery-legacy": sql_common
-    | bigquery_common
-    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
-    "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
     "bigquery": sql_common
     | bigquery_common
     | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
@@ -361,7 +357,7 @@ mypy_stubs = {
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
-    "types-requests",
+    "types-requests>=2.28.11.6",
     "types-toml",
     "types-PyMySQL",
     "types-PyYAML",
@@ -386,7 +382,9 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     *s3_base,
-    "black>=21.12b0",
+    # This is pinned only to avoid spurious errors in CI.
+    # We should make an effort to keep it up to date.
+    "black==22.12.0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
@@ -394,12 +392,11 @@ base_dev_requirements = {
     "mypy==0.991",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    # Restricting top version to <1.10 until we can fix our types.
-    "pydantic >=1.9.0, <1.10",
+    "pydantic >=1.9.0",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker[docker-compose-v1]>=1.0.1",
+    "pytest-docker>=1.0.1",
     "deepdiff",
     "requests-mock",
     "freezegun",
@@ -410,8 +407,6 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "bigquery",
-            "bigquery-legacy",
-            "bigquery-usage-legacy",
             "clickhouse",
             "clickhouse-usage",
             "delta-lake",
@@ -492,9 +487,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
-        "bigquery-legacy = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
-        "bigquery-usage-legacy = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",

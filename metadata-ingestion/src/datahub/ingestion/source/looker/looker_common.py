@@ -329,11 +329,9 @@ class LookerUtil:
     def _get_field_type(
         native_type: str, reporter: SourceReport
     ) -> SchemaFieldDataType:
-
         type_class = LookerUtil.field_type_mapping.get(native_type)
 
         if type_class is None:
-
             # attempt Postgres modified type
             type_class = resolve_postgres_modified_type(native_type)
 

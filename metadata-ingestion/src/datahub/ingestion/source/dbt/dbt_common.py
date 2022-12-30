@@ -5,19 +5,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import auto
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-    cast,
-)
+from typing import Any, Callable, ClassVar, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from pydantic import root_validator, validator
@@ -41,7 +29,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
@@ -52,11 +39,7 @@ from datahub.ingestion.source.sql.sql_types import (
     resolve_postgres_modified_type,
     resolve_trino_modified_type,
 )
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -65,7 +48,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
-    StateType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -269,13 +251,18 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     )
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
-        description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
+        description="[deprecated] Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
     )
 
     incremental_lineage: bool = Field(
         # Copied from LineageConfig, and changed the default.
         default=False,
         description="When enabled, emits lineage as incremental to existing lineage already in DataHub. When disabled, re-states lineage on each run.",
+    )
+    include_env_in_assertion_guid: bool = Field(
+        default=False,
+        description="Prior to version 0.9.4.2, the assertion GUIDs did not include the environment. If you're using multiple dbt ingestion "
+        "that are only distinguished by env, then you should set this flag to True.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="DBT Stateful Ingestion Config."
@@ -684,43 +671,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=DbtCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
-
-    def get_last_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[StateType]
-    ) -> Optional[Checkpoint]:
-        last_checkpoint: Optional[Checkpoint]
-        is_conversion_required: bool = False
-        try:
-            # Best-case that last checkpoint state is DbtCheckpointState
-            last_checkpoint = super(DBTSourceBase, self).get_last_checkpoint(
-                job_id, checkpoint_state_class
-            )
-        except Exception as e:
-            # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
-            # BaseSQLAlchemyCheckpointState
-            last_checkpoint = super(DBTSourceBase, self).get_last_checkpoint(
-                job_id, BaseSQLAlchemyCheckpointState  # type: ignore
-            )
-            logger.debug(
-                f"Found BaseSQLAlchemyCheckpointState as checkpoint state (got {e})."
-            )
-            is_conversion_required = True
-
-        if last_checkpoint is not None and is_conversion_required:
-            # Map the BaseSQLAlchemyCheckpointState to DbtCheckpointState
-            dbt_checkpoint_state: DbtCheckpointState = DbtCheckpointState()
-            dbt_checkpoint_state.encoded_node_urns = (
-                cast(BaseSQLAlchemyCheckpointState, last_checkpoint.state)
-            ).encoded_table_urns
-            # Old dbt source was not supporting the assertion
-            dbt_checkpoint_state.encoded_assertion_urns = []
-            last_checkpoint.state = dbt_checkpoint_state
-
-        return last_checkpoint
 
     def create_test_entity_mcps(
         self,
@@ -728,13 +682,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        for node in test_nodes:
+        for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             assertion_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
                     {
                         "platform": DBT_PLATFORM,
                         "name": node.dbt_name,
                         "instance": self.config.platform_instance,
+                        **(
+                            # Ideally we'd include the env unconditionally. However, we started out
+                            # not including env in the guid, so we need to maintain backwards compatibility
+                            # with existing PROD assertions.
+                            {"env": self.config.env}
+                            if self.config.env != mce_builder.DEFAULT_ENV
+                            and self.config.include_env_in_assertion_guid
+                            else {}
+                        ),
                     }
                 )
             )
@@ -764,7 +727,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
-            for upstream_urn in upstream_urns:
+            for upstream_urn in sorted(upstream_urns):
                 if self.config.entities_enabled.can_emit_node_type("test"):
                     wu = self._make_assertion_from_test(
                         custom_props,
@@ -994,7 +957,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
         )
-        for node in dbt_nodes:
+        for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
 
             node_datahub_urn = node.get_urn(
                 mce_platform,

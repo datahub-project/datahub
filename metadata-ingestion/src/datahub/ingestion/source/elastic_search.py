@@ -100,7 +100,6 @@ class ElasticToSchemaFieldConverter:
 
     @staticmethod
     def get_column_type(elastic_column_type: str) -> SchemaFieldDataType:
-
         type_class: Optional[
             Type
         ] = ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
@@ -261,7 +260,7 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         return None if self.username is None else (self.username, self.password or "")
 
 
-@platform_name("Elastic Search")
+@platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")

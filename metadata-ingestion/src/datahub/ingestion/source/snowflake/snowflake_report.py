@@ -1,9 +1,14 @@
+from typing import Optional
+
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
 
 
 class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport):
+    account_locator: Optional[str] = None
+    region: Optional[str] = None
 
     schemas_scanned: int = 0
     databases_scanned: int = 0
@@ -11,6 +16,7 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
     include_usage_stats: bool = False
     include_operational_stats: bool = False
     include_technical_schema: bool = False
+    include_column_lineage: bool = False
 
     usage_aggregation_query_secs: float = -1
     table_lineage_query_secs: float = -1
@@ -26,6 +32,8 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
     num_get_columns_for_table_queries: int = 0
 
     rows_zero_objects_modified: int = 0
+
+    edition: Optional[SnowflakeEdition] = None
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

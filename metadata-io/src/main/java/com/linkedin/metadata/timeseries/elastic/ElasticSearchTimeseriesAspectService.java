@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -119,12 +118,12 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   public void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String docId,
       @Nonnull JsonNode document) {
     String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
-    final IndexRequest indexRequest =
-        new IndexRequest(indexName).id(docId).source(document.toString(), XContentType.JSON);
-    final UpdateRequest updateRequest = new UpdateRequest(indexName, docId).doc(document.toString(), XContentType.JSON)
+    final UpdateRequest updateRequest = new UpdateRequest(
+            indexName, docId)
             .detectNoop(false)
-            .retryOnConflict(_numRetries)
-            .upsert(indexRequest);
+            .docAsUpsert(true)
+            .doc(document.toString(), XContentType.JSON)
+            .retryOnConflict(_numRetries);
     _bulkProcessor.add(updateRequest);
   }
 

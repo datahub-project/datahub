@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
 import styled from 'styled-components';
-
 import { FacetFilterInput, FacetMetadata, FilterOperator } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdvancedSearchFilter } from './AdvancedSearchFilter';
@@ -9,23 +8,6 @@ import { AdvancedSearchFilterOverallUnionTypeSelect } from './AdvancedSearchFilt
 import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
 import { FIELDS_THAT_USE_CONTAINS_OPERATOR, UnionType } from './utils/constants';
 import { AdvancedSearchAddFilterSelect } from './AdvancedSearchAddFilterSelect';
-
-export const SearchFilterWrapper = styled.div`
-    flex: 1;
-    padding: 6px 12px 10px 12px;
-    overflow: auto;
-
-    &::-webkit-scrollbar {
-        height: 12px;
-        width: 1px;
-        background: #f2f2f2;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: #cccccc;
-        -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
-    }
-`;
 
 const AnyAllSection = styled.div`
     padding: 6px;
@@ -39,6 +21,16 @@ const EmptyStateSection = styled.div`
     margin-top: 10px;
 `;
 
+const AdvancedSearchFiltersGroup = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+`;
+
+export enum LayoutDirection {
+    Horizontal = 'horizontal',
+    Vertical = 'vertical',
+}
+
 interface Props {
     selectedFilters: Array<FacetFilterInput>;
     facets: Array<FacetMetadata>;
@@ -46,6 +38,8 @@ interface Props {
     onChangeUnionType: (unionType: UnionType) => void;
     unionType?: UnionType;
     loading: boolean;
+    direction?: LayoutDirection;
+    disabled?: boolean;
 }
 
 export const AdvancedSearchFilters = ({
@@ -55,6 +49,8 @@ export const AdvancedSearchFilters = ({
     onFilterSelect,
     onChangeUnionType,
     loading,
+    direction = LayoutDirection.Vertical,
+    disabled = false,
 }: Props) => {
     const [filterField, setFilterField] = useState<null | string>(null);
 
@@ -76,40 +72,37 @@ export const AdvancedSearchFilters = ({
     };
 
     return (
-        <SearchFilterWrapper>
-            <AdvancedSearchAddFilterSelect
-                selectedFilters={selectedFilters}
-                onFilterFieldSelect={onFilterFieldSelect}
-            />
-            {selectedFilters?.length >= 2 && (
-                <AnyAllSection>
-                    Show results that match{' '}
-                    <AdvancedSearchFilterOverallUnionTypeSelect
-                        unionType={unionType}
-                        onUpdate={(newValue) => onChangeUnionType(newValue)}
-                    />
-                </AnyAllSection>
-            )}
-            {selectedFilters.map((filter) => (
-                <AdvancedSearchFilter
-                    facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
-                    loading={loading}
-                    filter={filter}
-                    onClose={() => {
-                        onFilterSelect(selectedFilters.filter((f) => f !== filter));
-                    }}
-                    onUpdate={(newValue) => {
-                        onFilterSelect(
-                            selectedFilters.map((f) => {
-                                if (f === filter) {
-                                    return newValue;
-                                }
-                                return f;
-                            }),
-                        );
-                    }}
+        <>
+            {!disabled && (
+                <AdvancedSearchAddFilterSelect
+                    selectedFilters={selectedFilters}
+                    onFilterFieldSelect={onFilterFieldSelect}
                 />
-            ))}
+            )}
+            <AdvancedSearchFiltersGroup>
+                {selectedFilters.map((filter) => (
+                    <AdvancedSearchFilter
+                        key={`${filter.field}-${filter.condition}-${filter.negated}-${filter.values}-${filter.value}`}
+                        facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
+                        loading={loading}
+                        filter={filter}
+                        onClose={() => {
+                            onFilterSelect(selectedFilters.filter((f) => f !== filter));
+                        }}
+                        onUpdate={(newValue) => {
+                            onFilterSelect(
+                                selectedFilters.map((f) => {
+                                    if (f === filter) {
+                                        return newValue;
+                                    }
+                                    return f;
+                                }),
+                            );
+                        }}
+                        disabled={disabled}
+                    />
+                ))}
+            </AdvancedSearchFiltersGroup>
             {filterField && (
                 <AdvancedFilterSelectValueModal
                     facet={facets.find((facet) => facet.field === filterField) || null}
@@ -118,7 +111,19 @@ export const AdvancedSearchFilters = ({
                     onSelect={onSelectValueFromModal}
                 />
             )}
-            {selectedFilters?.length === 0 && <EmptyStateSection>No filters applied, add one above.</EmptyStateSection>}
-        </SearchFilterWrapper>
+            {selectedFilters?.length >= 2 && (
+                <AnyAllSection>
+                    Show results that match{' '}
+                    <AdvancedSearchFilterOverallUnionTypeSelect
+                        unionType={unionType}
+                        onUpdate={(newValue) => onChangeUnionType(newValue)}
+                        disabled={disabled}
+                    />
+                </AnyAllSection>
+            )}
+            {selectedFilters?.length === 0 && direction === LayoutDirection.Vertical && (
+                <EmptyStateSection>No filters applied.</EmptyStateSection>
+            )}
+        </>
     );
 };

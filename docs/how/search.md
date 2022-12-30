@@ -171,7 +171,7 @@ for integrations and programmatic use-cases.
 
 **How are the results ordered?**
 
-The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elastic Search.
+The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elasticsearch.
 
 **Where to find more information?**
 

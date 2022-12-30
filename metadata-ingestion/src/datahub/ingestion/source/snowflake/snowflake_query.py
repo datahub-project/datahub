@@ -3,6 +3,14 @@ from typing import Optional
 
 class SnowflakeQuery:
     @staticmethod
+    def current_account() -> str:
+        return "select CURRENT_ACCOUNT()"
+
+    @staticmethod
+    def current_region() -> str:
+        return "select CURRENT_REGION()"
+
+    @staticmethod
     def current_version() -> str:
         return "select CURRENT_VERSION()"
 
@@ -25,6 +33,10 @@ class SnowflakeQuery:
     @staticmethod
     def show_databases() -> str:
         return "show databases"
+
+    @staticmethod
+    def show_tags() -> str:
+        return "show tags"
 
     @staticmethod
     def use_database(db_name: str) -> str:
@@ -232,7 +244,9 @@ class SnowflakeQuery:
 
     @staticmethod
     def table_to_table_lineage_history(
-        start_time_millis: int, end_time_millis: int
+        start_time_millis: int,
+        end_time_millis: int,
+        include_column_lineage: bool = True,
     ) -> str:
         return f"""
         WITH table_lineage_history AS (
@@ -263,8 +277,7 @@ class SnowflakeQuery:
         WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
         QUALIFY ROW_NUMBER() OVER (
             PARTITION BY downstream_table_name,
-            upstream_table_name,
-            downstream_table_columns
+            upstream_table_name{", downstream_table_columns" if include_column_lineage else ""}
             ORDER BY query_start_time DESC
         ) = 1"""
 
@@ -289,7 +302,11 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def view_lineage_history(start_time_millis: int, end_time_millis: int) -> str:
+    def view_lineage_history(
+        start_time_millis: int,
+        end_time_millis: int,
+        include_column_lineage: bool = True,
+    ) -> str:
         return f"""
         WITH view_lineage_history AS (
           SELECT
@@ -330,8 +347,7 @@ class SnowflakeQuery:
           view_domain in ('View', 'Materialized view')
           QUALIFY ROW_NUMBER() OVER (
             PARTITION BY view_name,
-            downstream_table_name,
-            downstream_table_columns
+            downstream_table_name {", downstream_table_columns" if include_column_lineage else ""}
             ORDER BY
               query_start_time DESC
           ) = 1
@@ -529,7 +545,7 @@ class SnowflakeQuery:
                 'View',
                 'Materialized view',
                 'External table'
-            )
+            ) and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
             basic_usage_counts.bucket_start_time
