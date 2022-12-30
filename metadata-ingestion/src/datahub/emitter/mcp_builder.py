@@ -19,7 +19,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     ContainerClass,
     DomainsClass,
     GlobalTagsClass,
@@ -32,7 +31,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     _Aspect,
 )
-from datahub.utilities.urns.urn import guess_entity_type
 
 
 def _stable_guid_from_dict(d: dict) -> str:
@@ -157,16 +155,13 @@ def add_owner_to_entity_wu(
 def add_tags_to_entity_wu(
     entity_type: str, entity_urn: str, tags: List[str]
 ) -> Iterable[MetadataWorkUnit]:
-    mcp = MetadataChangeProposalWrapper(
+    yield MetadataChangeProposalWrapper(
         entityType=entity_type,
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{entity_urn}",
         aspect=GlobalTagsClass(
             tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
         ),
-    )
-    wu = MetadataWorkUnit(id=f"tags-to-{entity_urn}", mcp=mcp)
-    yield wu
+    ).as_workunit()
 
 
 @deprecated("use MetadataChangeProposalWrapper(...).as_workunit() instead")
@@ -279,23 +274,16 @@ def gen_containers(
 
 
 def add_dataset_to_container(
-    # FIXME: Union requires two or more type arguments
-    container_key: KeyType,
-    dataset_urn: str,
+    container_key: KeyType, dataset_urn: str
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
     )
 
-    mcp = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        changeType=ChangeTypeClass.UPSERT,
+    yield MetadataChangeProposalWrapper(
         entityUrn=f"{dataset_urn}",
         aspect=ContainerClass(container=f"{container_urn}"),
-        # aspect=ContainerKeyClass(guid=schema_container_key.guid())
-    )
-    wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{dataset_urn}", mcp=mcp)
-    yield wu
+    ).as_workunit()
 
 
 def add_entity_to_container(
@@ -304,14 +292,11 @@ def add_entity_to_container(
     container_urn = make_container_urn(
         guid=container_key.guid(),
     )
-    mcp = MetadataChangeProposalWrapper(
+    yield MetadataChangeProposalWrapper(
         entityType=entity_type,
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=entity_urn,
         aspect=ContainerClass(container=f"{container_urn}"),
-    )
-    wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{entity_urn}", mcp=mcp)
-    yield wu
+    ).as_workunit()
 
 
 def mcps_from_mce(
@@ -319,8 +304,6 @@ def mcps_from_mce(
 ) -> Iterable[MetadataChangeProposalWrapper]:
     for aspect in mce.proposedSnapshot.aspects:
         yield MetadataChangeProposalWrapper(
-            entityType=guess_entity_type(mce.proposedSnapshot.urn),
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=mce.proposedSnapshot.urn,
             auditHeader=mce.auditHeader,
             aspect=aspect,
