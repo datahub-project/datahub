@@ -65,6 +65,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -162,11 +163,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report,
+                auto_status_aspect(self.get_workunits_internal()),
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # emit metadata work unit to DataHub GMS
         yield from self.process_metastores()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
@@ -245,21 +248,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.unity_catalog_api_proxy.table_lineage(table)
                 lineage = self._generate_lineage_aspect(dataset_urn, table)
 
-            mcps = MetadataChangeProposalWrapper.construct_many(
-                entityUrn=dataset_urn,
-                aspects=[
-                    table_props,
-                    view_props,
-                    sub_type,
-                    schema_metadata,
-                    domain,
-                    lineage,
-                ],
-            )
-            for mcp in mcps:
-                wu = mcp.as_workunit()
-                self.report.report_workunit(wu)
-                yield wu
+            yield from [
+                mcp.as_workunit()
+                for mcp in MetadataChangeProposalWrapper.construct_many(
+                    entityUrn=dataset_urn,
+                    aspects=[
+                        table_props,
+                        view_props,
+                        sub_type,
+                        schema_metadata,
+                        domain,
+                        lineage,
+                    ],
+                )
+            ]
 
             self.report.report_entity_scanned(
                 f"{table.schema.catalog.name}.{table.schema.name}.{table.name}",
@@ -337,7 +339,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
 
         schema_container_key = self.gen_schema_key(schema)
-        container_workunits = gen_containers(
+        yield from gen_containers(
             container_key=schema_container_key,
             name=schema.name,
             sub_types=["Schema"],
@@ -346,10 +348,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=schema.comment,
         )
 
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
     def gen_metastore_containers(
         self, metastore: Metastore
     ) -> Iterable[MetadataWorkUnit]:
@@ -357,17 +355,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         metastore_container_key = self.gen_metastore_key(metastore)
 
-        container_workunits = gen_containers(
+        yield from gen_containers(
             container_key=metastore_container_key,
             name=metastore.name,
             sub_types=["Metastore"],
             domain_urn=domain_urn,
             description=metastore.comment,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
@@ -376,7 +370,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         catalog_container_key = self.gen_catalog_key(catalog)
 
-        container_workunits = gen_containers(
+        yield from gen_containers(
             container_key=catalog_container_key,
             name=catalog.name,
             sub_types=["Catalog"],
@@ -384,10 +378,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             parent_container_key=metastore_container_key,
             description=catalog.comment,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def gen_schema_key(self, schema: Schema) -> PlatformKey:
         return UnitySchemaKey(
@@ -428,13 +418,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, dataset_urn: str, schema: Schema
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_schema_key(schema)
-        container_workunits = add_dataset_to_container(
+        yield from add_dataset_to_container(
             container_key=schema_container_key,
             dataset_urn=dataset_urn,
         )
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def _create_table_property_aspect(
         self, table: proxy.Table
