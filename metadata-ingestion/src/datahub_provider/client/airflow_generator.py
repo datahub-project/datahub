@@ -12,12 +12,13 @@ from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 if TYPE_CHECKING:
+    from datahub_provider._airflow_compat import Operator
+
     from airflow import DAG
     from airflow.models import DagRun, TaskInstance
 
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
-    from datahub_provider._airflow_compat import Operator
 
 
 def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
@@ -31,6 +32,7 @@ class AirflowGenerator:
     def _get_dependencies(
         task: "Operator", dag: "DAG", flow_urn: DataFlowUrn
     ) -> List[DataJobUrn]:
+        from datahub_provider._airflow_compat import ExternalTaskSensor
 
         # resolve URNs for upstream nodes in subdags upstream of the current task.
         upstream_subdag_task_urns: List[DataJobUrn] = []
@@ -97,7 +99,6 @@ class AirflowGenerator:
         # It is possible to tie an external sensor to DAG if external_task_id is omitted but currently we can't tie
         # jobflow to anothet jobflow.
         external_task_upstreams = []
-        from datahub_provider._airflow_compat import ExternalTaskSensor
         if task.task_type == "ExternalTaskSensor":
             task = cast(ExternalTaskSensor, task)
             if hasattr(task, "external_task_id") and task.external_task_id is not None:
@@ -181,6 +182,7 @@ class AirflowGenerator:
     @staticmethod
     def _get_description(task: "Operator") -> Optional[str]:
         from datahub_provider._airflow_compat import BaseOperator
+
         if not isinstance(task, BaseOperator):
             # TODO: Get docs for mapped operators.
             return None
