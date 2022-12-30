@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple
 from time import sleep
+from joblib import Parallel, delayed
 
 import requests_wrapper as requests
 
@@ -112,7 +113,7 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     return pipeline
 
 
-def delete_urns_from_file(filename: str) -> None:
+def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
     if not cli_utils.get_boolean_env_variable("CLEANUP_DATA", True):
         print("Not cleaning data to save time")
         return
@@ -124,26 +125,33 @@ def delete_urns_from_file(filename: str) -> None:
         }
     )
 
+    def delete(entry):
+        is_mcp = "entityUrn" in entry
+        urn = None
+        # Kill Snapshot
+        if is_mcp:
+            urn = entry["entityUrn"]
+        else:
+            snapshot_union = entry["proposedSnapshot"]
+            snapshot = list(snapshot_union.values())[0]
+            urn = snapshot["urn"]
+        payload_obj = {"urn": urn}
+
+        cli_utils.post_delete_endpoint_with_session_and_url(
+            session,
+            get_gms_url() + "/entities?action=delete",
+            payload_obj,
+        )
+
     with open(filename) as f:
         d = json.load(f)
-        for entry in d:
-            is_mcp = "entityUrn" in entry
-            urn = None
-            # Kill Snapshot
-            if is_mcp:
-                urn = entry["entityUrn"]
-            else:
-                snapshot_union = entry["proposedSnapshot"]
-                snapshot = list(snapshot_union.values())[0]
-                urn = snapshot["urn"]
-            payload_obj = {"urn": urn}
+        Parallel(n_jobs=10)(delayed(delete)(entry) for entry in d)
 
-            cli_utils.post_delete_endpoint_with_session_and_url(
-                session,
-                get_gms_url() + "/entities?action=delete",
-                payload_obj,
-            )
-    sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    # Deletes require 60 seconds when run between tests operating on common data, otherwise standard sync wait
+    if shared_data:
+        sleep(60)
+    else:
+        sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 # Fixed now value

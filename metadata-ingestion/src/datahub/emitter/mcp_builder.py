@@ -17,7 +17,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerClass,
@@ -186,11 +185,8 @@ def wrap_aspect_as_workunit(
     wu = MetadataWorkUnit(
         id=f"{aspectName}-for-{entityUrn}",
         mcp=MetadataChangeProposalWrapper(
-            entityType=entityName,
             entityUrn=entityUrn,
-            aspectName=aspectName,
             aspect=aspect,
-            changeType=ChangeType.UPSERT,
         ),
     )
     return wu

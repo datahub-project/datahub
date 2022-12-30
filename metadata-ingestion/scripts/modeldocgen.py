@@ -21,7 +21,6 @@ from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
     ForeignKeyConstraintClass,
@@ -502,10 +501,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
         events.append(mce)
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=d.urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=["entity"]),
         )
         events.append(mcp)

@@ -85,7 +85,6 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
@@ -1327,17 +1326,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 subtypes = ["model", "view"]
         else:
             subtypes = [node.node_type]
-        subtype_mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
+        subtype_wu = MetadataChangeProposalWrapper(
             entityUrn=node_datahub_urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=subtypes),
-        )
-        subtype_wu = MetadataWorkUnit(
-            id=f"{subtype_mcp.entityUrn}-{subtype_mcp.aspectName}",
-            mcp=subtype_mcp,
-        )
+        ).as_workunit()
         return subtype_wu
 
     def _create_lineage_aspect_for_dbt_node(

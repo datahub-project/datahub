@@ -83,6 +83,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.persistence.EntityNotFoundException;
 
 import io.ebean.PagedList;
 import lombok.Value;
@@ -1588,7 +1589,12 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = getKeyAspectName(urn);
 
-    EntityAspect latestKey = _aspectDao.getLatestAspect(urn.toString(), keyAspectName);
+    EntityAspect latestKey = null;
+    try {
+      latestKey = _aspectDao.getLatestAspect(urn.toString(), keyAspectName);
+    } catch (EntityNotFoundException e) {
+      log.warn("Entity to delete does not exist. {}", urn.toString());
+    }
     if (latestKey == null || latestKey.getSystemMetadata() == null) {
       return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
     }

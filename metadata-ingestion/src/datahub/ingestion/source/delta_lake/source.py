@@ -45,7 +45,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetPropertiesClass,
     NullTypeClass,
     OperationClass,
@@ -179,9 +178,6 @@ class DeltaLakeSource(Source):
             )
 
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                aspectName="operation",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
                 aspect=operation_aspect,
             )

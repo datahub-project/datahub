@@ -77,7 +77,7 @@ task yarnQuickBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 }
 
 task cleanExtraDirs {
-  delete 'node_modules'
+  delete 'node_modules/.yarn-integrity'
   delete 'dist'
   delete 'tmp'
   delete 'just'
