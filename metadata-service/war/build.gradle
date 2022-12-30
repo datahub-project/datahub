@@ -48,7 +48,7 @@ dependencies {
 
 task run(type: JavaExec, dependsOn: build) {
   main = "org.eclipse.jetty.runner.Runner"
-  args = [war.archivePath]
+  args = ["${projectDir}/build/libs/war.war"]
   classpath configurations.jetty9
 }
 
