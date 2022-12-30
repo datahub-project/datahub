@@ -118,7 +118,8 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
     if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName()) && !_searchFieldNamesToPatch.get(
         annotation.getFieldName()).equals(schemaPathSpec)) {
       // Try to use path
-      String pathName = path.toString();
+      String pathName = path.toString().replace('/', '_').replace("*", "");
+
       if (_searchFieldNamesToPatch.containsKey(pathName) && !_searchFieldNamesToPatch.get(pathName).equals(schemaPathSpec)) {
         throw new ModelValidationException(
             String.format("Entity has multiple searchable fields with the same field name %s, path: %s", annotation.getFieldName(), fullPath.orElse(path)));
