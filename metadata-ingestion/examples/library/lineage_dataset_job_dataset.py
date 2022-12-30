@@ -4,7 +4,6 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.datajob import DataJobInputOutputClass
-from datahub.metadata.schema_classes import ChangeTypeClass
 
 # Construct the DataJobInputOutput aspect.
 input_datasets: List[str] = [
@@ -33,12 +32,9 @@ datajob_input_output = DataJobInputOutputClass(
 # Construct a MetadataChangeProposalWrapper object.
 # NOTE: This will overwrite all of the existing lineage information associated with this job.
 datajob_input_output_mcp = MetadataChangeProposalWrapper(
-    entityType="dataJob",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_data_job_urn(
         orchestrator="airflow", flow_id="flow1", job_id="job1", cluster="PROD"
     ),
-    aspectName="dataJobInputOutput",
     aspect=datajob_input_output,
 )
 
