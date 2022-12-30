@@ -10,5 +10,6 @@ public class BuildIndicesConfiguration {
   private String maxBackOffs;
   private String backOffFactor;
   private boolean waitForBuildIndices;
+  private boolean cloneIndices;
 
 }

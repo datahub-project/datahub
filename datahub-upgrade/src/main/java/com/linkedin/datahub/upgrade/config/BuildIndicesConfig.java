@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.buildindices.BuildIndices;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.graph.GraphService;
@@ -20,12 +21,13 @@ import org.springframework.context.annotation.Configuration;
 public class BuildIndicesConfig {
   @Bean(name = "buildIndices")
   public BuildIndices buildIndices(final SystemMetadataService systemMetadataService, final TimeseriesAspectService timeseriesAspectService,
-                                   final EntitySearchService entitySearchService, final GraphService graphService,
-                                   final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents,
-                                   final EntityRegistry entityRegistry, final Producer<String, ? extends IndexedRecord> producer,
-                                   final TopicConvention convention, final GitVersion gitVersion, final KafkaHealthChecker kafkaHealthChecker) {
+      final EntitySearchService entitySearchService, final GraphService graphService,
+      final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents,
+      final EntityRegistry entityRegistry, final Producer<String, ? extends IndexedRecord> producer,
+      final TopicConvention convention, final GitVersion gitVersion, final KafkaHealthChecker kafkaHealthChecker,
+      final ConfigurationProvider configurationProvider) {
 
     return new BuildIndices(systemMetadataService, timeseriesAspectService, entitySearchService, graphService,
-        baseElasticSearchComponents, entityRegistry, producer, convention, gitVersion, kafkaHealthChecker);
+        baseElasticSearchComponents, entityRegistry, producer, convention, gitVersion, kafkaHealthChecker,  configurationProvider);
   }
 }

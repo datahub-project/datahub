@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 
 // We don't disable this on GMS since we want GMS to also wait until the indices are ready to read in case of
 // backwards incompatible query logic dependent on index updates.
-@Component("buildIndiceskafkaListener")
+@Component("buildIndicesKafkaListener")
 @RequiredArgsConstructor
 @Slf4j
 @EnableKafka

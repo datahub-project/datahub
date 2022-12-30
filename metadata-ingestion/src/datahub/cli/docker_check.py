@@ -27,7 +27,7 @@ ENSURE_EXIT_SUCCESS = [
     "kafka-setup",
     "elasticsearch-setup",
     "mysql-setup",
-    "datahub-upgrade"
+    "datahub-upgrade",
 ]
 
 CONTAINERS_TO_CHECK_IF_PRESENT = [

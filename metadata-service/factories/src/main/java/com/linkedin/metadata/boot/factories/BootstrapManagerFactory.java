@@ -102,6 +102,7 @@ public class BootstrapManagerFactory {
     final WaitForBuildIndicesStep waitForBuildIndicesStep = new WaitForBuildIndicesStep(_buildIndicesKafkaListener, _configurationProvider);
 
     final List<BootstrapStep> finalSteps = new ArrayList<>(ImmutableList.of(
+            waitForBuildIndicesStep,
             ingestRootUserStep,
             ingestPoliciesStep,
             ingestRolesStep,
@@ -113,8 +114,7 @@ public class BootstrapManagerFactory {
             removeClientIdAspectStep,
             restoreDbtSiblingsIndices,
             indexDataPlatformsStep,
-            restoreColumnLineageIndices,
-            waitForBuildIndicesStep));
+            restoreColumnLineageIndices));
 
     if (_upgradeDefaultBrowsePathsEnabled) {
       finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));
