@@ -35,7 +35,9 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         str(test_resources_dir_kafka / "docker-compose.yml"),
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
-    with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+    with docker_compose_runner(
+        docker_compose_file, "kafka-connect", cleanup=False
+    ) as docker_services:
         wait_for_port(
             docker_services,
             "test_mysql",
@@ -44,6 +46,13 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
             checker=lambda: is_mysql_up("test_mysql", 3306),
         )
         wait_for_port(docker_services, "test_broker", 59092, timeout=120)
+
+    with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+        # We sometimes run into issues where kafka-connect comes up to quickly, cannot connect to Kafka or MySQL,
+        # and then fails to start. By running docker-compose again after we know Kafka and MySQL are up, we can
+        # avoid test flakes caused by this issue.
+        # Note that the "key" is the same between both calls and the first one sets cleanup=False.
+
         wait_for_port(docker_services, "test_connect", 58083, timeout=120)
         docker_services.wait_until_responsive(
             timeout=30,
