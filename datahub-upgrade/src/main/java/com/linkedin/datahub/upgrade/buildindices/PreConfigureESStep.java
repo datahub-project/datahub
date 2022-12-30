@@ -74,7 +74,7 @@ public class PreConfigureESStep implements UpgradeStep {
           // Clone indices
           if (_configurationProvider.getElasticSearch().getBuildIndices().isCloneIndices()) {
             String clonedName = indexName + "_clone_" + System.currentTimeMillis();
-            ResizeRequest resizeRequest = new ResizeRequest(indexName, clonedName);
+            ResizeRequest resizeRequest = new ResizeRequest(clonedName, indexName);
             boolean cloneAck =
                 _esComponents.getSearchClient().indices().clone(resizeRequest, RequestOptions.DEFAULT).isAcknowledged();
             log.info("Cloned index {} into {}, Acknowledged: {}", indexName, clonedName, cloneAck);
