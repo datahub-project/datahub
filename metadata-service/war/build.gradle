@@ -53,7 +53,7 @@ task run(type: JavaExec, dependsOn: build) {
 }
 
 war {
-  archiveFileName = "war.war"
+  archiveFileName = "war-${version}.war"
 }
 
 docker {

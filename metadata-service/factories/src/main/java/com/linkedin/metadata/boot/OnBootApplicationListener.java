@@ -4,8 +4,10 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.ApplicationListener;
+import org.springframework.boot.availability.AvailabilityChangeEvent;
+import org.springframework.boot.availability.ReadinessState;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.WebApplicationContext;
 
@@ -15,7 +17,7 @@ import org.springframework.web.context.WebApplicationContext;
  */
 @Slf4j
 @Component
-public class OnBootApplicationListener implements ApplicationListener<ContextRefreshedEvent> {
+public class OnBootApplicationListener {
 
   private static final String ROOT_WEB_APPLICATION_CONTEXT_ID = String.format("%s:", WebApplicationContext.class.getName());
 
@@ -23,10 +25,13 @@ public class OnBootApplicationListener implements ApplicationListener<ContextRef
   @Qualifier("bootstrapManager")
   private BootstrapManager _bootstrapManager;
 
-  @Override
+
+  @EventListener(ContextRefreshedEvent.class)
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
-    if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
-      _bootstrapManager.start();
-    }
+    log.warn("OnBootApplicationListener context refreshed! {} event: {}",
+        ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()), event);
+    //if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
+    //  _bootstrapManager.start();
+    //}
   }
 }
