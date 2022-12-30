@@ -52,7 +52,7 @@ def auto_status_aspect(
 
         yield wu
 
-    for urn in all_urns - status_urns:
+    for urn in sorted(all_urns - status_urns):
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),
