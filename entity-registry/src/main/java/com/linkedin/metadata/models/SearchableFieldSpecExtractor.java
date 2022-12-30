@@ -119,6 +119,9 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
         annotation.getFieldName()).equals(schemaPathSpec)) {
       // Try to use path
       String pathName = path.toString().replace('/', '_').replace("*", "");
+      if (pathName.startsWith("_")) {
+        pathName = pathName.replaceFirst("_", "");
+      }
 
       if (_searchFieldNamesToPatch.containsKey(pathName) && !_searchFieldNamesToPatch.get(pathName).equals(schemaPathSpec)) {
         throw new ModelValidationException(
