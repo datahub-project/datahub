@@ -1,25 +1,23 @@
 import collections
-import dataclasses
 import logging
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Union
 
 import redshift_connector
 from pydantic.fields import Field
 from pydantic.main import BaseModel
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.redshift_schema import (
+    RedshiftTable,
+    RedshiftView,
+)
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
-from datahub.ingestion.source.usage.redshift_usage import RedshiftUsageSourceReport
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -29,13 +27,6 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    try:
-        from sqlalchemy.engine import Row  # type: ignore
-    except ImportError:
-        # See https://github.com/python/mypy/issues/1153.
-        from sqlalchemy.engine.result import RowProxy as Row  # type: ignore
 
 REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -185,12 +176,20 @@ class RedshiftUsageExtractor:
         self.report = report
         self.connection = connection
 
-    def generate_usage(self) -> Iterable[MetadataWorkUnit]:
+    def generate_usage(
+        self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.num_usage_workunits_emitted = 0
+        self.report.num_usage_stat_skipped = 0
+        self.report.num_operational_stats_skipped = 0
+
         """Gets Redshift usage stats as work units"""
         if self.config.include_operational_stats:
             with PerfTimer() as timer:
                 # Generate operation aspect workunits
-                yield from self._gen_operation_aspect_workunits(self.connection)
+                yield from self._gen_operation_aspect_workunits(
+                    self.connection, all_tables
+                )
                 self.report.operational_metadata_extraction_sec[
                     f"{self.config.database}"
                 ] = round(timer.elapsed_seconds(), 2)
@@ -204,14 +203,13 @@ class RedshiftUsageExtractor:
         access_events_iterable: Iterable[
             RedshiftAccessEvent
         ] = self._gen_access_events_from_history_query(
-            query, connection=self.connection
+            query, connection=self.connection, all_tables=all_tables
         )
 
         aggregated_events: AggregatedAccessEvents = self._aggregate_access_events(
             access_events_iterable
         )
         # Generate usage workunits from aggregated events.
-        self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_events.values():
             for aggregate in time_bucket.values():
                 wu: MetadataWorkUnit = self._make_usage_stat(aggregate)
@@ -220,7 +218,9 @@ class RedshiftUsageExtractor:
                 yield wu
 
     def _gen_operation_aspect_workunits(
-        self, connection: redshift_connector.Connection
+        self,
+        connection: redshift_connector.Connection,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         # Generate access events
         query: str = REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE.format(
@@ -229,34 +229,36 @@ class RedshiftUsageExtractor:
         )
         access_events_iterable: Iterable[
             RedshiftAccessEvent
-        ] = self._gen_access_events_from_history_query(query, connection)
+        ] = self._gen_access_events_from_history_query(
+            query, connection, all_tables=all_tables
+        )
 
         # Generate operation aspect work units from the access events
         yield from self._gen_operation_aspect_workunits_from_access_events(
-            access_events_iterable
+            access_events_iterable, all_tables=all_tables
         )
 
-    def _make_sql_engine(self) -> Engine:
-        url: str = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url = {url}")
-        return create_engine(url, **self.config.options)
-
-    def _should_process_event(self, event: RedshiftAccessEvent) -> bool:
+    def _should_process_event(
+        self,
+        event: RedshiftAccessEvent,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+    ) -> bool:
         # Check schema/table allow/deny patterns
-        full_table_name: str = f"{event.database}.{event.schema_}.{event.table}"
-        if not self.config.schema_pattern.allowed(event.schema_):
-            logger.debug(f"Filtering out {full_table_name} due to schema_pattern.")
-            self.report.report_dropped(full_table_name)
+        if (
+            event.database not in all_tables
+            or event.schema_ not in all_tables[event.database]
+            or not any(
+                event.table == t.name for t in all_tables[event.database][event.schema_]
+            )
+        ):
             return False
-        if not self.config.table_pattern.allowed(full_table_name):
-            logger.debug(f"Filtering out {full_table_name} due to table_pattern.")
-            self.report.report_dropped(full_table_name)
-            return False
-        # Passed all checks.
         return True
 
     def _gen_access_events_from_history_query(
-        self, query: str, connection: redshift_connector.Connection
+        self,
+        query: str,
+        connection: redshift_connector.Connection,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[RedshiftAccessEvent]:
         cursor = connection.cursor()
         cursor.execute(query)
@@ -281,11 +283,15 @@ class RedshiftUsageExtractor:
                     if "operation_type" in field_names
                     else None,
                 )
-                if not self._should_process_event(access_event):
-                    continue
                 # Replace database name with the alias name if one is provided in the config.
                 if self.config.database_alias:
                     access_event.database = self.config.database_alias
+
+                if not self._should_process_event(access_event, all_tables=all_tables):
+                    # TODO: Add to report number of skipped event
+                    self.report.num_usage_stat_skipped += 1
+                    continue
+
                 yield access_event
 
             results = cursor.fetchmany()
@@ -293,6 +299,7 @@ class RedshiftUsageExtractor:
     def _gen_operation_aspect_workunits_from_access_events(
         self,
         events_iterable: Iterable[RedshiftAccessEvent],
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         self.report.num_operational_stats_workunits_emitted = 0
         for event in events_iterable:
@@ -306,7 +313,8 @@ class RedshiftUsageExtractor:
             ):
                 continue
 
-            if not self._should_process_event(event):
+            if not self._should_process_event(event, all_tables=all_tables):
+                self.report.num_operational_stats_skipped += 1
                 continue
 
             assert event.operation_type in ["insert", "delete"]

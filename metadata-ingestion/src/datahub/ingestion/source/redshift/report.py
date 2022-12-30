@@ -1,14 +1,8 @@
-import collections
-import dataclasses
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Counter, Dict, List, Optional, Set
+from typing import Dict, Optional
 
-import pydantic
-
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyDict
 from datahub.utilities.stats_collections import TopKDict
 
 
@@ -28,6 +22,8 @@ class RedshiftReport(ProfilingSqlReport):
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     tables_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     views_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
+    num_operational_stats_skipped: Optional[int] = None
+    num_usage_stat_skipped: Optional[int] = None
 
     def report_dropped(self, key: str) -> None:
         self.filtered.append(key)

@@ -6,12 +6,13 @@ from pydantic import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import LineageConfig
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.sql.postgres import PostgresConfig
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StatefulStaleMetadataRemovalConfig,
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    LineageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
@@ -56,7 +57,7 @@ class DatasetS3LineageProviderConfigBase(ConfigModel):
     )
 
 
-class RedshiftUsageConfig(BaseUsageConfig):
+class RedshiftUsageConfig(BaseUsageConfig, UsageStatefulIngestionConfig):
     email_domain: Optional[str] = Field(
         default=None,
         description="Email domain of your organisation so users can be displayed on UI appropriately.",
@@ -67,8 +68,9 @@ class RedshiftConfig(
     PostgresConfig,
     DatasetLineageProviderConfigBase,
     DatasetS3LineageProviderConfigBase,
-    LineageConfig,
     RedshiftUsageConfig,
+    LineageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
 ):
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect

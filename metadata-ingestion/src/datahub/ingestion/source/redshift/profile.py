@@ -1,13 +1,12 @@
 import dataclasses
 import logging
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Union, cast
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_data_profiler import (
-    GEProfilerRequest,
-)
+from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftTable,
@@ -18,6 +17,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,13 @@ class RedshiftProfiler(GenericProfiler):
     config: RedshiftConfig
     report: RedshiftReport
 
-    def __init__(self, config: RedshiftConfig, report: RedshiftReport) -> None:
-        super().__init__(config, report, "redshift")
+    def __init__(
+        self,
+        config: RedshiftConfig,
+        report: RedshiftReport,
+        state_handler: Optional[ProfilingHandler],
+    ) -> None:
+        super().__init__(config, report, "redshift", state_handler)
         self.config = config
         self.report = report
 
@@ -78,9 +83,9 @@ class RedshiftProfiler(GenericProfiler):
             ):
                 if profile is None:
                     continue
-                profile.sizeInBytes = cast(
-                    RedshiftProfilerRequest, request
-                ).table.size_in_bytes
+                request = cast(RedshiftProfilerRequest, request)
+
+                profile.sizeInBytes = request.table.size_in_bytes
                 dataset_name = request.pretty_name
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
@@ -88,6 +93,13 @@ class RedshiftProfiler(GenericProfiler):
                     self.config.platform_instance,
                     self.config.env,
                 )
+
+                # We don't add to the profiler state if we only do table level profiling as it always happens
+                if self.state_handler and not request.profile_table_level_only:
+                    self.state_handler.add_to_state(
+                        dataset_urn, int(datetime.utcnow().timestamp() * 1000)
+                    )
+
                 yield wrap_aspect_as_workunit(
                     "dataset",
                     dataset_urn,

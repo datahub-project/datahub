@@ -1,16 +1,18 @@
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
+from collections import defaultdict
+from typing import Dict, Iterable, List, Optional, Type, Union, cast
+
+import humanfriendly
 
 # These imports verify that the dependencies are available.
 import psycopg2  # noqa: F401
-import redshift_connector
-import humanfriendly
 import pydantic
+import redshift_connector
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
-    make_tag_urn,
     make_dataset_urn_with_platform_instance,
+    make_tag_urn,
 )
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.common import PipelineContext
@@ -23,9 +25,9 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
+    CapabilityReport,
     TestableSource,
     TestConnectionReport,
-    CapabilityReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.common import get_db_name
@@ -42,15 +44,19 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.state import RedshiftCheckpointState
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, SqlContainerSubTypes
+from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes, SqlWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_postgres_modified_type
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_containers,
+    gen_lineage,
     gen_schema_containers,
     get_dataplatform_instance_aspect,
     get_domain_wu,
-    gen_lineage,
+)
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -65,7 +71,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
-    UpstreamLineage,
     ViewProperties,
 )
 
@@ -86,7 +91,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
@@ -95,6 +99,7 @@ from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
 )
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -247,7 +252,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 pydantic.Extra.allow
             )  # we are okay with extra fields during this stage
             config = RedshiftConfig.parse_obj(config_dict)
-            report = RedshiftReport()
             # source = RedshiftSource(config, report)
             connection: redshift_connector.Connection = (
                 RedshiftSource.get_redshift_connection(config)
@@ -301,6 +305,22 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
+            )
+
+        self.redundant_run_skip_handler = RedundantRunSkipHandler(
+            source=self,
+            config=self.config,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
+        self.profiling_state_handler: Optional[ProfilingHandler] = None
+        if self.config.store_last_profiling_timestamps:
+            self.profiling_state_handler = ProfilingHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
             )
 
         self.db_tables: Dict[str, Dict[str, List[RedshiftTable]]] = {}
@@ -575,7 +595,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         return wu
 
     # TODO: Move to common
-
     def gen_dataset_workunits(
         self,
         table: Union[RedshiftTable, RedshiftView],
@@ -663,8 +682,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database = get_db_name(self.config)
         logger.info(f"Processing db {self.config.database} with name {database}")
         # self.add_config_to_report()
-        self.db_tables[database] = {}
-        self.db_views[database] = {}
+        self.db_tables[database] = defaultdict()
+        self.db_views[database] = defaultdict()
 
         yield from gen_database_containers(
             database=database,
@@ -676,9 +695,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
             sub_types=[SqlContainerSubTypes.DATABASE],
         )
-        tables, views = RedshiftDataDictionary.get_tables_and_views(conn=connection)
-        self.db_tables[database].update(tables)
-        self.db_views[database].update(views)
+        self.cache_tables_and_views(connection, database)
 
         self.report.tables_in_mem_size[database] = humanfriendly.format_size(
             memory_footprint.total_size(self.db_tables)
@@ -699,49 +716,143 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             self.db_schemas[database][schema.name] = schema
             yield from self.process_schema(connection, database, schema)
 
-        if self.config.include_table_lineage or self.config.include_copy_lineage:
-            self.lineage_extractor = LineageExtractor(
-                config=self.config,
-                report=self.report,
+        all_tables = self.get_all_tables()
+
+        if (
+            self.config.store_last_lineage_extraction_timestamp
+            or self.config.store_last_usage_extraction_timestamp
+        ):
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                end_time_millis=datetime_to_ts_millis(self.config.end_time),
             )
 
-            all_tables: Dict[
-                str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]
-            ] = {
-                **self.db_tables,
-                **self.db_views,
-            }  # type: ignore
-            with PerfTimer() as timer:
-                self.lineage_extractor.populate_lineage(
-                    connection=connection, all_tables=all_tables
-                )
-
-                self.report.lineage_extraction_sec[f"{database}"] = round(
-                    timer.elapsed_seconds(), 2
-                )
-                wus = self.generate_lineage(database)
-                for wu in wus:
-                    yield wu
-                    self.report.report_workunit(wu)
+        if self.config.include_table_lineage or self.config.include_copy_lineage:
+            yield from self.extract_lineage(
+                connection=connection, all_tables=all_tables, database=database
+            )
 
         if self.config.include_usage_statistics:
-            with PerfTimer() as timer:
-                usage_extractor = RedshiftUsageExtractor(
-                    config=self.config,
-                    connection=RedshiftSource.get_redshift_connection(self.config),
-                    report=self.report,
-                )
-                yield from usage_extractor.generate_usage()
-
-                self.report.usage_extraction_sec[database] = round(
-                    timer.elapsed_seconds(), 2
-                )
+            yield from self.extract_usage(
+                connection=connection, all_tables=all_tables, database=database
+            )
 
         if self.config.profiling.enabled:
-            profiler = RedshiftProfiler(config=self.config, report=self.report)
+            profiler = RedshiftProfiler(
+                config=self.config,
+                report=self.report,
+                state_handler=self.profiling_state_handler,
+            )
             yield from profiler.get_workunits(self.db_tables)
 
+    def cache_tables_and_views(self, connection, database):
+        tables, views = RedshiftDataDictionary.get_tables_and_views(conn=connection)
+        for schema in tables:
+            if self.config.schema_pattern.allowed(f"{database}.{schema}"):
+                self.db_tables[database][schema] = []
+                for table in tables[schema]:
+                    if self.config.table_pattern.allowed(
+                        f"{database}.{schema}.{table.name}"
+                    ):
+                        self.db_tables[database][schema].append(table)
+        for schema in views:
+            if self.config.schema_pattern.allowed(f"{database}.{schema}"):
+                self.db_views[database][schema] = []
+                for table in views[schema]:
+                    if self.config.view_pattern.allowed(
+                        f"{database}.{schema}.{table.name}"
+                    ):
+                        self.db_views[database][schema].append(table)
+
+    def get_all_tables(
+        self,
+    ) -> Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]:
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
+            **self.db_tables,
+        }  # type: ignore
+        for db in self.db_views.keys():
+            if db in all_tables:
+                for schema in self.db_views[db].keys():
+                    if schema in all_tables[db]:
+                        all_tables[db][schema].extend(self.db_views[db][schema])
+                    else:
+                        all_tables[db][schema] = self.db_views[db][schema]
+            else:
+                all_tables[db] = self.db_views[db]
+        return all_tables
+
+    def extract_usage(
+        self,
+        connection: redshift_connector.Connection,
+        database: str,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+    ) -> Iterable[MetadataWorkUnit]:
+        if (
+            self.config.store_last_lineage_extraction_timestamp
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "usage-extraction",
+                f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+            )
+            return
+
+        with PerfTimer() as timer:
+            usage_extractor = RedshiftUsageExtractor(
+                config=self.config,
+                connection=connection,
+                report=self.report,
+            )
+            yield from usage_extractor.generate_usage(all_tables=all_tables)
+
+            self.report.usage_extraction_sec[database] = round(
+                timer.elapsed_seconds(), 2
+            )
+
+    def extract_lineage(
+        self,
+        connection: redshift_connector.Connection,
+        database: str,
+        all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
+    ) -> Iterable[MetadataWorkUnit]:
+        if (
+            self.config.store_last_lineage_extraction_timestamp
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "lineage-extraction",
+                f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+            )
+            return
+
+        self.lineage_extractor = LineageExtractor(
+            config=self.config,
+            report=self.report,
+        )
+
+        with PerfTimer() as timer:
+            self.lineage_extractor.populate_lineage(
+                connection=connection, all_tables=all_tables
+            )
+
+            self.report.lineage_extraction_sec[f"{database}"] = round(
+                timer.elapsed_seconds(), 2
+            )
+            wus = self.generate_lineage(database)
+            for wu in wus:
+                yield wu
+                self.report.report_workunit(wu)
+
     def generate_lineage(self, database: str) -> Iterable[MetadataWorkUnit]:
+        assert self.lineage_extractor
+
         logger.info(f"Generate lineage for {database}")
         for schema in self.db_tables[database]:
             for table in self.db_tables[database][schema]:
@@ -771,9 +882,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         for schema in self.db_views[database]:
             for view in self.db_views[database][schema]:
+                datahub_dataset_name = f"{database}.{view.schema}.{view.name}"
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
-                    view.name,
+                    datahub_dataset_name,
                     self.config.platform_instance,
                     env=self.config.env,
                 )

@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import redshift_connector
 
@@ -88,7 +88,7 @@ class RedshiftMetadatQueries:
         inner join pg_catalog.pg_user_info as i on i.usesysid = s.schema_owner
         where schema_name !~ '^pg_'
         AND   schema_name != 'information_schema'
-UNION ALL           
+UNION ALL
 SELECT null as database_name,
         schemaname as schema_name,
         CASE s.eskind
@@ -112,8 +112,8 @@ SELECT null as database_name,
                 WHEN 'r' THEN 'TABLE'
                 WHEN 'v' THEN 'VIEW'
                 WHEN 'm' THEN 'MATERIALIZED VIEW'
-	            WHEN 'f' THEN 'FOREIGN TABLE'
-          	END AS tabletype,
+                WHEN 'f' THEN 'FOREIGN TABLE'
+            END AS tabletype,
             n.oid AS "schema_oid",
             n.nspname AS "schema",
             c.oid AS "rel_oid",

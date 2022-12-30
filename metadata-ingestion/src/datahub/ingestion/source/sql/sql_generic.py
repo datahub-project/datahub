@@ -31,7 +31,7 @@ SqlTableColumn = TypeVar("SqlTableColumn", bound="BaseColumn")
 @dataclass
 class BaseTable(Generic[SqlTableColumn]):
     name: str
-    created: datetime
+    created: Optional[datetime]
     comment: Optional[str] = None
     last_altered: Optional[datetime] = None
     size_in_bytes: Optional[int] = None

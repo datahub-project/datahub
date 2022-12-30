@@ -3,7 +3,7 @@ import pathlib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -25,12 +25,10 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetLineageTypeClass,
-    DatasetPropertiesClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -87,7 +85,7 @@ class LineageExtractor:
         self.config = config
         self.report = report
         self.lineage_metadata: Dict[str, Set[str]] = defaultdict(set)
-        self._lineage_map: Dict[str, LineageItem] = {}
+        self._lineage_map: Dict[str, LineageItem] = defaultdict()
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -145,8 +143,9 @@ class LineageExtractor:
         """
         try:
             cursor = connection.cursor()
-            db_name = self.config.database
+            raw_db_name = self.config.database
             alias_db_name = get_db_name(self.config)
+            db_name = alias_db_name
             cursor.execute(query)
             field_names = [i[0] for i in cursor.description]
 
@@ -175,7 +174,6 @@ class LineageExtractor:
                     if lineage_type in [
                         lineage_type.QUERY_SQL_PARSER,
                         lineage_type.NON_BINDING_VIEW,
-                        lineage_type.VIEW,
                     ]:
                         try:
                             sources = self._get_sources_from_query(
@@ -213,13 +211,20 @@ class LineageExtractor:
 
                     for source in sources:
                         db, schema, table = source.path.split(".")
-                        # Filtering out tables which does not exist in Redshift
-                        # It was deleted in the meantime or query parser did not capture well the table name
                         if (
                             source.platform == LineageDatasetPlatform.REDSHIFT
-                            and db not in all_tables
-                            and schema not in all_tables[db]
-                            and table not in all_tables[db][schema]
+                            and db == raw_db_name
+                        ):
+                            db = alias_db_name
+                            path = f"{db}.{schema}.{table}"
+                            source = LineageDataset(platform=source.platform, path=path)
+
+                        # Filtering out tables which does not exist in Redshift
+                        # It was deleted in the meantime or query parser did not capture well the table name
+                        if source.platform == LineageDatasetPlatform.REDSHIFT and (
+                            db not in all_tables
+                            or schema not in all_tables[db]
+                            or not any(table == t.name for t in all_tables[db][schema])
                         ):
                             self.warn(
                                 logger, "missing-table", f"{source.path} missing table"
@@ -537,7 +542,7 @@ class LineageExtractor:
 
         tablename = table.name
         if table.type == "EXTERNAL_TABLE":
-            external_db_params = schema.option
+            # external_db_params = schema.option
             upstream_platform = schema.type.lower()
             catalog_upstream = UpstreamClass(
                 mce_builder.make_dataset_urn_with_platform_instance(
@@ -606,7 +611,7 @@ class LineageExtractor:
 
         tablename = table.name
         if table.type == "EXTERNAL_TABLE":
-            external_db_params = schema.option
+            # external_db_params = schema.option
             upstream_platform = schema.type.lower()
             catalog_upstream = UpstreamClass(
                 mce_builder.make_dataset_urn_with_platform_instance(
