@@ -24,7 +24,8 @@ public class BuildIndicesConfig {
       final EntitySearchService entitySearchService, final GraphService graphService,
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents,
       final EntityRegistry entityRegistry, final Producer<String, ? extends IndexedRecord> producer,
-      final TopicConvention convention, final GitVersion gitVersion, final KafkaHealthChecker kafkaHealthChecker, final ConfigurationProvider configurationProvider) {
+      final TopicConvention convention, final GitVersion gitVersion, final KafkaHealthChecker kafkaHealthChecker,
+      final ConfigurationProvider configurationProvider) {
 
     return new BuildIndices(systemMetadataService, timeseriesAspectService, entitySearchService, graphService,
         baseElasticSearchComponents, entityRegistry, producer, convention, gitVersion, kafkaHealthChecker,  configurationProvider);
