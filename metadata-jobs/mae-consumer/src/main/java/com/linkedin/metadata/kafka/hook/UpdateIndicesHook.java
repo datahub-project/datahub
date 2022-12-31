@@ -95,18 +95,13 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       EntityRegistry entityRegistry,
-      SearchDocumentTransformer searchDocumentTransformer,
-      BuildIndicesKafkaListener buildIndicesKafkaListener,
-      ConfigurationProvider configurationProvider) {
+      SearchDocumentTransformer searchDocumentTransformer) {
     _graphService = graphService;
     _entitySearchService = entitySearchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
-    if (configurationProvider.getElasticSearch().getBuildIndices().isWaitForBuildIndices()) {
-      buildIndicesKafkaListener.waitForUpdate();
-    }
   }
 
   @Override

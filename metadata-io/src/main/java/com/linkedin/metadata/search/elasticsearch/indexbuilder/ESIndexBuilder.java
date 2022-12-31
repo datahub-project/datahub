@@ -3,7 +3,10 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -109,6 +112,7 @@ public class ESIndexBuilder {
     return builder.build();
   }
 
+  @Deprecated
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings) throws IOException {
     buildIndex(buildReindexState(indexName, mappings, settings));
   }

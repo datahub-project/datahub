@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.buildindices.BuildIndices;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.graph.GraphService;
@@ -22,9 +23,10 @@ public class BuildIndicesConfig {
                                    final EntitySearchService entitySearchService, final GraphService graphService,
                                    final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents,
                                    final Producer<String, ? extends IndexedRecord> producer,
-                                   final TopicConvention convention, final GitVersion gitVersion, final KafkaHealthChecker kafkaHealthChecker) {
+                                   final TopicConvention convention, final GitVersion gitVersion, final KafkaHealthChecker kafkaHealthChecker,
+                                   final ConfigurationProvider configurationProvider) {
 
     return new BuildIndices(systemMetadataService, timeseriesAspectService, entitySearchService, graphService,
-        baseElasticSearchComponents, producer, convention, gitVersion, kafkaHealthChecker);
+        baseElasticSearchComponents, producer, convention, gitVersion, kafkaHealthChecker,  configurationProvider);
   }
 }
