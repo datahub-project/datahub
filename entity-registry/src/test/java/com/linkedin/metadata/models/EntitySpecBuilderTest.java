@@ -44,9 +44,13 @@ public class EntitySpecBuilderTest {
 
   @Test
   public void testBuildAspectSpecValidationDuplicateSearchableFields() {
-    assertThrows(ModelValidationException.class, () ->
-        new EntitySpecBuilder().buildAspectSpec(new DuplicateSearchableFields().schema(), RecordTemplate.class)
-    );
+    AspectSpec aspectSpec = new EntitySpecBuilder()
+        .buildAspectSpec(new DuplicateSearchableFields().schema(), RecordTemplate.class);
+
+    aspectSpec.getSearchableFieldSpecs().forEach(searchableFieldSpec -> {
+        String name = searchableFieldSpec.getSearchableAnnotation().getFieldName();
+        assertTrue("textField".equals(name) || "textField2".equals(name));
+    });
   }
 
   @Test
