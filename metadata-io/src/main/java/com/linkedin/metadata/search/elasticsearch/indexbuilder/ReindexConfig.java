@@ -106,7 +106,7 @@ public class ReindexConfig {
                 MapDifference<String, Object> mappingsDiff = Maps.difference(
                         (TreeMap<String, Object>) super.currentMappings.getOrDefault("properties", new TreeMap()),
                         (TreeMap<String, Object>) super.targetMappings.getOrDefault("properties", new TreeMap()));
-                super.requiresApplyMappings = !mappingsDiff.entriesDiffering().isEmpty();
+                super.requiresApplyMappings = !mappingsDiff.areEqual();
                 super.isPureMappingsAddition = !mappingsDiff.areEqual() && mappingsDiff.entriesDiffering().isEmpty()
                         && !mappingsDiff.entriesOnlyOnRight().isEmpty();
                 if (super.requiresApplyMappings && super.isPureMappingsAddition) {

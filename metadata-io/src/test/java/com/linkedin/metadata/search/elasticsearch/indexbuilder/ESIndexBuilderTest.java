@@ -43,7 +43,8 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
     @BeforeClass
     public void setup() {
         _indexClient = _searchClient.indices();
-        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0, 0, Map.of(), false, false);
+        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0,
+                0, Map.of(), false, false);
     }
 
     @BeforeMethod
@@ -72,7 +73,8 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void testESIndexBuilderCreation() throws Exception {
-        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1, 0, Map.of(), false, false);
+        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1,
+                0, Map.of(), false, false);
         customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
         GetIndexResponse resp = getTestIndex();
 

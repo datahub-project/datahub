@@ -27,7 +27,7 @@ public class SearchQueryBuilderTest {
     assertEquals(simpleQuery.value(), "testQuery");
     assertNull(simpleQuery.analyzer());
     Map<String, Float> keywordFields = simpleQuery.fields();
-    assertEquals(keywordFields.size(), 18);
+    assertEquals(keywordFields.size(), 23);
     assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
     assertFalse(keywordFields.containsKey("keyPart3"));
     assertEquals(keywordFields.get("textFieldOverride").floatValue(), 1.0f);
@@ -38,9 +38,9 @@ public class SearchQueryBuilderTest {
     assertEquals(escapedQuery.queryString(), "testQuery");
     assertNull(escapedQuery.analyzer());
     Map<String, Float> textFields = escapedQuery.fields();
-    assertEquals(textFields.size(), 18);
+    assertEquals(textFields.size(), 23);
     assertEquals(textFields.get("keyPart1.delimited").floatValue(), 4.0f);
-    assertFalse(textFields.containsKey("keyPart1.ngram"));
+    assertTrue(textFields.containsKey("keyPart1.ngram"));
     assertEquals(textFields.get("textFieldOverride.delimited").floatValue(), 0.4f);
     assertFalse(textFields.containsKey("textFieldOverride.ngram"));
     assertEquals(textFields.get("textArrayField.delimited").floatValue(), 0.4f);
@@ -64,7 +64,7 @@ public class SearchQueryBuilderTest {
     assertEquals(keywordQuery.queryString(), "testQuery");
     assertEquals(keywordQuery.analyzer(), "custom_keyword");
     Map<String, Float> keywordFields = keywordQuery.fields();
-    assertEquals(keywordFields.size(), 18);
+    assertEquals(keywordFields.size(), 23);
     assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
     assertFalse(keywordFields.containsKey("keyPart3"));
     assertEquals(keywordFields.get("textFieldOverride").floatValue(), 1.0f);

@@ -91,9 +91,7 @@ public class UpdateIndicesHookTest {
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
         registry,
-        _mockSearchDocumentTransformer,
-        _mockBuildIndicesKafkaListener,
-        _mockConfigurationProvider
+        _mockSearchDocumentTransformer
     );
   }
 
@@ -125,9 +123,7 @@ public class UpdateIndicesHookTest {
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
         mockEntityRegistry,
-        _mockSearchDocumentTransformer,
-        _mockBuildIndicesKafkaListener,
-        _mockConfigurationProvider
+        _mockSearchDocumentTransformer
     );
 
     _updateIndicesHook.invoke(event);

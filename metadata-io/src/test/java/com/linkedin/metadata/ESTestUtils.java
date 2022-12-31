@@ -54,7 +54,7 @@ public class ESTestUtils {
     static  {
         ES_CONTAINER = new ElasticsearchContainer(DOCKER_IMAGE_NAME);
         checkContainerEngine(ES_CONTAINER.getDockerClient());
-        ES_CONTAINER.withEnv("ES_JAVA_OPTS", "-Xms64m -Xmx200m -XX:MaxDirectMemorySize=268435456")
+        ES_CONTAINER.withEnv("ES_JAVA_OPTS", "-Xms64m -Xmx384m -XX:MaxDirectMemorySize=368435456")
                 .withStartupTimeout(Duration.ofMinutes(5)); // usually < 1min
     }
 

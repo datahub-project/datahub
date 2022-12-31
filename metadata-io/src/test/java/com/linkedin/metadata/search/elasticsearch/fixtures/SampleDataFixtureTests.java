@@ -57,7 +57,6 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
 
         final SearchResult result = search(searchService, "test");
 
-        // TODO: Add tags fields to query
         Map<String, Integer> expectedTypes = Map.of(
                 "dataset", 8,
                 "chart", 0,
