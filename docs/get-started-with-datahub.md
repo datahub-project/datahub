@@ -19,8 +19,7 @@ Before you go further, ensure you have the following installed:
 
 * [Python >=3.7.0](https://www.python.org/downloads/)
 * [Docker](https://docs.docker.com/get-docker/)
-* [jq](https://stedolan.github.io/jq/download/)
-* [Docker Compose](https://github.com/docker/compose/blob/master/INSTALL.md) - if using Linux
+* [Docker Compose v2](https://docs.docker.com/compose/install/) - may be bundled with docker
 
 :::note
 
