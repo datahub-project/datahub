@@ -165,6 +165,7 @@ elasticsearch:
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
   buildIndices:
+    cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
     initialBackOffMs: ${ELASTICSEARCH_BUILD_INDICES_INITIAL_BACK_OFF_MILLIS:5000}
     maxBackOffs: ${ELASTICSEARCH_BUILD_INDICES_MAX_BACK_OFFS:5}
     backOffFactor: ${ELASTICSEARCH_BUILD_INDICES_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
