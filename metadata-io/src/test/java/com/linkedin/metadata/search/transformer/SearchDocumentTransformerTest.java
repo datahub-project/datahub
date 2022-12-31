@@ -30,7 +30,7 @@ public class SearchDocumentTransformerTest {
     ObjectNode parsedJson = (ObjectNode) OBJECT_MAPPER.readTree(result.get());
     assertEquals(parsedJson.get("urn").asText(), snapshot.getUrn().toString());
     assertEquals(parsedJson.get("keyPart1").asText(), "key");
-    assertFalse(parsedJson.has("keyPart2"));
+    assertEquals(parsedJson.get("keyPart2").asText(), TestEntityUtil.getTestEntityUrn().toString());
     assertEquals(parsedJson.get("keyPart3").asText(), "VALUE_1");
     assertFalse(parsedJson.has("textField"));
     assertEquals(parsedJson.get("textFieldOverride").asText(), "test");
