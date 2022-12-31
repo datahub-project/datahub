@@ -171,7 +171,7 @@ public class ESSearchLineageFixture {
         );
 
         // Build indices
-        indexBuilders.buildAll();
+        indexBuilders.reindexAll();
 
         return service;
     }

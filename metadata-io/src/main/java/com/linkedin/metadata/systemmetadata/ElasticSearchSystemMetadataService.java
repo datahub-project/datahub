@@ -7,8 +7,10 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
@@ -39,7 +41,7 @@ import org.elasticsearch.search.aggregations.metrics.ParsedMax;
 
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchSystemMetadataService implements SystemMetadataService {
+public class ElasticSearchSystemMetadataService implements SystemMetadataService, ElasticSearchIndexed {
 
   private final ESBulkProcessor _esBulkProcessor;
   private final IndexConvention _indexConvention;
@@ -196,11 +198,23 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   public void configure() {
     log.info("Setting up system metadata index");
     try {
-      _indexBuilder.buildIndex(_indexConvention.getIndexName(INDEX_NAME), SystemMetadataMappingsBuilder.getMappings(),
-          Collections.emptyMap());
+      for (ReindexConfig config : getReindexConfigs()) {
+        _indexBuilder.buildIndex(config);
+      }
     } catch (IOException ie) {
       throw new RuntimeException("Could not configure system metadata index", ie);
     }
+  }
+
+  @Override
+  public List<ReindexConfig> getReindexConfigs() throws IOException {
+    return List.of(_indexBuilder.buildReindexState(_indexConvention.getIndexName(INDEX_NAME),
+            SystemMetadataMappingsBuilder.getMappings(), Collections.emptyMap()));
+  }
+
+  @Override
+  public void reindexAll() {
+    configure();
   }
 
   @VisibleForTesting

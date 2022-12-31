@@ -23,7 +23,9 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
@@ -49,7 +51,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchGraphService implements GraphService {
+public class ElasticSearchGraphService implements GraphService, ElasticSearchIndexed {
 
   private final LineageRegistry _lineageRegistry;
   private final ESBulkProcessor _esBulkProcessor;
@@ -276,11 +278,23 @@ public class ElasticSearchGraphService implements GraphService {
   public void configure() {
     log.info("Setting up elastic graph index");
     try {
-      _indexBuilder.buildIndex(_indexConvention.getIndexName(INDEX_NAME),
-          GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
+      for (ReindexConfig config : getReindexConfigs()) {
+        _indexBuilder.buildIndex(config);
+      }
     } catch (IOException e) {
-      e.printStackTrace();
+      throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public List<ReindexConfig> getReindexConfigs() throws IOException {
+    return List.of(_indexBuilder.buildReindexState(_indexConvention.getIndexName(INDEX_NAME),
+            GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap()));
+  }
+
+  @Override
+  public void reindexAll() {
+    configure();
   }
 
   @VisibleForTesting

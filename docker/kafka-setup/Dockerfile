@@ -59,6 +59,9 @@ ENV PLATFORM_EVENT_TOPIC_NAME="PlatformEvent_v1"
 ENV BUILD_INDICES_HISTORY_TOPIC="BuildIndicesHistory_v1"
 
 COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
-RUN chmod +x ./kafka-setup.sh
+COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh
+COPY docker/kafka-setup/kafka-topic-workers.sh ./kafka-topic-workers.sh
+
+RUN chmod +x ./kafka-setup.sh && chmod +x ./kafka-topic-workers.sh
 
 CMD ./kafka-setup.sh
