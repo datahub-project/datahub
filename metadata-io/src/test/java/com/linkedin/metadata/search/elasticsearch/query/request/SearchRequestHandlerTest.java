@@ -43,10 +43,11 @@ public class SearchRequestHandlerTest {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
         highlightBuilder.fields().stream().map(HighlightBuilder.Field::name).collect(Collectors.toList());
-    assertEquals(fields.size(), 20);
+    assertEquals(fields.size(), 24);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
-            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField", "urn");
+                "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField", "keyPart2",
+                "nestedArrayForeignKey", "foreignKeyArray");
     highlightableFields.forEach(field -> {
       assertTrue(fields.contains(field));
       assertTrue(fields.contains(field + ".*"));

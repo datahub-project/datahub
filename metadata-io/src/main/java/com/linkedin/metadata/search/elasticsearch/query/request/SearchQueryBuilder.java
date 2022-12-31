@@ -24,6 +24,7 @@ import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuild
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 
+import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.KEYWORD_LOWERCASE_ANALYZER;
 
 
@@ -31,7 +32,7 @@ public class SearchQueryBuilder {
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
       new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL));
   private static final Set<FieldType> TYPES_WITH_NGRAM_SUBFIELD =
-      new HashSet<>(Arrays.asList(FieldType.TEXT_PARTIAL, FieldType.URN_PARTIAL));
+      new HashSet<>(List.of(FieldType.TEXT_PARTIAL));
 
   private SearchQueryBuilder() {
   }
@@ -74,6 +75,12 @@ public class SearchQueryBuilder {
       escapedBuilder.analyzer(KEYWORD_LOWERCASE_ANALYZER);
     }
 
+    // Always present
+    List.of("urn", "urn.delimited", "urn.ngram").forEach(urnField -> {
+      simpleBuilder.field(urnField, Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore")));
+      escapedBuilder.field(urnField, Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore")));
+    });
+
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
       if (!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
@@ -90,13 +97,12 @@ public class SearchQueryBuilder {
         simpleBuilder.field(fieldName + ".delimited", (float) (boostScore * 0.4));
         escapedBuilder.field(fieldName + ".delimited", (float) (boostScore * 0.4));
       }
-      if (TYPES_WITH_NGRAM_SUBFIELD.contains(fieldType)) {
+      if (FieldType.URN_PARTIAL.equals(fieldType)) {
+        simpleBuilder.field(fieldName + ".delimited", (float) (boostScore * 0.4));
+        escapedBuilder.field(fieldName + ".delimited", (float) (boostScore * 0.4));
+      } else if (TYPES_WITH_NGRAM_SUBFIELD.contains(fieldType) || fieldSpec.getSearchableAnnotation().isEnableAutocomplete()) {
         simpleBuilder.field(fieldName + ".ngram", (float) (boostScore * 0.1));
         escapedBuilder.field(fieldName + ".ngram", (float) (boostScore * 0.1));
-      }
-      if ("urn".equals(fieldName)) {
-        simpleBuilder.field(fieldName + ".delimited", (float) (boostScore));
-        escapedBuilder.field(fieldName + ".delimited", (float) (boostScore));
       }
     }
 

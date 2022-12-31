@@ -27,14 +27,24 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
 
   private static final String MAP = "map";
 
-  private static final Map<String, Object> URN_SEARCH_PROPERTIES;
+  public static final Map<String, Object> PRIMARY_URN_SEARCH_PROPERTIES;
+  private static final Map<String, Object> SECONDARY_URN_SEARCH_PROPERTIES;
   static {
-    URN_SEARCH_PROPERTIES = new DataMap();
-    URN_SEARCH_PROPERTIES.putAll(
+    PRIMARY_URN_SEARCH_PROPERTIES = new DataMap();
+    PRIMARY_URN_SEARCH_PROPERTIES.putAll(
             Map.of(
                     "enableAutocomplete", "true",
                     "fieldType", "URN",
                     "boostScore", "4.0"
+            )
+    );
+
+    SECONDARY_URN_SEARCH_PROPERTIES = new DataMap();
+    SECONDARY_URN_SEARCH_PROPERTIES.putAll(
+            Map.of(
+                    "enableAutocomplete", "false",
+                    "fieldType", "URN",
+                    "boostScore", "0.4"
             )
     );
   }
@@ -99,7 +109,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
             .getOrDefault("class", "").equals("com.linkedin.common.urn.Urn");
 
     if (isUrn) {
-      return URN_SEARCH_PROPERTIES;
+      return SECONDARY_URN_SEARCH_PROPERTIES;
     } else {
       // Next, check resolved properties for annotations on primitives.
       final Map<String, Object> resolvedProperties = FieldSpecUtils.getResolvedProperties(currentSchema);
