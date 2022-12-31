@@ -17,8 +17,9 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 public class MappingsBuilder {
 
   public static final Map<String, String> PARTIAL_NGRAM_CONFIG = ImmutableMap.of(
-  TYPE, "search_as_you_type",
-  MAX_SHINGLE_SIZE, "4");
+          TYPE, "search_as_you_type",
+          MAX_SHINGLE_SIZE, "4",
+          DOC_VALUES, "false");
 
   public static final Map<String, String> KEYWORD_TYPE_MAP = ImmutableMap.of(TYPE, KEYWORD);
 

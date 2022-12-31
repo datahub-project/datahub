@@ -126,7 +126,7 @@ public class ESSampleDataFixture {
         );
 
         // Build indices & write fixture data
-        indexBuilders.buildAll();
+        indexBuilders.reindexAll();
 
         FixtureReader.builder()
                 .bulkProcessor(_bulkProcessor)

@@ -4,7 +4,6 @@ import com.linkedin.datahub.upgrade.buildindices.BuildIndices;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -22,10 +21,10 @@ public class BuildIndicesConfig {
   public BuildIndices buildIndices(final SystemMetadataService systemMetadataService, final TimeseriesAspectService timeseriesAspectService,
                                    final EntitySearchService entitySearchService, final GraphService graphService,
                                    final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents,
-                                   final EntityRegistry entityRegistry, final Producer<String, ? extends IndexedRecord> producer,
+                                   final Producer<String, ? extends IndexedRecord> producer,
                                    final TopicConvention convention, final GitVersion gitVersion, final KafkaHealthChecker kafkaHealthChecker) {
 
     return new BuildIndices(systemMetadataService, timeseriesAspectService, entitySearchService, graphService,
-        baseElasticSearchComponents, entityRegistry, producer, convention, gitVersion, kafkaHealthChecker);
+        baseElasticSearchComponents, producer, convention, gitVersion, kafkaHealthChecker);
   }
 }

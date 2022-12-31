@@ -34,6 +34,8 @@ public class SettingsBuilder {
   public static final String MAX_NGRAM_DIFF = "max_ngram_diff";
   public static final String MIN_SHINGLE_SIZE = "min_shingle_size";
   public static final String MAX_SHINGLE_SIZE = "max_shingle_size";
+
+  public static final String DOC_VALUES = "doc_values";
   public static final String NGRAM = "ngram";
   public static final String NORMALIZER = "normalizer";
   public static final String PATTERN = "pattern";
