@@ -13,10 +13,6 @@ class SnowflakeUsageConfig(BaseUsageConfig):
         default=None,
         description="Email domain of your organisation so users can be displayed on UI appropriately.",
     )
-    tag_pattern: AllowDenyPattern = pydantic.Field(
-        default=AllowDenyPattern.allow_all(),
-        description="List of regex patterns for tags to include in ingestion.",
-    )
     apply_view_usage_to_tables: bool = pydantic.Field(
         default=False,
         description="Allow/deny patterns for views in snowflake dataset names.",

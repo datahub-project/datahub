@@ -91,6 +91,11 @@ class SnowflakeV2Config(
             )
         return v
 
+    tag_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="List of regex patterns for tags to include in ingestion.",
+    )
+
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
         value = values.get("provision_role")
