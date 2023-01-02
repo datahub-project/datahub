@@ -374,6 +374,7 @@ class SnowflakeV2Source(
                     _report[SourceCapability.CONTAINERS] = CapabilityReport(
                         capable=True
                     )
+                    _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
                 elif privilege.object_type in (
                     "TABLE",
                     "VIEW",
@@ -407,6 +408,8 @@ class SnowflakeV2Source(
                         _report[SourceCapability.USAGE_STATS] = CapabilityReport(
                             capable=True
                         )
+                        _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
+
                 # If all capabilities supported, no need to continue
                 if set(capabilities) == set(_report.keys()):
                     break
@@ -430,7 +433,7 @@ class SnowflakeV2Source(
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.USAGE_STATS: "Current role does not have permissions to snowflake account usage views",
-            SourceCapability.TAGS: "Either no tags have been applied to objects or the current role does not have permission to access the objects",
+            SourceCapability.TAGS: "Either no tags have been applied to objects, or the current role does not have permission to access the objects or to snowflake account usage views ",
         }
 
         for c in capabilities:  # type:ignore
