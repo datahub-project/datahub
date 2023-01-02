@@ -482,6 +482,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 )
             else:
                 # This should never happen.
+                self.logger.error(f"Encountered an unexpected domain: {domain}")
                 continue
 
         return tags
