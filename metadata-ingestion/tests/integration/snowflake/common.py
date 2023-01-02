@@ -286,7 +286,6 @@ def default_query_results(query):  # noqa: C901
             }
             for op_idx in range(1, NUM_OPS + 1)
         ]
-
     elif query == snowflake_query.SnowflakeQuery.external_table_lineage_history(
         1654499820000,
         1654586220000,
@@ -368,7 +367,7 @@ def default_query_results(query):  # noqa: C901
                     "TAG_VALUE": f"my_value_{ix}",
                     "OBJECT_DATABASE": "TEST_DB",
                     "OBJECT_SCHEMA": "TEST_SCHEMA",
-                    "OBJECT_NAME": "TABLE_2",
+                    "OBJECT_NAME": "VIEW_2",
                     "COLUMN_NAME": None,
                     "DOMAIN": "TABLE",
                 }
@@ -381,7 +380,7 @@ def default_query_results(query):  # noqa: C901
                 "TAG_VALUE": "pii",
                 "OBJECT_DATABASE": "TEST_DB",
                 "OBJECT_SCHEMA": "TEST_SCHEMA",
-                "OBJECT_NAME": "TABLE_1",
+                "OBJECT_NAME": "VIEW_1",
                 "COLUMN_NAME": "COL_1",
                 "DOMAIN": "COLUMN",
             },

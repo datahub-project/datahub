@@ -901,6 +901,9 @@ class SnowflakeV2Source(
 
         try:
             view.columns = self.get_columns_for_table(view.name, schema_name, db_name)
+            view.column_tags = self.get_column_tags_for_table(
+                view.name, schema_name, db_name
+            )
         except Exception as e:
             logger.debug(
                 f"Failed to get columns for view {view_name} due to error {e}",
@@ -1391,7 +1394,7 @@ class SnowflakeV2Source(
         schema_name: str,
         db_name: str,
     ) -> Dict[str, List[SnowflakeTag]]:
-        column_tags: Dict[str, List[SnowflakeTag]] = {}
+        temp_column_tags: Dict[str, List[SnowflakeTag]] = {}
         if self.config.extract_tags == TagOption.without_lineage:
             if self.tag_cache is None:
                 self.tag_cache = (
@@ -1399,20 +1402,22 @@ class SnowflakeV2Source(
                         db_name
                     )
                 )
-            column_tags = self.tag_cache.get_column_tags_for_table(
+            temp_column_tags = self.tag_cache.get_column_tags_for_table(
                 table_name, schema_name, db_name
             )
         elif self.config.extract_tags == TagOption.with_lineage:
             self.report.num_get_tags_on_columns_for_table_queries += 1
-            column_tags = self.data_dictionary.get_tags_on_columns_for_table(
+            temp_column_tags = self.data_dictionary.get_tags_on_columns_for_table(
                 quoted_table_name=self.get_quoted_identifier_for_table(
                     db_name, schema_name, table_name
                 ),
                 db_name=db_name,
             )
 
-        for column_name in column_tags:
-            tags = column_tags.pop(column_name)
+        column_tags: Dict[str, List[SnowflakeTag]] = {}
+
+        for column_name in temp_column_tags:
+            tags = temp_column_tags[column_name]
             allowed_tags = self._filter_tags(tags)
             if allowed_tags:
                 column_tags[column_name] = allowed_tags
