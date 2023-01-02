@@ -29,7 +29,7 @@ class SnowflakeFK:
     referred_column_names: List[str]
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass
 class SnowflakeColumn(BaseColumn):
     character_maximum_length: Optional[int]
     numeric_precision: Optional[int]
