@@ -502,7 +502,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                 domain = "table"
                 identifier = f"{identifier}.{table_name}"
 
-        tags: list[SnowflakeTag] = []
+        tags: List[SnowflakeTag] = []
 
         cur = self.query(
             SnowflakeQuery.get_all_tags_on_object(db_name, identifier, domain),
