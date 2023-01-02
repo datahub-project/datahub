@@ -159,7 +159,7 @@
     "changeType": "UPSERT",
     "aspectName": "tagProperties",
     "aspect": {
-      "value": "{\"name\": \"test_db.test_schema.security:pii\", \"description\": \"Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.security` with value `pii`.\"}",
+      "value": "{\"name\": \"TEST_DB.TEST_SCHEMA.security:pii\", \"description\": \"Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.security` with value `pii`.\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -243,7 +243,7 @@
     "changeType": "UPSERT",
     "aspectName": "tagProperties",
     "aspect": {
-      "value": "{\"name\": \"test_db.test_schema.my_tag_0:my_value_0\", \"description\": \"Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_0` with value `my_value_0`.\"}",
+      "value": "{\"name\": \"TEST_DB.TEST_SCHEMA.my_tag_0:my_value_0\", \"description\": \"Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_0` with value `my_value_0`.\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -257,7 +257,7 @@
     "changeType": "UPSERT",
     "aspectName": "tagProperties",
     "aspect": {
-      "value": "{\"name\": \"test_db.test_schema.my_tag_1:my_value_1\", \"description\": \"Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_1` with value `my_value_1`.\"}",
+      "value": "{\"name\": \"TEST_DB.TEST_SCHEMA.my_tag_1:my_value_1\", \"description\": \"Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_1` with value `my_value_1`.\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -271,7 +271,7 @@
     "changeType": "UPSERT",
     "aspectName": "tagProperties",
     "aspect": {
-      "value": "{\"name\": \"test_db.test_schema.my_tag_2:my_value_2\", \"description\": \"Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_2` with value `my_value_2`.\"}",
+      "value": "{\"name\": \"TEST_DB.TEST_SCHEMA.my_tag_2:my_value_2\", \"description\": \"Represents the Snowflake tag `TEST_DB.TEST_SCHEMA.my_tag_2` with value `my_value_2`.\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1349,7 +1349,7 @@
     "changeType": "UPSERT",
     "aspectName": "tagProperties",
     "aspect": {
-      "value": "{\"name\": \"other_db.other_schema.my_other_tag:other\", \"description\": \"Represents the Snowflake tag `OTHER_DB.OTHER_SCHEMA.my_other_tag` with value `other`.\"}",
+      "value": "{\"name\": \"OTHER_DB.OTHER_SCHEMA.my_other_tag:other\", \"description\": \"Represents the Snowflake tag `OTHER_DB.OTHER_SCHEMA.my_other_tag` with value `other`.\"}",
       "contentType": "application/json"
     },
     "systemMetadata": {
