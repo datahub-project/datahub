@@ -17,5 +17,5 @@ record SearchFlags {
   /**
    * Structured or unstructured fulltext query
    */
-  structured: boolean = true
+  fulltext:optional boolean
 }

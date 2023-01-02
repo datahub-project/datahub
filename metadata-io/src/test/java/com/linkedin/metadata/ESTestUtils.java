@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
@@ -68,7 +69,12 @@ public class ESTestUtils {
 
     public static SearchResult search(SearchService searchService, String query) {
         return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
-                100, null);
+                100, new SearchFlags().setFulltext(true));
+    }
+
+    public static SearchResult searchStructured(SearchService searchService, String query) {
+        return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
+                100, new SearchFlags().setFulltext(false));
     }
 
     public static LineageSearchResult lineage(LineageSearchService lineageSearchService, Urn root, int hops) {

@@ -37,12 +37,12 @@ public class SearchQueryBuilder {
   private SearchQueryBuilder() {
   }
 
-  public static QueryBuilder buildQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query, boolean structured) {
+  public static QueryBuilder buildQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query, boolean fulltext) {
     final QueryBuilder queryBuilder;
-    if (structured) {
-      queryBuilder = buildInternalQuery(entitySpec, query, false, true);
-    } else {
+    if (fulltext) {
       queryBuilder = buildInternalQuery(entitySpec, query, true, false);
+    } else {
+      queryBuilder = buildInternalQuery(entitySpec, query, false, true);
     }
 
     return QueryBuilders.functionScoreQuery(queryBuilder, buildScoreFunctions(entitySpec))

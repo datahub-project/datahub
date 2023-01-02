@@ -28,6 +28,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.entity.AspectUtils;
@@ -248,15 +249,15 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull Authentication authentication,
-        @Nullable Boolean structured)
+        @Nullable Boolean fulltext)
         throws RemoteInvocationException {
 
-        if (Optional.ofNullable(structured).orElse(true)) {
-            return ValidationUtils.validateSearchResult(
-                    _entitySearchService.structuredSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
-        } else {
+        if (Optional.ofNullable(fulltext).orElse(false)) {
             return ValidationUtils.validateSearchResult(
                     _entitySearchService.fullTextSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
+        } else {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.structuredSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
         }
     }
 
@@ -305,15 +306,15 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull Authentication authentication,
-        @Nullable Boolean structured)
+        @Nullable Boolean fulltext)
         throws RemoteInvocationException {
-        if (Optional.ofNullable(structured).orElse(true)) {
+        if (Optional.ofNullable(fulltext).orElse(false)) {
             return ValidationUtils.validateSearchResult(
-                    _entitySearchService.structuredSearch(entity, input, filter, sortCriterion, start, count),
+                    _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count),
                     _entityService);
         } else {
             return ValidationUtils.validateSearchResult(
-                    _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count),
+                    _entitySearchService.structuredSearch(entity, input, filter, sortCriterion, start, count),
                     _entityService);
         }
     }
@@ -338,7 +339,8 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, null), _entityService);
+            _searchService.searchAcrossEntities(entities, input, filter, null, start, count,
+                    new SearchFlags().setFulltext(true)), _entityService);
     }
 
     @Nonnull

@@ -118,7 +118,7 @@ public class CachingEntitySearchService {
         cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
         batchSize,
         querySize -> getRawSearchResults(entityName, query, filters, sortCriterion, querySize.getFrom(),
-                querySize.getSize(), searchFlags.isStructured()),
+                querySize.getSize(), Boolean.TRUE.equals(searchFlags.isFulltext())),
         querySize -> Quintet.with(entityName, query, filters, sortCriterion, querySize), flags, enableCache).getSearchResults(from, size);
   }
 
@@ -197,9 +197,9 @@ public class CachingEntitySearchService {
       final SortCriterion sortCriterion,
       final int start,
       final int count,
-      final boolean structured) {
-    if (structured) {
-      return entitySearchService.structuredSearch(
+      final boolean fulltext) {
+    if (fulltext) {
+      return entitySearchService.fullTextSearch(
               entityName,
               input,
               filters,
@@ -207,7 +207,7 @@ public class CachingEntitySearchService {
               start,
               count);
     } else {
-      return entitySearchService.fullTextSearch(
+      return entitySearchService.structuredSearch(
               entityName,
               input,
               filters,

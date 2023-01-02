@@ -108,7 +108,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     log.debug(String.format(
         "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entityName, input, postFilters, sortCriterion, from, size));
-    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, false);
+    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, true);
   }
 
   @Nonnull
@@ -118,7 +118,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     log.debug(String.format(
             "Searching Structured Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
             entityName, input, postFilters, sortCriterion, from, size));
-    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, true);
+    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, false);
   }
 
   @Nonnull

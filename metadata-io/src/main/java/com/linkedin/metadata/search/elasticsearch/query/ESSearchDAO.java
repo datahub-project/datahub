@@ -72,18 +72,18 @@ public class ESSearchDAO {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param structured Structured or full text search modes
+   * @param fulltext Structured or full text search modes
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size, boolean structured) {
+      @Nullable SortCriterion sortCriterion, int from, int size, boolean fulltext) {
     final String finalInput = input.isEmpty() ? "*" : input;
     Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchRequest").time();
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
     // Step 1: construct the query
     final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpec)
-        .getSearchRequest(finalInput, postFilters, sortCriterion, from, size, structured);
+        .getSearchRequest(finalInput, postFilters, sortCriterion, from, size, fulltext);
     searchRequest.indices(indexConvention.getIndexName(entitySpec));
     searchRequestTimer.stop();
     // Step 2: execute the query and extract results, validated against document model as well

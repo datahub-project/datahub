@@ -40,6 +40,7 @@ public class SettingsBuilder {
   public static final String NORMALIZER = "normalizer";
   public static final String PATTERN = "pattern";
   public static final String PATTERNS = "patterns";
+  public static final String REPLACEMENT = "replacement";
   public static final String PRESERVE_ORIGINAL = "preserve_original";
   public static final String SEARCH_ANALYZER = "search_analyzer";
   public static final String SPLIT_ON_NUMERICS = "split_on_numerics";
@@ -69,6 +70,7 @@ public class SettingsBuilder {
   public static final String FLATTEN_GRAPH = "flatten_graph";
   public static final String LOWERCASE = "lowercase";
   public static final String MIN_LENGTH_2 = "min_length_2";
+  public static final String REPLACE_NUM_LENGTH_3 = "replace_num_length_3";
   public static final String MULTIFILTER = "multifilter";
   public static final String MULTIFILTER_GRAPH = "multifilter_graph";
   public static final String PARTIAL_URN_COMPONENT = "partial_urn_component";
@@ -100,6 +102,7 @@ public class SettingsBuilder {
   public static final String SLASH_TOKENIZER = "slash_tokenizer";
 
   public static final List<String> ALPHA_ONLY_PATTERNS = ImmutableList.of("([a-z0-9]{2,})");
+  public static final String NUM_LENGTH_3_PATTERN = "(^[0-9]{1,3}$)";
   public static final List<String> URN_STOP_WORDS = ImmutableList.of("urn", "li");
 
   public final Map<String, Object> settings;
@@ -136,7 +139,7 @@ public class SettingsBuilder {
     // Filter to split string into words
     filters.put(CUSTOM_DELIMITER, ImmutableMap.<String, Object>builder()
             .put(TYPE, WORD_DELIMITER)
-            .put(SPLIT_ON_NUMERICS, false)
+            .put(SPLIT_ON_NUMERICS, true)
             .put(PRESERVE_ORIGINAL, true)
             .put(TYPE_TABLE, ImmutableList.of(
                     COLON_SUBWORD_DELIMITER
@@ -145,7 +148,7 @@ public class SettingsBuilder {
 
     filters.put(CUSTOM_DELIMITER_GRAPH, ImmutableMap.<String, Object>builder()
             .put(TYPE, WORD_DELIMITER_GRAPH)
-            .put(SPLIT_ON_NUMERICS, false)
+            .put(SPLIT_ON_NUMERICS, true)
             .put(PRESERVE_ORIGINAL, true)
             .put(TYPE_TABLE, ImmutableList.of(
                     COLON_SUBWORD_DELIMITER
@@ -185,6 +188,12 @@ public class SettingsBuilder {
     filters.put(ALPHA_ONLY, ImmutableMap.<String, Object>builder()
             .put(TYPE, "pattern_capture")
             .put(PATTERNS, ALPHA_ONLY_PATTERNS)
+            .build());
+
+    filters.put(REPLACE_NUM_LENGTH_3, ImmutableMap.builder()
+            .put(TYPE, "pattern_replace")
+            .put(PATTERN, NUM_LENGTH_3_PATTERN)
+            .put(REPLACEMENT, "")
             .build());
 
     filters.put(SHINGLE_2_3, ImmutableMap.<String, Object>builder()

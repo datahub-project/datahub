@@ -30,6 +30,7 @@ import java.util.stream.Stream;
 
 import static com.linkedin.metadata.ESTestUtils.autocomplete;
 import static com.linkedin.metadata.ESTestUtils.search;
+import static com.linkedin.metadata.ESTestUtils.searchStructured;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.assertNotNull;
@@ -283,7 +284,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(tokens, List.of(
                 "harshal-playground-306419", "harshal", "playground", "306419",
                  "test_schema", "test", "schema",
-                 "austin311_deriv", "austin311", "deriv"),
+                 "austin311_deriv", "austin311", "deriv", "austin", "311"),
                 String.format("Unexpected tokens. Found %s", tokens));
 
         request = AnalyzeRequest.withIndexAnalyzer(
@@ -295,7 +296,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(tokens, List.of(
                         "harshal-playground-306419", "harshal", "playground", "306419",
                         "test_schema", "test", "schema",
-                        "austin311_deriv", "austin311", "deriv"),
+                        "austin311_deriv", "austin311", "deriv", "austin", "311"),
                 String.format("Unexpected tokens. Found %s", tokens));
     }
 
@@ -327,6 +328,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         "urn:li:dataplatform:hive", "data", "dataplatform", "platform", "hive",
                         "samplehivedataset-ac611929-c3ac-4b92-aafb-f4603ddb408a",
                         "samplehivedataset", "ac611929", "c3ac", "4b92", "aafb", "f4603ddb408a", "sampl",
+                        "ac", "611929", "92", "4603", "ddb", "408",
                         "prod", "production"),
                 String.format("Unexpected tokens. Found %s", tokens));
 
@@ -356,6 +358,38 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         throw new RuntimeException(e);
                     }
                 });
+    }
+
+    @Test
+    public void testSmokeTestQueries() {
+        Map<String, Integer> expectedMinimums = Map.of(
+                "sample", 3,
+                "covid", 1
+        );
+
+        Map<String, SearchResult> results = expectedMinimums.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> search(searchService, entry.getKey())));
+
+        results.forEach((key, value) -> {
+            Integer actualCount = value.getEntities().size();
+            Integer expectedCount = expectedMinimums.get(key);
+            assertTrue(actualCount >= expectedCount,
+                    String.format("Search term `%s` has %s fulltext results, expected %s results.", key,
+                            actualCount, expectedCount));
+        });
+    }
+
+    @Test
+    public void testMinNumberLengthLimit() throws IOException {
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
+                "smpldat_datasetindex_v2",
+                "word_delimited",
+                "data2022.data22"
+        );
+        List<String> expected = List.of("data2022", "data", "2022", "data22", "22");
+        List<String> actual = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
+        assertEquals(actual, expected,
+                String.format("Expected: %s Actual: %s", expected, actual));
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {

@@ -154,13 +154,13 @@ public class SearchRequestHandler {
    * @param filter the search filter
    * @param from index to start the search from
    * @param size the number of search hits to return
-   * @param structured Structured or full text search modes
+   * @param fulltext Structured or full text search modes
    * @return a valid search request
    */
   @Nonnull
   @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion, int from, int size, boolean structured) {
+      @Nullable SortCriterion sortCriterion, int from, int size, boolean fulltext) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
@@ -170,7 +170,7 @@ public class SearchRequestHandler {
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery()
-            .must(getQuery(input, structured))
+            .must(getQuery(input, fulltext))
             .must(filterQuery));
     getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
@@ -228,8 +228,8 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query, boolean structured) {
-    return SearchQueryBuilder.buildQuery(_entitySpec, query, structured);
+  private QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
+    return SearchQueryBuilder.buildQuery(_entitySpec, query, fulltext);
   }
 
   private List<AggregationBuilder> getAggregations() {
