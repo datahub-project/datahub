@@ -1052,7 +1052,7 @@ class SnowflakeV2Source(
 
         tag_properties_aspect = TagProperties(
             name=tag_key,
-            description=f"Represents the Snowflake tag `{tag_key.split('=')[0]}` with value `{tag.value}`.",
+            description=f"Represents the Snowflake tag `{tag.id_as_str()}` with value `{tag.value}`.",
         )
 
         self.stale_entity_removal_handler.add_entity_to_state("tag", tag_urn)
