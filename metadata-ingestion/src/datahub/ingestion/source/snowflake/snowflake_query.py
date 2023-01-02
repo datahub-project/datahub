@@ -115,7 +115,7 @@ class SnowflakeQuery:
         tag_schema AS "TAG_SCHEMA",
         tag_name AS "TAG_NAME",
         tag_value AS "TAG_VALUE"
-        FROM table("{db_name}".information_schema.tag_references({quoted_identifier}, '{domain}'));
+        FROM table("{db_name}".information_schema.tag_references('{quoted_identifier}', '{domain}'));
         """
 
     @staticmethod
@@ -146,7 +146,7 @@ class SnowflakeQuery:
         tag_name AS "TAG_NAME",
         tag_value AS "TAG_VALUE",
         column_name AS "COLUMN_NAME"
-        FROM table("{db_name}".information_schema.tag_references_all_columns({quoted_table_identifier}, 'table'));
+        FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', 'table'));
         """
 
     # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
