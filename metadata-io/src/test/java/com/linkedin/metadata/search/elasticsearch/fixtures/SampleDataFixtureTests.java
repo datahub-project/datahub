@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
+import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
@@ -401,6 +402,18 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         List<String> actual = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
         assertEquals(actual, expected,
                 String.format("Expected: %s Actual: %s", expected, actual));
+    }
+
+    @Test
+    public void testFacets() throws IOException {
+        Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
+        SearchResult testResult = search(searchService, "cypress");
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResult.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                    String.format("Failed to find facet `%s` in %s", facet,
+                            testResult.getMetadata().getAggregations().stream()
+                                    .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {
