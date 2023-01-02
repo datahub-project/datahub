@@ -490,23 +490,14 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
     def get_tags_for_object(
         self,
         conn: SnowflakeConnection,
-        table_name: Optional[str],
-        schema_name: Optional[str],
+        domain: str,
+        quoted_identifier: str,
         db_name: str,
     ) -> List[SnowflakeTag]:
-        domain = "database"
-        identifier = db_name
-        if schema_name is not None:
-            domain = "schema"
-            identifier = f"{identifier}.{schema_name}"
-            if table_name is not None:
-                domain = "table"
-                identifier = f"{identifier}.{table_name}"
-
         tags: List[SnowflakeTag] = []
 
         cur = self.query(
-            SnowflakeQuery.get_all_tags_on_object(db_name, identifier, domain),
+            SnowflakeQuery.get_all_tags_on_object(db_name, quoted_identifier, domain),
         )
 
         for tag in cur:
@@ -521,13 +512,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return tags
 
     def get_tags_on_columns_for_table(
-        self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
+        self, conn: SnowflakeConnection, quoted_table_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeTag]]:
         tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
         cur = self.query(
-            SnowflakeQuery.get_tags_on_column(
-                db_name, f"{db_name}.{schema_name}.{table_name}"
-            ),
+            SnowflakeQuery.get_tags_on_column(db_name, quoted_table_name),
         )
 
         for tag in cur:

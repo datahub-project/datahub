@@ -106,14 +106,16 @@ class SnowflakeQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def get_all_tags_on_object(db_name: str, identifier: str, domain: str) -> str:
+    def get_all_tags_on_object(
+        db_name: str, quoted_identifier: str, domain: str
+    ) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html
         return f"""
         SELECT tag_database as "TAG_DATABASE",
         tag_schema AS "TAG_SCHEMA",
         tag_name AS "TAG_NAME",
         tag_value AS "TAG_VALUE"
-        FROM table({db_name}.information_schema.tag_references('{identifier}', '{domain}'));
+        FROM table("{db_name}".information_schema.tag_references({quoted_identifier}, '{domain}'));
         """
 
     @staticmethod
@@ -136,7 +138,7 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def get_tags_on_column(db_name: str, table_identifier: str) -> str:
+    def get_tags_on_column(db_name: str, quoted_table_identifier: str) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
         return f"""
         SELECT tag_database as "TAG_DATABASE",
@@ -144,7 +146,7 @@ class SnowflakeQuery:
         tag_name AS "TAG_NAME",
         tag_value AS "TAG_VALUE",
         column_name AS "COLUMN_NAME"
-        FROM table({db_name}.information_schema.tag_references_all_columns('{table_identifier}', 'table'));
+        FROM table("{db_name}".information_schema.tag_references_all_columns({quoted_table_identifier}, 'table'));
         """
 
     # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.

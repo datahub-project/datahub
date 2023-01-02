@@ -1396,7 +1396,11 @@ class SnowflakeV2Source(
         elif self.config.extract_tags == TagOption.with_lineage:
             self.report.num_get_tags_on_columns_for_table_queries += 1
             column_tags = self.data_dictionary.get_tags_on_columns_for_table(
-                conn, table_name, schema_name, db_name
+                conn=conn,
+                quoted_table_name=self.get_quoted_identifier_for_table(
+                    db_name, schema_name, table_name
+                ),
+                db_name=db_name,
             )
         else:
             return columns
@@ -1436,9 +1440,25 @@ class SnowflakeV2Source(
             else:
                 raise ValueError(f"Unknown domain {domain}")
         elif self.config.extract_tags == TagOption.with_lineage:
+            identifier = ""
+            if domain == "database":
+                identifier = self.get_quoted_identifier_for_database(db_name)
+            elif domain == "schema":
+                assert schema_name is not None
+                identifier = self.get_quoted_identifier_for_schema(db_name, schema_name)
+            elif domain == "table":  # Views belong to this domain as well.
+                assert schema_name is not None
+                assert table_name is not None
+                identifier = self.get_quoted_identifier_for_table(
+                    db_name, schema_name, table_name
+                )
+            else:
+                raise ValueError(f"Unknown domain {domain}")
+            assert identifier
+
             self.report.num_get_tags_for_object_queries += 1
             tags = self.data_dictionary.get_tags_for_object(
-                conn, table_name, schema_name, db_name
+                conn=conn, domain=domain, quoted_identifier=identifier, db_name=db_name
             )
         else:
             tags = []
