@@ -324,7 +324,7 @@ public class SettingsBuilder {
     // Analyzer for case-insensitive exact matching - Only used when building queries
     analyzers.put(KEYWORD_LOWERCASE_ANALYZER, ImmutableMap.<String, Object>builder()
             .put(TOKENIZER, KEYWORD_TOKENIZER)
-            .put(FILTER, ImmutableList.of("trim", LOWERCASE, ASCII_FOLDING))
+            .put(FILTER, ImmutableList.of("trim", LOWERCASE, ASCII_FOLDING, SNOWBALL))
             .build());
 
     // Analyzer for getting urn components

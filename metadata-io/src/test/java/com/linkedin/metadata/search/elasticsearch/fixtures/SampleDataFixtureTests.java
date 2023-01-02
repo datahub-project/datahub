@@ -377,6 +377,17 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     String.format("Search term `%s` has %s fulltext results, expected %s results.", key,
                             actualCount, expectedCount));
         });
+
+        results = expectedMinimums.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> searchStructured(searchService, entry.getKey())));
+
+        results.forEach((key, value) -> {
+            Integer actualCount = value.getEntities().size();
+            Integer expectedCount = expectedMinimums.get(key);
+            assertTrue(actualCount >= expectedCount,
+                    String.format("Search term `%s` has %s structured results, expected %s results.", key,
+                            actualCount, expectedCount));
+        });
     }
 
     @Test
