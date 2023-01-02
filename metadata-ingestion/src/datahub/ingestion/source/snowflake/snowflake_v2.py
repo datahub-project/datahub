@@ -647,7 +647,10 @@ class SnowflakeV2Source(
                 )
             return
 
-        snowflake_db.tags = self.get_tags_on_object(conn, "database", db_name)
+        if self.config.extract_tags is not TagOption.skip:
+            snowflake_db.tags = self.get_tags_on_object(
+                conn=conn, domain="database", db_name=db_name
+            )
 
         if self.config.include_technical_schema:
             yield from self.gen_database_containers(snowflake_db)
@@ -683,15 +686,9 @@ class SnowflakeV2Source(
                 db_name,
             )
 
-        if self.config.extract_tags is not TagOption.skip:
-            snowflake_db.tags = self.get_tags_on_object(
-                conn=conn, db_name=db_name, domain="database"
-            )
-
-            if self.config.include_technical_schema:
-                if snowflake_db.tags:
-                    for tag in snowflake_db.tags:
-                        yield from self._process_tag(tag)
+        if self.config.include_technical_schema and snowflake_db.tags:
+            for tag in snowflake_db.tags:
+                yield from self._process_tag(tag)
 
     def _process_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
@@ -708,9 +705,10 @@ class SnowflakeV2Source(
 
         schema_name = snowflake_schema.name
 
-        snowflake_schema.tags = self.get_tags_on_object(
-            conn, "schema", db_name, schema_name
-        )
+        if self.config.extract_tags is not TagOption.skip:
+            snowflake_schema.tags = self.get_tags_on_object(
+                conn=conn, schema_name=schema_name, db_name=db_name, domain="schema"
+            )
 
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
@@ -773,15 +771,9 @@ class SnowflakeV2Source(
                     f"{db_name}.{schema_name}",
                 )
 
-        if self.config.extract_tags is not TagOption.skip:
-            snowflake_schema.tags = self.get_tags_on_object(
-                conn=conn, schema_name=schema_name, db_name=db_name, domain="schema"
-            )
-
-            if self.config.include_technical_schema:
-                if snowflake_schema.tags:
-                    for tag in snowflake_schema.tags:
-                        yield from self._process_tag(tag)
+        if self.config.include_technical_schema and snowflake_schema.tags:
+            for tag in snowflake_schema.tags:
+                yield from self._process_tag(tag)
 
     def _process_table(
         self,
