@@ -652,7 +652,7 @@ class SnowflakeV2Source(
 
         if self.config.extract_tags is not TagOption.skip:
             snowflake_db.tags = self.get_tags_on_object(
-                conn=conn, domain="database", db_name=db_name
+                domain="database", db_name=db_name
             )
 
         if self.config.include_technical_schema:
@@ -710,7 +710,7 @@ class SnowflakeV2Source(
 
         if self.config.extract_tags is not TagOption.skip:
             snowflake_schema.tags = self.get_tags_on_object(
-                conn=conn, schema_name=schema_name, db_name=db_name, domain="schema"
+                schema_name=schema_name, db_name=db_name, domain="schema"
             )
 
         if self.config.include_technical_schema:
@@ -806,7 +806,6 @@ class SnowflakeV2Source(
 
         if self.config.extract_tags is not TagOption.skip:
             table.tags = self.get_tags_on_object(
-                conn=conn,
                 table_name=table.name,
                 schema_name=schema_name,
                 db_name=db_name,
@@ -817,10 +816,9 @@ class SnowflakeV2Source(
             if table.tags:
                 for tag in table.tags:
                     yield from self._process_tag(tag)
-            for column in table.columns:
-                if column.tags:
-                    for tag in column.tags:
-                        yield from self._process_tag(tag)
+            for column_name in table.column_tags:
+                for tag in table.column_tags[column_name]:
+                    yield from self._process_tag(tag)
 
         yield from self.gen_dataset_workunits(table, schema_name, db_name)
 
@@ -877,6 +875,9 @@ class SnowflakeV2Source(
     def fetch_columns_for_table(self, table, schema_name, db_name, table_identifier):
         try:
             table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
+            table.column_tags = self.get_column_tags_for_table(
+                table.name, schema_name, db_name
+            )
         except Exception as e:
             logger.debug(
                 f"Failed to get columns for table {table_identifier} due to error {e}",
@@ -910,7 +911,6 @@ class SnowflakeV2Source(
         if self.config.extract_tags is not TagOption.skip:
             # TODO: make sure this works for views
             view.tags = self.get_tags_on_object(
-                conn=conn,
                 table_name=view.name,
                 schema_name=schema_name,
                 db_name=db_name,
@@ -921,10 +921,9 @@ class SnowflakeV2Source(
             if view.tags:
                 for tag in view.tags:
                     yield from self._process_tag(tag)
-            for column in view.columns:
-                if column.tags:
-                    for tag in column.tags:
-                        yield from self._process_tag(tag)
+            for column_name in view.column_tags:
+                for tag in view.column_tags[column_name]:
+                    yield from self._process_tag(tag)
 
         yield from self.gen_dataset_workunits(view, schema_name, db_name)
 
@@ -1098,10 +1097,10 @@ class SnowflakeV2Source(
                             TagAssociation(
                                 make_tag_urn(self.snowflake_identifier(str(tag)))
                             )
-                            for tag in col.tags
+                            for tag in table.column_tags[col.name]
                         ]
                     )
-                    if col.tags
+                    if col.name in table.column_tags
                     else None,
                 )
                 for col in table.columns
@@ -1386,20 +1385,18 @@ class SnowflakeV2Source(
         # Some schema may not have any table
         return views.get(schema_name, [])
 
-    def enrich_columns_with_tags(
+    def get_column_tags_for_table(
         self,
-        conn: SnowflakeConnection,
-        columns: List[SnowflakeColumn],
         table_name: str,
         schema_name: str,
         db_name: str,
-    ) -> List[SnowflakeColumn]:
-        column_tags: Dict[str, List[SnowflakeTag]]
+    ) -> Dict[str, List[SnowflakeTag]]:
+        column_tags: Dict[str, List[SnowflakeTag]] = {}
         if self.config.extract_tags == TagOption.without_lineage:
             if self.tag_cache is None:
                 self.tag_cache = (
                     self.data_dictionary.get_tags_for_database_without_propagation(
-                        conn, db_name
+                        db_name
                     )
                 )
             column_tags = self.tag_cache.get_column_tags_for_table(
@@ -1408,25 +1405,22 @@ class SnowflakeV2Source(
         elif self.config.extract_tags == TagOption.with_lineage:
             self.report.num_get_tags_on_columns_for_table_queries += 1
             column_tags = self.data_dictionary.get_tags_on_columns_for_table(
-                conn=conn,
                 quoted_table_name=self.get_quoted_identifier_for_table(
                     db_name, schema_name, table_name
                 ),
                 db_name=db_name,
             )
-        else:
-            return columns
 
-        for column in columns:
-            tags = column_tags.get(column.name)
+        for column_name in column_tags:
+            tags = column_tags.pop(column_name)
             allowed_tags = self._filter_tags(tags)
-            column.tags = allowed_tags
+            if allowed_tags:
+                column_tags[column_name] = allowed_tags
 
-        return columns
+        return column_tags
 
     def get_tags_on_object(
         self,
-        conn: SnowflakeConnection,
         domain: str,
         db_name: str,
         schema_name: Optional[str] = None,
@@ -1436,7 +1430,7 @@ class SnowflakeV2Source(
             if self.tag_cache is None:
                 self.tag_cache = (
                     self.data_dictionary.get_tags_for_database_without_propagation(
-                        conn, db_name
+                        db_name
                     )
                 )
 
@@ -1470,7 +1464,7 @@ class SnowflakeV2Source(
 
             self.report.num_get_tags_for_object_queries += 1
             tags = self.data_dictionary.get_tags_for_object(
-                conn=conn, domain=domain, quoted_identifier=identifier, db_name=db_name
+                domain=domain, quoted_identifier=identifier, db_name=db_name
             )
         else:
             tags = []
@@ -1498,10 +1492,6 @@ class SnowflakeV2Source(
 
         # Access to table but none of its columns - is this possible ?
         table_columns = columns.get(table_name, [])
-
-        table_columns = self.enrich_columns_with_tags(
-            conn, table_columns, table_name, schema_name, db_name
-        )
 
         return table_columns
 

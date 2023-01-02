@@ -1,4 +1,4 @@
-from typing import Optional, MutableSet
+from typing import MutableSet, Optional
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport

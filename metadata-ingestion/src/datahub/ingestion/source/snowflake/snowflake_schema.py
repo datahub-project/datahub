@@ -49,7 +49,6 @@ class SnowflakeColumn(BaseColumn):
     character_maximum_length: Optional[int]
     numeric_precision: Optional[int]
     numeric_scale: Optional[int]
-    tags: Optional[List[SnowflakeTag]] = None
 
     def get_precise_native_type(self):
         precise_native_type = self.data_type
@@ -78,6 +77,7 @@ class SnowflakeTable(BaseTable):
     columns: List[SnowflakeColumn] = field(default_factory=list)
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
     sample_data: Optional[pd.DataFrame] = None
 
 
@@ -85,6 +85,7 @@ class SnowflakeTable(BaseTable):
 class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
 
 
 @dataclass
@@ -440,7 +441,6 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
 
     def get_tags_for_database_without_propagation(
         self,
-        conn: SnowflakeConnection,
         db_name: str,
     ) -> _SnowflakeTagCache:
         cur = self.query(
@@ -492,7 +492,6 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
 
     def get_tags_for_object(
         self,
-        conn: SnowflakeConnection,
         domain: str,
         quoted_identifier: str,
         db_name: str,
@@ -515,7 +514,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return tags
 
     def get_tags_on_columns_for_table(
-        self, conn: SnowflakeConnection, quoted_table_name: str, db_name: str
+        self, quoted_table_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeTag]]:
         tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
         cur = self.query(
