@@ -70,8 +70,8 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTable,
     SnowflakeTag,
     SnowflakeView,
-    _SnowflakeTagCache,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
 )
@@ -249,6 +249,10 @@ class SnowflakeV2Source(
             # For usage stats
             self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
 
+        self.tag_extractor = SnowflakeTagExtractor(
+            config, self.data_dictionary, self.report
+        )
+
         self.profiling_state_handler: Optional[ProfilingHandler] = None
         if self.config.store_last_profiling_timestamps:
             self.profiling_state_handler = ProfilingHandler(
@@ -281,8 +285,6 @@ class SnowflakeV2Source(
         self.schema_fk_constraints: Dict[
             Tuple[str, str], Dict[str, List[SnowflakeFK]]
         ] = {}
-
-        self.tag_cache: Optional[_SnowflakeTagCache] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -492,7 +494,7 @@ class SnowflakeV2Source(
         for snowflake_db in databases:
             try:
                 yield from self._process_database(snowflake_db)
-                self.tag_cache = None
+                self.tag_extractor.invalidate_cache()
 
             except SnowflakePermissionError as e:
                 # FIXME - This may break satetful ingestion if new tables than previous run are emitted above
@@ -651,7 +653,7 @@ class SnowflakeV2Source(
             return
 
         if self.config.extract_tags is not TagOption.skip:
-            snowflake_db.tags = self.get_tags_on_object(
+            snowflake_db.tags = self.tag_extractor.get_tags_on_object(
                 domain="database", db_name=db_name
             )
 
@@ -709,7 +711,7 @@ class SnowflakeV2Source(
         schema_name = snowflake_schema.name
 
         if self.config.extract_tags is not TagOption.skip:
-            snowflake_schema.tags = self.get_tags_on_object(
+            snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
                 schema_name=schema_name, db_name=db_name, domain="schema"
             )
 
@@ -805,7 +807,7 @@ class SnowflakeV2Source(
         )
 
         if self.config.extract_tags is not TagOption.skip:
-            table.tags = self.get_tags_on_object(
+            table.tags = self.tag_extractor.get_tags_on_object(
                 table_name=table.name,
                 schema_name=schema_name,
                 db_name=db_name,
@@ -875,9 +877,10 @@ class SnowflakeV2Source(
     def fetch_columns_for_table(self, table, schema_name, db_name, table_identifier):
         try:
             table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
-            table.column_tags = self.get_column_tags_for_table(
-                table.name, schema_name, db_name
-            )
+            if self.config.extract_tags is not TagOption.skip:
+                table.column_tags = self.tag_extractor.get_column_tags_for_table(
+                    table.name, schema_name, db_name
+                )
         except Exception as e:
             logger.debug(
                 f"Failed to get columns for table {table_identifier} due to error {e}",
@@ -901,9 +904,10 @@ class SnowflakeV2Source(
 
         try:
             view.columns = self.get_columns_for_table(view.name, schema_name, db_name)
-            view.column_tags = self.get_column_tags_for_table(
-                view.name, schema_name, db_name
-            )
+            if self.config.extract_tags is not TagOption.skip:
+                view.column_tags = self.tag_extractor.get_column_tags_for_table(
+                    view.name, schema_name, db_name
+                )
         except Exception as e:
             logger.debug(
                 f"Failed to get columns for view {view_name} due to error {e}",
@@ -913,7 +917,7 @@ class SnowflakeV2Source(
 
         if self.config.extract_tags is not TagOption.skip:
             # TODO: make sure this works for views
-            view.tags = self.get_tags_on_object(
+            view.tags = self.tag_extractor.get_tags_on_object(
                 table_name=view.name,
                 schema_name=schema_name,
                 db_name=db_name,
@@ -1388,96 +1392,6 @@ class SnowflakeV2Source(
         # Some schema may not have any table
         return views.get(schema_name, [])
 
-    def get_column_tags_for_table(
-        self,
-        table_name: str,
-        schema_name: str,
-        db_name: str,
-    ) -> Dict[str, List[SnowflakeTag]]:
-        temp_column_tags: Dict[str, List[SnowflakeTag]] = {}
-        if self.config.extract_tags == TagOption.without_lineage:
-            if self.tag_cache is None:
-                self.tag_cache = (
-                    self.data_dictionary.get_tags_for_database_without_propagation(
-                        db_name
-                    )
-                )
-            temp_column_tags = self.tag_cache.get_column_tags_for_table(
-                table_name, schema_name, db_name
-            )
-        elif self.config.extract_tags == TagOption.with_lineage:
-            self.report.num_get_tags_on_columns_for_table_queries += 1
-            temp_column_tags = self.data_dictionary.get_tags_on_columns_for_table(
-                quoted_table_name=self.get_quoted_identifier_for_table(
-                    db_name, schema_name, table_name
-                ),
-                db_name=db_name,
-            )
-
-        column_tags: Dict[str, List[SnowflakeTag]] = {}
-
-        for column_name in temp_column_tags:
-            tags = temp_column_tags[column_name]
-            allowed_tags = self._filter_tags(tags)
-            if allowed_tags:
-                column_tags[column_name] = allowed_tags
-
-        return column_tags
-
-    def get_tags_on_object(
-        self,
-        domain: str,
-        db_name: str,
-        schema_name: Optional[str] = None,
-        table_name: Optional[str] = None,
-    ) -> List[SnowflakeTag]:
-        if self.config.extract_tags == TagOption.without_lineage:
-            if self.tag_cache is None:
-                self.tag_cache = (
-                    self.data_dictionary.get_tags_for_database_without_propagation(
-                        db_name
-                    )
-                )
-
-            if domain == "database":
-                return self.tag_cache.get_database_tags(db_name)
-            elif domain == "schema":
-                assert schema_name is not None
-                tags = self.tag_cache.get_schema_tags(schema_name, db_name)
-            elif domain == "table":  # Views belong to this domain as well.
-                assert schema_name is not None
-                assert table_name is not None
-                tags = self.tag_cache.get_table_tags(table_name, schema_name, db_name)
-            else:
-                raise ValueError(f"Unknown domain {domain}")
-        elif self.config.extract_tags == TagOption.with_lineage:
-            identifier = ""
-            if domain == "database":
-                identifier = self.get_quoted_identifier_for_database(db_name)
-            elif domain == "schema":
-                assert schema_name is not None
-                identifier = self.get_quoted_identifier_for_schema(db_name, schema_name)
-            elif domain == "table":  # Views belong to this domain as well.
-                assert schema_name is not None
-                assert table_name is not None
-                identifier = self.get_quoted_identifier_for_table(
-                    db_name, schema_name, table_name
-                )
-            else:
-                raise ValueError(f"Unknown domain {domain}")
-            assert identifier
-
-            self.report.num_get_tags_for_object_queries += 1
-            tags = self.data_dictionary.get_tags_for_object(
-                domain=domain, quoted_identifier=identifier, db_name=db_name
-            )
-        else:
-            tags = []
-
-        allowed_tags = self._filter_tags(tags)
-
-        return allowed_tags if allowed_tags else []
-
     def get_columns_for_table(
         self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeColumn]:
@@ -1527,21 +1441,6 @@ class SnowflakeV2Source(
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
-
-    def _filter_tags(
-        self, tags: Optional[List[SnowflakeTag]]
-    ) -> Optional[List[SnowflakeTag]]:
-        if tags is None:
-            return tags
-
-        allowed_tags = []
-        for tag in tags:
-            tag_identifier = str(tag)
-            self.report.report_entity_scanned(tag_identifier, "tag")
-            if not self.config.tag_pattern.allowed(tag_identifier):
-                self.report.report_dropped(tag_identifier)
-            allowed_tags.append(tag)
-        return allowed_tags
 
     def add_config_to_report(self):
         self.report.cleaned_account_id = self.config.get_account()
