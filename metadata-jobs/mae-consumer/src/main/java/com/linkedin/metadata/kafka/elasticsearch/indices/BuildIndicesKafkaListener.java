@@ -7,17 +7,23 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.BuildIndicesHistoryEvent;
 import com.linkedin.mxe.Topics;
+
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import joptsimple.internal.Strings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.stereotype.Component;
@@ -29,8 +35,11 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @EnableKafka
 public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDependency {
+  @Autowired
+  private KafkaListenerEndpointRegistry registry;
 
   private static final String CONSUMER_GROUP = "${BUILD_INDICES_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-bihe-consumer-job-client}";
+  private static final String SUFFIX = "temp";
   private static final String TOPIC_NAME = "${BUILD_INDICES_HISTORY_TOPIC_NAME:" + Topics.BUILD_INDICES_HISTORY_TOPIC_NAME + "}";
 
   private final DefaultKafkaConsumerFactory<String, GenericRecord> _defaultKafkaConsumerFactory;
@@ -50,7 +59,7 @@ public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDe
   @Override
   public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
     try (Consumer<String, GenericRecord> kafkaConsumer =
-        _defaultKafkaConsumerFactory.createConsumer(consumerGroup, "temp")) {
+        _defaultKafkaConsumerFactory.createConsumer(consumerGroup, SUFFIX)) {
       final Map<TopicPartition, Long> offsetMap = kafkaConsumer.endOffsets(assignments.keySet());
       assignments.entrySet().stream()
           .filter(entry -> topicName.equals(entry.getKey().topic()))
@@ -90,6 +99,12 @@ public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDe
     for (int i = 0; i < maxBackOffs; i++) {
       if (isUpdated.get()) {
         log.debug("Finished waiting for updated indices.");
+        String consumerId = Strings.join(List.of(CONSUMER_GROUP, SUFFIX), "");
+        try {
+          registry.getListenerContainer(consumerId).stop();
+        } catch (NullPointerException e) {
+          log.error("Expected consumer `{}` to shutdown.", consumerId);
+        }
         return;
       }
       try {
