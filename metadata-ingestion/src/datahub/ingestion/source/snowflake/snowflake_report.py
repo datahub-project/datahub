@@ -1,5 +1,6 @@
 from typing import Optional
 
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
@@ -31,6 +32,8 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
     num_get_columns_for_table_queries: int = 0
 
     rows_zero_objects_modified: int = 0
+
+    edition: Optional[SnowflakeEdition] = None
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

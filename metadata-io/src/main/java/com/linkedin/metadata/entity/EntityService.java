@@ -83,6 +83,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.persistence.EntityNotFoundException;
 
 import io.ebean.PagedList;
 import lombok.Value;
@@ -147,6 +148,7 @@ public class EntityService {
   public static class IngestProposalResult {
     Urn urn;
     boolean didUpdate;
+    boolean queued;
   }
 
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
@@ -881,9 +883,9 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       } else {
         // When async is turned on, we write to proposal log and return without waiting
         _producer.produceMetadataChangeProposal(mcp);
-        return new IngestProposalResult(mcp.getEntityUrn(), false);
+        return new IngestProposalResult(mcp.getEntityUrn(), false, true);
       }
-  } else {
+    } else {
       // For timeseries aspects
       newAspect = convertToRecordTemplate(mcp, aspectSpec);
       newSystemMetadata = mcp.getSystemMetadata();
@@ -893,7 +895,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         emitChangeLog(oldAspect, oldSystemMetadata, newAspect, newSystemMetadata, mcp, entityUrn, auditStamp,
             aspectSpec);
 
-    return new IngestProposalResult(entityUrn, didUpdate);
+    return new IngestProposalResult(entityUrn, didUpdate, false);
   }
 
   private AspectSpec validateAspect(MetadataChangeProposal mcp, EntitySpec entitySpec) {
@@ -1587,7 +1589,12 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = getKeyAspectName(urn);
 
-    EntityAspect latestKey = _aspectDao.getLatestAspect(urn.toString(), keyAspectName);
+    EntityAspect latestKey = null;
+    try {
+      latestKey = _aspectDao.getLatestAspect(urn.toString(), keyAspectName);
+    } catch (EntityNotFoundException e) {
+      log.warn("Entity to delete does not exist. {}", urn.toString());
+    }
     if (latestKey == null || latestKey.getSystemMetadata() == null) {
       return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
     }

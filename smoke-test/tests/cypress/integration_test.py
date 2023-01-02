@@ -1,5 +1,6 @@
-from typing import List
+from typing import Set, List
 
+import datetime
 import pytest
 import subprocess
 import os
@@ -99,7 +100,12 @@ for id_list in ONBOARDING_ID_LISTS:
     ONBOARDING_IDS.extend(id_list)
 
 
+def print_now():
+    print(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
+
+
 def ingest_data():
+    print_now()
     print("creating onboarding data file")
     create_datahub_step_state_aspects(
         get_admin_username(),
@@ -107,40 +113,71 @@ def ingest_data():
         f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}",
     )
 
+    print_now()
     print("ingesting test data")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_SCHEMA_BLAME_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
+    print_now()
+    print("completed ingesting test data")
 
 
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data():
     ingest_data()
     yield
+    print_now()
     print("removing test data")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_SCHEMA_BLAME_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
 
+    print_now()
     print("deleting onboarding data file")
     if os.path.exists(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"):
         os.remove(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
+    print_now()
+    print("deleted onboarding data")
+
+
+def _get_spec_map(items: Set[str]) -> str:
+    if len(items) == 0:
+        return ""
+    return ",".join([f"**/{item}/*.js" for item in items])
 
 
 def test_run_cypress(frontend_session, wait_for_healthchecks):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = os.getenv("CYPRESS_RECORD_KEY")
+    tag_arg = ""
+    test_strategy = os.getenv("TEST_STRATEGY", None)
     if record_key:
-        print("Running Cypress tests with recording")
-        command = "NO_COLOR=1 npx cypress run --record"
+        record_arg = " --record "
+        tag_arg = f" --tag {test_strategy} "
     else:
-        print("Running Cypress tests without recording")
-        # command = "NO_COLOR=1 npx cypress --version"
-        command = "NO_COLOR=1 npx cypress run"
-        # Add --headed --spec '**/mutations/mutations.js' (change spec name)
-        # in case you want to see the browser for debugging
+        record_arg = " "
+
+    rest_specs = set(os.listdir("tests/cypress/cypress/integration"))
+    cypress_suite1_specs = {"mutations", "search", "views"}
+    rest_specs.difference_update(set(cypress_suite1_specs))
+    strategy_spec_map = {
+        "cypress_suite1": cypress_suite1_specs,
+        "cypress_rest": rest_specs,
+    }
+    print(f"test strategy is {test_strategy}")
+    test_spec_arg = ""
+    if test_strategy is not None:
+        specs = _get_spec_map(strategy_spec_map.get(test_strategy))
+        test_spec_arg = f" --spec '{specs}' "
+
+    print("Running Cypress tests with command")
+    command = f"NO_COLOR=1 npx cypress run {record_arg} {test_spec_arg} {tag_arg}"
+    print(command)
+    # Add --headed --spec '**/mutations/mutations.js' (change spec name)
+    # in case you want to see the browser for debugging
+    print_now()
     proc = subprocess.Popen(
         command,
         shell=True,
@@ -155,4 +192,5 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     print("stderr output:")
     print(stderr.decode("utf-8"))
     print("return code", return_code)
+    print_now()
     assert return_code == 0

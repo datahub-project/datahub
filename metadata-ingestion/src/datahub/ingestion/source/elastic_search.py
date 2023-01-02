@@ -39,7 +39,6 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DateTypeClass,
@@ -260,7 +259,7 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         return None if self.username is None else (self.username, self.password or "")
 
 
-@platform_name("Elastic Search")
+@platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -337,13 +336,10 @@ class ElasticsearchSource(Source):
                 platform_instance=self.source_config.platform_instance,
             )
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
                 entityUrn=dataset_urn,
-                aspectName="datasetProperties",
                 aspect=DatasetPropertiesClass(
                     customProperties={"numPartitions": str(count)}
                 ),
-                changeType=ChangeTypeClass.UPSERT,
             )
 
     def _extract_mcps(
@@ -396,27 +392,19 @@ class ElasticsearchSource(Source):
             env=self.source_config.env,
         )
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName="schemaMetadata",
             aspect=schema_metadata,
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         # 2. Construct and emit the status aspect.
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName="status",
             aspect=StatusClass(removed=False),
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         # 3. Construct and emit subtype
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(
                 typeNames=[
                     "Index Template"
@@ -426,7 +414,6 @@ class ElasticsearchSource(Source):
                     else "Datastream"
                 ]
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         # 4. Construct and emit properties if needed. Will attempt to get the following properties
@@ -453,26 +440,20 @@ class ElasticsearchSource(Source):
             custom_properties["num_replicas"] = num_replicas
 
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName="datasetProperties",
             aspect=DatasetPropertiesClass(customProperties=custom_properties),
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         # 5. Construct and emit platform instance aspect
         if self.source_config.platform_instance:
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
                 entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
                         self.platform, self.source_config.platform_instance
                     ),
                 ),
-                changeType=ChangeTypeClass.UPSERT,
             )
 
     def get_report(self):

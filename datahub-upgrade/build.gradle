@@ -1,6 +1,11 @@
 plugins {
   id 'org.springframework.boot'
   id 'java'
+  id 'com.palantir.docker'
+}
+
+ext {
+  docker_repo = 'datahub-upgrade'
 }
 
 dependencies {
@@ -25,6 +30,7 @@ dependencies {
   compileOnly externalDependency.lombok
   compile externalDependency.picocli
   compile externalDependency.parquet
+  implementation externalDependency.protobuf
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
   compile externalDependency.springCore
@@ -39,8 +45,38 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
+
+  testImplementation externalDependency.springBootTest
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
 }
 
 bootJar {
   mainClassName = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
+  archiveFileName = "${project.name}.jar"
 }
+
+docker {
+  name "${docker_registry}/${docker_repo}:${version}"
+  dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+  files bootJar.outputs.files
+  files fileTree(rootProject.projectDir) {
+    include "docker/${docker_repo}/*"
+    include 'metadata-models/src/main/resources/*'
+  }
+  tag("-${version}", "${docker_registry}/${docker_repo}:v${version}")
+  tag("-version", "${docker_registry}/${docker_repo}:v${version}")
+
+  // platform('linux/arm64', 'linux/amd64')
+  buildx(true)
+  load(true)
+  push(false)
+}
+tasks.getByName("docker").dependsOn([bootJar])
+
+task cleanLocalDockerImages {
+  doLast {
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+  }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

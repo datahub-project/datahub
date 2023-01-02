@@ -5,8 +5,12 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationError, OauthConfiguration
 from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.source.snowflake.constants import (
+    CLIENT_PREFETCH_THREADS,
+    CLIENT_SESSION_KEEP_ALIVE,
+    SnowflakeCloudProvider,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCloudProvider
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 
 
@@ -213,6 +217,43 @@ def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
         )
 
 
+def test_snowflake_config_with_no_connect_args_returns_base_connect_args():
+    config: SnowflakeV2Config = SnowflakeV2Config.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
+            "warehouse": "COMPUTE_WH",
+            "role": "sysadmin",
+        }
+    )
+    assert config.get_options()["connect_args"] is not None
+    assert config.get_options()["connect_args"] == {
+        CLIENT_PREFETCH_THREADS: 10,
+        CLIENT_SESSION_KEEP_ALIVE: True,
+    }
+
+
+def test_snowflake_config_with_connect_args_overrides_base_connect_args():
+    config: SnowflakeV2Config = SnowflakeV2Config.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
+            "warehouse": "COMPUTE_WH",
+            "role": "sysadmin",
+            "connect_args": {
+                CLIENT_PREFETCH_THREADS: 5,
+            },
+        }
+    )
+    assert config.get_options()["connect_args"] is not None
+    assert config.get_options()["connect_args"][CLIENT_PREFETCH_THREADS] == 5
+    assert config.get_options()["connect_args"][CLIENT_SESSION_KEEP_ALIVE] is True
+
+
 @patch("snowflake.connector.connect")
 def test_test_connection_failure(mock_connect):
     mock_connect.side_effect = Exception("Failed to connect to snowflake")
@@ -309,7 +350,10 @@ def test_test_connection_no_warehouse(mock_connect):
     ].failure_reason
     assert failure_reason
 
-    assert "Current role does not have permissions to use warehouse" in failure_reason
+    assert (
+        "Current role TEST_ROLE does not have permissions to use warehouse"
+        in failure_reason
+    )
 
 
 @patch("snowflake.connector.connect")

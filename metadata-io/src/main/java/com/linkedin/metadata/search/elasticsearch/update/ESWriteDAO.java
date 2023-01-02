@@ -7,7 +7,6 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -37,12 +36,13 @@ public class ESWriteDAO {
    */
   public void upsertDocument(@Nonnull String entityName, @Nonnull String document, @Nonnull String docId) {
     final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
-    final IndexRequest indexRequest = new IndexRequest(indexName).id(docId).source(document, XContentType.JSON);
-    final UpdateRequest updateRequest =
-        new UpdateRequest(indexName, docId).doc(document, XContentType.JSON)
-                .detectNoop(false)
-                .retryOnConflict(numRetries)
-                .upsert(indexRequest);
+    final UpdateRequest updateRequest = new UpdateRequest(
+            indexName, docId)
+            .detectNoop(false)
+            .docAsUpsert(true)
+            .doc(document, XContentType.JSON)
+            .retryOnConflict(numRetries);
+
     bulkProcessor.add(updateRequest);
   }
 
@@ -62,7 +62,12 @@ public class ESWriteDAO {
    */
   public void applyScriptUpdate(@Nonnull String entityName, @Nonnull String docId, @Nonnull String script) {
     final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
-    bulkProcessor.add(new UpdateRequest(indexName, docId).retryOnConflict(numRetries).script(new Script(script)));
+    UpdateRequest updateRequest = new UpdateRequest(indexName, docId)
+            .detectNoop(false)
+            .scriptedUpsert(true)
+            .retryOnConflict(numRetries)
+            .script(new Script(script));
+    bulkProcessor.add(updateRequest);
   }
 
   /**

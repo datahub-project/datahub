@@ -146,6 +146,20 @@
     }
 },
 {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Highly Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "value": "{\"domains\": [\"urn:li:domain:Marketing\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
             "urn": "urn:li:glossaryTerm:Classification.Highly Confidential",

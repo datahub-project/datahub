@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.io.Resource;
 
 
 @Configuration
@@ -18,13 +19,16 @@ public class ConfigEntityRegistryFactory {
   @Value("${configEntityRegistry.path}")
   private String entityRegistryConfigPath;
 
-//  @Value("${configEntityRegistry.classpath}")
-//  @Value("${ENTITY_REGISTRY_CLASS_PATH:../../metadata-custom-models/build/libs/}")
-//  private String entityRegistryClassPath;
+  @Value("${configEntityRegistry.resource}")
+  Resource entityRegistryResource;
 
   @Bean(name = "configEntityRegistry")
   @Nonnull
   protected ConfigEntityRegistry getInstance() throws IOException, EntityRegistryException {
-    return new ConfigEntityRegistry(entityRegistryConfigPath);
+    if (entityRegistryConfigPath != null) {
+      return new ConfigEntityRegistry(entityRegistryConfigPath);
+    } else {
+      return new ConfigEntityRegistry(entityRegistryResource.getInputStream());
+    }
   }
 }

@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,9 +26,6 @@ public class LocalEbeanServerConfigFactory {
 
   @Value("${ebean.password}")
   private String ebeanDatasourcePassword;
-
-  @Value("${ebean.url}")
-  private String ebeanDatasourceUrl;
 
   @Value("${ebean.driver}")
   private String ebeanDatasourceDriver;
@@ -56,7 +54,7 @@ public class LocalEbeanServerConfigFactory {
   @Value("${ebean.postgresUseIamAuth:false}")
   private Boolean postgresUseIamAuth;
 
-  private DataSourcePoolListener getListenerToTrackCounts(String metricName) {
+  public static DataSourcePoolListener getListenerToTrackCounts(String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
     return new DataSourcePoolListener() {
       @Override
@@ -71,7 +69,8 @@ public class LocalEbeanServerConfigFactory {
     };
   }
 
-  private DataSourceConfig buildDataSourceConfig(String dataSourceUrl, String dataSourceType) {
+  @Bean("ebeanDataSourceConfig")
+  public DataSourceConfig buildDataSourceConfig(@Value("${ebean.url}") String dataSourceUrl) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
@@ -83,7 +82,7 @@ public class LocalEbeanServerConfigFactory {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
-    dataSourceConfig.setListener(getListenerToTrackCounts(dataSourceType));
+    dataSourceConfig.setListener(getListenerToTrackCounts("main"));
     // Adding IAM auth access for AWS Postgres
     if (postgresUseIamAuth) {
       Map<String, String> custom = new HashMap<>();
@@ -94,10 +93,10 @@ public class LocalEbeanServerConfigFactory {
   }
 
   @Bean(name = "gmsEbeanServiceConfig")
-  protected ServerConfig createInstance() {
+  protected ServerConfig createInstance(@Qualifier("ebeanDataSourceConfig") DataSourceConfig config) {
     ServerConfig serverConfig = new ServerConfig();
     serverConfig.setName("gmsEbeanServiceConfig");
-    serverConfig.setDataSourceConfig(buildDataSourceConfig(ebeanDatasourceUrl, "main"));
+    serverConfig.setDataSourceConfig(config);
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
     return serverConfig;

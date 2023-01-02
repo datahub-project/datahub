@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, cast
 
 import pydantic
+from pydantic import root_validator
 from pydantic.fields import Field
 from pydantic.generics import GenericModel
 
@@ -10,8 +11,10 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
+    LineageConfig,
 )
 from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
@@ -98,6 +101,61 @@ class StatefulIngestionConfigBase(
     stateful_ingestion: Optional[CustomConfig] = Field(
         default=None, description="Stateful Ingestion Config"
     )
+
+
+class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig):
+    store_last_lineage_extraction_timestamp: bool = Field(
+        default=False,
+        description="Enable checking last lineage extraction date in store.",
+    )
+
+    @root_validator(pre=False)
+    def lineage_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_lineage_extraction_timestamp"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_lineage_extraction_timestamp config option as well"
+                )
+                values["store_last_lineage_extraction_timestamp"] = False
+
+        return values
+
+
+class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
+    store_last_profiling_timestamps: bool = Field(
+        default=False,
+        description="Enable storing last profile timestamp in store.",
+    )
+
+    @root_validator(pre=False)
+    def profiling_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_profiling_timestamps"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_profiling_timestamps config option as well"
+                )
+                values["store_last_profiling_timestamps"] = False
+        return values
+
+
+class UsageStatefulIngestionConfig(BaseTimeWindowConfig, StatefulIngestionConfigBase):
+    store_last_usage_extraction_timestamp: bool = Field(
+        default=True,
+        description="Enable checking last usage timestamp in store.",
+    )
+
+    @root_validator(pre=False)
+    def last_usage_extraction_stateful_option_validator(cls, values: Dict) -> Dict:
+        sti = values.get("stateful_ingestion")
+        if not sti or not sti.enabled:
+            if values.get("store_last_usage_extraction_timestamp"):
+                logger.warning(
+                    "Stateful ingestion is disabled, disabling store_last_usage_extraction_timestamp config option as well"
+                )
+                values["store_last_usage_extraction_timestamp"] = False
+        return values
 
 
 @dataclass

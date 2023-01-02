@@ -15,7 +15,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
@@ -96,15 +95,12 @@ class DataProcessInstance:
         :param attempt: (int) the number of attempt of the execution with the same execution id
         """
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
             entityUrn=str(self.urn),
-            aspectName="dataProcessInstanceRunEvent",
             aspect=DataProcessInstanceRunEventClass(
                 status=DataProcessRunStatusClass.STARTED,
                 timestampMillis=start_timestamp_millis,
                 attempt=attempt,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
@@ -184,9 +180,7 @@ class DataProcessInstance:
         :param attempt: (int) the attempt number of this execution
         """
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
             entityUrn=str(self.urn),
-            aspectName="dataProcessInstanceRunEvent",
             aspect=DataProcessInstanceRunEventClass(
                 status=DataProcessRunStatusClass.COMPLETE,
                 timestampMillis=end_timestamp_millis,
@@ -198,7 +192,6 @@ class DataProcessInstance:
                 ),
                 attempt=attempt,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
@@ -237,9 +230,7 @@ class DataProcessInstance:
         :rtype: Iterable[MetadataChangeProposalWrapper]
         """
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
             entityUrn=str(self.urn),
-            aspectName="dataProcessInstanceProperties",
             aspect=DataProcessInstanceProperties(
                 name=self.id,
                 created=AuditStampClass(
@@ -250,14 +241,11 @@ class DataProcessInstance:
                 customProperties=self.properties,
                 externalUrl=self.url,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataProcessInstance",
             entityUrn=str(self.urn),
-            aspectName="dataProcessInstanceRelationships",
             aspect=DataProcessInstanceRelationships(
                 upstreamInstances=[str(urn) for urn in self.upstream_urns],
                 parentTemplate=str(self.template_urn) if self.template_urn else None,
@@ -265,7 +253,6 @@ class DataProcessInstance:
                 if self.parent_instance is not None
                 else None,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
@@ -348,36 +335,27 @@ class DataProcessInstance:
     def generate_inlet_outlet_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         if self.inlets:
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataProcessInstance",
                 entityUrn=str(self.urn),
-                aspectName="dataProcessInstanceInput",
                 aspect=DataProcessInstanceInput(
                     inputs=[str(urn) for urn in self.inlets]
                 ),
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
         if self.outlets:
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataProcessInstance",
                 entityUrn=str(self.urn),
-                aspectName="dataProcessInstanceOutput",
                 aspect=DataProcessInstanceOutput(
                     outputs=[str(urn) for urn in self.outlets]
                 ),
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
         # Force entity materialization
         for iolet in self.inlets + self.outlets:
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
                 entityUrn=str(iolet),
-                aspectName="status",
                 aspect=StatusClass(removed=False),
-                changeType=ChangeTypeClass.UPSERT,
             )
 
             yield mcp
