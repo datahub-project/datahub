@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 from typing import Dict, Optional, cast
 
 from pydantic import Field, SecretStr, root_validator, validator
@@ -17,6 +18,12 @@ from datahub.ingestion.source_config.sql.snowflake import (
 from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
 
 logger = logging.Logger(__name__)
+
+
+class TagOption(str, Enum):
+    with_lineage = "with_lineage"
+    without_lineage = "without_lineage"
+    skip = "skip"
 
 
 class SnowflakeV2Config(
@@ -51,6 +58,14 @@ class SnowflakeV2Config(
 
     provision_role: Optional[SnowflakeProvisionRoleConfig] = Field(
         default=None, description="Not supported"
+    )
+
+    extract_tags: TagOption = Field(
+        default=TagOption.skip,
+        description="""Optionally. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default).
+        `without_lineage` only extracts tags that have been applied directly to the given entity.
+        `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower.
+        See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
     )
 
     classification: Optional[ClassificationConfig] = Field(

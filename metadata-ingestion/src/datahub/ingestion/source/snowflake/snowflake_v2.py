@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_schema_field_urn,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -49,7 +50,10 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeEdition,
     SnowflakeObjectDomain,
 )
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeV2Config,
+    TagOption,
+)
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
     SnowflakeLineageExtractor,
 )
@@ -64,7 +68,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeQuery,
     SnowflakeSchema,
     SnowflakeTable,
+    SnowflakeTag,
     SnowflakeView,
+    _SnowflakeTagCache,
 )
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
@@ -90,8 +96,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    GlobalTags,
     Status,
     SubTypes,
+    TagAssociation,
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -114,6 +122,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.time import datetime_to_ts_millis
@@ -186,6 +195,11 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    supported=True,
+)
+@capability(
+    SourceCapability.TAGS,
+    "Optionally enabled via `extract_tags`",
     supported=True,
 )
 class SnowflakeV2Source(
@@ -267,6 +281,8 @@ class SnowflakeV2Source(
         self.schema_fk_constraints: Dict[
             Tuple[str, str], Dict[str, List[SnowflakeFK]]
         ] = {}
+
+        self.tag_cache: Optional[_SnowflakeTagCache] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -471,6 +487,8 @@ class SnowflakeV2Source(
         for snowflake_db in databases:
             try:
                 yield from self._process_database(snowflake_db)
+                self.tag_cache = None
+
             except SnowflakePermissionError as e:
                 # FIXME - This may break satetful ingestion if new tables than previous run are emitted above
                 # and stateful ingestion is enabled
@@ -627,6 +645,8 @@ class SnowflakeV2Source(
                 )
             return
 
+        snowflake_db.tags = self.get_tags_on_object(conn, "database", db_name)
+
         if self.config.include_technical_schema:
             yield from self.gen_database_containers(snowflake_db)
 
@@ -661,6 +681,16 @@ class SnowflakeV2Source(
                 db_name,
             )
 
+        if self.config.extract_tags is not TagOption.skip:
+            snowflake_db.tags = self.get_tags_on_object(
+                conn=conn, db_name=db_name, domain="database"
+            )
+
+            if self.config.include_technical_schema:
+                if snowflake_db.tags:
+                    for tag in snowflake_db.tags:
+                        yield from self._process_tag(tag)
+
     def _process_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -675,6 +705,11 @@ class SnowflakeV2Source(
             return
 
         schema_name = snowflake_schema.name
+
+        snowflake_schema.tags = self.get_tags_on_object(
+            conn, "schema", db_name, schema_name
+        )
+
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
@@ -736,6 +771,16 @@ class SnowflakeV2Source(
                     f"{db_name}.{schema_name}",
                 )
 
+        if self.config.extract_tags is not TagOption.skip:
+            snowflake_schema.tags = self.get_tags_on_object(
+                conn=conn, schema_name=schema_name, db_name=db_name, domain="schema"
+            )
+
+            if self.config.include_technical_schema:
+                if snowflake_schema.tags:
+                    for tag in snowflake_schema.tags:
+                        yield from self._process_tag(tag)
+
     def _process_table(
         self,
         table: SnowflakeTable,
@@ -761,6 +806,24 @@ class SnowflakeV2Source(
         self.fetch_sample_data_for_classification(
             table, schema_name, db_name, dataset_name
         )
+
+        if self.config.extract_tags is not TagOption.skip:
+            table.tags = self.get_tags_on_object(
+                conn=conn,
+                table_name=table.name,
+                schema_name=schema_name,
+                db_name=db_name,
+                domain="table",
+            )
+
+        if self.config.include_technical_schema:
+            if table.tags:
+                for tag in table.tags:
+                    yield from self._process_tag(tag)
+            for column in table.columns:
+                if column.tags:
+                    for tag in column.tags:
+                        yield from self._process_tag(tag)
 
         yield from self.gen_dataset_workunits(table, schema_name, db_name)
 
@@ -847,7 +910,36 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get columns for view", view_name)
 
+        if self.config.extract_tags is not TagOption.skip:
+            # TODO: make sure this works for views
+            view.tags = self.get_tags_on_object(
+                conn=conn,
+                table_name=view.name,
+                schema_name=schema_name,
+                db_name=db_name,
+                domain="table",
+            )
+
+        if self.config.include_technical_schema:
+            if view.tags:
+                for tag in view.tags:
+                    yield from self._process_tag(tag)
+            for column in view.columns:
+                if column.tags:
+                    for tag in column.tags:
+                        yield from self._process_tag(tag)
+
         yield from self.gen_dataset_workunits(view, schema_name, db_name)
+
+    def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
+        tag_identifier = str(tag)
+
+        if self.report.is_tag_processed(tag_identifier):
+            return
+
+        self.report.report_tag_processed(tag_identifier)
+
+        yield from self.gen_tag_workunits(tag)
 
     def gen_dataset_workunits(
         self,
@@ -908,6 +1000,15 @@ class SnowflakeV2Source(
             entity_type="dataset",
         )
 
+        if table.tags:
+            tag_associations = [
+                TagAssociation(tag=make_tag_urn(str(tag))) for tag in table.tags
+            ]
+            global_tags = GlobalTags(tag_associations)
+            yield self.wrap_aspect_as_workunit(
+                "dataset", dataset_urn, "globalTags", global_tags
+            )
+
         if (
             isinstance(table, SnowflakeView)
             and cast(SnowflakeView, table).view_definition is not None
@@ -951,6 +1052,21 @@ class SnowflakeV2Source(
             else None,
         )
 
+    def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
+        tag_key = str(tag)
+        tag_urn = make_tag_urn(tag_key)
+
+        tag_properties_aspect = TagProperties(
+            name=tag_key,
+            description=f"Represents the Snowflake tag `{tag_key.split('=')[0]}` with value `{tag.value}`.",
+        )
+
+        self.stale_entity_removal_handler.add_entity_to_state("tag", tag_urn)
+
+        yield self.wrap_aspect_as_workunit(
+            "tag", tag_urn, "tagProperties", tag_properties_aspect
+        )
+
     def get_schema_metadata(
         self,
         table: Union[SnowflakeTable, SnowflakeView],
@@ -979,6 +1095,11 @@ class SnowflakeV2Source(
                     nullable=col.is_nullable,
                     isPartOfKey=col.name in table.pk.column_names
                     if isinstance(table, SnowflakeTable) and table.pk is not None
+                    else None,
+                    globalTags=GlobalTags(
+                        [TagAssociation(make_tag_urn(str(tag))) for tag in col.tags]
+                    )
+                    if col.tags
                     else None,
                 )
                 for col in table.columns
@@ -1168,6 +1289,7 @@ class SnowflakeV2Source(
             else int(database.created.timestamp() * 1000)
             if database.created is not None
             else None,
+            tags=[str(tag) for tag in database.tags] if database.tags else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -1215,6 +1337,7 @@ class SnowflakeV2Source(
             else int(schema.created.timestamp() * 1000)
             if schema.created is not None
             else None,
+            tags=[str(tag) for tag in schema.tags] if schema.tags else None,
         )
 
         for wu in container_workunits:
@@ -1257,6 +1380,79 @@ class SnowflakeV2Source(
         # Some schema may not have any table
         return views.get(schema_name, [])
 
+    def enrich_columns_with_tags(
+        self,
+        conn: SnowflakeConnection,
+        columns: List[SnowflakeColumn],
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+    ) -> List[SnowflakeColumn]:
+        column_tags: Dict[str, List[SnowflakeTag]]
+        if self.config.extract_tags == TagOption.without_lineage:
+            if self.tag_cache is None:
+                self.tag_cache = (
+                    self.data_dictionary.get_tags_for_database_without_propagation(
+                        conn, db_name
+                    )
+                )
+            column_tags = self.tag_cache.get_column_tags_for_table(
+                table_name, schema_name, db_name
+            )
+        elif self.config.extract_tags == TagOption.with_lineage:
+            self.report.num_get_tags_on_columns_for_table_queries += 1
+            column_tags = self.data_dictionary.get_tags_on_columns_for_table(
+                conn, table_name, schema_name, db_name
+            )
+        else:
+            return columns
+
+        for column in columns:
+            tags = column_tags.get(column.name)
+            allowed_tags = self._filter_tags(tags)
+            column.tags = allowed_tags
+
+        return columns
+
+    def get_tags_on_object(
+        self,
+        conn: SnowflakeConnection,
+        domain: str,
+        db_name: str,
+        schema_name: Optional[str] = None,
+        table_name: Optional[str] = None,
+    ) -> List[SnowflakeTag]:
+        if self.config.extract_tags == TagOption.without_lineage:
+            if self.tag_cache is None:
+                self.tag_cache = (
+                    self.data_dictionary.get_tags_for_database_without_propagation(
+                        conn, db_name
+                    )
+                )
+
+            if domain == "database":
+                return self.tag_cache.get_database_tags(db_name)
+            elif domain == "schema":
+                assert schema_name is not None
+                tags = self.tag_cache.get_schema_tags(schema_name, db_name)
+            elif domain == "table":  # Views belong to this domain as well.
+                assert schema_name is not None
+                assert table_name is not None
+                tags = self.tag_cache.get_table_tags(table_name, schema_name, db_name)
+            else:
+                raise ValueError(f"Unknown domain {domain}")
+        elif self.config.extract_tags == TagOption.with_lineage:
+            self.report.num_get_tags_for_object_queries += 1
+            tags = self.data_dictionary.get_tags_for_object(
+                conn, table_name, schema_name, db_name
+            )
+        else:
+            tags = []
+
+        allowed_tags = self._filter_tags(tags)
+
+        return allowed_tags if allowed_tags else []
+
     def get_columns_for_table(
         self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeColumn]:
@@ -1275,7 +1471,13 @@ class SnowflakeV2Source(
             )
 
         # Access to table but none of its columns - is this possible ?
-        return columns.get(table_name, [])
+        table_columns = columns.get(table_name, [])
+
+        table_columns = self.enrich_columns_with_tags(
+            conn, table_columns, table_name, schema_name, db_name
+        )
+
+        return table_columns
 
     def get_pk_constraints_for_table(
         self, table_name: str, schema_name: str, db_name: str
@@ -1304,6 +1506,21 @@ class SnowflakeV2Source(
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
+
+    def _filter_tags(
+        self, tags: Optional[List[SnowflakeTag]]
+    ) -> Optional[List[SnowflakeTag]]:
+        if tags is None:
+            return tags
+
+        allowed_tags = []
+        for tag in tags:
+            tag_identifier = str(tag)
+            self.report.report_entity_scanned(tag_identifier, "tag")
+            if not self.config.tag_pattern.allowed(tag_identifier):
+                self.report.report_dropped(tag_identifier)
+            allowed_tags.append(tag)
+        return allowed_tags
 
     def add_config_to_report(self):
         self.report.cleaned_account_id = self.config.get_account()
