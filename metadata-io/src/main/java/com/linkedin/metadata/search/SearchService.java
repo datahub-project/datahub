@@ -88,7 +88,6 @@ public class SearchService {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
-    SearchFlags forceFlags = Optional.ofNullable(searchFlags).orElse(new SearchFlags()).setStructured(false);
-    return _cachingAllEntitiesSearchAggregator.getSearchResults(entities, input, postFilters, sortCriterion, from, size, forceFlags);
+    return _cachingAllEntitiesSearchAggregator.getSearchResults(entities, input, postFilters, sortCriterion, from, size, searchFlags);
   }
 }

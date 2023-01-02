@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.EntitySpecUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -99,7 +100,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
-  private static final String PARAM_STRUCTURED = "structured";
+  private static final String PARAM_FULLTEXT = "fulltext";
   private static final String PARAM_VALUE = "value";
   private static final String PARAM_ASPECT_NAME = "aspectName";
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
@@ -269,17 +270,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<SearchResult> search(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count, @ActionParam(PARAM_STRUCTURED) Boolean structured) {
+      @ActionParam(PARAM_COUNT) int count, @Optional @Nullable @ActionParam(PARAM_FULLTEXT) Boolean fulltext) {
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
     return RestliUtil.toTask(
             () -> {
               final SearchResult result;
-              if (structured) {
-                result = _entitySearchService.structuredSearch(entityName, input, filter, sortCriterion, start, count);
-              } else {
+              if (Boolean.TRUE.equals(fulltext)) {
                 result = _entitySearchService.fullTextSearch(entityName, input, filter, sortCriterion, start, count);
+              } else {
+                result = _entitySearchService.structuredSearch(entityName, input, filter, sortCriterion, start, count);
               }
               return validateSearchResult(result, _entityService);
             },
@@ -296,7 +297,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtil.toTask(() -> validateSearchResult(
-        _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, null),
+        _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count,
+                new SearchFlags().setFulltext(true)),
         _entityService), "searchAcrossEntities");
   }
 
