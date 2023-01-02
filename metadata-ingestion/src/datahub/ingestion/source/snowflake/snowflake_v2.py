@@ -1050,8 +1050,8 @@ class SnowflakeV2Source(
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_key = self.snowflake_identifier(str(tag))
-        tag_urn = make_tag_urn(tag_key)
+        tag_key = str(tag)
+        tag_urn = make_tag_urn(self.snowflake_identifier(tag_key))
 
         tag_properties_aspect = TagProperties(
             name=tag_key,
