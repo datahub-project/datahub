@@ -660,6 +660,10 @@ class SnowflakeV2Source(
 
         self.fetch_schemas_for_database(snowflake_db, db_name)
 
+        if self.config.include_technical_schema and snowflake_db.tags:
+            for tag in snowflake_db.tags:
+                yield from self._process_tag(tag)
+
         for snowflake_schema in snowflake_db.schemas:
             yield from self._process_schema(snowflake_schema, db_name)
 
@@ -688,10 +692,6 @@ class SnowflakeV2Source(
                 "No schemas found in database. If schemas exist, please grant USAGE permissions on them.",
                 db_name,
             )
-
-        if self.config.include_technical_schema and snowflake_db.tags:
-            for tag in snowflake_db.tags:
-                yield from self._process_tag(tag)
 
     def _process_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
@@ -729,6 +729,10 @@ class SnowflakeV2Source(
             if self.config.include_technical_schema:
                 for view in snowflake_schema.views:
                     yield from self._process_view(view, schema_name, db_name)
+
+        if self.config.include_technical_schema and snowflake_schema.tags:
+            for tag in snowflake_schema.tags:
+                yield from self._process_tag(tag)
 
         if not snowflake_schema.views and not snowflake_schema.tables:
             self.report_warning(
@@ -773,10 +777,6 @@ class SnowflakeV2Source(
                     "Failed to get tables for schema",
                     f"{db_name}.{schema_name}",
                 )
-
-        if self.config.include_technical_schema and snowflake_schema.tags:
-            for tag in snowflake_schema.tags:
-                yield from self._process_tag(tag)
 
     def _process_table(
         self,
