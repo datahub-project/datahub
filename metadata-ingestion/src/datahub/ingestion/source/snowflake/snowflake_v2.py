@@ -1047,7 +1047,7 @@ class SnowflakeV2Source(
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_key = str(tag)
+        tag_key = self.snowflake_identifier(str(tag))
         tag_urn = make_tag_urn(tag_key)
 
         tag_properties_aspect = TagProperties(
@@ -1091,7 +1091,12 @@ class SnowflakeV2Source(
                     if isinstance(table, SnowflakeTable) and table.pk is not None
                     else None,
                     globalTags=GlobalTags(
-                        [TagAssociation(make_tag_urn(str(tag))) for tag in col.tags]
+                        [
+                            TagAssociation(
+                                make_tag_urn(self.snowflake_identifier(str(tag)))
+                            )
+                            for tag in col.tags
+                        ]
                     )
                     if col.tags
                     else None,
@@ -1283,7 +1288,9 @@ class SnowflakeV2Source(
             else int(database.created.timestamp() * 1000)
             if database.created is not None
             else None,
-            tags=[str(tag) for tag in database.tags] if database.tags else None,
+            tags=[self.snowflake_identifier(str(tag)) for tag in database.tags]
+            if database.tags
+            else None,
         )
 
         self.stale_entity_removal_handler.add_entity_to_state(
@@ -1331,7 +1338,9 @@ class SnowflakeV2Source(
             else int(schema.created.timestamp() * 1000)
             if schema.created is not None
             else None,
-            tags=[str(tag) for tag in schema.tags] if schema.tags else None,
+            tags=[self.snowflake_identifier(str(tag)) for tag in schema.tags]
+            if schema.tags
+            else None,
         )
 
         for wu in container_workunits:

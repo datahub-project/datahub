@@ -38,10 +38,10 @@ class SnowflakeTag:
     value: str
 
     def __str__(self):
-        return f"{self.id_as_str()}={self.value}".lower()
+        return f"{self.id_as_str()}:{self.value}"
 
     def id_as_str(self):
-        return f"{self.database}.{self.schema}.{self.name}".lower()
+        return f"{self.database}.{self.schema}.{self.name}"
 
 
 @dataclass(frozen=True, eq=True)
