@@ -430,6 +430,7 @@ class SnowflakeV2Source(
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.USAGE_STATS: "Current role does not have permissions to snowflake account usage views",
+            SourceCapability.TAGS: "Either no tags have been applied to objects or the current role does not have permission to access the objects",
         }
 
         for c in capabilities:  # type:ignore
@@ -441,6 +442,7 @@ class SnowflakeV2Source(
                 SourceCapability.LINEAGE_COARSE,
                 SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
+                SourceCapability.TAGS,
             ):
                 failure_message = (
                     f"Current role {current_role} does not have permissions to use warehouse {connection_conf.warehouse}. Please check the grants associated with this role."
