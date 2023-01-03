@@ -29,7 +29,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_testtable,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -43,7 +43,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_testtable,DEV)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -224,12 +224,96 @@
     }
 },
 {
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "value": "{\"active\": true, \"displayName\": \"user1\", \"email\": \"User1@foo.com\", \"title\": \"user1\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "value": "{\"username\": \"User1@foo.com\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "value": "{\"active\": true, \"displayName\": \"user2\", \"email\": \"User2@foo.com\", \"title\": \"user2\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "value": "{\"username\": \"User2@foo.com\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"datasetId\": \"05169CD2-E713-41E6-9600-1D8066D95445\", \"reportId\": \"\", \"datasetWebUrl\": \"http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details\", \"createdFrom\": \"Dataset\"}, \"title\": \"test_tile\", \"description\": \"test_tile\", \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"inputs\": [{\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)\"}]}",
+        "value": "{\"customProperties\": {\"datasetId\": \"05169CD2-E713-41E6-9600-1D8066D95445\", \"reportId\": \"\", \"datasetWebUrl\": \"http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details\", \"createdFrom\": \"Dataset\"}, \"title\": \"test_tile\", \"description\": \"test_tile\", \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"inputs\": [{\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_testtable,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -365,53 +449,11 @@
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
+    "aspectName": "ownership",
     "aspect": {
-        "value": "{\"paths\": [\"/powerbi/second-demo-workspace\"]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"chartCount\": \"0\", \"workspaceName\": \"second-demo-workspace\", \"workspaceId\": \"64ED5CAD-7C22-4684-8180-826122881108\"}, \"title\": \"test_dashboard2\", \"description\": \"test_dashboard2\", \"charts\": [], \"datasets\": [], \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"dashboardUrl\": \"https://localhost/dashboards/web/1\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardKey",
-    "aspect": {
-        "value": "{\"dashboardTool\": \"powerbi\", \"dashboardId\": \"powerbi.linkedin.com/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE\"}",
+        "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:users.User1@foo.com\", \"type\": \"NONE\"}, {\"owner\": \"urn:li:corpuser:users.User2@foo.com\", \"type\": \"NONE\"}], \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
         "contentType": "application/json"
     },
     "systemMetadata": {
