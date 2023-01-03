@@ -100,6 +100,7 @@ We currently support the following:
 | Edit Domain         | Allow actor to edit the Domain of an entity.                                                                                     |
 | Edit Deprecation    | Allow actor to edit the Deprecation status of an entity.                                                                         |
 | Edit Assertions     | Allow actor to add and remove assertions from an entity.                                                                         |
+| Edit Lineage        | Allow actor to add and remove upstream and downstream lineage edges.                                                             |
 | Edit All            | Allow actor to edit any information about an entity. Super user privileges.                                                      |
 
 **Specific entity-level privileges** that are not generalizable.

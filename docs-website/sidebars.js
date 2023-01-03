@@ -198,7 +198,7 @@ module.exports = {
       "docs/glossary/business-glossary",
       "docs/tags",
       {
-        Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
+        Lineage: ["docs/lineage/intro", "docs/lineage/sample_code", "docs/lineage/manual-lineage-feature-guide"],
       },
     ],
 
@@ -478,6 +478,7 @@ module.exports = {
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",
       "docs/sync-status",
+      "docs/lineage/manual-lineage-feature-guide",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
