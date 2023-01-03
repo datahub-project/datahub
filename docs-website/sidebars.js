@@ -198,7 +198,11 @@ module.exports = {
       "docs/glossary/business-glossary",
       "docs/tags",
       {
-        Lineage: ["docs/lineage/intro", "docs/lineage/sample_code", "docs/lineage/manual-lineage-feature-guide"],
+        Lineage: [
+          "docs/lineage/intro",
+          "docs/lineage/sample_code",
+          "docs/lineage/manual-lineage-feature-guide",
+        ],
       },
     ],
 
