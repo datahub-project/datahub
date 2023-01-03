@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.ESTestConfiguration;
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -44,7 +45,8 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
     public void setup() {
         _indexClient = _searchClient.indices();
         testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0,
-                0, Map.of(), false, false);
+                0, Map.of(), false, false,
+                new ElasticSearchConfiguration());
     }
 
     @BeforeMethod
@@ -74,7 +76,8 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
     @Test
     public void testESIndexBuilderCreation() throws Exception {
         ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1,
-                0, Map.of(), false, false);
+                0, Map.of(), false, false,
+                new ElasticSearchConfiguration());
         customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
         GetIndexResponse resp = getTestIndex();
 
@@ -86,7 +89,8 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
     @Test
     public void testMappingReindex() throws Exception {
         ESIndexBuilder enabledMappingReindex = new ESIndexBuilder(_searchClient, 1, 0, 0,
-                0, Map.of(), false, true);
+                0, Map.of(), false, true,
+                new ElasticSearchConfiguration());
 
         // No mappings
         enabledMappingReindex.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -130,7 +134,8 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
                 testDefaultBuilder.getNumRetries(),
                 testDefaultBuilder.getRefreshIntervalSeconds(),
                 Map.of(),
-                true, false);
+                true, false,
+                new ElasticSearchConfiguration());
 
         // add new shard setting
         changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -156,28 +161,32 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
                         testDefaultBuilder.getNumRetries(),
                         testDefaultBuilder.getRefreshIntervalSeconds(),
                         Map.of(),
-                        true, false),
+                        true, false,
+                        new ElasticSearchConfiguration()),
                 new ESIndexBuilder(_searchClient,
                         testDefaultBuilder.getNumShards(),
                         testDefaultBuilder.getNumReplicas(),
                         testDefaultBuilder.getNumRetries(),
                         testDefaultBuilder.getRefreshIntervalSeconds() + 10,
                         Map.of(),
-                        true, false),
+                        true, false,
+                        new ElasticSearchConfiguration()),
                new ESIndexBuilder(_searchClient,
                                 testDefaultBuilder.getNumShards() + 1,
                                 testDefaultBuilder.getNumReplicas(),
                                 testDefaultBuilder.getNumRetries(),
                                 testDefaultBuilder.getRefreshIntervalSeconds(),
                                 Map.of(),
-                                false, false),
+                                false, false,
+                       new ElasticSearchConfiguration()),
                 new ESIndexBuilder(_searchClient,
                         testDefaultBuilder.getNumShards(),
                         testDefaultBuilder.getNumReplicas() + 1,
                         testDefaultBuilder.getNumRetries(),
                         testDefaultBuilder.getRefreshIntervalSeconds(),
                         Map.of(),
-                        false, false)
+                        false, false,
+                        new ElasticSearchConfiguration())
         );
 
         for (ESIndexBuilder builder : noReindexBuilders) {

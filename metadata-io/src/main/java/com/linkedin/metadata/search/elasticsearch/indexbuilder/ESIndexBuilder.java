@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +67,8 @@ public class ESIndexBuilder {
 
   @Getter
   private final boolean enableIndexMappingsReindex;
+
+  private final ElasticSearchConfiguration elasticSearchConfiguration;
 
 
   public ReindexConfig buildReindexState(String indexName, Map<String, Object> mappings, Map<String, Object> settings) throws IOException {
@@ -205,12 +208,19 @@ public class ESIndexBuilder {
     }
 
     if (originalCount != reindexedCount) {
-      log.info("Post-reindex document count is different, source_doc_count: {} reindex_doc_count: {}", originalCount,
-          reindexedCount);
-      diff(indexName, tempIndexName, Math.max(originalCount, reindexedCount));
-      searchClient.indices().delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
-      throw new RuntimeException(String.format("Reindex from %s to %s failed. Document count %s != %s", indexName, tempIndexName,
-              originalCount, reindexedCount));
+      if (elasticSearchConfiguration.getBuildIndices().isAllowDocCountMismatch()
+              && elasticSearchConfiguration.getBuildIndices().isCloneIndices()) {
+        log.warn("Index: {} - Post-reindex document count is different, source_doc_count: {} reindex_doc_count: {}\n"
+                + "This condition is explicitly ALLOWED, please refer to latest clone if original index is required.",
+                indexName, originalCount, reindexedCount);
+      } else {
+        log.error("Index: {} - Post-reindex document count is different, source_doc_count: {} reindex_doc_count: {}",
+                indexName, originalCount, reindexedCount);
+        diff(indexName, tempIndexName, Math.max(originalCount, reindexedCount));
+        searchClient.indices().delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
+        throw new RuntimeException(String.format("Reindex from %s to %s failed. Document count %s != %s", indexName, tempIndexName,
+                originalCount, reindexedCount));
+      }
     }
 
     log.info("Reindex from {} to {} succeeded", indexName, tempIndexName);

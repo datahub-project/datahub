@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -28,7 +29,7 @@ import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVE
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, ElasticSearchConfiguration.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ElasticSearchIndexBuilderFactory {
 
@@ -76,9 +77,10 @@ public class ElasticSearchIndexBuilderFactory {
   @Bean(name = "elasticSearchIndexBuilder")
   @Nonnull
   protected ESIndexBuilder getInstance(
-          @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides) {
+          @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides,
+          final ElasticSearchConfiguration elasticSearchConfiguration) {
     return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, overrides,
-            enableSettingsReindex, enableMappingsReindex);
+            enableSettingsReindex, enableMappingsReindex, elasticSearchConfiguration);
   }
 
   @Nonnull

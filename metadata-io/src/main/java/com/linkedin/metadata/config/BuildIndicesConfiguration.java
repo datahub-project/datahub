@@ -11,5 +11,6 @@ public class BuildIndicesConfiguration {
   private String backOffFactor;
   private boolean waitForBuildIndices;
   private boolean cloneIndices;
+  private boolean allowDocCountMismatch;
 
 }
