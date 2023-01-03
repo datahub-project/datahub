@@ -2,6 +2,7 @@ package com.linkedin.metadata;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
@@ -67,7 +68,8 @@ public class ESSampleDataFixture {
             @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention
     ) {
         ESIndexBuilder indexBuilder = new ESIndexBuilder(_searchClient, 1, 0, 1,
-                1, Map.of(), true, false);
+                1, Map.of(), true, false,
+                new ElasticSearchConfiguration());
         SettingsBuilder settingsBuilder = new SettingsBuilder(null);
         return new EntityIndexBuilders(indexBuilder, entityRegistry, indexConvention, settingsBuilder);
     }

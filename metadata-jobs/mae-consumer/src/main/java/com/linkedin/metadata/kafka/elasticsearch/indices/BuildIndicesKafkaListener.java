@@ -11,6 +11,7 @@ import com.linkedin.mxe.Topics;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import joptsimple.internal.Strings;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ConsumerSeekAware;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Component;
 
 // We don't disable this on GMS since we want GMS to also wait until the indices are ready to read in case of
@@ -99,11 +101,13 @@ public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDe
     for (int i = 0; i < maxBackOffs; i++) {
       if (isUpdated.get()) {
         log.debug("Finished waiting for updated indices.");
-        String consumerId = Strings.join(List.of(CONSUMER_GROUP, SUFFIX), "");
         try {
-          registry.getListenerContainer(consumerId).stop();
+          log.info("Containers: {}", registry.getListenerContainers().stream()
+                  .map(MessageListenerContainer::getListenerId)
+                  .collect(Collectors.toList()));
+          registry.getListenerContainer(consumerGroup).stop();
         } catch (NullPointerException e) {
-          log.error("Expected consumer `{}` to shutdown.", consumerId);
+          log.error("Expected consumer `{}` to shutdown.", consumerGroup);
         }
         return;
       }

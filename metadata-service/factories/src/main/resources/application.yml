@@ -165,6 +165,7 @@ elasticsearch:
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
   buildIndices:
+    allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:false} # when cloneIndices is also enabled
     cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
     initialBackOffMs: ${ELASTICSEARCH_BUILD_INDICES_INITIAL_BACK_OFF_MILLIS:5000}
     maxBackOffs: ${ELASTICSEARCH_BUILD_INDICES_MAX_BACK_OFFS:5}

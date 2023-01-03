@@ -1,5 +1,6 @@
 package com.linkedin.metadata;
 
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -90,7 +91,8 @@ public class ESTestConfiguration {
     @Nonnull
     protected ESIndexBuilder getIndexBuilder(@Qualifier("elasticSearchRestHighLevelClient") RestHighLevelClient searchClient) {
         return new ESIndexBuilder(searchClient, 1, 1, 3, 1, Map.of(),
-                false, false);
+                false, false,
+                new ElasticSearchConfiguration());
     }
 
     @Bean(name = "entityRegistry")

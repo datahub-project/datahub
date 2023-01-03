@@ -2,6 +2,7 @@ package com.linkedin.metadata;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
@@ -72,7 +73,8 @@ public class ESSearchLineageFixture {
             @Qualifier("searchLineageIndexConvention") IndexConvention indexConvention
     ) {
         ESIndexBuilder indexBuilder = new ESIndexBuilder(_searchClient, 1, 0, 1,
-                1, Map.of(), true, false);
+                1, Map.of(), true, false,
+                new ElasticSearchConfiguration());
         SettingsBuilder settingsBuilder = new SettingsBuilder(null);
         return new EntityIndexBuilders(indexBuilder, entityRegistry, indexConvention, settingsBuilder);
     }
@@ -93,7 +95,8 @@ public class ESSearchLineageFixture {
     @Nonnull
     protected ESIndexBuilder esIndexBuilder() {
         return new ESIndexBuilder(_searchClient, 1, 1, 1, 1, Map.of(),
-                true, true);
+                true, true,
+                new ElasticSearchConfiguration());
     }
 
     @Bean(name = "searchLineageGraphService")

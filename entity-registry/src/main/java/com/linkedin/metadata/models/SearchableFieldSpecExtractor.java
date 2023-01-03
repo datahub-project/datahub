@@ -44,7 +44,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
             Map.of(
                     "enableAutocomplete", "false",
                     "fieldType", "URN",
-                    "boostScore", "0.4"
+                    "boostScore", "0.1"
             )
     );
   }
