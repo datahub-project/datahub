@@ -15,7 +15,9 @@ import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 function computeFinal(input) {
     const dataPaths = input?.browsePaths.map((x) => {
         const temp: [] = x.path;
-        temp.splice(temp.length - 1);
+        // as of 0.8.45, no longer need to pop the last element.
+        // however, need to update paths for legacy datasets or it looks weird
+        // temp.splice(temp.length - 1);
         // console.log(temp);
         return `/${temp.join('/')}/`;
         // return '/'+`${temp.join('/')}`+'/'
