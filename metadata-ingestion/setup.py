@@ -216,8 +216,8 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ==1.0.1",
-    "pyspark==3.0.3",
+    "pydeequ>=1.0.1",
+    "pyspark>=3.0.3",
 }
 
 delta_lake = {
@@ -341,7 +341,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
-    "powerbi": microsoft_common,
+    "powerbi": microsoft_common | {"lark[regex]==1.1.4"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
     "unity-catalog": databricks_cli | {"requests"},
@@ -620,6 +620,8 @@ setuptools.setup(
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
+        "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
+        "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
     },
     entry_points=entry_points,
     # Dependencies.
