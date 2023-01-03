@@ -20,6 +20,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { ChartSnippet } from './ChartSnippet';
+import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -91,8 +92,12 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Properties',
-                    component: PropertiesTab,
+                    name: 'Preview',
+                    component: EmbedTab,
+                    display: {
+                        visible: (_, chart: GetChartQuery) => !!chart?.chart?.embed?.renderUrl,
+                        enabled: (_, chart: GetChartQuery) => !!chart?.chart?.embed?.renderUrl,
+                    },
                 },
                 {
                     name: 'Lineage',
@@ -108,6 +113,10 @@ export class ChartEntity implements Entity<Chart> {
                         visible: (_, _1) => true,
                         enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
                     },
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
             sidebarSections={[

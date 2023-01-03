@@ -51,6 +51,9 @@ query getChart($urn: String!) {
         deprecation {
             ...deprecationFields
         }
+        embed {
+            ...embedFields
+        }
         inputs: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
@@ -96,6 +99,7 @@ query getChart($urn: String!) {
         }
         privileges {
             canEditLineage
+            canEditEmbed
         }
     }
 }
