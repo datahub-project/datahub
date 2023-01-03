@@ -9,6 +9,7 @@ import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
+import { handleBatchError } from '../../../../utils';
 
 type Props = {
     urns: string[];
@@ -135,7 +136,12 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(urns, e, {
+                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        duration: 3,
+                    }),
+                );
             });
     };
 

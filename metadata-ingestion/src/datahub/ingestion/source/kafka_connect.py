@@ -1063,10 +1063,7 @@ class KafkaConnectSource(Source):
         )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataFlow",
             entityUrn=flow_urn,
-            changeType=models.ChangeTypeClass.UPSERT,
-            aspectName="dataFlowInfo",
             aspect=models.DataFlowInfoClass(
                 name=connector_name,
                 description=f"{connector_type.capitalize()} connector using `{connector_class}` plugin.",
@@ -1138,10 +1135,7 @@ class KafkaConnectSource(Source):
                 ]
 
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataJob",
                     entityUrn=job_urn,
-                    changeType=models.ChangeTypeClass.UPSERT,
-                    aspectName="dataJobInfo",
                     aspect=models.DataJobInfoClass(
                         name=f"{connector_name}:{job_id}",
                         type="COMMAND",
@@ -1159,10 +1153,7 @@ class KafkaConnectSource(Source):
                 yield wu
 
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataJob",
                     entityUrn=job_urn,
-                    changeType=models.ChangeTypeClass.UPSERT,
-                    aspectName="dataJobInputOutput",
                     aspect=models.DataJobInputOutputClass(
                         inputDatasets=inlets,
                         outputDatasets=outlets,
@@ -1198,15 +1189,12 @@ class KafkaConnectSource(Source):
                 )
 
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
                     entityUrn=builder.make_dataset_urn_with_platform_instance(
                         target_platform,
                         target_dataset,
                         platform_instance=target_platform_instance,
                         env=self.config.env,
                     ),
-                    changeType=models.ChangeTypeClass.UPSERT,
-                    aspectName="dataPlatformInstance",
                     aspect=models.DataPlatformInstanceClass(
                         platform=builder.make_data_platform_urn(target_platform),
                         instance=builder.make_dataplatform_instance_urn(
@@ -1222,15 +1210,12 @@ class KafkaConnectSource(Source):
                 yield wu
                 if source_dataset:
                     mcp = MetadataChangeProposalWrapper(
-                        entityType="dataset",
                         entityUrn=builder.make_dataset_urn_with_platform_instance(
                             source_platform,
                             source_dataset,
                             platform_instance=source_platform_instance,
                             env=self.config.env,
                         ),
-                        changeType=models.ChangeTypeClass.UPSERT,
-                        aspectName="dataPlatformInstance",
                         aspect=models.DataPlatformInstanceClass(
                             platform=builder.make_data_platform_urn(source_platform),
                             instance=builder.make_dataplatform_instance_urn(

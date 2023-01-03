@@ -5,7 +5,6 @@ plugins {
 }
 
 ext {
-  docker_registry = 'linkedin'
   docker_repo = 'datahub-upgrade'
 }
 
@@ -46,6 +45,10 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
+
+  testImplementation externalDependency.springBootTest
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
 }
 
 bootJar {

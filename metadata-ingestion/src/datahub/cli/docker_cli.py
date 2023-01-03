@@ -71,15 +71,8 @@ class Architectures(Enum):
 
 @functools.lru_cache()
 def _docker_subprocess_env() -> Dict[str, str]:
-    try:
-        DOCKER_COMPOSE_PLATFORM: Optional[str] = (
-            subprocess.run(["uname", "-m"], stdout=subprocess.PIPE)
-            .stdout.decode("utf-8")
-            .rstrip()
-        )
-    except FileNotFoundError:
-        # On Windows, uname is not available.
-        DOCKER_COMPOSE_PLATFORM = None
+    # platform.machine() is equivalent to `uname -m`, as per https://stackoverflow.com/a/45124927/5004662
+    DOCKER_COMPOSE_PLATFORM: str = "linux/" + platform.machine()
 
     env = {
         **os.environ,
@@ -882,7 +875,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
 
     if path is None:
         click.echo("Downloading sample data...")
-        path = download_sample_data()
+        path = str(download_sample_data())
 
     # Verify that docker is up.
     issues = check_local_docker_containers()

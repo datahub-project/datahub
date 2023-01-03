@@ -6,9 +6,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #6742 The metadata file sink's output format no longer contains nested JSON strings for MCP aspects, but instead unpacks the stringified JSON into a real JSON object. The previous sink behavior can be recovered using the `legacy_nested_json_string` option. The file source is backwards compatible and supports both formats.
+
 ### Potential Downtime
 
 ### Deprecations
+#6851 - Sources bigquery-legacy and bigquery-usage-legacy have been removed.
 
 ### Other notable Changes
 

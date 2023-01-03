@@ -7,6 +7,7 @@ import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.role.RoleService;
 import com.datahub.authentication.post.PostService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
+import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.metadata.client.JavaEntityClient;
@@ -150,73 +151,42 @@ public class GraphQLEngineFactory {
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine getInstance() {
+    GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
+    args.setEntityClient(_entityClient);
+    args.setGraphClient(_graphClient);
+    args.setUsageClient(_usageClient);
     if (isAnalyticsEnabled) {
-      return new GmsGraphQLEngine(
-          _entityClient,
-          _graphClient,
-          _usageClient,
-          new AnalyticsService(elasticClient, indexConvention),
-          _entityService,
-          _recommendationsService,
-          _statefulTokenService,
-          _timeseriesAspectService,
-          _entityRegistry,
-          _secretService,
-          _nativeUserService,
-          _configProvider.getIngestion(),
-          _configProvider.getAuthentication(),
-          _configProvider.getAuthorization(),
-          _gitVersion,
-          _timelineService,
-          _graphService.supportsMultiHop(),
-          _configProvider.getVisualConfig(),
-          _configProvider.getTelemetry(),
-          _configProvider.getMetadataTests(),
-          _configProvider.getDatahub(),
-          _configProvider.getViews(),
-          _siblingGraphService,
-          _groupService,
-          _roleService,
-          _inviteTokenService,
-          _postService,
-          _viewService,
-          _settingsService,
-          _lineageService,
-          _configProvider.getFeatureFlags()
-          ).builder().build();
+      args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
     }
+    args.setEntityService(_entityService);
+    args.setRecommendationsService(_recommendationsService);
+    args.setStatefulTokenService(_statefulTokenService);
+    args.setTimeseriesAspectService(_timeseriesAspectService);
+    args.setEntityRegistry(_entityRegistry);
+    args.setSecretService(_secretService);
+    args.setNativeUserService(_nativeUserService);
+    args.setIngestionConfiguration(_configProvider.getIngestion());
+    args.setAuthenticationConfiguration(_configProvider.getAuthentication());
+    args.setAuthorizationConfiguration(_configProvider.getAuthorization());
+    args.setGitVersion(_gitVersion);
+    args.setTimelineService(_timelineService);
+    args.setSupportsImpactAnalysis(_graphService.supportsMultiHop());
+    args.setVisualConfiguration(_configProvider.getVisualConfig());
+    args.setTelemetryConfiguration(_configProvider.getTelemetry());
+    args.setTestsConfiguration(_configProvider.getMetadataTests());
+    args.setDatahubConfiguration(_configProvider.getDatahub());
+    args.setViewsConfiguration(_configProvider.getViews());
+    args.setSiblingGraphService(_siblingGraphService);
+    args.setGroupService(_groupService);
+    args.setRoleService(_roleService);
+    args.setInviteTokenService(_inviteTokenService);
+    args.setPostService(_postService);
+    args.setViewService(_viewService);
+    args.setSettingsService(_settingsService);
+    args.setLineageService(_lineageService);
+    args.setFeatureFlags(_configProvider.getFeatureFlags());
     return new GmsGraphQLEngine(
-        _entityClient,
-        _graphClient,
-        _usageClient,
-        null,
-        _entityService,
-        _recommendationsService,
-        _statefulTokenService,
-        _timeseriesAspectService,
-        _entityRegistry,
-        _secretService,
-        _nativeUserService,
-        _configProvider.getIngestion(),
-        _configProvider.getAuthentication(),
-        _configProvider.getAuthorization(),
-        _gitVersion,
-        _timelineService,
-        _graphService.supportsMultiHop(),
-        _configProvider.getVisualConfig(),
-        _configProvider.getTelemetry(),
-        _configProvider.getMetadataTests(),
-        _configProvider.getDatahub(),
-        _configProvider.getViews(),
-        _siblingGraphService,
-        _groupService,
-        _roleService,
-        _inviteTokenService,
-        _postService,
-        _viewService,
-        _settingsService,
-        _lineageService,
-        _configProvider.getFeatureFlags()
+            args
     ).builder().build();
   }
 }

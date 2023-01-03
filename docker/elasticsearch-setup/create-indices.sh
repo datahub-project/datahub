@@ -100,11 +100,13 @@ function create_if_not_exists {
 
 # create indices for ES (non-AWS)
 function create_datahub_usage_event_datastream() {
-  # non-AWS env requires creation of two resources for Datahub usage events:
+  # non-AWS env requires creation of three resources for Datahub usage events:
   #   1. ILM policy
   create_if_not_exists "_ilm/policy/${PREFIX}datahub_usage_event_policy" policy.json
   #   2. index template
   create_if_not_exists "_index_template/${PREFIX}datahub_usage_event_index_template" index_template.json
+  #   3. although indexing request creates the data stream, it's not queryable before creation, causing GMS to throw exceptions
+  create_if_not_exists "_data_stream/${PREFIX}datahub_usage_event" "datahub_usage_event"
 }
 
 # create indices for ES OSS (AWS)

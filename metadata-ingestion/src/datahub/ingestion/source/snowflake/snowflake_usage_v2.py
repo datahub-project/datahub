@@ -13,11 +13,14 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
+    SnowflakeConnectionMixin,
+    SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -86,19 +89,33 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     role_name: str
 
 
-class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
+class SnowflakeUsageExtractor(
+    SnowflakeQueryMixin, SnowflakeConnectionMixin, SnowflakeCommonMixin
+):
     def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
         self.logger = logger
+        self.connection: Optional[SnowflakeConnection] = None
 
     def get_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        conn = self.config.get_connection()
+        self.connection = self.create_connection()
+        if self.connection is None:
+            return
+
+        if self.report.edition == SnowflakeEdition.STANDARD.value:
+            logger.info(
+                "Snowflake Account is Standard Edition. Usage and Operation History Feature is not supported."
+            )
+            return
 
         logger.info("Checking usage date ranges")
-        self._check_usage_date_ranges(conn)
+
+        self._check_usage_date_ranges()
+
+        # If permission error, execution returns from here
         if (
             self.report.min_access_history_time is None
             or self.report.max_access_history_time is None
@@ -109,38 +126,44 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         # Now, we report the usage as well as operation metadata even if user email is absent
 
         if self.config.include_usage_stats:
-            yield from self.get_usage_workunits(conn, discovered_datasets)
+            yield from self.get_usage_workunits(discovered_datasets)
 
         if self.config.include_operational_stats:
             # Generate the operation workunits.
-            access_events = self._get_snowflake_history(conn)
+            access_events = self._get_snowflake_history()
             for event in access_events:
                 yield from self._get_operation_aspect_work_unit(
                     event, discovered_datasets
                 )
 
-        conn.close()
-
     def get_usage_workunits(
-        self, conn: SnowflakeConnection, discovered_datasets: List[str]
+        self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
             logger.info("Getting aggregated usage statistics")
-            results = self.query(
-                conn,
-                SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
-                    start_time_millis=int(self.config.start_time.timestamp() * 1000),
-                    end_time_millis=int(self.config.end_time.timestamp() * 1000),
-                    time_bucket_size=self.config.bucket_duration,
-                    use_base_objects=self.config.apply_view_usage_to_tables,
-                    top_n_queries=self.config.top_n_queries,
-                    include_top_n_queries=self.config.include_top_n_queries,
-                ),
-            )
+            try:
+                results = self.query(
+                    SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
+                        start_time_millis=int(
+                            self.config.start_time.timestamp() * 1000
+                        ),
+                        end_time_millis=int(self.config.end_time.timestamp() * 1000),
+                        time_bucket_size=self.config.bucket_duration,
+                        use_base_objects=self.config.apply_view_usage_to_tables,
+                        top_n_queries=self.config.top_n_queries,
+                        include_top_n_queries=self.config.include_top_n_queries,
+                    ),
+                )
+            except Exception as e:
+                logger.debug(e, exc_info=e)
+                self.report_warning(
+                    "usage-statistics",
+                    f"Populating table usage statistics from Snowflake failed due to error {e}.",
+                )
+                return
             self.report.usage_aggregation_query_secs = timer.elapsed_seconds()
 
         for row in results:
-            assert row["OBJECT_NAME"] is not None, "Null objectName not allowed"
             if not self._is_dataset_pattern_allowed(
                 row["OBJECT_NAME"],
                 row["OBJECT_DOMAIN"],
@@ -156,6 +179,10 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 )
                 continue
 
+            yield from self.build_usage_statistics_for_dataset(dataset_identifier, row)
+
+    def build_usage_statistics_for_dataset(self, dataset_identifier, row):
+        try:
             stats = DatasetUsageStatistics(
                 timestampMillis=int(row["BUCKET_START_TIME"].timestamp() * 1000),
                 eventGranularity=TimeWindowSize(
@@ -182,6 +209,14 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 dataset_urn,
                 "datasetUsageStatistics",
                 stats,
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse usage statistics for dataset {dataset_identifier} due to error {e}.",
+                exc_info=e,
+            )
+            self.report_warning(
+                "Failed to parse usage statistics for dataset", dataset_identifier
             )
 
     def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
@@ -234,13 +269,19 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
             key=lambda v: v.fieldPath,
         )
 
-    def _get_snowflake_history(
-        self, conn: SnowflakeConnection
-    ) -> Iterable[SnowflakeJoinedAccessEvent]:
+    def _get_snowflake_history(self) -> Iterable[SnowflakeJoinedAccessEvent]:
         logger.info("Getting access history")
         with PerfTimer() as timer:
             query = self._make_operations_query()
-            results = self.query(conn, query)
+            try:
+                results = self.query(query)
+            except Exception as e:
+                logger.debug(e, exc_info=e)
+                self.report_warning(
+                    "operation",
+                    f"Populating table operation history from Snowflake failed due to error {e}.",
+                )
+                return
             self.report.access_history_query_secs = round(timer.elapsed_seconds(), 2)
 
         for row in results:
@@ -251,18 +292,22 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         end_time = int(self.config.end_time.timestamp() * 1000)
         return SnowflakeQuery.operational_data_for_time_window(start_time, end_time)
 
-    def _check_usage_date_ranges(self, conn: SnowflakeConnection) -> Any:
+    def _check_usage_date_ranges(self) -> Any:
         with PerfTimer() as timer:
             try:
-                results = self.query(
-                    conn, SnowflakeQuery.get_access_history_date_range()
-                )
+                results = self.query(SnowflakeQuery.get_access_history_date_range())
             except Exception as e:
-                self.warn(
-                    "check-usage-data",
-                    f"Extracting the date range for usage data from Snowflake failed."
-                    f"Please check your permissions. Continuing...\nError was {e}.",
-                )
+                if isinstance(e, SnowflakePermissionError):
+                    error_msg = "Failed to get usage. Please grant imported privileges on SNOWFLAKE database. "
+                    self.warn_if_stateful_else_error(
+                        "usage-permission-error", error_msg
+                    )
+                else:
+                    logger.debug(e, exc_info=e)
+                    self.report_warning(
+                        "usage",
+                        f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
+                    )
             else:
                 for db_row in results:
                     if (
@@ -270,11 +315,11 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
                         or db_row["MIN_TIME"] is None
                         or db_row["MAX_TIME"] is None
                     ):
-                        self.warn(
+                        self.report_warning(
                             "check-usage-data",
-                            f"Missing data for access_history {db_row} - Check if using Enterprise edition of Snowflake",
+                            f"Missing data for access_history {db_row}.",
                         )
-                        continue
+                        break
                     self.report.min_access_history_time = db_row["MIN_TIME"].astimezone(
                         tz=timezone.utc
                     )
@@ -341,20 +386,33 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
     def _process_snowflake_history_row(
         self, row: Any
     ) -> Iterable[SnowflakeJoinedAccessEvent]:
-        self.report.rows_processed += 1
-        # Make some minor type conversions.
-        if hasattr(row, "_asdict"):
-            # Compat with SQLAlchemy 1.3 and 1.4
-            # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
-            event_dict = row._asdict()
-        else:
-            event_dict = dict(row)
+        try:  # big hammer try block to ensure we don't fail on parsing events
+            self.report.rows_processed += 1
+            # Make some minor type conversions.
+            if hasattr(row, "_asdict"):
+                # Compat with SQLAlchemy 1.3 and 1.4
+                # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
+                event_dict = row._asdict()
+            else:
+                event_dict = dict(row)
 
-        # no use processing events that don't have a query text
-        if not event_dict["QUERY_TEXT"]:
-            self.report.rows_missing_query_text += 1
-            return
+            # no use processing events that don't have a query text
+            if not event_dict["QUERY_TEXT"]:
+                self.report.rows_missing_query_text += 1
+                return
+            self.parse_event_objects(event_dict)
+            event = SnowflakeJoinedAccessEvent(
+                **{k.lower(): v for k, v in event_dict.items()}
+            )
+            yield event
+        except Exception as e:
+            self.report.rows_parsing_error += 1
+            self.report_warning(
+                "operation",
+                f"Failed to parse operation history row {event_dict}, {e}",
+            )
 
+    def parse_event_objects(self, event_dict):
         event_dict["BASE_OBJECTS_ACCESSED"] = [
             obj
             for obj in json.loads(event_dict["BASE_OBJECTS_ACCESSED"])
@@ -397,18 +455,6 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         if not event_dict["EMAIL"]:
             self.report.rows_missing_email += 1
 
-        try:  # big hammer try block to ensure we don't fail on parsing events
-            event = SnowflakeJoinedAccessEvent(
-                **{k.lower(): v for k, v in event_dict.items()}
-            )
-            yield event
-        except Exception as e:
-            self.report.rows_parsing_error += 1
-            self.warn(
-                "usage",
-                f"Failed to parse usage line {event_dict}, {e}",
-            )
-
     def _is_unsupported_object_accessed(self, obj: Dict[str, Any]) -> bool:
         unsupported_keys = ["locations"]
 
@@ -425,11 +471,3 @@ class SnowflakeUsageExtractor(SnowflakeQueryMixin, SnowflakeCommonMixin):
         ):
             return False
         return True
-
-    def warn(self, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        self.logger.warning(f"{key} => {reason}")
-
-    def error(self, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        self.logger.error(f"{key} => {reason}")

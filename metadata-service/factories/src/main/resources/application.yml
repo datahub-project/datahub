@@ -232,3 +232,7 @@ views:
 entityClient:
   retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
   numRetries: ${ENTITY_CLIENT_NUM_RETRIES:3}
+
+usageClient:
+  retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
+  numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}

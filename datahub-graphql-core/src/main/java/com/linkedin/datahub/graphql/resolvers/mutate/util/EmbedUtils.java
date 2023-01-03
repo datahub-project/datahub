@@ -20,7 +20,7 @@ public class EmbedUtils {
 
   private EmbedUtils() { }
 
-  public static boolean isAuthorizedToUpdateEmbedForEntity(@Nonnull QueryContext context, Urn entityUrn) {
+  public static boolean isAuthorizedToUpdateEmbedForEntity(@Nonnull final Urn entityUrn, @Nonnull final QueryContext context) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
         ALL_PRIVILEGES_GROUP,
         new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_EMBED_PRIVILEGE.getType()))
