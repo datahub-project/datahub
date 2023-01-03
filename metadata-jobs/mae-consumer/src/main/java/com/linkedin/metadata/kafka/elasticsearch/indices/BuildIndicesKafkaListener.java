@@ -8,12 +8,10 @@ import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.BuildIndicesHistoryEvent;
 import com.linkedin.mxe.Topics;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-import joptsimple.internal.Strings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
