@@ -43,7 +43,7 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
 
     return CompletableFuture.supplyAsync(() -> {
 
-      if (!EmbedUtils.isAuthorizedToUpdateEmbedForEntity(environment.getContext(), entityUrn)) {
+      if (!EmbedUtils.isAuthorizedToUpdateEmbedForEntity(entityUrn, environment.getContext())) {
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
       validateUpdateEmbedInput(
@@ -59,7 +59,6 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
 
         updateEmbed(embed, input);
 
-        // Create the Domains aspects
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
         proposal.setEntityUrn(entityUrn);
         proposal.setEntityType(entityUrn.getEntityType());
