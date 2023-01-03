@@ -106,12 +106,14 @@ public class ReindexConfig {
                 MapDifference<String, Object> mappingsDiff = Maps.difference(
                         (TreeMap<String, Object>) super.currentMappings.getOrDefault("properties", new TreeMap()),
                         (TreeMap<String, Object>) super.targetMappings.getOrDefault("properties", new TreeMap()));
-                super.requiresApplyMappings = !mappingsDiff.areEqual();
-                super.isPureMappingsAddition = !mappingsDiff.areEqual() && mappingsDiff.entriesDiffering().isEmpty()
+                super.requiresApplyMappings = !mappingsDiff.entriesDiffering().isEmpty()
+                        || !mappingsDiff.entriesOnlyOnRight().isEmpty();
+                super.isPureMappingsAddition = super.requiresApplyMappings
+                        && mappingsDiff.entriesDiffering().isEmpty()
                         && !mappingsDiff.entriesOnlyOnRight().isEmpty();
                 if (super.requiresApplyMappings && super.isPureMappingsAddition) {
                     log.info("Index: {} - New fields have been added to index. Adding: {}",
-                            super.name, mappingsDiff.entriesDiffering());
+                            super.name, mappingsDiff.entriesOnlyOnRight());
                 } else  if (super.requiresApplyMappings) {
                     log.info("Index: {} - There's diff between new mappings (left) and old mappings (right): {}",
                             super.name, mappingsDiff.entriesDiffering());

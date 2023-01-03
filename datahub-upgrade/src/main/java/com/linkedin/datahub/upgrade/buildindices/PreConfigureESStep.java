@@ -65,7 +65,7 @@ public class PreConfigureESStep implements UpgradeStep {
             Set<String> indices = aliasResponse.getAliases().keySet();
             if (indices.size() != 1) {
               throw new NotImplementedException(
-                      String.format("Clone not supported for %s indices in alias %s. Indicies: %s",
+                      String.format("Clone not supported for %s indices in alias %s. Indices: %s",
                               indices.size(),
                               indexConfig.name(),
                               String.join(",", indices)));
