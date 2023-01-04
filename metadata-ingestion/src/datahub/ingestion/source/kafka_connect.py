@@ -623,10 +623,11 @@ class DebeziumSourceConnector:
     connector_manifest: ConnectorManifest
 
     def __init__(
-        self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig
+        self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig, version: str
     ) -> None:
         self.connector_manifest = connector_manifest
         self.config = config
+        self.version = version
         self._extract_lineages()
 
     @dataclass
@@ -640,59 +641,62 @@ class DebeziumSourceConnector:
         connector_manifest: ConnectorManifest,
     ) -> DebeziumParser:
         connector_class = connector_manifest.config.get("connector.class", "")
+        # debezium version convention : x.y.z.{Final, Alpha, Beta, CR}
+        connector_version = int(self.version.split('.')[0])
+
+        if connector_version >= 2:
+            # https://debezium.io/documentation/reference/2.0/connectors/mysql.html#mysql-property-topic-prefix
+            topic_prefix_config = 'topic.prefix'
+        else:
+            # https://debezium.io/documentation/reference/1.9/connectors/mysql.html#mysql-property-database-server-name
+            topic_prefix_config = 'database.server.name'
+
         if connector_class == "io.debezium.connector.mysql.MySqlConnector":
-            # https://debezium.io/documentation/reference/connectors/mysql.html#mysql-topic-names
             parser = self.DebeziumParser(
                 source_platform="mysql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=connector_manifest.config.get(topic_prefix_config),
                 database_name=None,
             )
         elif connector_class == "MySqlConnector":
             parser = self.DebeziumParser(
                 source_platform="mysql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=connector_manifest.config.get(topic_prefix_config),
                 database_name=None,
             )
         elif connector_class == "io.debezium.connector.mongodb.MongoDbConnector":
-            # https://debezium.io/documentation/reference/connectors/mongodb.html#mongodb-topic-names
             parser = self.DebeziumParser(
                 source_platform="mongodb",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=connector_manifest.config.get(topic_prefix_config),
                 database_name=None,
             )
         elif connector_class == "io.debezium.connector.postgresql.PostgresConnector":
-            # https://debezium.io/documentation/reference/connectors/postgresql.html#postgresql-topic-names
             parser = self.DebeziumParser(
                 source_platform="postgres",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=connector_manifest.config.get(topic_prefix_config),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.oracle.OracleConnector":
-            # https://debezium.io/documentation/reference/connectors/oracle.html#oracle-topic-names
             parser = self.DebeziumParser(
                 source_platform="oracle",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=connector_manifest.config.get(topic_prefix_config),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.sqlserver.SqlServerConnector":
-            # https://debezium.io/documentation/reference/connectors/sqlserver.html#sqlserver-topic-names
             parser = self.DebeziumParser(
                 source_platform="mssql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=connector_manifest.config.get(topic_prefix_config),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.db2.Db2Connector":
-            # https://debezium.io/documentation/reference/connectors/db2.html#db2-topic-names
             parser = self.DebeziumParser(
                 source_platform="db2",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=connector_manifest.config.get(topic_prefix_config),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.vitess.VitessConnector":
-            # https://debezium.io/documentation/reference/connectors/vitess.html#vitess-topic-names
             parser = self.DebeziumParser(
                 source_platform="vitess",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=connector_manifest.config.get(topic_prefix_config),
                 database_name=connector_manifest.config.get("vitess.keyspace"),
             )
         else:
@@ -900,13 +904,10 @@ def transform_connector_config(
 class KafkaConnectSource(Source):
     """
     This plugin extracts the following:
-
     - Kafka Connect connector as individual `DataFlowSnapshotClass` entity
     - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
     - Lineage information between source database to Kafka topic
-
     Current limitations:
-
     - works only for
         - JDBC, Debezium, and Mongo source connectors
         - Generic connectors with user-defined lineage graph
@@ -946,11 +947,20 @@ class KafkaConnectSource(Source):
         config = KafkaConnectSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_connector_version(self) -> Dict[str, str]:
+        result = {}
+        response = self.session.get(f"{self.config.connect_uri}/connector-plugins")
+        for plugin in response.json():
+            connector_class = plugin.get('class')
+            connector_version = plugin.get('version')
+            result.update({connector_class: connector_version})
+        return result
+
     def get_connectors_manifest(self) -> List[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API.
-
         Enrich with lineages metadata.
         """
+        connector_version_dict = self.get_connector_version()
         connectors_manifest = list()
 
         connector_response = self.session.get(
@@ -999,8 +1009,9 @@ class KafkaConnectSource(Source):
                 elif connector_manifest.config.get("connector.class", "").startswith(
                     "io.debezium.connector"
                 ):
+                    connector_version = connector_version_dict.get(connector_manifest.config.get("connector.class", ""))
                     connector_manifest = DebeziumSourceConnector(
-                        connector_manifest=connector_manifest, config=self.config
+                        connector_manifest=connector_manifest, config=self.config, version=connector_version
                     ).connector_manifest
                 elif (
                     connector_manifest.config.get("connector.class", "")
