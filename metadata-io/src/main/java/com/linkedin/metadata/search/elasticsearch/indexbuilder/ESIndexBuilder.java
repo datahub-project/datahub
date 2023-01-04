@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -72,6 +71,7 @@ public class ESIndexBuilder {
   @Getter
   private final boolean enableIndexMappingsReindex;
 
+  @Getter
   private final ElasticSearchConfiguration elasticSearchConfiguration;
 
 
@@ -171,11 +171,12 @@ public class ESIndexBuilder {
     String tempIndexName = indexName + "_" + startTime;
     createIndex(tempIndexName, indexState);
 
+    final int maxReindexHours = 6;
+    final long initialCheckIntervalMilli = 1000;
+    final long finalCheckIntervalMilli = 30000;
+    final long timeoutAt = startTime + (1000 * 60 * 60 * maxReindexHours);
+
     try {
-      final int maxReindexHours = 6;
-      final long initialCheckIntervalMilli = 1000;
-      final long finalCheckIntervalMilli = 30000;
-      final long timeoutAt = startTime + (1000 * 60 * 60 * maxReindexHours);
 
       ReindexRequest reindexRequest = new ReindexRequest()
               .setSourceIndices(indexName)
@@ -219,7 +220,7 @@ public class ESIndexBuilder {
       }
 
     } catch (Exception e) {
-      log.info("Failed to reindex {} to {}: Exception {}", indexName, tempIndexName, e.toString());
+      log.error("Failed to reindex {} to {}: Exception {}", indexName, tempIndexName, e.toString());
       searchClient.indices().delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
       throw e;
     }
@@ -236,9 +237,9 @@ public class ESIndexBuilder {
         break;
       }
       try {
-        TimeUnit.SECONDS.sleep(1);
+        Thread.sleep(initialCheckIntervalMilli);
       } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
+        log.warn("Sleep interrupted");
       }
     }
 

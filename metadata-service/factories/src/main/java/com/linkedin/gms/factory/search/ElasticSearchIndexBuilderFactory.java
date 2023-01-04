@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -78,9 +79,9 @@ public class ElasticSearchIndexBuilderFactory {
   @Nonnull
   protected ESIndexBuilder getInstance(
           @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides,
-          final ElasticSearchConfiguration elasticSearchConfiguration) {
+          final ConfigurationProvider configurationProvider) {
     return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, overrides,
-            enableSettingsReindex, enableMappingsReindex, elasticSearchConfiguration);
+            enableSettingsReindex, enableMappingsReindex, configurationProvider.getElasticSearch());
   }
 
   @Nonnull

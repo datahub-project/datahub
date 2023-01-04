@@ -9,8 +9,10 @@ import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import java.util.List;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 @RequiredArgsConstructor
 public class BuildIndicesStep implements UpgradeStep {
 
@@ -23,7 +25,7 @@ public class BuildIndicesStep implements UpgradeStep {
 
   @Override
   public int retryCount() {
-    return 2;
+    return 0;
   }
 
   @Override
@@ -34,6 +36,7 @@ public class BuildIndicesStep implements UpgradeStep {
           service.reindexAll();
         }
       } catch (Exception e) {
+        log.error("BuildIndicesStep failed.", e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
