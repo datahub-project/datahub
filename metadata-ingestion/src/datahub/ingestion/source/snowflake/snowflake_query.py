@@ -106,7 +106,7 @@ class SnowflakeQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def get_all_tags_on_object_with_lineage(
+    def get_all_tags_on_object_with_propagation(
         db_name: str, quoted_identifier: str, domain: str
     ) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html

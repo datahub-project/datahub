@@ -495,7 +495,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
 
         return tags
 
-    def get_tags_for_object_with_lineage(
+    def get_tags_for_object_with_propagation(
         self,
         domain: str,
         quoted_identifier: str,
@@ -504,7 +504,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         tags: List[SnowflakeTag] = []
 
         cur = self.query(
-            SnowflakeQuery.get_all_tags_on_object_with_lineage(
+            SnowflakeQuery.get_all_tags_on_object_with_propagation(
                 db_name, quoted_identifier, domain
             ),
         )
