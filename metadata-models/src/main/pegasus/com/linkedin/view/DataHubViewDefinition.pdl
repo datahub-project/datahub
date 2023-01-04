@@ -1,0 +1,18 @@
+namespace com.linkedin.view
+
+import com.linkedin.metadata.query.filter.Filter
+
+/**
+ * A View definition.
+ */
+record DataHubViewDefinition {
+  /**
+   * The Entity Types in the scope of the View.
+   */
+  entityTypes: array[string]
+
+  /**
+   * The filter criteria, which represents the view itself
+   */
+  filter: Filter
+}

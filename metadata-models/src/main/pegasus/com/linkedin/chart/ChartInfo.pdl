@@ -6,6 +6,7 @@ import com.linkedin.common.Time
 import com.linkedin.common.Url
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.Edge
 
 /**
  * Information about a chart
@@ -42,6 +43,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
 
   /**
    * Data sources for the chart
+   * Deprecated! Use inputEdges instead.
    */
   @Relationship = {
     "/*/string": {
@@ -50,7 +52,25 @@ record ChartInfo includes CustomProperties, ExternalReference {
       "isLineage": true
     }
   }
+  @deprecated
   inputs: optional array[ChartDataSourceType]
+
+  /**
+   * Data sources for the chart
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true,
+      "createdOn": "inputEdges/*/created/time"
+      "createdActor": "inputEdges/*/created/actor"
+      "updatedOn": "inputEdges/*/lastModified/time"
+      "updatedActor": "inputEdges/*/lastModified/actor"
+      "properties": "inputEdges/*/properties"
+    }
+  }
+  inputEdges: optional array[Edge]
 
   /**
    * Type of the chart

@@ -222,7 +222,10 @@ class SQLSourceReport(StaleEntityRemovalSourceReport):
 
 
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
-    options: dict = {}
+    options: dict = pydantic.Field(
+        default_factory=dict,
+        description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
+    )
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
@@ -545,7 +548,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             backcompat_instance_for_guid=self.config.env,
         )
 
-    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+    def gen_database_containers(
+        self, inspector: Inspector, database: str
+    ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database)
 
         database_container_key = self.gen_database_key(database)
@@ -554,6 +559,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             name=database,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+            extra_properties=self.get_database_properties(inspector, database=database),
         )
 
         # Add container to the checkpoint state
@@ -567,7 +573,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             yield wu
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_schema_key(db_name, schema)
 
@@ -576,11 +582,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database_container_key = self.gen_database_key(database=db_name)
 
         container_workunits = gen_containers(
-            # TODO: this one is bad
-            schema_container_key,
-            schema,
-            [SqlContainerSubTypes.SCHEMA],
-            database_container_key,
+            container_key=schema_container_key,
+            name=schema,
+            sub_types=[SqlContainerSubTypes.SCHEMA],
+            parent_container_key=database_container_key,
+            extra_properties=self.get_schema_properties(
+                inspector, database=db_name, schema=schema
+            ),
         )
 
         # Add container to the checkpoint state
@@ -623,12 +631,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(db_name)
+            yield from self.gen_database_containers(
+                inspector=inspector, database=db_name
+            )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(schema, db_name)
+                yield from self.gen_schema_containers(
+                    inspector=inspector, schema=schema, db_name=db_name
+                )
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -725,7 +737,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         entity_type: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
@@ -893,6 +904,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             entity_type="dataset",
             sql_config=sql_config,
         )
+
+    def get_database_properties(
+        self, inspector: Inspector, database: str
+    ) -> Optional[Dict[str, str]]:
+        return None
+
+    def get_schema_properties(
+        self, inspector: Inspector, database: str, schema: str
+    ) -> Optional[Dict[str, str]]:
+        return None
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str

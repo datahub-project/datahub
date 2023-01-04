@@ -5,6 +5,10 @@ In order to ingest metadata from Salesforce, you will need:
 - Salesforce username, password, [security token](https://developer.Salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_concepts_security.htm) OR 
 - Salesforce instance url and access token/session id (suitable for one-shot ingestion only, as access token typically expires after 2 hours of inactivity)
 
+The account used to access Salesforce requires the following permissions for this integration to work:
+- View Setup and Configuration
+- View All Data
+
 ## Integration Details
 This plugin extracts Salesforce Standard and Custom Objects and their details (fields, record count, etc) from a Salesforce instance.
 Python library [simple-salesforce](https://pypi.org/project/simple-salesforce/) is used for authenticating and calling  [Salesforce REST API](https://developer.Salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/intro_what_is_rest_api.htm) to retrive details from Salesforce instance.

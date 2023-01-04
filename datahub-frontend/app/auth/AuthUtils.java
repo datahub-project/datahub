@@ -6,6 +6,8 @@ import play.mvc.Http;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 public class AuthUtils {
@@ -63,8 +65,8 @@ public class AuthUtils {
      *
      * Returns true if the request is eligible to be forwarded to GMS, false otherwise.
      */
-    public static boolean isEligibleForForwarding(Http.Context ctx) {
-        return hasValidSessionCookie(ctx) || hasAuthHeader(ctx);
+    public static boolean isEligibleForForwarding(Http.Request req) {
+        return hasValidSessionCookie(req) || hasAuthHeader(req);
     }
 
     /**
@@ -75,17 +77,17 @@ public class AuthUtils {
      * Note that we depend on the presence of 2 cookies, one accessible to the browser and one not,
      * as well as their agreement to determine authentication status.
      */
-    public static boolean hasValidSessionCookie(final Http.Context ctx) {
-        return ctx.session().containsKey(ACTOR)
-                && ctx.request().cookie(ACTOR) != null
-                && ctx.session().get(ACTOR).equals(ctx.request().cookie(ACTOR).value());
+    public static boolean hasValidSessionCookie(final Http.Request req) {
+        return req.session().data().containsKey(ACTOR)
+                && req.getCookie(ACTOR).isPresent()
+                && req.session().data().get(ACTOR).equals(req.getCookie(ACTOR).get().value());
     }
 
     /**
      * Returns true if a request includes the Authorization header, false otherwise
      */
-    public static boolean hasAuthHeader(final Http.Context ctx) {
-        return ctx.request().getHeaders().contains(Http.HeaderNames.AUTHORIZATION);
+    public static boolean hasAuthHeader(final Http.Request req) {
+        return req.getHeaders().contains(Http.HeaderNames.AUTHORIZATION);
     }
 
     /**
@@ -99,6 +101,13 @@ public class AuthUtils {
                 .withHttpOnly(false)
                 .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
                 .build();
+    }
+
+    public static Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {
+        final Map<String, String> sessionAttributes = new HashMap<>();
+        sessionAttributes.put(ACTOR, userUrnStr);
+        sessionAttributes.put(ACCESS_TOKEN, accessToken);
+        return sessionAttributes;
     }
 
     private AuthUtils() { }
