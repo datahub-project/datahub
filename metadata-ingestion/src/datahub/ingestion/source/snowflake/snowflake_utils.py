@@ -158,6 +158,18 @@ class SnowflakeCommonMixin:
             return identifier.lower()
         return identifier
 
+    @staticmethod
+    def get_quoted_identifier_for_database(db_name):
+        return f'"{db_name}"'
+
+    @staticmethod
+    def get_quoted_identifier_for_schema(db_name, schema_name):
+        return f'"{db_name}"."{schema_name}"'
+
+    @staticmethod
+    def get_quoted_identifier_for_table(db_name, schema_name, table_name):
+        return f'"{db_name}"."{schema_name}"."{table_name}"'
+
     def get_dataset_identifier(
         self: SnowflakeCommonProtocol, table_name: str, schema_name: str, db_name: str
     ) -> str:

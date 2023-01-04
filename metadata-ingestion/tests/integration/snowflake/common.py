@@ -352,5 +352,60 @@ def default_query_results(query):  # noqa: C901
     ]:
         return []
 
+    elif (
+        query
+        == snowflake_query.SnowflakeQuery.get_all_tags_in_database_without_propagation(
+            "TEST_DB"
+        )
+    ):
+        return [
+            *[
+                {
+                    "TAG_DATABASE": "TEST_DB",
+                    "TAG_SCHEMA": "TEST_SCHEMA",
+                    "TAG_NAME": f"my_tag_{ix}",
+                    "TAG_VALUE": f"my_value_{ix}",
+                    "OBJECT_DATABASE": "TEST_DB",
+                    "OBJECT_SCHEMA": "TEST_SCHEMA",
+                    "OBJECT_NAME": "VIEW_2",
+                    "COLUMN_NAME": None,
+                    "DOMAIN": "TABLE",
+                }
+                for ix in range(3)
+            ],
+            {
+                "TAG_DATABASE": "TEST_DB",
+                "TAG_SCHEMA": "TEST_SCHEMA",
+                "TAG_NAME": "security",
+                "TAG_VALUE": "pii",
+                "OBJECT_DATABASE": "TEST_DB",
+                "OBJECT_SCHEMA": "TEST_SCHEMA",
+                "OBJECT_NAME": "VIEW_1",
+                "COLUMN_NAME": "COL_1",
+                "DOMAIN": "COLUMN",
+            },
+            {
+                "TAG_DATABASE": "OTHER_DB",
+                "TAG_SCHEMA": "OTHER_SCHEMA",
+                "TAG_NAME": "my_other_tag",
+                "TAG_VALUE": "other",
+                "OBJECT_DATABASE": "TEST_DB",
+                "OBJECT_SCHEMA": None,
+                "OBJECT_NAME": "TEST_SCHEMA",
+                "COLUMN_NAME": None,
+                "DOMAIN": "SCHEMA",
+            },
+            {
+                "TAG_DATABASE": "OTHER_DB",
+                "TAG_SCHEMA": "OTHER_SCHEMA",
+                "TAG_NAME": "my_other_tag",
+                "TAG_VALUE": "other",
+                "OBJECT_DATABASE": None,
+                "OBJECT_SCHEMA": None,
+                "OBJECT_NAME": "TEST_DB",
+                "COLUMN_NAME": None,
+                "DOMAIN": "DATABASE",
+            },
+        ]
     # Unreachable code
     raise Exception(f"Unknown query {query}")
