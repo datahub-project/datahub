@@ -59,10 +59,6 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
 
         updateEmbed(embed, input);
 
-<<<<<<< HEAD
-        // Create the Domains aspects
-=======
->>>>>>> master
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
         proposal.setEntityUrn(entityUrn);
         proposal.setEntityType(entityUrn.getEntityType());
