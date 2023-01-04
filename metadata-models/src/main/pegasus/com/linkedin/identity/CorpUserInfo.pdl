@@ -24,6 +24,11 @@ record CorpUserInfo {
   /**
    * displayName of this user ,  e.g.  Hang Zhang(DataHQ)
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": true,
+    "boostScore": 10.0
+  }
   displayName: optional string
 
   /**
