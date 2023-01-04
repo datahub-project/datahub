@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, List, Optional
 
+from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
@@ -30,6 +31,66 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
 
         self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 
+    def _get_tags_on_object_without_propagation(
+        self,
+        domain: str,
+        db_name: str,
+        schema_name: Optional[str],
+        table_name: Optional[str],
+    ) -> List[SnowflakeTag]:
+        if db_name not in self.tag_cache:
+            self.tag_cache[
+                db_name
+            ] = self.data_dictionary.get_tags_for_database_without_propagation(db_name)
+
+        if domain == SnowflakeObjectDomain.DATABASE:
+            return self.tag_cache[db_name].get_database_tags(db_name)
+        elif domain == SnowflakeObjectDomain.SCHEMA:
+            assert schema_name is not None
+            tags = self.tag_cache[db_name].get_schema_tags(schema_name, db_name)
+        elif (
+            domain == SnowflakeObjectDomain.TABLE
+        ):  # Views belong to this domain as well.
+            assert schema_name is not None
+            assert table_name is not None
+            tags = self.tag_cache[db_name].get_table_tags(
+                table_name, schema_name, db_name
+            )
+        else:
+            raise ValueError(f"Unknown domain {domain}")
+        return tags
+
+    def _get_tags_on_object_with_propagation(
+        self,
+        domain: str,
+        db_name: str,
+        schema_name: Optional[str],
+        table_name: Optional[str],
+    ) -> List[SnowflakeTag]:
+        identifier = ""
+        if domain == SnowflakeObjectDomain.DATABASE:
+            identifier = self.get_quoted_identifier_for_database(db_name)
+        elif domain == SnowflakeObjectDomain.SCHEMA:
+            assert schema_name is not None
+            identifier = self.get_quoted_identifier_for_schema(db_name, schema_name)
+        elif (
+            domain == SnowflakeObjectDomain.TABLE
+        ):  # Views belong to this domain as well.
+            assert schema_name is not None
+            assert table_name is not None
+            identifier = self.get_quoted_identifier_for_table(
+                db_name, schema_name, table_name
+            )
+        else:
+            raise ValueError(f"Unknown domain {domain}")
+        assert identifier
+
+        self.report.num_get_tags_for_object_queries += 1
+        tags = self.data_dictionary.get_tags_for_object_with_propagation(
+            domain=domain, quoted_identifier=identifier, db_name=db_name
+        )
+        return tags
+
     def get_tags_on_object(
         self,
         domain: str,
@@ -38,46 +99,19 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         table_name: Optional[str] = None,
     ) -> List[SnowflakeTag]:
         if self.config.extract_tags == TagOption.without_lineage:
-            if db_name not in self.tag_cache:
-                self.tag_cache[
-                    db_name
-                ] = self.data_dictionary.get_tags_for_database_without_propagation(
-                    db_name
-                )
+            tags = self._get_tags_on_object_without_propagation(
+                domain=domain,
+                db_name=db_name,
+                schema_name=schema_name,
+                table_name=table_name,
+            )
 
-            if domain == "database":
-                return self.tag_cache[db_name].get_database_tags(db_name)
-            elif domain == "schema":
-                assert schema_name is not None
-                tags = self.tag_cache[db_name].get_schema_tags(schema_name, db_name)
-            elif domain == "table":  # Views belong to this domain as well.
-                assert schema_name is not None
-                assert table_name is not None
-                tags = self.tag_cache[db_name].get_table_tags(
-                    table_name, schema_name, db_name
-                )
-            else:
-                raise ValueError(f"Unknown domain {domain}")
         elif self.config.extract_tags == TagOption.with_lineage:
-            identifier = ""
-            if domain == "database":
-                identifier = self.get_quoted_identifier_for_database(db_name)
-            elif domain == "schema":
-                assert schema_name is not None
-                identifier = self.get_quoted_identifier_for_schema(db_name, schema_name)
-            elif domain == "table":  # Views belong to this domain as well.
-                assert schema_name is not None
-                assert table_name is not None
-                identifier = self.get_quoted_identifier_for_table(
-                    db_name, schema_name, table_name
-                )
-            else:
-                raise ValueError(f"Unknown domain {domain}")
-            assert identifier
-
-            self.report.num_get_tags_for_object_queries += 1
-            tags = self.data_dictionary.get_tags_for_object_with_propagation(
-                domain=domain, quoted_identifier=identifier, db_name=db_name
+            tags = self._get_tags_on_object_with_propagation(
+                domain=domain,
+                db_name=db_name,
+                schema_name=schema_name,
+                table_name=table_name,
             )
         else:
             tags = []

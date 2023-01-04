@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
+from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
@@ -225,8 +226,6 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         cur = self.query(
             SnowflakeQuery.schemas_for_database(db_name),
         )
-
-        # get tags as strings
 
         for schema in cur:
             snowflake_schema = SnowflakeSchema(
@@ -470,16 +469,16 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             # This will be null if the object is a database
             object_database = tag["OBJECT_DATABASE"]
 
-            domain = tag["DOMAIN"]
-            if domain == "DATABASE":
+            domain = tag["DOMAIN"].lower()
+            if domain == SnowflakeObjectDomain.DATABASE:
                 tags.add_database_tag(object_name, snowflake_tag)
-            elif domain == "SCHEMA":
+            elif domain == SnowflakeObjectDomain.SCHEMA:
                 tags.add_schema_tag(object_name, object_database, snowflake_tag)
-            elif domain == "TABLE":  # including views
+            elif domain == SnowflakeObjectDomain.TABLE:  # including views
                 tags.add_table_tag(
                     object_name, object_schema, object_database, snowflake_tag
                 )
-            elif domain == "COLUMN":
+            elif domain == SnowflakeObjectDomain.COLUMN:
                 column_name = tag["COLUMN_NAME"]
                 tags.add_column_tag(
                     column_name,
@@ -525,7 +524,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
     ) -> Dict[str, List[SnowflakeTag]]:
         tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
         cur = self.query(
-            SnowflakeQuery.get_tags_on_columns(db_name, quoted_table_name),
+            SnowflakeQuery.get_tags_on_columns_with_propagation(
+                db_name, quoted_table_name
+            ),
         )
 
         for tag in cur:

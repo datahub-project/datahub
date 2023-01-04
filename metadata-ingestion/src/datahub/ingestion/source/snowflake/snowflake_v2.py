@@ -1410,9 +1410,7 @@ class SnowflakeV2Source(
             )
 
         # Access to table but none of its columns - is this possible ?
-        table_columns = columns.get(table_name, [])
-
-        return table_columns
+        return columns.get(table_name, [])
 
     def get_pk_constraints_for_table(
         self, table_name: str, schema_name: str, db_name: str

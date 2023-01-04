@@ -138,7 +138,9 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def get_tags_on_columns(db_name: str, quoted_table_identifier: str) -> str:
+    def get_tags_on_columns_with_propagation(
+        db_name: str, quoted_table_identifier: str
+    ) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
         return f"""
         SELECT tag_database as "TAG_DATABASE",
