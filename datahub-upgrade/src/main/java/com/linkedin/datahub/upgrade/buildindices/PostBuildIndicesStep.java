@@ -40,7 +40,7 @@ public class PostBuildIndicesStep implements UpgradeStep {
 
   @Override
   public int retryCount() {
-    return 2;
+    return 0;
   }
 
   @Override
@@ -73,6 +73,7 @@ public class PostBuildIndicesStep implements UpgradeStep {
             .setVersion(_gitVersion.getVersion());
         _kafkaEventProducer.produceBuildIndicesHistoryEvent(buildIndicesHistoryEvent);
       } catch (Exception e) {
+        log.error("PostBuildIndicesStep failed.", e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
