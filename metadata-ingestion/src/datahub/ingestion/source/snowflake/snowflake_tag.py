@@ -30,9 +30,6 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
 
         self.tag_cache: Optional[_SnowflakeTagCache] = None
 
-    def invalidate_cache(self):
-        self.tag_cache = None
-
     def get_tags_on_object(
         self,
         domain: str,

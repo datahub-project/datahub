@@ -494,7 +494,6 @@ class SnowflakeV2Source(
         for snowflake_db in databases:
             try:
                 yield from self._process_database(snowflake_db)
-                self.tag_extractor.invalidate_cache()
 
             except SnowflakePermissionError as e:
                 # FIXME - This may break satetful ingestion if new tables than previous run are emitted above
@@ -1004,7 +1003,7 @@ class SnowflakeV2Source(
 
         if table.tags:
             tag_associations = [
-                TagAssociation(tag=make_tag_urn(str(tag))) for tag in table.tags
+                TagAssociation(tag=make_tag_urn(tag.identifier())) for tag in table.tags
             ]
             global_tags = GlobalTags(tag_associations)
             yield self.wrap_aspect_as_workunit(
@@ -1055,7 +1054,7 @@ class SnowflakeV2Source(
         )
 
     def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_key = str(tag)
+        tag_key = tag.identifier()
         tag_urn = make_tag_urn(self.snowflake_identifier(tag_key))
 
         tag_properties_aspect = TagProperties(
@@ -1101,7 +1100,9 @@ class SnowflakeV2Source(
                     globalTags=GlobalTags(
                         [
                             TagAssociation(
-                                make_tag_urn(self.snowflake_identifier(str(tag)))
+                                make_tag_urn(
+                                    self.snowflake_identifier(tag.identifier())
+                                )
                             )
                             for tag in table.column_tags[col.name]
                         ]
@@ -1296,7 +1297,7 @@ class SnowflakeV2Source(
             else int(database.created.timestamp() * 1000)
             if database.created is not None
             else None,
-            tags=[self.snowflake_identifier(str(tag)) for tag in database.tags]
+            tags=[self.snowflake_identifier(tag.identifier()) for tag in database.tags]
             if database.tags
             else None,
         )
@@ -1346,7 +1347,7 @@ class SnowflakeV2Source(
             else int(schema.created.timestamp() * 1000)
             if schema.created is not None
             else None,
-            tags=[self.snowflake_identifier(str(tag)) for tag in schema.tags]
+            tags=[self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
             if schema.tags
             else None,
         )
