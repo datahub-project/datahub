@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -30,16 +32,18 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
 import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.client.indices.PutMappingRequest;
+import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.ReindexRequest;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.elasticsearch.tasks.TaskId;
+import org.elasticsearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -162,25 +166,56 @@ public class ESIndexBuilder {
   }
 
   private void reindex(String indexName, ReindexConfig indexState) throws IOException {
-    String tempIndexName = indexName + "_" + System.currentTimeMillis();
+    final long startTime = System.currentTimeMillis();
+
+    String tempIndexName = indexName + "_" + startTime;
     createIndex(tempIndexName, indexState);
+
     try {
+      final int maxReindexHours = 6;
+      final long initialCheckIntervalMilli = 1000;
+      final long finalCheckIntervalMilli = 30000;
+      final long timeoutAt = startTime + (1000 * 60 * 60 * maxReindexHours);
+
       ReindexRequest reindexRequest = new ReindexRequest()
               .setSourceIndices(indexName)
               .setDestIndex(tempIndexName)
               .setMaxRetries(numRetries)
-              .setRequestsPerSecond(10)
               .setAbortOnVersionConflict(false)
               .setRefresh(true)
-              .setTimeout(TimeValue.timeValueHours(1))
+              .setTimeout(TimeValue.timeValueHours(maxReindexHours))
               .setSourceBatchSize(2500);
 
-      BulkByScrollResponse bulkResponse = searchClient.reindex(reindexRequest, RequestOptions.DEFAULT);
-      if (!bulkResponse.getBulkFailures().isEmpty()) {
-        log.error("Reindexing failures {} to {}. Failures: [{}]",
-                indexName, tempIndexName, bulkResponse.getBulkFailures());
-      } else {
-        log.info("Reindexing from {} to {} in progress...", indexName, tempIndexName);
+      TaskSubmissionResponse reindexTask = searchClient.submitReindexTask(reindexRequest, RequestOptions.DEFAULT);
+
+      boolean reindexTaskCompleted = false;
+      int count = 0;
+
+      while (System.currentTimeMillis() < timeoutAt) {
+        log.info("Task: {} - Reindexing from {} to {} in progress...", reindexTask.getTask(), indexName, tempIndexName);
+        ListTasksRequest request = new ListTasksRequest()
+                .setWaitForCompletion(true)
+                .setParentTaskId(new TaskId(reindexTask.getTask()));
+        Optional<TaskInfo> taskInfo = searchClient.tasks().list(request, RequestOptions.DEFAULT).getTasks().stream()
+                .filter(task -> task.getTaskId().toString().equals(reindexTask.getTask()))
+                .findFirst();
+        if (taskInfo.isEmpty()) {
+          log.info("Task: {} - Reindexing {} to {} task has completed, will now check if reindex was successful",
+                  reindexTask.getTask(), indexName, tempIndexName);
+          reindexTaskCompleted = true;
+          break;
+        }
+        try {
+          count = count + 1;
+          Thread.sleep(Math.min(finalCheckIntervalMilli, initialCheckIntervalMilli * count));
+        } catch (InterruptedException e) {
+          log.info("Trouble sleeping while reindexing {} to {}: Exception {}. Retrying...", indexName, tempIndexName,
+                  e.toString());
+        }
+      }
+      if (!reindexTaskCompleted) {
+        throw new RuntimeException(
+                String.format("Reindex from %s to %s failed-- task exceeded time limit", indexName, tempIndexName));
       }
 
     } catch (Exception e) {
