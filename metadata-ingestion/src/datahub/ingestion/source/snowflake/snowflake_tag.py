@@ -28,7 +28,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         self.report = report
         self.logger = logger
 
-        self.tag_cache: Optional[_SnowflakeTagCache] = None
+        self.tag_cache: Dict[str, _SnowflakeTagCache] = {}
 
     def get_tags_on_object(
         self,
@@ -38,22 +38,24 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
         table_name: Optional[str] = None,
     ) -> List[SnowflakeTag]:
         if self.config.extract_tags == TagOption.without_lineage:
-            if self.tag_cache is None:
-                self.tag_cache = (
-                    self.data_dictionary.get_tags_for_database_without_propagation(
-                        db_name
-                    )
+            if db_name not in self.tag_cache:
+                self.tag_cache[
+                    db_name
+                ] = self.data_dictionary.get_tags_for_database_without_propagation(
+                    db_name
                 )
 
             if domain == "database":
-                return self.tag_cache.get_database_tags(db_name)
+                return self.tag_cache[db_name].get_database_tags(db_name)
             elif domain == "schema":
                 assert schema_name is not None
-                tags = self.tag_cache.get_schema_tags(schema_name, db_name)
+                tags = self.tag_cache[db_name].get_schema_tags(schema_name, db_name)
             elif domain == "table":  # Views belong to this domain as well.
                 assert schema_name is not None
                 assert table_name is not None
-                tags = self.tag_cache.get_table_tags(table_name, schema_name, db_name)
+                tags = self.tag_cache[db_name].get_table_tags(
+                    table_name, schema_name, db_name
+                )
             else:
                 raise ValueError(f"Unknown domain {domain}")
         elif self.config.extract_tags == TagOption.with_lineage:
@@ -92,13 +94,13 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
     ) -> Dict[str, List[SnowflakeTag]]:
         temp_column_tags: Dict[str, List[SnowflakeTag]] = {}
         if self.config.extract_tags == TagOption.without_lineage:
-            if self.tag_cache is None:
-                self.tag_cache = (
-                    self.data_dictionary.get_tags_for_database_without_propagation(
-                        db_name
-                    )
+            if db_name not in self.tag_cache:
+                self.tag_cache[
+                    db_name
+                ] = self.data_dictionary.get_tags_for_database_without_propagation(
+                    db_name
                 )
-            temp_column_tags = self.tag_cache.get_column_tags_for_table(
+            temp_column_tags = self.tag_cache[db_name].get_column_tags_for_table(
                 table_name, schema_name, db_name
             )
         elif self.config.extract_tags == TagOption.with_lineage:
