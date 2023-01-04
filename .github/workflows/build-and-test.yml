@@ -21,6 +21,14 @@ concurrency:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        command:
+          [
+            "./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-ingestion-modules:airflow-plugin:build -x :datahub-web-react:build --parallel",
+            "./gradlew :datahub-web-react:build --parallel",
+            "./gradlew :metadata-ingestion-modules:airflow-plugin:build --parallel"
+          ]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -37,13 +45,7 @@ jobs:
           python-version: "3.7"
       - name: Gradle build (and test)
         run: |
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-ingestion-modules:airflow-plugin:build -x :datahub-web-react:build --parallel
-      - name: frontend build
-        run: |
-          ./gradlew :datahub-web-react:build --parallel
-      - name: metadata ingestion airflow
-        run: |
-          ./gradlew :metadata-ingestion-modules:airflow-plugin:build --parallel
+          ${{ matrix.command }}
       - uses: actions/upload-artifact@v3
         if: always()
         with:
