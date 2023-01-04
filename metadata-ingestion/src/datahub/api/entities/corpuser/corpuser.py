@@ -7,11 +7,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    CorpUserInfoClass,
-    GroupMembershipClass,
-)
+from datahub.metadata.schema_classes import CorpUserInfoClass, GroupMembershipClass
 
 
 @dataclass
@@ -58,9 +54,7 @@ class CorpUser:
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="corpuser",
             entityUrn=str(self.urn),
-            aspectName="corpUserInfo",
             aspect=CorpUserInfoClass(
                 active=True,  # Deprecated, use CorpUserStatus instead.
                 displayName=self.display_name,
@@ -74,17 +68,13 @@ class CorpUser:
                 fullName=self.full_name,
                 countryCode=self.country_code,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
         for group_membership in self.generate_group_membership_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="corpuser",
                 entityUrn=str(self.urn),
-                aspectName="groupMembership",
                 aspect=group_membership,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 

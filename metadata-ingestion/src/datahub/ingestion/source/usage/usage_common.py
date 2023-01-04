@@ -16,7 +16,6 @@ from datahub.configuration.time_window_config import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
@@ -123,9 +122,6 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            aspectName="datasetUsageStatistics",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=urn_builder(self.resource),
             aspect=usageStats,
         )
