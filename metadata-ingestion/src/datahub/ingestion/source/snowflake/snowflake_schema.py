@@ -37,10 +37,10 @@ class SnowflakeTag:
     name: str
     value: str
 
-    def identifier(self)->str:
+    def identifier(self) -> str:
         return f"{self._id_prefix_as_str()}:{self.value}"
 
-    def _id_prefix_as_str(self)->str:
+    def _id_prefix_as_str(self) -> str:
         return f"{self.database}.{self.schema}.{self.name}"
 
 
@@ -111,13 +111,20 @@ class SnowflakeDatabase:
 
 class _SnowflakeTagCache:
     def __init__(self) -> None:
+        # self._database_tags[<database_name>] = list of tags applied to database
         self._database_tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
+
+        # self._schema_tags[<database_name>][<schema_name>] = list of tags applied to schema
         self._schema_tags: Dict[str, Dict[str, List[SnowflakeTag]]] = defaultdict(
             lambda: defaultdict(list)
         )
+
+        # self._table_tags[<database_name>][<schema_name>][<table_name>] = list of tags applied to table
         self._table_tags: Dict[
             str, Dict[str, Dict[str, List[SnowflakeTag]]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+
+        # self._column_tags[<database_name>][<schema_name>][<table_name>][<column_name>] = list of tags applied to column
         self._column_tags: Dict[
             str, Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]]
         ] = defaultdict(
@@ -128,7 +135,7 @@ class _SnowflakeTagCache:
         self._database_tags[db_name].append(tag)
 
     def get_database_tags(self, db_name: str) -> List[SnowflakeTag]:
-        return self._database_tags.get(db_name, [])
+        return self._database_tags[db_name]
 
     def add_schema_tag(self, schema_name: str, db_name: str, tag: SnowflakeTag) -> None:
         self._schema_tags[db_name][schema_name].append(tag)
@@ -144,9 +151,7 @@ class _SnowflakeTagCache:
     def get_table_tags(
         self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeTag]:
-        return (
-            self._table_tags.get(db_name, {}).get(schema_name, {}).get(table_name, [])
-        )
+        return self._table_tags[db_name][schema_name][table_name]
 
     def add_column_tag(
         self,
@@ -490,7 +495,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
 
         return tags
 
-    def get_tags_for_object(
+    def get_tags_for_object_with_lineage(
         self,
         domain: str,
         quoted_identifier: str,
@@ -499,7 +504,9 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         tags: List[SnowflakeTag] = []
 
         cur = self.query(
-            SnowflakeQuery.get_all_tags_on_object(db_name, quoted_identifier, domain),
+            SnowflakeQuery.get_all_tags_on_object_with_lineage(
+                db_name, quoted_identifier, domain
+            ),
         )
 
         for tag in cur:
@@ -518,7 +525,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
     ) -> Dict[str, List[SnowflakeTag]]:
         tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
         cur = self.query(
-            SnowflakeQuery.get_tags_on_column(db_name, quoted_table_name),
+            SnowflakeQuery.get_tags_on_columns(db_name, quoted_table_name),
         )
 
         for tag in cur:

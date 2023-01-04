@@ -77,7 +77,7 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             assert identifier
 
             self.report.num_get_tags_for_object_queries += 1
-            tags = self.data_dictionary.get_tags_for_object(
+            tags = self.data_dictionary.get_tags_for_object_with_lineage(
                 domain=domain, quoted_identifier=identifier, db_name=db_name
             )
         else:

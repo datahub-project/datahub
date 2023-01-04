@@ -106,7 +106,7 @@ class SnowflakeQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def get_all_tags_on_object(
+    def get_all_tags_on_object_with_lineage(
         db_name: str, quoted_identifier: str, domain: str
     ) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html
@@ -138,7 +138,7 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def get_tags_on_column(db_name: str, quoted_table_identifier: str) -> str:
+    def get_tags_on_columns(db_name: str, quoted_table_identifier: str) -> str:
         # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
         return f"""
         SELECT tag_database as "TAG_DATABASE",
