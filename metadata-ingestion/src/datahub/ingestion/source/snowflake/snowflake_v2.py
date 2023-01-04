@@ -652,7 +652,7 @@ class SnowflakeV2Source(
                 )
             return
 
-        if self.config.extract_tags is not TagOption.skip:
+        if self.config.extract_tags != TagOption.skip:
             snowflake_db.tags = self.tag_extractor.get_tags_on_object(
                 domain="database", db_name=db_name
             )
@@ -710,7 +710,7 @@ class SnowflakeV2Source(
 
         schema_name = snowflake_schema.name
 
-        if self.config.extract_tags is not TagOption.skip:
+        if self.config.extract_tags != TagOption.skip:
             snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
                 schema_name=schema_name, db_name=db_name, domain="schema"
             )
@@ -806,7 +806,7 @@ class SnowflakeV2Source(
             table, schema_name, db_name, dataset_name
         )
 
-        if self.config.extract_tags is not TagOption.skip:
+        if self.config.extract_tags != TagOption.skip:
             table.tags = self.tag_extractor.get_tags_on_object(
                 table_name=table.name,
                 schema_name=schema_name,
@@ -877,7 +877,7 @@ class SnowflakeV2Source(
     def fetch_columns_for_table(self, table, schema_name, db_name, table_identifier):
         try:
             table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
-            if self.config.extract_tags is not TagOption.skip:
+            if self.config.extract_tags != TagOption.skip:
                 table.column_tags = self.tag_extractor.get_column_tags_for_table(
                     table.name, schema_name, db_name
                 )
@@ -904,7 +904,7 @@ class SnowflakeV2Source(
 
         try:
             view.columns = self.get_columns_for_table(view.name, schema_name, db_name)
-            if self.config.extract_tags is not TagOption.skip:
+            if self.config.extract_tags != TagOption.skip:
                 view.column_tags = self.tag_extractor.get_column_tags_for_table(
                     view.name, schema_name, db_name
                 )
@@ -915,8 +915,7 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get columns for view", view_name)
 
-        if self.config.extract_tags is not TagOption.skip:
-            # TODO: make sure this works for views
+        if self.config.extract_tags != TagOption.skip:
             view.tags = self.tag_extractor.get_tags_on_object(
                 table_name=view.name,
                 schema_name=schema_name,
@@ -935,7 +934,7 @@ class SnowflakeV2Source(
         yield from self.gen_dataset_workunits(view, schema_name, db_name)
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
-        tag_identifier = str(tag)
+        tag_identifier = tag.identifier()
 
         if self.report.is_tag_processed(tag_identifier):
             return
@@ -1061,7 +1060,7 @@ class SnowflakeV2Source(
 
         tag_properties_aspect = TagProperties(
             name=tag_key,
-            description=f"Represents the Snowflake tag `{tag.id_as_str()}` with value `{tag.value}`.",
+            description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
         )
 
         self.stale_entity_removal_handler.add_entity_to_state("tag", tag_urn)

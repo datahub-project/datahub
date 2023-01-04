@@ -62,7 +62,7 @@ class SnowflakeV2Config(
 
     extract_tags: TagOption = Field(
         default=TagOption.skip,
-        description="""Optionally. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default).
+        description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default).
         `without_lineage` only extracts tags that have been applied directly to the given entity.
         `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower.
         See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
@@ -93,7 +93,7 @@ class SnowflakeV2Config(
 
     tag_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="List of regex patterns for tags to include in ingestion.",
+        description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
     )
 
     @root_validator(pre=False)
