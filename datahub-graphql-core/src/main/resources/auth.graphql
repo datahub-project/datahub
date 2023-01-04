@@ -258,4 +258,9 @@ type EntityPrivileges {
   Whether or not a user can create or delete lineage edges for an entity.
   """
   canEditLineage: Boolean
+
+  """
+  Whether or not a user update the embed information
+  """
+  canEditEmbed: Boolean
 }
