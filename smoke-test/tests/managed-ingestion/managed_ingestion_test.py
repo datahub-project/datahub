@@ -389,7 +389,7 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
     assert ingestion_source["urn"] == ingestion_source_urn
     assert ingestion_source["type"] == "mysql"
     assert ingestion_source["name"] == "My Test Ingestion Source"
-    assert ingestion_source["schedule"]["interval"] == "*/5 * * * *"
+    assert ingestion_source["schedule"]["interval"] == "*/60 * * * *"
     assert ingestion_source["schedule"]["timezone"] == "UTC"
     assert (
         ingestion_source["config"]["recipe"]
