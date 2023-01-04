@@ -1009,7 +1009,7 @@ class KafkaConnectSource(Source):
                 elif connector_manifest.config.get("connector.class", "").startswith(
                     "io.debezium.connector"
                 ):
-                    connector_version = connector_version_dict.get(connector_manifest.config.get("connector.class", ""))
+                    connector_version = connector_version_dict.get(connector_manifest.config["connector.class"])
                     connector_manifest = DebeziumSourceConnector(
                         connector_manifest=connector_manifest, config=self.config, version=connector_version
                     ).connector_manifest
