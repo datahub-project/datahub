@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { EntityType } from '../../types.generated';
 import { useEntityData } from '../entity/shared/EntityContext';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 
 const StyledEmpty = styled(Empty)`
@@ -32,8 +33,10 @@ function EmptyGlossarySection(props: Props) {
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
+    const user = useGetAuthenticatedUser();
+    const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
     const { entityData } = useEntityData();
-    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren || canManageGlossaries;
 
     return (
         <>
