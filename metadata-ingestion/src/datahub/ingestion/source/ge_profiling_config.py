@@ -87,6 +87,10 @@ class GEProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the sample values for all columns.",
     )
+    field_sample_values_limit: int = Field(
+        default=20,
+        description="Upper limit for number of sample values to collect for all columns.",
+    )
 
     _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
         default=AllowDenyPattern.allow_all(),
@@ -97,7 +101,7 @@ class GEProfilingConfig(ConfigModel):
     )
 
     profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
-        default=1,
+        default=None,
         description="Profile table only if it has been updated since these many number of days. If set to `null`, no constraint of last modified time for tables to profile. Supported only in `snowflake` and `BigQuery`.",
     )
 

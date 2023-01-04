@@ -17,7 +17,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerClass,
@@ -186,11 +185,8 @@ def wrap_aspect_as_workunit(
     wu = MetadataWorkUnit(
         id=f"{aspectName}-for-{entityUrn}",
         mcp=MetadataChangeProposalWrapper(
-            entityType=entityName,
             entityUrn=entityUrn,
-            aspectName=aspectName,
             aspect=aspect,
-            changeType=ChangeType.UPSERT,
         ),
     )
     return wu
@@ -201,6 +197,7 @@ def gen_containers(
     name: str,
     sub_types: List[str],
     parent_container_key: Optional[PlatformKey] = None,
+    extra_properties: Optional[Dict[str, str]] = None,
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -221,7 +218,10 @@ def gen_containers(
         aspect=ContainerProperties(
             name=name,
             description=description,
-            customProperties=container_key.guid_dict(),
+            customProperties={
+                **container_key.guid_dict(),
+                **(extra_properties or {}),
+            },
             externalUrl=external_url,
             qualifiedName=qualified_name,
             created=TimeStamp(time=created) if created is not None else None,

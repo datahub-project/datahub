@@ -13,11 +13,7 @@ from tabulate import tabulate
 from datahub.cli import cli_utils
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    StatusClass,
-    SystemMetadataClass,
-)
+from datahub.metadata.schema_classes import StatusClass, SystemMetadataClass
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import guess_entity_type
@@ -207,7 +203,6 @@ def delete(
             aspect_name=aspect_name,
             soft=soft,
             dry_run=dry_run,
-            entity_type=entity_type,
             start_time=start_time,
             end_time=end_time,
             cached_session_host=(session, host),
@@ -341,7 +336,6 @@ def delete_with_filters(
                 urn,
                 soft=soft,
                 aspect_name=aspect_name,
-                entity_type=entity_type,
                 dry_run=dry_run,
                 cached_session_host=(session, gms_host),
                 cached_emitter=emitter,
@@ -354,7 +348,6 @@ def delete_with_filters(
             one_result = _delete_one_urn(
                 urn,
                 soft=soft,
-                entity_type=entity_type,
                 dry_run=dry_run,
                 cached_session_host=(session, gms_host),
                 cached_emitter=emitter,
@@ -370,16 +363,16 @@ def _delete_one_urn(
     urn: str,
     soft: bool = False,
     dry_run: bool = False,
-    entity_type: str = "dataset",
     aspect_name: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
     run_id: str = "delete-run-id",
-    deletion_timestamp: int = _get_current_time(),
+    deletion_timestamp: Optional[int] = None,
     is_soft_deleted: Optional[bool] = None,
 ) -> DeletionResult:
+    deletion_timestamp = deletion_timestamp or _get_current_time()
     soft_delete_msg: str = ""
     if dry_run and is_soft_deleted:
         soft_delete_msg = "(soft-deleted)"
@@ -403,10 +396,7 @@ def _delete_one_urn(
         if not dry_run:
             emitter.emit_mcp(
                 MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=urn,
-                    aspectName="status",
                     aspect=StatusClass(removed=True),
                     systemMetadata=SystemMetadataClass(
                         runId=run_id, lastObserved=deletion_timestamp
@@ -448,7 +438,6 @@ def delete_one_urn_cmd(
     aspect_name: Optional[str] = None,
     soft: bool = False,
     dry_run: bool = False,
-    entity_type: str = "dataset",
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
@@ -464,7 +453,6 @@ def delete_one_urn_cmd(
         urn,
         soft,
         dry_run,
-        entity_type,
         aspect_name,
         start_time,
         end_time,

@@ -58,6 +58,11 @@ Cypress.Commands.add("goToViewsSettings", () => {
   cy.waitTextVisible("Manage Views");
 });
 
+Cypress.Commands.add("goToIngestionPage", () => {
+  cy.visit("/ingestion");
+  cy.waitTextVisible("Manage Ingestion");
+});
+
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
@@ -85,7 +90,7 @@ Cypress.Commands.add("goToDomain", (urn) => {
 
 Cypress.Commands.add("goToAnalytics", () => {
   cy.visit("/analytics");
-  cy.waitTextVisible("Data Landscape Summary");
+  cy.contains("Data Landscape Summary", {timeout: 10000});
 });
 
 Cypress.Commands.add("goToUserList", () => {
@@ -152,7 +157,7 @@ Cypress.Commands.add("enterTextInTestId", (id, text) => {
 })
 
 Cypress.Commands.add("clickOptionWithTestId", (id) => {
-  cy.get(selectorWithtestId(id)).click({
+  cy.get(selectorWithtestId(id)).first().click({
     force: true,
   });
 })

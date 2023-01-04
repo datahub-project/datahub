@@ -111,6 +111,7 @@ import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.AddRelatedTermsResolver;
@@ -410,57 +411,41 @@ public class GmsGraphQLEngine {
      */
     public final List<BrowsableEntityType<?, ?>> browsableTypes;
 
-    public GmsGraphQLEngine(final EntityClient entityClient, final GraphClient graphClient,
-        final UsageClient usageClient, final AnalyticsService analyticsService, final EntityService entityService,
-        final RecommendationsService recommendationsService, final StatefulTokenService statefulTokenService,
-        final TimeseriesAspectService timeseriesAspectService, final EntityRegistry entityRegistry,
-        final SecretService secretService, final NativeUserService nativeUserService,
-        final IngestionConfiguration ingestionConfiguration,
-        final AuthenticationConfiguration authenticationConfiguration,
-        final AuthorizationConfiguration authorizationConfiguration, final GitVersion gitVersion,
-        final TimelineService timelineService, final boolean supportsImpactAnalysis,
-        final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
-        final TestsConfiguration testsConfiguration, final DataHubConfiguration datahubConfiguration,
-        final ViewsConfiguration viewsConfiguration, final SiblingGraphService siblingGraphService,
-        final GroupService groupService, final RoleService roleService,
-        final InviteTokenService inviteTokenService, final PostService postService,
-        final ViewService viewService,
-        final SettingsService settingsService, final LineageService lineageService,
-        final FeatureFlags featureFlags) {
+    public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
 
-        this.entityClient = entityClient;
-        this.graphClient = graphClient;
-        this.usageClient = usageClient;
-        this.siblingGraphService = siblingGraphService;
+        this.entityClient = args.entityClient;
+        this.graphClient = args.graphClient;
+        this.usageClient = args.usageClient;
+        this.siblingGraphService = args.siblingGraphService;
 
-        this.analyticsService = analyticsService;
-        this.entityService = entityService;
-        this.recommendationsService = recommendationsService;
-        this.statefulTokenService = statefulTokenService;
-        this.secretService = secretService;
-        this.entityRegistry = entityRegistry;
-        this.gitVersion = gitVersion;
-        this.supportsImpactAnalysis = supportsImpactAnalysis;
-        this.timeseriesAspectService = timeseriesAspectService;
-        this.timelineService = timelineService;
-        this.nativeUserService = nativeUserService;
-        this.groupService = groupService;
-        this.roleService = roleService;
-        this.inviteTokenService = inviteTokenService;
-        this.postService = postService;
-        this.viewService = viewService;
-        this.settingsService = settingsService;
-        this.lineageService = lineageService;
+        this.analyticsService = args.analyticsService;
+        this.entityService = args.entityService;
+        this.recommendationsService = args.recommendationsService;
+        this.statefulTokenService = args.statefulTokenService;
+        this.secretService = args.secretService;
+        this.entityRegistry = args.entityRegistry;
+        this.gitVersion = args.gitVersion;
+        this.supportsImpactAnalysis = args.supportsImpactAnalysis;
+        this.timeseriesAspectService = args.timeseriesAspectService;
+        this.timelineService = args.timelineService;
+        this.nativeUserService = args.nativeUserService;
+        this.groupService = args.groupService;
+        this.roleService = args.roleService;
+        this.inviteTokenService = args.inviteTokenService;
+        this.postService = args.postService;
+        this.viewService = args.viewService;
+        this.settingsService = args.settingsService;
+        this.lineageService = args.lineageService;
 
-        this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
-        this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
-        this.authorizationConfiguration = Objects.requireNonNull(authorizationConfiguration);
-        this.visualConfiguration = visualConfiguration;
-        this.telemetryConfiguration = telemetryConfiguration;
-        this.testsConfiguration = testsConfiguration;
-        this.datahubConfiguration = datahubConfiguration;
-        this.viewsConfiguration = viewsConfiguration;
-        this.featureFlags = featureFlags;
+        this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
+        this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
+        this.authorizationConfiguration = Objects.requireNonNull(args.authorizationConfiguration);
+        this.visualConfiguration = args.visualConfiguration;
+        this.telemetryConfiguration = args.telemetryConfiguration;
+        this.testsConfiguration = args.testsConfiguration;
+        this.datahubConfiguration = args.datahubConfiguration;
+        this.viewsConfiguration = args.viewsConfiguration;
+        this.featureFlags = args.featureFlags;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient, featureFlags);
@@ -868,6 +853,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateGlobalViewsSettings", new UpdateGlobalViewsSettingsResolver(this.settingsService))
             .dataFetcher("updateCorpUserViewsSettings", new UpdateCorpUserViewsSettingsResolver(this.settingsService))
             .dataFetcher("updateLineage", new UpdateLineageResolver(this.entityService, this.lineageService))
+            .dataFetcher("updateEmbed", new UpdateEmbedResolver(this.entityService))
         );
     }
 
