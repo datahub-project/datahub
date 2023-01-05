@@ -53,7 +53,11 @@ Optionally you could also start the app with the mock server without running the
 
 ### Functional testing
 
-The smoke tests for the application are in the `smoke-test` folder of the repository root.
+In order to start a server and run frontend unit tests using react-testing-framework, run:
+
+`yarn test :e2e`
+
+There are also more automated tests using Cypress in the `smoke-test` folder of the repository root.
 
 #### Troubleshooting
 `Error: error:0308010C:digital envelope routines::unsupported`: This error message shows up when using Node 17, due to an OpenSSL update related to md5.  

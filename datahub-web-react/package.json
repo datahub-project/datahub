@@ -103,6 +103,7 @@
         "build": "yarn run generate && CI=false REACT_APP_MOCK=false craco build && rm -rf dist/ && cp -r build/yarn/ dist/ && rm -r build/yarn/",
         "test": "craco test",
         "pretest:e2e:ci": "yarn generate",
+        "test:e2e": "start-server-and-test start:e2e 3010",
         "eject": "react-scripts eject",
         "generate": "graphql-codegen --config codegen.yml",
         "lint": "eslint . --ext .ts,.tsx --quiet",
