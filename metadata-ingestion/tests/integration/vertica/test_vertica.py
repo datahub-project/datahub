@@ -28,7 +28,9 @@ def test_vertica_ingest_with_db(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/vertica"
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "vertica_to_file.yml").resolve()
-    run_datahub_cmd(["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path)
+    run_datahub_cmd(
+        ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+    )
 
     # Verify the output.
     mce_helpers.check_golden_file(

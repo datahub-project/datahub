@@ -1,4 +1,3 @@
-
 import logging
 import traceback
 from collections import defaultdict
@@ -47,6 +46,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     SubTypesClass,
     UpstreamClass,
+    _Aspect,
 )
 from datahub.utilities import config_clean
 
@@ -193,11 +193,6 @@ class VerticaSource(SQLAlchemySource):
                     profile_requests += list(
                         self.loop_profiler_requests(inspector, schema, sql_config)
                     )
-                    profile_requests += list(
-                        self.loop_profiler_requests_for_projections(
-                            inspector, schema, sql_config
-                        )
-                    )
 
             if profiler and profile_requests:
                 yield from self.loop_profiler(
@@ -221,6 +216,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(
                 f"{database}", f"unable to get extra_properties : {ex}"
             )
+        return None
 
     def get_schema_properties(
         self, inspector: Inspector, database: str, schema: str
@@ -232,6 +228,7 @@ class VerticaSource(SQLAlchemySource):
             self.report.report_failure(
                 f"{database}.{schema}", f"unable to get extra_properties : {ex}"
             )
+        return None
 
     def _process_table(
         self,
@@ -311,6 +308,7 @@ class VerticaSource(SQLAlchemySource):
                         if lineage_info is not None:
                             # Emit the lineage work unit
                             # upstream_column_props = []
+
                             upstream_lineage = lineage_info
                             lineage_mcpw = MetadataChangeProposalWrapper(
                                 entityType="dataset",
@@ -591,7 +589,6 @@ class VerticaSource(SQLAlchemySource):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -785,7 +782,6 @@ class VerticaSource(SQLAlchemySource):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -965,7 +961,6 @@ class VerticaSource(SQLAlchemySource):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -1014,7 +1009,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: Inspector,
         profile_candidates: Optional[List[str]],
     ) -> bool:
-        """Return whether table, view or projection is  eligible for profiling
+        """Return whether projection is  eligible for profiling
         Args:
             dataset_name (str): dataset name
             sql_config (SQLAlchemyConfig): configuration
@@ -1023,17 +1018,14 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             bool: returns bool
         """
-        super().is_dataset_eligible_for_profiling(dataset_name,
-                                                  sql_config, inspector, profile_candidates
-                                                  )
-        return (
-
-            sql_config.projection_pattern.allowed(dataset_name)
-            and sql_config.profile_pattern.allowed(dataset_name)
-
+        super().is_dataset_eligible_for_profiling(
+            dataset_name, sql_config, inspector, profile_candidates
         )
+        return sql_config.projection_pattern.allowed(
+            dataset_name
+        ) and sql_config.profile_pattern.allowed(dataset_name)
 
-    def loop_profiler_requests_for_projections(
+    def loop_profiler_requests(
         self,
         inspector: Inspector,
         schema: str,
@@ -1049,27 +1041,7 @@ class VerticaSource(SQLAlchemySource):
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
-        # if (
-        #     sql_config.profiling.profile_if_updated_since_days is not None
-        #     or sql_config.profiling.profile_table_size_limit is not None
-        #     or sql_config.profiling.profile_table_row_limit is None
-        # ):
-        #     try:
-        #         threshold_time: Optional[datetime.datetime] = None
-        #         if sql_config.profiling.profile_if_updated_since_days is not None:
-        #             threshold_time = datetime.datetime.now(
-        #                 datetime.timezone.utc
-        #             ) - datetime.timedelta(
-        #                 sql_config.profiling.profile_if_updated_since_days
-        #             )
-        #         profile_candidates = self.generate_profile_candidates(
-        #             inspector, threshold_time, schema
-        #         )
-        #     except NotImplementedError:
-        #         logger.debug("Source does not support generating profile candidates.")
-        super().loop_profiler_requests(
-            inspector, schema, sql_config
-        )
+        yield from super().loop_profiler_requests(inspector, schema, sql_config)
         for projection in inspector.get_projection_names(schema):
 
             schema, projection = self.standardize_schema_table_names(
@@ -1134,7 +1106,7 @@ class VerticaSource(SQLAlchemySource):
 
     def _get_upstream_lineage_info(
         self, dataset_urn: str, view: str
-    ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
+    ) -> Optional[_Aspect]:
 
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
@@ -1249,7 +1221,7 @@ class VerticaSource(SQLAlchemySource):
 
     def _get_upstream_lineage_info_projection(
         self, dataset_urn: str, projection: str
-    ) -> Optional[Tuple[UpstreamLineage, Dict[str, str]]]:
+    ) -> Optional[_Aspect]:
 
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
@@ -1347,7 +1319,7 @@ class VerticaSource(SQLAlchemySource):
             f"A total of {num_edges} Projection lineage edges found for {projection}."
         )
 
-    def _get_owner_information(self, table: str, label: str):
+    def _get_owner_information(self, table: str, label: str) -> Optional[str]:
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
         if label == "table":
@@ -1393,6 +1365,8 @@ class VerticaSource(SQLAlchemySource):
 
             for each in engine.execute(get_owner_query):
                 return each["owner_name"]
+
+        return None
 
     def close(self):
         self.prepare_for_commit()
