@@ -43,6 +43,7 @@ import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import org.elasticsearch.tasks.TaskInfo;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
@@ -343,7 +344,7 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
-  public void configure() {
+  public void configure(List<TaskInfo> taskInfos) {
     // Do nothing
   }
 

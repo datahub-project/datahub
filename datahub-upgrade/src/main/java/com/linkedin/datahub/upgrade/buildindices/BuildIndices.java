@@ -63,7 +63,7 @@ public class BuildIndices implements Upgrade {
       // Disable ES write mode/change refresh rate and clone indices
       steps.add(new PreConfigureESStep(baseElasticSearchComponents, indexedServices, configurationProvider));
       // Configure graphService, entitySearchService, systemMetadataService, timeseriesAspectService
-      steps.add(new BuildIndicesStep(indexedServices));
+      steps.add(new BuildIndicesStep(indexedServices, gitVersion, baseElasticSearchComponents.getSearchClient()));
       // Reset configuration (and delete clones? Or just do this regularly? Or delete clone in pre-configure step if it already exists?
       steps.add(new PostBuildIndicesStep(baseElasticSearchComponents, indexedServices, eventProducer, gitVersion));
       return steps;

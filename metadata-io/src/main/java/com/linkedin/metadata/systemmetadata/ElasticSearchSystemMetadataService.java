@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -37,6 +38,7 @@ import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.metrics.ParsedMax;
+import org.elasticsearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -195,10 +197,19 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public void configure() {
+  public void configure(List<TaskInfo> taskInfos) {
     log.info("Setting up system metadata index");
     try {
       for (ReindexConfig config : getReindexConfigs()) {
+        Optional<TaskInfo> taskInfo = taskInfos.stream()
+            .filter(info ->
+                ESUtils.getOpaqueIdHeaderValue(_indexBuilder.getGitVersion().getVersion(), config.name())
+                    .equals(info.getHeaders().get(ESUtils.OPAQUE_ID_HEADER))).findFirst();
+        if (taskInfo.isPresent()) {
+          log.info("Reindex task {} in progress with description {}. Attempting to continue task from breakpoint.",
+              taskInfo.get().getId(), taskInfo.get().getDescription());
+          continue;
+        }
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException ie) {
@@ -213,8 +224,8 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public void reindexAll() {
-    configure();
+  public void reindexAll(List<TaskInfo> taskInfos) {
+    configure(taskInfos);
   }
 
   @VisibleForTesting

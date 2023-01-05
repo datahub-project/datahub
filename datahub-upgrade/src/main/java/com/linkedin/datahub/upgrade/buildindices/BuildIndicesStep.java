@@ -4,12 +4,19 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 
+import com.linkedin.metadata.version.GitVersion;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -17,6 +24,8 @@ import lombok.extern.slf4j.Slf4j;
 public class BuildIndicesStep implements UpgradeStep {
 
   private final List<ElasticSearchIndexed> _services;
+  private final GitVersion _gitVersion;
+  private final RestHighLevelClient _searchClient;
 
   @Override
   public String id() {
@@ -33,7 +42,10 @@ public class BuildIndicesStep implements UpgradeStep {
     return (context) -> {
       try {
         for (ElasticSearchIndexed service : _services) {
-          service.reindexAll();
+          ListTasksRequest request = new ListTasksRequest()
+              .setWaitForCompletion(true);
+          List<TaskInfo> taskInfos = _searchClient.tasks().list(request, RequestOptions.DEFAULT).getTasks();
+          service.reindexAll(taskInfos);
         }
       } catch (Exception e) {
         log.error("BuildIndicesStep failed.", e);

@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -37,8 +38,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ESWriteDAO esWriteDAO;
 
   @Override
-  public void configure() {
-    indexBuilders.reindexAll();
+  public void configure(List<TaskInfo> taskInfos) {
+    indexBuilders.reindexAll(taskInfos);
   }
 
   @Override
@@ -47,8 +48,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public void reindexAll() {
-    configure();
+  public void reindexAll(List<TaskInfo> taskInfos) {
+    configure(taskInfos);
   }
 
   @Override

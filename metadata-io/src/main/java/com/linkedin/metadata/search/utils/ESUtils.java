@@ -6,12 +6,14 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -30,6 +32,7 @@ public class ESUtils {
 
   public static final String KEYWORD_SUFFIX = ".keyword";
   public static final int MAX_RESULT_SIZE = 10000;
+  public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
 
   // we use this to make sure we filter for editable & non-editable fields
   public static final String[][] EDITABLE_FIELD_TO_QUERY_PAIRS = {
@@ -238,5 +241,15 @@ public class ESUtils {
   @Nullable
   public static String toFacetField(@Nonnull final String filterField) {
     return filterField.replace(ESUtils.KEYWORD_SUFFIX, "");
+  }
+
+  public static RequestOptions buildReindexTaskRequestOptions(String version, String indexName) {
+    return RequestOptions.DEFAULT.toBuilder()
+        .addHeader(OPAQUE_ID_HEADER, getOpaqueIdHeaderValue(version, indexName))
+        .build();
+  }
+
+  public static String getOpaqueIdHeaderValue(String version, String indexName) {
+    return version + "_" + indexName;
   }
 }

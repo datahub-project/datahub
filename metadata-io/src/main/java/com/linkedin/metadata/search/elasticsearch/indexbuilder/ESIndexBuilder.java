@@ -2,6 +2,8 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.ImmutableMap;
 
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.version.GitVersion;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -74,13 +76,17 @@ public class ESIndexBuilder {
   @Getter
   private final ElasticSearchConfiguration elasticSearchConfiguration;
 
+  @Getter
+  private final GitVersion gitVersion;
+
 
   public ReindexConfig buildReindexState(String indexName, Map<String, Object> mappings, Map<String, Object> settings) throws IOException {
     ReindexConfig.ReindexConfigBuilder builder = ReindexConfig.builder()
             .name(indexName)
             .enableIndexSettingsReindex(enableIndexSettingsReindex)
             .enableIndexMappingsReindex(enableIndexMappingsReindex)
-            .targetMappings(mappings);
+            .targetMappings(mappings)
+            .version(gitVersion.getVersion());
 
     Map<String, Object> baseSettings = new HashMap<>(settings);
     baseSettings.put("number_of_shards", numShards);
@@ -187,7 +193,8 @@ public class ESIndexBuilder {
               .setTimeout(TimeValue.timeValueHours(maxReindexHours))
               .setSourceBatchSize(2500);
 
-      TaskSubmissionResponse reindexTask = searchClient.submitReindexTask(reindexRequest, RequestOptions.DEFAULT);
+      RequestOptions requestOptions = ESUtils.buildReindexTaskRequestOptions(gitVersion.getVersion(), indexName);
+      TaskSubmissionResponse reindexTask = searchClient.submitReindexTask(reindexRequest, requestOptions);
 
       boolean reindexTaskCompleted = false;
       int count = 0;

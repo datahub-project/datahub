@@ -56,6 +56,7 @@ import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.elasticsearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -113,8 +114,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public void configure() {
-    _indexBuilders.reindexAll();
+  public void configure(List<TaskInfo> taskInfos) {
+    _indexBuilders.reindexAll(taskInfos);
   }
 
   @Override
@@ -123,8 +124,8 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   }
 
   @Override
-  public void reindexAll() {
-    configure();
+  public void reindexAll(List<TaskInfo> taskInfos) {
+    configure(taskInfos);
   }
 
   @Override

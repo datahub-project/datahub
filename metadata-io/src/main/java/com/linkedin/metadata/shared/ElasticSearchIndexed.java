@@ -4,6 +4,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 
 import java.io.IOException;
 import java.util.List;
+import org.elasticsearch.tasks.TaskInfo;
+
 
 public interface ElasticSearchIndexed {
     /**
@@ -17,5 +19,5 @@ public interface ElasticSearchIndexed {
      * are expected to build/reindex as needed based
      * on the reindex configurations above
      */
-    void reindexAll() throws IOException;
+    void reindexAll(List<TaskInfo> taskInfos) throws IOException;
 }

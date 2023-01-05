@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.collections.CollectionUtils;
+import org.elasticsearch.tasks.TaskInfo;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
@@ -204,7 +205,7 @@ public interface GraphService {
   void removeEdgesFromNode(@Nonnull final Urn urn, @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter);
 
-  void configure();
+  void configure(List<TaskInfo> taskInfos);
 
   /**
    * Removes all edges and nodes from the graph.

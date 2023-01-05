@@ -39,6 +39,8 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
+import org.elasticsearch.tasks.TaskInfo;
+
 
 @Slf4j
 public class DgraphGraphService implements GraphService {
@@ -675,7 +677,7 @@ public class DgraphGraphService implements GraphService {
     }
 
     @Override
-    public void configure() { }
+    public void configure(List<TaskInfo> taskInfos) { }
 
     @Override
     public void clear() {
