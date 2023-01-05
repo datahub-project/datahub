@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;

@@ -1,0 +1,20 @@
+plugins:
+  - name: "apache-ranger-authorizer"
+    type: "authorizer"
+    enabled: "true"
+    params:
+      className: "com.datahub.authorization.ranger.RangerAuthorizer"
+      jarFileName: "apache-ranger-authorizer-v2.0.1.jar"
+      configs:
+        username: "foo"
+        password: "bar"
+
+  - name: "apache-ranger-authenticator"
+    type: "authenticator"
+    enabled: "true"
+    params:
+      className: "com.datahub.authorization.ranger.RangerAuthorizer"
+      jarFileName: "apache-ranger-authenticator-v1.0.1.jar"
+      configs:
+        username: "foo"
+        password: "bar"

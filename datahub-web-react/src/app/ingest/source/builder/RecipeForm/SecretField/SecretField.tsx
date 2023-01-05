@@ -1,10 +1,12 @@
 import React, { ReactNode } from 'react';
-import { AutoComplete, Divider, Form, FormInstance } from 'antd';
+import { AutoComplete, Divider, Form } from 'antd';
+import { useApolloClient } from '@apollo/client';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
 import { RecipeField } from '../common';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
+import { clearSecretListCache } from '../../../../secret/cacheUtils';
 
 const StyledDivider = styled(Divider)`
     margin: 0;
@@ -52,7 +54,7 @@ interface SecretFieldProps {
     secrets: Secret[];
     removeMargin?: boolean;
     refetchSecrets: () => void;
-    form: FormInstance<any>;
+    updateFormValue: (field, value) => void;
 }
 
 function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {
@@ -84,8 +86,9 @@ const encodeSecret = (secretName: string) => {
     return `\${${secretName}}`;
 };
 
-function SecretField({ field, secrets, removeMargin, form, refetchSecrets }: SecretFieldProps) {
+function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSecrets }: SecretFieldProps) {
     const options = secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name }));
+    const apolloClient = useApolloClient();
 
     return (
         <StyledFormItem
@@ -108,9 +111,10 @@ function SecretField({ field, secrets, removeMargin, form, refetchSecrets }: Sec
                             {menu}
                             <StyledDivider />
                             <CreateSecretButton
-                                onSubmit={(state) =>
-                                    form.setFields([{ name: field.name, value: encodeSecret(state.name as string) }])
-                                }
+                                onSubmit={(state) => {
+                                    updateFormValue(field.name, encodeSecret(state.name as string));
+                                    setTimeout(() => clearSecretListCache(apolloClient), 3000);
+                                }}
                                 refetchSecrets={refetchSecrets}
                             />
                         </>

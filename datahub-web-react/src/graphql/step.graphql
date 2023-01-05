@@ -1,0 +1,20 @@
+query batchGetStepStates($input: BatchGetStepStatesInput!) {
+    batchGetStepStates(input: $input) {
+        results {
+            id
+            properties {
+                key
+                value
+            }
+        }
+    }
+}
+
+mutation batchUpdateStepStates($input: BatchUpdateStepStatesInput!) {
+    batchUpdateStepStates(input: $input) {
+        results {
+            id
+            succeeded
+        }
+    }
+}

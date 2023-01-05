@@ -60,8 +60,9 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     }
     if (recipeObj) {
         allFields.forEach((field) => {
-            initialValues[field.name] =
-                field.getValueFromRecipeOverride?.(recipeObj) || get(recipeObj, field.fieldPath);
+            initialValues[field.name] = field.getValueFromRecipeOverride
+                ? field.getValueFromRecipeOverride(recipeObj)
+                : get(recipeObj, field.fieldPath);
         });
     }
 
@@ -123,14 +124,19 @@ function RecipeForm(props: Props) {
         Object.keys(changedValues).forEach((fieldName) => {
             const recipeField = allFields.find((f) => f.name === fieldName);
             if (recipeField) {
-                updatedValues =
-                    recipeField.setValueOnRecipeOverride?.(updatedValues, allValues[fieldName]) ||
-                    setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
+                updatedValues = recipeField.setValueOnRecipeOverride
+                    ? recipeField.setValueOnRecipeOverride(updatedValues, allValues[fieldName])
+                    : setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
             }
         });
 
         const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
         setStagedRecipe(stagedRecipe);
+    }
+
+    function updateFormValue(fieldName, fieldValue) {
+        updateFormValues({ [fieldName]: fieldValue }, { [fieldName]: fieldValue });
+        form.setFieldsValue({ [fieldName]: fieldValue });
     }
 
     return (
@@ -149,7 +155,7 @@ function RecipeForm(props: Props) {
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
                             removeMargin={i === fields.length - 1}
-                            form={form}
+                            updateFormValue={updateFormValue}
                         />
                     ))}
                     {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
@@ -187,7 +193,7 @@ function RecipeForm(props: Props) {
                                         secrets={secrets}
                                         refetchSecrets={refetchSecrets}
                                         removeMargin={i === filterFields.length - 1}
-                                        form={form}
+                                        updateFormValue={updateFormValue}
                                     />
                                 </MarginWrapper>
                             </>
@@ -213,7 +219,7 @@ function RecipeForm(props: Props) {
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
                             removeMargin={i === advancedFields.length - 1}
-                            form={form}
+                            updateFormValue={updateFormValue}
                         />
                     ))}
                 </Collapse.Panel>

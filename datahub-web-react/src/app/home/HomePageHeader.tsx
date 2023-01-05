@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag } from 'antd';
-import styled, { useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components/macro';
 import { RightOutlined } from '@ant-design/icons';
 import { ManageAccount } from '../shared/ManageAccount';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
@@ -19,6 +19,7 @@ import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
+import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
 
 const Background = styled.div`
     width: 100%;
@@ -249,7 +250,7 @@ export const HomePageHeader = () => {
                 {!!themeConfig.content.subtitle && (
                     <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
                 )}
-                <SearchBarContainer>
+                <SearchBarContainer id={HOME_PAGE_SEARCH_BAR_ID}>
                     <SearchBar
                         placeholderText={themeConfig.content.search.searchbarMessage}
                         suggestions={newSuggestionData?.autoCompleteForMultiple?.suggestions || []}

@@ -12,9 +12,11 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    DataPlatformInstance,
+    TimeStamp,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerClass,
@@ -119,7 +121,6 @@ class S3BucketKey(PlatformKey):
 
 
 class DatahubKeyJSONEncoder(json.JSONEncoder):
-
     # overload method default
     def default(self, obj: Any) -> Any:
         if hasattr(obj, "guid"):
@@ -188,11 +189,8 @@ def wrap_aspect_as_workunit(
     wu = MetadataWorkUnit(
         id=f"{aspectName}-for-{entityUrn}",
         mcp=MetadataChangeProposalWrapper(
-            entityType=entityName,
             entityUrn=entityUrn,
-            aspectName=aspectName,
             aspect=aspect,
-            changeType=ChangeType.UPSERT,
         ),
     )
     return wu
@@ -203,12 +201,15 @@ def gen_containers(
     name: str,
     sub_types: List[str],
     parent_container_key: Optional[PlatformKey] = None,
+    extra_properties: Optional[Dict[str, str]] = None,
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
     external_url: Optional[str] = None,
     tags: Optional[List[str]] = None,
     qualified_name: Optional[str] = None,
+    created: Optional[int] = None,
+    last_modified: Optional[int] = None,
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
@@ -221,9 +222,16 @@ def gen_containers(
         aspect=ContainerProperties(
             name=name,
             description=description,
-            customProperties=container_key.guid_dict(),
+            customProperties={
+                **container_key.guid_dict(),
+                **(extra_properties or {}),
+            },
             externalUrl=external_url,
             qualifiedName=qualified_name,
+            created=TimeStamp(time=created) if created is not None else None,
+            lastModified=TimeStamp(time=last_modified)
+            if last_modified is not None
+            else None,
         ),
     )
     wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)

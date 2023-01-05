@@ -86,7 +86,6 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-
         in_dataset_properties_aspect: DatasetPropertiesClass = cast(
             DatasetPropertiesClass, aspect
         )

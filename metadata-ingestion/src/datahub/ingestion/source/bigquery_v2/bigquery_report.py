@@ -6,13 +6,13 @@ from typing import Counter, Dict, List, Optional
 
 import pydantic
 
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.stats_collections import TopKDict
 
 
 @dataclass
-class BigQueryV2Report(SQLSourceReport):
+class BigQueryV2Report(ProfilingSqlReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=TopKDict
@@ -55,7 +55,6 @@ class BigQueryV2Report(SQLSourceReport):
     upstream_lineage: LossyDict = field(default_factory=LossyDict)
     partition_info: Dict[str, str] = field(default_factory=TopKDict)
     profile_table_selection_criteria: Dict[str, str] = field(default_factory=TopKDict)
-    num_tables_not_eligible_profiling: Dict[str, int] = field(default_factory=TopKDict)
     selected_profile_tables: Dict[str, List[str]] = field(default_factory=TopKDict)
     invalid_partition_ids: Dict[str, str] = field(default_factory=TopKDict)
     allow_pattern: Optional[str] = None

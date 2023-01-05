@@ -7,7 +7,7 @@ DataHub frontend is a [Play](https://www.playframework.com/) service written in 
 between [DataHub GMS](../metadata-service) which is the backend service and [DataHub Web](../datahub-web-react/README.md).
 
 ## Pre-requisites
-* You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html)
+* You need to have [JDK11](https://openjdk.org/projects/jdk/11/)
 installed on your machine to be able to build `DataHub Frontend`.
 * You need to have [Chrome](https://www.google.com/chrome/) web browser
 installed to be able to build because UI tests have a dependency on `Google Chrome`.

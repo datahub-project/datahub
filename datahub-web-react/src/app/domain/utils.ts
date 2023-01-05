@@ -3,7 +3,7 @@ import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.gene
 /**
  * Add an entry to the list domains cache.
  */
-export const addToListDomainsCache = (client, newDomain, pageSize, query) => {
+export const addToListDomainsCache = (client, newDomain, pageSize) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,
@@ -11,7 +11,6 @@ export const addToListDomainsCache = (client, newDomain, pageSize, query) => {
             input: {
                 start: 0,
                 count: pageSize,
-                query,
             },
         },
     });
@@ -26,7 +25,6 @@ export const addToListDomainsCache = (client, newDomain, pageSize, query) => {
             input: {
                 start: 0,
                 count: pageSize,
-                query,
             },
         },
         data: {
@@ -43,7 +41,7 @@ export const addToListDomainsCache = (client, newDomain, pageSize, query) => {
 /**
  * Remove an entry from the list domains cache.
  */
-export const removeFromListDomainsCache = (client, urn, page, pageSize, query) => {
+export const removeFromListDomainsCache = (client, urn, page, pageSize) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,
@@ -51,7 +49,6 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize, query) =
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
-                query,
             },
         },
     });
@@ -66,7 +63,6 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize, query) =
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
-                query,
             },
         },
         data: {

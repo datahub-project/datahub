@@ -371,7 +371,6 @@ class BaseStatGenerator(ABC):
         return query
 
     def generate_usage_stat_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-
         # No looker entities available to process stat generation
         if len(self.looker_models) == 0:
             return
