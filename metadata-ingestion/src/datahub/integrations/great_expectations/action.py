@@ -53,7 +53,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
 
@@ -170,30 +169,21 @@ class DataHubValidationAction(ValidationAction):
 
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_info_mcp = MetadataChangeProposalWrapper(
-                    entityType="assertion",
-                    changeType=ChangeType.UPSERT,
                     entityUrn=assertion["assertionUrn"],
-                    aspectName="assertionInfo",
                     aspect=assertion["assertionInfo"],
                 )
                 emitter.emit_mcp(assertion_info_mcp)
 
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_platform_mcp = MetadataChangeProposalWrapper(
-                    entityType="assertion",
-                    changeType=ChangeType.UPSERT,
                     entityUrn=assertion["assertionUrn"],
-                    aspectName="dataPlatformInstance",
                     aspect=assertion["assertionPlatform"],
                 )
                 emitter.emit_mcp(assertion_platform_mcp)
 
                 for assertionResult in assertion["assertionResults"]:
                     dataset_assertionResult_mcp = MetadataChangeProposalWrapper(
-                        entityType="assertion",
-                        changeType=ChangeType.UPSERT,
                         entityUrn=assertionResult.assertionUrn,
-                        aspectName="assertionRunEvent",
                         aspect=assertionResult,
                     )
 

@@ -75,7 +75,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     DataJobInfoClass,
@@ -87,14 +86,12 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
-    JobStatusClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
-    StatusClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -724,10 +721,7 @@ class GlueSource(StatefulIngestionSourceBase):
                             ]
                         )
                         mcp = MetadataChangeProposalWrapper(
-                            entityType="dataset",
                             entityUrn=mce.proposedSnapshot.urn,
-                            changeType=ChangeTypeClass.UPSERT,
-                            aspectName="upstreamLineage",
                             aspect=upstream_lineage,
                         )
                         return mcp
@@ -742,10 +736,7 @@ class GlueSource(StatefulIngestionSourceBase):
                             ]
                         )
                         mcp = MetadataChangeProposalWrapper(
-                            entityType="dataset",
                             entityUrn=s3_dataset_urn,
-                            changeType=ChangeTypeClass.UPSERT,
-                            aspectName="upstreamLineage",
                             aspect=upstream_lineage,
                         )
                         return mcp
@@ -827,10 +818,7 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=mce.proposedSnapshot.urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProfile",
             aspect=dataset_profile,
         )
         return mcp
@@ -942,12 +930,11 @@ class GlueSource(StatefulIngestionSourceBase):
         return None
 
     def _get_domain_wu(
-        self, dataset_name: str, entity_urn: str, entity_type: str
+        self, dataset_name: str, entity_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
@@ -997,7 +984,6 @@ class GlueSource(StatefulIngestionSourceBase):
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
                 entity_urn=dataset_urn,
-                entity_type="dataset",
             )
             yield from self.add_table_to_database_container(
                 dataset_urn=dataset_urn, db_name=database_name

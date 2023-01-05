@@ -5,7 +5,6 @@ import datahub.emitter.mce_builder as builder
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.configuration.common import ConfigModel
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub_provider._airflow_shims import Operator
 from datahub_provider.client.airflow_generator import AirflowGenerator
 from datahub_provider.entities import _Entity
 
@@ -14,6 +13,7 @@ if TYPE_CHECKING:
     from airflow.models.dagrun import DagRun
     from airflow.models.taskinstance import TaskInstance
 
+    from datahub_provider._airflow_shims import Operator
     from datahub_provider.hooks.datahub import DatahubGenericHook
 
 

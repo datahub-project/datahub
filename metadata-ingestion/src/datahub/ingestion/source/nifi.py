@@ -28,7 +28,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -983,10 +982,7 @@ class NifiSource(Source):
         flow_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataFlow",
             entityUrn=flow_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataFlowInfo",
             aspect=DataFlowInfoClass(
                 name=flow_name,
                 customProperties=flow_properties,
@@ -1017,10 +1013,7 @@ class NifiSource(Source):
             job_properties = {k: v for k, v in job_properties.items() if v is not None}
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataJob",
             entityUrn=job_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataJobInfo",
             aspect=DataJobInfoClass(
                 name=job_name,
                 type=job_type,
@@ -1043,10 +1036,7 @@ class NifiSource(Source):
         inputJobs.sort()
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataJob",
             entityUrn=job_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataJobInputOutput",
             aspect=DataJobInputOutputClass(
                 inputDatasets=inlets, outputDatasets=outlets, inputDatajobs=inputJobs
             ),
@@ -1073,10 +1063,7 @@ class NifiSource(Source):
             )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataPlatformInstance",
             aspect=DataPlatformInstanceClass(
                 platform=builder.make_data_platform_urn(dataset_platform)
             ),
@@ -1092,10 +1079,7 @@ class NifiSource(Source):
             yield wu
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProperties",
             aspect=DatasetPropertiesClass(
                 externalUrl=external_url, customProperties=datasetProperties
             ),

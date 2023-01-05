@@ -8,7 +8,6 @@ apply from: "../gradle/versioning/versioning.gradle"
 apply from: './play.gradle'
 
 ext {
-  docker_registry = 'linkedin'
   docker_repo = 'datahub-frontend-react'
   docker_dir = 'datahub-frontend'
 }

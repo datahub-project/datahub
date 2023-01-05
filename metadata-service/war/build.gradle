@@ -6,7 +6,6 @@ plugins {
 apply from: "../../gradle/versioning/versioning.gradle"
 
 ext {
-  docker_registry = 'linkedin'
   docker_repo = 'datahub-gms'
 }
 

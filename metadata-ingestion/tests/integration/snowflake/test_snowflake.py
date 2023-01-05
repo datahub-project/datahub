@@ -19,7 +19,10 @@ from datahub.ingestion.glossary.datahub_classifier import (
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeV2Config,
+    TagOption,
+)
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
 from tests.test_helpers import mce_helpers
 
@@ -109,6 +112,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                             profile_table_size_limit=None,
                             profile_table_level_only=True,
                         ),
+                        extract_tags=TagOption.without_lineage,
                     ),
                 ),
                 sink=DynamicTypedConfig(

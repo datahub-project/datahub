@@ -527,7 +527,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
             yield from self._get_domain_wu(
                 dataset_name=dataset_name,
                 entity_urn=dataset_urn,
-                entity_type="dataset",
                 sql_config=sql_config,
             )
 
@@ -744,7 +743,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
             yield from self._get_domain_wu(
                 dataset_name=dataset.dataset_name,
                 entity_urn=dataset_urn,
-                entity_type="dataset",
                 sql_config=sql_config,
             )
 

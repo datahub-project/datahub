@@ -53,7 +53,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SubTypesClass,
@@ -295,10 +294,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         subtype_wu = MetadataWorkUnit(
             id=f"{topic}-subtype",
             mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=["topic"]),
             ),
         )
@@ -316,7 +312,6 @@ class KafkaSource(StatefulIngestionSourceBase):
 
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type="dataset",
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
             )
@@ -330,7 +325,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         topic_detail: Optional[TopicMetadata],
         extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Dict[str, str]:
-
         custom_props: Dict[str, str] = {}
         self.update_custom_props_with_topic_details(topic, topic_detail, custom_props)
         self.update_custom_props_with_topic_config(
