@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM --platform=$BUILDPLATFORM alpine:3 AS base
+FROM alpine:3 AS base
 
 ENV DOCKERIZE_VERSION v0.6.1
 
@@ -21,20 +21,11 @@ RUN apk --no-cache --update-cache --available upgrade \
     && cp /usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks \
     && curl -sSL https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
-FROM --platform=$BUILDPLATFORM alpine:3 AS prod-build
-
-# Upgrade Alpine and base packages
-RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add openjdk8 openjdk11 perl
-
-COPY . datahub-src
-RUN cd datahub-src && ./gradlew :metadata-jobs:mce-consumer-job:build
-RUN cd datahub-src && cp metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar ../mce-consumer-job.jar
-
 FROM base as prod-install
-COPY --from=prod-build /mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
-COPY --from=prod-build /datahub-src/docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
-COPY --from=prod-build /datahub-src/docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
+COPY mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
+COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
+COPY docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
+COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-mce-consumer/scripts/start.sh
 
 FROM base as dev-install

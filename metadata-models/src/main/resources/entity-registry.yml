@@ -21,6 +21,7 @@ entities:
       - deprecation
       - testResults
       - siblings
+      - embed
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -59,6 +60,7 @@ entities:
       - deprecation
       - inputFields
       - chartUsageStatistics
+      - embed
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -68,6 +70,7 @@ entities:
       - dashboardUsageStatistics
       - inputFields
       - subTypes
+      - embed
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -261,6 +264,12 @@ entities:
     category: core
     keyAspect: schemaFieldKey
     aspects: []
+  - name: globalSettings
+    doc: Global settings for an the platform
+    category: internal
+    keyAspect: globalSettingsKey
+    aspects:
+      - globalSettingsInfo
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -276,4 +285,9 @@ entities:
     keyAspect: dataHubStepStateKey
     aspects:
       - dataHubStepStateProperties
+  - name: dataHubView
+    category: core
+    keyAspect: dataHubViewKey
+    aspects:
+      - dataHubViewInfo
 events:

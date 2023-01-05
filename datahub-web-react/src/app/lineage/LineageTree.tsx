@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
-import { NodeData, EntitySelectParams, TreeProps, EntityAndType, FetchedEntity } from './types';
+import { NodeData, EntitySelectParams, TreeProps, EntityAndType, FetchedEntity, UpdatedLineages } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
 import layoutTree from './utils/layoutTree';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -26,6 +26,7 @@ type LineageTreeProps = {
     draggedNodes: Record<string, { x: number; y: number }>;
     setDraggedNodes: (draggedNodes: Record<string, { x: number; y: number }>) => void;
     fetchedEntities: { [x: string]: FetchedEntity };
+    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 };
 
 export default function LineageTree({
@@ -44,6 +45,7 @@ export default function LineageTree({
     draggedNodes,
     setDraggedNodes,
     fetchedEntities,
+    setUpdatedLineages,
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
     const {
@@ -149,6 +151,7 @@ export default function LineageTree({
             selectedEntity={selectedEntity}
             hoveredEntity={hoveredEntity}
             setHoveredEntity={setHoveredEntity}
+            setUpdatedLineages={setUpdatedLineages}
         />
     );
 }

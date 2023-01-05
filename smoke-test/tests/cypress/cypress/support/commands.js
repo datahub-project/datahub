@@ -10,6 +10,11 @@
 //
 //
 // -- This is a parent command --
+
+function selectorWithtestId (id) {
+  return '[data-testid="' + id +'"]';
+}
+
 Cypress.Commands.add('login', () => {
     cy.request({
       method: 'POST',
@@ -48,6 +53,16 @@ Cypress.Commands.add("goToDomainList", () => {
   cy.waitTextVisible("New Domain");
 });
 
+Cypress.Commands.add("goToViewsSettings", () => {
+  cy.visit("/settings/views");
+  cy.waitTextVisible("Manage Views");
+});
+
+Cypress.Commands.add("goToIngestionPage", () => {
+  cy.visit("/ingestion");
+  cy.waitTextVisible("Manage Ingestion");
+});
+
 Cypress.Commands.add("goToDataset", (urn, dataset_name) => {
   cy.visit(
     "/dataset/" + urn
@@ -75,7 +90,7 @@ Cypress.Commands.add("goToDomain", (urn) => {
 
 Cypress.Commands.add("goToAnalytics", () => {
   cy.visit("/analytics");
-  cy.waitTextVisible("Data Landscape Summary");
+  cy.contains("Data Landscape Summary", {timeout: 10000});
 });
 
 Cypress.Commands.add("goToUserList", () => {
@@ -90,7 +105,7 @@ Cypress.Commands.add("goToStarSearchList", () => {
 })
 
 Cypress.Commands.add("openThreeDotDropdown", () => {
-  cy.get('[data-testid="entity-header-dropdown"]').click();
+  cy.clickOptionWithTestId("entity-header-dropdown")
 });
 
 Cypress.Commands.add("clickOptionWithText", (text) => {
@@ -126,12 +141,29 @@ Cypress.Commands.add("waitTextVisible", (text) => {
   return cy.contains(text);
 })
 
+Cypress.Commands.add("openMultiSelect", (data_id) => {
+  let selector = `${selectorWithtestId(data_id)}`
+  cy.get(`.ant-select${selector} > .ant-select-selector > .ant-select-selection-search`).click();
+})
+
+Cypress.Commands.add( 'multiSelect', (within_data_id , text) => {
+  cy.openMultiSelect(within_data_id);
+  cy.waitTextVisible(text);
+  cy.clickOptionWithText(text);
+});
+
 Cypress.Commands.add("enterTextInTestId", (id, text) => {
-  cy.get('[data-testid="' + id +'"]').type(text);
+  cy.get(selectorWithtestId(id)).type(text);
 })
 
 Cypress.Commands.add("clickOptionWithTestId", (id) => {
-  cy.get('[data-testid="' + id +'"]').click({
+  cy.get(selectorWithtestId(id)).first().click({
+    force: true,
+  });
+})
+
+Cypress.Commands.add("clickFirstOptionWithTestId", (id) => {
+  cy.get(selectorWithtestId(id)).first().click({
     force: true,
   });
 })
@@ -140,17 +172,26 @@ Cypress.Commands.add("hideOnboardingTour", () => {
   cy.get('body').type("{ctrl} {meta} h");
 });
 
+Cypress.Commands.add("clearView", (viewName) => {
+  cy.clickOptionWithTestId("view-select");
+  cy.clickOptionWithTestId("view-select-clear");
+  cy.get("input[data-testid='search-input']").click();
+  cy.contains(viewName).should("not.be.visible");
+})
+
 Cypress.Commands.add('addTermToDataset', (urn, dataset_name, term) => {
   cy.goToDataset(urn, dataset_name);
   cy.clickOptionWithText("Add Term");
-  cy.focused().type(term);
-  cy.get(".ant-select-item-option-content").within(() =>
-    cy.contains(term).click({ force: true })
-  );
-  cy.clickOptionWithTestId('add-tag-term-from-modal-btn');
-  cy.get('[data-testid="add-tag-term-from-modal-btn"]').should("not.exist");
-
+  cy.selectOptionInTagTermModal(term);
   cy.contains(term);
+});
+
+Cypress.Commands.add('selectOptionInTagTermModal', (text) => {
+  cy.enterTextInTestId("tag-term-modal-input", text);
+  cy.clickOptionWithTestId("tag-term-option");
+  let btn_id = "add-tag-term-from-modal-btn";
+  cy.clickOptionWithTestId(btn_id);
+  cy.get(selectorWithtestId(btn_id)).should("not.exist");
 });
 
 Cypress.Commands.add("removeDomainFromDataset", (urn, dataset_name, domain_urn) => {

@@ -105,6 +105,24 @@ module.exports = {
           // "docs/wip/guide-enrich-your-metadata",
         ],
       },
+      {
+        "Ingestion Quickstart Guides": [
+          {
+            BigQuery: [
+              "docs/quick-ingestion-guides/bigquery/overview",
+              "docs/quick-ingestion-guides/bigquery/setup",
+              "docs/quick-ingestion-guides/bigquery/configuration",
+            ],
+          },
+          {
+            Snowflake: [
+              "docs/quick-ingestion-guides/snowflake/overview",
+              "docs/quick-ingestion-guides/snowflake/setup",
+              "docs/quick-ingestion-guides/snowflake/configuration",
+            ],
+          },
+        ],
+      },
     ],
     "Ingest Metadata": [
       // The purpose of this section is to provide a deeper understanding of how ingestion works.
@@ -255,7 +273,6 @@ module.exports = {
       "docs/deploy/gcp",
       "docker/README",
       "docs/deploy/kubernetes",
-      "docs/how/updating-datahub",
       {
         Authentication: [
           "docs/authentication/README",
@@ -300,6 +317,7 @@ module.exports = {
           "docs/advanced/no-code-upgrade",
         ],
       },
+      "docs/how/updating-datahub",
     ],
     "Developer Guides": [
       // The purpose of this section is to provide developers & technical users with

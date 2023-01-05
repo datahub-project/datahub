@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button, Input, Modal } from 'antd';
 import { useLocation } from 'react-router';
 
-import { EntityType, OrFilter, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import { EntityType, AndFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import { getSearchCsvDownloadHeader, transformResultsToCsvRow } from './downloadAsCsvUtil';
 import { downloadRowsAsCsv } from '../../../../../search/utils/csvUtils';
@@ -15,7 +15,7 @@ type Props = {
         input: SearchAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
-    filters: OrFilter[];
+    filters: AndFilterInput[];
     query: string;
     setIsDownloadingCsv: (isDownloadingCsv: boolean) => any;
     showDownloadAsCsvModal: boolean;

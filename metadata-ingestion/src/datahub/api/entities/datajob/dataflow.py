@@ -5,7 +5,6 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     GlobalTagsClass,
@@ -91,36 +90,27 @@ class DataFlow:
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataflow",
             entityUrn=str(self.urn),
-            aspectName="dataFlowInfo",
             aspect=DataFlowInfoClass(
                 name=self.name if self.name is not None else self.id,
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataflow",
                 entityUrn=str(self.urn),
-                aspectName="ownership",
                 aspect=owner,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
         for tag in self.generate_tags_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataflow",
                 entityUrn=str(self.urn),
-                aspectName="globalTags",
                 aspect=tag,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 

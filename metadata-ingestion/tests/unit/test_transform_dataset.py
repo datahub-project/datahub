@@ -64,7 +64,6 @@ from datahub.ingestion.transformer.remove_dataset_ownership import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
@@ -1163,7 +1162,6 @@ def test_pattern_dataset_terms_transformation(mock_time):
 
 
 def test_mcp_add_tags_missing(mock_time):
-
     dataset_mcp = make_generic_dataset_mcp()
 
     transformer = SimpleAddDatasetTags.create(
@@ -1223,7 +1221,6 @@ def test_mcp_add_tags_existing(mock_time):
 
 
 def test_mcp_multiple_transformers(mock_time, tmp_path):
-
     events_file = f"{tmp_path}/multi_transformer_test.json"
 
     pipeline = Pipeline.create(
@@ -1303,8 +1300,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
         Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
     ] = [
         MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=str(
                 DatasetUrn.create_from_ids(
                     platform_id="elasticsearch",
@@ -1312,7 +1307,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                     env="PROD",
                 )
             ),
-            aspectName="globalTags",
             aspect=GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:Test")]),
         )
         for i in range(0, 10)
@@ -1320,8 +1314,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
     mcps.extend(
         [
             MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=str(
                     DatasetUrn.create_from_ids(
                         platform_id="elasticsearch",
@@ -1329,7 +1321,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                         env="PROD",
                     )
                 ),
-                aspectName="datasetProperties",
                 aspect=DatasetPropertiesClass(description="test dataset"),
             )
             for i in range(0, 10)
@@ -1641,7 +1632,6 @@ def run_dataset_transformer_pipeline(
     pipeline_context: PipelineContext = PipelineContext(run_id="transformer_pipe_line"),
     use_mce: bool = False,
 ) -> List[RecordEnvelope]:
-
     transformer: DatasetTransformer = cast(
         DatasetTransformer, transformer_type.create(config, pipeline_context)
     )
@@ -1833,7 +1823,6 @@ def test_simple_add_dataset_domain_semantics_patch(
 
 
 def test_simple_dataset_ownership_transformer_semantics_patch(mock_datahub_graph):
-
     pipeline_context = PipelineContext(run_id="transformer_pipe_line")
     pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
 

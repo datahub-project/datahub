@@ -35,7 +35,7 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceReport,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
-from datahub.ingestion.source.state.iceberg_state import IcebergCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -51,7 +51,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     OwnerClass,
@@ -123,7 +122,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=IcebergCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
@@ -249,10 +248,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         # If we are a platform instance based source, emit the instance aspect
         if self.config.platform_instance:
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(

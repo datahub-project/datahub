@@ -74,6 +74,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 datasetUrn,
             },
         },
+        fetchPolicy: 'cache-first',
     });
     const latestVersion: string = getSchemaVersionListData?.getSchemaVersionList?.latestVersion?.semanticVersion || '';
 
@@ -103,6 +104,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 version: selectedVersion,
             },
         },
+        fetchPolicy: 'cache-first',
     });
 
     const versionedDatasetData = useGetVersionedDatasetQuery({
@@ -111,6 +113,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
             urn: datasetUrn,
             versionStamp: selectedVersionStamp,
         },
+        fetchPolicy: 'cache-first',
     });
 
     if (selectedVersion !== latestVersion) {

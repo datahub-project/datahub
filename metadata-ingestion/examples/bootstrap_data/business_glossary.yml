@@ -23,6 +23,7 @@ nodes:
         description: Highly Confidential Data
         custom_properties:
           is_confidential: true
+        domain: Marketing
   - name: PersonalInformation
     description: All terms related to personal information
     owners:

@@ -1,5 +1,3 @@
-from datahub_provider._airflow_compat import Operator
-
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
@@ -15,6 +13,7 @@ if TYPE_CHECKING:
     from airflow.models.dagrun import DagRun
     from airflow.models.taskinstance import TaskInstance
 
+    from datahub_provider._airflow_shims import Operator
     from datahub_provider.hooks.datahub import DatahubGenericHook
 
 
