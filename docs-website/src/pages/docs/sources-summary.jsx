@@ -31,7 +31,7 @@ function Docs(ingestionSourceContent, siteConfig) {
 
   const filterOptions= {
     Difficulty: ["easy", "medium", "hard"],
-    PlatformType: ["datalake", "bitool", "orchestrator"],
+    PlatformType: ["datalake", "bitool", "orchestrator", "datahub"],
     PushPull: ["push", "pull"]
   }
 
