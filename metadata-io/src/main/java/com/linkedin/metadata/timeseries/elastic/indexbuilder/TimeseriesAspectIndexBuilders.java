@@ -29,16 +29,7 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
   public void reindexAll(List<TaskInfo> taskInfos) {
     for (ReindexConfig config : getReindexConfigs()) {
       try {
-        Optional<TaskInfo> taskInfo = taskInfos.stream()
-            .filter(info ->
-                ESUtils.getOpaqueIdHeaderValue(_indexBuilder.getGitVersion().getVersion(), config.name())
-                    .equals(info.getHeaders().get(ESUtils.OPAQUE_ID_HEADER))).findFirst();
-        if (taskInfo.isPresent()) {
-          log.info("Reindex task {} in progress with description {}. Attempting to continue task from breakpoint.",
-              taskInfo.get().getId(), taskInfo.get().getDescription());
-          continue;
-        }
-        _indexBuilder.buildIndex(config);
+        _indexBuilder.buildIndex(config, taskInfos);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }

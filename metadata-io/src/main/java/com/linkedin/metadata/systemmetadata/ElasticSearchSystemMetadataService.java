@@ -201,16 +201,7 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     log.info("Setting up system metadata index");
     try {
       for (ReindexConfig config : getReindexConfigs()) {
-        Optional<TaskInfo> taskInfo = taskInfos.stream()
-            .filter(info ->
-                ESUtils.getOpaqueIdHeaderValue(_indexBuilder.getGitVersion().getVersion(), config.name())
-                    .equals(info.getHeaders().get(ESUtils.OPAQUE_ID_HEADER))).findFirst();
-        if (taskInfo.isPresent()) {
-          log.info("Reindex task {} in progress with description {}. Attempting to continue task from breakpoint.",
-              taskInfo.get().getId(), taskInfo.get().getDescription());
-          continue;
-        }
-        _indexBuilder.buildIndex(config);
+        _indexBuilder.buildIndex(config, taskInfos);
       }
     } catch (IOException ie) {
       throw new RuntimeException("Could not configure system metadata index", ie);

@@ -6,7 +6,9 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.version.GitVersion;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -127,10 +129,10 @@ public class ESIndexBuilder {
 
   @Deprecated
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings) throws IOException {
-    buildIndex(buildReindexState(indexName, mappings, settings));
+    buildIndex(buildReindexState(indexName, mappings, settings), Collections.emptyList());
   }
 
-  public void buildIndex(ReindexConfig indexState) throws IOException {
+  public void buildIndex(ReindexConfig indexState, List<TaskInfo> taskInfos) throws IOException {
     // If index doesn't exist, create index
     if (!indexState.exists()) {
       createIndex(indexState.name(), indexState);
@@ -167,11 +169,11 @@ public class ESIndexBuilder {
                 ReindexConfig.OBJECT_MAPPER.writeValueAsString(indexSettings), ack);
       }
     } else {
-      reindex(indexState.name(), indexState);
+      reindex(indexState.name(), indexState, taskInfos);
     }
   }
 
-  private void reindex(String indexName, ReindexConfig indexState) throws IOException {
+  private void reindex(String indexName, ReindexConfig indexState, List<TaskInfo> taskInfos) throws IOException {
     final long startTime = System.currentTimeMillis();
 
     String tempIndexName = indexName + "_" + startTime;
@@ -184,32 +186,44 @@ public class ESIndexBuilder {
 
     try {
 
-      ReindexRequest reindexRequest = new ReindexRequest()
-              .setSourceIndices(indexName)
-              .setDestIndex(tempIndexName)
-              .setMaxRetries(numRetries)
-              .setAbortOnVersionConflict(false)
-              .setRefresh(true)
-              .setTimeout(TimeValue.timeValueHours(maxReindexHours))
-              .setSourceBatchSize(2500);
+      Optional<TaskInfo> previousTaskInfo = taskInfos.stream()
+          .filter(info ->
+              ESUtils.getOpaqueIdHeaderValue(gitVersion.getVersion(), indexState.name())
+                  .equals(info.getHeaders().get(ESUtils.OPAQUE_ID_HEADER))).findFirst();
+      String taskId;
+      if (previousTaskInfo.isPresent()) {
+        log.info("Reindex task {} in progress with description {}. Attempting to continue task from breakpoint.",
+            previousTaskInfo.get().getTaskId(), previousTaskInfo.get().getDescription());
+        taskId = previousTaskInfo.get().getTaskId().toString();
+      } else {
 
-      RequestOptions requestOptions = ESUtils.buildReindexTaskRequestOptions(gitVersion.getVersion(), indexName);
-      TaskSubmissionResponse reindexTask = searchClient.submitReindexTask(reindexRequest, requestOptions);
+        ReindexRequest reindexRequest = new ReindexRequest().setSourceIndices(indexName)
+            .setDestIndex(tempIndexName)
+            .setMaxRetries(numRetries)
+            .setAbortOnVersionConflict(false)
+            .setRefresh(true)
+            .setTimeout(TimeValue.timeValueHours(maxReindexHours))
+            .setSourceBatchSize(2500);
+
+        RequestOptions requestOptions = ESUtils.buildReindexTaskRequestOptions(gitVersion.getVersion(), indexName);
+        TaskSubmissionResponse reindexTask = searchClient.submitReindexTask(reindexRequest, requestOptions);
+        taskId = reindexTask.getTask();
+      }
 
       boolean reindexTaskCompleted = false;
       int count = 0;
 
       while (System.currentTimeMillis() < timeoutAt) {
-        log.info("Task: {} - Reindexing from {} to {} in progress...", reindexTask.getTask(), indexName, tempIndexName);
+        log.info("Task: {} - Reindexing from {} to {} in progress...", taskId, indexName, tempIndexName);
         ListTasksRequest request = new ListTasksRequest()
                 .setWaitForCompletion(true)
-                .setParentTaskId(new TaskId(reindexTask.getTask()));
+                .setParentTaskId(new TaskId(taskId));
         Optional<TaskInfo> taskInfo = searchClient.tasks().list(request, RequestOptions.DEFAULT).getTasks().stream()
-                .filter(task -> task.getTaskId().toString().equals(reindexTask.getTask()))
+                .filter(task -> task.getTaskId().toString().equals(taskId))
                 .findFirst();
         if (taskInfo.isEmpty()) {
           log.info("Task: {} - Reindexing {} to {} task has completed, will now check if reindex was successful",
-                  reindexTask.getTask(), indexName, tempIndexName);
+                  taskId, indexName, tempIndexName);
           reindexTaskCompleted = true;
           break;
         }
