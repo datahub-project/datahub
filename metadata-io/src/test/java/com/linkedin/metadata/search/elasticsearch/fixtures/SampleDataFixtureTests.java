@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
+import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -347,7 +348,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void testChartAutoComplete() throws InterruptedException {
+    public void testChartAutoComplete() throws InterruptedException, IOException {
         // Two charts exist Baz Chart 1 & Baz Chart 2
         List.of("B", "Ba", "Baz", "Baz ", "Baz C", "Baz Ch", "Baz Cha", "Baz Char", "Baz Chart", "Baz Chart ")
                 .forEach(query -> {
@@ -355,6 +356,18 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         AutoCompleteResults result = autocomplete(new ChartType(entityClient), query);
                         assertTrue(result.getEntities().size() == 2,
                                 String.format("Expected 2 results for `%s` found %s", query, result.getEntities().size()));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        List.of("excess", "excess_", "excess_d", "excess_de", "excess_death", "excess_deaths", "excess_deaths_d",
+                        "excess_deaths_de", "excess_deaths_der", "excess_deaths_derived")
+                .forEach(query -> {
+                    try {
+                        AutoCompleteResults result = autocomplete(new DatasetType(entityClient), query);
+                        assertTrue(result.getEntities().size() >= 1,
+                                String.format("Expected >= 1 results for `%s` found %s", query, result.getEntities().size()));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

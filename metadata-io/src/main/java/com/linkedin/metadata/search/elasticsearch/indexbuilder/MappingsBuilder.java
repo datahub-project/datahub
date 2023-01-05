@@ -7,6 +7,8 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,10 +18,15 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 @Slf4j
 public class MappingsBuilder {
 
-  public static final Map<String, String> PARTIAL_NGRAM_CONFIG = ImmutableMap.of(
+  private static final Map<String, String> PARTIAL_NGRAM_CONFIG = ImmutableMap.of(
           TYPE, "search_as_you_type",
           MAX_SHINGLE_SIZE, "4",
           DOC_VALUES, "false");
+
+  public static Map<String, String> getPartialNgramConfigWithOverrides(Map<String, String> overrides) {
+    return Stream.concat(PARTIAL_NGRAM_CONFIG.entrySet().stream(), overrides.entrySet().stream())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
 
   public static final Map<String, String> KEYWORD_TYPE_MAP = ImmutableMap.of(TYPE, KEYWORD);
 
@@ -61,7 +68,11 @@ public class MappingsBuilder {
             ANALYZER, URN_ANALYZER,
             SEARCH_ANALYZER, URN_SEARCH_ANALYZER)
     );
-    subFields.put(NGRAM, PARTIAL_NGRAM_CONFIG);
+    subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
+            ImmutableMap.of(
+                    ANALYZER, PARTIAL_URN_COMPONENT
+            )
+    ));
     return ImmutableMap.<String, Object>builder()
             .put(TYPE, KEYWORD)
             .put(FIELDS, subFields)
@@ -87,7 +98,11 @@ public class MappingsBuilder {
       mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
       Map<String, Object> subFields = new HashMap<>();
       if (fieldType == FieldType.TEXT_PARTIAL) {
-        subFields.put(NGRAM, PARTIAL_NGRAM_CONFIG);
+        subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
+                ImmutableMap.of(
+                        ANALYZER, PARTIAL_ANALYZER
+                )
+        ));
       }
       subFields.put(DELIMITED, ImmutableMap.of(
               TYPE, TEXT,
@@ -110,7 +125,11 @@ public class MappingsBuilder {
       mappingForField.put(SEARCH_ANALYZER, URN_SEARCH_ANALYZER);
       Map<String, Object> subFields = new HashMap<>();
       if (fieldType == FieldType.URN_PARTIAL) {
-        subFields.put(NGRAM, PARTIAL_NGRAM_CONFIG);
+        subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
+                Map.of(
+                        ANALYZER, PARTIAL_URN_COMPONENT
+                )
+        ));
       }
       subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
       mappingForField.put(FIELDS, subFields);

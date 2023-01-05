@@ -76,9 +76,10 @@ public class SearchQueryBuilder {
     }
 
     // Always present
-    List.of("urn", "urn.delimited", "urn.ngram").forEach(urnField -> {
-      simpleBuilder.field(urnField, Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore")));
-      escapedBuilder.field(urnField, Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore")));
+    final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
+    List.of("urn", "urn.delimited").forEach(urnField -> {
+      simpleBuilder.field(urnField, urnBoost);
+      escapedBuilder.field(urnField, urnBoost);
     });
 
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
@@ -100,9 +101,6 @@ public class SearchQueryBuilder {
       if (FieldType.URN_PARTIAL.equals(fieldType)) {
         simpleBuilder.field(fieldName + ".delimited", (float) (boostScore * 0.4));
         escapedBuilder.field(fieldName + ".delimited", (float) (boostScore * 0.4));
-      } else if (TYPES_WITH_NGRAM_SUBFIELD.contains(fieldType) || fieldSpec.getSearchableAnnotation().isEnableAutocomplete()) {
-        simpleBuilder.field(fieldName + ".ngram", (float) (boostScore * 0.1));
-        escapedBuilder.field(fieldName + ".ngram", (float) (boostScore * 0.1));
       }
     }
 

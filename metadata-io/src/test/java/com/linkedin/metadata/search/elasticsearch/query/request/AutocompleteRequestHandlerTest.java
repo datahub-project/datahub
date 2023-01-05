@@ -26,9 +26,9 @@ public class AutocompleteRequestHandlerTest {
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder query = (BoolQueryBuilder) sourceBuilder.query();
-    assertEquals(query.should().size(), 2);
+    assertEquals(query.should().size(), 3);
 
-    MultiMatchQueryBuilder autocompleteQuery = (MultiMatchQueryBuilder) query.should().get(1);
+    MultiMatchQueryBuilder autocompleteQuery = (MultiMatchQueryBuilder) query.should().get(2);
     Map<String, Float> queryFields = autocompleteQuery.fields();
     assertTrue(queryFields.containsKey("keyPart1.ngram"));
     assertTrue(queryFields.containsKey("keyPart1.ngram._2gram"));
@@ -45,9 +45,15 @@ public class AutocompleteRequestHandlerTest {
     assertEquals(removedFilter.value(), true);
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<HighlightBuilder.Field> highlightedFields = highlightBuilder.fields();
-    assertEquals(highlightedFields.size(), 2);
+    assertEquals(highlightedFields.size(), 8);
     assertEquals(highlightedFields.get(0).name(), "keyPart1");
     assertEquals(highlightedFields.get(1).name(), "keyPart1.*");
+    assertEquals(highlightedFields.get(2).name(), "keyPart1.ngram");
+    assertEquals(highlightedFields.get(3).name(), "keyPart1.delimited");
+    assertEquals(highlightedFields.get(4).name(), "urn");
+    assertEquals(highlightedFields.get(5).name(), "urn.*");
+    assertEquals(highlightedFields.get(6).name(), "urn.ngram");
+    assertEquals(highlightedFields.get(7).name(), "urn.delimited");
   }
 
   @Test
@@ -75,8 +81,10 @@ public class AutocompleteRequestHandlerTest {
     assertEquals(removedFilter.value(), true);
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<HighlightBuilder.Field> highlightedFields = highlightBuilder.fields();
-    assertEquals(highlightedFields.size(), 2);
+    assertEquals(highlightedFields.size(), 4);
     assertEquals(highlightedFields.get(0).name(), "field");
     assertEquals(highlightedFields.get(1).name(), "field.*");
+    assertEquals(highlightedFields.get(2).name(), "field.ngram");
+    assertEquals(highlightedFields.get(3).name(), "field.delimited");
   }
 }

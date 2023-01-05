@@ -22,7 +22,8 @@ public class MappingsBuilderTest {
             ImmutableMap.of("delimited",
                     ImmutableMap.of("type", "text", "analyzer", "urn_component", "search_analyzer", "query_urn_component"),
                     "ngram",
-                    ImmutableMap.of("type", "search_as_you_type", "max_shingle_size", "4", "doc_values", "false"))));
+                    ImmutableMap.of("type", "search_as_you_type", "max_shingle_size", "4", "doc_values", "false",
+                            "analyzer", "partial_urn_component"))));
     assertEquals(properties.get("runId"), ImmutableMap.of("type", "keyword"));
     assertTrue(properties.containsKey("browsePaths"));
     // KEYWORD
