@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -6,6 +7,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
+from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
@@ -27,6 +29,20 @@ class SnowflakeFK:
     referred_schema: str
     referred_table: str
     referred_column_names: List[str]
+
+
+@dataclass
+class SnowflakeTag:
+    database: str
+    schema: str
+    name: str
+    value: str
+
+    def identifier(self) -> str:
+        return f"{self._id_prefix_as_str()}:{self.value}"
+
+    def _id_prefix_as_str(self) -> str:
+        return f"{self.database}.{self.schema}.{self.name}"
 
 
 @dataclass(frozen=True, eq=True)
@@ -61,12 +77,16 @@ class SnowflakeTable(BaseTable):
     pk: Optional[SnowflakePK] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
+    tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
     sample_data: Optional[pd.DataFrame] = None
 
 
 @dataclass
 class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
+    tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
 
 
 @dataclass
@@ -77,6 +97,7 @@ class SnowflakeSchema:
     comment: Optional[str]
     tables: List[SnowflakeTable] = field(default_factory=list)
     views: List[SnowflakeView] = field(default_factory=list)
+    tags: Optional[List[SnowflakeTag]] = None
 
 
 @dataclass
@@ -86,6 +107,69 @@ class SnowflakeDatabase:
     comment: Optional[str]
     last_altered: Optional[datetime] = None
     schemas: List[SnowflakeSchema] = field(default_factory=list)
+    tags: Optional[List[SnowflakeTag]] = None
+
+
+class _SnowflakeTagCache:
+    def __init__(self) -> None:
+        # self._database_tags[<database_name>] = list of tags applied to database
+        self._database_tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
+
+        # self._schema_tags[<database_name>][<schema_name>] = list of tags applied to schema
+        self._schema_tags: Dict[str, Dict[str, List[SnowflakeTag]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
+
+        # self._table_tags[<database_name>][<schema_name>][<table_name>] = list of tags applied to table
+        self._table_tags: Dict[
+            str, Dict[str, Dict[str, List[SnowflakeTag]]]
+        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+
+        # self._column_tags[<database_name>][<schema_name>][<table_name>][<column_name>] = list of tags applied to column
+        self._column_tags: Dict[
+            str, Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]]
+        ] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        )
+
+    def add_database_tag(self, db_name: str, tag: SnowflakeTag) -> None:
+        self._database_tags[db_name].append(tag)
+
+    def get_database_tags(self, db_name: str) -> List[SnowflakeTag]:
+        return self._database_tags[db_name]
+
+    def add_schema_tag(self, schema_name: str, db_name: str, tag: SnowflakeTag) -> None:
+        self._schema_tags[db_name][schema_name].append(tag)
+
+    def get_schema_tags(self, schema_name: str, db_name: str) -> List[SnowflakeTag]:
+        return self._schema_tags.get(db_name, {}).get(schema_name, [])
+
+    def add_table_tag(
+        self, table_name: str, schema_name: str, db_name: str, tag: SnowflakeTag
+    ) -> None:
+        self._table_tags[db_name][schema_name][table_name].append(tag)
+
+    def get_table_tags(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        return self._table_tags[db_name][schema_name][table_name]
+
+    def add_column_tag(
+        self,
+        column_name: str,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+        tag: SnowflakeTag,
+    ) -> None:
+        self._column_tags[db_name][schema_name][table_name][column_name].append(tag)
+
+    def get_column_tags_for_table(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> Dict[str, List[SnowflakeTag]]:
+        return (
+            self._column_tags.get(db_name, {}).get(schema_name, {}).get(table_name, {})
+        )
 
 
 class SnowflakeDataDictionary(SnowflakeQueryMixin):
@@ -358,3 +442,101 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
             constraints[row["fk_table_name"]].append(fk_constraints_map[row["fk_name"]])
 
         return constraints
+
+    def get_tags_for_database_without_propagation(
+        self,
+        db_name: str,
+    ) -> _SnowflakeTagCache:
+        cur = self.query(
+            SnowflakeQuery.get_all_tags_in_database_without_propagation(db_name)
+        )
+
+        tags = _SnowflakeTagCache()
+
+        for tag in cur:
+            snowflake_tag = SnowflakeTag(
+                database=tag["TAG_DATABASE"],
+                schema=tag["TAG_SCHEMA"],
+                name=tag["TAG_NAME"],
+                value=tag["TAG_VALUE"],
+            )
+
+            # This is the name of the object, unless the object is a column, in which
+            # case the name is in the `COLUMN_NAME` field.
+            object_name = tag["OBJECT_NAME"]
+            # This will be null if the object is a database or schema
+            object_schema = tag["OBJECT_SCHEMA"]
+            # This will be null if the object is a database
+            object_database = tag["OBJECT_DATABASE"]
+
+            domain = tag["DOMAIN"].lower()
+            if domain == SnowflakeObjectDomain.DATABASE:
+                tags.add_database_tag(object_name, snowflake_tag)
+            elif domain == SnowflakeObjectDomain.SCHEMA:
+                tags.add_schema_tag(object_name, object_database, snowflake_tag)
+            elif domain == SnowflakeObjectDomain.TABLE:  # including views
+                tags.add_table_tag(
+                    object_name, object_schema, object_database, snowflake_tag
+                )
+            elif domain == SnowflakeObjectDomain.COLUMN:
+                column_name = tag["COLUMN_NAME"]
+                tags.add_column_tag(
+                    column_name,
+                    object_name,
+                    object_schema,
+                    object_database,
+                    snowflake_tag,
+                )
+            else:
+                # This should never happen.
+                self.logger.error(f"Encountered an unexpected domain: {domain}")
+                continue
+
+        return tags
+
+    def get_tags_for_object_with_propagation(
+        self,
+        domain: str,
+        quoted_identifier: str,
+        db_name: str,
+    ) -> List[SnowflakeTag]:
+        tags: List[SnowflakeTag] = []
+
+        cur = self.query(
+            SnowflakeQuery.get_all_tags_on_object_with_propagation(
+                db_name, quoted_identifier, domain
+            ),
+        )
+
+        for tag in cur:
+            tags.append(
+                SnowflakeTag(
+                    database=tag["TAG_DATABASE"],
+                    schema=tag["TAG_SCHEMA"],
+                    name=tag["TAG_NAME"],
+                    value=tag["TAG_VALUE"],
+                )
+            )
+        return tags
+
+    def get_tags_on_columns_for_table(
+        self, quoted_table_name: str, db_name: str
+    ) -> Dict[str, List[SnowflakeTag]]:
+        tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
+        cur = self.query(
+            SnowflakeQuery.get_tags_on_columns_with_propagation(
+                db_name, quoted_table_name
+            ),
+        )
+
+        for tag in cur:
+            column_name = tag["COLUMN_NAME"]
+            snowflake_tag = SnowflakeTag(
+                database=tag["TAG_DATABASE"],
+                schema=tag["TAG_SCHEMA"],
+                name=tag["TAG_NAME"],
+                value=tag["TAG_VALUE"],
+            )
+            tags[column_name].append(snowflake_tag)
+
+        return tags
