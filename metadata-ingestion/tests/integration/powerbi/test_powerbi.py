@@ -822,6 +822,7 @@ def test_extract_odbc_tables(
             "config": {
                 **source_config,
                 "extract_orphan_datasets": True,
+                "extract_schema_with_dax": True,
             },
         },
         "sink": {

@@ -80,6 +80,7 @@ class PowerBiAPI:
         name: str
         full_name: str
         expression: Optional[str]
+        columns: List[str]
 
     # dataclasses for PowerBi Dashboard
     @dataclass
@@ -901,7 +902,7 @@ class PowerBiAPI:
                     else dataset_instance.id
                 )
 
-                if not dataset_dict["tables"]:
+                if not dataset_dict["tables"] and self.__config.extract_schema_with_dax:
                     schema = self.get_dataset_schema(dataset_instance)
                     for table_name, columns in schema.items():
                         dataset_instance.tables.append(
@@ -912,6 +913,7 @@ class PowerBiAPI:
                                 ),
                                 name=table_name,
                                 expression=None,
+                                columns=columns,
                             )
                         )
 
@@ -929,6 +931,7 @@ class PowerBiAPI:
                                 table["name"].replace(" ", "_"),
                             ),
                             expression=expression,
+                            columns=[],
                         )
                     )
 

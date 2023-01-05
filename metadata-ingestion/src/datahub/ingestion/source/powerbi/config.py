@@ -138,7 +138,11 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     )
     # Enable / Disable ingestion of orphan datasets
     extract_orphan_datasets: bool = pydantic.Field(
-        default=True, description="Whether orphan datasets should be ingested"
+        default=False, description="Whether orphan datasets should be ingested"
+    )
+    # Enable / Disable schema extraction with DAX query
+    extract_schema_with_dax: bool = pydantic.Field(
+        default=False, description="Whether to extract schema through DAX query, if tables are not present"
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
