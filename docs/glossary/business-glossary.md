@@ -92,13 +92,13 @@ Check out [our demo site](https://demo.datahubproject.io/glossary) to see an exa
 
 ### GraphQL
 
-* [addTerm](../graphql/mutations.md#addterm)
-* [addTerms](../graphql/mutations.md#addterms)
-* [batchAddTerms](../graphql/mutations.md#batchaddterms)
-* [removeTerm](../graphql/mutations.md#removeterm)
-* [batchRemoveTerms](../graphql/mutations.md#batchremoveterms)
-* [createGlossaryTerm](../graphql/mutations.md#createglossaryterm)
-* [createGlossaryNode](../graphql/mutations.md#createglossarynode) (Term Group)
+* [addTerm](../../graphql/mutations.md#addterm)
+* [addTerms](../../graphql/mutations.md#addterms)
+* [batchAddTerms](../../graphql/mutations.md#batchaddterms)
+* [removeTerm](../../graphql/mutations.md#removeterm)
+* [batchRemoveTerms](../../graphql/mutations.md#batchremoveterms)
+* [createGlossaryTerm](../../graphql/mutations.md#createglossaryterm)
+* [createGlossaryNode](../../graphql/mutations.md#createglossarynode) (Term Group)
 
 You can easily fetch the Glossary Terms for an entity with a given its URN using the "glossaryTerms" property. Check out [Working with Metadata Entities](./api/graphql/querying-entities.md#querying-for-glossary-terms-of-an-asset) for an example.
 
