@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from freezegun import freeze_time
 
@@ -13,10 +15,11 @@ def vertica_runner(docker_compose_runner, pytestconfig):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "vertica"
     ) as docker_services:
-        wait_for_port(docker_services, "vertica-ce", 5433)
+        wait_for_port(docker_services, "127.0.0.1", 5433)
+        time.sleep(50)
         docker_services.wait_until_responsive(
-            timeout=30,
-            pause=1,
+            timeout=150,
+            pause=10,
         )
         yield docker_services
 
