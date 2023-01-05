@@ -193,11 +193,6 @@ class VerticaSource(SQLAlchemySource):
                     profile_requests += list(
                         self.loop_profiler_requests(inspector, schema, sql_config)
                     )
-                    profile_requests += list(
-                        self.loop_profiler_requests_for_projections(
-                            inspector, schema, sql_config
-                        )
-                    )
 
             if profiler and profile_requests:
                 yield from self.loop_profiler(
@@ -591,7 +586,6 @@ class VerticaSource(SQLAlchemySource):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -785,7 +779,6 @@ class VerticaSource(SQLAlchemySource):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -965,7 +958,6 @@ class VerticaSource(SQLAlchemySource):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -1014,7 +1006,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: Inspector,
         profile_candidates: Optional[List[str]],
     ) -> bool:
-        """Return whether table, view or projection is  eligible for profiling
+        """Return whether projection is  eligible for profiling
         Args:
             dataset_name (str): dataset name
             sql_config (SQLAlchemyConfig): configuration
@@ -1033,7 +1025,7 @@ class VerticaSource(SQLAlchemySource):
 
         )
 
-    def loop_profiler_requests_for_projections(
+    def loop_profiler_requests(
         self,
         inspector: Inspector,
         schema: str,
@@ -1049,24 +1041,6 @@ class VerticaSource(SQLAlchemySource):
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
-        # if (
-        #     sql_config.profiling.profile_if_updated_since_days is not None
-        #     or sql_config.profiling.profile_table_size_limit is not None
-        #     or sql_config.profiling.profile_table_row_limit is None
-        # ):
-        #     try:
-        #         threshold_time: Optional[datetime.datetime] = None
-        #         if sql_config.profiling.profile_if_updated_since_days is not None:
-        #             threshold_time = datetime.datetime.now(
-        #                 datetime.timezone.utc
-        #             ) - datetime.timedelta(
-        #                 sql_config.profiling.profile_if_updated_since_days
-        #             )
-        #         profile_candidates = self.generate_profile_candidates(
-        #             inspector, threshold_time, schema
-        #         )
-        #     except NotImplementedError:
-        #         logger.debug("Source does not support generating profile candidates.")
         super().loop_profiler_requests(
             inspector, schema, sql_config
         )
