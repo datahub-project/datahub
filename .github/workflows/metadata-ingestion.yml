@@ -4,7 +4,7 @@ on:
     branches:
       - master
     paths:
-      - ".github/**"
+      - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"
       - "metadata-models/**"
   pull_request:
