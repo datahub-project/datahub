@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, List, Optional, Union, cast
+from typing import Callable, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    CorpUserInfoClass,
-    GroupMembershipClass,
-)
+from datahub.metadata.schema_classes import CorpUserInfoClass, GroupMembershipClass
 
 
 @dataclass
@@ -58,9 +54,7 @@ class CorpUser:
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="corpuser",
             entityUrn=str(self.urn),
-            aspectName="corpUserInfo",
             aspect=CorpUserInfoClass(
                 active=True,  # Deprecated, use CorpUserStatus instead.
                 displayName=self.display_name,
@@ -74,17 +68,13 @@ class CorpUser:
                 fullName=self.full_name,
                 countryCode=self.country_code,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
         for group_membership in self.generate_group_membership_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="corpuser",
                 entityUrn=str(self.urn),
-                aspectName="groupMembership",
                 aspect=group_membership,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
@@ -100,10 +90,4 @@ class CorpUser:
         :param callback: The callback method for KafkaEmitter if it is used
         """
         for mcp in self.generate_mcp():
-            if type(emitter).__name__ == "DatahubKafkaEmitter":
-                assert callback is not None
-                kafka_emitter = cast("DatahubKafkaEmitter", emitter)
-                kafka_emitter.emit(mcp, callback)
-            else:
-                rest_emitter = cast("DatahubRestEmitter", emitter)
-                rest_emitter.emit(mcp)
+            emitter.emit(mcp, callback)

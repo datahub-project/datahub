@@ -30,11 +30,7 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
 )
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +136,7 @@ class RedshiftAccessEvent(BaseModel):
     username: str
     query: int
     tbl: int
-    text: str = Field(None, alias="querytxt")
+    text: Optional[str] = Field(None, alias="querytxt")
     database: str
     schema_: str = Field(alias="schema")
     table: str
@@ -346,9 +342,6 @@ class RedshiftUsageSource(Source):
                 ),
             )
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                aspectName="operation",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=builder.make_dataset_urn_with_platform_instance(
                     "redshift",
                     resource.lower(),

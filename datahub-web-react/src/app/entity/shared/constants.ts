@@ -1,3 +1,5 @@
+import { EntityType } from '../../../types.generated';
+
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {
     GREY: '#e5e5e5',
@@ -66,3 +68,12 @@ export const getElasticCappedTotalValueText = (count: number) => {
 
     return `${count}`;
 };
+
+export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
+    EntityType.Dashboard,
+    EntityType.Chart,
+    EntityType.Dataset,
+    EntityType.DataJob,
+]);
+
+export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];

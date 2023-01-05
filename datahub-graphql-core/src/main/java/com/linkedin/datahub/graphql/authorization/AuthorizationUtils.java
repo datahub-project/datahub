@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.authorization;
 
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -106,6 +106,10 @@ public class AuthorizationUtils {
 
   public static boolean canCreateGlobalAnnouncements(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE);
+  }
+
+  public static boolean canManageGlobalViews(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
   }
 
   public static boolean isAuthorized(

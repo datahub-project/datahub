@@ -125,7 +125,7 @@ BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/S
 **What can you do with DataHub?**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/watch?v=dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </p> 
 
 
@@ -171,7 +171,7 @@ for integrations and programmatic use-cases.
 
 **How are the results ordered?**
 
-The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elastic Search.
+The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elasticsearch.
 
 **Where to find more information?**
 

@@ -64,7 +64,7 @@ export default function LineageExplorer({ urn, type }: Props) {
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const showColumns = useIsShowColumnsMode();
 
-    const { loading, error, data } = useGetEntityLineageQuery({
+    const { loading, error, data, refetch } = useGetEntityLineageQuery({
         variables: { urn, separateSiblings: isHideSiblingMode, showColumns },
     });
 
@@ -124,6 +124,14 @@ export default function LineageExplorer({ urn, type }: Props) {
         [asyncEntities, setAsyncEntities, entityRegistry, fineGrainedMap],
     );
 
+    // set asyncEntity to have fullyFetched: false so we can update it in maybeAddAsyncLoadedEntity
+    function resetAsyncEntity(entityUrn: string) {
+        setAsyncEntities({
+            ...asyncEntities,
+            [entityUrn]: { ...asyncEntities[entityUrn], fullyFetched: false },
+        });
+    }
+
     const handleClose = () => {
         setIsDrawVisible(false);
         setSelectedEntity(undefined);
@@ -162,7 +170,13 @@ export default function LineageExplorer({ urn, type }: Props) {
                             );
                         }}
                         onLineageExpand={(asyncData: EntityAndType) => {
+                            resetAsyncEntity(asyncData.entity.urn);
                             maybeAddAsyncLoadedEntity(asyncData);
+                        }}
+                        refetchCenterNode={() => {
+                            refetch().then(() => {
+                                resetAsyncEntity(urn);
+                            });
                         }}
                     />
                 </div>

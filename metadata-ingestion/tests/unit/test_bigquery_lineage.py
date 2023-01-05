@@ -24,7 +24,7 @@ FROM
         created=datetime.datetime.now(),
         last_altered=datetime.datetime.now(),
         comment="",
-        ddl=ddl,
+        view_definition=ddl,
     )
     tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
     assert 1 == len(tables)
@@ -42,7 +42,7 @@ def test_parse_view_lineage_with_two_part_table_name():
         created=datetime.datetime.now(),
         last_altered=datetime.datetime.now(),
         comment="",
-        ddl=ddl,
+        view_definition=ddl,
     )
     tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
     assert 1 == len(tables)
@@ -60,7 +60,7 @@ def test_one_part_table():
         created=datetime.datetime.now(),
         last_altered=datetime.datetime.now(),
         comment="",
-        ddl=ddl,
+        view_definition=ddl,
     )
     tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
     assert 1 == len(tables)
@@ -78,7 +78,7 @@ def test_create_statement_with_multiple_table():
         created=datetime.datetime.now(),
         last_altered=datetime.datetime.now(),
         comment="",
-        ddl=ddl,
+        view_definition=ddl,
     )
     tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
     tables.sort(key=lambda e: e.get_table_name())

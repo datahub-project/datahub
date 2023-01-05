@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +14,8 @@ _PROFILING_FLAGS_TO_REPORT = {
     "query_combiner_enabled",
     # all include_field_ flags are reported.
 }
+
+logger = logging.getLogger(__name__)
 
 
 class GEProfilingConfig(ConfigModel):
@@ -84,6 +87,10 @@ class GEProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the sample values for all columns.",
     )
+    field_sample_values_limit: int = Field(
+        default=20,
+        description="Upper limit for number of sample values to collect for all columns.",
+    )
 
     _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
         default=AllowDenyPattern.allow_all(),
@@ -94,17 +101,17 @@ class GEProfilingConfig(ConfigModel):
     )
 
     profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
-        default=1,
+        default=None,
         description="Profile table only if it has been updated since these many number of days. If set to `null`, no constraint of last modified time for tables to profile. Supported only in `snowflake` and `BigQuery`.",
     )
 
     profile_table_size_limit: Optional[int] = Field(
-        default=1,
+        default=5,
         description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`",
     )
 
     profile_table_row_limit: Optional[int] = Field(
-        default=50000,
+        default=5000000,
         description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`",
     )
 
@@ -128,14 +135,20 @@ class GEProfilingConfig(ConfigModel):
     catch_exceptions: bool = Field(default=True, description="")
 
     partition_profiling_enabled: bool = Field(default=True, description="")
-    bigquery_temp_table_schema: Optional[str] = Field(
-        default=None,
-        description="On bigquery for profiling partitioned tables needs to create temporary views. You have to define a dataset where these will be created. Views will be cleaned up after profiler runs. (Great expectation tech details about this (https://legacy.docs.greatexpectations.io/en/0.9.0/reference/integrations/bigquery.html#custom-queries-with-sql-datasource).",
-    )
     partition_datetime: Optional[datetime.datetime] = Field(
         default=None,
         description="For partitioned datasets profile only the partition which matches the datetime or profile the latest one if not set. Only Bigquery supports this.",
     )
+
+    @pydantic.root_validator(pre=True)
+    def deprecate_bigquery_temp_table_schema(cls, values):
+        # TODO: Update docs to remove mention of this field.
+        if "bigquery_temp_table_schema" in values:
+            logger.warning(
+                "The bigquery_temp_table_schema config is no longer required. Please remove it from your config.",
+            )
+            del values["bigquery_temp_table_schema"]
+        return values
 
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(

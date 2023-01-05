@@ -2,7 +2,7 @@
   "errors": null,
   "metadata": {
     "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
-    "dbt_version": "1.2.1",
+    "dbt_version": "1.3.0",
     "env": {},
     "generated_at": "2021-06-19T21:38:36.384613Z",
     "invocation_id": "just-some-random-id-2"

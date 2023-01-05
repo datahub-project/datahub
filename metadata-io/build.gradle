@@ -19,6 +19,8 @@ dependencies {
   compile spec.product.pegasus.generator
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
+  implementation externalDependency.slf4jApi
+  runtime externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   compile externalDependency.datastaxOssNativeProtocol
@@ -60,11 +62,14 @@ dependencies {
   testAnnotationProcessor externalDependency.lombok
 
   constraints {
-    implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
+    implementation(externalDependency.log4jCore) {
         because("previous versions are vulnerable to CVE-2021-45105")
     }
-    implementation("org.apache.logging.log4j:log4j-api:2.17.0") {
+    implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.commonsText) {
+      because("previous versions are vulnerable to CVE-2022-42889")
     }
   }
 }

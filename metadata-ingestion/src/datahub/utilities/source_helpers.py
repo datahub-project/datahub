@@ -1,12 +1,27 @@
-from typing import Callable, Iterable, Optional, Set
+from typing import Callable, Iterable, Optional, Set, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
-from datahub.metadata.schema_classes import MetadataChangeEventClass, StatusClass
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+    StatusClass,
+)
 from datahub.utilities.urns.urn import guess_entity_type
+
+
+def auto_workunit(
+    stream: Iterable[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]]
+) -> Iterable[MetadataWorkUnit]:
+    for item in stream:
+        if isinstance(item, MetadataChangeEventClass):
+            yield MetadataWorkUnit(id=f"{item.proposedSnapshot.urn}/mce", mce=item)
+        else:
+            yield item.as_workunit()
 
 
 def auto_status_aspect(
@@ -20,6 +35,7 @@ def auto_status_aspect(
     status_urns: Set[str] = set()
     for wu in stream:
         urn = wu.get_urn()
+        all_urns.add(urn)
         if isinstance(wu.metadata, MetadataChangeEventClass):
             if any(
                 isinstance(aspect, StatusClass)
@@ -29,12 +45,15 @@ def auto_status_aspect(
         elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
             if isinstance(wu.metadata.aspect, StatusClass):
                 status_urns.add(urn)
+        elif isinstance(wu.metadata, MetadataChangeProposalClass):
+            if wu.metadata.aspectName == StatusClass.ASPECT_NAME:
+                status_urns.add(urn)
         else:
             raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
         yield wu
 
-    for urn in all_urns - status_urns:
+    for urn in sorted(all_urns - status_urns):
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),
@@ -69,3 +88,16 @@ def auto_stale_entity_removal(
 
     # Clean up stale entities.
     yield from stale_entity_removal_handler.gen_removed_entity_workunits()
+
+
+def auto_workunit_reporter(
+    report: SourceReport,
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """
+    Calls report.report_workunit() on each workunit.
+    """
+
+    for wu in stream:
+        report.report_workunit(wu)
+        yield wu
