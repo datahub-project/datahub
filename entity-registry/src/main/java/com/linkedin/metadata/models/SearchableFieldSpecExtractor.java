@@ -31,22 +31,14 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
   private static final Map<String, Object> SECONDARY_URN_SEARCH_PROPERTIES;
   static {
     PRIMARY_URN_SEARCH_PROPERTIES = new DataMap();
-    PRIMARY_URN_SEARCH_PROPERTIES.putAll(
-            Map.of(
-                    "enableAutocomplete", "true",
-                    "fieldType", "URN",
-                    "boostScore", "4.0"
-            )
-    );
+    PRIMARY_URN_SEARCH_PROPERTIES.put("enableAutocomplete", "true");
+    PRIMARY_URN_SEARCH_PROPERTIES.put("fieldType", "URN");
+    PRIMARY_URN_SEARCH_PROPERTIES.put("boostScore", "10.0");
 
     SECONDARY_URN_SEARCH_PROPERTIES = new DataMap();
-    SECONDARY_URN_SEARCH_PROPERTIES.putAll(
-            Map.of(
-                    "enableAutocomplete", "false",
-                    "fieldType", "URN",
-                    "boostScore", "0.1"
-            )
-    );
+    SECONDARY_URN_SEARCH_PROPERTIES.put("enableAutocomplete", "false");
+    SECONDARY_URN_SEARCH_PROPERTIES.put("fieldType", "URN");
+    SECONDARY_URN_SEARCH_PROPERTIES.put("boostScore", "0.1");
   }
 
 

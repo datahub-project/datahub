@@ -34,6 +34,8 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 
+import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
+
 
 @Slf4j
 public class AutocompleteRequestHandler {
@@ -79,11 +81,19 @@ public class AutocompleteRequestHandler {
     MultiMatchQueryBuilder autocompleteQueryBuilder = QueryBuilders.multiMatchQuery(query)
             .type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
 
+    final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
     autocompleteFields.forEach(fieldName -> {
-      autocompleteQueryBuilder.field(fieldName + ".ngram");
-      autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
-      autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
-      autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
+      if ("urn".equals(fieldName)) {
+        autocompleteQueryBuilder.field(fieldName + ".ngram", urnBoost);
+        autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", urnBoost);
+        autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", urnBoost);
+        autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", urnBoost);
+      } else {
+        autocompleteQueryBuilder.field(fieldName + ".ngram");
+        autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
+        autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
+        autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
+      }
 
       finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
     });
