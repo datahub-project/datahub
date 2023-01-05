@@ -212,16 +212,10 @@ class SnowflakeCommonMixin:
         aspectName: str,
         aspect: _Aspect,
     ) -> MetadataWorkUnit:
-        id = f"{aspectName}-for-{entityUrn}"
-        if "timestampMillis" in aspect._inner_dict:
-            id = f"{aspectName}-{aspect.timestampMillis}-for-{entityUrn}"  # type: ignore
-        wu = MetadataWorkUnit(
-            id=id,
-            mcp=MetadataChangeProposalWrapper(
-                entityUrn=entityUrn,
-                aspect=aspect,
-            ),
-        )
+        wu = MetadataChangeProposalWrapper(
+            entityUrn=entityUrn,
+            aspect=aspect,
+        ).as_workunit()
         self.report.report_workunit(wu)
         return wu
 

@@ -246,7 +246,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
                 ),
                 entity_urn=dataset_urn,
-                entity_type="dataset",
             )
 
             if self.config.include_column_lineage:
@@ -340,12 +339,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_name: str,
         entity_urn: str,
-        entity_type: str,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
