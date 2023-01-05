@@ -4,7 +4,13 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability/>
 
-Starting in version `0.9.5`, DataHub supports the manual editing of lineage between entities in the UI. Add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction in ingestion or establish important entity relationships in sources that we don't support automatic extraction for yet! Manual lineage is only supported for Datasets, Charts, Dashboards, and Data Jobs for now. 
+Starting in version `0.9.5`, DataHub supports the manual editing of lineage between entities in the UI. Add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction in ingestion or establish important entity relationships in sources that we don't support automatic extraction for yet! Manual lineage is only supported for Datasets, Charts, Dashboards, and Data Jobs for now.
+
+:::note
+
+If you edit lineage manually through the UI but have lineage automatically extracted in ingestion for the entities you edited, your edits from the UI may be overwritten when ingestion runs again.
+
+:::
 
 ## Manual Lineage Setup, Prerequisites, and Permissions
 
@@ -71,12 +77,6 @@ The other place that you can edit lineage for entities is from the Lineage Tab o
 </p>
 
 Using the modal from this view will work the same as described above for editing from the Lineage Visualization screen.
-
-:::note
-
-If you edit lineage manually through the UI but have lineage automatically extracted in ingestion for the entities you edited, your edits from the UI may be overwritten when ingestion runs again.
-
-:::
 
 ## Additional Resources
 
