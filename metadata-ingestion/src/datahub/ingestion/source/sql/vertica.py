@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from textwrap import dedent
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-import pydantic
+
 from pydantic.class_validators import validator
+from pydantic.fields import Field
 from sqlalchemy import create_engine, sql
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
@@ -80,37 +81,37 @@ class VerticaSourceReport(SQLSourceReport):
 # Extended BasicSQLAlchemyConfig to config for projections,models and oauth metadata.
 class VerticaConfig(BasicSQLAlchemyConfig):
 
-    projection_pattern: AllowDenyPattern = pydantic.Field(
+    projection_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for projection to filter in ingestion. Specify regex to match the entire projection name in database.schema.projection format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
-    models_pattern: AllowDenyPattern = pydantic.Field(
+    models_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for ml models to filter in ingestion. ",
     )
-    oauth_pattern: AllowDenyPattern = pydantic.Field(
+    oauth_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for Oauth to filter in ingestion. ",
     )
 
-    include_projections: Optional[bool] = pydantic.Field(
+    include_projections: Optional[bool] = Field(
         default=True, description="Whether projections should be ingested."
     )
-    include_models: Optional[bool] = pydantic.Field(
+    include_models: Optional[bool] = Field(
         default=True, description="Whether Models should be ingested."
     )
-    include_oauth: Optional[bool] = pydantic.Field(
+    include_oauth: Optional[bool] = Field(
         default=True, description="Whether Oauth should be ingested."
     )
-    include_view_lineage: Optional[bool] = pydantic.Field(
+    include_view_lineage: Optional[bool] = Field(
         default=True, description="Whether lineages should be ingested for views"
     )
-    include_projection_lineage: Optional[bool] = pydantic.Field(
+    include_projection_lineage: Optional[bool] = Field(
         default=True, description="Whether lineages should be ingested for Projection"
     )
 
     # defaults
-    scheme: str = pydantic.Field(default="vertica+vertica_python")
+    scheme: str = Field(default="vertica+vertica_python")
 
     @validator("host_port")
     def clean_host_port(cls, v):
@@ -133,7 +134,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     supported=True,
 )
 class VerticaSource(SQLAlchemySource):
-    def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext):
+    def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform
         super(VerticaSource, self).__init__(config, ctx, "vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
@@ -183,7 +184,6 @@ class VerticaSource(SQLAlchemySource):
 
                 if sql_config.include_views:
                     yield from self.loop_views(inspector, schema, sql_config)
-
                 if sql_config.include_projections:
                     yield from self.loop_projections(inspector, schema, sql_config)
                 if sql_config.include_models:
