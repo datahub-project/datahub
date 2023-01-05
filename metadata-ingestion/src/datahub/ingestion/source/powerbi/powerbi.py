@@ -5,7 +5,7 @@
 #########################################################
 
 import logging
-from typing import Iterable, List, Optional, Tuple, Union, cast
+from typing import Iterable, Iterator, List, Optional, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV
@@ -33,7 +33,12 @@ from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField, SchemaFieldDataType, SchemaMetadata, MySqlDDL
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    MySqlDDL,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
@@ -45,13 +50,14 @@ from datahub.metadata.schema_classes import (
     DashboardKeyClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    NullTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
     UpstreamClass,
-    UpstreamLineageClass, NullTypeClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -206,7 +212,7 @@ class Mapper:
         dataset_mces: List[MetadataChangeEvent] = []
 
         if dataset is None:
-            return dataset_mcps
+            return dataset_mcps, dataset_mces
 
         logger.debug(
             f"Mapping dataset={dataset.name}(id={dataset.id}) to datahub dataset"
@@ -251,7 +257,7 @@ class Mapper:
         return dataset_mcps, dataset_mces
 
     def extract_schema(
-            self, dataset: PowerBiAPI.PowerBIDataset, table: PowerBiAPI.Table, ds_urn: str
+        self, dataset: PowerBiAPI.PowerBIDataset, table: PowerBiAPI.Table, ds_urn: str
     ) -> List[MetadataChangeEvent]:
         if table.columns:
             dataset_snapshot = DatasetSnapshot(
@@ -267,12 +273,12 @@ class Mapper:
                     nullable=False,
                     recursive=False,
                     globalTags=None,
-                ) for column in table.columns
+                )
+                for column in table.columns
             ]
             schema_metadata = SchemaMetadata(
                 schemaName=dataset.name,
-                platform=builder.make_data_platform_urn(
-                    self.__config.platform_name),
+                platform=builder.make_data_platform_urn(self.__config.platform_name),
                 version=0,
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
@@ -555,7 +561,7 @@ class Mapper:
 
     def to_datahub_work_units(
         self, dashboard: PowerBiAPI.Dashboard
-    ) -> List[EquableMetadataWorkUnit]:
+    ) -> Iterator[MetadataWorkUnit]:
         mcps = []
 
         logger.info(
@@ -585,13 +591,12 @@ class Mapper:
         yield from deduplicate_list([wu for wu in work_units if wu is not None])
         for mce in ds_mces:
             yield SqlWorkUnit(
-                id=mce.proposedSnapshot.aspects[-1].get('schemaName'),
-                mce=mce
+                id=mce.proposedSnapshot.aspects[-1].get("schemaName"), mce=mce
             )
 
     def dataset_to_datahub_work_units(
-            self, dataset: PowerBiAPI.PowerBIDataset
-    ) -> List[EquableMetadataWorkUnit]:
+        self, dataset: PowerBiAPI.PowerBIDataset
+    ) -> Iterator[MetadataWorkUnit]:
         mcps = []
 
         logger.info(f"Converting dataset={dataset.name} to datahub dataset")
@@ -800,8 +805,7 @@ class Mapper:
         yield from work_units
         for mce in ds_mces:
             yield SqlWorkUnit(
-                id=mce.proposedSnapshot.aspects[-1].get('schemaName'),
-                mce=mce
+                id=mce.proposedSnapshot.aspects[-1].get("schemaName"), mce=mce
             )
 
 

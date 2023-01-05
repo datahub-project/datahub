@@ -142,7 +142,8 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     )
     # Enable / Disable schema extraction with DAX query
     extract_schema_with_dax: bool = pydantic.Field(
-        default=False, description="Whether to extract schema through DAX query, if tables are not present"
+        default=False,
+        description="Whether to extract schema through DAX query, if tables are not present",
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(

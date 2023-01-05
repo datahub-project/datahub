@@ -115,6 +115,7 @@ def test_snowflake_regular_case():
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
+        columns=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -138,6 +139,7 @@ def test_postgres_regular_case():
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
+        columns=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -160,6 +162,7 @@ def test_oracle_regular_case():
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
+        columns=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -182,6 +185,7 @@ def test_mssql_regular_case():
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
+        columns=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -222,6 +226,7 @@ def test_mssql_with_query():
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
+            columns=[],
         )
         reporter = PowerBiDashboardSourceReport()
 
@@ -258,6 +263,7 @@ def test_snowflake_native_query():
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
+            columns=[],
         )
         reporter = PowerBiDashboardSourceReport()
 
@@ -279,6 +285,7 @@ def test_native_query_disabled():
         expression=M_QUERIES[1],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
+        columns=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -295,6 +302,7 @@ def test_multi_source_table():
         expression=M_QUERIES[12],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
+        columns=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -321,6 +329,7 @@ def test_table_combine():
         expression=M_QUERIES[16],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
+        columns=[],
     )
 
     reporter = PowerBiDashboardSourceReport()

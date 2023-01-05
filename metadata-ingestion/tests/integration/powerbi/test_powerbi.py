@@ -598,7 +598,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_ingest_urn_lower_case(
-        mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -638,7 +638,7 @@ def test_powerbi_ingest_urn_lower_case(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_override_ownership(
-        mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -677,7 +677,7 @@ def test_override_ownership(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_scan_all_workspaces(
-        mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -803,11 +803,8 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_extract_odbc_tables(
-        mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-    global call_number
-    call_number = 1
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
