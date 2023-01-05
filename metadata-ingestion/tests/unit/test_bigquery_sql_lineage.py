@@ -20,6 +20,175 @@ FROM `project.dataset.src_tbl`
     assert parser.get_tables() == ["project.dataset.src_tbl"]
 
 
+def test_bigquery_sql_lineage_camel_case_table():
+    """
+    This test aims to test the parameter to ignore sqllineage lowercasing.
+    On the BigQuery service, it's possible to use uppercase name un datasets and tables.
+    The lowercasing, by default, breaks the lineage construction in these cases.
+    """
+    parser = BigQuerySQLParser(
+        sql_query="""
+/*
+HERE IS A STANDARD COMMENT BLOCK
+THIS WILL NOT BREAK sqllineage
+*/
+CREATE OR REPLACE TABLE `project.dataset.trg_tbl`AS
+#This, comment will not break sqllineage
+SELECT foo, bar
+-- this comment will not break sqllineage either
+# this comment will not break sqllineage either
+FROM `project.dataset.CamelCaseTable`
+        """,
+        use_raw_names=True,
+    )
+
+    assert parser.get_tables() == ["project.dataset.CamelCaseTable"]
+
+
+def test_bigquery_sql_lineage_camel_case_dataset():
+    """
+    This test aims to test the parameter to ignore sqllineage lowercasing.
+    On the BigQuery service, it's possible to use uppercase name un datasets and tables.
+    The lowercasing, by default, breaks the lineage construction in these cases.
+    """
+    parser = BigQuerySQLParser(
+        sql_query="""
+/*
+HERE IS A STANDARD COMMENT BLOCK
+THIS WILL NOT BREAK sqllineage
+*/
+CREATE OR REPLACE TABLE `project.dataset.trg_tbl`AS
+#This, comment will not break sqllineage
+SELECT foo, bar
+-- this comment will not break sqllineage either
+# this comment will not break sqllineage either
+FROM `project.DataSet.table`
+        """,
+        use_raw_names=True,
+    )
+
+    assert parser.get_tables() == ["project.DataSet.table"]
+
+
+def test_bigquery_sql_lineage_camel_case_table_and_dataset():
+    """
+    This test aims to test the parameter to ignore sqllineage lowercasing.
+    On the BigQuery service, it's possible to use uppercase name un datasets and tables.
+    The lowercasing, by default, breaks the lineage construction in these cases.
+    """
+    parser = BigQuerySQLParser(
+        sql_query="""
+/*
+HERE IS A STANDARD COMMENT BLOCK
+THIS WILL NOT BREAK sqllineage
+*/
+CREATE OR REPLACE TABLE `project.dataset.trg_tbl`AS
+#This, comment will not break sqllineage
+SELECT foo, bar
+-- this comment will not break sqllineage either
+# this comment will not break sqllineage either
+FROM `project.DataSet.CamelTable`
+        """,
+        use_raw_names=True,
+    )
+
+    assert parser.get_tables() == ["project.DataSet.CamelTable"]
+
+
+def test_bigquery_sql_lineage_camel_case_table_and_dataset_subquery():
+    """
+    This test aims to test the parameter to ignore sqllineage lowercasing.
+    On the BigQuery service, it's possible to use uppercase name un datasets and tables.
+    The lowercasing, by default, breaks the lineage construction in these cases.
+    """
+    parser = BigQuerySQLParser(
+        sql_query="""
+/*
+HERE IS A STANDARD COMMENT BLOCK
+THIS WILL NOT BREAK sqllineage
+*/
+CREATE OR REPLACE TABLE `project.dataset.trg_tbl`AS
+#This, comment will not break sqllineage
+SELECT foo, bar
+-- this comment will not break sqllineage either
+# this comment will not break sqllineage either
+FROM (
+    # this comment will not break sqllineage either
+    SELECT * FROM `project.DataSet.CamelTable`
+)
+        """,
+        use_raw_names=True,
+    )
+
+    assert parser.get_tables() == ["project.DataSet.CamelTable"]
+
+
+def test_bigquery_sql_lineage_camel_case_table_and_dataset_joins():
+    """
+    This test aims to test the parameter to ignore sqllineage lowercasing.
+    On the BigQuery service, it's possible to use uppercase name un datasets and tables.
+    The lowercasing, by default, breaks the lineage construction in these cases.
+    """
+    parser = BigQuerySQLParser(
+        sql_query="""
+/*
+HERE IS A STANDARD COMMENT BLOCK
+THIS WILL NOT BREAK sqllineage
+*/
+CREATE OR REPLACE TABLE `project.dataset.trg_tbl`AS
+#This, comment will not break sqllineage
+SELECT foo, bar
+-- this comment will not break sqllineage either
+# this comment will not break sqllineage either
+FROM `project.DataSet1.CamelTable`
+INNER JOIN `project.DataSet2.CamelTable2`
+    ON b.id = a.id
+LEFT JOIN `project.DataSet3.CamelTable3`
+    on c.id = b.id
+        """,
+        use_raw_names=True,
+    )
+
+    assert parser.get_tables() == [
+        "project.DataSet1.CamelTable",
+        "project.DataSet2.CamelTable2",
+        "project.DataSet3.CamelTable3",
+    ]
+
+
+def test_bigquery_sql_lineage_camel_case_table_and_dataset_joins_and_subquery():
+    """
+    This test aims to test the parameter to ignore sqllineage lowercasing.
+    On the BigQuery service, it's possible to use uppercase name un datasets and tables.
+    The lowercasing, by default, breaks the lineage construction in these cases.
+    """
+    parser = BigQuerySQLParser(
+        sql_query="""
+/*
+HERE IS A STANDARD COMMENT BLOCK
+THIS WILL NOT BREAK sqllineage
+*/
+CREATE OR REPLACE TABLE `project.dataset.trg_tbl`AS
+#This, comment will not break sqllineage
+SELECT foo, bar
+-- this comment will not break sqllineage either
+# this comment will not break sqllineage either
+FROM `project.DataSet1.CamelTable` a
+INNER JOIN `project.DataSet2.CamelTable2` b
+    ON b.id = a.id
+LEFT JOIN (SELECT * FROM `project.DataSet3.CamelTable3`) c
+    ON c.id = b.id
+        """,
+        use_raw_names=True,
+    )
+
+    assert parser.get_tables() == [
+        "project.DataSet1.CamelTable",
+        "project.DataSet2.CamelTable2",
+        "project.DataSet3.CamelTable3",
+    ]
+
+
 def test_bigquery_sql_lineage_keyword_data_is_accepted():
     parser = BigQuerySQLParser(
         sql_query="""

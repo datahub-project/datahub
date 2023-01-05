@@ -35,7 +35,7 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergSourceReport,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
-from datahub.ingestion.source.state.iceberg_state import IcebergCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -123,7 +123,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=IcebergCheckpointState,
+            state_type_class=GenericCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )

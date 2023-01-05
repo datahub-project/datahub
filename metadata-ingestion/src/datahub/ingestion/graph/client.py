@@ -152,7 +152,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Deserialize the aspect json into the aspect type.
         aspect_json = response_json.get("aspect", {}).get(aspect_type_name)
-        if aspect_json:
+        if aspect_json is not None:
             # need to apply a transform to the response to match rest.li and avro serialization
             post_json_obj = post_json_transform(aspect_json)
             return aspect_type.from_obj(post_json_obj)
