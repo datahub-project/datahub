@@ -348,17 +348,17 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     final Set<Edge> newEdgeSet = new HashSet<>(newEdges);
 
     // Edges to add
-    final List<Edge> additiveDifference = newEdges.stream()
+    final List<Edge> additiveDifference = newEdgeSet.stream()
         .filter(edge -> !oldEdgeSet.contains(edge))
         .collect(Collectors.toList());
 
     // Edges to remove
-    final List<Edge> subtractiveDifference = oldEdges.stream()
+    final List<Edge> subtractiveDifference = oldEdgeSet.stream()
         .filter(edge -> !newEdgeSet.contains(edge))
         .collect(Collectors.toList());
 
     // Edges to update
-    final List<Edge> mergedEdges = getMergedEdges(oldEdges, newEdges);
+    final List<Edge> mergedEdges = getMergedEdges(oldEdgeSet, newEdgeSet);
 
     // Remove any old edges that no longer exist first
     if (subtractiveDifference.size() > 0) {
@@ -379,15 +379,15 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private static List<Edge> getMergedEdges(final List<Edge> oldEdges, final List<Edge> newEdges) {
-    final Map<Integer, com.linkedin.metadata.graph.Edge> oldEdgesMap = oldEdges
+  private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
+    final Map<Integer, com.linkedin.metadata.graph.Edge> oldEdgesMap = oldEdgeSet
         .stream()
         .map(edge -> Pair.of(edge.hashCode(), edge))
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
     final List<com.linkedin.metadata.graph.Edge> mergedEdges = new ArrayList<>();
     if (!oldEdgesMap.isEmpty()) {
-      for (com.linkedin.metadata.graph.Edge newEdge : newEdges) {
+      for (com.linkedin.metadata.graph.Edge newEdge : newEdgeSet) {
         if (oldEdgesMap.containsKey(newEdge.hashCode())) {
           final com.linkedin.metadata.graph.Edge oldEdge = oldEdgesMap.get(newEdge.hashCode());
           final com.linkedin.metadata.graph.Edge mergedEdge = GraphIndexUtils.mergeEdges(oldEdge, newEdge);

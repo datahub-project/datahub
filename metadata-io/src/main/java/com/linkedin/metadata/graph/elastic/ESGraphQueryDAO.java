@@ -77,6 +77,7 @@ public class ESGraphQueryDAO {
   private static final String UPDATED_ON = "updatedOn";
   private static final String UPDATED_ACTOR = "updatedActor";
   private static final String PROPERTIES = "properties";
+  private static final String UI = "UI";
 
   @Nonnull
   public static void addFilterToQueryBuilder(@Nonnull Filter filter, String node, BoolQueryBuilder rootQuery) {
@@ -475,17 +476,36 @@ public class ESGraphQueryDAO {
         edgeInfos.stream().map(EdgeInfo::getType).distinct().collect(Collectors.toList()));
   }
 
+  public QueryBuilder buildExistenceFilter() {
+    final BoolQueryBuilder boolExistenceBuilder = QueryBuilders.boolQuery();
+    boolExistenceBuilder.mustNot(QueryBuilders.existsQuery(CREATED_ON));
+    boolExistenceBuilder.mustNot(QueryBuilders.existsQuery(UPDATED_ON));
+    return boolExistenceBuilder;
+  }
+
+  public QueryBuilder buildManualLineageFilter() {
+    return QueryBuilders.termQuery(String.format("%s.%s", PROPERTIES, SOURCE), UI);
+  }
+
   public QueryBuilder buildStartTimeFilter(@Nonnull final Long startTimeMillis) {
     final BoolQueryBuilder startTimeQuery = QueryBuilders.boolQuery();
     startTimeQuery.should(QueryBuilders.rangeQuery(UPDATED_ON).gte(startTimeMillis));
-    // Secondary check
+    // Secondary check in case we only have createdOn
     startTimeQuery.should(QueryBuilders.rangeQuery(CREATED_ON).gte(startTimeMillis));
+    // If both createdOn and updatedOn are not present, then we should include the edge
+    startTimeQuery.should(buildExistenceFilter());
+    // If the edge is a manual lineage edge, then we should include the edge
+    startTimeQuery.should(buildManualLineageFilter());
     return startTimeQuery;
   }
 
   public QueryBuilder buildEndTimeFilter(@Nonnull final Long endTimeMillis) {
     final BoolQueryBuilder endTimeQuery = QueryBuilders.boolQuery();
     endTimeQuery.should(QueryBuilders.rangeQuery(CREATED_ON).lte(endTimeMillis));
+    // If both createdOn and updatedOn are not present, then we should include the edge
+    endTimeQuery.should(buildExistenceFilter());
+    // If the edge is a manual lineage edge, then we should include the edge
+    endTimeQuery.should(buildManualLineageFilter());
     return endTimeQuery;
   }
 
