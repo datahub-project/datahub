@@ -135,7 +135,7 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext):
         # self.platform = platform
-        super(VerticaSource, self).__init__(config, ctx, "vertica_lineage_test")
+        super(VerticaSource, self).__init__(config, ctx, "vertica")
         self.report: SQLSourceReport = VerticaSourceReport()
         self.view_lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
         self.projection_lineage_map: Optional[
@@ -308,7 +308,7 @@ class VerticaSource(SQLAlchemySource):
                         if lineage_info is not None:
                             # Emit the lineage work unit
                             # upstream_column_props = []
-                        
+
                             upstream_lineage = lineage_info
                             lineage_mcpw = MetadataChangeProposalWrapper(
                                 entityType="dataset",
@@ -1221,7 +1221,7 @@ class VerticaSource(SQLAlchemySource):
 
     def _get_upstream_lineage_info_projection(
         self, dataset_urn: str, projection: str
-    ) ->  Optional[_Aspect]:
+    ) -> Optional[_Aspect]:
 
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
@@ -1365,9 +1365,8 @@ class VerticaSource(SQLAlchemySource):
 
             for each in engine.execute(get_owner_query):
                 return each["owner_name"]
-            
+
         return None
-       
 
     def close(self):
         self.prepare_for_commit()
