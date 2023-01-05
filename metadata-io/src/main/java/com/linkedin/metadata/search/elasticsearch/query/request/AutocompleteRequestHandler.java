@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -43,11 +44,12 @@ public class AutocompleteRequestHandler {
       new ConcurrentHashMap<>();
 
   public AutocompleteRequestHandler(@Nonnull EntitySpec entitySpec) {
-    _defaultAutocompleteFields = entitySpec.getSearchableFieldSpecs()
+    _defaultAutocompleteFields = Stream.concat(entitySpec.getSearchableFieldSpecs()
         .stream()
         .map(SearchableFieldSpec::getSearchableAnnotation)
         .filter(SearchableAnnotation::isEnableAutocomplete)
-        .map(SearchableAnnotation::getFieldName)
+        .map(SearchableAnnotation::getFieldName),
+                    Stream.of("urn"))
         .collect(Collectors.toList());
   }
 
@@ -68,12 +70,16 @@ public class AutocompleteRequestHandler {
   }
 
   private QueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
+    return getQuery(getAutocompleteFields(field), query);
+  }
+
+  public static QueryBuilder getQuery(List<String> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     // Search for exact matches with higher boost and ngram matches
     MultiMatchQueryBuilder autocompleteQueryBuilder = QueryBuilders.multiMatchQuery(query)
             .type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
 
-    getAutocompleteFields(field).forEach(fieldName -> {
+    autocompleteFields.forEach(fieldName -> {
       autocompleteQueryBuilder.field(fieldName + ".ngram");
       autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
       autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
@@ -95,7 +101,11 @@ public class AutocompleteRequestHandler {
     highlightBuilder.preTags("");
     highlightBuilder.postTags("");
     // Check for each field name and any subfields
-    getAutocompleteFields(field).forEach(fieldName -> highlightBuilder.field(fieldName).field(fieldName + ".*"));
+    getAutocompleteFields(field).forEach(fieldName -> highlightBuilder
+            .field(fieldName)
+            .field(fieldName + ".*")
+            .field(fieldName + ".ngram")
+            .field(fieldName + ".delimited"));
     return highlightBuilder;
   }
 

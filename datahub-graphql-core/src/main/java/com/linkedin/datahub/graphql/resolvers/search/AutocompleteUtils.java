@@ -50,21 +50,21 @@ public class AutocompleteUtils {
             input.getField(),
             input.getQuery(),
             input.getFilters(),
-            input.getLimit()) + " "
-            + e.getMessage());
+            input.getLimit()), e);
         return new AutoCompleteResultForEntity(entity.type(), Collections.emptyList(), Collections.emptyList());
       }
     })).collect(Collectors.toList());
     return CompletableFuture.allOf(autoCompletesFuture.toArray(new CompletableFuture[0]))
         .thenApplyAsync((res) -> {
           AutoCompleteMultipleResults result = new AutoCompleteMultipleResults(sanitizedQuery, new ArrayList<>());
-          result.setSuggestions(autoCompletesFuture.stream()
-              .map(CompletableFuture::join)
-              .filter(
-                  autoCompleteResultForEntity ->
-                      autoCompleteResultForEntity.getSuggestions() != null && autoCompleteResultForEntity.getSuggestions().size() > 0
-              )
-              .collect(Collectors.toList()));
+          List<AutoCompleteResultForEntity> suggestions = autoCompletesFuture.stream()
+                  .map(CompletableFuture::join)
+                  .filter(
+                          autoCompleteResultForEntity ->
+                                  autoCompleteResultForEntity.getSuggestions() != null && autoCompleteResultForEntity.getSuggestions().size() > 0
+                  )
+                  .collect(Collectors.toList());
+          result.setSuggestions(suggestions);
           return result;
         });
   }
