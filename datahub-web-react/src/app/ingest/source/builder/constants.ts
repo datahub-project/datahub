@@ -27,7 +27,6 @@ import powerbiLogo from '../../../../images/powerbilogo.png';
 import modeLogo from '../../../../images/modelogo.png';
 import databricksLogo from '../../../../images/databrickslogo.png';
 
-
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
@@ -98,7 +97,6 @@ export const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
 
-
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
@@ -128,7 +126,6 @@ export const PLATFORM_URN_TO_LOGO = {
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
-
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
@@ -142,5 +139,4 @@ export const SOURCE_TO_PLATFORM_URN = {
     [SNOWFLAKE_USAGE]: SNOWFLAKE_URN,
     [STARBURST_TRINO_USAGE]: TRINO_URN,
     [DBT_CLOUD]: DBT_URN,
-
 };
