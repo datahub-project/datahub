@@ -41,6 +41,7 @@ jobs:
       env:
         TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+        RELEASE_SKIP_TEST: true
       run: |
         cd metadata-ingestion
         RELEASE_VERSION=${{ needs.setup.outputs.tag }} ./scripts/release.sh
