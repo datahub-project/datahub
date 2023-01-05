@@ -11,7 +11,7 @@
                 "instance": "PROD",
                 "database": "vmart",
                 "cluster_type": "Enterprise",
-                "cluster_size": "80 GB",
+                "cluster_size": "87 GB",
                 "subcluster": " ",
                 "communal_storage_path": ""
             },

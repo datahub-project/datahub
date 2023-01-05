@@ -3,7 +3,7 @@ import traceback
 from collections import defaultdict
 from dataclasses import dataclass
 from textwrap import dedent
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
 from pydantic.class_validators import validator
@@ -202,7 +202,7 @@ class VerticaSource(SQLAlchemySource):
         self, inspector: Inspector, database: str
     ) -> Optional[Dict[str, str]]:
         try:
-            custom_properties = inspector._get_database_properties(database)
+            custom_properties = inspector._get_database_properties(database)  # type: ignore
             return custom_properties
         except Exception as ex:
             self.report.report_failure(
@@ -214,7 +214,7 @@ class VerticaSource(SQLAlchemySource):
         self, inspector: Inspector, database: str, schema: str
     ) -> Optional[Dict[str, str]]:
         try:
-            custom_properties = inspector._get_schema_properties(schema)
+            custom_properties = inspector._get_schema_properties(schema)  # type: ignore
             return custom_properties
         except Exception as ex:
             self.report.report_failure(
@@ -283,7 +283,7 @@ class VerticaSource(SQLAlchemySource):
                     self.report.report_warning(
                         f"{schema}.{view}", f"Ingestion error: {e}"
                     )
-                if sql_config.include_view_lineage:
+                if sql_config.include_view_lineage:  # type: ignore
                     try:
                         dataset_urn = make_dataset_urn_with_platform_instance(
                             self.platform,
@@ -393,7 +393,7 @@ class VerticaSource(SQLAlchemySource):
 
         try:
             # table_tags = self.get_extra_tags(inspector, schema, "projection")
-            for projection in inspector.get_projection_names(schema):
+            for projection in inspector.get_projection_names(schema):  # type: ignore
 
                 schema, projection = self.standardize_schema_table_names(
                     schema=schema, entity=projection
@@ -423,7 +423,7 @@ class VerticaSource(SQLAlchemySource):
                     self.report.report_warning(
                         f"{schema}.{projection}", f"Ingestion error: {ex}"
                     )
-                if sql_config.include_projection_lineage:
+                if sql_config.include_projection_lineage:  # type: ignore
 
                     try:
                         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -647,7 +647,7 @@ class VerticaSource(SQLAlchemySource):
         models_seen: Set[str] = set()
         try:
 
-            for models in inspector.get_models_names(schema):
+            for models in inspector.get_models_names(schema):  # type: ignore
 
                 schema, models = self.standardize_schema_table_names(
                     schema=schema, entity=models
@@ -704,7 +704,7 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
         """
-        columns: List[str] = []
+        columns: List[Dict[Any, Any]] = []
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
@@ -745,7 +745,7 @@ class VerticaSource(SQLAlchemySource):
             dataset_name,
             self.platform,
             columns,
-            schema_fields,
+            schema_fields,  # type: ignore
         )
 
         dataset_snapshot.aspects.append(schema_metadata)
@@ -833,7 +833,7 @@ class VerticaSource(SQLAlchemySource):
         oauth_seen: Set[str] = set()
         try:
 
-            for oauth in inspector.get_Oauth_names(schema):
+            for oauth in inspector.get_Oauth_names(schema):  # type: ignore
 
                 schema, oauth = self.standardize_schema_table_names(
                     schema=schema, entity=oauth
@@ -886,7 +886,7 @@ class VerticaSource(SQLAlchemySource):
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
         """
-        columns: List[str] = []
+        columns: List[Dict[Any, Any]] = []
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
@@ -924,7 +924,7 @@ class VerticaSource(SQLAlchemySource):
             dataset_name,
             self.platform,
             columns,
-            schema_fields,
+            schema_fields,  # type: ignore
         )
         dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
@@ -1011,7 +1011,7 @@ class VerticaSource(SQLAlchemySource):
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
         yield from super().loop_profiler_requests(inspector, schema, sql_config)
-        for projection in inspector.get_projection_names(schema):
+        for projection in inspector.get_projection_names(schema):  # type: ignore
 
             schema, projection = self.standardize_schema_table_names(
                 schema=schema, entity=projection
@@ -1084,7 +1084,7 @@ class VerticaSource(SQLAlchemySource):
 
         self._populate_view_lineage(view)
         dataset_name = dataset_key.name
-        lineage = self.view_lineage_map[dataset_name]
+        lineage = self.view_lineage_map[dataset_name]  # type: ignore
 
         if not (lineage):
             logger.debug(f"No lineage found for {dataset_name}")
@@ -1199,7 +1199,7 @@ class VerticaSource(SQLAlchemySource):
 
         self._populate_projection_lineage(projection)
         dataset_name = dataset_key.name
-        lineage = self.projection_lineage_map[dataset_name]
+        lineage = self.projection_lineage_map[dataset_name]  # type: ignore
 
         if not (lineage):
             logger.debug(f"No lineage found for {dataset_name}")
