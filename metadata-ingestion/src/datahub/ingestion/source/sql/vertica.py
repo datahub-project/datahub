@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from textwrap import dedent
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Union
 
-
+import pydantic
 from pydantic.class_validators import validator
-from pydantic.fields import Field
 from sqlalchemy import create_engine, sql
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
@@ -80,38 +79,30 @@ class VerticaSourceReport(SQLSourceReport):
 
 # Extended BasicSQLAlchemyConfig to config for projections,models and oauth metadata.
 class VerticaConfig(BasicSQLAlchemyConfig):
-
-    projection_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for projection to filter in ingestion. Specify regex to match the entire projection name in database.schema.projection format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
-    )
-    models_pattern: AllowDenyPattern = Field(
+    models_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for ml models to filter in ingestion. ",
     )
-    oauth_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for Oauth to filter in ingestion. ",
-    )
-
-    include_projections: Optional[bool] = Field(
+    include_projections: Optional[bool] = pydantic.Field(
         default=True, description="Whether projections should be ingested."
     )
-    include_models: Optional[bool] = Field(
+    include_models: Optional[bool] = pydantic.Field(
         default=True, description="Whether Models should be ingested."
     )
-    include_oauth: Optional[bool] = Field(
+    include_oauth: Optional[bool] = pydantic.Field(
         default=True, description="Whether Oauth should be ingested."
     )
-    include_view_lineage: Optional[bool] = Field(
-        default=True, description="Whether lineages should be ingested for views"
+    include_view_lineage: Optional[bool] = pydantic.Field(
+        default=True,
+        description="If the source supports it, include view lineage to the underlying storage location.",
     )
-    include_projection_lineage: Optional[bool] = Field(
-        default=True, description="Whether lineages should be ingested for Projection"
+    include_projection_lineage: Optional[bool] = pydantic.Field(
+        default=True,
+        description="If the source supports it, include view lineage to the underlying storage location.",
     )
 
     # defaults
-    scheme: str = Field(default="vertica+vertica_python")
+    scheme: str = pydantic.Field(default="vertica+vertica_python")
 
     @validator("host_port")
     def clean_host_port(cls, v):
@@ -142,6 +133,7 @@ class VerticaSource(SQLAlchemySource):
         self.projection_lineage_map: Optional[
             Dict[str, List[Tuple[str, str, str]]]
         ] = None
+        self.config: VerticaConfig = config
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
@@ -416,7 +408,7 @@ class VerticaSource(SQLAlchemySource):
                     logger.debug("has already been seen, skipping... %s", dataset_name)
                     continue
                 self.report.report_entity_scanned(dataset_name, ent_type="projection")
-                if not sql_config.projection_pattern.allowed(dataset_name):
+                if not sql_config.table_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
                 try:
@@ -857,7 +849,7 @@ class VerticaSource(SQLAlchemySource):
                     logger.debug("has already been seen, skipping %s", dataset_name)
                     continue
                 self.report.report_entity_scanned(dataset_name, ent_type="oauth")
-                if not sql_config.oauth_pattern.allowed(dataset_name):
+                if not sql_config.table_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
                 try:
@@ -1001,29 +993,6 @@ class VerticaSource(SQLAlchemySource):
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
         return description, properties, location
-
-    def is_dataset_eligible_for_profiling(
-        self,
-        dataset_name: str,
-        sql_config: SQLAlchemyConfig,
-        inspector: Inspector,
-        profile_candidates: Optional[List[str]],
-    ) -> bool:
-        """Return whether projection is  eligible for profiling
-        Args:
-            dataset_name (str): dataset name
-            sql_config (SQLAlchemyConfig): configuration
-            inspector (Inspector): inspector obj from reflection
-            profile_candidates (Optional[List[str]])
-        Returns:
-            bool: returns bool
-        """
-        super().is_dataset_eligible_for_profiling(
-            dataset_name, sql_config, inspector, profile_candidates
-        )
-        return sql_config.projection_pattern.allowed(
-            dataset_name
-        ) and sql_config.profile_pattern.allowed(dataset_name)
 
     def loop_profiler_requests(
         self,
