@@ -1,6 +1,7 @@
-# This import verifies that the dependencies are available.
-from typing import Dict, Iterable, List, Union
+from collections import defaultdict
+from typing import Dict, Iterable, List, Tuple, Union
 
+# This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
 import sqlalchemy.dialects.postgresql as custom_types
 
@@ -97,7 +98,9 @@ class PostgresConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme = Field(default="postgresql+psycopg2", description="database scheme")
     schema_pattern = Field(default=AllowDenyPattern(deny=["information_schema"]))
-    include_view_lineage = Field(default=False, description="Include table lineage for views")
+    include_view_lineage = Field(
+        default=False, description="Include table lineage for views"
+    )
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
@@ -140,24 +143,20 @@ class PostgresSource(SQLAlchemySource):
         if self.config.include_view_lineage:  # type: ignore
             yield from self._get_view_lineage_workunits()
 
-    def _get_view_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def _get_view_lineage_elements(self) -> Dict[Tuple[str, str], List[str]]:
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
 
         data: List[ViewLineageEntry] = []
-
         with engine.connect() as conn:
             results: CursorResult = conn.execute(VIEW_LINEAGE_QUERY)
             if results.returns_rows is False:
-                return None
+                return {}
 
             for row in results:
                 data.append(ViewLineageEntry.parse_obj(row))
 
-        if len(data) == 0:
-            return None
-
-        lineage_elements: Dict[str, List[str]] = {}
+        lineage_elements: Dict[Tuple[str, str], List[str]] = defaultdict(list)
         # Loop over the lineages in the JSON data.
         for lineage in data:
             if not self.config.view_pattern.allowed(lineage.dependent_view):
@@ -172,16 +171,11 @@ class PostgresSource(SQLAlchemySource):
                 )
                 continue
 
-            # Check if the dependent view + source schema already exists in the dictionary, if not create a new entry.
-            # Use ':::::' to join as it is unlikely to be part of a schema or view name.
-            key = ":::::".join([lineage.dependent_view, lineage.dependent_schema])
-            if key not in lineage_elements:
-                lineage_elements[key] = []
-
+            key = (lineage.dependent_view, lineage.dependent_schema)
             # Append the source table to the list.
             lineage_elements[key].append(
                 mce_builder.make_dataset_urn(
-                    "postgres",
+                    self.platform,
                     self.config.get_identifier(  # type: ignore
                         lineage.source_schema,
                         lineage.source_table,
@@ -190,15 +184,23 @@ class PostgresSource(SQLAlchemySource):
                 )
             )
 
+        return lineage_elements
+
+    def _get_view_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+        lineage_elements = self._get_view_lineage_elements()
+
+        if not lineage_elements:
+            return None
+
         # Loop over the lineage elements dictionary.
         for key, source_tables in lineage_elements.items():
             # Split the key into dependent view and dependent schema
-            dependent_view, dependent_schema = key.split(":::::")
+            dependent_view, dependent_schema = key
 
             # Construct a lineage object.
             urn = mce_builder.make_dataset_urn(
-                "postgres",
-                self.config.get_identifier(  # type: ignore
+                self.platform,
+                self.config.get_identifier(
                     dependent_schema,
                     dependent_view,
                 ),
