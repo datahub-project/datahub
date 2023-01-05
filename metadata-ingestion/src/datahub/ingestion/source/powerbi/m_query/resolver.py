@@ -47,6 +47,10 @@ class SupportedDataPlatform(Enum):
         powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
     )
 
+    ODBC = DataPlatformPair(
+        powerbi_data_platform_name="ODBC", datahub_data_platform_name="powerbi"
+    )
+
 
 class AbstractTableFullNameCreator(ABC):
     @abstractmethod
