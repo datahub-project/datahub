@@ -488,7 +488,6 @@ class BigQueryUsageExtractor:
     def _create_operation_aspect_work_unit(
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
-
         if not event.read_event and not event.query_event:
             return None
 
@@ -759,7 +758,7 @@ class BigQueryUsageExtractor:
             resource = event.read_event.resource.get_sanitized_table_ref()
             if (
                 resource.table_identifier.dataset not in tables
-                or resource.table_identifier.get_table_display_name()
+                or resource.table_identifier.get_table_name()
                 not in tables[resource.table_identifier.dataset]
             ):
                 logger.debug(f"Skipping non existing {resource} from usage")

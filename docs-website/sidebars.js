@@ -114,6 +114,13 @@ module.exports = {
               "docs/quick-ingestion-guides/bigquery/configuration",
             ],
           },
+          {
+            Snowflake: [
+              "docs/quick-ingestion-guides/snowflake/overview",
+              "docs/quick-ingestion-guides/snowflake/setup",
+              "docs/quick-ingestion-guides/snowflake/configuration",
+            ],
+          },
         ],
       },
     ],
@@ -266,7 +273,6 @@ module.exports = {
       "docs/deploy/gcp",
       "docker/README",
       "docs/deploy/kubernetes",
-      "docs/how/updating-datahub",
       {
         Authentication: [
           "docs/authentication/README",
@@ -311,6 +317,7 @@ module.exports = {
           "docs/advanced/no-code-upgrade",
         ],
       },
+      "docs/how/updating-datahub",
     ],
     "Developer Guides": [
       // The purpose of this section is to provide developers & technical users with

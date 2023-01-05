@@ -302,6 +302,7 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
     models_dropped: List[str] = dataclass_field(default_factory=LossyList)
     views_discovered: int = 0
     views_dropped: List[str] = dataclass_field(default_factory=LossyList)
+    views_dropped_unreachable: List[str] = dataclass_field(default_factory=LossyList)
     query_parse_attempts: int = 0
     query_parse_failures: int = 0
     query_parse_failure_views: List[str] = dataclass_field(default_factory=LossyList)
@@ -318,6 +319,9 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
 
     def report_views_dropped(self, view: str) -> None:
         self.views_dropped.append(view)
+
+    def report_unreachable_view_dropped(self, view: str) -> None:
+        self.views_dropped_unreachable.append(view)
 
     def compute_stats(self) -> None:
         if self._looker_api:
@@ -911,7 +915,9 @@ class LookerView:
             sql_query = derived_table["sql"]
             reporter.query_parse_attempts += 1
 
-            # Skip queries that contain liquid variables. We currently don't parse them correctly
+            # Skip queries that contain liquid variables. We currently don't parse them correctly.
+            # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
+            # TODO: also support ${EXTENDS} and ${TABLE}
             if "{%" in sql_query:
                 try:
                     # test if parsing works
@@ -1230,7 +1236,6 @@ class LookMLSource(StatefulIngestionSourceBase):
     ) -> Optional[UpstreamLineage]:
         upstreams = []
         for sql_table_name in looker_view.sql_table_names:
-
             sql_table_name = sql_table_name.replace('"', "").replace("`", "")
             upstream_dataset_urn: str = self._construct_datalineage_urn(
                 sql_table_name, looker_view
@@ -1429,6 +1434,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 checkout_dir = git_clone.clone(
                     ssh_key=self.source_config.github_info.deploy_key,
                     repo_url=self.source_config.github_info.repo_ssh_locator,
+                    branch=self.source_config.github_info.branch_for_clone,
                 )
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
@@ -1458,6 +1464,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 )
                             ),
                             repo_url=p_ref.repo_ssh_locator,
+                            branch=p_ref.branch_for_clone,
                         )
 
                         p_ref = p_checkout_dir.resolve()
@@ -1641,6 +1648,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                         ):
                             logger.debug(
                                 f"view {raw_view['name']} is not reachable from an explore, skipping.."
+                            )
+                            self.reporter.report_unreachable_view_dropped(
+                                raw_view["name"]
                             )
                             continue
 

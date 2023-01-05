@@ -1,17 +1,14 @@
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
-    CheckpointJobStatesMap,
     IngestionCheckpointingProviderBase,
     IngestionCheckpointingProviderConfig,
     JobId,
-    JobStateFilterType,
-    JobStateKey,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -41,7 +38,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     @classmethod
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
-    ) -> IngestionCheckpointingProviderBase:
+    ) -> "DatahubIngestionCheckpointingProvider":
         if ctx.graph:
             # Use the pipeline-level graph if set
             return cls(ctx.graph, name)
@@ -66,69 +63,46 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
     def get_latest_checkpoint(
         self,
         pipeline_name: str,
-        platform_instance_id: str,
         job_name: JobId,
+        platform_instance_id: Optional[str] = None,
     ) -> Optional[DatahubIngestionCheckpointClass]:
-
-        logger.info(
+        logger.debug(
             f"Querying for the latest ingestion checkpoint for pipelineName:'{pipeline_name}',"
             f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}'"
         )
 
-        data_job_urn = self.get_data_job_urn(
-            self.orchestrator_name, pipeline_name, job_name, platform_instance_id
-        )
+        if platform_instance_id is None:
+            data_job_urn = self.get_data_job_urn(
+                self.orchestrator_name, pipeline_name, job_name
+            )
+        else:
+            data_job_urn = self.get_data_job_legacy_urn(
+                self.orchestrator_name, pipeline_name, job_name, platform_instance_id
+            )
+
         latest_checkpoint: Optional[
             DatahubIngestionCheckpointClass
         ] = self.graph.get_latest_timeseries_value(
             entity_urn=data_job_urn,
-            aspect_name="datahubIngestionCheckpoint",
+            aspect_type=DatahubIngestionCheckpointClass,
             filter_criteria_map={
                 "pipelineName": pipeline_name,
-                "platformInstanceId": platform_instance_id,
             },
-            aspect_type=DatahubIngestionCheckpointClass,
         )
         if latest_checkpoint:
-            logger.info(
+            logger.debug(
                 f"The last committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
                 f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}' found with start_time:"
-                f" {datetime.fromtimestamp(latest_checkpoint.timestampMillis/1000, tz=timezone.utc)} and a"
-                f" bucket duration of {latest_checkpoint.eventGranularity}."
+                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis/1000)}"
             )
             return latest_checkpoint
         else:
-            logger.info(
+            logger.debug(
                 f"No committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
                 f" platformInstanceId:'{platform_instance_id}', job_name:'{job_name}' found"
             )
 
         return None
-
-    def get_previous_states(
-        self,
-        state_key: JobStateKey,
-        last_only: bool = True,
-        filter_opt: Optional[JobStateFilterType] = None,
-    ) -> List[CheckpointJobStatesMap]:
-        if not last_only:
-            raise NotImplementedError(
-                "Currently supports retrieving only the last commited state."
-            )
-        if filter_opt is not None:
-            raise NotImplementedError(
-                "Support for optional filters is not implemented yet."
-            )
-        checkpoints: List[CheckpointJobStatesMap] = []
-        last_job_checkpoint_map: CheckpointJobStatesMap = {}
-        for job_name in state_key.job_names:
-            last_job_checkpoint = self.get_latest_checkpoint(
-                state_key.pipeline_name, state_key.platform_instance_id, job_name
-            )
-            if last_job_checkpoint is not None:
-                last_job_checkpoint_map[job_name] = last_job_checkpoint
-        checkpoints.append(last_job_checkpoint_map)
-        return checkpoints
 
     def commit(self) -> None:
         if not self.state_to_commit:
@@ -138,8 +112,8 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         for job_name, checkpoint in self.state_to_commit.items():
             # Emit the ingestion state for each job
             logger.info(
-                f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}',"
-                f"instance:'{checkpoint.platformInstanceId}', job:'{job_name}'"
+                f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
+                f"job:'{job_name}'"
             )
 
             self.committed = False
@@ -148,7 +122,6 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                 self.orchestrator_name,
                 checkpoint.pipelineName,
                 job_name,
-                checkpoint.platformInstanceId,
             )
 
             self.graph.emit_mcp(
@@ -163,7 +136,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
 
             self.committed = True
 
-            logger.info(
-                f"Committed ingestion checkpoint for pipeline:'{checkpoint.pipelineName}',"
-                f"instance:'{checkpoint.platformInstanceId}', job:'{job_name}'"
+            logger.debug(
+                f"Committed ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
+                f"job:'{job_name}'"
             )

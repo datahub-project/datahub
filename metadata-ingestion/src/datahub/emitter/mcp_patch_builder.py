@@ -51,6 +51,7 @@ class MetadataPatchProposal:
         audit_header: Optional[KafkaAuditHeaderClass] = None,
     ) -> None:
         self.urn = urn
+        # TODO: Remove the entity_type parameter, as MCPW can infer it from the URN.
         self.entity_type = entity_type
         self.system_metadata = system_metadata
         self.audit_header = audit_header

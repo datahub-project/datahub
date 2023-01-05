@@ -73,7 +73,7 @@ You can find the following details in your Service Account Key file:
 * Client Email
 * Client ID
 
-Populate the Secret Fields by selecting the Primary Key and Primary Key ID secrets you created in steps 3 and 4. 
+Populate the Secret Fields by selecting the Private Key and Private Key ID secrets you created in steps 3 and 4. 
 
 <p align="center">
   <img width="75%" alt="Fill out the BigQuery Recipe" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery-ingestion-recipe.png"/>

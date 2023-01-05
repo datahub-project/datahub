@@ -53,7 +53,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
 
@@ -164,37 +163,27 @@ class DataHubValidationAction(ValidationAction):
             logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
 
             for assertion in assertions:
-
                 logger.info(
                     "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
                 )
 
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_info_mcp = MetadataChangeProposalWrapper(
-                    entityType="assertion",
-                    changeType=ChangeType.UPSERT,
                     entityUrn=assertion["assertionUrn"],
-                    aspectName="assertionInfo",
                     aspect=assertion["assertionInfo"],
                 )
                 emitter.emit_mcp(assertion_info_mcp)
 
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_platform_mcp = MetadataChangeProposalWrapper(
-                    entityType="assertion",
-                    changeType=ChangeType.UPSERT,
                     entityUrn=assertion["assertionUrn"],
-                    aspectName="dataPlatformInstance",
                     aspect=assertion["assertionPlatform"],
                 )
                 emitter.emit_mcp(assertion_platform_mcp)
 
                 for assertionResult in assertion["assertionResults"]:
                     dataset_assertionResult_mcp = MetadataChangeProposalWrapper(
-                        entityType="assertion",
-                        changeType=ChangeType.UPSERT,
                         entityUrn=assertionResult.assertionUrn,
-                        aspectName="assertionRunEvent",
                         aspect=assertionResult,
                     )
 
@@ -220,7 +209,6 @@ class DataHubValidationAction(ValidationAction):
         payload,
         datasets,
     ):
-
         dataPlatformInstance = DataPlatformInstance(
             platform=builder.make_data_platform_urn(GE_PLATFORM_NAME)
         )
@@ -354,7 +342,6 @@ class DataHubValidationAction(ValidationAction):
     def get_assertion_info(
         self, expectation_type, kwargs, dataset, fields, expectation_suite_name
     ):
-
         # TODO - can we find exact type of min and max value
         def get_min_max(kwargs, type=AssertionStdParameterType.UNKNOWN):
             return AssertionStdParameters(
@@ -717,7 +704,6 @@ def make_dataset_urn_from_sqlalchemy_uri(
     exclude_dbname=None,
     platform_alias=None,
 ):
-
     data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
     url_instance = make_url(sqlalchemy_uri)
 

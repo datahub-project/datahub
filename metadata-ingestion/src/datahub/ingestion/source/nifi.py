@@ -28,7 +28,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -156,7 +155,6 @@ class NifiProcessorType:
 # 2. Implement provenance event analyzer to find external dataset and
 # map it in provenance_event_to_lineage_map
 class NifiProcessorProvenanceEventAnalyzer:
-
     env: str
 
     KNOWN_INGRESS_EGRESS_PROCESORS = {
@@ -662,7 +660,6 @@ class NifiSource(Source):
         startDate: datetime,
         endDate: Optional[datetime] = None,
     ) -> Iterable[Dict]:
-
         logger.debug(
             f"Fetching {eventType} provenance events for {processor.id}\
             of processor type {processor.type}, Start date: {startDate}, End date: {endDate}"
@@ -770,7 +767,6 @@ class NifiSource(Source):
             logger.error("failed to delete provenance ", provenance_uri)
 
     def construct_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
-
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = builder.make_data_flow_urn(NIFI, rootpg.id, self.config.env)
@@ -931,7 +927,6 @@ class NifiSource(Source):
             )
 
     def process_provenance_events(self):
-
         startDate = datetime.now(timezone.utc) - timedelta(
             days=self.config.provenance_days
         )
@@ -957,7 +952,6 @@ class NifiSource(Source):
                         component.outlets[dataset.dataset_urn] = dataset
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         self.create_nifi_flow()
 
@@ -988,10 +982,7 @@ class NifiSource(Source):
         flow_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataFlow",
             entityUrn=flow_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataFlowInfo",
             aspect=DataFlowInfoClass(
                 name=flow_name,
                 customProperties=flow_properties,
@@ -1022,10 +1013,7 @@ class NifiSource(Source):
             job_properties = {k: v for k, v in job_properties.items() if v is not None}
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataJob",
             entityUrn=job_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataJobInfo",
             aspect=DataJobInfoClass(
                 name=job_name,
                 type=job_type,
@@ -1048,10 +1036,7 @@ class NifiSource(Source):
         inputJobs.sort()
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataJob",
             entityUrn=job_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataJobInputOutput",
             aspect=DataJobInputOutputClass(
                 inputDatasets=inlets, outputDatasets=outlets, inputDatajobs=inputJobs
             ),
@@ -1072,17 +1057,13 @@ class NifiSource(Source):
         external_url: Optional[str] = None,
         datasetProperties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         if not dataset_urn:
             dataset_urn = builder.make_dataset_urn(
                 dataset_platform, dataset_name, self.config.env
             )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="dataPlatformInstance",
             aspect=DataPlatformInstanceClass(
                 platform=builder.make_data_platform_urn(dataset_platform)
             ),
@@ -1098,10 +1079,7 @@ class NifiSource(Source):
             yield wu
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="datasetProperties",
             aspect=DatasetPropertiesClass(
                 externalUrl=external_url, customProperties=datasetProperties
             ),

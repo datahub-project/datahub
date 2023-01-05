@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Embed;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -18,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.EmbedMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
@@ -101,7 +103,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setSiblings(SiblingsMapper.map(new Siblings(dataMap))));
         mappingHelper.mapToResult(UPSTREAM_LINEAGE_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setFineGrainedLineages(UpstreamLineagesMapper.map(new UpstreamLineage(dataMap))));
-
+        mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setEmbed(EmbedMapper.map(new Embed(dataMap))));
         return mappingHelper.getResult();
     }
 

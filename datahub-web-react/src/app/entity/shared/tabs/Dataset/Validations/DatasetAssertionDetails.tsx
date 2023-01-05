@@ -71,7 +71,7 @@ type Props = {
 };
 
 export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) => {
-    const [getAssertionRuns, { data }] = useGetAssertionRunsLazyQuery();
+    const [getAssertionRuns, { data }] = useGetAssertionRunsLazyQuery({ fetchPolicy: 'cache-first' });
 
     /**
      * Set default window for fetching assertion history.

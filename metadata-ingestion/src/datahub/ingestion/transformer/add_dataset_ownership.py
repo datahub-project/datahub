@@ -73,7 +73,6 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-
         in_ownership_aspect: Optional[OwnershipClass] = cast(OwnershipClass, aspect)
         out_ownership_aspect: OwnershipClass = OwnershipClass(
             owners=[],
