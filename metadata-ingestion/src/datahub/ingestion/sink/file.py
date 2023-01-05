@@ -1,7 +1,7 @@
 import json
 import logging
 import pathlib
-from typing import Union
+from typing import Iterable, Union
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,8 +16,24 @@ from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 logger = logging.getLogger(__name__)
 
 
+def _to_obj_for_file(
+    obj: Union[
+        MetadataChangeEvent,
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
+        UsageAggregation,
+    ],
+    simplified_structure: bool = True,
+) -> dict:
+    if isinstance(obj, MetadataChangeProposalWrapper):
+        return obj.to_obj(simplified_structure=simplified_structure)
+    return obj.to_obj()
+
+
 class FileSinkConfig(ConfigModel):
     filename: str
+
+    legacy_nested_json_string: bool = False
 
 
 class FileSink(Sink[FileSinkConfig, SinkReport]):
@@ -40,7 +56,9 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
         write_callback: WriteCallback,
     ) -> None:
         record = record_envelope.record
-        obj = record.to_obj()
+        obj = _to_obj_for_file(
+            record, simplified_structure=not self.config.legacy_nested_json_string
+        )
 
         if self.wrote_something:
             self.file.write(",\n")
@@ -55,3 +73,25 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
     def close(self):
         self.file.write("\n]")
         self.file.close()
+
+
+def write_metadata_file(
+    file: pathlib.Path,
+    records: Iterable[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+            UsageAggregation,
+        ]
+    ],
+) -> None:
+    # This simplified version of the FileSink can be used for testing purposes.
+    with file.open("w") as f:
+        f.write("[\n")
+        for i, record in enumerate(records):
+            if i > 0:
+                f.write(",\n")
+            obj = _to_obj_for_file(record)
+            json.dump(obj, f, indent=4)
+        f.write("\n]")

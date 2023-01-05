@@ -9,13 +9,18 @@ from pydantic import ValidationError
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
-from datahub.cli.cli_utils import DATAHUB_CONFIG_PATH, write_datahub_config
+from datahub.cli.cli_utils import (
+    DATAHUB_CONFIG_PATH,
+    get_boolean_env_variable,
+    write_datahub_config,
+)
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.telemetry import telemetry
@@ -95,7 +100,7 @@ def datahub(
     # 3. Turn off propagation to the root handler.
     datahub_logger.propagate = False
     # 4. Adjust log-levels.
-    if debug or os.getenv("DATAHUB_DEBUG", False):
+    if debug or get_boolean_env_variable("DATAHUB_DEBUG", False):
         logging.getLogger().setLevel(logging.INFO)
         datahub_logger.setLevel(logging.DEBUG)
         logging.getLogger("datahub_classify").setLevel(logging.DEBUG)
@@ -145,6 +150,7 @@ datahub.add_command(ingest)
 datahub.add_command(delete)
 datahub.add_command(get)
 datahub.add_command(put)
+datahub.add_command(state)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)

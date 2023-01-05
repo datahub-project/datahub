@@ -1,0 +1,78 @@
+# Gradle & Avro
+.project
+.settings
+.classpath
+.gradle
+.idea
+*.iml
+*.iws
+*.ipr
+
+*gma-create-all.sql
+*gma-drop-all.sql
+
+# Pegasus, Avro, & other schemas
+**/src/mainGenerated*
+**/src/generatedJsonSchema
+**/metadata-io/generated
+**/metadata-integration/java/datahub-client/generated
+**/src/testGenerated*
+metadata-events/mxe-registration/src/main/resources/**/*.avsc
+
+# Java
+.java-version
+
+# Python
+.venv
+venv/
+env.bak/
+venv.bak/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+MANIFEST
+*.pyc
+
+# Added by mp-maker
+**/build
+/config
+*/i18n
+out/
+
+# Mac OS
+**/.DS_Store
+
+#spark-lineage
+**/spark-lineage/metastore_db/
+**/spark-lineage/**/derby.log
+**/spark-lineage/**/hive/
+**/spark-lineage/**/out*.csv/
+**/spark-lineage/coalesce-test/
+
+#VS Code
+.vscode
+.devcontainer
+
+#spark smoke test
+smoke-test/spark-smoke-test/docker/workspace/
+smoke-test/spark-smoke-test/__pycache__/
+
+# cypress integration test generated files
+**/cypress/videos
+**/cypress/screenshots
+**/cypress/node_modules
+
+# Metadata Ingestion Generated
+metadata-ingestion/generated/**
+
+# docs
+docs/generated/
+tmp*
+temp/**
+
+# frontend assets
+datahub-frontend/public/**
+
+.remote*
+# Ignore runtime generated authenticatior/authorizer jar files
+metadata-service/plugin/src/test/resources/sample-plugins/**

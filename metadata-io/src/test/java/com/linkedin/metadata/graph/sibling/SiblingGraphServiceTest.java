@@ -466,6 +466,94 @@ public class SiblingGraphServiceTest {
     assertEquals(upstreamLineage, expectedResult);
   }
 
+  // we should be combining lineage of siblings of siblings
+  // ie. dataset1 has sibling dataset2. dataset 2 has siblings dataset1 and dataset3. dataset3 has sibling dataset2. dataset3 has upstream dataset4.
+  // requesting upstream for dataset1 should give us dataset4
+  @Test
+  public void testUpstreamOfSiblingSiblings() throws Exception {
+    EntityLineageResult mockResult = new EntityLineageResult();
+    EntityLineageResult expectedResult = new EntityLineageResult();
+
+    LineageRelationshipArray relationships = new LineageRelationshipArray();
+    LineageRelationshipArray expectedRelationships = new LineageRelationshipArray();
+
+    LineageRelationship relationship = new LineageRelationship();
+    relationship.setDegree(0);
+    relationship.setType(downstreamOf);
+    relationship.setEntity(datasetFourUrn);
+
+    relationships.add(relationship);
+
+    expectedRelationships.add(relationship);
+
+    expectedResult.setCount(1);
+    expectedResult.setStart(0);
+    expectedResult.setTotal(1);
+    expectedResult.setRelationships(expectedRelationships);
+
+    mockResult.setStart(0);
+    mockResult.setTotal(1);
+    mockResult.setCount(1);
+    mockResult.setRelationships(relationships);
+
+    EntityLineageResult emptyLineageResult = new EntityLineageResult();
+    emptyLineageResult.setRelationships(new LineageRelationshipArray());
+    emptyLineageResult.setStart(0);
+    emptyLineageResult.setTotal(0);
+    emptyLineageResult.setCount(0);
+
+    Mockito.when(_graphService.getLineage(
+        Mockito.eq(datasetOneUrn),  Mockito.eq(LineageDirection.UPSTREAM), Mockito.anyInt(), Mockito.anyInt(), Mockito.eq(1)
+    )).thenReturn(emptyLineageResult);
+
+    Mockito.when(_graphService.getLineage(
+        Mockito.eq(datasetTwoUrn),  Mockito.eq(LineageDirection.UPSTREAM), Mockito.anyInt(), Mockito.anyInt(), Mockito.eq(1)
+    )).thenReturn(emptyLineageResult);
+
+    Mockito.when(_graphService.getLineage(
+        Mockito.eq(datasetThreeUrn),  Mockito.eq(LineageDirection.UPSTREAM), Mockito.anyInt(), Mockito.anyInt(), Mockito.eq(1)
+    )).thenReturn(mockResult);
+
+    Siblings dataset1Siblings = new Siblings();
+    dataset1Siblings.setPrimary(true);
+    dataset1Siblings.setSiblings(new UrnArray(ImmutableList.of(datasetTwoUrn)));
+
+    Mockito.when(_mockEntityService.getLatestAspect(datasetOneUrn, SIBLINGS_ASPECT_NAME)).thenReturn(dataset1Siblings);
+
+    Siblings dataset2Siblings = new Siblings();
+    dataset2Siblings.setPrimary(true);
+    dataset2Siblings.setSiblings(new UrnArray(ImmutableList.of(datasetOneUrn, datasetThreeUrn)));
+
+    Mockito.when(_mockEntityService.getLatestAspect(datasetTwoUrn, SIBLINGS_ASPECT_NAME)).thenReturn(dataset2Siblings);
+
+    Siblings dataset3Siblings = new Siblings();
+    dataset3Siblings.setPrimary(true);
+    dataset3Siblings.setSiblings(new UrnArray(ImmutableList.of(datasetTwoUrn)));
+
+    Mockito.when(_mockEntityService.getLatestAspect(datasetThreeUrn, SIBLINGS_ASPECT_NAME)).thenReturn(dataset3Siblings);
+
+    Siblings dataset4Siblings = new Siblings();
+    dataset4Siblings.setPrimary(true);
+    dataset4Siblings.setSiblings(new UrnArray());
+
+    Mockito.when(_mockEntityService.getLatestAspect(datasetFourUrn, SIBLINGS_ASPECT_NAME)).thenReturn(dataset4Siblings);
+
+    Map<Urn, List<RecordTemplate>> siblingsMap = ImmutableMap.of(
+        datasetOneUrn, ImmutableList.of(dataset1Siblings),
+        datasetTwoUrn, ImmutableList.of(dataset2Siblings),
+        datasetThreeUrn, ImmutableList.of(dataset3Siblings),
+        datasetFourUrn, ImmutableList.of(dataset4Siblings)
+    );
+
+    Mockito.when(_mockEntityService.getLatestAspects(Mockito.any(), Mockito.any())).thenReturn(siblingsMap);
+
+    SiblingGraphService service = _client;
+
+    EntityLineageResult upstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.UPSTREAM, 0, 100, 1);
+
+    assertEquals(upstreamLineage, expectedResult);
+  }
+
   static Urn createFromString(@Nonnull String rawUrn) {
     try {
       return Urn.createFromString(rawUrn);

@@ -86,12 +86,6 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, dataJob: GetDataJobQuery) =>
-                            (dataJob?.dataJob?.upstream?.count || 0) !== 0 ||
-                            (dataJob?.dataJob?.downstream?.count || 0) !== 0,
-                    },
                 },
                 {
                     name: 'Runs',

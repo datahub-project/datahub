@@ -72,7 +72,7 @@ const user1 = {
             },
         ],
     },
-    settings: { appearance: { showSimplifiedHomepage: false } },
+    settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
 const user2 = {
@@ -116,7 +116,7 @@ const user2 = {
             },
         ],
     },
-    settings: { appearance: { showSimplifiedHomepage: false } },
+    settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
 const dataPlatform = {
@@ -142,7 +142,8 @@ export const dataset1 = {
             displayName: 'HDFS',
             type: PlatformType.FileSystem,
             datasetNameDelimiter: '.',
-            logoUrl: '',
+            logoUrl:
+                'https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/lookerlogo.png',
         },
     },
     lastIngested: null,
@@ -152,6 +153,10 @@ export const dataset1 = {
     origin: 'PROD',
     tags: ['Private', 'PII'],
     uri: 'www.google.com',
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+    },
     properties: {
         name: 'The Great Test Dataset',
         description: 'This is the greatest dataset in the world, youre gonna love it!',
@@ -231,6 +236,7 @@ export const dataset1 = {
     deprecation: null,
     testResults: null,
     statsSummary: null,
+    embed: null,
 };
 
 export const dataset2 = {
@@ -246,6 +252,10 @@ export const dataset2 = {
             logoUrl: '',
         },
         type: EntityType.DataPlatform,
+    },
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
     },
     lastIngested: null,
     dataPlatformInstance: null,
@@ -318,6 +328,7 @@ export const dataset2 = {
     deprecation: null,
     testResults: null,
     statsSummary: null,
+    embed: null,
 };
 
 export const dataset3 = {
@@ -334,6 +345,10 @@ export const dataset3 = {
             logoUrl: '',
         },
         type: EntityType.DataPlatform,
+    },
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
     },
     lastIngested: null,
     dataPlatformInstance: null,
@@ -542,6 +557,7 @@ export const dataset3 = {
     testResults: null,
     siblings: null,
     statsSummary: null,
+    embed: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -1211,6 +1227,10 @@ export const dataJob1 = {
             time: 0,
         },
     },
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+    },
     properties: {
         name: 'DataJobInfoName',
         description: 'DataJobInfo1 Description',
@@ -1269,6 +1289,10 @@ export const dataJob2 = {
     type: EntityType.DataJob,
     dataFlow: dataFlow1,
     jobId: 'jobId2',
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+    },
     ownership: {
         __typename: 'Ownership',
         owners: [
@@ -1335,6 +1359,10 @@ export const dataJob3 = {
     dataFlow: dataFlow1,
     jobId: 'jobId3',
     lastIngested: null,
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+    },
     ownership: {
         __typename: 'Ownership',
         owners: [
@@ -3213,6 +3241,7 @@ export const mocks = [
                         manageSecrets: true,
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
+                        manageGlobalViews: true,
                     },
                 },
             },
@@ -3437,4 +3466,5 @@ export const platformPrivileges: PlatformPrivileges = {
     manageTags: true,
     createTags: true,
     createDomains: true,
+    manageGlobalViews: true,
 };

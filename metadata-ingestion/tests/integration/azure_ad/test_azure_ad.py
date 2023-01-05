@@ -54,7 +54,6 @@ def test_azure_ad_config():
 
 @freeze_time(FROZEN_TIME)
 def test_azure_ad_source_default_configs(pytestconfig, tmp_path):
-
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
     )
@@ -110,7 +109,6 @@ def test_azure_ad_source_default_configs(pytestconfig, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 def test_azure_ad_source_nested_groups(pytestconfig, tmp_path):
-
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
     )
@@ -171,7 +169,6 @@ def test_azure_ad_source_nested_groups(pytestconfig, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 def test_azure_source_ingestion_disabled(pytestconfig, tmp_path):
-
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
     )

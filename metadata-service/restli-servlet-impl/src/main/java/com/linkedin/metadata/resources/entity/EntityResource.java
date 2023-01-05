@@ -72,7 +72,6 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
@@ -223,8 +222,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final SystemMetadata finalSystemMetadata = systemMetadata;
     return RestliUtil.toTask(() -> {
       _entityService.ingestEntity(entity, auditStamp, finalSystemMetadata);
-      tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata,
-          _entitySearchService);
       return null;
     }, MetricRegistry.name(this.getClass(), "ingest"));
   }
@@ -259,15 +256,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
         .collect(Collectors.toList());
 
-    SystemMetadata[] finalSystemMetadataList1 = systemMetadataList;
     return RestliUtil.toTask(() -> {
       _entityService.ingestEntities(Arrays.asList(entities), auditStamp, finalSystemMetadataList);
-      for (int i = 0; i < entities.length; i++) {
-        SystemMetadata systemMetadata = finalSystemMetadataList1[i];
-        Entity entity = entities[i];
-        tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata,
-            _entitySearchService);
-      }
       return null;
     }, MetricRegistry.name(this.getClass(), "batchIngest"));
   }

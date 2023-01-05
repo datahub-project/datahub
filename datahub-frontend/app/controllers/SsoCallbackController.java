@@ -4,6 +4,7 @@ import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import javax.annotation.Nonnull;
@@ -14,10 +15,12 @@ import org.pac4j.core.engine.CallbackLogic;
 import org.pac4j.core.http.adapter.HttpActionAdapter;
 import org.pac4j.play.CallbackController;
 import org.pac4j.play.PlayWebContext;
+import play.mvc.Http;
 import play.mvc.Result;
 import auth.sso.oidc.OidcCallbackLogic;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
+import play.mvc.Results;
 
 
 /**
@@ -44,21 +47,21 @@ public class SsoCallbackController extends CallbackController {
     setCallbackLogic(new SsoCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient));
   }
 
-  public CompletionStage<Result> handleCallback(String protocol) {
+  public CompletionStage<Result> handleCallback(String protocol, Http.Request request) {
     if (shouldHandleCallback(protocol)) {
       log.debug(String.format("Handling SSO callback. Protocol: %s", protocol));
-      return callback().handle((res, e) -> {
+      return callback(request).handle((res, e) -> {
         if (e != null) {
           log.error("Caught exception while attempting to handle SSO callback! It's likely that SSO integration is mis-configured.", e);
-          return redirect(
+          return Results.redirect(
               String.format("/login?error_msg=%s",
                   URLEncoder.encode("Failed to sign in using Single Sign-On provider. Please contact your DataHub Administrator, "
-                      + "or refer to server logs for more information.")));
+                      + "or refer to server logs for more information.", StandardCharsets.UTF_8)));
         }
         return res;
       });
     }
-    return CompletableFuture.completedFuture(internalServerError(
+    return CompletableFuture.completedFuture(Results.internalServerError(
         String.format("Failed to perform SSO callback. SSO is not enabled for protocol: %s", protocol)));
   }
 
