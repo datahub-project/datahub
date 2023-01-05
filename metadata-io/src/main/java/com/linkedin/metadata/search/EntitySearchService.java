@@ -9,12 +9,11 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.elasticsearch.tasks.TaskInfo;
 
 
 public interface EntitySearchService {
 
-  void configure(List<TaskInfo> taskInfos);
+  void configure();
 
   /**
    * Clear all data within the service

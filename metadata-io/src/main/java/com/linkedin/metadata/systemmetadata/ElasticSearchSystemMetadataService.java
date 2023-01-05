@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -38,7 +37,6 @@ import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.metrics.ParsedMax;
-import org.elasticsearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -197,11 +195,11 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public void configure(List<TaskInfo> taskInfos) {
+  public void configure() {
     log.info("Setting up system metadata index");
     try {
       for (ReindexConfig config : getReindexConfigs()) {
-        _indexBuilder.buildIndex(config, taskInfos);
+        _indexBuilder.buildIndex(config);
       }
     } catch (IOException ie) {
       throw new RuntimeException("Could not configure system metadata index", ie);
@@ -215,8 +213,8 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public void reindexAll(List<TaskInfo> taskInfos) {
-    configure(taskInfos);
+  public void reindexAll() {
+    configure();
   }
 
   @VisibleForTesting

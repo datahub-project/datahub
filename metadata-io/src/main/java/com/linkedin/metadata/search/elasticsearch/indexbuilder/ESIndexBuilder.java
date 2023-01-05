@@ -6,7 +6,6 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.version.GitVersion;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -129,10 +128,10 @@ public class ESIndexBuilder {
 
   @Deprecated
   public void buildIndex(String indexName, Map<String, Object> mappings, Map<String, Object> settings) throws IOException {
-    buildIndex(buildReindexState(indexName, mappings, settings), Collections.emptyList());
+    buildIndex(buildReindexState(indexName, mappings, settings));
   }
 
-  public void buildIndex(ReindexConfig indexState, List<TaskInfo> taskInfos) throws IOException {
+  public void buildIndex(ReindexConfig indexState) throws IOException {
     // If index doesn't exist, create index
     if (!indexState.exists()) {
       createIndex(indexState.name(), indexState);
@@ -169,11 +168,11 @@ public class ESIndexBuilder {
                 ReindexConfig.OBJECT_MAPPER.writeValueAsString(indexSettings), ack);
       }
     } else {
-      reindex(indexState.name(), indexState, taskInfos);
+      reindex(indexState.name(), indexState);
     }
   }
 
-  private void reindex(String indexName, ReindexConfig indexState, List<TaskInfo> taskInfos) throws IOException {
+  private void reindex(String indexName, ReindexConfig indexState) throws IOException {
     final long startTime = System.currentTimeMillis();
 
     String tempIndexName = indexName + "_" + startTime;
@@ -185,6 +184,9 @@ public class ESIndexBuilder {
     final long timeoutAt = startTime + (1000 * 60 * 60 * maxReindexHours);
 
     try {
+      ListTasksRequest listTasksRequest = new ListTasksRequest()
+          .setWaitForCompletion(true);
+      List<TaskInfo> taskInfos = searchClient.tasks().list(listTasksRequest, RequestOptions.DEFAULT).getTasks();
 
       Optional<TaskInfo> previousTaskInfo = taskInfos.stream()
           .filter(info ->

@@ -25,7 +25,6 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -41,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,7 +47,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -278,19 +275,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public void configure(List<TaskInfo> taskInfos) {
+  public void configure() {
     log.info("Setting up elastic graph index");
     try {
       for (ReindexConfig config : getReindexConfigs()) {
-        Optional<TaskInfo> taskInfo = taskInfos.stream()
-            .filter(info ->
-                ESUtils.getOpaqueIdHeaderValue(_indexBuilder.getGitVersion().getVersion(), config.name())
-                    .equals(info.getHeaders().get(ESUtils.OPAQUE_ID_HEADER))).findFirst();
-        if (taskInfo.isPresent()) {
-          log.info("Reindex task {} in progress with description {}. Attempting to continue task from breakpoint.",
-              taskInfo.get().getId(), taskInfo.get().getDescription());
-          continue;
-        }
         _indexBuilder.buildIndex(config);
       }
     } catch (IOException e) {
@@ -305,8 +293,8 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public void reindexAll(List<TaskInfo> taskInfos) {
-    configure(taskInfos);
+  public void reindexAll() {
+    configure();
   }
 
   @VisibleForTesting

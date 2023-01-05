@@ -6,7 +6,6 @@ import com.linkedin.mxe.SystemMetadata;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.elasticsearch.tasks.TaskInfo;
 
 
 public interface SystemMetadataService {
@@ -34,7 +33,7 @@ public interface SystemMetadataService {
 
   List<IngestionRunSummary> listRuns(Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);
 
-  void configure(List<TaskInfo> taskInfos);
+  void configure();
 
   void clear();
 }

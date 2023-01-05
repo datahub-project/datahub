@@ -11,12 +11,11 @@ import com.linkedin.timeseries.GroupingBucket;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.elasticsearch.tasks.TaskInfo;
 
 
 public interface TimeseriesAspectService {
 
-  void configure(List<TaskInfo> taskInfos);
+  void configure();
 
   void upsertDocument(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull String docId,
       @Nonnull JsonNode document);

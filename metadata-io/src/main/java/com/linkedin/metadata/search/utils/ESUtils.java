@@ -6,7 +6,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;

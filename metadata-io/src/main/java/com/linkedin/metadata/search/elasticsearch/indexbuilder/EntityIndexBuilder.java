@@ -1,16 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.tasks.TaskInfo;
 
 
 @Slf4j
@@ -22,10 +19,10 @@ public class EntityIndexBuilder implements ElasticSearchIndexed {
   private final String indexName;
 
   @Override
-  public void reindexAll(List<TaskInfo> taskInfos) throws IOException {
+  public void reindexAll() throws IOException {
     log.info("Setting up index: {}", indexName);
     for (ReindexConfig config : getReindexConfigs()) {
-      indexBuilder.buildIndex(config, taskInfos);
+      indexBuilder.buildIndex(config);
     }
   }
 
