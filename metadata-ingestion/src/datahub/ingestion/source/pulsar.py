@@ -500,7 +500,6 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type="dataset",
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
             )

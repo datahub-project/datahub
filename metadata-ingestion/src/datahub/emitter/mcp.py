@@ -1,6 +1,6 @@
 import dataclasses
 import json
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
@@ -98,6 +98,12 @@ class MetadataChangeProposalWrapper:
             raise ValueError(
                 f"aspectName {self.aspectName} does not match aspect type {type(self.aspect)} with name {self.aspect.get_aspect_name()}"
             )
+
+    @classmethod
+    def construct_many(
+        cls, entityUrn: str, aspects: List[Optional[_Aspect]]
+    ) -> List["MetadataChangeProposalWrapper"]:
+        return [cls(entityUrn=entityUrn, aspect=aspect) for aspect in aspects if aspect]
 
     def make_mcp(self) -> MetadataChangeProposalClass:
         serializedEntityKeyAspect: Union[None, GenericAspectClass] = None
