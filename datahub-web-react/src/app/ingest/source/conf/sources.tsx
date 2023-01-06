@@ -17,7 +17,6 @@ import hiveConfig from './hive/hive';
 import oracleConfig from './oracle/oracle';
 import tableauConfig from './tableau/tableau';
 
-
 const baseUrl = window.location.origin;
 
 const DEFAULT_PLACEHOLDER_RECIPE = `\
