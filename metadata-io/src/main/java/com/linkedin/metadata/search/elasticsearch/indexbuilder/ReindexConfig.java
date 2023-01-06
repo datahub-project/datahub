@@ -42,6 +42,7 @@ public class ReindexConfig {
     final private Map<String, Object> targetMappings;
     final private boolean enableIndexMappingsReindex;
     final private boolean enableIndexSettingsReindex;
+    final private String version;
 
     /* Calculated */
     final private boolean requiresReindex;
@@ -92,6 +93,11 @@ public class ReindexConfig {
                                 }
                             },
                             (oldValue, newValue) -> newValue, TreeMap::new));
+        }
+
+        public ReindexConfigBuilder version(String version) {
+            this.version = version;
+            return this;
         }
     }
 

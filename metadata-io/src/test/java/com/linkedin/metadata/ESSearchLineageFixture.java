@@ -27,7 +27,9 @@ import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.version.GitVersion;
 import io.datahub.test.fixtures.elasticsearch.FixtureReader;
+import java.util.Optional;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -72,9 +74,10 @@ public class ESSearchLineageFixture {
             @Qualifier("entityRegistry") EntityRegistry entityRegistry,
             @Qualifier("searchLineageIndexConvention") IndexConvention indexConvention
     ) {
+        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
         ESIndexBuilder indexBuilder = new ESIndexBuilder(_searchClient, 1, 0, 1,
                 1, Map.of(), true, false,
-                new ElasticSearchConfiguration());
+                new ElasticSearchConfiguration(), gitVersion);
         SettingsBuilder settingsBuilder = new SettingsBuilder(null);
         return new EntityIndexBuilders(indexBuilder, entityRegistry, indexConvention, settingsBuilder);
     }
@@ -94,9 +97,10 @@ public class ESSearchLineageFixture {
     @Bean(name = "searchLineageESIndexBuilder")
     @Nonnull
     protected ESIndexBuilder esIndexBuilder() {
+        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
         return new ESIndexBuilder(_searchClient, 1, 1, 1, 1, Map.of(),
                 true, true,
-                new ElasticSearchConfiguration());
+                new ElasticSearchConfiguration(), gitVersion);
     }
 
     @Bean(name = "searchLineageGraphService")

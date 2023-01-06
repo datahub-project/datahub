@@ -7,6 +7,7 @@ import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.version.GitVersion;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -78,9 +79,9 @@ public class ElasticSearchIndexBuilderFactory {
   @Nonnull
   protected ESIndexBuilder getInstance(
           @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides,
-          final ConfigurationProvider configurationProvider) {
+          final ConfigurationProvider configurationProvider, final GitVersion gitVersion) {
     return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, overrides,
-            enableSettingsReindex, enableMappingsReindex, configurationProvider.getElasticSearch());
+            enableSettingsReindex, enableMappingsReindex, configurationProvider.getElasticSearch(), gitVersion);
   }
 
   @Nonnull
