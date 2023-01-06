@@ -1,30 +1,30 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Manual Lineage
+# About DataHub Lineage
 
 <FeatureAvailability/>
 
-Starting in version `0.9.5`, DataHub supports the manual editing of lineage between entities in the UI. Add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction in ingestion or establish important entity relationships in sources that we don't support automatic extraction for yet! Manual lineage is only supported for Datasets, Charts, Dashboards, and Data Jobs for now.
+In DataHub, lineage is how describe the way that data flows within and between your source systems. For a given entity, lineage allows you to see where this data is coming from (what's upstream) and where it's going (what's downstream). For more information, see [this video](https://www.youtube.com/watch?v=rONGpsndzRw&ab_channel=DataHub) for Lineage 101 in DataHub.
+
+Starting in version `0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction in ingestion or establish important entity relationships in sources that we don't support automatic extraction for yet! Editing lineage by hand is only supported for Datasets, Charts, Dashboards, and Data Jobs for now.
 
 :::note
 
-If you edit lineage manually through the UI but have lineage automatically extracted in ingestion for the entities you edited, your edits from the UI may be overwritten when ingestion runs again.
+Lineage added by hand and programmatically may conflict with one another to cause unwanted overwrites. It is strongly recommend that lineage is edited manually in cases where lineage information is not also extracted in automated fashion, e.g. by running an ingestion source.
 
 :::
 
 ## Manual Lineage Setup, Prerequisites, and Permissions
 
-What you need to edit lineage in the UI:
+To edit lineage for an entity, you'll need the following [Metadata Privilege](../authorization/policies.md):
 
 * **Edit Lineage** metadata privilege to edit lineage at the entity level
 
-You can create these privileges by creating a new [Metadata Policy](../authorization/policies.md).
-
-Keep in mind that you need the **Edit Lineage** metadata privilege on all entity types that you want to edit lineage for. So if you want to add a Chart upstream of a Dataset, you need the **Edit Lineage** privilege for both Charts and Datasets.
+It is important to know that the **Edit Lineage** privilege is required for all entities whose lineage is affected by the changes. For example, in order to add "Dataset B" as an upstream dependency of "Dataset A", you'll need the **Edit Lineage** privilege for both Dataset A and Dataset B.
 
 ## Using Manual Lineage
 
-### Edit from Lineage Visualization
+### Editing from Lineage Graph View
 
 The first place that you can edit lineage for entities is from the Lineage Visualization screen. Click on the "Lineage" button on the top right of an entity's profile to get to this view.
 
@@ -62,13 +62,13 @@ From the same modal that you add new lineage edges, you can remove them as well.
 
 #### Reviewing Changes
 
-Any time lineage is edited manually through the UI, we keep track of who made the change and when they made it. You can see this information in the modal where you add and remove edges. If an edge was added manually, a user avatar will be in line with the edge that was added. You can hover over this avatar in order to see who added it and when.
+Any time lineage is edited manually, we keep track of who made the change and when they made it. You can see this information in the modal where you add and remove edges. If an edge was added manually, a user avatar will be in line with the edge that was added. You can hover over this avatar in order to see who added it and when.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-edge-audit-stamp.png"/>
 </p>
 
-### Edit from Lineage Tab
+### Editing from Lineage Tab
 
 The other place that you can edit lineage for entities is from the Lineage Tab on an entity's profile. Click on the "Lineage" tab in an entity's profile and then find the "Edit" dropdown that allows you to edit upstream or downstream lineage for the given entity.
 
@@ -81,6 +81,12 @@ Using the modal from this view will work the same as described above for editing
 ## Additional Resources
 
 ### Videos
+
+**DataHub Basics: Lineage 101**
+
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/rONGpsndzRw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+</p>
 
 **DataHub November Town Hall - Including Manual Lineage Demo**
 
