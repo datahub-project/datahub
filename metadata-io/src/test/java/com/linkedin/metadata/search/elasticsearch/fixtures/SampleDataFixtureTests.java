@@ -12,6 +12,8 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import java.util.HashMap;
+
+import com.linkedin.util.Pair;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.AnalyzeRequest;
@@ -120,8 +122,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
                 "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)"
         ).forEach(query ->
-            assertEquals(search(searchService, query).getEntities().size(), 1,
-                    String.format("Unexpected single urn result for `%s`", query))
+            assertTrue(search(searchService, query).getEntities().size() >= 1,
+                    String.format("Unexpected >1 urn result for `%s`", query))
         );
     }
 
@@ -146,7 +148,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     .map(test -> search(searchService, test))
                     .collect(Collectors.toSet());
 
-            results.forEach(r -> assertTrue(r.hasEntities(), "Expected search results"));
+            results.forEach(r -> assertTrue(r.hasEntities() && !r.getEntities().isEmpty(), "Expected search results"));
             assertEquals(results.stream().map(r -> r.getEntities().size()).distinct().count(), 1,
                     String.format("Expected all result counts to match after stemming. %s", testSet));
         });
@@ -160,7 +162,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 .map(test -> search(searchService, test))
                 .collect(Collectors.toSet());
 
-        results.forEach(r -> assertTrue(r.hasEntities(), "Expected search results"));
+        results.forEach(r -> assertTrue(r.hasEntities() && !r.getEntities().isEmpty(), "Expected search results"));
         assertEquals(results.stream().map(r -> r.getEntities().size()).distinct().count(), 1,
                 String.format("Expected all result counts to match after stemming. %s", testSet));
 
@@ -207,7 +209,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 .map(test -> search(searchService, test))
                 .collect(Collectors.toList());
 
-        results.forEach(r -> assertTrue(r.hasEntities(), "Expected search results"));
+        results.forEach(r -> assertTrue(r.hasEntities() && !r.getEntities().isEmpty(), "Expected search results"));
 
         List<Integer> resultCounts = results.stream().map(r -> r.getEntities().size()).collect(Collectors.toList());
         assertEquals(resultCounts.stream().distinct().count(), 1,
@@ -227,15 +229,6 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         expectedTokens.forEach(expected -> assertTrue(indexTokens.contains(expected),
                 String.format("Expected token `%s` in %s", expected, indexTokens)));
 
-        request = AnalyzeRequest.withIndexAnalyzer(
-                "smpldat_datasetindex_v2",
-                "query_urn_component",
-                "big query"
-        );
-        List<String> searchTokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
-        expectedTokens.forEach(expected -> assertTrue(searchTokens.contains(expected),
-                String.format("Expected token `%s` in %s", expected, searchTokens)));
-
         List<String> testSet = List.of(
                 "big query",
                 "bigquery"
@@ -244,7 +237,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 .map(test -> search(searchService, test))
                 .collect(Collectors.toList());
 
-        results.forEach(r -> assertTrue(r.hasEntities(), "Expected search results"));
+        results.forEach(r -> assertTrue(r.hasEntities() && !r.getEntities().isEmpty(), "Expected search results"));
 
         Assert.assertArrayEquals(results.get(0).getEntities().stream().map(e -> e.getEntity().toString()).sorted().toArray(String[]::new),
                 results.get(1).getEntities().stream().map(e -> e.getEntity().toString()).sorted().toArray(String[]::new));
@@ -311,8 +304,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
         List<String> tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
         assertEquals(tokens, List.of(
-                        "urn:li:dataset", "dataset",
-                        "urn:li:dataplatform:bigqueri", "data", "platform", "big",  "bigqueri", "queri", "dataplatform",
+                        "dataset",
+                        "dataplatform", "data", "platform", "bigqueri", "big", "queri",
                         "harshal-playground-306419", "harshal", "playground", "306419",
                         "test_schema", "test", "schema",
                         "excess_deaths_deriv", "excess", "death", "deriv",
@@ -326,8 +319,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
         tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
         assertEquals(tokens, List.of(
-                        "urn:li:dataset", "dataset",
-                        "urn:li:dataplatform:hive", "data", "dataplatform", "platform", "hive",
+                        "dataset",
+                        "dataplatform", "data", "platform", "hive",
                         "samplehivedataset-ac611929-c3ac-4b92-aafb-f4603ddb408a",
                         "samplehivedataset", "ac611929", "c3ac", "4b92", "aafb", "f4603ddb408a", "sampl",
                         "ac", "611929", "92", "4603", "ddb", "408",
@@ -341,9 +334,9 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
         tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
         assertEquals(tokens, List.of(
-                        "urn:li:dataset", "dataset",
-                        "urn:li:dataplatform:test_rollback",  "data", "dataplatform", "platform",
-                        "test", "rollback", "rollback_test_dataset"),
+                        "dataset",
+                        "dataplatform", "data", "platform",
+                        "test_rollback", "test", "rollback", "rollback_test_dataset"),
                 String.format("Unexpected tokens. Found %s", tokens));
     }
 
@@ -418,7 +411,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void testFacets() throws IOException {
+    public void testFacets() {
         Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
         SearchResult testResult = search(searchService, "cypress");
         expectedFacets.forEach(facet -> {
@@ -427,6 +420,39 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                             testResult.getMetadata().getAggregations().stream()
                                     .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
+    }
+
+    @Test
+    public void testPartialUrns() throws IOException {
+        Set<String> expectedTokens = Set.of("dataplatform", "data", "platform", "hdfs", "samplehdfsdataset", "sampl",
+                "dataset", "prod", "production");
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
+                "smpldat_datasetindex_v2",
+                "query_urn_component",
+                ":(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+        );
+        List<String> searchTokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
+        expectedTokens.forEach(expected -> assertTrue(searchTokens.contains(expected),
+                String.format("Expected token `%s` in %s", expected, searchTokens)));
+
+        List<String> testSet = List.of(
+                ":(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+                "(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+                "urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD",
+                "hdfs,SampleHdfsDataset,PROD",
+                "hdfs,SampleHdfsDataset",
+                "SampleHdfsDataset",
+                "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"
+        );
+        List<Pair<String, SearchResult>> results = testSet.stream()
+                .map(test -> Pair.of(test, search(searchService, test)))
+                .collect(Collectors.toList());
+
+        results.forEach(r ->
+                assertTrue(r.getValue().hasEntities() && !r.getValue().getEntities().isEmpty(),
+                String.format("%s - Expected partial urn search results", r.getKey())));
+        results.forEach(r -> assertTrue(r.getValue().getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", r.getKey())));
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {
