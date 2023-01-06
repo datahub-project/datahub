@@ -64,13 +64,6 @@ const NoMetadataContainer = styled.div`
     align-items: center;
 `;
 
-const DomainsRecomendationContainer = styled.div`
-    margin-top: -48px;
-    margin-bottom: 32px;
-    max-width: 1000px;
-    min-width: 750px;
-`;
-
 type Props = {
     userUrn: string;
 };
@@ -133,29 +126,11 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
         }
     }, [hasLoadedEntityCounts, hasIngestedMetadata]);
 
-    // we want to render the domain module first if it exists
-    const domainRecommendationModule = recommendationModules?.find(
-        (module) => module.renderType === RecommendationRenderType.DomainSearchList,
-    );
-
     return (
         <RecommendationsContainer>
             <HomePagePosts />
             {orderedEntityCounts && orderedEntityCounts.length > 0 && (
                 <RecommendationContainer>
-                    {domainRecommendationModule && (
-                        <>
-                            <DomainsRecomendationContainer>
-                                <RecommendationTitle level={4}>{domainRecommendationModule.title}</RecommendationTitle>
-                                <ThinDivider />
-                                <RecommendationModule
-                                    module={domainRecommendationModule as RecommendationModuleType}
-                                    scenarioType={scenario}
-                                    showTitle={false}
-                                />
-                            </DomainsRecomendationContainer>
-                        </>
-                    )}
                     <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
                     <ThinDivider />
                     {hasIngestedMetadata ? (
