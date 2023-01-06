@@ -40,7 +40,7 @@ public class PostBuildIndicesStep implements UpgradeStep {
 
   @Override
   public int retryCount() {
-    return 2;
+    return 0;
   }
 
   @Override
