@@ -341,7 +341,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4"},
+    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"sqlalchemy-vertica-dialect[vertica-python]==0.1.4"},
     "unity-catalog": databricks_cli | {"requests"},
