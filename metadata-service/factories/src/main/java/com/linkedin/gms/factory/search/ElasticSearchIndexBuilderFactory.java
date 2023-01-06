@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.search;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -30,7 +31,8 @@ import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVE
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, ConfigurationProvider.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, ConfigurationProvider.class,
+        GitVersionFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ElasticSearchIndexBuilderFactory {
 
