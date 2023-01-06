@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
+import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
@@ -65,7 +66,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         Map<String, Integer> expectedTypes = Map.of(
                 "dataset", 8,
                 "chart", 0,
-                "container", 0,
+                "container", 1,
                 "dashboard", 0,
                 "tag", 0,
                 "mlmodel", 0
@@ -353,12 +354,30 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                         throw new RuntimeException(e);
                     }
                 });
+    }
 
+    @Test
+    public void testDatasetAutoComplete() {
         List.of("excess", "excess_", "excess_d", "excess_de", "excess_death", "excess_deaths", "excess_deaths_d",
                         "excess_deaths_de", "excess_deaths_der", "excess_deaths_derived")
                 .forEach(query -> {
                     try {
                         AutoCompleteResults result = autocomplete(new DatasetType(entityClient), query);
+                        assertTrue(result.getEntities().size() >= 1,
+                                String.format("Expected >= 1 results for `%s` found %s", query, result.getEntities().size()));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    @Test
+    public void testContainerAutoComplete() {
+        List.of("cont", "container", "container-a", "container-auto", "container-autocomp", "container-autocomp-te",
+                        "container-autocomp-test")
+                .forEach(query -> {
+                    try {
+                        AutoCompleteResults result = autocomplete(new ContainerType(entityClient), query);
                         assertTrue(result.getEntities().size() >= 1,
                                 String.format("Expected >= 1 results for `%s` found %s", query, result.getEntities().size()));
                     } catch (Exception e) {
