@@ -3,7 +3,10 @@ package com.linkedin.metadata.schema.registry;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.linkedin.mxe.TopicConvention;
+import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeEvent;
 import com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal;
+import com.linkedin.pegasus2avro.mxe.MetadataAuditEvent;
+import com.linkedin.pegasus2avro.mxe.MetadataChangeEvent;
 import com.linkedin.pegasus2avro.mxe.MetadataChangeLog;
 import com.linkedin.pegasus2avro.mxe.MetadataChangeProposal;
 import com.linkedin.pegasus2avro.mxe.PlatformEvent;
@@ -33,6 +36,14 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
     this._subjectToIdMap.put(convention.getFailedMetadataChangeProposalTopicName(), 4);
     this._schemaMap.put(convention.getPlatformEventTopicName(), PlatformEvent.getClassSchema());
     this._subjectToIdMap.put(convention.getPlatformEventTopicName(), 5);
+
+    // Adding legacy topics as they are still produced in the EntityService IngestAspect code path.
+    this._schemaMap.put(convention.getMetadataChangeEventTopicName(), MetadataChangeEvent.getClassSchema());
+    this._subjectToIdMap.put(convention.getMetadataChangeEventTopicName(), 6);
+    this._schemaMap.put(convention.getFailedMetadataChangeEventTopicName(), FailedMetadataChangeEvent.getClassSchema());
+    this._subjectToIdMap.put(convention.getFailedMetadataChangeEventTopicName(), 7);
+    this._schemaMap.put(convention.getMetadataAuditEventTopicName(), MetadataAuditEvent.getClassSchema());
+    this._subjectToIdMap.put(convention.getMetadataAuditEventTopicName(), 8);
   }
 
   @Override
