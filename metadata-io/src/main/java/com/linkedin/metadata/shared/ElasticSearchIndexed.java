@@ -5,6 +5,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import java.io.IOException;
 import java.util.List;
 
+
 public interface ElasticSearchIndexed {
     /**
      * The index configurations for the given service.
