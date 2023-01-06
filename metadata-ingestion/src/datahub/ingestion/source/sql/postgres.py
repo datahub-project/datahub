@@ -14,7 +14,6 @@ from geoalchemy2 import Geometry  # noqa: F401
 from pydantic import BaseModel
 from pydantic.fields import Field
 from sqlalchemy import create_engine
-from sqlalchemy.engine.cursor import CursorResult
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
@@ -129,6 +128,8 @@ class PostgresSource(SQLAlchemySource):
     - Table, row, and column statistics via optional SQL profiling
     """
 
+    config: PostgresConfig
+
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "postgres")
 
@@ -140,7 +141,7 @@ class PostgresSource(SQLAlchemySource):
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_workunits()
 
-        if self.config.include_view_lineage:  # type: ignore
+        if self.config.include_view_lineage:
             yield from self._get_view_lineage_workunits()
 
     def _get_view_lineage_elements(self) -> Dict[Tuple[str, str], List[str]]:
@@ -149,7 +150,7 @@ class PostgresSource(SQLAlchemySource):
 
         data: List[ViewLineageEntry] = []
         with engine.connect() as conn:
-            results: CursorResult = conn.execute(VIEW_LINEAGE_QUERY)
+            results = conn.execute(VIEW_LINEAGE_QUERY)
             if results.returns_rows is False:
                 return {}
 
@@ -176,7 +177,7 @@ class PostgresSource(SQLAlchemySource):
             lineage_elements[key].append(
                 mce_builder.make_dataset_urn(
                     self.platform,
-                    self.config.get_identifier(  # type: ignore
+                    self.config.get_identifier(
                         lineage.source_schema,
                         lineage.source_table,
                     ),
