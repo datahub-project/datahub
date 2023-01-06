@@ -31,8 +31,6 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 public class SearchQueryBuilder {
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
       new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL));
-  private static final Set<FieldType> TYPES_WITH_NGRAM_SUBFIELD =
-      new HashSet<>(List.of(FieldType.TEXT_PARTIAL));
 
   private SearchQueryBuilder() {
   }

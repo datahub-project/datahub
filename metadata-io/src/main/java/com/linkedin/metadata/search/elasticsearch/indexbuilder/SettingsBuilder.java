@@ -32,7 +32,6 @@ public class SettingsBuilder {
   public static final String KEYWORD = "keyword";
   public static final String LENIENT = "lenient";
   public static final String MAX_NGRAM_DIFF = "max_ngram_diff";
-  public static final String MIN_SHINGLE_SIZE = "min_shingle_size";
   public static final String MAX_SHINGLE_SIZE = "max_shingle_size";
 
   public static final String DOC_VALUES = "doc_values";
@@ -70,23 +69,20 @@ public class SettingsBuilder {
   public static final String FLATTEN_GRAPH = "flatten_graph";
   public static final String LOWERCASE = "lowercase";
   public static final String MIN_LENGTH_2 = "min_length_2";
-  public static final String REPLACE_NUM_LENGTH_3 = "replace_num_length_3";
   public static final String MULTIFILTER = "multifilter";
   public static final String MULTIFILTER_GRAPH = "multifilter_graph";
   public static final String PARTIAL_URN_COMPONENT = "partial_urn_component";
-  public static final String SHINGLE_2_3 = "shingle_2_3";
   public static final String SNOWBALL = "snowball";
   public static final String STEM_OVERRIDE = "stem_override";
   public static final String STOP = "stop";
-  public static final String TRIM_COLON = "trim_colon";
   public static final String UNIQUE = "unique";
   public static final String URN_STOP = "urn_stop";
   public static final String WORD_DELIMITER = "word_delimiter";
   public static final String WORD_DELIMITER_GRAPH = "word_delimiter_graph";
 
   // MultiFilters
-  public static final String MULTIFILTER_GRAPH_1 = String.join(",", CUSTOM_DELIMITER_GRAPH, TRIM_COLON, URN_STOP);
-  public static final String MULTIFILTER_GRAPH_2 = String.join(LOWERCASE, DEFAULT_SYN_GRAPH);
+  public static final String MULTIFILTER_GRAPH_1 = String.join(",", CUSTOM_DELIMITER_GRAPH, URN_STOP);
+  public static final String MULTIFILTER_GRAPH_2 = String.join(",", LOWERCASE, DEFAULT_SYN_GRAPH);
   public static final String MULTIFILTER_GRAPH_3 = String.join(",", LOWERCASE, ALPHA_ONLY, DEFAULT_SYN_GRAPH);
   public static final String MULTIFILTER_1 = MULTIFILTER_GRAPH_1 + "," + FLATTEN_GRAPH;
   public static final String MULTIFILTER_2 = MULTIFILTER_GRAPH_2 + "," + FLATTEN_GRAPH;
@@ -104,6 +100,34 @@ public class SettingsBuilder {
   public static final List<String> ALPHA_ONLY_PATTERNS = ImmutableList.of("([a-z0-9]{2,})");
   public static final String NUM_LENGTH_3_PATTERN = "(^[0-9]{1,3}$)";
   public static final List<String> URN_STOP_WORDS = ImmutableList.of("urn", "li");
+
+  public static final List<String> INDEX_TOKEN_FILTERS =  ImmutableList.of(
+          ASCII_FOLDING,
+          MULTIFILTER,
+          LOWERCASE,
+          URN_STOP,
+          STOP,
+          UNIQUE,
+          STEM_OVERRIDE,
+          SNOWBALL,
+          MIN_LENGTH_2);
+
+  public static final List<String> SEARCH_TOKEN_FILTERS =  ImmutableList.of(
+          ASCII_FOLDING,
+          MULTIFILTER_GRAPH,
+          LOWERCASE,
+          URN_STOP,
+          STOP,
+          UNIQUE,
+          STEM_OVERRIDE,
+          SNOWBALL,
+          MIN_LENGTH_2);
+
+  public static final List<String> PARTIAL_AUTOCOMPLETE_TOKEN_FILTERS = ImmutableList.of(
+          ASCII_FOLDING,
+          CUSTOM_DELIMITER,
+          LOWERCASE,
+          URN_STOP);
 
   public final Map<String, Object> settings;
 
@@ -161,13 +185,6 @@ public class SettingsBuilder {
             .put(STOPWORDS, URN_STOP_WORDS)
             .build());
 
-    filters.put(TRIM_COLON, ImmutableMap.<String, Object>builder()
-            .put(TYPE, "pattern_replace")
-            .put(ALL, "false")
-            .put(PATTERN, ":$")
-            .put("replacement", "")
-            .build());
-
     filters.put(MIN_LENGTH_2, ImmutableMap.<String, Object>builder()
             .put(TYPE, "length")
             .put("min", "2")
@@ -188,18 +205,6 @@ public class SettingsBuilder {
     filters.put(ALPHA_ONLY, ImmutableMap.<String, Object>builder()
             .put(TYPE, "pattern_capture")
             .put(PATTERNS, ALPHA_ONLY_PATTERNS)
-            .build());
-
-    filters.put(REPLACE_NUM_LENGTH_3, ImmutableMap.builder()
-            .put(TYPE, "pattern_replace")
-            .put(PATTERN, NUM_LENGTH_3_PATTERN)
-            .put(REPLACEMENT, "")
-            .build());
-
-    filters.put(SHINGLE_2_3, ImmutableMap.<String, Object>builder()
-            .put(TYPE, "shingle")
-            .put(MIN_SHINGLE_SIZE, "2")
-            .put(MAX_SHINGLE_SIZE, "3")
             .build());
 
     filters.put(MULTIFILTER, ImmutableMap.<String, Object>builder()
@@ -251,7 +256,7 @@ public class SettingsBuilder {
     tokenizers.put(MAIN_TOKENIZER,
             ImmutableMap.<String, Object>builder()
                     .put(TYPE, PATTERN)
-                    .put(PATTERN, "[\\s(),./]")
+                    .put(PATTERN, "[\\s(),./:]")
                     .build());
 
     return tokenizers.build();
@@ -270,45 +275,6 @@ public class SettingsBuilder {
   // Analyzers turn fields into multiple tokens
   private static Map<String, Object> buildAnalyzers(String mainTokenizer) {
     ImmutableMap.Builder<String, Object> analyzers = ImmutableMap.builder();
-    // For special analysis, the substitution can be read from the configuration (chinese tokenizer: ik_smart / smartCN)
-    // Analyzer for partial matching (i.e. autocomplete) - Prefix matching of each token
-    analyzers.put(PARTIAL_ANALYZER, ImmutableMap.<String, Object>builder()
-            .put(TOKENIZER, StringUtils.isNotBlank(mainTokenizer) ? mainTokenizer : MAIN_TOKENIZER)
-            .put(FILTER, ImmutableList.of(
-                    ASCII_FOLDING,
-                    LOWERCASE,
-                    CUSTOM_DELIMITER,
-                    TRIM_COLON,
-                    URN_STOP)
-            ).build());
-
-    // Analyzer for text tokenized into words (split by spaces, periods, and slashes)
-    analyzers.put(TEXT_ANALYZER, ImmutableMap.<String, Object>builder()
-            .put(TOKENIZER, StringUtils.isNotBlank(mainTokenizer) ? mainTokenizer : MAIN_TOKENIZER)
-            .put(FILTER, ImmutableList.of(
-                    ASCII_FOLDING,
-                    MULTIFILTER,
-                    LOWERCASE,
-                    STOP,
-                    UNIQUE,
-                    STEM_OVERRIDE,
-                    SNOWBALL,
-                    MIN_LENGTH_2)
-            ).build());
-
-    analyzers.put(TEXT_SEARCH_ANALYZER, ImmutableMap.<String, Object>builder()
-            .put(TOKENIZER, StringUtils.isNotBlank(mainTokenizer) ? mainTokenizer : KEYWORD_TOKENIZER)
-            .put(FILTER, ImmutableList.of(
-                    ASCII_FOLDING,
-                    MULTIFILTER_GRAPH,
-                    LOWERCASE,
-                    STOP,
-                    UNIQUE,
-                    STEM_OVERRIDE,
-                    SNOWBALL,
-                    MIN_LENGTH_2
-                    )
-            ).build());
 
     // Analyzer for splitting by slashes (used to get depth of browsePath)
     analyzers.put(SLASH_PATTERN_ANALYZER, ImmutableMap.<String, Object>builder()
@@ -327,46 +293,39 @@ public class SettingsBuilder {
             .put(FILTER, ImmutableList.of("trim", LOWERCASE, ASCII_FOLDING, SNOWBALL))
             .build());
 
+    // Analyzer for text tokenized into words (split by spaces, periods, and slashes)
+    analyzers.put(TEXT_ANALYZER, ImmutableMap.<String, Object>builder()
+            .put(TOKENIZER, StringUtils.isNotBlank(mainTokenizer) ? mainTokenizer : MAIN_TOKENIZER)
+            .put(FILTER, INDEX_TOKEN_FILTERS)
+            .build());
+
+    analyzers.put(TEXT_SEARCH_ANALYZER, ImmutableMap.<String, Object>builder()
+            .put(TOKENIZER, StringUtils.isNotBlank(mainTokenizer) ? mainTokenizer : KEYWORD_TOKENIZER)
+            .put(FILTER, SEARCH_TOKEN_FILTERS)
+            .build());
+
     // Analyzer for getting urn components
     analyzers.put(URN_ANALYZER, ImmutableMap.<String, Object>builder()
             .put(TOKENIZER, MAIN_TOKENIZER)
-            .put(FILTER, ImmutableList.of(
-                    ASCII_FOLDING,
-                    MULTIFILTER,
-                    LOWERCASE,
-                    TRIM_COLON,
-                    URN_STOP,
-                    STOP,
-                    UNIQUE,
-                    STEM_OVERRIDE,
-                    SNOWBALL,
-                    MIN_LENGTH_2))
+            .put(FILTER, INDEX_TOKEN_FILTERS)
             .build());
 
     analyzers.put(URN_SEARCH_ANALYZER, ImmutableMap.<String, Object>builder()
-            .put(TOKENIZER, KEYWORD_TOKENIZER)
-            .put(FILTER, ImmutableList.of(
-                    ASCII_FOLDING,
-                    MULTIFILTER_GRAPH,
-                    LOWERCASE,
-                    TRIM_COLON,
-                    URN_STOP,
-                    STOP,
-                    UNIQUE,
-                    STEM_OVERRIDE,
-                    SNOWBALL,
-                    MIN_LENGTH_2))
+            .put(TOKENIZER, MAIN_TOKENIZER)
+            .put(FILTER, SEARCH_TOKEN_FILTERS)
+            .build());
+
+    // For special analysis, the substitution can be read from the configuration (chinese tokenizer: ik_smart / smartCN)
+    // Analyzer for partial matching (i.e. autocomplete) - Prefix matching of each token
+    analyzers.put(PARTIAL_ANALYZER, ImmutableMap.<String, Object>builder()
+            .put(TOKENIZER, StringUtils.isNotBlank(mainTokenizer) ? mainTokenizer : MAIN_TOKENIZER)
+            .put(FILTER, PARTIAL_AUTOCOMPLETE_TOKEN_FILTERS)
             .build());
 
     // Analyzer for partial matching urn components
     analyzers.put(PARTIAL_URN_COMPONENT, ImmutableMap.<String, Object>builder()
             .put(TOKENIZER, MAIN_TOKENIZER)
-            .put(FILTER, ImmutableList.of(
-                    ASCII_FOLDING,
-                    CUSTOM_DELIMITER,
-                    LOWERCASE,
-                    TRIM_COLON,
-                    URN_STOP))
+            .put(FILTER, PARTIAL_AUTOCOMPLETE_TOKEN_FILTERS)
             .build());
 
     return analyzers.build();
