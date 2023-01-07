@@ -3,7 +3,11 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import com.linkedin.util.Pair;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.SimpleQueryStringBuilder;
@@ -34,16 +38,17 @@ public class SearchQueryBuilderTest {
     assertEquals(keywordFields.get("customProperties").floatValue(), 1.0f);
     assertEquals(keywordFields.get("esObjectField").floatValue(), 1.0f);
 
-    QueryStringQueryBuilder escapedQuery = (QueryStringQueryBuilder) shouldQueries.get(1);
-    assertEquals(escapedQuery.queryString(), "testQuery");
-    assertNull(escapedQuery.analyzer());
-    Map<String, Float> textFields = escapedQuery.fields();
-    assertEquals(textFields.size(), 20);
-    assertEquals(textFields.get("keyPart1.delimited").floatValue(), 4.0f);
-    assertFalse(textFields.containsKey("keyPart1.ngram"));
-    assertEquals(textFields.get("textFieldOverride.delimited").floatValue(), 0.4f);
-    assertFalse(textFields.containsKey("textFieldOverride.ngram"));
-    assertEquals(textFields.get("textArrayField.delimited").floatValue(), 0.4f);
+    BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(1);
+    assertTrue(boolPrefixQuery.should().size() > 0);
+
+    List<Pair<String, Float>> fieldWeights = boolPrefixQuery.should().stream().map(prefixQuery -> {
+      MatchPhrasePrefixQueryBuilder builder = (MatchPhrasePrefixQueryBuilder) prefixQuery;
+      return Pair.of(builder.fieldName(), builder.boost());
+    }).collect(Collectors.toList());
+
+    assertEquals(fieldWeights, List.of(
+            Pair.of("keyPart1.delimited", 10.0f)
+    ));
 
     // Validate scorer
     FunctionScoreQueryBuilder.FilterFunctionBuilder[] scoringFunctions = result.filterFunctionBuilders();
@@ -61,7 +66,7 @@ public class SearchQueryBuilderTest {
 
     QueryStringQueryBuilder keywordQuery = (QueryStringQueryBuilder) shouldQueries.get(0);
     assertEquals(keywordQuery.queryString(), "testQuery");
-    assertEquals(keywordQuery.analyzer(), "custom_keyword");
+    assertNull(keywordQuery.analyzer());
     Map<String, Float> keywordFields = keywordQuery.fields();
     assertEquals(keywordFields.size(), 20);
     assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
