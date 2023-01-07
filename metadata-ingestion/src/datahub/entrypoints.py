@@ -18,6 +18,7 @@ from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
+from datahub.cli.lite_cli import lite
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.state_cli import state
@@ -154,6 +155,7 @@ datahub.add_command(state)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)
+datahub.add_command(lite)
 try:
     from datahub_actions.cli.actions import actions
 
