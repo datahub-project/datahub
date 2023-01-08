@@ -98,9 +98,11 @@ public class AuthUtils {
      */
     public static Http.Cookie createActorCookie(final String actorUrn, final Integer ttlInHours) {
         return Http.Cookie.builder(ACTOR, actorUrn)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
-                .build();
+            .withHttpOnly(false)
+            .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
+            .withSameSite(Http.Cookie.SameSite.NONE)
+            .withSecure(true)
+            .build();
     }
 
     public static Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {
