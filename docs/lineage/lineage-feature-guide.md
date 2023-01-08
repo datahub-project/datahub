@@ -46,7 +46,7 @@ If you want to edit upstream lineage for entities downstream of the center node 
 
 #### Adding Lineage Edges
 
-Once you click "Edit Upstream" or "Edit Downstream" a modal will open that allows you to manage lineage for the selected entity in the chosen direction. In order to add a lineage edge to a new entity, search for it by name in the provided search bar and select it. Once you're satisfied with everything you've added, click "Save Changes." If you change your mind you can always cancel or exit without saving the changes you've made.
+Once you click "Edit Upstream" or "Edit Downstream," a modal will open that allows you to manage lineage for the selected entity in the chosen direction. In order to add a lineage edge to a new entity, search for it by name in the provided search bar and select it. Once you're satisfied with everything you've added, click "Save Changes." If you change your mind, you can always cancel or exit without saving the changes you've made.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/add-upstream.png"/>
@@ -54,7 +54,7 @@ Once you click "Edit Upstream" or "Edit Downstream" a modal will open that allow
 
 #### Removing Lineage Edges
 
-From the same modal that you add new lineage edges, you can remove them as well. Find the edge(s) that you want to remove, and click the "X" on the right side of it. And just like adding, you need to click "Save Changes" to save and if you exit without saving, your changes won't be applied.
+You can remove lineage edges from the same modal used to add lineage edges. Find the edge(s) that you want to remove, and click the "X" on the right side of it. And just like adding, you need to click "Save Changes" to save and if you exit without saving, your changes won't be applied.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/remove-lineage-edge.png"/>
@@ -88,7 +88,7 @@ Using the modal from this view will work the same as described above for editing
 <iframe width="560" height="315" src="https://www.youtube.com/embed/rONGpsndzRw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
 </p>
 
-**DataHub November Town Hall - Including Manual Lineage Demo**
+**DataHub November 2022 Town Hall - Including Manual Lineage Demo**
 
 <p align="center">
 <iframe width="560" height="315" src="https://www.youtube.com/embed/BlCLhG8lGoY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
