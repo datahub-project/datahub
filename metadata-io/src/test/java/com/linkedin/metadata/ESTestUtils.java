@@ -29,6 +29,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -111,10 +112,10 @@ public class ESTestUtils {
     }
 
     public static RestClientBuilder environmentRestClientBuilder() {
+        Integer port = Integer.parseInt(Optional.ofNullable(System.getenv("ELASTICSEARCH_PORT")).orElse("9200"));
         return RestClient.builder(
-                        new HttpHost(System.getenv("ELASTICSEARCH_HOST"),
-                                Integer.parseInt(System.getenv("ELASTICSEARCH_PORT")),
-                                System.getenv("ELASTICSEARCH_PORT").equals("443") ? "https" : "http"))
+                        new HttpHost(Optional.ofNullable(System.getenv("ELASTICSEARCH_HOST")).orElse("localhost"),
+                                port, port.equals(443) ? "https" : "http"))
                 .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
                     @Override
                     public HttpAsyncClientBuilder customizeHttpClient(

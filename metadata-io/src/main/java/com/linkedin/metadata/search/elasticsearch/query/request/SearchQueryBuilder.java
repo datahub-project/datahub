@@ -5,10 +5,12 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 
@@ -59,15 +61,15 @@ public class SearchQueryBuilder {
       simpleBuilder.defaultOperator(Operator.AND);
       getStandardFields(entitySpec).forEach(fieldBoost -> simpleBuilder.field(fieldBoost.getFirst(), fieldBoost.getSecond()));
       finalQuery.should(simpleBuilder);
-
-      // finalQuery.should(getPhraseQuery(entitySpec, query));
-      finalQuery.should(getPrefixQuery(entitySpec, query));
     } else {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(query);
       queryBuilder.defaultOperator(Operator.AND);
       getStandardFields(entitySpec).forEach(fieldBoost -> queryBuilder.field(fieldBoost.getFirst(), fieldBoost.getSecond()));
       finalQuery.should(queryBuilder);
     }
+
+    // common prefix query
+    getPrefixQuery(entitySpec, query).ifPresent(finalQuery::should);
 
     return finalQuery;
   }
@@ -101,7 +103,7 @@ public class SearchQueryBuilder {
     return fields;
   }
 
-  private static QueryBuilder getPrefixQuery(@Nonnull EntitySpec entitySpec, String query) {
+  private static Optional<QueryBuilder> getPrefixQuery(@Nonnull EntitySpec entitySpec, String query) {
     BoolQueryBuilder finalQuery =  QueryBuilders.boolQuery();
     entitySpec.getSearchableFieldSpecs().stream()
             .map(SearchableFieldSpec::getSearchableAnnotation)
@@ -111,7 +113,7 @@ public class SearchQueryBuilder {
             .forEach(fieldSpec -> finalQuery.should(
                     QueryBuilders.matchPhrasePrefixQuery(fieldSpec.getFieldName() + ".delimited", query)
                             .boost((float) fieldSpec.getBoostScore())));
-    return finalQuery;
+    return finalQuery.should().size() > 0 ? Optional.of(finalQuery) : Optional.empty();
   }
 
   private static QueryBuilder getPhraseQuery(@Nonnull EntitySpec entitySpec, String query) {
