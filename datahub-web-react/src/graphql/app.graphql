@@ -37,6 +37,9 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            queriesTab {
+                queriesTabResultSize
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
