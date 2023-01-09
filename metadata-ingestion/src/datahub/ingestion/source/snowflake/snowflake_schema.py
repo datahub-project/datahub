@@ -45,7 +45,7 @@ class SnowflakeTag:
         return f"{self.database}.{self.schema}.{self.name}"
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass
 class SnowflakeColumn(BaseColumn):
     character_maximum_length: Optional[int]
     numeric_precision: Optional[int]
