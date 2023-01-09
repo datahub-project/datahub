@@ -9,6 +9,7 @@ import msal
 import requests as requests
 
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mcp_builder import PlatformKey, WorkspaceKey
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiAPIConfig,
@@ -51,6 +52,15 @@ class PowerBiAPI:
         state: str
         dashboards: List[Any]
         datasets: Dict[str, "PowerBiAPI.PowerBIDataset"]
+
+        def get_urn_part(self):
+            return self.name
+
+        def get_workspace_key(self, platform_name: str) -> PlatformKey:
+            return WorkspaceKey(
+                workspace=self.get_urn_part(),
+                platform=platform_name,
+            )
 
     @dataclass
     class DataSource:
