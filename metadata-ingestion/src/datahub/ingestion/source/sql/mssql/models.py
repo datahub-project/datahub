@@ -1,12 +1,17 @@
 import logging
 import re
 import urllib.parse
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 import sqlalchemy.dialects.mssql
 # This import verifies that the dependencies are available.
 import sqlalchemy_pytds  # noqa: F401
+from pydantic.fields import Field
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine.base import Connection
+from sqlalchemy.engine.reflection import Inspector
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -31,11 +36,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     UnionTypeClass,
 )
-from pydantic.fields import Field
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.base import Connection
-from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.engine.result import ResultProxy, RowProxy
+from datahub.metadata.schema_classes import BooleanTypeClass, UnionTypeClass
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
 from .domains import (
@@ -49,9 +50,6 @@ from .domains import (
     ProcedureParameter,
     StoredProcedure,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -81,7 +79,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     )
     uri_args: Dict[str, str] = Field(
         default={},
-        desscription="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
+        description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
     )
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -117,10 +115,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             self.scheme = "mssql+pyodbc"
 
         uri: str = self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,
+            self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
-            self.host_port,
+            self.host_port,  # type: ignore
             current_db if current_db else self.database,
             uri_opts=uri_opts,
         )
@@ -178,13 +176,29 @@ class SQLServerSource(SQLAlchemySource):
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
                 with inspector.engine.connect() as conn:
+                    if self.config.use_odbc:
+                        self._add_output_converters(conn)
                     self._populate_table_descriptions(conn, db_name)
                     self._populate_column_descriptions(conn, db_name)
+
+    @staticmethod
+    def _add_output_converters(conn: Connection) -> None:
+        def handle_sql_variant_as_string(value):
+            return value.decode("utf-16le")
+
+        # see https://stackoverflow.com/questions/45677374/pandas-pyodbc-odbc-sql-type-150-is-not-yet-supported
+        # and https://stackoverflow.com/questions/11671170/adding-output-converter-to-pyodbc-connection-in-sqlalchemy
+        try:
+            conn.connection.add_output_converter(-150, handle_sql_variant_as_string)
+        except AttributeError as e:
+            logger.debug(
+                f"Failed to mount output converter for MSSQL data type -150 due to {e}"
+            )
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
         # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
-        table_metadata: ResultProxy = conn.execute(
+        table_metadata = conn.execute(
             """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
@@ -198,13 +212,13 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.CLASS = 1
             """
         )
-        for row in table_metadata:  # type: RowProxy
+        for row in table_metadata:
             self.table_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}"
             ] = row["table_description"]
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
-        column_metadata: RowProxy = conn.execute(
+        column_metadata = conn.execute(
             """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
@@ -221,7 +235,7 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.CLASS = 1
             """
         )
-        for row in column_metadata:  # type: RowProxy
+        for row in column_metadata:
             self.column_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}.{row['column_name']}"
             ] = row["column_description"]
@@ -237,7 +251,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
-        )  # type:Tuple[Optional[str], Dict[str, str], Optional[str]]
+        )
         # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(
@@ -318,7 +332,7 @@ class SQLServerSource(SQLAlchemySource):
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
-        jobs_data: RowProxy = conn.execute(
+        jobs_data = conn.execute(
             f"""
             SELECT
                 job.job_id,
@@ -341,7 +355,7 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
         jobs: Dict[str, Dict[str, Any]] = {}
-        for row in jobs_data:  # type: RowProxy
+        for row in jobs_data:
             step_data = dict(
                 job_id=row["job_id"],
                 job_name=row["name"],
@@ -454,7 +468,7 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_downstream(
         conn: Connection, procedure: StoredProcedure
     ) -> ProcedureLineageStream:
-        downstream_data: RowProxy = conn.execute(
+        downstream_data = conn.execute(
             f"""
             SELECT DISTINCT OBJECT_SCHEMA_NAME ( referencing_id ) AS [schema],
                 OBJECT_NAME(referencing_id) AS [name],
@@ -467,7 +481,7 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
         downstream_dependencies = []
-        for row in downstream_data:  # type: RowProxy
+        for row in downstream_data:
             downstream_dependencies.append(
                 ProcedureDependency(
                     db=procedure.db,
@@ -484,7 +498,7 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_upstream(
         conn: Connection, procedure: StoredProcedure
     ) -> ProcedureLineageStream:
-        upstream_data: RowProxy = conn.execute(
+        upstream_data = conn.execute(
             f"""
             SELECT DISTINCT
                 coalesce(lower(referenced_database_name), db_name()) AS db,
@@ -500,7 +514,7 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
         upstream_dependencies = []
-        for row in upstream_data:  # type: RowProxy
+        for row in upstream_data:
             upstream_dependencies.append(
                 ProcedureDependency(
                     db=row["db"],
@@ -517,7 +531,7 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_inputs(
         conn: Connection, procedure: StoredProcedure
     ) -> List[ProcedureParameter]:
-        inputs_data: RowProxy = conn.execute(
+        inputs_data = conn.execute(
             f"""
             SELECT
                 name,
@@ -527,7 +541,7 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
         inputs_list = []
-        for row in inputs_data:  # type: RowProxy
+        for row in inputs_data:
             inputs_list.append(ProcedureParameter(name=row["name"], type=row["type"]))
         return inputs_list
 
@@ -537,7 +551,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Tuple[Optional[str], Optional[str]]:
         query = f"EXEC [{procedure.db}].dbo.sp_helptext '{procedure.full_name}'"
         try:
-            code_data: RowProxy = conn.execute(query)
+            code_data = conn.execute(query)
         except ProgrammingError:
             logger.warning(
                 "Denied permission for read text from procedure '%s'",
@@ -548,7 +562,7 @@ class SQLServerSource(SQLAlchemySource):
         code_slice_index = 0
         code_slice_text = "create procedure"
         try:
-            for index, row in enumerate(code_data):  # type: RowProxy
+            for index, row in enumerate(code_data):
                 code_list.append(row["Text"])
                 if code_slice_text in re.sub(" +", " ", row["Text"].lower()).strip():
                     code_slice_index = index
@@ -566,7 +580,7 @@ class SQLServerSource(SQLAlchemySource):
     def _get_procedure_properties(
         conn: Connection, procedure: StoredProcedure
     ) -> Dict[str, Any]:
-        properties_data: RowProxy = conn.execute(
+        properties_data = conn.execute(
             f"""
             SELECT
                 create_date,
@@ -576,7 +590,7 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
         properties = {}
-        for row in properties_data:  # type: RowProxy
+        for row in properties_data:
             properties = dict(
                 create_date=row["create_date"], modify_date=row["modify_date"]
             )
@@ -586,7 +600,7 @@ class SQLServerSource(SQLAlchemySource):
     def _get_stored_procedures(
         conn: Connection, db_name: str, schema: str
     ) -> List[Dict[str, str]]:
-        stored_procedures_data: RowProxy = conn.execute(
+        stored_procedures_data = conn.execute(
             f"""
             SELECT
                 pr.name as procedure_name,
@@ -599,7 +613,7 @@ class SQLServerSource(SQLAlchemySource):
             """
         )
         procedures_list = []
-        for row in stored_procedures_data:  # type: RowProxy
+        for row in stored_procedures_data:
             procedures_list.append(
                 dict(db=db_name, schema=row["schema_name"], name=row["procedure_name"])
             )
