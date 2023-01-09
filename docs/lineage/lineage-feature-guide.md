@@ -4,7 +4,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability/>
 
-In DataHub, lineage is how describe the way that data flows within and between your source systems. For a given entity, lineage allows you to see where this data is coming from (what's upstream) and where it's going (what's downstream). For more information, see [this video](https://www.youtube.com/watch?v=rONGpsndzRw&ab_channel=DataHub) for Lineage 101 in DataHub.
+Lineage is used to capture data dependencies within an organization. It allows you to track the inputs from which a data asset is derived, along with the data assets that depend on it downstream.
+
+If you're using an ingestion source that supports extraction of Lineage (e.g. the "Table Lineage Capability"), then lineage information can be extracted automatically. For detailed instructions, refer to the source documentation for the source you are using.
+
+If you are not using a Lineage-support ingestion source, you can also manage lineage connections by hand inside the DataHub web application. The remainder of this guide will focus on managing Lineage as done within DataHub directly.
 
 Starting in version `0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction in ingestion or establish important entity relationships in sources that we don't support automatic extraction for yet! Editing lineage by hand is only supported for Datasets, Charts, Dashboards, and Data Jobs for now.
 
@@ -14,7 +18,7 @@ Lineage added by hand and programmatically may conflict with one another to caus
 
 :::
 
-## Manual Lineage Setup, Prerequisites, and Permissions
+## Lineage Setup, Prerequisites, and Permissions
 
 To edit lineage for an entity, you'll need the following [Metadata Privilege](../authorization/policies.md):
 
@@ -22,7 +26,7 @@ To edit lineage for an entity, you'll need the following [Metadata Privilege](..
 
 It is important to know that the **Edit Lineage** privilege is required for all entities whose lineage is affected by the changes. For example, in order to add "Dataset B" as an upstream dependency of "Dataset A", you'll need the **Edit Lineage** privilege for both Dataset A and Dataset B.
 
-## Using Manual Lineage
+## Using Lineage
 
 ### Editing from Lineage Graph View
 
