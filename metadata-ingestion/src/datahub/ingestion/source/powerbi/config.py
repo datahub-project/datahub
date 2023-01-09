@@ -139,9 +139,9 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_lineage: bool = pydantic.Field(
         default=True, description="Whether lineage should be ingested"
     )
-    # Enable/Disable extracting workspace information to containers
+    # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(
-        default=True, description="Extract Workspaces to Datahub Containers"
+        default=True, description="Extract workspaces to DataHub containers"
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
