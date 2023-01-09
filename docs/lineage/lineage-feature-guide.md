@@ -10,7 +10,7 @@ If you're using an ingestion source that supports extraction of Lineage (e.g. th
 
 If you are not using a Lineage-support ingestion source, you can also manage lineage connections by hand inside the DataHub web application. The remainder of this guide will focus on managing Lineage as done within DataHub directly.
 
-Starting in version `0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction in ingestion or establish important entity relationships in sources that we don't support automatic extraction for yet! Editing lineage by hand is only supported for Datasets, Charts, Dashboards, and Data Jobs for now.
+Starting in `v0.9.5`, DataHub supports the manual editing of lineage between entities. Data experts are free to add or remove upstream and downstream lineage edges in both the Lineage Visualization screen as well as the Lineage tab on entity pages. Use this feature to supplement automatic lineage extraction or establish important entity relationships in sources that do not support automatic extraction. Editing lineage by hand is supported for Datasets, Charts, Dashboards, and Data Jobs.
 
 :::note
 
