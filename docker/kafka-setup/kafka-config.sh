@@ -12,3 +12,4 @@ export KAFKA_HEAP_OPTS="-Xmx64M"
 CONNECTION_PROPERTIES_PATH=/tmp/connection.properties
 
 WORKERS=4
+
