@@ -14,7 +14,7 @@ public class HdfsPathDataset extends SparkDataset {
   private static String getPath(Path path, boolean includeScheme, String removePartitionPattern) {
     URI uri = path.toUri();
     String uriPath = includeScheme ? uri.toString() : uri.getHost() + uri.getPath();
-    if (!removePartitionPattern.equals("")) {
+    if (removePartitionPattern != null) {
       return uriPath.replaceAll(removePartitionPattern, "");
     }
     return uriPath;
