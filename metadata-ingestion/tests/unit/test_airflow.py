@@ -74,6 +74,7 @@ def test_airflow_provider_info():
     assert get_provider_info()
 
 
+@pytest.mark.filterwarnings("ignore:.*is deprecated.*")
 def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_provider/example_dags"

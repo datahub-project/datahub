@@ -20,7 +20,6 @@ from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -72,8 +71,6 @@ class KafkaTopicConfigKeys(str, Enum):
 
 
 class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
-    env: str = DEFAULT_ENV
-    # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
 
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
