@@ -35,9 +35,7 @@ import java.util.stream.Stream;
 import static com.linkedin.metadata.ESTestUtils.autocomplete;
 import static com.linkedin.metadata.ESTestUtils.search;
 import static com.linkedin.metadata.ESTestUtils.searchStructured;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 
 @Import(ESSampleDataFixture.class)
@@ -306,7 +304,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
 
     @Test
     public void testTokenizationQuote() throws IOException {
-        String testQuery = "test2";
+        String testQuery = "\"test2\"";
 
         AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
                 "smpldat_datasetindex_v2",
@@ -315,6 +313,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
         List<String> tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
         assertEquals(tokens, List.of(testQuery), String.format("Unexpected tokens. Found %s", tokens));
+
         request = AnalyzeRequest.withIndexAnalyzer(
                 "smpldat_datasetindex_v2",
                 "query_urn_component",
@@ -322,6 +321,28 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
         tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
         assertEquals(tokens, List.of(testQuery), String.format("Unexpected tokens. Found %s", tokens));
+    }
+
+    @Test
+    public void testTokenizationQuoteUnderscore() throws IOException {
+        String testQuery = "\"raw_orders\"";
+        List<String> expectedTokens = List.of(testQuery, "raw_ord");
+
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
+                "smpldat_datasetindex_v2",
+                "word_delimited",
+                testQuery
+        );
+        List<String> tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
+        assertEquals(tokens, expectedTokens, String.format("Unexpected tokens. Found %s", tokens));
+
+        request = AnalyzeRequest.withIndexAnalyzer(
+                "smpldat_datasetindex_v2",
+                "query_word_delimited",
+                testQuery
+        );
+        tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
+        assertEquals(tokens, expectedTokens, String.format("Unexpected tokens. Found %s", tokens));
     }
 
     @Test
@@ -416,8 +437,9 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testSmokeTestQueries() {
         Map<String, Integer> expectedMinimums = Map.of(
-                "sample", 1,
-                "covid19", 1
+                "sample", 3,
+                "covid", 2,
+                "\"raw_orders\"", 1
         );
 
         Map<String, SearchResult> results = expectedMinimums.entrySet().stream()
@@ -426,9 +448,9 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         results.forEach((key, value) -> {
             Integer actualCount = value.getEntities().size();
             Integer expectedCount = expectedMinimums.get(key);
-            assertTrue(actualCount >= expectedCount,
-                    String.format("Search term `%s` has %s fulltext results, expected %s results.", key,
-                            actualCount, expectedCount));
+            assertSame(actualCount, expectedCount,
+                    String.format("Search term `%s` has %s fulltext results, expected %s results.", key, actualCount,
+                            expectedCount));
         });
 
         results = expectedMinimums.entrySet().stream()
@@ -437,9 +459,9 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         results.forEach((key, value) -> {
             Integer actualCount = value.getEntities().size();
             Integer expectedCount = expectedMinimums.get(key);
-            assertTrue(actualCount >= expectedCount,
-                    String.format("Search term `%s` has %s structured results, expected %s results.", key,
-                            actualCount, expectedCount));
+            assertSame(actualCount, expectedCount,
+                    String.format("Search term `%s` has %s structured results, expected %s results.", key, actualCount,
+                            expectedCount));
         });
     }
 
