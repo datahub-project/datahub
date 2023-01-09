@@ -10,12 +10,7 @@ from typing import Iterable, List, Optional, Tuple, Union, cast
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    KeyType,
-    PlatformKey,
-    WorkspaceKey,
-    gen_containers,
-)
+from datahub.emitter.mcp_builder import KeyType, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
