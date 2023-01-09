@@ -281,6 +281,6 @@ public class DatasetExtractor {
 
   private static String getRemovePartitionPattern(Config datahubConfig) {
     return datahubConfig.hasPath(REMOVE_PARTITION_PATTERN) ? datahubConfig.getString(REMOVE_PARTITION_PATTERN)
-            : "";
+        : null;
   }
 }
