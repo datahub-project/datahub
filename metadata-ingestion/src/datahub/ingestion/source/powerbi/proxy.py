@@ -404,7 +404,9 @@ class PowerBiAPI:
 
         return dashboards
 
-    def get_dataset(self, workspace_id: str, dataset_id: str, workspace_name: str) -> Any:
+    def get_dataset(
+        self, workspace_id: str, dataset_id: str, workspace_name: str
+    ) -> Any:
         """
         Fetch the dataset from PowerBi for the given dataset identifier
         """

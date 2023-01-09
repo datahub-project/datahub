@@ -10,7 +10,12 @@ from typing import Iterable, List, Optional, Tuple, Union, cast
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import WorkspaceKey, gen_containers, KeyType, PlatformKey
+from datahub.emitter.mcp_builder import (
+    KeyType,
+    PlatformKey,
+    WorkspaceKey,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -36,6 +41,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     ChartKeyClass,
+    ContainerClass,
     CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
@@ -48,7 +54,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     UpstreamClass,
-    UpstreamLineageClass, ContainerClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
 
@@ -461,7 +467,7 @@ class Mapper:
 
     @staticmethod
     def add_urn_to_container(
-            container_key: KeyType, entity_urn: str, entity_type: str
+        container_key: KeyType, entity_urn: str, entity_type: str
     ) -> MetadataChangeProposalWrapper:
         container_urn = builder.make_container_urn(
             guid=container_key.guid(),
@@ -475,7 +481,7 @@ class Mapper:
         )
 
     def generate_container_for_workspace(
-            self, workspace: PowerBiAPI.Workspace
+        self, workspace: PowerBiAPI.Workspace
     ) -> Iterable[MetadataWorkUnit]:
         workspace_key = self.gen_workspace_key(workspace_name=workspace.name)
         container_workunits = gen_containers(
@@ -541,7 +547,9 @@ class Mapper:
         return user_mcps
 
     def to_datahub_chart(
-        self, tiles: List[PowerBiAPI.Tile], workspace_name: str,
+        self,
+        tiles: List[PowerBiAPI.Tile],
+        workspace_name: str,
     ) -> Tuple[
         List[MetadataChangeProposalWrapper], List[MetadataChangeProposalWrapper]
     ]:
@@ -583,7 +591,9 @@ class Mapper:
             dashboard.users
         )
         # Convert tiles to charts
-        ds_mcps, chart_mcps = self.to_datahub_chart(dashboard.tiles, dashboard.workspace_name)
+        ds_mcps, chart_mcps = self.to_datahub_chart(
+            dashboard.tiles, dashboard.workspace_name
+        )
         # Lets convert dashboard to datahub dashboard
         dashboard_mcps: List[
             MetadataChangeProposalWrapper
