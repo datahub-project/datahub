@@ -261,8 +261,8 @@ jobs:
           images: |
             ${{ env.DATAHUB_UPGRADE_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
@@ -400,8 +400,8 @@ jobs:
           images: |
             ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/mysql-setup/Dockerfile
