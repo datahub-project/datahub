@@ -17,7 +17,9 @@ class GitClone:
         self.skip_known_host_verification = skip_known_host_verification
         self.last_repo_cloned: Optional[git.Repo] = None
 
-    def clone(self, ssh_key: Optional[SecretStr], repo_url: str) -> Path:
+    def clone(
+        self, ssh_key: Optional[SecretStr], repo_url: str, branch: Optional[str] = None
+    ) -> Path:
         unique_dir = str(uuid4())
         keys_dir = f"{self.tmp_dir}/{unique_dir}/keys"
         checkout_dir = f"{self.tmp_dir}/{unique_dir}/checkout"
@@ -58,6 +60,11 @@ class GitClone:
             env=dict(GIT_SSH_COMMAND=git_ssh_cmd),
         )
         logger.info("✅ Cloning complete!")
+
+        if branch is not None:
+            logger.info(f"Checking out branch {branch}")
+            self.last_repo_cloned.git.checkout(branch)
+
         return pathlib.Path(checkout_dir)
 
     def get_last_repo_cloned(self) -> Optional[git.Repo]:

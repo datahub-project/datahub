@@ -27,6 +27,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import { DatasetSearchSnippet } from './DatasetSearchSnippet';
+import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -108,12 +109,20 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Properties',
-                    component: PropertiesTab,
+                    name: 'Preview',
+                    component: EmbedTab,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
+                        enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.embed?.renderUrl,
+                    },
                 },
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
                 {
                     name: 'Queries',
