@@ -1,6 +1,6 @@
 attrs==21.2.0; python_full_version >= "3.7.0"
 cachetools==4.2.2; python_version >= "3.5" and python_version < "4.0" and python_full_version >= "3.7.0"
-certifi==2020.12.5; python_full_version >= "3.7.0"
+certifi==2022.12.7; python_full_version >= "3.7.0"
 chardet==4.0.0; python_full_version >= "3.7.0"
 click==7.1.2; python_full_version >= "3.7.0"
 colorama==0.4.4; python_full_version >= "3.7.0"
