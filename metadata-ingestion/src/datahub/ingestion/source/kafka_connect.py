@@ -636,10 +636,10 @@ class DebeziumSourceConnector:
         database_name: Optional[str]
 
     def get_server_name(self, connector_manifest: ConnectorManifest) -> str:
-        if 'topic.prefix' in connector_manifest.config:
-            return connector_manifest.config.get('topic.prefix')
+        if "topic.prefix" in connector_manifest.config:
+            return connector_manifest.config["topic.prefix"]
         else:
-            return connector_manifest.config.get('database.server.name')
+            return connector_manifest.config.get("database.server.name", "")
 
     def get_parser(
         self,
