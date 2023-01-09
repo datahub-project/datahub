@@ -17,7 +17,6 @@ from datahub.ingestion.source.snowflake.constants import (
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import _Aspect
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -159,6 +158,18 @@ class SnowflakeCommonMixin:
             return identifier.lower()
         return identifier
 
+    @staticmethod
+    def get_quoted_identifier_for_database(db_name):
+        return f'"{db_name}"'
+
+    @staticmethod
+    def get_quoted_identifier_for_schema(db_name, schema_name):
+        return f'"{db_name}"."{schema_name}"'
+
+    @staticmethod
+    def get_quoted_identifier_for_table(db_name, schema_name, table_name):
+        return f'"{db_name}"."{schema_name}"."{table_name}"'
+
     def get_dataset_identifier(
         self: SnowflakeCommonProtocol, table_name: str, schema_name: str, db_name: str
     ) -> str:
@@ -201,19 +212,10 @@ class SnowflakeCommonMixin:
         aspectName: str,
         aspect: _Aspect,
     ) -> MetadataWorkUnit:
-        id = f"{aspectName}-for-{entityUrn}"
-        if "timestampMillis" in aspect._inner_dict:
-            id = f"{aspectName}-{aspect.timestampMillis}-for-{entityUrn}"  # type: ignore
-        wu = MetadataWorkUnit(
-            id=id,
-            mcp=MetadataChangeProposalWrapper(
-                entityType=entityName,
-                entityUrn=entityUrn,
-                aspectName=aspectName,
-                aspect=aspect,
-                changeType=ChangeType.UPSERT,
-            ),
-        )
+        wu = MetadataChangeProposalWrapper(
+            entityUrn=entityUrn,
+            aspect=aspect,
+        ).as_workunit()
         self.report.report_workunit(wu)
         return wu
 

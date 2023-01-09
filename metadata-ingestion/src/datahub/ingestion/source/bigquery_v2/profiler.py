@@ -1,6 +1,6 @@
 import dataclasses
-import datetime
 import logging
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
@@ -47,8 +47,8 @@ class BigqueryProfiler(GenericProfiler):
 
     @staticmethod
     def get_partition_range_from_partition_id(
-        partition_id: str, partition_datetime: Optional[datetime.datetime]
-    ) -> Tuple[datetime.datetime, datetime.datetime]:
+        partition_id: str, partition_datetime: Optional[datetime]
+    ) -> Tuple[datetime, datetime]:
         partition_range_map: Dict[int, Tuple[relativedelta, str]] = {
             4: (relativedelta(years=1), "%Y"),
             6: (relativedelta(months=1), "%Y%m"),
@@ -61,7 +61,12 @@ class BigqueryProfiler(GenericProfiler):
             (delta, format) = partition_range_map[len(partition_id)]
             duration = delta
             if not partition_datetime:
-                partition_datetime = datetime.datetime.strptime(partition_id, format)
+                partition_datetime = datetime.strptime(partition_id, format)
+            else:
+                partition_datetime = datetime.strptime(
+                    partition_datetime.strftime(format), format
+                )
+
         else:
             raise ValueError(
                 f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
@@ -74,7 +79,7 @@ class BigqueryProfiler(GenericProfiler):
         project: str,
         schema: str,
         table: BigqueryTable,
-        partition_datetime: Optional[datetime.datetime],
+        partition_datetime: Optional[datetime],
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
@@ -121,15 +126,14 @@ class BigqueryProfiler(GenericProfiler):
                     ] = partition
                     return None, None
 
-                partition_column_type: str = "DATE"
+                # ingestion time partitoned tables partition column is not in the schema, so we default to TIMESTAMP type
+                partition_column_type: str = "TIMESTAMP"
                 for c in table.columns:
                     if c.is_partition_column:
                         partition_column_type = c.data_type
 
-                if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
-                elif table.time_partitioning.type_ in ("HOUR"):
-                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN '{partition_datetime}' AND '{upper_bound_partition_datetime}'"
+                if table.time_partitioning.type_ in ("HOUR", "DAY", "MONTH", "YEAR"):
+                    partition_where_clause = f"{partition_column_type}(`{table.time_partitioning.field}`) BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.time_partitioning.type_}"
@@ -227,7 +231,7 @@ WHERE
             # We don't add to the profiler state if we only do table level profiling as it always happens
             if self.state_handler and not request.profile_table_level_only:
                 self.state_handler.add_to_state(
-                    dataset_urn, int(datetime.datetime.utcnow().timestamp() * 1000)
+                    dataset_urn, int(datetime.utcnow().timestamp() * 1000)
                 )
 
             wu = wrap_aspect_as_workunit(

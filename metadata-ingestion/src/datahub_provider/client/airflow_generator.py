@@ -3,7 +3,6 @@ from datahub_provider._airflow_compat import AIRFLOW_PATCHED
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Union, cast
 
 from airflow.configuration import conf
-from airflow.models.baseoperator import BaseOperator
 
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -13,7 +12,6 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
-from datahub_provider._airflow_shims import ExternalTaskSensor, Operator
 
 assert AIRFLOW_PATCHED
 
@@ -23,6 +21,7 @@ if TYPE_CHECKING:
 
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub_provider._airflow_shims import Operator
 
 
 def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
@@ -36,6 +35,8 @@ class AirflowGenerator:
     def _get_dependencies(
         task: "Operator", dag: "DAG", flow_urn: DataFlowUrn
     ) -> List[DataJobUrn]:
+        from datahub_provider._airflow_shims import ExternalTaskSensor
+
         # resolve URNs for upstream nodes in subdags upstream of the current task.
         upstream_subdag_task_urns: List[DataJobUrn] = []
 
@@ -182,6 +183,8 @@ class AirflowGenerator:
 
     @staticmethod
     def _get_description(task: "Operator") -> Optional[str]:
+        from airflow.models.baseoperator import BaseOperator
+
         if not isinstance(task, BaseOperator):
             # TODO: Get docs for mapped operators.
             return None
