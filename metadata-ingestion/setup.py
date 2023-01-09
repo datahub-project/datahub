@@ -24,7 +24,7 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=1.5.1",
+    "pydantic>=1.5.1,<1.10.3",
     "mixpanel>=4.9.0",
 }
 
@@ -36,14 +36,14 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.7",
+    "avro-gen3==0.7.8",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
-    "termcolor>=2.0.0",
+    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "ratelimiter",
     "Deprecated",
@@ -174,6 +174,12 @@ snowflake_common = {
     # Required for all Snowflake sources.
     # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
     "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
+    # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
+    # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
+    # because it may break Airflow users that need SQLAlchemy 1.3.x.
+    "SQLAlchemy<1.4.42",
+    # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
+    "snowflake-connector-python!=2.8.2",
     "pandas",
     "cryptography",
     "msal",
@@ -209,13 +215,13 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ==1.0.1",
-    "pyspark==3.0.3",
+    "pydeequ>=1.0.1",
+    "pyspark>=3.0.3",
 }
 
 delta_lake = {
     *s3_base,
-    "deltalake>=0.6.3",
+    "deltalake>=0.6.3, != 0.6.4",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
@@ -248,10 +254,6 @@ plugins: Dict[str, Set[str]] = {
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery-legacy": sql_common
-    | bigquery_common
-    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.6", "sqlparse"},
-    "bigquery-usage-legacy": bigquery_common | usage_common | {"cachetools"},
     "bigquery": sql_common
     | bigquery_common
     | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
@@ -275,7 +277,6 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
-    "feast-legacy": {"docker"},
     "feast": {"feast~=0.26.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -324,12 +325,6 @@ plugins: Dict[str, Set[str]] = {
     "s3": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake-legacy": snowflake_common,
-    "snowflake-usage-legacy": snowflake_common
-    | usage_common
-    | {
-        "more-itertools>=8.12.0",
-    },
     "snowflake": snowflake_common | usage_common,
     "snowflake-beta": (
         snowflake_common | usage_common
@@ -345,7 +340,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
-    "powerbi": microsoft_common,
+    "powerbi": microsoft_common | {"lark[regex]==1.1.4"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
     "unity-catalog": databricks_cli | {"requests"},
@@ -362,7 +357,7 @@ mypy_stubs = {
     "types-pkg_resources",
     "types-six",
     "types-python-dateutil",
-    "types-requests",
+    "types-requests>=2.28.11.6",
     "types-toml",
     "types-PyMySQL",
     "types-PyYAML",
@@ -379,8 +374,7 @@ mypy_stubs = {
     "types-ujson>=5.2.0",
     "types-termcolor>=1.0.0",
     "types-Deprecated",
-    # Mypy complains with 4.21.0.0 => error: Library stubs not installed for "google.protobuf.descriptor"
-    "types-protobuf<4.21.0.0",
+    "types-protobuf>=4.21.0.1",
 }
 
 base_dev_requirements = {
@@ -388,23 +382,21 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     *s3_base,
-    "black>=21.12b0",
+    # This is pinned only to avoid spurious errors in CI.
+    # We should make an effort to keep it up to date.
+    "black==22.12.0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    # mypy 0.990 enables namespace packages by default and sets
-    # no implicit optional to True.
-    # FIXME: Enable mypy 0.990 when our codebase is fixed.
-    "mypy>=0.981,<0.990",
+    "mypy==0.991",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    # Restricting top version to <1.10 until we can fix our types.
-    "pydantic >=1.9.0, <1.10",
+    "pydantic >=1.9.0",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker[docker-compose-v1]>=1.0.1",
+    "pytest-docker>=1.0.1",
     "deepdiff",
     "requests-mock",
     "freezegun",
@@ -415,8 +407,6 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "bigquery",
-            "bigquery-legacy",
-            "bigquery-usage-legacy",
             "clickhouse",
             "clickhouse-usage",
             "delta-lake",
@@ -459,8 +449,9 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
+    # Extra requirements for Airflow.
     "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "snowflake-sqlalchemy<=1.2.4",  # make constraint consistent with extras
+    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {
@@ -472,7 +463,6 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
-            "feast-legacy",
             "hana",
             "hive",
             "iceberg",
@@ -497,9 +487,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
-        "bigquery-legacy = datahub.ingestion.source.sql.bigquery:BigQuerySource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
-        "bigquery-usage-legacy = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
@@ -508,7 +496,6 @@ entry_points = {
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
-        "feast-legacy = datahub.ingestion.source.feast_legacy:FeastSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
@@ -532,8 +519,6 @@ entry_points = {
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
         "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
-        "snowflake-legacy = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
-        "snowflake-usage-legacy = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
@@ -550,7 +535,29 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+    ],
+    "datahub.ingestion.transformer.plugins": [
+        "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
+        "mark_dataset_status = datahub.ingestion.transformer.mark_dataset_status:MarkDatasetStatus",
+        "set_dataset_browse_path = datahub.ingestion.transformer.add_dataset_browse_path:AddDatasetBrowsePathTransformer",
+        "add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership",
+        "simple_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership",
+        "pattern_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership",
+        "add_dataset_domain = datahub.ingestion.transformer.dataset_domain:AddDatasetDomain",
+        "simple_add_dataset_domain = datahub.ingestion.transformer.dataset_domain:SimpleAddDatasetDomain",
+        "pattern_add_dataset_domain = datahub.ingestion.transformer.dataset_domain:PatternAddDatasetDomain",
+        "add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:AddDatasetTags",
+        "simple_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:SimpleAddDatasetTags",
+        "pattern_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:PatternAddDatasetTags",
+        "add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:AddDatasetTerms",
+        "simple_add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:SimpleAddDatasetTerms",
+        "pattern_add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:PatternAddDatasetTerms",
+        "add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:AddDatasetProperties",
+        "simple_add_dataset_properties = datahub.ingestion.transformer.add_dataset_properties:SimpleAddDatasetProperties",
+        "pattern_add_dataset_schema_terms = datahub.ingestion.transformer.add_dataset_schema_terms:PatternAddDatasetSchemaTerms",
+        "pattern_add_dataset_schema_tags = datahub.ingestion.transformer.add_dataset_schema_tags:PatternAddDatasetSchemaTags",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -613,6 +620,7 @@ setuptools.setup(
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
+        "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
     },
     entry_points=entry_points,
     # Dependencies.

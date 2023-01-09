@@ -4,7 +4,7 @@ import { curveBasis } from '@vx/curve';
 import { LinePath } from '@vx/shape';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
-import { NodeData, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType } from './types';
+import { NodeData, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType, UpdatedLineages } from './types';
 import LineageEntityNode from './LineageEntityNode';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -25,6 +25,7 @@ type Props = {
     nodesToRender: VizNode[];
     edgesToRender: VizEdge[];
     nodesByUrn: Record<string, VizNode>;
+    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 };
 
 function transformToString(transform: {
@@ -52,6 +53,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
     nodesToRender,
     edgesToRender,
     nodesByUrn,
+    setUpdatedLineages,
 }: Props) {
     const { highlightedEdges } = useContext(LineageExplorerContext);
     const isLinkHighlighted = (link) =>
@@ -112,6 +114,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                         isCenterNode={data.urn === node.data.urn}
                         nodesToRenderByUrn={nodesByUrn}
                         onDrag={onDrag}
+                        setUpdatedLineages={setUpdatedLineages}
                     />
                 );
             })}

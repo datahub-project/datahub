@@ -73,6 +73,7 @@ export default function GroupListItem({ group, onDelete }: Props) {
                         menuItems={new Set([EntityMenuItems.DELETE])}
                         size={20}
                         onDeleteEntity={onDelete}
+                        options={{ hideDeleteMessage: false, skipDeleteWait: true }}
                     />
                 </GroupItemButtonGroup>
             </GroupItemContainer>

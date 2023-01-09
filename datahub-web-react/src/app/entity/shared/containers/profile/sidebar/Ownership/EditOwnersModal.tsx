@@ -13,6 +13,7 @@ import {
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
+import { handleBatchError } from '../../../../utils';
 
 const SelectInput = styled(Select)`
     width: 480px;
@@ -244,7 +245,12 @@ export const EditOwnersModal = ({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to add owners: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(urns, e, {
+                        content: `Failed to add owners: \n ${e.message || ''}`,
+                        duration: 3,
+                    }),
+                );
             }
         } finally {
             refetch?.();
@@ -267,7 +273,12 @@ export const EditOwnersModal = ({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove owners: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(urns, e, {
+                        content: `Failed to remove owners: \n ${e.message || ''}`,
+                        duration: 3,
+                    }),
+                );
             }
         } finally {
             refetch?.();

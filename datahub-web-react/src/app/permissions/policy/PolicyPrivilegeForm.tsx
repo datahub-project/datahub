@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Form, Select, Tag, Tooltip, Typography } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useAppConfig } from '../../useAppConfig';
@@ -224,6 +224,7 @@ export default function PolicyPrivilegeForm({
 
     // Handle resource search, if the resource type has an associated EntityType mapping.
     const handleResourceSearch = (text: string) => {
+        const trimmedText: string = text.trim();
         const entityTypes = resourceTypeSelectValue
             .map((resourceType) => mapResourceTypeToEntityType(resourceType, resourcePrivileges))
             .filter((entityType): entityType is EntityType => !!entityType);
@@ -231,7 +232,7 @@ export default function PolicyPrivilegeForm({
             variables: {
                 input: {
                     types: entityTypes,
-                    query: text,
+                    query: trimmedText.length > 2 ? trimmedText : '*',
                     start: 0,
                     count: 10,
                 },
@@ -241,11 +242,12 @@ export default function PolicyPrivilegeForm({
 
     // Handle domain search, if the domain type has an associated EntityType mapping.
     const handleDomainSearch = (text: string) => {
+        const trimmedText: string = text.trim();
         searchDomains({
             variables: {
                 input: {
                     type: EntityType.Domain,
-                    query: text,
+                    query: trimmedText.length > 2 ? trimmedText : '*',
                     start: 0,
                     count: 10,
                 },
@@ -313,6 +315,7 @@ export default function PolicyPrivilegeForm({
                         applied to <b>all</b> resources of the given type.
                     </Typography.Paragraph>
                     <Select
+                        notFoundContent="No search results found"
                         value={resourceSelectValue}
                         mode="multiple"
                         filterOption={false}
@@ -345,6 +348,7 @@ export default function PolicyPrivilegeForm({
                         <b>all</b> resources in all domains.
                     </Typography.Paragraph>
                     <Select
+                        notFoundContent="No search results found"
                         value={domainSelectValue}
                         mode="multiple"
                         filterOption={false}

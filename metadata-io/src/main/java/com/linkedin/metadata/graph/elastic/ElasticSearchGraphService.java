@@ -76,6 +76,35 @@ public class ElasticSearchGraphService implements GraphService {
     searchDocument.set("source", sourceObject);
     searchDocument.set("destination", destinationObject);
     searchDocument.put("relationshipType", edge.getRelationshipType());
+    if (edge.getCreatedOn() != null) {
+      searchDocument.put("createdOn", edge.getCreatedOn());
+    }
+    if (edge.getCreatedActor() != null) {
+      searchDocument.put("createdActor", edge.getCreatedActor().toString());
+    }
+    if (edge.getUpdatedOn() != null) {
+      searchDocument.put("updatedOn", edge.getUpdatedOn());
+    }
+    if (edge.getUpdatedActor() != null) {
+      searchDocument.put("updatedActor", edge.getUpdatedActor().toString());
+    }
+    if (edge.getProperties() != null) {
+      final ObjectNode propertiesObject = JsonNodeFactory.instance.objectNode();
+      for (Map.Entry<String, Object> entry : edge.getProperties().entrySet()) {
+        if (entry.getValue() instanceof String) {
+          propertiesObject.put(entry.getKey(), (String) entry.getValue());
+        } else {
+          throw new UnsupportedOperationException(
+              String.format(
+                  "Tried setting properties on graph edge but property value type is not supported. Key: %s, Value: %s ",
+                  entry.getKey(),
+                  entry.getValue()
+              )
+          );
+        }
+      }
+      searchDocument.set("properties", propertiesObject);
+    }
 
     return searchDocument.toString();
   }

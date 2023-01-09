@@ -172,6 +172,10 @@ fragment ownershipFields on Ownership {
     }
 }
 
+fragment embedFields on Embed {
+    renderUrl
+}
+
 fragment institutionalMemoryFields on InstitutionalMemory {
     elements {
         url
@@ -248,6 +252,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     deprecation {
         ...deprecationFields
+    }
+    embed {
+        ...embedFields
     }
 }
 
@@ -350,6 +357,9 @@ fragment dataJobFields on DataJob {
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    privileges {
+        canEditLineage
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -402,6 +412,9 @@ fragment dashboardFields on Dashboard {
     status {
         removed
     }
+    embed {
+        ...embedFields
+    }
     deprecation {
         ...deprecationFields
     }
@@ -432,6 +445,10 @@ fragment dashboardFields on Dashboard {
     }
     subTypes {
         typeNames
+    }
+    privileges {
+        canEditLineage
+        canEditEmbed
     }
 }
 
@@ -762,7 +779,7 @@ fragment nonRecursiveMLModel on MLModel {
     }
     institutionalMemory {
         ...institutionalMemoryFields
-    }    
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {

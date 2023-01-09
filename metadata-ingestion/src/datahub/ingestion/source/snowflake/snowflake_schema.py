@@ -8,6 +8,7 @@ from snowflake.connector import SnowflakeConnection
 
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
+from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -28,13 +29,8 @@ class SnowflakeFK:
     referred_column_names: List[str]
 
 
-@dataclass
-class SnowflakeColumn:
-    name: str
-    ordinal_position: int
-    is_nullable: bool
-    data_type: str
-    comment: Optional[str]
+@dataclass(frozen=True, eq=True)
+class SnowflakeColumn(BaseColumn):
     character_maximum_length: Optional[int]
     numeric_precision: Optional[int]
     numeric_scale: Optional[int]
@@ -60,14 +56,8 @@ class SnowflakeColumn:
 
 
 @dataclass
-class SnowflakeTable:
-    name: str
-    created: datetime
-    last_altered: datetime
-    size_in_bytes: int
-    rows_count: int
-    comment: Optional[str]
-    clustering_key: str
+class SnowflakeTable(BaseTable):
+    clustering_key: Optional[str] = None
     pk: Optional[SnowflakePK] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
@@ -75,20 +65,15 @@ class SnowflakeTable:
 
 
 @dataclass
-class SnowflakeView:
-    name: str
-    created: datetime
-    comment: Optional[str]
-    view_definition: str
-    last_altered: Optional[datetime] = None
+class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
 
 
 @dataclass
 class SnowflakeSchema:
     name: str
-    created: datetime
-    last_altered: datetime
+    created: Optional[datetime]
+    last_altered: Optional[datetime]
     comment: Optional[str]
     tables: List[SnowflakeTable] = field(default_factory=list)
     views: List[SnowflakeView] = field(default_factory=list)
@@ -97,21 +82,29 @@ class SnowflakeSchema:
 @dataclass
 class SnowflakeDatabase:
     name: str
-    created: datetime
+    created: Optional[datetime]
     comment: Optional[str]
+    last_altered: Optional[datetime] = None
     schemas: List[SnowflakeSchema] = field(default_factory=list)
 
 
 class SnowflakeDataDictionary(SnowflakeQueryMixin):
     def __init__(self) -> None:
         self.logger = logger
+        self.connection: Optional[SnowflakeConnection] = None
 
-    def get_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
+    def set_connection(self, connection: SnowflakeConnection) -> None:
+        self.connection = connection
 
+    def get_connection(self) -> SnowflakeConnection:
+        # Connection is already present by the time this is called
+        assert self.connection is not None
+        return self.connection
+
+    def show_databases(self) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.show_databases(),
         )
 
@@ -125,14 +118,28 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
 
         return databases
 
-    def get_schemas_for_database(
-        self, conn: SnowflakeConnection, db_name: str
-    ) -> List[SnowflakeSchema]:
+    def get_databases(self, db_name: str) -> List[SnowflakeDatabase]:
+        databases: List[SnowflakeDatabase] = []
 
+        cur = self.query(
+            SnowflakeQuery.get_databases(db_name),
+        )
+
+        for database in cur:
+            snowflake_db = SnowflakeDatabase(
+                name=database["DATABASE_NAME"],
+                created=database["CREATED"],
+                last_altered=database["LAST_ALTERED"],
+                comment=database["COMMENT"],
+            )
+            databases.append(snowflake_db)
+
+        return databases
+
+    def get_schemas_for_database(self, db_name: str) -> List[SnowflakeSchema]:
         snowflake_schemas = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.schemas_for_database(db_name),
         )
 
@@ -147,12 +154,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return snowflake_schemas
 
     def get_tables_for_database(
-        self, conn: SnowflakeConnection, db_name: str
+        self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.query(
-                conn,
                 SnowflakeQuery.tables_for_database(db_name),
             )
         except Exception as e:
@@ -179,12 +185,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return tables
 
     def get_tables_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.tables_for_schema(schema_name, db_name),
         )
 
@@ -203,11 +208,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return tables
 
     def get_views_for_database(
-        self, conn: SnowflakeConnection, db_name: str
+        self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         views: Dict[str, List[SnowflakeView]] = {}
         try:
-            cur = self.query(conn, SnowflakeQuery.show_views_for_database(db_name))
+            cur = self.query(SnowflakeQuery.show_views_for_database(db_name))
         except Exception as e:
             logger.debug(
                 f"Failed to get all views for database - {db_name}", exc_info=e
@@ -225,18 +230,17 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     # last_altered=table["last_altered"],
                     comment=table["comment"],
                     view_definition=table["text"],
+                    last_altered=table["created_on"],
                 )
             )
         return views
 
     def get_views_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
         views: List[SnowflakeView] = []
 
-        cur = self.query(
-            conn, SnowflakeQuery.show_views_for_schema(schema_name, db_name)
-        )
+        cur = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name))
         for table in cur:
             views.append(
                 SnowflakeView(
@@ -245,18 +249,17 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
                     # last_altered=table["last_altered"],
                     comment=table["comment"],
                     view_definition=table["text"],
+                    last_altered=table["created_on"],
                 )
             )
         return views
 
     def get_columns_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeColumn]]]:
         columns: Dict[str, List[SnowflakeColumn]] = {}
         try:
-            cur = self.query(
-                conn, SnowflakeQuery.columns_for_schema(schema_name, db_name)
-            )
+            cur = self.query(SnowflakeQuery.columns_for_schema(schema_name, db_name))
         except Exception as e:
             logger.debug(
                 f"Failed to get all columns for schema - {schema_name}", exc_info=e
@@ -283,12 +286,11 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return columns
 
     def get_columns_for_table(
-        self, conn: SnowflakeConnection, table_name: str, schema_name: str, db_name: str
+        self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeColumn]:
         columns: List[SnowflakeColumn] = []
 
         cur = self.query(
-            conn,
             SnowflakeQuery.columns_for_table(table_name, schema_name, db_name),
         )
 
@@ -308,11 +310,10 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return columns
 
     def get_pk_constraints_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> Dict[str, SnowflakePK]:
         constraints: Dict[str, SnowflakePK] = {}
         cur = self.query(
-            conn,
             SnowflakeQuery.show_primary_keys_for_schema(schema_name, db_name),
         )
 
@@ -325,13 +326,12 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin):
         return constraints
 
     def get_fk_constraints_for_schema(
-        self, conn: SnowflakeConnection, schema_name: str, db_name: str
+        self, schema_name: str, db_name: str
     ) -> Dict[str, List[SnowflakeFK]]:
         constraints: Dict[str, List[SnowflakeFK]] = {}
         fk_constraints_map: Dict[str, SnowflakeFK] = {}
 
         cur = self.query(
-            conn,
             SnowflakeQuery.show_foreign_keys_for_schema(schema_name, db_name),
         )
 

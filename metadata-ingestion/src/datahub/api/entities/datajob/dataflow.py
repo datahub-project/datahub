@@ -5,7 +5,6 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     DataFlowInfoClass,
     DataFlowSnapshotClass,
     GlobalTagsClass,
@@ -91,36 +90,27 @@ class DataFlow:
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataflow",
             entityUrn=str(self.urn),
-            aspectName="dataFlowInfo",
             aspect=DataFlowInfoClass(
                 name=self.name if self.name is not None else self.id,
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
         yield mcp
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataflow",
                 entityUrn=str(self.urn),
-                aspectName="ownership",
                 aspect=owner,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
         for tag in self.generate_tags_aspect():
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataflow",
                 entityUrn=str(self.urn),
-                aspectName="globalTags",
                 aspect=tag,
-                changeType=ChangeTypeClass.UPSERT,
             )
             yield mcp
 
@@ -135,10 +125,6 @@ class DataFlow:
         :param emitter: Datahub Emitter to emit the process event
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
         """
-        from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
 
         for mcp in self.generate_mcp():
-            if isinstance(emitter, DatahubKafkaEmitter):
-                emitter.emit(mcp, callback)
-            else:
-                emitter.emit(mcp)
+            emitter.emit(mcp, callback)

@@ -7,6 +7,7 @@ import { SidebarHeader } from '../SidebarHeader';
 import { SetDomainModal } from './SetDomainModal';
 import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
+import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 
 export const SidebarDomainSection = () => {
     const { entityData } = useEntityData();
@@ -46,38 +47,40 @@ export const SidebarDomainSection = () => {
 
     return (
         <div>
-            <SidebarHeader title="Domain" />
-            <div>
-                {domain && (
-                    <DomainLink
-                        domain={domain}
-                        closable
-                        onClose={(e) => {
-                            e.preventDefault();
-                            onRemoveDomain(entityData?.domain?.associatedUrn);
+            <div id={ENTITY_PROFILE_DOMAINS_ID} className="sidebar-domain-section">
+                <SidebarHeader title="Domain" />
+                <div>
+                    {domain && (
+                        <DomainLink
+                            domain={domain}
+                            closable
+                            onClose={(e) => {
+                                e.preventDefault();
+                                onRemoveDomain(entityData?.domain?.associatedUrn);
+                            }}
+                        />
+                    )}
+                    {!domain && (
+                        <>
+                            <Typography.Paragraph type="secondary">
+                                {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
+                            </Typography.Paragraph>
+                            <Button type="default" onClick={() => setShowModal(true)}>
+                                <EditOutlined /> Set Domain
+                            </Button>
+                        </>
+                    )}
+                </div>
+                {showModal && (
+                    <SetDomainModal
+                        urns={[urn]}
+                        refetch={refetch}
+                        onCloseModal={() => {
+                            setShowModal(false);
                         }}
                     />
                 )}
-                {!domain && (
-                    <>
-                        <Typography.Paragraph type="secondary">
-                            {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
-                        </Typography.Paragraph>
-                        <Button type="default" onClick={() => setShowModal(true)}>
-                            <EditOutlined /> Set Domain
-                        </Button>
-                    </>
-                )}
             </div>
-            {showModal && (
-                <SetDomainModal
-                    urns={[urn]}
-                    refetch={refetch}
-                    onCloseModal={() => {
-                        setShowModal(false);
-                    }}
-                />
-            )}
         </div>
     );
 };

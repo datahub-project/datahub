@@ -6,11 +6,46 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #6742 The metadata file sink's output format no longer contains nested JSON strings for MCP aspects, but instead unpacks the stringified JSON into a real JSON object. The previous sink behavior can be recovered using the `legacy_nested_json_string` option. The file source is backwards compatible and supports both formats.
+
+### Potential Downtime
+
+### Deprecations
+#6851 - Sources bigquery-legacy and bigquery-usage-legacy have been removed.
+
+### Other notable Changes
+
+## 0.9.4 / 0.9.5
+
+### Breaking Changes
+
+- #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [Configuring Authorization with Apache Ranger](./configuring-authorization-with-apache-ranger.md#configuring-your-datahub-deployment) for configuring `apache-ranger-plugin` in DataHub GMS.
+- #6243 apache-ranger authorizer as plugin is not supported in DataHub Kubernetes deployment.
+- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/factories/src/main/resources/application.yml). Refer documentation [Migration Of Plugins From application.yml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins.
+- `datahub check graph-consistency` command has been removed. It was a beta API that we had considered but decided there are better solutions for this. So removing this.
+- `graphql_url` option of `powerbi-report-server` source deprecated as the options is not used.
+- #6789 BigQuery ingestion: If `enable_legacy_sharded_table_support` is set to False, sharded table names will be suffixed with \_yyyymmdd to make sure they don't clash with non-sharded tables. This means if stateful ingestion is enabled then old sharded tables will be recreated with a new id and attached tags/glossary terms/etc will need to be added again. _This behavior is not enabled by default yet, but will be enabled by default in a future release._
+
 ### Potential Downtime
 
 ### Deprecations
 
-- In PowerBI source `workspace_id_pattern` is recommended over deprecated `workspace_id`.
+### Other notable Changes
+
+- #6611 - Snowflake `schema_pattern` now accepts pattern for fully qualified schema name in format `<catalog_name>.<schema_name>` by setting config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+- #6636 - Sources `snowflake-legacy` and `snowflake-usage-legacy` have been removed.
+
+## 0.9.3
+
+### Breaking Changes
+
+- The beta `datahub check graph-consistency` command has been removed.
+
+### Potential Downtime
+
+### Deprecations
+
+- PowerBI source: `workspace_id_pattern` is introduced in place of `workspace_id`. `workspace_id` is now deprecated and set for removal in a future version.
 
 ### Other notable Changes
 
@@ -24,6 +59,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #6570 `snowflake` connector now populates created and last modified timestamps for snowflake datasets and containers. This version of snowflake connector will not work with **datahub-gms** version older than `v0.9.3`
+
 ### Potential Downtime
 
 ### Deprecations
@@ -33,7 +70,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## 0.9.1
 
 ### Breaking Changes
-- we have promoted `bigqery-beta` to `bigquery`. If you are using `bigquery-beta` then change your recipes to use the type `bigquery`
+
+- We have promoted `bigquery-beta` to `bigquery`. If you are using `bigquery-beta` then change your recipes to use the type `bigquery`.
 
 ### Potential Downtime
 
@@ -216,5 +254,4 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #4644 `host_port` option of `snowflake` and `snowflake-usage` sources deprecated as the name was confusing. Use `account_id` option instead.
 
 ### Other notable Changes
-
 - #4760 `check_role_grants` option was added in `snowflake` to disable checking roles in `snowflake` as some people were reporting long run times when checking roles.

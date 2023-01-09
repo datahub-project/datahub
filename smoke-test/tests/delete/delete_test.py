@@ -23,7 +23,7 @@ def test_healthchecks(wait_for_healthchecks):
     pass
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def test_setup():
     """Fixture to execute asserts before and after a test is run"""
 
@@ -53,7 +53,7 @@ def test_setup():
 
 
 @pytest.mark.dependency()
-def test_delete_reference(depends=["test_healthchecks"]):
+def test_delete_reference(test_setup, depends=["test_healthchecks"]):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-delete"
 

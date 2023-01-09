@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -63,6 +65,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
           value.setName(input.getName());
           value.setValue(_secretService.encrypt(input.getValue()));
           value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
+          value.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
 
           proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
           proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);

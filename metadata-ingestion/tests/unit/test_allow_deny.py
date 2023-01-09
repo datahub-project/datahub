@@ -16,6 +16,12 @@ def test_single_table() -> None:
     assert pattern.allowed("foo.mytable")
 
 
+def test_prefix_match():
+    pattern = AllowDenyPattern(allow=["mytable"])
+    assert pattern.allowed("mytable.foo")
+    assert not pattern.allowed("foo.mytable")
+
+
 def test_default_deny() -> None:
     pattern = AllowDenyPattern(allow=["foo.mytable"])
     assert not pattern.allowed("foo.bar")

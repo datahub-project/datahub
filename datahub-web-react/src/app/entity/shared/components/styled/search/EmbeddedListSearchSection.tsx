@@ -37,6 +37,8 @@ type Props = {
         error: ApolloError | undefined;
         refetch: (variables: GetSearchResultsParams['variables']) => Promise<SearchResultsInterface | undefined | null>;
     };
+    shouldRefetch?: boolean;
+    resetShouldRefetch?: () => void;
 };
 
 export const EmbeddedListSearchSection = ({
@@ -49,6 +51,8 @@ export const EmbeddedListSearchSection = ({
     searchBarStyle,
     searchBarInputStyle,
     useGetSearchResults,
+    shouldRefetch,
+    resetShouldRefetch,
 }: Props) => {
     const history = useHistory();
     const location = useLocation();
@@ -130,6 +134,8 @@ export const EmbeddedListSearchSection = ({
             searchBarStyle={searchBarStyle}
             searchBarInputStyle={searchBarInputStyle}
             useGetSearchResults={useGetSearchResults}
+            shouldRefetch={shouldRefetch}
+            resetShouldRefetch={resetShouldRefetch}
         />
     );
 };
