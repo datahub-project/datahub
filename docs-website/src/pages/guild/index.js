@@ -13,7 +13,7 @@ const guildSections = [
     people: [
       {
         name: "Harshal Sheth",
-        image: "harshal.jpg", //images live in src/static/img/guild/people
+        image: "https://avatars.githubusercontent.com/u/12566801?v=4",
         bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean sit amet magna aliquam, scelerisque libero eu, vestibulum magna. Pellentesque ut molestie sapien. Donec blandit placerat elementum. Duis eu elementum ligula. Nullam tincidunt accumsan risus, malesuada vestibulum non.",
         social: {
           linkedin: "https://www.linkedin.com/",

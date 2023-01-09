@@ -1,6 +1,5 @@
 import React from "react";
 import clsx from "clsx";
-import Image from "@theme/IdealImage";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./guild-section.module.scss";
 import { TwitterOutlined, LinkedinFilled, GithubFilled, GlobalOutlined } from "@ant-design/icons";
@@ -17,12 +16,12 @@ const GuildSection = ({ name, badge, description, people }) => {
         return (
           <div className={clsx("card", styles.card)} key={idx}>
             {image ? (
-              <Image className="avatar__photo" img={require(`/img/guild/people/${image}`)} alt={name} />
+              <img className="avatar__photo" src={image} alt={name} />
             ) : (
               <img
                 className="avatar__photo"
                 style={{ transform: `rotate(${Math.floor(Math.random() * 30) - 15}deg)` }}
-                src={useBaseUrl("/img/guild/people/person-placeholder.svg")}
+                src={useBaseUrl("/img/guild/person-placeholder.svg")}
                 alt="Placeholder"
               />
             )}
