@@ -330,7 +330,7 @@ class BigQueryDataDictionary:
                 last_altered=datetime.fromtimestamp(
                     table.get("last_altered") / 1000, tz=timezone.utc
                 )
-                if "last_altered" in table.keys() and table.get("last_altered")
+                if table.get("last_altered") is not None
                 else table.created,
                 size_in_bytes=table.get("bytes"),
                 rows_count=table.get("row_count"),
