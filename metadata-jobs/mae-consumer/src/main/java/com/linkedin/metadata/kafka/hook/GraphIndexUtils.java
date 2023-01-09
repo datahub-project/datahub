@@ -56,11 +56,9 @@ public class GraphIndexUtils {
   @Nullable
   private static boolean isValueListValid(@Nullable final List<?> entryList, final int valueListSize) {
     if (entryList == null) {
-      log.warn("Unable to get entry as entryList is null");
       return false;
     }
     if (valueListSize != entryList.size()) {
-      log.warn("Unable to get entry for graph edge as values list and entry list have differing sizes");
       return false;
     }
     return true;
