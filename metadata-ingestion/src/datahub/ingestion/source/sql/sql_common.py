@@ -258,6 +258,11 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
         default=True, description="Whether tables should be ingested."
     )
 
+    include_table_location_lineage: bool = Field(
+        default=True,
+        description="If the source supports it, include table lineage to the underlying storage location.",
+    )
+
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -734,13 +739,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         entity_urn: str,
-        entity_type: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
@@ -841,7 +844,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        if location_urn:
+        if self.config.include_table_location_lineage and location_urn:
             external_upstream_table = UpstreamClass(
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
@@ -901,7 +904,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -1185,7 +1187,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 

@@ -29,7 +29,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
     GroupMembershipClass,
@@ -296,10 +295,7 @@ class AzureADSource(Source):
                     yield wu
 
                     group_origin_mcp = MetadataChangeProposalWrapper(
-                        entityType="corpGroup",
                         entityUrn=datahub_corp_group_snapshot.urn,
-                        changeType=ChangeTypeClass.UPSERT,
-                        aspectName="origin",
                         aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
                     )
                     group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
@@ -310,10 +306,7 @@ class AzureADSource(Source):
                     yield group_origin_wu
 
                     group_status_mcp = MetadataChangeProposalWrapper(
-                        entityType="corpGroup",
                         entityUrn=datahub_corp_group_snapshot.urn,
-                        changeType=ChangeTypeClass.UPSERT,
-                        aspectName="status",
                         aspect=StatusClass(removed=False),
                     )
                     group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
@@ -445,10 +438,7 @@ class AzureADSource(Source):
             yield wu
 
             user_origin_mcp = MetadataChangeProposalWrapper(
-                entityType="corpuser",
                 entityUrn=datahub_corp_user_snapshot.urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="origin",
                 aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
             )
             user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
@@ -457,10 +447,7 @@ class AzureADSource(Source):
             yield user_origin_wu
 
             user_status_mcp = MetadataChangeProposalWrapper(
-                entityType="corpuser",
                 entityUrn=datahub_corp_user_snapshot.urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="status",
                 aspect=StatusClass(removed=False),
             )
             user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"

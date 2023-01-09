@@ -94,6 +94,7 @@ public class KafkaTrackingProducer {
                 setConfig(config, props, SaslConfigs.SASL_JAAS_CONFIG, "analytics.kafka.sasl.jaas.config");
                 setConfig(config, props, SaslConfigs.SASL_KERBEROS_SERVICE_NAME, "analytics.kafka.sasl.kerberos.service.name");
                 setConfig(config, props, SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, "analytics.kafka.sasl.login.callback.handler.class");
+                setConfig(config, props, SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS, "analytics.kafka.sasl.client.callback.handler.class");
             }
         }
 
