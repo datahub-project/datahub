@@ -15,8 +15,8 @@ class DatasetUrn(Urn):
 
     ENTITY_TYPE: str = "dataset"
 
-    def __init__(self, entity_type: str, entity_id: List[str], domain: str = "li"):
-        super().__init__(entity_type, UrnEncoder.encode_string_array(entity_id), domain)
+    def __init__(self, entity_type: str, entity_id: List[str]):
+        super().__init__(entity_type, UrnEncoder.encode_string_array(entity_id))
 
     @classmethod
     def create_from_string(cls, urn_str: str) -> "DatasetUrn":
@@ -27,7 +27,7 @@ class DatasetUrn(Urn):
         :raises InvalidUrnError is the string representation is in invalid format
         """
         urn: Urn = super().create_from_string(urn_str)
-        return cls(urn.get_type(), urn.get_entity_id(), urn.get_domain())
+        return cls(urn.get_type(), urn.get_entity_id())
 
     def get_data_platform_urn(self) -> DataPlatformUrn:
         """

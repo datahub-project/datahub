@@ -333,6 +333,44 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     schema_class_file.write_text("\n".join(schema_classes_lines))
 
 
+def capitalize_entity_name(entity_name: str) -> str:
+    if entity_name == "corpuser":
+        return "CorpUser"
+
+    return f"{entity_name[0].capitalize()}{entity_name[1:]}"
+
+
+def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
+    urn_dir.mkdir()
+
+    (urn_dir / "__init__.py").write_text("\n# This file is intentionally left empty.")
+
+    code = """
+# This file contains classes corresponding to entity URNs.
+
+from datahub.utilities.urns._urn_base import SpecificUrn
+"""
+
+    for aspect in key_aspects:
+        entity_type = aspect["Aspect"]["keyForEntity"]
+        class_name = f"{capitalize_entity_name(entity_type)}Urn"
+
+        if entity_type != "dataPlatform":
+            # TODO
+            continue
+
+        fields = aspect["fields"]
+
+        code += f"""
+
+class {class_name}(SpecificUrn, entity_type="{entity_type}"):
+    UNDERLYING_KEY_ASPECT = '{aspect['name']}'
+    pass
+"""
+
+    (urn_dir / "urn_defs.py").write_text(code)
+
+
 @click.command()
 @click.argument(
     "entity_registry", type=click.Path(exists=True, dir_okay=False), required=True
@@ -367,6 +405,7 @@ def generate(
         if schema.get("Aspect")
     }
 
+    # Copy entity registry info into the corresponding key aspect.
     for entity in entities:
         # This implicitly requires that all keyAspects are resolvable.
         aspect = aspects[entity.keyAspect]
@@ -442,6 +481,21 @@ else:
     globals().update(_custom_package.__dict__)
 
 """
+        )
+
+    # Generate URN classes.
+    urn_dir = Path(outdir) / "_urns"
+    write_urn_classes(
+        [aspect for aspect in aspects.values() if aspect["Aspect"].get("keyForEntity")],
+        urn_dir,
+    )
+
+    # Save raw schema files in codegen as well.
+    schema_save_dir = Path(outdir) / "schemas"
+    schema_save_dir.mkdir()
+    for schema_out_file, schema in schemas.items():
+        (schema_save_dir / f"{schema_out_file}.avsc").write_text(
+            json.dumps(schema, indent=2)
         )
 
     # Keep a copy of a few raw avsc files.
