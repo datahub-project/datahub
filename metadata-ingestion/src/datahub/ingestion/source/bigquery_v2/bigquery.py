@@ -800,12 +800,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_name: str,
         entity_urn: str,
-        entity_type: str,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
@@ -963,7 +961,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         yield from self._get_domain_wu(
             dataset_name=str(datahub_dataset_name),
             entity_urn=dataset_urn,
-            entity_type="dataset",
         )
 
     def gen_lineage(

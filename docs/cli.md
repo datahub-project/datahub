@@ -220,6 +220,9 @@ Telemetry is enabled by default, and the `telemetry` command lets you toggle the
 ### delete
 
 The `delete` command allows you to delete metadata from DataHub. Read this [guide](./how/delete-metadata.md) to understand how you can delete metadata from DataHub.
+:::info
+Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Container, it will not automatically delete the children, you will instead need to delete each child by URN in addition to deleting the parent. 
+:::
 
 ```console
 datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" --soft
