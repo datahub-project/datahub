@@ -100,7 +100,7 @@ public class SettingsBuilder {
   public static final String PATH_HIERARCHY_TOKENIZER = "path_hierarchy";
   public static final String SLASH_TOKENIZER = "slash_tokenizer";
   // Do not remove the space, needed for multi-term synonyms
-  public static final List<String> ALPHANUM_SPACE_PATTERNS = ImmutableList.of("([a-z0-9 ]{2,})");
+  public static final List<String> ALPHANUM_SPACE_PATTERNS = ImmutableList.of("([a-z0-9 _-]{2,})");
   public static final List<String> DATAHUB_STOP_WORDS_LIST = ImmutableList.of("urn", "li", "data", "table");
 
   public static final List<String> WORD_DELIMITER_TYPE_TABLE = ImmutableList.of(
