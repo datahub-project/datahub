@@ -111,7 +111,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy>=1.3.24, <2",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12",
+    "great-expectations>=0.15.12, <=0.15.41",
     # scipy version restricted to reduce backtracking, used by great-expectations,
     "scipy>=1.7.2",
     # GE added handling for higher version of jinja2
@@ -341,9 +341,9 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4"},
+    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "vertica": sql_common | {"sqlalchemy-vertica-dialect[vertica-python]==0.1.4"},
     "unity-catalog": databricks_cli | {"requests"},
 }
 
