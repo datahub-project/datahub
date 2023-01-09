@@ -4,13 +4,23 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.schema.*;
+
+import com.linkedin.schema.ArrayType;
+import com.linkedin.schema.BooleanType;
+import com.linkedin.schema.BytesType;
+import com.linkedin.schema.EnumType;
+import com.linkedin.schema.FixedType;
+import com.linkedin.schema.NumberType;
+import com.linkedin.schema.RecordType;
+import com.linkedin.schema.SchemaFieldDataType;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schema.StringType;
 import datahub.protobuf.ProtobufDataset;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Optional;
 import java.util.Set;
 
 import static datahub.protobuf.TestFixtures.*;
