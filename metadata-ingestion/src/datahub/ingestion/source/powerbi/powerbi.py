@@ -41,13 +41,15 @@ from datahub.metadata.schema_classes import (
     DashboardKeyClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
-    UpstreamLineageClass, GlobalTagsClass, TagAssociationClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
 

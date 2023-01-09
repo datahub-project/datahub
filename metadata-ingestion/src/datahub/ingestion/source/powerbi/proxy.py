@@ -150,6 +150,7 @@ class PowerBiAPI:
         dataset: Optional["PowerBiAPI.PowerBIDataset"]
         pages: List["PowerBiAPI.Page"]
         users: List["PowerBiAPI.User"]
+        tags: List[str]
 
         def get_urn_part(self):
             return f"reports.{self.id}"
@@ -316,6 +317,7 @@ class PowerBiAPI:
             description=response_dict.get("description"),
             users=[],
             pages=[],
+            tags=[],
             dataset=self.get_dataset(
                 workspace_id=workspace_id, dataset_id=response_dict.get("datasetId")
             ),
@@ -381,7 +383,9 @@ class PowerBiAPI:
 
         return response.json()[Constant.VALUE]
 
-    def get_dashboards(self, workspace: Workspace, scan_result: dict) -> List[Dashboard]:
+    def get_dashboards(
+        self, workspace: Workspace, scan_result: dict
+    ) -> List[Dashboard]:
         """
         Get the list of dashboard from PowerBi for the given workspace identifier
 
@@ -431,11 +435,12 @@ class PowerBiAPI:
 
         return [endorsement]
 
-    def get_dataset(self,
-                    workspace_id: str,
-                    dataset_id: str,
-                    endorsements: Optional[dict] = None,
-                    ) -> Any:
+    def get_dataset(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        endorsements: Optional[dict] = None,
+    ) -> Any:
         """
         Fetch the dataset from PowerBi for the given dataset identifier
         """
