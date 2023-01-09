@@ -4,20 +4,16 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.schema.ArrayType;
-import com.linkedin.schema.BooleanType;
-import com.linkedin.schema.BytesType;
-import com.linkedin.schema.EnumType;
-import com.linkedin.schema.FixedType;
-import com.linkedin.schema.NumberType;
-import com.linkedin.schema.RecordType;
-import com.linkedin.schema.SchemaFieldDataType;
-import com.linkedin.schema.StringType;
+import com.linkedin.schema.*;
+import datahub.protobuf.ProtobufDataset;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
 
+import static datahub.protobuf.TestFixtures.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 
@@ -226,5 +222,28 @@ public class ProtobufFieldTest {
             assertEquals(new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new ArrayType()
                     .setNestedType(new StringArray()))), test.schemaFieldDataType());
         });
+    }
+
+    @Test
+    public void nestedTypeFieldTest() throws IOException {
+        ProtobufDataset test = getTestProtobufDataset("extended_protobuf", "messageC");
+        SchemaMetadata testMetadata = test.getSchemaMetadata();
+
+        SchemaField nicknameField = testMetadata.getFields()
+                .stream()
+                .filter(f -> f.getFieldPath()
+                        .equals("[version=2.0].[type=extended_protobuf_UserMsg].[type=extended_protobuf_UserMsg_UserInfo].user_info.[type=string].nickname"))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("nickname info", nicknameField.getDescription());
+
+        SchemaField profileUrlField = testMetadata.getFields()
+                .stream().filter(f -> f.getFieldPath()
+                        .equals("[version=2.0].[type=extended_protobuf_UserMsg].[type=extended_protobuf_UserMsg_UserInfo].user_info.[type=string].profile_url"))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("profile url info", profileUrlField.getDescription());
     }
 }
