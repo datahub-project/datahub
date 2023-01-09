@@ -10,7 +10,7 @@ REQUIRED_CONTAINERS = [
     "datahub-gms",
     "datahub-frontend-react",
     "kafka-setup",
-    "schema-registry",
+    #"schema-registry",
     "broker",
     "zookeeper",
     # These two containers are not necessary - only helpful in debugging.
