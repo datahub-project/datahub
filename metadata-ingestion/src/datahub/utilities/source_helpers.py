@@ -1,6 +1,7 @@
 from typing import Callable, Iterable, Optional, Set, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -87,3 +88,16 @@ def auto_stale_entity_removal(
 
     # Clean up stale entities.
     yield from stale_entity_removal_handler.gen_removed_entity_workunits()
+
+
+def auto_workunit_reporter(
+    report: SourceReport,
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    """
+    Calls report.report_workunit() on each workunit.
+    """
+
+    for wu in stream:
+        report.report_workunit(wu)
+        yield wu

@@ -88,11 +88,13 @@ class AthenaConfig(SQLAlchemyConfig):
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
+    - Lineage for S3 tables.
     - Profiling when enabled.
     """
 
