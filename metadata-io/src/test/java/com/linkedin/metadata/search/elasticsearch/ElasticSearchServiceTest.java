@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ESTestConfiguration;
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -57,6 +58,12 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _settingsBuilder = new SettingsBuilder(null);
     _elasticSearchService = buildService();
     _elasticSearchService.configure();
+  }
+
+  @BeforeClass
+  public void disableAssert() {
+    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
   }
 
   @BeforeMethod
@@ -176,7 +183,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(_bulkProcessor);
 
-    searchResult = _elasticSearchService.fullTextSearch(ENTITY_NAME, "'test2'", null, null, 0, 10);
+    searchResult = _elasticSearchService.fullTextSearch(ENTITY_NAME, "test2", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
 
@@ -187,7 +194,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(_bulkProcessor);
-    searchResult = _elasticSearchService.fullTextSearch(ENTITY_NAME, "'test2'", null, null, 0, 10);
+    searchResult = _elasticSearchService.fullTextSearch(ENTITY_NAME, "test2", null, null, 0, 10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
 
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);

@@ -4,3 +4,6 @@ staging => staging
 production => production
 urn:li:dataplatform:hive => urn:li:dataplatform:hive
 hive => hive
+bigquery => bigquery
+big query => big query
+query => query
