@@ -13,7 +13,7 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, Base
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass
 class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
