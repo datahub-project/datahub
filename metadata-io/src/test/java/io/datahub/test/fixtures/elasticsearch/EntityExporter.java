@@ -33,7 +33,7 @@ public class EntityExporter {
     private String sourceIndexSuffix = "index_v2";
     @Builder.Default
     private Set<String> indexEntities = SEARCHABLE_ENTITY_TYPES.stream()
-            .map(entityType -> entityType.toString().toLowerCase())
+            .map(entityType -> entityType.toString().toLowerCase().replaceAll("_", ""))
             .collect(Collectors.toSet());
 
 

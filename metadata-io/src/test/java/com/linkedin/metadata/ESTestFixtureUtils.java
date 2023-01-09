@@ -71,7 +71,7 @@ public class ESTestFixtureUtils {
      * 4. Run extraction
      **/
     private void extractEntityTestFixture() throws IOException {
-        String fixtureName = "long_tail";
+        String fixtureName = "temp";
         String prefix = "";
         String commonSuffix = "index_v2";
 
