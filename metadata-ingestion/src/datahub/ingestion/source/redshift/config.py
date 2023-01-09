@@ -72,6 +72,8 @@ class RedshiftConfig(
     LineageStatefulIngestionConfig,
     ProfilingStatefulIngestionConfig,
 ):
+    database: str = Field(default="dev", description="database")
+
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
     # because it has better caching behavior. In particular, it queries

@@ -22,8 +22,8 @@ class RedshiftReport(ProfilingSqlReport):
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     tables_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     views_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
-    num_operational_stats_skipped: Optional[int] = None
-    num_usage_stat_skipped: Optional[int] = None
+    num_operational_stats_skipped: int = 0
+    num_usage_stat_skipped: int = 0
 
     def report_dropped(self, key: str) -> None:
         self.filtered.append(key)
