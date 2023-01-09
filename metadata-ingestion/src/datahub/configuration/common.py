@@ -158,6 +158,10 @@ class IgnorableError(MetaError):
     """An error that can be ignored."""
 
 
+class ConfigurationWarning(Warning):
+    """A configuration warning."""
+
+
 class ConfigurationMechanism(ABC):
     @abstractmethod
     def load_config(self, config_fp: IO) -> dict:
