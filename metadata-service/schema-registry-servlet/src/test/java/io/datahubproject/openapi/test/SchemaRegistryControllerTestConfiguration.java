@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.schema.registry;
+package io.datahubproject.openapi.test;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.ComponentScan;

@@ -41,7 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Slf4j
 @RestController
-@RequestMapping("/schema-registry")
+@RequestMapping("/")
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = InternalSchemaRegistryFactory.TYPE)
 public class SchemaRegistryController

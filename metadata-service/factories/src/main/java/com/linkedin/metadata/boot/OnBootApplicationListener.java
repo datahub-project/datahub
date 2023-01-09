@@ -10,7 +10,6 @@ import org.apache.http.StatusLine;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.protocol.HTTP;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.event.ContextRefreshedEvent;
@@ -51,7 +50,7 @@ public class OnBootApplicationListener {
         final HttpGet request = new HttpGet("http://localhost:8080/openapi/up/");
         int timeouts = 30;
         boolean openAPIServeletReady = false;
-        while(!openAPIServeletReady && timeouts > 0){
+        while (!openAPIServeletReady && timeouts > 0) {
           try {
             Thread.sleep(1000);
             StatusLine statusLine = httpClient.execute(request).getStatusLine();

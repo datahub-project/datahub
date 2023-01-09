@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.schema.registry;
+package io.datahubproject.openapi.test;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -21,8 +21,6 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.mxe.Topics;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
-import io.datahubproject.openapi.test.OpenAPISpringTestServer;
-import io.datahubproject.openapi.test.OpenAPISpringTestServerConfiguration;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -71,7 +69,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     kafka.start();
     registry.add("kafka.bootstrapServers", kafka::getBootstrapServers);
     registry.add("kafka.schemaRegistry.type", () -> "INTERNAL");
-    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/schema-registry/");
+    registry.add("kafka.schemaRegistry.url", () -> "http://localhost:53222/");
   }
 
   @Autowired
