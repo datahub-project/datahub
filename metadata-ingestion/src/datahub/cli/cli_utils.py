@@ -412,7 +412,7 @@ def get_urns_by_filter(
             log.debug(f"yielding {x['entity']}")
             yield x["entity"]
         log.warning(
-            f"Discrepancy in entities yielded {entities_yielded} and num entities {num_entities}"
+            f"Discrepancy in entities yielded {entities_yielded} and num entities {num_entities}. This means all entities may not have been deleted."
         )
     else:
         log.error(f"Failed to execute search query with {str(response.content)}")
