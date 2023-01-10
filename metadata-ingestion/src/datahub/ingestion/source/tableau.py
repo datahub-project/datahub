@@ -97,6 +97,7 @@ from datahub.metadata.schema_classes import (
     DashboardUsageStatisticsClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    EmbedClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -1319,7 +1320,14 @@ class TableauSource(StatefulIngestionSourceBase):
                     builder.make_global_tag_aspect_with_tag_list(tag_list_str)
                 )
             yield self.get_metadata_change_event(chart_snapshot)
-
+            if sheet_external_url is not None:
+                yield self.new_work_unit(
+                    self.new_embed_aspect_mcp(
+                        entity_type="chart",
+                        entity_urn=sheet_urn,
+                        embed_url=sheet_external_url,
+                    )
+                )
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "chart", chart_snapshot.urn
             )
@@ -1463,6 +1471,47 @@ class TableauSource(StatefulIngestionSourceBase):
             entityUrn=dashboard_urn,
         ).as_workunit()
 
+    @staticmethod
+    def new_mcp(
+        entity_type: str,
+        entity_urn: str,
+        aspect_name: str,
+        aspect: builder.Aspect,
+        change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
+    ) -> MetadataChangeProposalWrapper:
+        """
+        Create MCP
+        """
+        return MetadataChangeProposalWrapper(
+            entityType=entity_type,
+            changeType=change_type,
+            entityUrn=entity_urn,
+            aspectName=aspect_name,
+            aspect=aspect,
+        )
+
+    @staticmethod
+    def new_embed_aspect_mcp(
+        entity_type: str, entity_urn: str, embed_url: str
+    ) -> MetadataChangeProposalWrapper:
+
+        return TableauSource.new_mcp(
+            entity_type=entity_type,
+            entity_urn=entity_urn,
+            aspect_name=EmbedClass.ASPECT_NAME,
+            aspect=EmbedClass(renderUrl=embed_url),
+        )
+
+    def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
+        return MetadataWorkUnit(
+            id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
+                PLATFORM=self.config.platform,
+                ENTITY_URN=mcp.entityUrn,
+                ASPECT_NAME=mcp.aspectName,
+            ),
+            mcp=mcp,
+        )
+
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
             dashboard_urn: str = builder.make_dashboard_urn(
@@ -1533,6 +1582,14 @@ class TableauSource(StatefulIngestionSourceBase):
                 dashboard_snapshot.aspects.append(owner)
 
             yield self.get_metadata_change_event(dashboard_snapshot)
+            # Yield embed MCP
+            yield self.new_work_unit(
+                self.new_embed_aspect_mcp(
+                    entity_type="dashboard",
+                    entity_urn=dashboard_urn,
+                    embed_url=dashboard_external_url,
+                )
+            )
 
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "dashboard", dashboard_snapshot.urn
