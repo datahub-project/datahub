@@ -30,6 +30,7 @@ from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -308,15 +309,20 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
     )
 
+    _database_alias_deprecation = pydantic_field_deprecated(
+        "database_alias",
+        message="database_alias is deprecated. Use platform_instance instead.",
+    )
+
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
 
         return self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,  # type: ignore
+            self.scheme,
             self.username,
             self.password.get_secret_value() if self.password is not None else None,
-            self.host_port,  # type: ignore
+            self.host_port,
             self.database,
             uri_opts=uri_opts,
         )
