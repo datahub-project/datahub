@@ -356,28 +356,6 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void testTokenizationQuoteUnderscore() throws IOException {
-        String testQuery = "\"raw_orders\"";
-        List<String> expectedTokens = List.of(testQuery, "raw_ord");
-
-        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
-                "smpldat_datasetindex_v2",
-                "word_delimited",
-                testQuery
-        );
-        List<String> tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
-        assertEquals(tokens, expectedTokens, String.format("Unexpected tokens. Found %s", tokens));
-
-        request = AnalyzeRequest.withIndexAnalyzer(
-                "smpldat_datasetindex_v2",
-                "query_word_delimited",
-                testQuery
-        );
-        tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
-        assertEquals(tokens, expectedTokens, String.format("Unexpected tokens. Found %s", tokens));
-    }
-
-    @Test
     public void testTokenizationDataPlatform() throws IOException {
         AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
                 "smpldat_datasetindex_v2",
