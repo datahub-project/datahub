@@ -67,6 +67,9 @@
         <appender-ref ref="STDOUT" />
     </logger>
 
+    <logger name="org.elasticsearch.client.RestClient" level="ERROR">
+        <appender-ref ref="STDOUT" />
+    </logger>
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

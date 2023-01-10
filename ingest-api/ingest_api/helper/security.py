@@ -14,7 +14,7 @@ log = logging.getLogger("ingest")
 logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
 log.setLevel(logging.DEBUG)
 
-datahub_url = os.environ["DATAHUB_FRONTEND"]
+datahub_url = os.environ.get("DATAHUB_FRONTEND","")
 CLI_MODE = False if os.environ.get("RUNNING_IN_DOCKER") else True
 
 
@@ -24,7 +24,7 @@ def verify_token(token: str, user: str):
     try:
         payload = jwt.decode(token, token_secret, algorithms="HS256")
         # userUrn = impossible is set in the frontend-react as a temporary userUrn while graphQL is returning identity info.
-        if payload["actorId"] == "impossible": 
+        if payload["actorId"] == "impossible":
             log.error("User Impossible has appeared. Something has gone very wrong.")
         exp_datetime = dt.fromtimestamp(int(payload["exp"]))
         if payload["actorId"] == user:
@@ -41,7 +41,9 @@ def verify_token(token: str, user: str):
         log.error(f"Invalid token for {user} token:{token}")
         return False
     except Exception as e:
-        log.error(f"I cant figure out this token for {user}, so its an error {e}. token:{token}")
+        log.error(
+            f"I cant figure out this token for {user}, so its an error {e}. token:{token}"
+        )
         return False
 
 
@@ -67,20 +69,28 @@ def authenticate_action(token: str, user: str, dataset: str):
 
 def query_dataset_owner(token: str, dataset_urn: str, user: str):
     """
-    Queries for owners of dataset. If there are group owners, then will fire another query to check if user is member of group.        
+    Queries for owners of dataset. If there are group owners, then will fire another query to check if user is member of group.
     """
     # log.debug(f"UI endpoint is {datahub_url}")
     user_urn = f"urn:li:corpuser:{user}"
     query_endpoint = urljoin(datahub_url, "/api/graphql")
     log.debug(f"I will query {query_endpoint} as {user}")
-    
+
     owners_list = query_dataset_ownership(token, dataset_urn, query_endpoint)
     log.debug(f"The list of owners for this dataset is {owners_list}")
-    individual_owners = [item["owner"]["urn"] for item in owners_list if item["owner"]["__typename"]=="CorpUser"]
+    individual_owners = [
+        item["owner"]["urn"]
+        for item in owners_list
+        if item["owner"]["__typename"] == "CorpUser"
+    ]
     if user_urn in individual_owners:
         log.debug("Individual Ownership Step: True")
-        return True    
-    group_owners = [item["owner"]["urn"] for item in owners_list if item["owner"]["__typename"]=="CorpGroup"]
+        return True
+    group_owners = [
+        item["owner"]["urn"]
+        for item in owners_list
+        if item["owner"]["__typename"] == "CorpGroup"
+    ]
     if len(group_owners) > 0:
         groups = query_users_groups(token, query_endpoint, user_urn)
         log.debug(f"The list of groups for this user is {groups}")
@@ -88,11 +98,12 @@ def query_dataset_owner(token: str, dataset_urn: str, user: str):
         for item in groups_urn:
             if item in group_owners:
                 log.debug(f"Group Ownership Step: True for {item}.")
-                return True 
+                return True
     log.error("Ownership Step: False")
     return False
-    
-def query_dataset_ownership(token: str, dataset_urn:str, query_endpoint:str):
+
+
+def query_dataset_ownership(token: str, dataset_urn: str, query_endpoint: str):
     headers = {}
     headers["Authorization"] = f"Bearer {token}"
     headers["Content-Type"] = "application/json"
@@ -129,6 +140,7 @@ def query_dataset_ownership(token: str, dataset_urn:str, query_endpoint:str):
     owners_list = data_received["data"]["dataset"]["ownership"]["owners"]
     return owners_list
 
+
 def query_users_groups(token: str, query_endpoint: str, user_urn: str):
     headers = {}
     headers["Authorization"] = f"Bearer {token}"
@@ -151,7 +163,7 @@ def query_users_groups(token: str, query_endpoint: str, user_urn: str):
             }
         }
     """
-    variables = {"urn": user_urn}    
+    variables = {"urn": user_urn}
     resp = requests.post(
         query_endpoint, headers=headers, json={"query": query, "variables": variables}
     )
@@ -159,8 +171,10 @@ def query_users_groups(token: str, query_endpoint: str, user_urn: str):
     if resp.status_code != 200:
         return []
     data_received = json.loads(resp.text)
-    if data_received["data"]["corpUser"]["relationships"]["count"]>0:
-        groups_list = data_received["data"]["corpUser"]["relationships"]["relationships"]
+    if data_received["data"]["corpUser"]["relationships"]["count"] > 0:
+        groups_list = data_received["data"]["corpUser"]["relationships"][
+            "relationships"
+        ]
         return groups_list
     log.debug(f"group membership list is empty")
     return []

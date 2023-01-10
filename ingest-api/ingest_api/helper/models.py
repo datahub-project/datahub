@@ -1,8 +1,9 @@
 # flake8: noqa
 import logging
-from typing import Dict, List, Optional
 import re
-from pydantic import BaseModel, validator, SecretStr
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, SecretStr, validator
 
 log = logging.getLogger("ingest")
 logformatter = logging.Formatter("%(asctime)s;%(levelname)s;%(funcName)s;%(message)s")
@@ -35,13 +36,12 @@ class create_dataset_params(BaseModel):
     dataset_origin: str = ""
     hasHeader: str = "n/a"
     headerLine: int = 1
-    browsepathList: List[Dict[str,str]]
+    browsepathList: List[Dict[str, str]]
     user_token: SecretStr
     platformSelect: str
     parentContainer: str = ""
     frequency: str = ""
     dataset_frequency_details: str = ""
-
 
 
 class dataset_status_params(BaseModel):
@@ -55,7 +55,7 @@ class browsepath_params(BaseModel):
     dataset_name: str
     requestor: str
     user_token: SecretStr
-    browsePaths: List[Dict[str,str]]
+    browsePaths: List[Dict[str, str]]
 
 
 class add_sample_params(BaseModel):
@@ -91,13 +91,16 @@ class container_param(BaseModel):
     dataset_name: str
     requestor: str
     user_token: SecretStr
-    container: str    
+    container: str
+
 
 class name_param(BaseModel):
     dataset_name: str
     requestor: str
     user_token: SecretStr
-    displayName: str 
+    displayName: str
+
+
 # class echo_param(BaseModel):
 #     user_input: Any
 
@@ -109,13 +112,14 @@ def determine_type(input: str) -> str:
     """
     this list will grow when we have more dataset types in the form
     """
-    m = re.search('urn:li:dataPlatform:(.+)', input)
+    m = re.search("urn:li:dataPlatform:(.+)", input)
     if m:
         platform = m.group(1)
-        if platform.islower(): # should not allow any uppercase.
+        if platform.islower():  # should not allow any uppercase.
             return platform
 
-    return 'error'
+    return "error"
+
 
 class MyFilter(object):
     def __init__(self, level):

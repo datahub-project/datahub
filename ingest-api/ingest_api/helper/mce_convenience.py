@@ -5,26 +5,26 @@ import json
 import logging
 import os
 import re
-import requests
 import time
 import urllib
-
 from datetime import datetime as dt
 from typing import Dict, List, Optional, TypeVar, Union
 from urllib.parse import urljoin
 
+import requests
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              BooleanTypeClass,
                                              BrowsePathsClass, BytesTypeClass,
-                                             ChangeTypeClass,
+                                             ChangeTypeClass, ContainerClass,
                                              DatasetFieldProfileClass,
                                              DatasetLineageTypeClass,
                                              DatasetProfileClass,
                                              DatasetPropertiesClass,
                                              DatasetSnapshotClass,
-                                             DateTypeClass, EditableDatasetPropertiesClass, EnumTypeClass,
-                                             FixedTypeClass,
+                                             DateTypeClass,
+                                             EditableDatasetPropertiesClass,
+                                             EnumTypeClass, FixedTypeClass,
                                              InstitutionalMemoryClass,
                                              InstitutionalMemoryMetadataClass,
                                              MapTypeClass,
@@ -40,7 +40,6 @@ from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              SystemMetadataClass,
                                              TimeTypeClass, UnionTypeClass,
                                              UnknownTypeClass, UpstreamClass,
-                                             ContainerClass,
                                              UpstreamLineageClass)
 
 from .models import FieldParamEdited, create_dataset_params
@@ -54,7 +53,7 @@ DEFAULT_ENV = "PROD"
 DEFAULT_FLOW_CLUSTER = "prod"
 
 CLI_MODE = False if os.environ.get("RUNNING_IN_DOCKER") else True
-datahub_url = os.environ["DATAHUB_FRONTEND"]
+datahub_url = os.environ.get("DATAHUB_FRONTEND", "")
 
 T = TypeVar("T")
 
@@ -81,6 +80,7 @@ def make_user_urn(username: str) -> str:
 
 def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
+
 
 def make_lineage_mce(
     upstream_urns: List[str],
@@ -122,6 +122,7 @@ def make_lineage_mce(
     )
     return mce
 
+
 def make_institutionalmemory_mce(
     input_url: List[str], input_description: List[str], actor: str
 ) -> InstitutionalMemoryClass:
@@ -146,9 +147,11 @@ def make_institutionalmemory_mce(
 
     return mce
 
-def make_container_aspect(container):
+
+def make_container_aspect(container: str) -> ContainerClass:
     aspect = ContainerClass(container=container)
     return aspect
+
 
 def make_browsepath_mce(
     path: List[str],
@@ -160,6 +163,7 @@ def make_browsepath_mce(
     mce = BrowsePathsClass(paths=path)
     return mce
 
+
 def derive_platform_name(input: str) -> str:
     """
     derive platform info, needed to create schemaaspect
@@ -170,6 +174,7 @@ def derive_platform_name(input: str) -> str:
     platform_name = f"urn:li:dataPlatform:{platform}"
     return platform_name
 
+
 def make_dataset_description_mce(
     dataset_name: str,
     description: str,
@@ -179,17 +184,16 @@ def make_dataset_description_mce(
     Tags and externalUrl doesnt seem to have any impact on UI.
     """
     return DatasetPropertiesClass(
-        name = dataset_name,
+        name=dataset_name,
         description=description,
         customProperties=customProperties,
     )
 
+
 def make_editable_dataset_description(
-    description: str
+    description: str,
 ) -> EditableDatasetPropertiesClass:
-    return EditableDatasetPropertiesClass(
-        description=description
-    )
+    return EditableDatasetPropertiesClass(description=description)
 
 
 def update_field_param_class(field_inputs: List[FieldParamEdited]):
@@ -342,7 +346,7 @@ def make_ownership_mce(actor: str, dataset_urn: str) -> OwnershipClass:
             )
         ],
         lastModified=AuditStampClass(
-            time=int(time.time() * 1000),
+            time=get_sys_time(),
             actor=make_user_urn(actor),
         ),
     )
@@ -353,7 +357,7 @@ def generate_json_output_mce(mce: MetadataChangeEventClass, file_loc: str) -> No
     Generates the json MCE files that can be ingested via CLI. For debugging
     """
     mce_obj = mce.to_obj()
-    sys_time = int(time.time() * 1000)
+    sys_time = get_sys_time()
     file_name = mce.proposedSnapshot.urn.replace(
         "urn:li:dataset:(urn:li:dataPlatform:", ""
     ).split(",")[1]
@@ -369,7 +373,7 @@ def generate_json_output_mcp(mcp: MetadataChangeProposalWrapper, file_loc: str) 
     Generates the json MCE files that can be ingested via CLI. For debugging
     """
     mcp_obj = mcp.to_obj()
-    sys_time = int(time.time() * 1000)
+    sys_time = get_sys_time()
     file_name = mcp.entityUrn.replace("urn:li:dataset:(urn:li:dataPlatform:", "").split(
         ","
     )[1]
@@ -388,7 +392,8 @@ def make_status_mce(
             urn=dataset_name, aspects=[StatusClass(removed=desired_status)]
         ),
         systemMetadata=SystemMetadataClass(
-            runId=f"{dataset_name}_status_{str(int(time.time()))}"
+            runId=f"{dataset_name}_status_{str(int(time.time()))}",
+            lastObserved=get_sys_time(),
         ),
     )
 
@@ -403,7 +408,7 @@ def make_profile_mcp(
         )
         all_fields.append(fieldProfile)
     datasetProfile = DatasetProfileClass(
-        timestampMillis=timestamp, fieldProfiles=all_fields, messageId="testing"
+        timestampMillis=timestamp, fieldProfiles=all_fields, messageId=""
     )
     mcpw = MetadataChangeProposalWrapper(
         entityType="dataset",
@@ -412,22 +417,24 @@ def make_profile_mcp(
         aspectName="datasetProfile",
         aspect=datasetProfile,
         systemMetadata=SystemMetadataClass(
-            runId=f"{datasetName}_profile_{str(int(time.time()))}"
+            runId=f"{datasetName}_profile_{str(int(time.time()))}",
+            lastObserved=get_sys_time(),
         ),
     )
     return mcpw
 
+
 def check_platform_container_test(item: create_dataset_params):
     """
-    Objective is to ensure that container type and platform type match to forestall 
+    Objective is to ensure that container type and platform type match to forestall
     quirky inputs. Can't be verified by looking at urn, need GraphQL to query GMS
     """
-    if item.parentContainer == '':
-        # no need to check if no parent container.        
+    if item.parentContainer == "":
+        # no need to check if no parent container.
         return True
     query_endpoint = urljoin(datahub_url, "/api/graphql")
     container_urn = item.parentContainer
-    token = item.user_token
+    token = item.user_token.get_secret_value()
     headers = {}
     headers["Authorization"] = f"Bearer {token}"
     headers["Content-Type"] = "application/json"
@@ -449,8 +456,10 @@ def check_platform_container_test(item: create_dataset_params):
         raise Exception("Backend communications issue")
     data_received = json.loads(resp.text)
     container_platform_urn = data_received["data"]["container"]["platform"]["urn"]
-    container_type = re.search('urn:li:dataPlatform:(.+?)', container_platform_urn).group(1)
-    platform_type = re.search('urn:li:dataPlatform:(.+?)', item.platformSelect).group(1)
+    container_type = re.search(
+        "urn:li:dataPlatform:(.+?)", container_platform_urn
+    ).group(1)
+    platform_type = re.search("urn:li:dataPlatform:(.+?)", item.platformSelect).group(1)
     if container_type != platform_type:
         return False
     return True
