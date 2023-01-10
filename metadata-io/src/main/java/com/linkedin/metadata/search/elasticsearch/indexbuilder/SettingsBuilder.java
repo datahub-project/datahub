@@ -67,7 +67,6 @@ public class SettingsBuilder {
   public static final String REMOVE_QUOTES = "remove_quotes";
   public static final String ASCII_FOLDING = "asciifolding";
   public static final String AUTOCOMPLETE_CUSTOM_DELIMITER = "autocomplete_custom_delimiter";
-  public static final String CUSTOM_DELIMITER_GRAPH = "custom_delimiter_graph";
   public static final String STICKY_DELIMITER_GRAPH = "sticky_delimiter_graph";
   public static final String DEFAULT_SYN_GRAPH = "default_syn_graph";
   public static final String FLATTEN_GRAPH = "flatten_graph";
@@ -86,7 +85,8 @@ public class SettingsBuilder {
 
   // MultiFilters
   public static final String MULTIFILTER_GRAPH_1 = String.join(",", LOWERCASE, STICKY_DELIMITER_GRAPH);
-  public static final String MULTIFILTER_GRAPH_2 = String.join(",", LOWERCASE, ALPHANUM_SPACE_ONLY, DEFAULT_SYN_GRAPH);
+  public static final String MULTIFILTER_GRAPH_2 = String.join(",", LOWERCASE, ALPHANUM_SPACE_ONLY,
+          DEFAULT_SYN_GRAPH);
 
   public static final String MULTIFILTER_1 = String.join(",", MULTIFILTER_GRAPH_1, FLATTEN_GRAPH);
   public static final String MULTIFILTER_2 = String.join(",", MULTIFILTER_GRAPH_2, FLATTEN_GRAPH);
@@ -100,7 +100,12 @@ public class SettingsBuilder {
   public static final String PATH_HIERARCHY_TOKENIZER = "path_hierarchy";
   public static final String SLASH_TOKENIZER = "slash_tokenizer";
   // Do not remove the space, needed for multi-term synonyms
-  public static final List<String> ALPHANUM_SPACE_PATTERNS = ImmutableList.of("([a-z0-9 _-]{2,})");
+  public static final List<String> ALPHANUM_SPACE_PATTERNS = ImmutableList.of(
+          "([a-z0-9 _-]{2,})",
+          "([a-z0-9 ]{2,})",
+          "\\\"([^\\\"]*)\\\""
+  );
+
   public static final List<String> DATAHUB_STOP_WORDS_LIST = ImmutableList.of("urn", "li", "data", "table");
 
   public static final List<String> WORD_DELIMITER_TYPE_TABLE = ImmutableList.of(
@@ -114,9 +119,10 @@ public class SettingsBuilder {
           LOWERCASE,
           DATAHUB_STOP_WORDS,
           STOP,
-          UNIQUE,
           STEM_OVERRIDE,
           SNOWBALL,
+          REMOVE_QUOTES,
+          UNIQUE,
           MIN_LENGTH);
 
   public static final List<String> SEARCH_TOKEN_FILTERS =  ImmutableList.of(
@@ -125,20 +131,18 @@ public class SettingsBuilder {
           LOWERCASE,
           DATAHUB_STOP_WORDS,
           STOP,
-          UNIQUE,
           STEM_OVERRIDE,
           SNOWBALL,
+          REMOVE_QUOTES,
+          UNIQUE,
           MIN_LENGTH);
 
-  public static final List<String> QUOTED_TOKEN_FILTERS =  ImmutableList.of(
+  public static final List<String> QUOTED_TOKEN_FILTERS = ImmutableList.of(
           ASCII_FOLDING,
           LOWERCASE,
           REMOVE_QUOTES,
           DATAHUB_STOP_WORDS,
           STOP,
-          UNIQUE,
-          STEM_OVERRIDE,
-          SNOWBALL,
           MIN_LENGTH);
 
   public static final List<String> PARTIAL_AUTOCOMPLETE_TOKEN_FILTERS = ImmutableList.of(
@@ -186,14 +190,6 @@ public class SettingsBuilder {
             .put(PRESERVE_ORIGINAL, true)
             .put(TYPE_TABLE, WORD_DELIMITER_TYPE_TABLE)
             .build());
-
-/*    filters.put(CUSTOM_DELIMITER_GRAPH, ImmutableMap.<String, Object>builder()
-            .put(TYPE, WORD_DELIMITER_GRAPH)
-            .put(SPLIT_ON_NUMERICS, true)
-            .put(SPLIT_ON_CASE_CHANGE, true)
-            .put(PRESERVE_ORIGINAL, true)
-            .put(TYPE_TABLE, WORD_DELIMITER_TYPE_TABLE)
-            .build());*/
 
     filters.put(STICKY_DELIMITER_GRAPH, ImmutableMap.<String, Object>builder()
             .put(TYPE, WORD_DELIMITER_GRAPH)

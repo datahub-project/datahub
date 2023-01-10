@@ -20,7 +20,8 @@ public class MappingsBuilderTest {
     assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword",
             "fields",
             ImmutableMap.of("delimited",
-                    ImmutableMap.of("type", "text", "analyzer", "urn_component", "search_analyzer", "query_urn_component"),
+                    ImmutableMap.of("type", "text", "analyzer", "urn_component", "search_analyzer", "query_urn_component",
+                            "search_quote_analyzer", "quote_analyzer"),
                     "ngram",
                     ImmutableMap.of("type", "search_as_you_type", "max_shingle_size", "4", "doc_values", "false",
                             "analyzer", "partial_urn_component"))));

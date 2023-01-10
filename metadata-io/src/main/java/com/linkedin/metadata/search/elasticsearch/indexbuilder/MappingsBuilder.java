@@ -66,7 +66,8 @@ public class MappingsBuilder {
     subFields.put(DELIMITED, ImmutableMap.of(
             TYPE, TEXT,
             ANALYZER, URN_ANALYZER,
-            SEARCH_ANALYZER, URN_SEARCH_ANALYZER)
+            SEARCH_ANALYZER, URN_SEARCH_ANALYZER,
+            SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER)
     );
     subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
             ImmutableMap.of(
@@ -107,7 +108,8 @@ public class MappingsBuilder {
       subFields.put(DELIMITED, ImmutableMap.of(
               TYPE, TEXT,
               ANALYZER, TEXT_ANALYZER,
-              SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER));
+              SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
+              SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
       // Add keyword subfield without lowercase filter
       subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
       mappingForField.put(FIELDS, subFields);
@@ -123,6 +125,7 @@ public class MappingsBuilder {
       mappingForField.put(TYPE, TEXT);
       mappingForField.put(ANALYZER, URN_ANALYZER);
       mappingForField.put(SEARCH_ANALYZER, URN_SEARCH_ANALYZER);
+      mappingForField.put(SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER);
       Map<String, Object> subFields = new HashMap<>();
       if (fieldType == FieldType.URN_PARTIAL) {
         subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
