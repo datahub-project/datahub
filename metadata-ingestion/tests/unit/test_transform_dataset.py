@@ -64,7 +64,6 @@ from datahub.ingestion.transformer.remove_dataset_ownership import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
@@ -1301,8 +1300,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
         Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]
     ] = [
         MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=str(
                 DatasetUrn.create_from_ids(
                     platform_id="elasticsearch",
@@ -1310,7 +1307,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                     env="PROD",
                 )
             ),
-            aspectName="globalTags",
             aspect=GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:Test")]),
         )
         for i in range(0, 10)
@@ -1318,8 +1314,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
     mcps.extend(
         [
             MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=str(
                     DatasetUrn.create_from_ids(
                         platform_id="elasticsearch",
@@ -1327,7 +1321,6 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
                         env="PROD",
                     )
                 ),
-                aspectName="datasetProperties",
                 aspect=DatasetPropertiesClass(description="test dataset"),
             )
             for i in range(0, 10)
