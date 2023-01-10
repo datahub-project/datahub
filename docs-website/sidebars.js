@@ -462,6 +462,7 @@ module.exports = {
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
           "docs/advanced/browse-paths-upgrade",
+          // "docs/rfc/active/5818-serial-updates.md", -- Decide if we want active rfcs on public docs
         ],
       },
     ],
