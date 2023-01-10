@@ -1,0 +1,14 @@
+syntax = "proto3";
+package extended_protobuf;
+
+
+message UserMsg {
+  message UserInfo {
+    string nickname = 1; // nickname info
+    string profile_url = 2; // profile url info
+  }
+
+  string id = 1; // user id
+  string name = 2; // user name
+  UserInfo user_info = 3; // user info
+}
