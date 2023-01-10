@@ -498,7 +498,6 @@ module.exports = {
       "docs/CONTRIBUTING",
       "docs/links",
       "docs/rfc",
-      "docs/rfc/active/5818-serial-updates",
     ],
 
     "Release History": ["releases"],
