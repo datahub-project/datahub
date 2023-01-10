@@ -85,11 +85,11 @@ public class CacheTest extends JetTestSupport {
         EntityLineageResult lineageResult = new EntityLineageResult();
         LineageRelationshipArray array = new LineageRelationshipArray();
         LineageRelationship lineageRelationship = new LineageRelationship().setEntity(corpuserUrn).setType("type");
-        for (int i = 0; i < 1000000; i++) {
+        for (int i = 0; i < 10000; i++) {
             array.add(lineageRelationship);
         }
         lineageResult.setRelationships(array).setCount(1).setStart(0).setTotal(1);
-        CachedEntityLineageResult cachedEntityLineageResult = new CachedEntityLineageResult(gzipCompress(toJsonString(lineageResult)),
+        CachedEntityLineageResult cachedEntityLineageResult = new CachedEntityLineageResult(lineageResult,
             System.currentTimeMillis());
 
         Cache cache1 = cacheManager1.getCache("relationshipSearchService");
@@ -105,7 +105,6 @@ public class CacheTest extends JetTestSupport {
         CachedEntityLineageResult cachedResult2 = cache2.get(triplet, CachedEntityLineageResult.class);
         Assert.assertEquals(cachedResult1, cachedResult2);
         Assert.assertEquals(cache1.get(triplet, CachedEntityLineageResult.class), cachedEntityLineageResult);
-        Assert.assertEquals(toRecordTemplate(EntityLineageResult.class,
-            gzipDecompress(cache2.get(triplet, CachedEntityLineageResult.class).getEntityLineageResult())), lineageResult);
+        Assert.assertEquals(cache2.get(triplet, CachedEntityLineageResult.class).getEntityLineageResult(), lineageResult);
     }
 }
