@@ -162,7 +162,6 @@ query DatahubMetadataQuery($jobId: Int!, $runId: Int) {{
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
-@capability(SourceCapability.USAGE_STATS, "", supported=False)
 class DBTCloudSource(DBTSourceBase):
     """
     This source pulls dbt metadata directly from the dbt Cloud APIs.

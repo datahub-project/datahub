@@ -8,7 +8,6 @@ from datahub.cli import cli_utils
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     ChartInfoClass,
     ContainerClass,
     DataJobInputOutputClass,
@@ -22,6 +21,7 @@ from datahub.metadata.schema_classes import (
 
 log = logging.getLogger(__name__)
 
+# TODO: Make this dynamic based on the real aspect class map.
 all_aspects = [
     "schemaMetadata",
     "datasetProperties",
@@ -218,7 +218,6 @@ def modify_urn_list_for_aspect(
     old_urn: str,
     new_urn: str,
 ) -> Aspect:
-
     if hasattr(UrnListModifier, f"{aspect_name}_modifier"):
         modifier = getattr(UrnListModifier, f"{aspect_name}_modifier")
         return modifier(
@@ -234,13 +233,11 @@ def modify_urn_list_for_aspect(
 
 def clone_aspect(
     src_urn: str,
-    entity_type: str,
     aspect_names: List[str],
     dst_urn: str,
     run_id: str = str(uuid.uuid4()),
     dry_run: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-
     aspect_map = cli_utils.get_aspects_for_entity(
         entity_urn=src_urn, aspects=aspect_names, typed=True
     )
@@ -252,9 +249,6 @@ def clone_aspect(
                 assert isinstance(aspect_value, DictWrapper)
                 new_mcp = MetadataChangeProposalWrapper(
                     entityUrn=dst_urn,
-                    entityType=entity_type,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName=a,
                     aspect=aspect_value,
                     systemMetadata=SystemMetadataClass(
                         runId=run_id,

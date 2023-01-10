@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y -qq \
     #    gcc \
     make \
-    jq \
     python3-ldap \
     libldap2-dev \
     libsasl2-dev \

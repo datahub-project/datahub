@@ -67,7 +67,6 @@ class WorkUnitRecordExtractor(
                 ):
                     raise AttributeError("every mce must have at least one aspect")
             if not workunit.metadata.validate():
-
                 invalid_mce = str(workunit.metadata)
 
                 if black is not None:
@@ -85,7 +84,6 @@ class WorkUnitRecordExtractor(
             )
         elif isinstance(workunit, UsageStatsWorkUnit):
             if not workunit.usageStats.validate():
-
                 invalid_usage_stats = str(workunit.usageStats)
 
                 if black is not None:

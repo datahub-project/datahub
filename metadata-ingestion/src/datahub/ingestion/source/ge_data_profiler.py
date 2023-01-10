@@ -481,7 +481,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_values_to_be_in_set(
-                column, [], result_format="SUMMARY"
+                column,
+                [],
+                result_format={
+                    "result_format": "SUMMARY",
+                    "partial_unexpected_count": self.config.field_sample_values_limit,
+                },
             ).result
 
             column_profile.sampleValues = [

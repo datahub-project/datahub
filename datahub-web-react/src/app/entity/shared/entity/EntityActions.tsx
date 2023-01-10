@@ -5,6 +5,7 @@ import { SearchSelectModal } from '../components/styled/search/SearchSelectModal
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
 import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
+import { handleBatchError } from '../utils';
 
 export enum EntityActionItem {
     /**
@@ -59,7 +60,12 @@ function EntityActions(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add glossary term: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(entityUrns, e, {
+                        content: `Failed to add glossary term: \n ${e.message || ''}`,
+                        duration: 3,
+                    }),
+                );
             });
     };
 
@@ -90,7 +96,12 @@ function EntityActions(props: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(entityUrns, e, {
+                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        duration: 3,
+                    }),
+                );
             });
     };
 

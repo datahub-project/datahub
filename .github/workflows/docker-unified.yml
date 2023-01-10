@@ -71,6 +71,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-service:war:build -x test --parallel
+          mv ./metadata-service/war/build/libs/war.war .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -127,6 +131,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
+          mv ./metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -183,6 +191,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
+          mv ./metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -239,6 +251,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :datahub-upgrade:build -x test --parallel
+          mv ./datahub-upgrade/build/libs/datahub-upgrade.jar .
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -294,6 +310,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Pre-build artifacts for docker image
+        run: |
+          ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
+          mv ./datahub-frontend/build/distributions/datahub-frontend-*.zip datahub-frontend.zip
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -358,7 +378,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
-          context: ./docker/kafka-setup
+          context: .
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
 
@@ -415,6 +435,14 @@ jobs:
   smoke_test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test_strategy: [
+          "no_cypress", 
+          "cypress_suite1",
+          "cypress_rest"
+        ]
     needs:
       [
         setup,
@@ -437,6 +465,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
+          cache: 'pip'
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build datahub cli
@@ -472,15 +501,43 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download MCE Consumer image
+      - name: Download MAE Consumer image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Calculate pip install plan
+        id: "packages_checksum"
+        run: |
+          pip install pip -U # only 22.2 and above contains the --dry-run flag
+
+          # only the last line of the output is the packages that will be installed
+          pip install --dry-run -r ./smoke-test/requirements.txt  | tail -n 1 > /tmp/would_be_installed.txt
+          CHECKSUM=$(shasum /tmp/would_be_installed.txt | awk '{print $1}')
+          echo "packages_checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+      - uses: actions/cache@v3
+        id: cache-venv
+        with:
+          path: ./smoke-test/venv/
+          key: smoke-venv-${{ runner.os }}-${{ steps.packages_checksum.outputs.packages_checksum }}
+      - name: run quickstart
+        env:
+          DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
+        run: |
+          ./smoke-test/run-quickstart.sh
+      - name: sleep 60s
+        run: |
+          # we are doing this because gms takes time to get ready
+          # and we don't have a better readiness check when bootstrap is done
+          sleep 60s
       - name: Smoke test
         env:
+          RUN_QUICKSTART: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CLEANUP_DATA: "false"
+          TEST_STRATEGY: ${{ matrix.test_strategy }}
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh
@@ -488,7 +545,7 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          docker logs datahub-gms >& gms.log
+          docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
@@ -499,12 +556,12 @@ jobs:
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: cypress-snapshots
+          name: cypress-snapshots-${{ matrix.test_strategy }}
           path: smoke-test/tests/cypress/cypress/screenshots/
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: Test Results (smoke tests)
+          name: Test Results (smoke tests) ${{ matrix.test_strategy }}
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
