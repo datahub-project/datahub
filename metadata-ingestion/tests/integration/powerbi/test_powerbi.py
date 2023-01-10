@@ -1,9 +1,12 @@
 from typing import Any, Dict
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.powerbi.config import PowerBiAPIConfig
+from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -841,3 +844,35 @@ def test_extract_odbc_tables(
         output_path=tmp_path / "powerbi_odbc_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.parametrize(
+    "status_code,response",
+    [
+        (200, {"error": "Failed"}),
+        (200, {"results": []}),
+        (500, {"results": []}),
+        (429, {"results": []}),
+    ],
+)
+def test_powerbi_source_get_dataset_schema(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock, response, status_code
+):
+    requests_mock.register_uri(
+        "POST",
+        "https://api.powerbi.com/v1.0/myorg/groups/1234/datasets/aaa-123/executeQueries",
+        json=response,
+        status_code=status_code,
+    )
+    pipeline_config = PowerBiAPIConfig.parse_obj(default_source_config())
+    powerbi_api = PowerBiAPI(pipeline_config)
+    dataset = PowerBiAPI.PowerBIDataset(
+        id="aaa-123",
+        name="test-123",
+        webUrl=None,
+        workspace_id="1234",
+        tables=[],
+    )
+    powerbi_api.get_dataset_schema(dataset)

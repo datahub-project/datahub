@@ -490,6 +490,12 @@ class PowerBiAPI:
                 else:
                     results[table_name].append(col_name)
             return results
+        except (KeyError, IndexError) as ex:
+            logger.warning(
+                f"Schema discovery failed for dataset {dataset.id}, with {ex}, unexpected format",
+                exc_info=ex,
+            )
+            return {}
         except requests.exceptions.RequestException as ex:
             logger.warning(
                 f"Schema discovery failed for dataset {dataset.id}, with status code {ex.response.status_code}",
