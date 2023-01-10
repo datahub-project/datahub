@@ -113,7 +113,7 @@ function BusinessGlossaryPage() {
                         <div>
                             <Button
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
-                                hidden={!canManageGlossaries}
+                                disabled={!canManageGlossaries}
                                 type="text"
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
@@ -121,7 +121,7 @@ function BusinessGlossaryPage() {
                             </Button>
                             <Button
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
-                                hidden={!canManageGlossaries}
+                                disabled={!canManageGlossaries}
                                 type="text"
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >
