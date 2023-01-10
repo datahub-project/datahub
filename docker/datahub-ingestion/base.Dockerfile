@@ -1,4 +1,4 @@
-FROM python:3.10.7 as base
+FROM python:3.10 as base
 
 ENV DOCKERIZE_VERSION v0.6.1
 ENV LIBRDKAFKA_VERSION=1.6.2
@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y -qq \
     #    gcc \
     make \
-    jq \
     python3-ldap \
     libldap2-dev \
     libsasl2-dev \

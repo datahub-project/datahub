@@ -38,7 +38,6 @@ def loaded_hive(hive_runner):
 
 
 def base_pipeline_config(events_file):
-
     return {
         "run_id": "hive-test",
         "source": {

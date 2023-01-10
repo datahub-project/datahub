@@ -55,10 +55,8 @@ def loaded_trino(trino_runner):
 def test_trino_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
-
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
-
         # Run the metadata ingestion pipeline for trino catalog referring to postgres database
         mce_out_file = "trino_mces.json"
         events_file = tmp_path / mce_out_file
@@ -116,7 +114,6 @@ def test_trino_ingest(
 def test_trino_hive_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
-
     # Run the metadata ingestion pipeline for trino catalog referring to postgres database
     mce_out_file = "trino_hive_mces.json"
     events_file = tmp_path / mce_out_file

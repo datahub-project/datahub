@@ -12,7 +12,7 @@ class GitHubReference(ConfigModel):
     )
     branch: str = Field(
         "main",
-        description="Branch on which your files live by default. Typically main or master.",
+        description="Branch on which your files live by default. Typically main or master. This can also be a commit hash.",
     )
     base_url: str = Field(
         "https://github.com",
@@ -73,3 +73,15 @@ class GitHubInfo(GitHubReference):
         if v is None:
             return f"git@github.com:{values.get('repo')}"
         return v
+
+    @property
+    def branch_for_clone(self) -> Optional[str]:
+        # If branch was manually set, we should use it. Otherwise return None.
+        # We do this because we want to use the default branch unless they override it.
+        # While our default for branch is "main", they could be using "master" or something else.
+        # It's ok if the URLs we generate are slightly incorrect, but changing branch to be
+        # required would be a breaking change.
+
+        if "branch" in self.__fields_set__:
+            return self.branch
+        return None

@@ -17,7 +17,6 @@ from datahub.ingestion.source.sql.sql_common import (
 
 
 class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
-
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
@@ -91,6 +90,14 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
                     yield inspector
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         return []
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        engine = inspector.engine
+
+        if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
+            return str(engine.url.database).strip('"')
+        else:
+            raise Exception("Unable to get database name from Sqlalchemy inspector")

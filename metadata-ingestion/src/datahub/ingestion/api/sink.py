@@ -77,8 +77,8 @@ class NoopWriteCallback(WriteCallback):
         pass
 
 
-SinkReportType = TypeVar("SinkReportType", bound=SinkReport)
-SinkConfig = TypeVar("SinkConfig", bound=ConfigModel)
+SinkReportType = TypeVar("SinkReportType", bound=SinkReport, covariant=True)
+SinkConfig = TypeVar("SinkConfig", bound=ConfigModel, covariant=True)
 Self = TypeVar("Self", bound="Sink")
 
 

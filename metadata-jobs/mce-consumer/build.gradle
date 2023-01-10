@@ -26,10 +26,12 @@ dependencies {
     compile spec.product.pegasus.restliCommon
     compile externalDependency.elasticSearchRest
     compile externalDependency.kafkaAvroSerde
+    implementation externalDependency.protobuf
 
     compile externalDependency.springKafka
     compile externalDependency.springActuator
 
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok

@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, TypeVar
 
 from mixpanel import Consumer, Mixpanel
+from typing_extensions import ParamSpec
 
 import datahub as datahub_package
-from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ DATAHUB_FOLDER = Path(DATAHUB_ROOT_FOLDER)
 CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
 # also fall back to environment variable if config file is not found
-ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
+ENV_ENABLED = get_boolean_env_variable("DATAHUB_TELEMETRY_ENABLED", True)
 
 # see
 # https://adamj.eu/tech/2020/03/09/detect-if-your-tests-are-running-on-ci/
@@ -91,13 +92,11 @@ MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
 
 class Telemetry:
-
     client_id: str
     enabled: bool = True
     tracking_init: bool = False
 
     def __init__(self):
-
         # try loading the config if it exists, update it if that fails
         if not CONFIG_FILE.exists() or not self.load_config():
             # set up defaults
@@ -224,19 +223,22 @@ class Telemetry:
     def ping(
         self,
         event_name: str,
-        properties: Dict[str, Any] = {},
+        properties: Optional[Dict[str, Any]] = None,
         server: Optional[DataHubGraph] = None,
     ) -> None:
         """
         Send a single telemetry event.
 
         Args:
-            event_name (str): name of the event to send.
-            properties (Optional[Dict[str, Any]]): metadata for the event
+            event_name: name of the event to send.
+            properties: metadata for the event
         """
 
         if not self.enabled or self.mp is None:
             return
+
+        if properties is None:
+            properties = {}
 
         # send event
         try:
@@ -268,10 +270,8 @@ class Telemetry:
 
 telemetry_instance = Telemetry()
 
-T = TypeVar("T")
 
-
-def suppress_telemetry() -> Any:
+def suppress_telemetry() -> None:
     """disables telemetry for this invocation, doesn't affect persistent client settings"""
     if telemetry_instance.enabled:
         logger.debug("Disabling telemetry locally due to server config")
@@ -285,10 +285,13 @@ def get_full_class_name(obj):
     return f"{module}.{obj.__class__.__name__}"
 
 
-def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:
-    @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+_T = TypeVar("_T")
+_P = ParamSpec("_P")
 
+
+def with_telemetry(func: Callable[_P, _T]) -> Callable[_P, _T]:
+    @wraps(func)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
         function = f"{func.__module__}.{func.__name__}"
 
         telemetry_instance.init_tracking()

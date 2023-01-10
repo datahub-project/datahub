@@ -5,17 +5,18 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListGroupsInput;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
-import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +54,11 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
         try {
           // First, get all group Urns.
           final SearchResult gmsResult =
-              _entityClient.search(CORP_GROUP_ENTITY_NAME, query, Collections.emptyMap(), start, count, context.getAuthentication());
+              _entityClient.search(CORP_GROUP_ENTITY_NAME,
+                  query,
+                  null,
+                  new SortCriterion().setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
+                  start, count, context.getAuthentication());
 
           // Then, get hydrate all groups.
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(CORP_GROUP_ENTITY_NAME,
@@ -66,7 +71,9 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
           result.setStart(gmsResult.getFrom());
           result.setCount(gmsResult.getPageSize());
           result.setTotal(gmsResult.getNumEntities());
-          result.setGroups(mapEntities(entities.values()));
+          result.setGroups(mapUnresolvedGroups(gmsResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toList())));
           return result;
         } catch (Exception e) {
           throw new RuntimeException("Failed to list groups", e);
@@ -76,9 +83,15 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
     throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 
-  private List<CorpGroup> mapEntities(final Collection<EntityResponse> entities) {
-    return entities.stream()
-        .map(CorpGroupMapper::map)
-        .collect(Collectors.toList());
+  // This method maps urns returned from the list endpoint into Partial Group objects which will be resolved be a separate Batch resolver.
+  private List<CorpGroup> mapUnresolvedGroups(final List<Urn> entityUrns) {
+    final List<CorpGroup> results = new ArrayList<>();
+    for (final Urn urn : entityUrns) {
+      final CorpGroup unresolvedGroup = new CorpGroup();
+      unresolvedGroup.setUrn(urn.toString());
+      unresolvedGroup.setType(EntityType.CORP_GROUP);
+      results.add(unresolvedGroup);
+    }
+    return results;
   }
 }

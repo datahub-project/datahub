@@ -126,3 +126,6 @@ This generally means that an [incompatible change](https://linkedin.github.io/re
 ### `java.io.IOException: No space left on device`
 
 This means you're running out of space on your disk to build. Please free up some space or try a different disk.
+
+### `Build failed` for task `./gradlew :datahub-frontend:dist -x yarnTest -x yarnLint`
+This could mean that you need to update your [Yarn](https://yarnpkg.com/getting-started/install) version

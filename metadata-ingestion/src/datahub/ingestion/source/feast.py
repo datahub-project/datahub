@@ -301,9 +301,7 @@ class FeastRepositorySource(Source):
         feature_view_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("feast", feature_view_name),
             aspects=[
-                BrowsePathsClass(
-                    paths=[f"/feast/{self.feature_store.project}/{feature_view_name}"]
-                ),
+                BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
                 StatusClass(removed=False),
             ],
         )
@@ -342,11 +340,7 @@ class FeastRepositorySource(Source):
         on_demand_feature_view_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("feast", on_demand_feature_view_name),
             aspects=[
-                BrowsePathsClass(
-                    paths=[
-                        f"/feast/{self.feature_store.project}/{on_demand_feature_view_name}"
-                    ]
-                ),
+                BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
                 StatusClass(removed=False),
             ],
         )

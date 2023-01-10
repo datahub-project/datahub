@@ -24,11 +24,12 @@ const CreateButton = styled(Button)`
 `;
 
 interface Props {
+    initialState?: SecretBuilderState;
     onSubmit?: (state: SecretBuilderState) => void;
     refetchSecrets: () => void;
 }
 
-function CreateSecretButton({ onSubmit, refetchSecrets }: Props) {
+function CreateSecretButton({ initialState, onSubmit, refetchSecrets }: Props) {
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
     const [createSecretMutation] = useCreateSecretMutation();
 
@@ -62,6 +63,7 @@ function CreateSecretButton({ onSubmit, refetchSecrets }: Props) {
             </CreateButton>
             {isCreateModalVisible && (
                 <SecretBuilderModal
+                    initialState={initialState}
                     visible={isCreateModalVisible}
                     onCancel={() => setIsCreateModalVisible(false)}
                     onSubmit={createSecret}

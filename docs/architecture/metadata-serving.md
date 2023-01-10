@@ -25,7 +25,7 @@ Note that not all MCP-s will result in an MCL, because the DataHub serving tier 
 
 ### Metadata Index Applier (mae-consumer-job)
 
-[Metadata Change Logs]s are consumed by another Spring job, [mae-consumer-job], which applies the changes to the [graph] and [search index] accordingly.
+[Metadata Change Log]s are consumed by another Spring job, [mae-consumer-job], which applies the changes to the [graph] and [search index] accordingly.
 The job is entity-agnostic and will execute corresponding graph & search index builders, which will be invoked by the job when a specific metadata aspect is changed. 
 The builder should instruct the job how to update the graph and search index based on the metadata change.
 

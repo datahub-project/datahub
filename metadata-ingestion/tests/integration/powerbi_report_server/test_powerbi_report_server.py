@@ -12,18 +12,8 @@ FROZEN_TIME = "2022-02-03 07:00:00"
 
 def mock_existing_users(*args, **kwargs):
     return OwnershipClass(
-        owners=[
-            OwnerClass.from_obj(
-                {
-                    "owner": "urn:li:corpuser:TEST_USER",
-                    "type": "TECHNICAL_OWNER",
-                    "source": None,
-                }
-            )
-        ],
-        lastModified=AuditStampClass.from_obj(
-            {"time": 0, "actor": "urn:li:corpuser:unknown", "impersonator": None}
-        ),
+        owners=[OwnerClass(owner="urn:li:corpuser:TEST_USER", type="TECHNICAL_OWNER")],
+        lastModified=AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
     )
 
 
@@ -167,7 +157,7 @@ def default_source_config():
         "workstation_name": "workstation",
         "host_port": "host_port",
         "server_alias": "server_alias",
-        "graphql_url": "http://localhost:8080/api/graphql",
+        "graphql_url": None,
         "report_virtual_directory_name": "Reports",
         "report_server_virtual_directory_name": "ReportServer",
         "env": "DEV",
