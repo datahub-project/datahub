@@ -105,6 +105,7 @@ public class SettingsBuilder {
           "([a-z0-9 ]{2,})",
           "\\\"([^\\\"]*)\\\""
   );
+
   public static final List<String> DATAHUB_STOP_WORDS_LIST = ImmutableList.of("urn", "li", "data", "table");
 
   public static final List<String> WORD_DELIMITER_TYPE_TABLE = ImmutableList.of(
