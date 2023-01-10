@@ -1,6 +1,5 @@
 ---
-title: About DataHub Business Glossary
-sidebar_label: Business Glossary
+title: Business Glossary
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
