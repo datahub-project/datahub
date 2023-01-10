@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub [Search Improvements]
+# About DataHub [Stemming and Synonyms Support]
 
 <FeatureAvailability/>
 
@@ -14,7 +14,7 @@ This feature adds features to our current search implementation in an effort to 
 
 <!-- TODO: ADD RELEASE VERSION -->
 
-## [Search Improvements] Setup, Prerequisites, and Permissions
+## [Stemming and Synonyms Support] Setup, Prerequisites, and Permissions
 
 A reindex is required for this feature to work as it modifies non-dynamic mappings and settings in the index. This reindex is carried out as a part of the bootstrapping process by
 DataHub Upgrade which has been added to the helm charts and docker-compose files as a required component with default configurations that should work for most deployments.
@@ -78,7 +78,7 @@ global:
 * ELASTICSEARCH_BUILD_INDICES_BACK_OFF_FACTOR
 * ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_BUILD_INDICES - Controls whether to require waiting for the Build Indices job to finish. Defaults to true. It is not recommended to change this as it will allow GMS and MCL Consumers to start up in an error state.
 
-## Using [Search Improvements]
+## Using [Stemming and Synonyms Support]
 
 ### Stemming
 
