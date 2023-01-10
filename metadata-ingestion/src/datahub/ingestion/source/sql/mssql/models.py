@@ -277,7 +277,7 @@ class SQLServerSource(SQLAlchemySource):
         return columns
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        sql_config: SQLServerConfig = self.config
+        sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
             sql_config.options.setdefault("echo", True)
@@ -293,19 +293,20 @@ class SQLServerSource(SQLAlchemySource):
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
             if sql_config.profiling.enabled:
-                profiler = self._get_profiler_instance(inspector)
+                profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(db_name)
+            yield from self.gen_database_containers(
+                inspector=inspector, database=db_name
+            )
             if sql_config.include_jobs:
                 yield from self.loop_jobs(inspector, sql_config)
-            for schema in self.get_schema_names(inspector):
-                if not sql_config.schema_pattern.allowed(schema):
-                    self.report.report_dropped(f"{schema}.*")
-                    continue
+            for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(schema, db_name)
+                yield from self.gen_schema_containers(
+                    inspector=inspector, schema=schema, db_name=db_name
+                )
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
