@@ -41,24 +41,26 @@ public class OnBootApplicationListener {
     log.warn("OnBootApplicationListener context refreshed! {} event: {}",
         ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()), event);
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
-      executorService.submit(isOpenAPIServeletReady());
+      executorService.submit(isSchemaRegistryAPIServeletReady());
     }
   }
 
-  public Runnable isOpenAPIServeletReady() {
+  public Runnable isSchemaRegistryAPIServeletReady() {
     return () -> {
-        final HttpGet request = new HttpGet("http://localhost:8080/openapi/up/");
+        final HttpGet request = new HttpGet("http://localhost:8080/schema-registry/api/up");
         int timeouts = 30;
         boolean openAPIServeletReady = false;
         while (!openAPIServeletReady && timeouts > 0) {
           try {
+            log.info("Sleeping for 1 second");
             Thread.sleep(1000);
             StatusLine statusLine = httpClient.execute(request).getStatusLine();
-            if (statusLine.getStatusCode() == HttpStatus.SC_OK && statusLine.getReasonPhrase().equals("OK")) {
+            if (statusLine.getStatusCode() == HttpStatus.SC_OK) {
+              log.info("Connected!");
               openAPIServeletReady = true;
             }
           } catch (IOException | InterruptedException e) {
-            log.info("Failed to connect to open servlet: ", e);
+            log.info("Failed to connect to open servlet: {}", e.getMessage());
           }
           //openAPIServeletReady = isOpenAPIServeletReady();
           timeouts--;

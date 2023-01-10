@@ -31,7 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,7 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Slf4j
 @RestController
-@RequestMapping("/")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "kafka.schemaRegistry.type", havingValue = InternalSchemaRegistryFactory.TYPE)
 public class SchemaRegistryController
@@ -67,6 +69,11 @@ public class SchemaRegistryController
   @Override
   public Optional<String> getAcceptHeader() {
     return CompatibilityApi.super.getAcceptHeader();
+  }
+
+  @GetMapping(value = "/up", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity.BodyBuilder isUp() {
+    return ResponseEntity.ok();
   }
 
   @Override
