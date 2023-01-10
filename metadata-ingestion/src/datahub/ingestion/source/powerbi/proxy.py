@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional
 
 import msal
 import requests as requests
+from requests import HTTPError, RequestException
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.powerbi.config import (
@@ -460,6 +463,16 @@ class PowerBiAPI:
                 WORKSPACE_ID=dataset.workspace_id,
                 DATASET_ID=dataset.id,
             )
+
+            retry_strategy = Retry(
+                total=3,
+                status_forcelist=[500, 503, 504],
+                allowed_methods=["POST"],
+            )
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            r_session = requests.Session()
+            r_session.mount(dataset_query_endpoint, adapter)
+
             # Hit PowerBi
             logger.info(f"Request to query endpoint URL={dataset_query_endpoint}")
             payload = {
@@ -472,7 +485,7 @@ class PowerBiAPI:
                     "includeNulls": True,
                 },
             }
-            response = requests.post(
+            response = r_session.post(
                 dataset_query_endpoint,
                 json=payload,
                 headers={Constant.Authorization: self.get_access_token()},
@@ -493,13 +506,16 @@ class PowerBiAPI:
         except (KeyError, IndexError) as ex:
             logger.warning(
                 f"Schema discovery failed for dataset {dataset.id}, with {ex}, unexpected format",
-                exc_info=ex,
             )
             return {}
-        except requests.exceptions.RequestException as ex:
+        except HTTPError as ex:
             logger.warning(
                 f"Schema discovery failed for dataset {dataset.id}, with status code {ex.response.status_code}",
-                exc_info=ex,
+            )
+            return {}
+        except RequestException as ex:
+            logger.warning(
+                f"Schema discovery failed for dataset {dataset.id}, with {ex}",
             )
             return {}
 

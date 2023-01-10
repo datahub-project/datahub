@@ -846,6 +846,16 @@ def test_extract_odbc_tables(
     )
 
 
+def dummy_dataset():
+    return PowerBiAPI.PowerBIDataset(
+        id="aaa-123",
+        name="test-123",
+        webUrl=None,
+        workspace_id="1234",
+        tables=[],
+    )
+
+
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.parametrize(
@@ -857,7 +867,7 @@ def test_extract_odbc_tables(
         (429, {"results": []}),
     ],
 )
-def test_powerbi_source_get_dataset_schema(
+def test_powerbi_source_get_dataset_schema_malformed_payload(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock, response, status_code
 ):
     requests_mock.register_uri(
@@ -868,11 +878,5 @@ def test_powerbi_source_get_dataset_schema(
     )
     pipeline_config = PowerBiAPIConfig.parse_obj(default_source_config())
     powerbi_api = PowerBiAPI(pipeline_config)
-    dataset = PowerBiAPI.PowerBIDataset(
-        id="aaa-123",
-        name="test-123",
-        webUrl=None,
-        workspace_id="1234",
-        tables=[],
-    )
+    dataset = dummy_dataset()
     powerbi_api.get_dataset_schema(dataset)
