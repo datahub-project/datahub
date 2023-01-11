@@ -114,6 +114,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # Replace / with |
 REPLACE_SLASH_CHAR = "|"
+EMBED_SHORT_CODE_TEMPLATE: str = "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='#EMBED_URL#' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
 
 
 class TableauConnectionConfig(ConfigModel):
@@ -252,6 +253,11 @@ class TableauConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
+    )
+
+    ingest_embed_url: Optional[bool] = Field(
+        default=True,
+        description="Ingest embed url for preview.",
     )
 
 
@@ -1320,10 +1326,9 @@ class TableauSource(StatefulIngestionSourceBase):
                     builder.make_global_tag_aspect_with_tag_list(tag_list_str)
                 )
             yield self.get_metadata_change_event(chart_snapshot)
-            if sheet_external_url is not None:
+            if sheet_external_url is not None and self.config.ingest_embed_url is True:
                 yield self.new_work_unit(
                     self.new_embed_aspect_mcp(
-                        entity_type="chart",
                         entity_urn=sheet_urn,
                         embed_url=sheet_external_url,
                     )
@@ -1473,7 +1478,6 @@ class TableauSource(StatefulIngestionSourceBase):
 
     @staticmethod
     def new_mcp(
-        entity_type: str,
         entity_urn: str,
         aspect_name: str,
         aspect: builder.Aspect,
@@ -1483,7 +1487,6 @@ class TableauSource(StatefulIngestionSourceBase):
         Create MCP
         """
         return MetadataChangeProposalWrapper(
-            entityType=entity_type,
             changeType=change_type,
             entityUrn=entity_urn,
             aspectName=aspect_name,
@@ -1492,14 +1495,15 @@ class TableauSource(StatefulIngestionSourceBase):
 
     @staticmethod
     def new_embed_aspect_mcp(
-        entity_type: str, entity_urn: str, embed_url: str
+        entity_urn: str, embed_url: str
     ) -> MetadataChangeProposalWrapper:
-
+        embed_code: str = EMBED_SHORT_CODE_TEMPLATE.replace("#EMBED_URL#", embed_url)
         return TableauSource.new_mcp(
-            entity_type=entity_type,
             entity_urn=entity_urn,
             aspect_name=EmbedClass.ASPECT_NAME,
-            aspect=EmbedClass(renderUrl=embed_url),
+            aspect=EmbedClass(
+                renderUrl=embed_url, properties={"embedCode": embed_code}
+            ),
         )
 
     def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
@@ -1583,13 +1587,13 @@ class TableauSource(StatefulIngestionSourceBase):
 
             yield self.get_metadata_change_event(dashboard_snapshot)
             # Yield embed MCP
-            yield self.new_work_unit(
-                self.new_embed_aspect_mcp(
-                    entity_type="dashboard",
-                    entity_urn=dashboard_urn,
-                    embed_url=dashboard_external_url,
+            if self.config.ingest_embed_url is True:
+                yield self.new_work_unit(
+                    self.new_embed_aspect_mcp(
+                        entity_urn=dashboard_urn,
+                        embed_url=dashboard_external_url,
+                    )
                 )
-            )
 
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "dashboard", dashboard_snapshot.urn
