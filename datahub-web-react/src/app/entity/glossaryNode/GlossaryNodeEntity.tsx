@@ -6,7 +6,7 @@ import GlossaryEntitiesPath from '../../glossary/GlossaryEntitiesPath';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';

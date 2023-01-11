@@ -10,7 +10,7 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
