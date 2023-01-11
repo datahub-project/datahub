@@ -259,7 +259,6 @@ const guildSections = [
         ), 
         social: {
           linkedin: "https://www.linkedin.com/in/parham-ghazanfari-a8b40b89/",
-          mastodon: "https://mastodon.social/",
           github: "https://github.com/pghazanfari",
           },
         },
