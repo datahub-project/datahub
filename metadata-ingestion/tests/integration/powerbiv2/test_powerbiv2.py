@@ -65,7 +65,6 @@ TEST_POWERBIV2_CONFIG = {
     "client_id": "foo",
     "client_secret": "bar",
     "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
-    "env": "PROD",
     "workspace_pattern": {"allow": ["4674efd1-603c-4129-8d82-03cf2be05aff"]},
     "modified_since": None,
     "ownership": {

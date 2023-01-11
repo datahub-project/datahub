@@ -1,8 +1,6 @@
 source:
   type: "powerbiv2"
   config:
-    # Workspaces dataset environments (PROD, DEV, QA, STAGE)
-    env: PROD
     # Your Power BI tenant identifier
     tenant_id: tenant_id
     # Azure AD Application identifier
