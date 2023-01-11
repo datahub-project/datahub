@@ -152,7 +152,7 @@ public class DatasetExtractor {
       } else if (options.containsKey("path")) {
         return Optional.of(Collections.singletonList(new HdfsPathDataset(new Path(options.get("path")),
             getCommonPlatformInstance(datahubConfig), getIncludeScheme(datahubConfig),
-            getCommonFabricType(datahubConfig))));
+            getCommonFabricType(datahubConfig), getRemovePartitionPattern(datahubConfig))));
       } else {
         return Optional.empty();
       }
