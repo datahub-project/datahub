@@ -1231,15 +1231,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> List[BigqueryView]:
-        views = self.db_views.get(project_id)
+        views = self.db_views.get(project_id, {}).get(dataset_name, [])
 
         if not views:
             return BigQueryDataDictionary.get_views_for_dataset(
                 conn, project_id, dataset_name, self.config.profiling.enabled
             )
-
-        # Some schema may not have any table
-        return views.get(dataset_name, [])
+        return views
 
     def get_columns_for_table(
         self,
