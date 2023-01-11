@@ -8,7 +8,7 @@ import GuildSection from "./_components/GuildSection";
 const guildSections = [
   {
     name: "Top Code Contributor",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla venenatis libero enim, eu porta tortor faucibus eu.",
+    description: "Building high-impact features and integrations within DataHub",
     badge: "/img/guild/badge-top-code-contributor.svg",
     people: [
       {
@@ -160,7 +160,7 @@ const guildSections = [
   },
   {
     name: "Community Supporter",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla venenatis libero enim, eu porta tortor faucibus eu.",
+    description: "Helping Community Members succeed in implementing DataHub",
     badge: "/img/guild/badge-community-supporter.svg",
     people: [
       {
@@ -233,7 +233,7 @@ const guildSections = [
   },
   {
     name: "DataHub Champion",
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla venenatis libero enim, eu porta tortor faucibus eu.",
+    description: "Amplifying awareness and adoption of DataHub",
     badge: "/img/guild/badge-datahub-champion.svg",
     people: [
       {
@@ -435,7 +435,7 @@ function Guild() {
             <div>
               <HeroImage />
               <p className="hero__subtitle">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla venenatis libero enim, eu porta tortor faucibus eu.
+                Celebrating community members that have gone above and beyond to contribute to the collective success of DataHub
               </p>
             </div>
           </div>
