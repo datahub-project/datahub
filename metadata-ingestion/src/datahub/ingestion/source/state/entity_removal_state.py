@@ -23,6 +23,8 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
         "container",
         "assertion",
         "topic",
+        "dashboard",
+        "chart",
     ]
     assert set(mapping.values()) <= set(SUPPORTED_TYPES)
 
@@ -48,6 +50,16 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
                 values["urns"] += [make_container_urn(guid) for guid in value]
             elif mapped_type == "assertion":
                 values["urns"] += [make_assertion_urn(encoded) for encoded in value]
+            elif mapped_type == "chart":
+                values["urns"] += [
+                    CheckpointStateUtil.get_urn_from_encoded_chart(encoded_urn)
+                    for encoded_urn in value
+                ]
+            elif mapped_type == "dashboard":
+                values["urns"] += [
+                    CheckpointStateUtil.get_urn_from_encoded_dashboard(encoded_urn)
+                    for encoded_urn in value
+                ]
             else:
                 raise ValueError(f"Unsupported type {mapped_type}")
 
@@ -77,6 +89,10 @@ class GenericCheckpointState(StaleEntityCheckpointStateBase["GenericCheckpointSt
             # From dbt:
             "encoded_node_urns": "dataset",
             # "encoded_assertion_urns": "assertion",  # already handled from SQL
+            # From PBI:
+            "encoded_dataset_urns": "dataset",
+            "encoded_chart_urns": "chart",
+            "encoded_dashboard_urns": "dashboard",
         }
     )
 

@@ -1,6 +1,11 @@
 from typing import List, Set
 
-from datahub.emitter.mce_builder import dataset_key_to_urn, make_dataset_urn
+from datahub.emitter.mce_builder import (
+    dataset_key_to_urn,
+    make_chart_urn,
+    make_dashboard_urn,
+    make_dataset_urn,
+)
 from datahub.metadata.schema_classes import DatasetKeyClass
 
 
@@ -31,3 +36,13 @@ class CheckpointStateUtil:
     def get_urn_from_encoded_topic(encoded_urn: str) -> str:
         platform, name, env = encoded_urn.split(CheckpointStateUtil.get_separator())
         return make_dataset_urn(platform, name, env)
+
+    @staticmethod
+    def get_urn_from_encoded_dashboard(encoded_urn: str) -> str:
+        platform, name = encoded_urn.split(CheckpointStateUtil.get_separator())
+        return make_dashboard_urn(platform, name)
+
+    @staticmethod
+    def get_urn_from_encoded_chart(encoded_urn: str) -> str:
+        platform, name = encoded_urn.split(CheckpointStateUtil.get_separator())
+        return make_chart_urn(platform, name)
