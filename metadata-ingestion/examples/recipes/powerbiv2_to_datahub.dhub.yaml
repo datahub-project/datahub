@@ -1,0 +1,47 @@
+source:
+  type: "powerbiv2"
+  config:
+    # Workspaces dataset environments (PROD, DEV, QA, STAGE)
+    env: PROD
+    # Your Power BI tenant identifier
+    tenant_id: tenant_id
+    # Azure AD Application identifier
+    client_id: client_id
+    # Azure AD App client secret
+    client_secret: secret
+
+    # powerbi api uses this datetime format directly
+    modified_since: 2022-11-29T00:00:00.0000000Z
+    workspace_pattern:
+      allow:
+        - "workspace_id"
+      deny:
+        - "deny_workspace_id"
+
+    ownership:
+        enabled: true
+        use_powerbi_email: true
+        remove_email_suffix: true
+
+    ingest_catalog_container: true
+    extract_report: true
+    extract_tile: true
+    extract_dataset: true
+    extract_dashboard: true
+
+    # Enable / Disable stateful ingestion
+    stateful_ingestion:
+        enabled: True
+        remove_stale_metadata: True
+        fail_safe_threshold: 30
+
+# The pipeline_name is mandatory for stateful ingestion and the state is tied to this.
+# If this is changed after using with stateful ingestion, the previous state will not be available to the next run.
+pipeline_name: "abc_pipeline"
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    max_threads: 1
+    token: ""

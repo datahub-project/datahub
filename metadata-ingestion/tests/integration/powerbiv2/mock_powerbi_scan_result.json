@@ -1,0 +1,163 @@
+{
+    "workspaces": [
+        {
+            "id": "dff2d786-a2b1-419c-b65c-1241aa984444",
+            "name": "Sales",
+            "type": "Workspace",
+            "state": "Active",
+            "isOnDedicatedCapacity": true,
+            "capacityId": "4D97DB94-BA47-48C0-AE63-C9D30B911111",
+            "reports": [
+                {
+                    "reportType": "PowerBIReport",
+                    "id": "a7690419-5d41-4e41-98d6-4e7a7bf99455",
+                    "name": "Sales Revenue Report",
+                    "datasetId": "d57bdf8b-c60d-4cdc-a483-0f25a8c0ffff",
+                    "createdDateTime": "2020-12-08T08:05:26.16",
+                    "modifiedDateTime": "2020-12-08T08:26:49.543",
+                    "users": [
+                        {
+                            "reportUserAccessRight": "Owner",
+                            "emailAddress": "brok@something.com",
+                            "displayName": "Brok",
+                            "identifier": "brok@something.com",
+                            "graphId": "2fe62a97-fdfb-4323-9911-f090c6288999",
+                            "principalType": "User",
+                            "userType": "Member"
+                        },
+                        {
+                            "reportUserAccessRight": "Read",
+                            "emailAddress": "sindri@something.com",
+                            "displayName": "Sindri",
+                            "identifier": "sindri@something.com",
+                            "graphId": "5cc18041-9e04-496e-8c29-9acd3f5555c0",
+                            "principalType": "User",
+                            "userType": "Member"
+                        }
+                    ]
+                }
+            ],
+            "dashboards": [
+                {
+                    "id": "aa305fca-6f5a-41df-84d6-14c75031dddd",
+                    "displayName": "Revenue Performance",
+                    "isReadOnly": false,
+                    "tiles": [
+                        {
+                            "id": "04c58d67-ea5d-478c-9d60-451063454444",
+                            "title": "Revenuye Report",
+                            "subTitle": "Revenue status",
+                            "reportId": "a7690419-5d41-4e41-98d6-4e7a7bf99999",
+                            "datasetId": "d57bdf8b-c60d-4cdc-a483-0f25a8c0ffff"
+                        }
+                    ],
+                    "users": [
+                        {
+                            "dashboardUserAccessRight": "Owner",
+                            "emailAddress": "sindri@something.com",
+                            "displayName": "Sindri",
+                            "identifier": "sindri@something.com",
+                            "graphId": "2fe62a97-fdfb-4323-9911-f090c6289999",
+                            "principalType": "User",
+                            "userType": "Member"
+                        },
+                        {
+                            "dashboardUserAccessRight": "Read",
+                            "emailAddress": "brok@something.com",
+                            "displayName": "Brok",
+                            "identifier": "brok@something.com",
+                            "graphId": "5cc18041-9e04-496e-8c29-9acd3f5667777",
+                            "principalType": "User",
+                            "userType": "Member"
+                        }
+                    ]
+                }
+            ],
+            "datasets": [
+                {
+                    "id": "d57bdf8b-c60d-4cdc-a483-0f25a8c0ffff",
+                    "name": "Revenue",
+                    "tables": [
+                        {
+                            "name": "revenue",
+                            "columns": [
+                                {
+                                    "name": "op_item_id",
+                                    "dataType": "String",
+                                    "isHidden": false,
+                                    "columnType": "Data"
+                                },
+                                {
+                                    "name": "op_id",
+                                    "dataType": "String",
+                                    "isHidden": false,
+                                    "columnType": "Data"
+                                },
+                                {
+                                    "name": "op_product_name",
+                                    "dataType": "String",
+                                    "isHidden": false,
+                                    "columnType": "Data"
+                                }
+                            ],
+                            "measures": [],
+                            "isHidden": false,
+                            "source": [
+                                {
+                                    "expression": "let\n    Source = Sql.Database(\"database.sql.net\", \"analytics\", [Query=\"select * from analytics.sales_revenue\"])\nin\n    Source"
+                                }
+                            ]
+                        }
+                    ],
+                    "configuredBy": "sindri@something.com",
+                    "configuredById": "a2bb0022-7c3e-4813-9dba-2edc741edddd",
+                    "isEffectiveIdentityRequired": false,
+                    "isEffectiveIdentityRolesRequired": false,
+                    "targetStorageMode": "Abf",
+                    "createdDate": "2021-02-10T05:48:19.573",
+                    "contentProviderType": "PbixInImportMode",
+                    "datasourceUsages": [
+                        {
+                            "datasourceInstanceId": "637a2f56-8b62-4f4d-a827-a841a9840000"
+                        }
+                    ],
+                    "users": [
+                        {
+                            "datasetUserAccessRight": "ReadWriteReshareExplore",
+                            "emailAddress": "sindri@something.com",
+                            "displayName": "Sindri",
+                            "identifier": "sindri@something.com",
+                            "graphId": "2fe62a97-fdfb-4323-9911-f090c6289999",
+                            "principalType": "User",
+                            "userType": "Member"
+                        }
+                    ]
+                }
+            ],
+            "dataflows": [],
+            "datamarts": [],
+            "users": [
+                {
+                    "groupUserAccessRight": "Admin",
+                    "emailAddress": "sindri@something.com",
+                    "displayName": "Sindri",
+                    "identifier": "sindri@something.com",
+                    "graphId": "2fe62a97-fdfb-4323-9911-f090c6289999",
+                    "principalType": "User",
+                    "userType": "Member"
+                }
+            ]
+        }
+    ],
+    "datasourceInstances": [
+        {
+            "datasourceType": "Sql",
+            "connectionDetails": {
+                "server": "some.sql.net",
+                "database": "analytics"
+            },
+            "datasourceId": "637a2f56-8b62-4f4d-a827-a841a9840999",
+            "gatewayId": "df165d8e-9219-400e-a667-1eda901d3333"
+        }
+    ]
+}
