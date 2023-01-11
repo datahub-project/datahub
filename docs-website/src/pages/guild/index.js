@@ -12,6 +12,16 @@ const guildSections = [
     badge: "/img/guild/badge-top-code-contributor.svg",
     people: [
       {
+        name: "Aezo Teo",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/aezo-teo.jpg",
+        bio: "Data Engineer, Grab",
+        social: {
+          linkedin: "https://www.linkedin.com/in/aezomz",
+          twitter: "https://twitter.com/morning_teofee",
+          github: "https://github.com/aezomz",
+        },
+      },
+      {
         name: "Arun Vasudevan",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/arun-vasudevan.jpg",
         bio: "Staff Software Engineer, Peloton",
@@ -22,7 +32,7 @@ const guildSections = [
       },
       {
         name: "Boyuan Zhang",
-        image: "",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/bz.jpg",
         bio: "Data Engineer, Credit Karma",
         social: {
           linkedin: "https://www.linkedin.com/in/bbbzhang",
@@ -42,7 +52,6 @@ const guildSections = [
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/david-haglund.jpeg",
         bio: "Data Engineer, SSAB",
         social: {
-          linkedin: "https://www.linkedin.com/in/arun-vasudevan-55117368/",
           github: "https://github.com/daha",
           },
         },
@@ -51,11 +60,14 @@ const guildSections = [
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/david-sanchez.jpg",
         bio: "Principal Data Engineer, Cabify",
         social: {
-          linkedin: "https://www.linkedin.com/in/arun-vasudevan-55117368/",
-          twitter: "https://twitter.com/",
-          mastodon: "https://mastodon.social/",
-          github: "https://github.com/arunvasudevan",
-          web: "https://www.google.com",
+          },
+        },
+      {
+        name: "Djordje Mijatovic",
+        image: "",
+        bio: "Senior Java Developer",
+        social: {
+          linkedin: "https://www.linkedin.com/in/djordje-mijatovic-aa22bb76/",
           },
         },
       {
@@ -92,6 +104,16 @@ const guildSections = [
           github: "https://github.com/jiafi",
           },
         },
+      {
+        name: "Marcin Szymanski",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/marcin-szymanski.JPG",
+        bio: "Data Engineering Manager, Esure",
+        social: {
+          linkedin: "https://www.linkedin.com/in/marcinszymanskipl/",
+          github: "https://github.com/ms32035",
+          web: "www.marcinszymanski.pl",
+        },
+      },
         {
         name: "Mert Tunc",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/mert-tunc.png",
@@ -222,6 +244,33 @@ const guildSections = [
         },
       },
       {
+        name: "Alexander Dobrev",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/alex-dobrev.jpg",
+        bio: "Product Manager, Grab",
+        social: {
+          linkedin: "https://www.linkedin.com/in/adobrev/",
+        },
+      },
+      {
+        name: "Amanda Ng",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/amanda-ng.png",
+        bio: "Senior Software Engineer, Grab",
+        social: {
+          linkedin: "https://sg.linkedin.com/in/amandang19",
+          github: "https://github.com/ngamanda",
+          web: "https://ngamanda.com",
+        },
+      },
+      {
+        name: "Atul Saurav",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/atul-saurav.png",
+        bio: "Data Governance Architect",
+        social: {
+          linkedin: "https://linkedIn.com/in/atulsaurav",
+          twitter: "https://twitter.com/twtAtul",
+        },
+      },
+      {
         name: "Divya Manohar",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/divya-manohar.png",
         bio: "Software Engineer, Stripe",
@@ -241,7 +290,7 @@ const guildSections = [
       },
       {
         name: "Eric Cooklin",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/arun-vasudevan.jpg",
+        image: "",
         bio: "Sr Data Engineer, Stash",
         social: {
           linkedin: "https://www.linkedin.com/in/eric-cooklin-3b63a1129",
@@ -249,7 +298,7 @@ const guildSections = [
       },
       {
         name: "Fredrik Sannholm",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/arun-vasudevan.jpg",
+        image: "",
         bio: "Staff Engineer",
         social: {
           linkedin: "https://www.linkedin.com/in/fredriksannholm",
@@ -264,6 +313,15 @@ const guildSections = [
           twitter: "https://twitter.com/GaryStafford",
           github: "https://github.com/garystafford",
           web: "https://medium.com/@GaryStafford",
+        },
+      },
+      {
+        name: "Harvey Li",
+        image: "",
+        bio: "Lead Data Enginee, Grab",
+        social: {
+          linkedin: "https://www.linkedin.com/in/li-haihui",
+          github: "https://github.com/HarveyLeo",
         },
       },
       {
@@ -285,6 +343,14 @@ const guildSections = [
         },
       },
       {
+        name: "Kartik Darapuneni",
+        image: "",
+        bio: "Software Engineer, Included Health",
+        social: {
+        },
+      },
+
+      {
         name: "Liangjun Jiang",
         image: "",
         bio: "Software Engineering Manager",
@@ -298,6 +364,14 @@ const guildSections = [
         social: {
           linkedin: "https://www.linkedin.com/in/mike-linthe/",
           web: "www.contiamo.com",
+        },
+      },
+      {
+        name: "Nidhin Nandhakumar",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/nidhin-nandhakumar.jpeg",
+        bio: "Senior Data Engineer, Coursera",
+        social: {
+          linkedin: "https://www.linkedin.com/in/nidhin-nandhakumar-874ba885/",
         },
       },
       {
@@ -316,6 +390,14 @@ const guildSections = [
         bio: "Senior Data Engineer, Coursera",
         social: {
           linkedin: "https://www.linkedin.com/in/steven-zhi-wai-po-12a28626/",
+        },
+      },
+      {
+        name: "Vishal Shah",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/data-practitioners-guild/vishal-shah.jpg",
+        bio: "Senior Software Engineer, Etsy",
+        social: {
+          linkedin: "https://www.linkedin.com/in/vishal-c-shah",
         },
       },
       {
