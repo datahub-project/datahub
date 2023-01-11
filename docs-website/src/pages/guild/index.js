@@ -446,7 +446,7 @@ const guildSections = [
             <b>Software Engineer</b>
             <p>
               <p> </p>
-              Driving adoption of DataHub at his organization and featured in our inaugural <a href="https://blog.datahubproject.io/humans-of-datahub-a6ef2a5a1719"> Humans of DataHub</a> post
+              Driving adoption of DataHub at his organization and featured in our inaugural <a href="https://blog.datahubproject.io/humans-of-datahub-a6ef2a5a1719" target="_blank"> Humans of DataHub</a> post
             </p>
           </>
         ),
@@ -461,7 +461,7 @@ const guildSections = [
             <b>Product Manager, Grab</b>
             <p>
               <p> </p>
-              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU"> October 2022 Town Hall</a>
+              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU" target="_blank"> October 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -477,7 +477,7 @@ const guildSections = [
             <b>Senior Software Engineer, Grab</b>
             <p>
               <p> </p>
-              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU"> October 2022 Town Hall</a>
+              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU" target="_blank"> October 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -495,7 +495,7 @@ const guildSections = [
             <b>Data Governance Architect</b>
             <p>
               <p> </p>
-              Demoed custom desktop app to search for Glossary Terms outside of DataHub during <a href="https://www.youtube.com/watch?v=rPPFygMPCNU"> August 2022 Town Hall</a>
+              Demoed custom desktop app to search for Glossary Terms outside of DataHub during <a href="https://www.youtube.com/watch?v=rPPFygMPCNU" target="_blank"> August 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -512,7 +512,7 @@ const guildSections = [
             <b>Software Engineer, Stripe</b>
             <p>
               <p> </p>
-              Shared an in-depth look into how The Stripe Team <a href="https://blog.datahubproject.io/the-stripe-story-beating-data-pipeline-observability-and-timeliness-concerns-with-datahub-8ba42788aca2"> addressed data pipeline observability and timeliness concerns</a> with DataHub
+              Shared an in-depth look into how The Stripe Team <a href="https://blog.datahubproject.io/the-stripe-story-beating-data-pipeline-observability-and-timeliness-concerns-with-datahub-8ba42788aca2" target="_blank"> addressed data pipeline observability and timeliness concerns</a> with DataHub
             </p>
           </>
         ),
@@ -528,7 +528,7 @@ const guildSections = [
             <b>Staff Customer Innovation Engineer, Confluent</b>
             <p>
               <p> </p>
-              Demoed his contribution to define lineage relationships via YAML during <a href="https://www.youtube.com/watch?v=-25SwzwkISM&t=1s"> February 2022 Town Hall</a>
+              Demoed his contribution to define lineage relationships via YAML during <a href="https://www.youtube.com/watch?v=-25SwzwkISM&t=1s" target="_blank"> February 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -546,7 +546,7 @@ const guildSections = [
             <b>Sr Data Engineer, Stash</b>
             <p>
               <p> </p>
-              Shared his experience contributing to the DataHub project during <a href="https://www.youtube.com/watch?v=KCh7kwdvPwE"> January 2022 Town Hall</a>
+              Shared his experience contributing to the DataHub project during <a href="https://www.youtube.com/watch?v=KCh7kwdvPwE" target="_blank"> January 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -562,7 +562,7 @@ const guildSections = [
             <b>Staff Engineer</b>
             <p>
               <p> </p>
-              Driving DataHub adoption at Wolt and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-fredrik-sannholm-d673b1877f2b"> Humans of DataHub</a>
+              Driving DataHub adoption at Wolt and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-fredrik-sannholm-d673b1877f2b" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -578,7 +578,7 @@ const guildSections = [
             <b>Principal Solutions Architect/Analytics TFC, AWS</b>
             <p>
               <p> </p>
-              Wrote an in-depth overview of DataHub's features and implementation strategies <a href="https://garystafford.medium.com/end-to-end-data-discovery-observability-and-governance-on-aws-with-linkedins-datahub-8c69e7e8c925"> 
+              Wrote an in-depth overview of DataHub's features and implementation strategies <a href="https://garystafford.medium.com/end-to-end-data-discovery-observability-and-governance-on-aws-with-linkedins-datahub-8c69e7e8c925" target="_blank"> 
                 on Medium</a>
             </p>
           </>
@@ -598,7 +598,7 @@ const guildSections = [
             <b>Lead Data Engineer, Grab</b>
             <p>
               <p> </p>
-              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU"> October 2022 Town Hall</a>
+              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU" target="_blank"> October 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -615,7 +615,7 @@ const guildSections = [
             <b>Data Engineer, SOCAR</b>
             <p>
               <p> </p>
-              Driving DataHub adoption at SOCAR, is a strong advocate for the DataHub Community, and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-hyejin-yoon-4e546696cee8"> Humans of DataHub</a>
+              Driving DataHub adoption at SOCAR, is a strong advocate for the DataHub Community, and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-hyejin-yoon-4e546696cee8" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -631,7 +631,7 @@ const guildSections = [
             <b>Data Engineer, Sicara</b>
             <p>
               <p> </p>
-              Published a 5-min guide to <a href="https://www.sicara.fr/blog-technique/databricks-data-catalog-with-datahub"> integrate DataHub and Databricks</a>
+              Published a 5-min guide to <a href="https://www.sicara.fr/blog-technique/databricks-data-catalog-with-datahub" target="_blank"> integrate DataHub and Databricks</a>
             </p>
           </>
         ),
@@ -649,7 +649,7 @@ const guildSections = [
             <b>Software Engineer, Included Health</b>
             <p>
               <p> </p>
-              Demoed custom work to embed Looker resources in DataHub during <a href="https://www.youtube.com/watch?v=33hxlg4YgCQ&t=2s"> April 2022 Town Hall</a>
+              Demoed custom work to embed Looker resources in DataHub during <a href="https://www.youtube.com/watch?v=33hxlg4YgCQ&t=2s" target="_blank"> April 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -665,7 +665,7 @@ const guildSections = [
             <b>Software Engineering Manager</b>
             <p>
               <p> </p>
-              Published a DataHub deployment guide <a href="https://liangjunjiang.medium.com/deploy-open-source-datahub-fd597104512b"> on Medium</a>
+              Published a DataHub deployment guide <a href="https://liangjunjiang.medium.com/deploy-open-source-datahub-fd597104512b" target="_blank"> on Medium</a>
             </p>
           </>
         ),
@@ -680,7 +680,7 @@ const guildSections = [
             <b>COO, Contiamo</b>
             <p>
               <p> </p>
-              Strong advocate for adopting DataHub and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-mike-linthe-f8d4c205983d"> Humans of DataHub</a>
+              Strong advocate for adopting DataHub and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-mike-linthe-f8d4c205983d" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -713,7 +713,7 @@ const guildSections = [
             <b>Technical Lead, Adevinta</b>
             <p>
               <p> </p>
-              Driving DataHub adoption at Adevinta and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-sergio-gomez-villamor-bd2ecfb5ccc4"> Humans of DataHub</a>
+              Driving DataHub adoption at Adevinta and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-sergio-gomez-villamor-bd2ecfb5ccc4" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -731,7 +731,7 @@ const guildSections = [
             <b>Senior Data Engineer, Coursera</b>
             <p>
               <p> </p>
-              Driving DataHub adoption at Coursera and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-steven-po-b56e7bf8cd6b"> Humans of DataHub</a>
+              Driving DataHub adoption at Coursera and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-steven-po-b56e7bf8cd6b" target="_blank"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -747,7 +747,7 @@ const guildSections = [
             <b>Senior Software Engineer, Etsy</b>
             <p>
               <p> </p>
-              Shared Etsy's experience adopting and deploying DataHub at <a href="https://www.youtube.com/watch?v=kLe_xfTR_rM"> August 2022 Town Hall</a>
+              Shared Etsy's experience adopting and deploying DataHub at <a href="https://www.youtube.com/watch?v=kLe_xfTR_rM" target="_blank"> August 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -763,7 +763,7 @@ const guildSections = [
             <b>Software Engineer, Pinterest</b>
             <p>
               <p> </p>
-              Shared Pinterest's journey adopting and deploying DataHub at <a href="https://www.youtube.com/watch?v=YoxTg8tQSwg"> December 2022 Town Hall</a>
+              Shared Pinterest's journey adopting and deploying DataHub at <a href="https://www.youtube.com/watch?v=YoxTg8tQSwg" target="_blank"> December 2022 Town Hall</a>
             </p>
           </>
         ),
