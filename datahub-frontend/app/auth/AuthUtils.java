@@ -129,7 +129,7 @@ public class AuthUtils {
         try {
             return Http.Cookie.SameSite.valueOf(sameSiteValue);
         } catch (IllegalArgumentException e) {
-            log.warn(String.format("Invalid AUTH_COOKIE_SAME_SITE value: %s", sameSiteValue), e);
+            log.warn(String.format("Invalid AUTH_COOKIE_SAME_SITE value: %s. Using LAX instead.", sameSiteValue), e);
             return Http.Cookie.SameSite.LAX;
         }
     }
