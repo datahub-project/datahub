@@ -84,19 +84,6 @@ public class AuthUtils {
      * as well as their agreement to determine authentication status.
      */
     public static boolean hasValidSessionCookie(final Http.Request req) {
-        System.out.println("~~~~~~~~~~~~~~~~~~NOW~~~~~~~~~~~~~~~~~");
-        System.out.println(req);
-        System.out.println(".............");
-        System.out.println(req.cookies().toString());
-        System.out.println(".............");
-        System.out.println(req.session().data());
-        System.out.println(".............");
-        System.out.println(req.session().data().containsKey(ACTOR));
-        System.out.println(".............");
-        System.out.println(req.getCookie("PLAY_SESSION").isPresent());
-        System.out.println(".............");
-        System.out.println(req.getCookie(ACTOR).isPresent());
-        System.out.println("~~~~~~~~~~~~~~~~~~NOW~~~~~~~~~~~~~~~~~");
         return req.session().data().containsKey(ACTOR)
                 && req.getCookie(ACTOR).isPresent()
                 && req.session().data().get(ACTOR).equals(req.getCookie(ACTOR).get().value());
