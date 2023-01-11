@@ -162,7 +162,7 @@ You need to request a certificate in the AWS Certificate Manager by following th
 the ARN of the new certificate. You also need to replace host-name with the hostname of choice like
 demo.datahubproject.io.
 
-To have the metadata [authentication service](../authentication/introducing-metadata-service-authentication.md#Configuring Metadata Service Authentication) enabled and use [API tokens](../authentication/personal-access-tokens.md#Generating Personal Access Tokens) from the UI you will need to set the configuration in the values.yaml for the `gms` and the `frontend` deployments. This could be done by enabling the `metadata_service_authentication`:
+To have the metadata [authentication service](../authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication) enabled and use [API tokens](../authentication/personal-access-tokens.md#creating-personal-access-tokens) from the UI you will need to set the configuration in the values.yaml for the `gms` and the `frontend` deployments. This could be done by enabling the `metadata_service_authentication`:
 
 ```
 datahub:
@@ -273,6 +273,18 @@ Then use the settings below.
       password:
         secretRef: elasticsearch-secrets
         secretKey: elasticsearch-password
+```
+If you have access control enabled with IAM auth, enable AWS auth signing in Datahub
+```
+ OPENSEARCH_USE_AWS_IAM_AUTH=true 
+```
+Then use the settings below.
+```
+  elasticsearch:
+    host: <<elasticsearch-endpoint>>
+    port: "443"
+    useSSL: "true"
+    region: <<AWS region of Opensearch>>
 ```
 
 Lastly, you **NEED** to set the following env variable for **elasticsearchSetupJob**. AWS Elasticsearch/Opensearch

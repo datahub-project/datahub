@@ -1,7 +1,3 @@
-Ingesting metadata from Snowflake requires either using the **snowflake** module with just one recipe (recommended) or the two separate modules **snowflake-legacy** and **snowflake-usage-legacy** (soon to be deprecated) with two separate recipes. 
-
-All three modules are described on this page. 
-
 ## Snowflake Ingestion through the UI
 
 The following video shows you how to ingest Snowflake metadata through the UI.
@@ -22,6 +18,5 @@ The following video shows you how to ingest Snowflake metadata through the UI.
     }}
   />
 </div>
-
 
 Read on if you are interested in ingesting Snowflake metadata using the **datahub** cli, or want to learn about all the configuration parameters that are supported by the connectors.

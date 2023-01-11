@@ -119,3 +119,11 @@ mutation acceptRole($input: AcceptRoleInput!) {
 mutation createPost($input: CreatePostInput!) {
     createPost(input: $input)
 }
+
+mutation updateLineage($input: UpdateLineageInput!) {
+    updateLineage(input: $input)
+}
+
+mutation updateEmbed($input: UpdateEmbedInput!) {
+    updateEmbed(input: $input)
+}

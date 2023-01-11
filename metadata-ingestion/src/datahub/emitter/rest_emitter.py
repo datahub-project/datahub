@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
@@ -175,15 +175,29 @@ class DataHubRestEmitter(Closeable):
             MetadataChangeProposalWrapper,
             UsageAggregation,
         ],
+        # NOTE: This signature should have the exception be optional rather than
+        #      required. However, this would be a breaking change that may need
+        #      more careful consideration.
+        callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> Tuple[datetime.datetime, datetime.datetime]:
         start_time = datetime.datetime.now()
-        if isinstance(item, UsageAggregation):
-            self.emit_usage(item)
-        elif isinstance(item, (MetadataChangeProposal, MetadataChangeProposalWrapper)):
-            self.emit_mcp(item)
+        try:
+            if isinstance(item, UsageAggregation):
+                self.emit_usage(item)
+            elif isinstance(
+                item, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+            ):
+                self.emit_mcp(item)
+            else:
+                self.emit_mce(item)
+        except Exception as e:
+            if callback:
+                callback(e, str(e))
+            raise
         else:
-            self.emit_mce(item)
-        return start_time, datetime.datetime.now()
+            if callback:
+                callback(None, "success")  # type: ignore
+            return start_time, datetime.datetime.now()
 
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
         url = f"{self._gms_server}/entities?action=ingest"

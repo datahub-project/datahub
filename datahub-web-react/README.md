@@ -9,7 +9,6 @@ This module contains a React application that serves as the DataHub UI.
 
 Feel free to take a look around, deploy, and contribute. 
 
-For details about the motivation please see [this RFC](../docs/rfc/active/2055-react-app/README.md). 
 
 ## Functional Goals
 The initial milestone for the app was to achieve functional parity with the previous Ember app. This meant supporting
@@ -54,15 +53,11 @@ Optionally you could also start the app with the mock server without running the
 
 ### Functional testing
 
-Automated functional testing is powered by Cypress and MirageJS. When running the web server with Cypress the port is set to 3010 so that the usual web server running on port 3000 used for development can be started without interruptions.
+In order to start a server and run frontend unit tests using react-testing-framework, run:
 
-#### During development
+`yarn test :e2e`
 
-`yarn test:e2e`
-
-#### CI
-
-`yarn test:e2e:ci`
+There are also more automated tests using Cypress in the `smoke-test` folder of the repository root.
 
 #### Troubleshooting
 `Error: error:0308010C:digital envelope routines::unsupported`: This error message shows up when using Node 17, due to an OpenSSL update related to md5.  

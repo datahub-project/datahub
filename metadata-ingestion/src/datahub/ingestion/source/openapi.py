@@ -102,11 +102,6 @@ class OpenApiConfig(ConfigModel):
         return sw_dict
 
 
-# class ParserWarning(UserWarning):
-#     def __init__(self, message: str, key: str) -> None:
-#         self.message
-
-
 class ApiWorkUnit(MetadataWorkUnit):
     pass
 
@@ -325,9 +320,6 @@ class APISource(Source, ABC):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        pass
 
 
 class OpenApiSource(APISource):

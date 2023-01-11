@@ -43,7 +43,6 @@ def yield_function(li):
 
 @freeze_time(FROZEN_TIME)
 def test_trino_usage_source(pytestconfig, tmp_path):
-
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/starburst-trino-usage"
     )
