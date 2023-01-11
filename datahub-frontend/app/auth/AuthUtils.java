@@ -4,6 +4,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import lombok.extern.slf4j.Slf4j;
 import play.mvc.Http;
 
+import javax.annotation.Nonnull;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -44,6 +45,11 @@ public class AuthUtils {
     public static final Integer DEFAULT_SESSION_TTL_HOURS = 720;
     public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
 
+    public static final String AUTH_COOKIE_SAME_SITE = "play.http.session.sameSite";
+    public static final String DEFAULT_AUTH_COOKIE_SAME_SITE = "LAX";
+    public static final String AUTH_COOKIE_SECURE = "play.http.session.secure";
+    public static final boolean DEFAULT_AUTH_COOKIE_SECURE = false;
+
     public static final String LOGIN_ROUTE = "/login";
     public static final String USER_NAME = "username";
     public static final String PASSWORD = "password";
@@ -78,6 +84,19 @@ public class AuthUtils {
      * as well as their agreement to determine authentication status.
      */
     public static boolean hasValidSessionCookie(final Http.Request req) {
+        System.out.println("~~~~~~~~~~~~~~~~~~NOW~~~~~~~~~~~~~~~~~");
+        System.out.println(req);
+        System.out.println(".............");
+        System.out.println(req.cookies().toString());
+        System.out.println(".............");
+        System.out.println(req.session().data());
+        System.out.println(".............");
+        System.out.println(req.session().data().containsKey(ACTOR));
+        System.out.println(".............");
+        System.out.println(req.getCookie("PLAY_SESSION").isPresent());
+        System.out.println(".............");
+        System.out.println(req.getCookie(ACTOR).isPresent());
+        System.out.println("~~~~~~~~~~~~~~~~~~NOW~~~~~~~~~~~~~~~~~");
         return req.session().data().containsKey(ACTOR)
                 && req.getCookie(ACTOR).isPresent()
                 && req.session().data().get(ACTOR).equals(req.getCookie(ACTOR).get().value());
@@ -96,12 +115,17 @@ public class AuthUtils {
      * @param actorUrn the urn of the authenticated actor, e.g. "urn:li:corpuser:datahub"
      * @param ttlInHours the number of hours until the actor cookie expires after being set
      */
-    public static Http.Cookie createActorCookie(final String actorUrn, final Integer ttlInHours) {
+    public static Http.Cookie createActorCookie(
+        @Nonnull final String actorUrn,
+        @Nonnull final Integer ttlInHours,
+        @Nonnull final String sameSite,
+        final boolean isSecure
+    ) {
         return Http.Cookie.builder(ACTOR, actorUrn)
             .withHttpOnly(false)
             .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
-            .withSameSite(Http.Cookie.SameSite.NONE)
-            .withSecure(true)
+            .withSameSite(convertSameSiteValue(sameSite))
+            .withSecure(isSecure)
             .build();
     }
 
@@ -113,5 +137,14 @@ public class AuthUtils {
     }
 
     private AuthUtils() { }
+
+    private static Http.Cookie.SameSite convertSameSiteValue(@Nonnull final String sameSiteValue) {
+        try {
+            return Http.Cookie.SameSite.valueOf(sameSiteValue);
+        } catch (IllegalArgumentException e) {
+            log.warn(String.format("Invalid AUTH_COOKIE_SAME_SITE value: %s", sameSiteValue), e);
+            return Http.Cookie.SameSite.LAX;
+        }
+    }
 
 }
