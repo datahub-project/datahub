@@ -11,9 +11,4 @@ record Embed {
    * An embed URL to be rendered inside of an iframe.
    */
   renderUrl: optional string
-
-  /**
-  * Properties specific to ingestion platform.
-  */
-  properties: map[string, string] = { }
 }

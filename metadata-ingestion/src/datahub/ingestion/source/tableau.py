@@ -114,7 +114,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # Replace / with |
 REPLACE_SLASH_CHAR = "|"
-EMBED_SHORT_CODE_TEMPLATE: str = "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='#EMBED_URL#' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
 
 
 class TableauConnectionConfig(ConfigModel):
@@ -1497,13 +1496,10 @@ class TableauSource(StatefulIngestionSourceBase):
     def new_embed_aspect_mcp(
         entity_urn: str, embed_url: str
     ) -> MetadataChangeProposalWrapper:
-        embed_code: str = EMBED_SHORT_CODE_TEMPLATE.replace("#EMBED_URL#", embed_url)
         return TableauSource.new_mcp(
             entity_urn=entity_urn,
             aspect_name=EmbedClass.ASPECT_NAME,
-            aspect=EmbedClass(
-                renderUrl=embed_url, properties={"embedCode": embed_code}
-            ),
+            aspect=EmbedClass(renderUrl=embed_url),
         )
 
     def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
