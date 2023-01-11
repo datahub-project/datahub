@@ -22,6 +22,13 @@ from datahub.ingestion.source.powerbi.config import (
 logger = logging.getLogger(__name__)
 
 
+def is_blocked(item_name: str, blocked_items: List[str]) -> bool:
+    for blocked_item in blocked_items:
+        if blocked_item in item_name:
+            return True
+    return False
+
+
 class PowerBiAPI:
     # API endpoints of PowerBi to fetch dashboards, tiles, datasets
     API_ENDPOINTS = {
@@ -454,6 +461,9 @@ class PowerBiAPI:
 
     def get_dataset_schema(self, dataset: PowerBIDataset) -> Dict[str, List[str]]:
         try:
+            blocked_table_names = ["LocalDateTable", "DateTableTemplate"]
+            blocked_column_names = ["RowNumber"]
+
             dataset_query_endpoint: str = PowerBiAPI.API_ENDPOINTS[
                 Constant.DATASET_EXECUTE_QUERIES_POST
             ]
@@ -498,6 +508,13 @@ class PowerBiAPI:
             for row in rows:
                 table_name = row["[Table Name]"]
                 col_name = row["[Column Name]"]
+
+                # If table or column is blocked, skip processing the line
+                if is_blocked(table_name, blocked_table_names) or is_blocked(
+                    col_name, blocked_column_names
+                ):
+                    continue
+
                 if table_name not in results:
                     results[table_name] = [col_name]
                 else:
