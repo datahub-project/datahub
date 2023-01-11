@@ -28,6 +28,7 @@ import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/Sid
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import { DatasetSearchSnippet } from './DatasetSearchSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
+import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -325,4 +326,13 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.SOFT_DELETE,
         ]);
     };
+
+    renderEmbeddedProfile = (urn: string) => (
+        <EmbeddedProfile
+            urn={urn}
+            entityType={EntityType.Dataset}
+            useEntityQuery={useGetDatasetQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+        />
+    );
 }
