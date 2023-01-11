@@ -4,11 +4,11 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./guild-section.module.scss";
 import { TwitterOutlined, LinkedinFilled, GithubFilled, GlobalOutlined } from "@ant-design/icons";
 
-const GuildSection = ({ name, badge, description, people }) => {
+const GuildSection = ({ name, badge, description, people, alttext }) => {
   return (
     <div className={clsx("section", styles.section)}>
       <div className="heading">
-        <img className="badge" src={useBaseUrl(badge)} alt={name} style={{ transform: `rotate(${Math.floor(Math.random() * 30) - 15}deg)` }} />
+        <img className="badge" src={useBaseUrl(badge)} title={alttext} alt={name} style={{ transform: `rotate(${Math.floor(Math.random() * 30) - 15}deg)` }} />
         <p>{description}</p>
       </div>
       {people.map((person, idx) => {
