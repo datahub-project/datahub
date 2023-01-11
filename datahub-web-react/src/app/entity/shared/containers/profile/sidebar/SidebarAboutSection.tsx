@@ -8,6 +8,7 @@ import { EMPTY_MESSAGES } from '../../../constants';
 import { useEntityData, useRefetch, useRouteToTab } from '../../../EntityContext';
 import { SidebarHeader } from './SidebarHeader';
 import { AddLinkModal } from '../../../components/styled/AddLinkModal';
+import LinkButton, { StyledLink } from './LinkButton';
 
 const DescriptionTypography = styled(Typography.Paragraph)`
     max-width: 65ch;
@@ -22,22 +23,13 @@ const SpacedButton = styled(Button)`
     margin-right: 8px;
 `;
 
-const LinkButton = styled(Button)`
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    > span:not(.anticon) {
-        display: inline-block;
-        max-width: 100%;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-`;
-
-const SourceButton = styled(LinkButton)`
+const SourceButton = styled(StyledLink)`
     padding: 0;
     margin-top: -5px;
+`;
+
+const LinkWrapper = styled.div`
+    margin-left: 15px;
 `;
 
 interface Props {
@@ -104,16 +96,9 @@ export const SidebarAboutSection = ({ properties }: { properties?: Props }) => {
             {links?.length > 0 ? (
                 <SidebarLinkList>
                     {(links || []).map((link) => (
-                        <LinkButton
-                            type="link"
-                            href={link.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            key={`${link.label}-${link.url}-${link.author}`}
-                        >
-                            <LinkOutlined />
-                            {link.description || link.label}
-                        </LinkButton>
+                        <LinkWrapper>
+                            <LinkButton link={link} />
+                        </LinkWrapper>
                     ))}
                     {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                 </SidebarLinkList>
