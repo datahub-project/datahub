@@ -17,7 +17,9 @@ import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
+import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.core.exception.http.RedirectionAction;
+import org.pac4j.core.util.Pac4jConstants;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlaySessionStore;
@@ -99,7 +101,7 @@ public class AuthenticationController extends Controller {
 
         // 1. If SSO is enabled, redirect to IdP if not authenticated.
         if (_ssoManager.isSsoEnabled()) {
-            return redirectToIdentityProvider(request).orElse(
+            return redirectToIdentityProvider(request, redirectPath).orElse(
                     Results.redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE))
             );
         }
@@ -125,7 +127,7 @@ public class AuthenticationController extends Controller {
     @Nonnull
     public Result sso(Http.Request request) {
         if (_ssoManager.isSsoEnabled()) {
-            return redirectToIdentityProvider(request).orElse(
+            return redirectToIdentityProvider(request, "/").orElse(
                 Results.redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE))
             );
         }
@@ -268,17 +270,10 @@ public class AuthenticationController extends Controller {
         return createSession(userUrnString, accessToken);
     }
 
-    private Optional<Result> redirectToIdentityProvider(Http.RequestHeader request) {
+    private Optional<Result> redirectToIdentityProvider(Http.RequestHeader request, String redirectPath) {
         final PlayWebContext playWebContext = new PlayWebContext(request, _playSessionStore);
         final Client client = _ssoManager.getSsoProvider().client();
-
-        // This is to prevent previous login attempts from being cached.
-        // We replicate the logic here, which is buried in the Pac4j client.
-        if (_playSessionStore.get(playWebContext, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX) != null) {
-            _logger.debug("Found previous login attempt. Removing it manually to prevent unexpected errors.");
-            _playSessionStore.set(playWebContext, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
-        }
-
+        configurePac4jSessionStore(playWebContext, client, redirectPath);
         try {
             final Optional<RedirectionAction> action = client.getRedirectionAction(playWebContext);
             return action.map(act -> new PlayHttpActionAdapter().adapt(act, playWebContext));
@@ -288,6 +283,17 @@ public class AuthenticationController extends Controller {
                 String.format("/login?error_msg=%s",
                 URLEncoder.encode("Failed to redirect to Single Sign-On provider. Please contact your DataHub Administrator, "
                     + "or refer to server logs for more information.", StandardCharsets.UTF_8))));
+        }
+    }
+
+    private void configurePac4jSessionStore(PlayWebContext context, Client client, String redirectPath) {
+        // Set the originally requested path for post-auth redirection.
+        _playSessionStore.set(context, Pac4jConstants.REQUESTED_URL, new FoundAction(redirectPath));
+        // This is to prevent previous login attempts from being cached.
+        // We replicate the logic here, which is buried in the Pac4j client.
+        if (_playSessionStore.get(context, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX) != null) {
+            _logger.debug("Found previous login attempt. Removing it manually to prevent unexpected errors.");
+            _playSessionStore.set(context, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
         }
     }
 
