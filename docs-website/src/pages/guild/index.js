@@ -20,7 +20,7 @@ const guildSections = [
             <b>Data Engineer, Grab</b>
             <p>
               <p> </p>
-              Sateful ingestion for Presto-Hive connector, 
+              Contributed 5 commits in 2022 to the main DataHub Project & Helm repos, including Stateful Ingestion support for Presto-on-Hive
             </p>
           </>
         ),
@@ -38,7 +38,7 @@ const guildSections = [
             <b>Staff Software Engineer, Peloton</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 9 commits in 2022 to the main DataHub Project, DataHub Actions; improvements to Kafka Connect
             </p>
           </>
         ),
@@ -55,7 +55,7 @@ const guildSections = [
             <b>Data Engineer, Credit Karma</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 8 commits in 2022, including improvements to dbt & Kafka ingestion and support for Glue profiling
             </p>
           </>
         ),
@@ -71,7 +71,7 @@ const guildSections = [
             <b>Software Engineer</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 4 commits in 2022, including improvements to Airflow logging and DataHub Helm charts
             </p>
           </>
         ),
@@ -88,7 +88,7 @@ const guildSections = [
             <b>Data Engineer, SSAB</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 15 commits in 2022, including improvements to DataHub Helm Charts, DataHub docs, and more
             </p>
           </>
         ),        
@@ -104,7 +104,7 @@ const guildSections = [
             <b>Principal Data Engineer, Cabify</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 7 commits in 2022, improving BigQuery and Tableau connectors and expanding MLFeatureTable functionality
             </p>
           </>
         ),        
@@ -119,7 +119,7 @@ const guildSections = [
             <b>Senior Java Developer</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 6 commits in 2022, including building support for Neo4j multi-hop queries
             </p>
           </>
         ),
@@ -135,7 +135,7 @@ const guildSections = [
             <b>Core Staff, KDDI</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 5 commits in 2022, including a new Vertica ingestion source and animated DataHub logos
             </p>
           </>
         ),
@@ -151,7 +151,7 @@ const guildSections = [
             <b>Technical Advisor, Canadian Centre for Cyber Security</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 6 commits in 2022, including the Iceberg ingestion source
             </p>
           </>
         ),
@@ -167,7 +167,7 @@ const guildSections = [
             <b>Process Consultant Business Analytics, Endress+Hauser</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 15 commits in 2022 to the main DataHub Project, DataHub Helm chart, and DataHub Actions repos
             </p>
           </>
         ),
@@ -184,7 +184,7 @@ const guildSections = [
             <b>Senior Software Engineer, Zephyr AI</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 5 commits in 2022, including improvements to data profiling functionality
             </p>
           </>
         ),
@@ -201,7 +201,7 @@ const guildSections = [
             <b>Data Engineering Manager, Esure</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 5 commits in 2022, including improvements to Trino and Unity Catalog ingestion
             </p>
           </>
         ),
@@ -219,7 +219,7 @@ const guildSections = [
             <b>Staff Software Engineer, Udemy</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 6 commits in 2022, including improvements to Kafka and MySQL ingestion
             </p>
           </>
         ),
@@ -235,7 +235,7 @@ const guildSections = [
             <b>Lead Software Engineer, Kyros</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 6 commits in 2022, including support for Snowflake auth and fixes to Docker Compose
             </p>
           </>
         ),
@@ -253,7 +253,7 @@ const guildSections = [
             <b>Software Development Engineer, Amazon</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 4 commits in 2022, including support for MSK IAM authentication
             </p>
           </>
         ), 
@@ -271,7 +271,7 @@ const guildSections = [
             <b>Data Engineering Consultant</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 5 commits in 2022, including improvements to dbt and Glue ingestion sources and support for SparkSQL dialect
             </p>
           </>
         ),
@@ -286,7 +286,7 @@ const guildSections = [
             <b>Staff Software Engineer, Included Health</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Contributed 6 commits in 2022, including metadata model changes to support Notebook entities
             </p>
           </>
         ),
@@ -309,7 +309,7 @@ const guildSections = [
             <b>Analytics Engineer, CDX</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Consistently provides guidance to others in the #troublshoot and #ingestion Slack channels
             </p>
           </>
         ),
@@ -325,7 +325,7 @@ const guildSections = [
             <b>Data Engineer, Fossil Vietnam</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Regularly helps others across all support channels in Slack
             </p>
           </>
         ),
@@ -341,7 +341,7 @@ const guildSections = [
             <b>Platform Engineer</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Freqeuntly helps others navigate implementation questions in the #all-things-deployment and #troublshoot Slack channels
             </p>
           </>
         ),
@@ -357,7 +357,7 @@ const guildSections = [
             <b>Big Data and Data Governance Consultant, Graphenus</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Consistently jumps in to address questions in the #troublshoot and #all-things-deployment Slack channels
             </p>
           </>
         ),
@@ -373,7 +373,7 @@ const guildSections = [
             <b>Data Engineering, Hurb</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Regularly provides guidance to Community Members in the #troublshoot and #ingestion Slack channels
             </p>
           </>
         ),
@@ -390,7 +390,7 @@ const guildSections = [
             <b>Data Analyst</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Routinely provides helpful support to others in the #troubleshoot Slack channel
             </p>
           </>
         ),
@@ -408,7 +408,7 @@ const guildSections = [
             <b>Principal Engineer</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Reliably provides direction to Community Members across all support channels in Slack
             </p>
           </>
         ),
@@ -424,7 +424,7 @@ const guildSections = [
             <b>Data Platform Engineer</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Continually goes above and beyond to answer any and all questions from Community Members across all support in Slack
             </p>
           </>
         ),
@@ -447,7 +447,7 @@ const guildSections = [
             <b>Software Engineer</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Driving adoption of DataHub at his organization and featured in our inaugural <a href="https://blog.datahubproject.io/humans-of-datahub-a6ef2a5a1719"> Humans of DataHub</a> post
             </p>
           </>
         ),
@@ -462,7 +462,7 @@ const guildSections = [
             <b>Product Manager, Grab</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU"> October 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -478,7 +478,7 @@ const guildSections = [
             <b>Senior Software Engineer, Grab</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU"> October 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -496,7 +496,7 @@ const guildSections = [
             <b>Data Governance Architect</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Demoed custom desktop app to search for Glossary Terms outside of DataHub during <a href="https://www.youtube.com/watch?v=rPPFygMPCNU"> August 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -513,7 +513,7 @@ const guildSections = [
             <b>Software Engineer, Stripe</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Shared an in-depth look into how The Stripe Team <a href="https://blog.datahubproject.io/the-stripe-story-beating-data-pipeline-observability-and-timeliness-concerns-with-datahub-8ba42788aca2"> addressed data pipeline observability and timeliness concerns</a> with DataHub
             </p>
           </>
         ),
@@ -529,7 +529,7 @@ const guildSections = [
             <b>Staff Customer Innovation Engineer, Confluent</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Demoed his contribution to define lineage relationships via YAML during <a href="https://www.youtube.com/watch?v=-25SwzwkISM&t=1s"> February 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -547,7 +547,7 @@ const guildSections = [
             <b>Sr Data Engineer, Stash</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Shared his experience contributing to the DataHub project during <a href="https://www.youtube.com/watch?v=KCh7kwdvPwE"> January 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -563,7 +563,7 @@ const guildSections = [
             <b>Staff Engineer</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Driving DataHub adoption at Wolt and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-fredrik-sannholm-d673b1877f2b"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -579,7 +579,8 @@ const guildSections = [
             <b>Principal Solutions Architect/Analytics TFC, AWS</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Wrote an in-depth overview of DataHub's features and implementation strategies <a href="https://garystafford.medium.com/end-to-end-data-discovery-observability-and-governance-on-aws-with-linkedins-datahub-8c69e7e8c925"> 
+                on Medium</a>
             </p>
           </>
         ),
@@ -598,7 +599,7 @@ const guildSections = [
             <b>Lead Data Engineer, Grab</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Shared Grab's expereince adopting and implementing DataHub during <a href="https://www.youtube.com/watch?v=30kOI8ziewU"> October 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -615,7 +616,7 @@ const guildSections = [
             <b>Data Engineer, SOCAR</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Driving DataHub adoption at SOCAR, is a strong advocate for the DataHub Community, and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-hyejin-yoon-4e546696cee8"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -631,7 +632,7 @@ const guildSections = [
             <b>Data Engineer, Sicara</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Published a 5-min guide to <a href="https://www.sicara.fr/blog-technique/databricks-data-catalog-with-datahub"> integrate DataHub and Databricks</a>
             </p>
           </>
         ),
@@ -649,7 +650,7 @@ const guildSections = [
             <b>Software Engineer, Included Health</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Demoed custom work to embed Looker resources in DataHub during <a href="https://www.youtube.com/watch?v=33hxlg4YgCQ&t=2s"> April 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -665,7 +666,7 @@ const guildSections = [
             <b>Software Engineering Manager</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Published a DataHub deployment guide <a href="https://liangjunjiang.medium.com/deploy-open-source-datahub-fd597104512b"> on Medium</a>
             </p>
           </>
         ),
@@ -680,7 +681,7 @@ const guildSections = [
             <b>COO, Contiamo</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Strong advocate for adopting DataHub and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-mike-linthe-f8d4c205983d"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -697,7 +698,7 @@ const guildSections = [
             <b>Senior Data Engineer, Coursera</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Driving DataHub adoption at Coursera
             </p>
           </>
         ),
@@ -713,7 +714,7 @@ const guildSections = [
             <b>Technical Lead, Adevinta</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Driving DataHub adoption at Adevinta and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-sergio-gomez-villamor-bd2ecfb5ccc4"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -731,7 +732,7 @@ const guildSections = [
             <b>Senior Data Engineer, Coursera</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Driving DataHub adoption at Coursera and featured in <a href="https://blog.datahubproject.io/humans-of-datahub-steven-po-b56e7bf8cd6b"> Humans of DataHub</a>
             </p>
           </>
         ),
@@ -747,7 +748,7 @@ const guildSections = [
             <b>Senior Software Engineer, Etsy</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Shared Etsy's experience adopting and deploying DataHub at <a href="https://www.youtube.com/watch?v=kLe_xfTR_rM"> August 2022 Town Hall</a>
             </p>
           </>
         ),
@@ -763,7 +764,7 @@ const guildSections = [
             <b>Software Engineer, Pinterest</b>
             <p>
               <p> </p>
-              Summary of contribution
+              Shared Pinterest's journey adopting and deploying DataHub at <a href="https://www.youtube.com/watch?v=YoxTg8tQSwg"> December 2022 Town Hall</a>
             </p>
           </>
         ),
