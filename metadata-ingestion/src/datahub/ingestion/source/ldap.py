@@ -61,7 +61,7 @@ user_attrs_map["memberOf"] = "memberOf"
 user_attrs_map["accountType"] = "accountType"
 user_attrs_map["employeeId"] = "employeeID"
 
-# group related attrs
+# group related  attrs
 group_attrs_map["urn"] = "cn"
 group_attrs_map["email"] = "mail"
 group_attrs_map["admins"] = "owner"
