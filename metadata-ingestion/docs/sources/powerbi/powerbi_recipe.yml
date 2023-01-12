@@ -17,7 +17,7 @@ source:
     # Enable / Disable ingestion of user information for dashboards
     extract_ownership: true
     # Enable / Disable ingestion of endorsements
-    extract_endorsements_to_tags: false
+    extract_endorsements_to_tags: true
     # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
         PostgreSql: postgres
