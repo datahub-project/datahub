@@ -72,6 +72,7 @@ def register_mock_api(request_mock):
                         "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
                         "isReadOnly": True,
                         "displayName": "test_dashboard",
+                        "description": "Description of test dashboard",
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
                     }
@@ -196,6 +197,7 @@ def register_mock_api(request_mock):
             "json": {
                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "name": "library-dataset",
+                "description": "Library dataset description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
             },
         },
@@ -205,6 +207,7 @@ def register_mock_api(request_mock):
             "json": {
                 "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
                 "name": "library-dataset",
+                "description": "Library dataset description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445",
             },
         },
@@ -214,6 +217,7 @@ def register_mock_api(request_mock):
             "json": {
                 "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
                 "name": "hr_pbi_test",
+                "description": "hr pbi test description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
             },
         },

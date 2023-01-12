@@ -29,6 +29,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
+from datahub.ingestion.source.powerbi.powerbi_utils import formulate_description
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
@@ -222,7 +223,8 @@ class Mapper:
             logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(
-                name=table.name, description=table.name
+                name=table.name,
+                description=formulate_description(table.name, dataset.description),
             )
 
             info_mcp = self.new_mcp(
@@ -385,7 +387,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=dashboard.displayName or "",
+            description=formulate_description(dashboard.displayName, dashboard.description),
             title=dashboard.displayName or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
@@ -711,7 +713,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=report.description or "",
+            description=formulate_description(report.name, report.description),
             title=report.name or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),

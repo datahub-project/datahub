@@ -101,6 +101,7 @@ class PowerBiAPI:
     class PowerBIDataset:
         id: str
         name: str
+        description: str
         webUrl: Optional[str]
         workspace_id: str
         workspace_name: str
@@ -193,6 +194,7 @@ class PowerBiAPI:
     class Dashboard:
         id: str
         displayName: str
+        description: str
         embedUrl: str
         webUrl: str
         isReadOnly: Any
@@ -410,6 +412,7 @@ class PowerBiAPI:
                 id=instance.get("id"),
                 isReadOnly=instance.get("isReadOnly"),
                 displayName=instance.get("displayName"),
+                description=instance.get("description"),
                 embedUrl=instance.get("embedUrl"),
                 webUrl=instance.get("webUrl"),
                 workspace_id=workspace.id,
@@ -501,6 +504,7 @@ class PowerBiAPI:
         return PowerBiAPI.PowerBIDataset(
             id=response_dict.get("id"),
             name=response_dict.get("name"),
+            description=response_dict.get("description"),
             webUrl="{}/details".format(response_dict.get("webUrl"))
             if response_dict.get("webUrl") is not None
             else None,
