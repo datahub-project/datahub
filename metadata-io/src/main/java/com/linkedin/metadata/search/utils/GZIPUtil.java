@@ -13,17 +13,15 @@ public class GZIPUtil {
 
   public static String gzipDecompress(byte[] gzipped) {
     String unzipped;
-    try (ByteArrayInputStream bis = new ByteArrayInputStream(gzipped)) {
-      GZIPInputStream gis = new GZIPInputStream(bis);
-      ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    try (ByteArrayInputStream bis = new ByteArrayInputStream(gzipped);
+        GZIPInputStream gis = new GZIPInputStream(bis);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
       byte[] buffer = new byte[1024];
       int len;
       while ((len = gis.read(buffer)) != -1) {
         bos.write(buffer, 0, len);
       }
       unzipped = bos.toString(StandardCharsets.UTF_8);
-      gis.close();
-      bos.close();
     } catch (IOException ie) {
       throw new IllegalStateException("Error while unzipping value.", ie);
     }
@@ -32,9 +30,9 @@ public class GZIPUtil {
 
   public static byte[] gzipCompress(String unzipped) {
     byte[] gzipped;
-    try (ByteArrayInputStream bis = new ByteArrayInputStream(unzipped.getBytes(StandardCharsets.UTF_8))) {
-      ByteArrayOutputStream bos = new ByteArrayOutputStream();
-      GZIPOutputStream gzipOutputStream = new GZIPOutputStream(bos);
+    try (ByteArrayInputStream bis = new ByteArrayInputStream(unzipped.getBytes(StandardCharsets.UTF_8));
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        GZIPOutputStream gzipOutputStream = new GZIPOutputStream(bos)) {
       byte[] buffer = new byte[1024];
       int len;
       while ((len = bis.read(buffer)) != -1) {
@@ -42,8 +40,6 @@ public class GZIPUtil {
       }
       gzipOutputStream.finish();
       gzipped = bos.toByteArray();
-      gzipOutputStream.close();
-      bos.close();
     } catch (IOException ie) {
       throw new IllegalStateException("Error while gzipping value: " + unzipped);
     }
