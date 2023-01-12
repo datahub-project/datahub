@@ -105,6 +105,8 @@ send "$METADATA_CHANGE_EVENT_NAME" "--topic $METADATA_CHANGE_EVENT_NAME"
 send "$FAILED_METADATA_CHANGE_EVENT_NAME" "--topic $FAILED_METADATA_CHANGE_EVENT_NAME"
 send "$METADATA_CHANGE_LOG_VERSIONED_TOPIC" "--topic $METADATA_CHANGE_LOG_VERSIONED_TOPIC"
 
+#send "_schemas setup" "--topic _schemas"
+
 # Set retention to 90 days
 send "$METADATA_CHANGE_LOG_TIMESERIES_TOPIC" "--config retention.ms=7776000000 --topic $METADATA_CHANGE_LOG_TIMESERIES_TOPIC"
 send "$METADATA_CHANGE_PROPOSAL_TOPIC" "--topic $METADATA_CHANGE_PROPOSAL_TOPIC"
@@ -134,4 +136,10 @@ echo "Topic Creation Complete."
 # End Topic Creation Logic
 ############################################################
 
-kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --entity-type topics --entity-name _schemas --alter --add-config cleanup.policy=compact
+## If using confluent schema registry as a standalone component, then configure compact cleanup policy.
+if [[ $USE_CONFLUENT_SCHEMA_REGISTRY == "TRUE" ]]; then
+    kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER \
+      --entity-type topics \
+      --entity-name _schemas \
+      --alter --add-config cleanup.policy=compact
+fi
