@@ -30,6 +30,7 @@ from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_data_platform_urn,
@@ -258,6 +259,11 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
         default=True, description="Whether tables should be ingested."
     )
 
+    include_table_location_lineage: bool = Field(
+        default=True,
+        description="If the source supports it, include table lineage to the underlying storage location.",
+    )
+
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -303,15 +309,20 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
     )
 
+    _database_alias_deprecation = pydantic_field_deprecated(
+        "database_alias",
+        message="database_alias is deprecated. Use platform_instance instead.",
+    )
+
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
 
         return self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,  # type: ignore
+            self.scheme,
             self.username,
             self.password.get_secret_value() if self.password is not None else None,
-            self.host_port,  # type: ignore
+            self.host_port,
             self.database,
             uri_opts=uri_opts,
         )
@@ -734,13 +745,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         entity_urn: str,
-        entity_type: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
@@ -841,7 +850,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        if location_urn:
+        if self.config.include_table_location_lineage and location_urn:
             external_upstream_table = UpstreamClass(
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
@@ -901,7 +910,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -1185,7 +1193,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
