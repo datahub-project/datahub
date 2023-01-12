@@ -374,6 +374,16 @@ class LDAPSource(StatefulIngestionSourceBase):
             if self.config.user_attrs_map["countryCode"] in attrs
             else None
         )
+        account_type = (
+            (attrs[self.config.user_attrs_map["accountType"]][0]).decode()
+            if self.config.user_attrs_map["accountType"] in attrs
+            else None
+        )
+        employee_id = (
+            (attrs[self.config.user_attrs_map["employeeId"]][0]).decode()
+            if self.config.user_attrs_map["employeeId"] in attrs
+            else None
+        )
         title = (
             attrs[self.config.user_attrs_map["title"]][0].decode()
             if self.config.user_attrs_map["title"] in attrs
@@ -394,6 +404,8 @@ class LDAPSource(StatefulIngestionSourceBase):
                     departmentName=department_name,
                     displayName=display_name,
                     countryCode=country_code,
+                    accountType=account_type,
+                    employeeId=employee_id,
                     title=title,
                     managerUrn=manager_urn,
                 ),

@@ -92,4 +92,22 @@ record CorpUserInfo {
    * two uppercase letters country code. e.g.  US
    */
   countryCode: optional string
+
+  /**
+   * Type of the user account
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  accountType: optional string
+
+  /**
+   * employee id of a corporate user
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": false
+  }
+  employeeId: optional string
 }

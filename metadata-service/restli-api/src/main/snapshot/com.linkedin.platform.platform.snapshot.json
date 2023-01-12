@@ -2569,6 +2569,24 @@
                     "type" : "string",
                     "doc" : "two uppercase letters country code. e.g.  US",
                     "optional" : true
+                  }, {
+                    "name" : "accountType",
+                    "type" : "string",
+                    "doc" : "Type of the account",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD",
+                      "queryByDefault" : false
+                    }
+                  }, {
+                    "name" : "employeeId",
+                    "type" : "string",
+                    "doc" : "employee id of a corporate user",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : false
+                    }
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],

@@ -3156,6 +3156,16 @@ type CorpUserInfo {
     two uppercase letters country code
     """
     countryCode: String
+
+    """
+    Type of the account
+    """
+    accountType: String
+
+    """
+    employee id of a corporate user
+    """
+    employeeId: String
 }
 
 """
@@ -3216,6 +3226,16 @@ type CorpUserProperties {
     two uppercase letters country code
     """
     countryCode: String
+
+    """
+    Type of the account
+    """
+    accountType: String
+
+    """
+    employee id of a corporate user
+    """
+    employeeId: String
 }
 
 """

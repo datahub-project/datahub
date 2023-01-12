@@ -222,6 +222,10 @@ type CorpUserInfo {
     fullName: String
 
     countryCode: String
+
+    accountType: String
+
+    employeeId: String
 }
 
 type CorpUserEditableInfo {
