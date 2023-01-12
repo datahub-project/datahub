@@ -7,7 +7,6 @@ import { EntityType, Owner } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../EntityContext';
-import { urlEncodeUrn } from '../../../utils';
 import OwnerContent from './OwnerContent';
 
 const OwnerTag = styled(Tag)`
@@ -86,7 +85,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
-                <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${urlEncodeUrn(owner.owner.urn)}`}>
+                <Link to={entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}>
                     <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />
                 </Link>
             )}
