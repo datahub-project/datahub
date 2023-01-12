@@ -58,6 +58,8 @@ user_attrs_map["title"] = "title"
 user_attrs_map["departmentName"] = "departmentNumber"
 user_attrs_map["countryCode"] = "countryCode"
 user_attrs_map["memberOf"] = "memberOf"
+user_attrs_map["accountType"] = "accountType"
+user_attrs_map["employeeId"] = "employeeId"
 
 # group related attrs
 group_attrs_map["urn"] = "cn"
