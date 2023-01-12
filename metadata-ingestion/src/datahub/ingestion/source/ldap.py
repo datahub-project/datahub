@@ -72,7 +72,7 @@ group_attrs_map["description"] = "info"
 
 def create_controls(pagesize: int) -> SimplePagedResultsControl:
     """
-    Create an LDAP control with a page size of  "pagesize".
+    Create an LDAP control with a page size of "pagesize".
     """
     return SimplePagedResultsControl(True, size=pagesize, cookie="")
 
