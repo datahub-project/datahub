@@ -15,7 +15,7 @@ record MLFeatureTableProperties includes CustomProperties {
    * Documentation of the MLFeatureTable
    */
   @Searchable = {
-    "fieldType": "TEXT",
+    "fieldType": "TEXT_PARTIAL",
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string

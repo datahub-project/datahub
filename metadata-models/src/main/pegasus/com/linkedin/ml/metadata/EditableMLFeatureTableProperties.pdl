@@ -12,7 +12,7 @@ record EditableMLFeatureTableProperties {
    * Documentation of the MLFeatureTable
    */
   @Searchable = {
-    "fieldType": "TEXT",
+    "fieldType": "TEXT_PARTIAL",
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string
