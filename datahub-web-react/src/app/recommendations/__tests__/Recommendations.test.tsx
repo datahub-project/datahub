@@ -103,5 +103,5 @@ describe('Recommendations', () => {
         await waitFor(() => expect(getByText('TestTag')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Most Popular')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument());
-    }, 10000);
+    });
 });
