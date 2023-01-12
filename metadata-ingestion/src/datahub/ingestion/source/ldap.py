@@ -46,7 +46,7 @@ group_attrs_map: Dict[str, Any] = {}
 # general attrs
 user_attrs_map["urn"] = "sAMAccountName"
 
-# user related attrs
+# user related  attrs
 user_attrs_map["fullName"] = "cn"
 user_attrs_map["lastName"] = "sn"
 user_attrs_map["firstName"] = "givenName"
