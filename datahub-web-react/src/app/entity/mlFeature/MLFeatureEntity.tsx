@@ -125,7 +125,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 urn={data.urn}
                 name={data.name || ''}
                 featureNamespace={data.featureNamespace || ''}
-                description={data.description}
+                description={data.editableProperties?.description || data.description}
                 owners={data.ownership?.owners}
                 platform={platform}
             />
@@ -141,7 +141,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 urn={data.urn}
                 name={data.name || ''}
                 featureNamespace={data.featureNamespace || ''}
-                description={data.description || ''}
+                description={data.editableProperties?.description || data.description || ''}
                 owners={data.ownership?.owners}
                 platform={platform}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
