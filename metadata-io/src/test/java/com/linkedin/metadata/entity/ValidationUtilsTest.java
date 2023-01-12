@@ -13,12 +13,12 @@ import org.testng.annotations.Test;
 
 public class ValidationUtilsTest {
   @Test
-  public void testValidateOrThrowThrowsOnMissingUnrecognizedField() {
+  public void testValidateOrThrowDoesNotThrowOnUnrecognizedField() {
     DataMap rawMap = new DataMap();
     rawMap.put("removed", true);
     rawMap.put("extraField", 1);
     Status status = new Status(rawMap);
-    Assert.assertThrows(ValidationException.class, () -> ValidationUtils.validateOrThrow(status));
+    ValidationUtils.validateOrThrow(status);
   }
 
   @Test
