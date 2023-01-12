@@ -82,7 +82,13 @@ class OracleConfig(BasicSQLAlchemyConfig):
         return url
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
-        return f"{self.database}.{schema}.{table}"
+        # schema, table is already normalized, we just to normalize database
+        regular = f"{schema}.{table}"
+        if self.database_alias:
+            return f"{self.database_alias.lower()}.{regular}"
+        if self.database:
+            return f"{self.database.lower()}.{regular}"
+        return regular
 
 class OracleInspectorObjectWrapper:
     """
