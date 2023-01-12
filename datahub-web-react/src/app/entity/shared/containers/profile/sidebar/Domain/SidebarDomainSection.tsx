@@ -9,7 +9,11 @@ import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.g
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
 import { ENTITY_PROFILE_DOMAINS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 
-export const SidebarDomainSection = () => {
+interface Props {
+    readOnly?: boolean;
+}
+
+export const SidebarDomainSection = ({ readOnly }: Props) => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const urn = useMutationUrn();
@@ -53,7 +57,8 @@ export const SidebarDomainSection = () => {
                     {domain && (
                         <DomainLink
                             domain={domain}
-                            closable
+                            closable={!readOnly}
+                            readOnly={readOnly}
                             onClose={(e) => {
                                 e.preventDefault();
                                 onRemoveDomain(entityData?.domain?.associatedUrn);
@@ -65,9 +70,11 @@ export const SidebarDomainSection = () => {
                             <Typography.Paragraph type="secondary">
                                 {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
                             </Typography.Paragraph>
-                            <Button type="default" onClick={() => setShowModal(true)}>
-                                <EditOutlined /> Set Domain
-                            </Button>
+                            {!readOnly && (
+                                <Button type="default" onClick={() => setShowModal(true)}>
+                                    <EditOutlined /> Set Domain
+                                </Button>
+                            )}
                         </>
                     )}
                 </div>

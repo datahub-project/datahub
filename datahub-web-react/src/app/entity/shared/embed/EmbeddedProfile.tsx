@@ -9,6 +9,9 @@ import EntityContext from '../EntityContext';
 import { GenericEntityProperties } from '../types';
 import EmbeddedHeader from './EmbeddedHeader';
 import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarOwnerSection } from '../containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarTagsSection } from '../containers/profile/sidebar/SidebarTagsSection';
+import { SidebarDomainSection } from '../containers/profile/sidebar/Domain/SidebarDomainSection';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -69,6 +72,11 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                     <StyledDivider />
                     <SidebarAboutSection readOnly />
                     <StyledDivider />
+                    <SidebarOwnerSection readOnly />
+                    <StyledDivider />
+                    <SidebarTagsSection readOnly properties={{ hasTags: true, hasTerms: true }} />
+                    <StyledDivider />
+                    <SidebarDomainSection readOnly />
                 </>
             )}
         </EntityContext.Provider>
