@@ -21,10 +21,10 @@ public class CorpUserPropertiesMapper implements ModelMapper<com.linkedin.identi
   @Override
   public CorpUserProperties apply(@Nonnull final com.linkedin.identity.CorpUserInfo info) {
     final CorpUserProperties result = new CorpUserProperties();
-    result.setDisplayName(info.getDisplayName());
-    result.setTitle(info.getTitle());
     result.setActive(info.isActive());
     result.setCountryCode(info.getCountryCode());
+    result.setAccountType(info.getAccountType());
+    result.setEmployeeId(info.getEmployeeId());
     result.setDepartmentId(info.getDepartmentId());
     result.setDepartmentName(info.getDepartmentName());
     result.setEmail(info.getEmail());
