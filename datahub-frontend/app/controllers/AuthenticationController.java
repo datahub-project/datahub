@@ -32,7 +32,11 @@ import play.mvc.Result;
 import play.mvc.Results;
 import security.AuthenticationManager;
 
+import static auth.AuthUtils.AUTH_COOKIE_SAME_SITE;
+import static auth.AuthUtils.AUTH_COOKIE_SECURE;
 import static auth.AuthUtils.DEFAULT_ACTOR_URN;
+import static auth.AuthUtils.DEFAULT_AUTH_COOKIE_SAME_SITE;
+import static auth.AuthUtils.DEFAULT_AUTH_COOKIE_SECURE;
 import static auth.AuthUtils.DEFAULT_SESSION_TTL_HOURS;
 import static auth.AuthUtils.EMAIL;
 import static auth.AuthUtils.FULL_NAME;
@@ -115,10 +119,15 @@ public class AuthenticationController extends Controller {
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
         final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
+        int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+            : DEFAULT_SESSION_TTL_HOURS;
+        String authCookieSameSite = _configs.hasPath(AUTH_COOKIE_SAME_SITE) ? _configs.getString(AUTH_COOKIE_SAME_SITE)
+            : DEFAULT_AUTH_COOKIE_SAME_SITE;
+        boolean authCookieSecure = _configs.hasPath(AUTH_COOKIE_SECURE) ? _configs.getBoolean(AUTH_COOKIE_SECURE)
+            : DEFAULT_AUTH_COOKIE_SECURE;
+
         return Results.redirect(redirectPath).withSession(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken))
-            .withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(),
-                _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-                    : DEFAULT_SESSION_TTL_HOURS));
+            .withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), ttlInHours, authCookieSameSite, authCookieSecure));
     }
 
     /**
@@ -329,7 +338,12 @@ public class AuthenticationController extends Controller {
     private Result createSession(String userUrnString, String accessToken) {
         int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
             : DEFAULT_SESSION_TTL_HOURS;
+        String authCookieSameSite = _configs.hasPath(AUTH_COOKIE_SAME_SITE) ? _configs.getString(AUTH_COOKIE_SAME_SITE)
+            : DEFAULT_AUTH_COOKIE_SAME_SITE;
+        boolean authCookieSecure = _configs.hasPath(AUTH_COOKIE_SECURE) ? _configs.getBoolean(AUTH_COOKIE_SECURE)
+            : DEFAULT_AUTH_COOKIE_SECURE;
+
         return Results.ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(createActorCookie(userUrnString, ttlInHours));
+            .withCookies(createActorCookie(userUrnString, ttlInHours, authCookieSameSite,  authCookieSecure));
     }
 }
