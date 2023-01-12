@@ -28,7 +28,6 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
             'datahub docker quickstart',
             '--standalone_consumers',
             '--version', "v${version}",
-            //'--quickstart-compose-file', "${rootProject.projectDir}/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml",
             '--dump-logs-on-failure'
     ]
     commandLine 'bash', '-c', cmd.join(" ")

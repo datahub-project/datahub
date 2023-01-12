@@ -29,7 +29,7 @@ services:
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - SCHEMA_REGISTRY_URL=http://datahub-gms:8080/openapi/schema-registry/
+    - SCHEMA_REGISTRY_URL=http://datahub-gms:8080/schema-registry/api
     - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
     - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
     - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
@@ -84,10 +84,12 @@ services:
     - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/openapi/schema-registry/
+    - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
+    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
     - NEO4J_HOST=http://neo4j:7474
     - NEO4J_URI=bolt://neo4j
     - NEO4J_USERNAME=neo4j
@@ -146,6 +148,7 @@ services:
     environment:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - USE_CONFLUENT_SCHEMA_REGISTRY=FALSE
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:
