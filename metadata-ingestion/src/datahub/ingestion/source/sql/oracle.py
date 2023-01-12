@@ -90,6 +90,7 @@ class OracleConfig(BasicSQLAlchemyConfig):
             return f"{self.database.lower()}.{regular}"
         return regular
 
+
 class OracleInspectorObjectWrapper:
     """
     Inspector class wrapper, which queries DBA_TABLES instead of ALL_TABLES
