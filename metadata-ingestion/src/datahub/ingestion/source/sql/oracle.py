@@ -81,6 +81,8 @@ class OracleConfig(BasicSQLAlchemyConfig):
             url = f"{url}/?service_name={self.service_name}"
         return url
 
+    def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
+        return f"{self.database}.{schema}.{table}"
 
 class OracleInspectorObjectWrapper:
     """
