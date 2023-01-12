@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import pprint
 import sys
@@ -7,6 +8,7 @@ from enum import Enum
 from typing import Any, Dict
 
 import humanfriendly
+import pydantic
 
 # The sort_dicts option was added in Python 3.8.
 if sys.version_info >= (3, 8):
@@ -50,23 +52,24 @@ class Report:
     @staticmethod
     def to_dict(some_val: Any) -> Any:
         """A cheap way to generate a dictionary."""
+
         if hasattr(some_val, "as_obj"):
             return some_val.as_obj()
-        if hasattr(some_val, "dict"):  # pydantic models
+        elif isinstance(some_val, pydantic.BaseModel):
             return some_val.dict()
-        if hasattr(some_val, "asdict"):  # dataclasses
-            return some_val.asdict()
-        if isinstance(some_val, list):
+        elif dataclasses.is_dataclass(some_val):
+            return dataclasses.asdict(some_val)
+        elif isinstance(some_val, list):
             return [Report.to_dict(v) for v in some_val if v is not None]
-        if isinstance(some_val, dict):
+        elif isinstance(some_val, dict):
             return {
                 Report.to_str(k): Report.to_dict(v)
                 for k, v in some_val.items()
                 if v is not None
             }
-
-        # fall through option
-        return Report.to_str(some_val)
+        else:
+            # fall through option
+            return Report.to_str(some_val)
 
     def compute_stats(self) -> None:
         """A hook to compute derived stats"""
