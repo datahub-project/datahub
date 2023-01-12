@@ -97,10 +97,6 @@ send() {
 }
 
 ## Produce the jobs to run.
-
-# Create build indices topic with infinite retention
-send "$BUILD_INDICES_HISTORY_TOPIC" "--config retention.ms=-1 --topic $BUILD_INDICES_HISTORY_TOPIC"
-
 send "$METADATA_AUDIT_EVENT_NAME" "--topic $METADATA_AUDIT_EVENT_NAME"
 send "$METADATA_CHANGE_EVENT_NAME" "--topic $METADATA_CHANGE_EVENT_NAME"
 send "$FAILED_METADATA_CHANGE_EVENT_NAME" "--topic $FAILED_METADATA_CHANGE_EVENT_NAME"

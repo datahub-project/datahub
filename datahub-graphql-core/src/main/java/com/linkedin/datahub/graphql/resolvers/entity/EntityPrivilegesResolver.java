@@ -66,7 +66,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     }
     Urn parentNodeUrn = GlossaryUtils.getParentUrn(termUrn, context, _entityClient);
     if (parentNodeUrn != null) {
-      Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn);
+      Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
     return result;
@@ -80,12 +80,12 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
       result.setCanManageChildren(true);
       return result;
     }
-    Boolean canManageChildren = GlossaryUtils.canManageChildrenEntities(context, nodeUrn);
+    Boolean canManageChildren = GlossaryUtils.canManageChildrenEntities(context, nodeUrn, _entityClient);
     result.setCanManageChildren(canManageChildren);
 
     Urn parentNodeUrn = GlossaryUtils.getParentUrn(nodeUrn, context, _entityClient);
     if (parentNodeUrn != null) {
-      Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn);
+      Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
     return result;

@@ -479,6 +479,7 @@ module.exports = {
       "docs/posts",
       "docs/sync-status",
       "docs/architecture/stemming_and_synonyms",
+      "docs/lineage/lineage-feature-guide",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 

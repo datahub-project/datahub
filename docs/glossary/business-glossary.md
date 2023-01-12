@@ -1,6 +1,5 @@
 ---
-title: About DataHub Business Glossary
-sidebar_label: Business Glossary
+title: Business Glossary
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -86,9 +85,30 @@ In the modal that pops up you can select the Term you care about in one of two w
 
 ![](../imgs/glossary/add-term-modal.png)
 
+## Managing Glossary with Git 
+
+In many cases, it may be preferable to manage the Business Glossary in a version-control system like git. This can make
+managing changes across teams easier, by funneling all changes through a change management and review process.
+
+To manage your glossary using Git, you can define it within a file and then use the DataHub CLI to ingest
+it into DataHub whenever a change is made (e.g. on a `git commit` hook). For detailed information about the format of
+the glossary file, and how to ingest it into DataHub, check out the [Business Glossary](../generated/ingestion/sources/business-glossary.md) source guide.
+
 ## Demo
 
 Check out [our demo site](https://demo.datahubproject.io/glossary) to see an example Glossary and how it works!
+
+### GraphQL
+
+* [addTerm](../../graphql/mutations.md#addterm)
+* [addTerms](../../graphql/mutations.md#addterms)
+* [batchAddTerms](../../graphql/mutations.md#batchaddterms)
+* [removeTerm](../../graphql/mutations.md#removeterm)
+* [batchRemoveTerms](../../graphql/mutations.md#batchremoveterms)
+* [createGlossaryTerm](../../graphql/mutations.md#createglossaryterm)
+* [createGlossaryNode](../../graphql/mutations.md#createglossarynode) (Term Group)
+
+You can easily fetch the Glossary Terms for an entity with a given its URN using the **glossaryTerms** property. Check out [Working with Metadata Entities](../api/graphql/querying-entities.md#querying-for-glossary-terms-of-an-asset) for an example.
 
 ## Resources
 - [Creating a Business Glossary and Putting it to use in DataHub](https://blog.datahubproject.io/creating-a-business-glossary-and-putting-it-to-use-in-datahub-43a088323c12)

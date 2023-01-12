@@ -47,7 +47,7 @@ export default function GroupMembersSideBarSection({ total, relationships, onSee
                         const name = entityRegistry.getDisplayName(EntityType.CorpUser, user);
                         return (
                             <MemberTag>
-                                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}>
+                                <Link to={`${entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}`}>
                                     <CustomAvatar
                                         name={name}
                                         photoUrl={user.editableProperties?.pictureLink || undefined}

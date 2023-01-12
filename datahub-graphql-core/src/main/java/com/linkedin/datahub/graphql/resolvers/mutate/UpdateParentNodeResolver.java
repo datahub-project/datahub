@@ -48,7 +48,8 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
     return CompletableFuture.supplyAsync(() -> {
       Urn currentParentUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
       // need to be able to manage current parent node and new parent node
-      if (GlossaryUtils.canManageChildrenEntities(context, currentParentUrn) && GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
+      if (GlossaryUtils.canManageChildrenEntities(context, currentParentUrn, _entityClient)
+        && GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
         switch (targetUrn.getEntityType()) {
           case Constants.GLOSSARY_TERM_ENTITY_NAME:
             return updateGlossaryTermParentNode(targetUrn, parentNodeUrn, input, environment.getContext());
