@@ -26,7 +26,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcp_builder
+from datahub.emitter.mcp_builder import create_embed_mcp
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -703,7 +703,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             )
             if maybe_embed_url:
                 proposals.append(
-                    mcp_builder.create_embed_mcp(
+                    create_embed_mcp(
                         chart_snapshot.urn,
                         maybe_embed_url,
                     )
@@ -755,7 +755,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and self.source_config.external_base_url
         ):
             proposals.append(
-                mcp_builder.create_embed_mcp(
+                create_embed_mcp(
                     dashboard_snapshot.urn,
                     looker_dashboard.embed_url(self.source_config.external_base_url),
                 )

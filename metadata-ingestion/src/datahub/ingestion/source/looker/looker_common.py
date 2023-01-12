@@ -30,7 +30,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcp_builder
+from datahub.emitter.mcp_builder import create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -83,7 +83,7 @@ from datahub.metadata.schema_classes import (
     TagSnapshotClass,
 )
 from datahub.utilities.lossy_collections import LossyList, LossySet
-from datahub.utilities.url_util import url_util
+from datahub.utilities.url_util import remove_port_from_url
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.looker.lookml_source import (
@@ -755,11 +755,11 @@ class LookerExplore:
         return browse_path
 
     def _get_url(self, base_url):
-        base_url = url_util.remove_port_from_url(base_url)
+        base_url = remove_port_from_url(base_url)
         return f"{base_url}/explore/{self.model_name}/{self.name}"
 
     def _get_embed_url(self, base_url: str) -> str:
-        base_url = url_util.remove_port_from_url(base_url)
+        base_url = remove_port_from_url(base_url)
         return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
 
     def _to_metadata_events(  # noqa: C901
@@ -873,7 +873,7 @@ class LookerExplore:
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if extract_embed_urls:
-            embed_mcp = mcp_builder.create_embed_mcp(
+            embed_mcp = create_embed_mcp(
                 dataset_snapshot.urn, self._get_embed_url(base_url)
             )
             proposals.append(embed_mcp)
@@ -1064,7 +1064,7 @@ class LookerDashboardElement:
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore
-        base_url = url_util.remove_port_from_url(base_url)
+        base_url = remove_port_from_url(base_url)
         if self.look_id is not None:
             return f"{base_url}/looks/{self.look_id}"
         else:
@@ -1072,7 +1072,7 @@ class LookerDashboardElement:
 
     def embed_url(self, base_url: str) -> Optional[str]:
         # A dashboard element can use a look or just a raw query against an explore
-        base_url = url_util.remove_port_from_url(base_url)
+        base_url = remove_port_from_url(base_url)
         if self.look_id is not None:
             return f"{base_url}/embed/looks/{self.look_id}"
         else:
@@ -1117,11 +1117,11 @@ class LookerDashboard:
     last_viewed_at: Optional[datetime.datetime] = None
 
     def url(self, base_url):
-        base_url = url_util.remove_port_from_url(base_url)
+        base_url = remove_port_from_url(base_url)
         return f"{base_url}/dashboards/{self.id}"
 
     def embed_url(self, base_url: str) -> str:
-        base_url = url_util.remove_port_from_url(base_url)
+        base_url = remove_port_from_url(base_url)
         return f"{base_url}/embed/dashboards/{self.id}"
 
     def get_urn_dashboard_id(self):
