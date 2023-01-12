@@ -387,7 +387,9 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=formulate_description(dashboard.displayName, dashboard.description),
+            description=formulate_description(
+                dashboard.displayName, dashboard.description
+            ),
             title=dashboard.displayName or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
