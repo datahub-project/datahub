@@ -1,9 +1,12 @@
 import React from 'react';
 
 type EditorProps = {
-    readOnly?: boolean;
     content?: string;
+    // eslint-disable-next-line react/no-unused-prop-types
+    readOnly?: boolean;
+    // eslint-disable-next-line react/no-unused-prop-types
     onChange?: (md: string) => void;
+    // eslint-disable-next-line react/no-unused-prop-types
     className?: string;
 };
 
