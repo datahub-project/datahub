@@ -24,6 +24,7 @@ from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.models import User, WriteQuery
 from pydantic import Field
 from pydantic.class_validators import validator
+
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
@@ -68,7 +69,6 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
     DatasetPropertiesClass,
-    EmbedClass,
     EnumTypeClass,
     FineGrainedLineageClass,
     GlobalTagsClass,

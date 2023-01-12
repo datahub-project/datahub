@@ -832,8 +832,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 chart_events.extend(
                     self._make_chart_metadata_events(element, looker_dashboard)
                 )
-        for chart_event in chart_events:
-            yield chart_event
+
+        yield from chart_events
 
         # Step 2: Emit metadata events for the Dashboard itself.
         chart_urns: Set[
