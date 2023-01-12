@@ -18,7 +18,7 @@ public class RecordTemplateValidator {
     private static final ValidationOptions DEFAULT_VALIDATION_OPTIONS = new ValidationOptions(
             RequiredMode.CAN_BE_ABSENT_IF_HAS_DEFAULT,
             CoercionMode.NORMAL,
-            UnrecognizedFieldMode.DISALLOW
+            UnrecognizedFieldMode.IGNORE
     );
 
     private static final UrnValidator URN_VALIDATOR = new UrnValidator();

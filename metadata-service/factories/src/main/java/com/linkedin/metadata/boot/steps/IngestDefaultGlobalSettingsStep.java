@@ -6,17 +6,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-import com.linkedin.data.schema.validation.CoercionMode;
-import com.linkedin.data.schema.validation.RequiredMode;
-import com.linkedin.data.schema.validation.UnrecognizedFieldMode;
-import com.linkedin.data.schema.validation.ValidateDataAgainstSchema;
-import com.linkedin.data.schema.validation.ValidationOptions;
-import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -85,17 +81,11 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
     // 2. Bind the global settings json into a GlobalSettingsInfo aspect.
     GlobalSettingsInfo defaultSettings;
     defaultSettings = RecordUtils.toRecordTemplate(GlobalSettingsInfo.class, defaultSettingsObj.toString());
-    ValidationResult result = ValidateDataAgainstSchema.validate(
-        defaultSettings,
-        new ValidationOptions(
-            RequiredMode.CAN_BE_ABSENT_IF_HAS_DEFAULT,
-            CoercionMode.NORMAL,
-            UnrecognizedFieldMode.DISALLOW
-        ));
-
-    if (!result.isValid()) {
-      throw new RuntimeException(String.format(
-          "Failed to parse global settings file. Provided JSON does not match GlobalSettingsInfo.pdl model. %s", result.getMessages()));
+    try {
+      ValidationUtils.validateOrThrow(defaultSettings);
+    } catch (ValidationException e) {
+      throw new RuntimeException(
+          "Failed to parse global settings file. Provided JSON does not match GlobalSettingsInfo.pdl model.", e);
     }
 
     // 3. Get existing settings or empty settings object
