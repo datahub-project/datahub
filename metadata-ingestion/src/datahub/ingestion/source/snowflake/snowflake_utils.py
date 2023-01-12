@@ -1,43 +1,53 @@
 import logging
-from enum import Enum
 from typing import Any, Optional
 
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 from typing_extensions import Protocol
 
+from datahub.configuration.common import MetaError
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.constants import (
+    GENERIC_PERMISSION_ERROR_KEY,
+    SNOWFLAKE_DEFAULT_CLOUD,
+    SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
+    SnowflakeObjectDomain,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import _Aspect
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class SnowflakeCloudProvider(str, Enum):
-    AWS = "aws"
-    GCP = "gcp"
-    AZURE = "azure"
-
-
-# See https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#region-ids
-# Includes only exceptions to format <provider>_<cloud region with hyphen replaced by _>
-SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
-    "aws_us_east_1_gov": (SnowflakeCloudProvider.AWS, "us-east-1"),
-    "azure_uksouth": (SnowflakeCloudProvider.AZURE, "uk-south"),
-    "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india.azure"),
-}
-
-SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
+class SnowflakePermissionError(MetaError):
+    """A permission error has happened"""
 
 
 # Required only for mypy, since we are using mixin classes, and not inheritance.
 # Reference - https://mypy.readthedocs.io/en/latest/more_types.html#mixin-classes
 class SnowflakeLoggingProtocol(Protocol):
     logger: logging.Logger
+
+
+class SnowflakeQueryProtocol(SnowflakeLoggingProtocol, Protocol):
+    def get_connection(self) -> SnowflakeConnection:
+        ...
+
+
+class SnowflakeQueryMixin:
+    def query(self: SnowflakeQueryProtocol, query: str) -> Any:
+        try:
+            self.logger.debug("Query : {}".format(query))
+            resp = self.get_connection().cursor(DictCursor).execute(query)
+            return resp
+
+        except Exception as e:
+            if is_permission_error(e):
+                raise SnowflakePermissionError(e) from e
+            raise
 
 
 class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
@@ -55,14 +65,11 @@ class SnowflakeCommonProtocol(SnowflakeLoggingProtocol, Protocol):
     def snowflake_identifier(self, identifier: str) -> str:
         ...
 
+    def report_warning(self, key: str, reason: str) -> None:
+        ...
 
-class SnowflakeQueryMixin:
-    def query(
-        self: SnowflakeLoggingProtocol, conn: SnowflakeConnection, query: str
-    ) -> Any:
-        self.logger.debug("Query : {}".format(query))
-        resp = conn.cursor(DictCursor).execute(query)
-        return resp
+    def report_error(self, key: str, reason: str) -> None:
+        ...
 
 
 class SnowflakeCommonMixin:
@@ -103,8 +110,15 @@ class SnowflakeCommonMixin:
         if not dataset_type or not dataset_name:
             return True
         dataset_params = dataset_name.split(".")
+        if dataset_type.lower() not in (
+            SnowflakeObjectDomain.TABLE,
+            SnowflakeObjectDomain.EXTERNAL_TABLE,
+            SnowflakeObjectDomain.VIEW,
+            SnowflakeObjectDomain.MATERIALIZED_VIEW,
+        ):
+            return False
         if len(dataset_params) != 3:
-            self.report.report_warning(
+            self.report_warning(
                 "invalid-dataset-pattern",
                 f"Found {dataset_params} of type {dataset_type}",
             )
@@ -121,7 +135,9 @@ class SnowflakeCommonMixin:
         ):
             return False
 
-        if dataset_type.lower() in {"table"} and not self.config.table_pattern.allowed(
+        if dataset_type.lower() in {
+            SnowflakeObjectDomain.TABLE
+        } and not self.config.table_pattern.allowed(
             self.get_dataset_identifier_from_qualified_name(dataset_name)
         ):
             return False
@@ -141,6 +157,18 @@ class SnowflakeCommonMixin:
         if self.config.convert_urns_to_lowercase:
             return identifier.lower()
         return identifier
+
+    @staticmethod
+    def get_quoted_identifier_for_database(db_name):
+        return f'"{db_name}"'
+
+    @staticmethod
+    def get_quoted_identifier_for_schema(db_name, schema_name):
+        return f'"{db_name}"."{schema_name}"'
+
+    @staticmethod
+    def get_quoted_identifier_for_table(db_name, schema_name, table_name):
+        return f'"{db_name}"."{schema_name}"."{table_name}"'
 
     def get_dataset_identifier(
         self: SnowflakeCommonProtocol, table_name: str, schema_name: str, db_name: str
@@ -184,18 +212,89 @@ class SnowflakeCommonMixin:
         aspectName: str,
         aspect: _Aspect,
     ) -> MetadataWorkUnit:
-        id = f"{aspectName}-for-{entityUrn}"
-        if "timestampMillis" in aspect._inner_dict:
-            id = f"{aspectName}-{aspect.timestampMillis}-for-{entityUrn}"  # type: ignore
-        wu = MetadataWorkUnit(
-            id=id,
-            mcp=MetadataChangeProposalWrapper(
-                entityType=entityName,
-                entityUrn=entityUrn,
-                aspectName=aspectName,
-                aspect=aspect,
-                changeType=ChangeType.UPSERT,
-            ),
-        )
+        wu = MetadataChangeProposalWrapper(
+            entityUrn=entityUrn,
+            aspect=aspect,
+        ).as_workunit()
         self.report.report_workunit(wu)
         return wu
+
+    # TODO: Revisit this after stateful ingestion can commit checkpoint
+    # for failures that do not affect the checkpoint
+    def warn_if_stateful_else_error(
+        self: SnowflakeCommonProtocol, key: str, reason: str
+    ) -> None:
+        if (
+            self.config.stateful_ingestion is not None
+            and self.config.stateful_ingestion.enabled
+        ):
+            self.report_warning(key, reason)
+        else:
+            self.report_error(key, reason)
+
+    def report_warning(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
+        self.report.report_warning(key, reason)
+        self.logger.warning(f"{key} => {reason}")
+
+    def report_error(self: SnowflakeCommonProtocol, key: str, reason: str) -> None:
+        self.report.report_failure(key, reason)
+        self.logger.error(f"{key} => {reason}")
+
+
+class SnowflakeConnectionProtocol(SnowflakeLoggingProtocol, Protocol):
+    connection: Optional[SnowflakeConnection]
+    config: SnowflakeV2Config
+    report: SnowflakeV2Report
+
+    def create_connection(self) -> Optional[SnowflakeConnection]:
+        ...
+
+    def report_error(self, key: str, reason: str) -> None:
+        ...
+
+
+class SnowflakeConnectionMixin:
+    def get_connection(self: SnowflakeConnectionProtocol) -> SnowflakeConnection:
+        if self.connection is None:
+            # Ideally this is never called here
+            self.logger.info("Did you forget to initialize connection for module?")
+            self.connection = self.create_connection()
+
+        # Connection is already present by the time its used for query
+        # Every module initializes the connection or fails and returns
+        assert self.connection is not None
+        return self.connection
+
+    # If connection succeeds, return connection, else return None and report failure
+    def create_connection(
+        self: SnowflakeConnectionProtocol,
+    ) -> Optional[SnowflakeConnection]:
+        try:
+            conn = self.config.get_connection()
+        except Exception as e:
+            logger.debug(e, exc_info=e)
+            if "not granted to this user" in str(e):
+                self.report_error(
+                    GENERIC_PERMISSION_ERROR_KEY,
+                    f"Failed to connect with snowflake due to error {e}",
+                )
+            else:
+                logger.debug(e, exc_info=e)
+                self.report_error(
+                    "snowflake-connection",
+                    f"Failed to connect to snowflake instance due to error {e}.",
+                )
+            return None
+        else:
+            return conn
+
+    def close(self: SnowflakeConnectionProtocol) -> None:
+        if self.connection is not None and not self.connection.is_closed():
+            self.connection.close()
+
+
+def is_permission_error(e: Exception) -> bool:
+    msg = str(e)
+    # 002003 (02000): SQL compilation error: Database/SCHEMA 'XXXX' does not exist or not authorized.
+    # Insufficient privileges to operate on database 'XXXX'
+    return "Insufficient privileges" in msg or "not authorized" in msg

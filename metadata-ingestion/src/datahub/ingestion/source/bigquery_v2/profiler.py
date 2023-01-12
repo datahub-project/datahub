@@ -1,6 +1,6 @@
 import dataclasses
-import datetime
 import logging
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
@@ -20,6 +20,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 logger = logging.getLogger(__name__)
 
@@ -34,15 +35,20 @@ class BigqueryProfiler(GenericProfiler):
     config: BigQueryV2Config
     report: BigQueryV2Report
 
-    def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report) -> None:
-        super().__init__(config, report, "bigquery")
+    def __init__(
+        self,
+        config: BigQueryV2Config,
+        report: BigQueryV2Report,
+        state_handler: Optional[ProfilingHandler] = None,
+    ) -> None:
+        super().__init__(config, report, "bigquery", state_handler)
         self.config = config
         self.report = report
 
     @staticmethod
     def get_partition_range_from_partition_id(
-        partition_id: str, partition_datetime: Optional[datetime.datetime]
-    ) -> Tuple[datetime.datetime, datetime.datetime]:
+        partition_id: str, partition_datetime: Optional[datetime]
+    ) -> Tuple[datetime, datetime]:
         partition_range_map: Dict[int, Tuple[relativedelta, str]] = {
             4: (relativedelta(years=1), "%Y"),
             6: (relativedelta(months=1), "%Y%m"),
@@ -55,7 +61,12 @@ class BigqueryProfiler(GenericProfiler):
             (delta, format) = partition_range_map[len(partition_id)]
             duration = delta
             if not partition_datetime:
-                partition_datetime = datetime.datetime.strptime(partition_id, format)
+                partition_datetime = datetime.strptime(partition_id, format)
+            else:
+                partition_datetime = datetime.strptime(
+                    partition_datetime.strftime(format), format
+                )
+
         else:
             raise ValueError(
                 f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
@@ -68,7 +79,7 @@ class BigqueryProfiler(GenericProfiler):
         project: str,
         schema: str,
         table: BigqueryTable,
-        partition_datetime: Optional[datetime.datetime],
+        partition_datetime: Optional[datetime],
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
@@ -115,15 +126,14 @@ class BigqueryProfiler(GenericProfiler):
                     ] = partition
                     return None, None
 
-                partition_column_type: str = "DATE"
+                # ingestion time partitoned tables partition column is not in the schema, so we default to TIMESTAMP type
+                partition_column_type: str = "TIMESTAMP"
                 for c in table.columns:
                     if c.is_partition_column:
                         partition_column_type = c.data_type
 
-                if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
-                elif table.time_partitioning.type_ in ("HOUR"):
-                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN '{partition_datetime}' AND '{upper_bound_partition_datetime}'"
+                if table.time_partitioning.type_ in ("HOUR", "DAY", "MONTH", "YEAR"):
+                    partition_where_clause = f"{partition_column_type}(`{table.time_partitioning.field}`) BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.time_partitioning.type_}"
@@ -164,6 +174,9 @@ WHERE
                     continue
 
                 for table in tables[project][dataset]:
+                    normalized_table_name = BigqueryTableIdentifier(
+                        project_id=project, dataset=dataset, table=table.name
+                    ).get_table_name()
                     for column in table.columns:
                         # Profiler has issues with complex types (array, struct, geography, json), so we deny those types from profiling
                         # We also filter columns without data type as it means that column is part of a complex type.
@@ -171,10 +184,6 @@ WHERE
                             word in column.data_type.lower()
                             for word in ["array", "struct", "geography", "json"]
                         ):
-                            normalized_table_name = BigqueryTableIdentifier(
-                                project_id=project, dataset=dataset, table=table.name
-                            ).get_table_name()
-
                             self.config.profile_pattern.deny.append(
                                 f"^{normalized_table_name}.{column.field_path}$"
                             )
@@ -188,40 +197,51 @@ WHERE
 
             if len(profile_requests) == 0:
                 continue
-            table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
-            for request, profile in self.generate_profiles(
-                table_profile_requests,
-                self.config.profiling.max_workers,
-                platform=self.platform,
-                profiler_args=self.get_profile_args(),
-            ):
-                if request is None or profile is None:
-                    continue
+            yield from self.generate_wu_from_profile_requests(profile_requests)
 
-                request = cast(BigqueryProfilerRequest, request)
-                profile.sizeInBytes = request.table.size_in_bytes
-                # If table is partitioned we profile only one partition (if nothing set then the last one)
-                # but for table level we can use the rows_count from the table metadata
-                # This way even though column statistics only reflects one partition data but the rows count
-                # shows the proper count.
-                if profile.partitionSpec and profile.partitionSpec.partition:
-                    profile.rowCount = request.table.rows_count
+    def generate_wu_from_profile_requests(
+        self, profile_requests: List[BigqueryProfilerRequest]
+    ) -> Iterable[MetadataWorkUnit]:
+        table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
+        for request, profile in self.generate_profiles(
+            table_profile_requests,
+            self.config.profiling.max_workers,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+        ):
+            if request is None or profile is None:
+                continue
 
-                dataset_name = request.pretty_name
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
+            request = cast(BigqueryProfilerRequest, request)
+            profile.sizeInBytes = request.table.size_in_bytes
+            # If table is partitioned we profile only one partition (if nothing set then the last one)
+            # but for table level we can use the rows_count from the table metadata
+            # This way even though column statistics only reflects one partition data but the rows count
+            # shows the proper count.
+            if profile.partitionSpec and profile.partitionSpec.partition:
+                profile.rowCount = request.table.rows_count
+
+            dataset_name = request.pretty_name
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            # We don't add to the profiler state if we only do table level profiling as it always happens
+            if self.state_handler and not request.profile_table_level_only:
+                self.state_handler.add_to_state(
+                    dataset_urn, int(datetime.now().timestamp() * 1000)
                 )
-                wu = wrap_aspect_as_workunit(
-                    "dataset",
-                    dataset_urn,
-                    "datasetProfile",
-                    profile,
-                )
-                self.report.report_workunit(wu)
-                yield wu
+
+            wu = wrap_aspect_as_workunit(
+                "dataset",
+                dataset_urn,
+                "datasetProfile",
+                profile,
+            )
+            self.report.report_workunit(wu)
+            yield wu
 
     def get_bigquery_profile_request(
         self, project: str, dataset: str, table: BigqueryTable

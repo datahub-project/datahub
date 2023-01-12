@@ -1,10 +1,15 @@
 import logging
+from enum import Enum
 from typing import Dict, Optional, cast
 
 from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.glossary.classifier import ClassificationConfig
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    ProfilingStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+)
 from datahub.ingestion.source_config.sql.snowflake import (
     BaseSnowflakeConfig,
     SnowflakeConfig,
@@ -15,7 +20,18 @@ from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsage
 logger = logging.Logger(__name__)
 
 
-class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
+class TagOption(str, Enum):
+    with_lineage = "with_lineage"
+    without_lineage = "without_lineage"
+    skip = "skip"
+
+
+class SnowflakeV2Config(
+    SnowflakeConfig,
+    SnowflakeUsageConfig,
+    UsageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+):
     convert_urns_to_lowercase: bool = Field(
         default=True,
     )
@@ -44,6 +60,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         default=None, description="Not supported"
     )
 
+    extract_tags: TagOption = Field(
+        default=TagOption.skip,
+        description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default). `without_lineage` only extracts tags that have been applied directly to the given entity. `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower. See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
+    )
+
     classification: Optional[ClassificationConfig] = Field(
         default=None,
         description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
@@ -54,7 +75,7 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
-    match_fully_qualified_names = bool = Field(
+    match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
@@ -66,6 +87,11 @@ class SnowflakeV2Config(SnowflakeConfig, SnowflakeUsageConfig):
                 "include_table_lineage must be True for include_column_lineage to be set."
             )
         return v
+
+    tag_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
+    )
 
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:

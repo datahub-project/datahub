@@ -88,11 +88,13 @@ class AthenaConfig(SQLAlchemyConfig):
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
+    - Lineage for S3 tables.
     - Profiling when enabled.
     """
 
@@ -163,7 +165,7 @@ class AthenaSource(SQLAlchemySource):
         return schemas
 
     def gen_database_containers(
-        self, database: str
+        self, inspector: Inspector, database: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         # In Athena the schema is the database and database is not existing
         return []
@@ -177,7 +179,7 @@ class AthenaSource(SQLAlchemySource):
         )
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         database_container_key = self.gen_database_key(database=schema)
 

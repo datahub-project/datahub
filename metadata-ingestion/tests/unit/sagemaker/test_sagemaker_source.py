@@ -1,9 +1,8 @@
-import json
-
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.sagemaker import (
     SagemakerSource,
     SagemakerSourceConfig,
@@ -221,12 +220,8 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             {"ModelName": "the-second-model"},
         )
 
-        mce_objects = [
-            wu.metadata.to_obj() for wu in sagemaker_source_instance.get_workunits()
-        ]
-
-        with open(str(tmp_path / "sagemaker_mces.json"), "w") as f:
-            json.dump(mce_objects, f, indent=2)
+        mce_objects = [wu.metadata for wu in sagemaker_source_instance.get_workunits()]
+        write_metadata_file(tmp_path / "sagemaker_mces.json", mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/sagemaker"

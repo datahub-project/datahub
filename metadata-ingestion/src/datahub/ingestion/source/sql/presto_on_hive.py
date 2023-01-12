@@ -317,7 +317,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
         config = PrestoOnHiveConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+    def gen_database_containers(
+        self, inspector: Inspector, database: str
+    ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database)
 
         database_container_key = self.gen_database_key(database)
@@ -333,7 +335,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             yield wu
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         assert isinstance(self.config, PrestoOnHiveConfig)
         where_clause_suffix: str = ""
@@ -525,7 +527,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
             yield from self._get_domain_wu(
                 dataset_name=dataset_name,
                 entity_urn=dataset_urn,
-                entity_type="dataset",
                 sql_config=sql_config,
             )
 
@@ -742,7 +743,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
             yield from self._get_domain_wu(
                 dataset_name=dataset.dataset_name,
                 entity_urn=dataset_urn,
-                entity_type="dataset",
                 sql_config=sql_config,
             )
 

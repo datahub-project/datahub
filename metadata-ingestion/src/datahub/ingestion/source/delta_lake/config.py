@@ -20,7 +20,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class S3(ConfigModel):
-    aws_config: AwsConnectionConfig = Field(
+    aws_config: Optional[AwsConnectionConfig] = Field(
         default=None, description="AWS configuration"
     )
 
@@ -40,7 +40,7 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         description="Path to table (s3 or local file system). If path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables."
     )
-    relative_path: str = Field(
+    relative_path: Optional[str] = Field(
         default=None,
         description="If set, delta-tables will be searched at location "
         "'<base_path>/<relative_path>' and URNs will be created using "

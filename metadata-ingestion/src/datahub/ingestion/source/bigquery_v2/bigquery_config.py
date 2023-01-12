@@ -1,12 +1,20 @@
 import logging
+import os
 from datetime import timedelta
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import Field, PositiveInt, root_validator
+from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern, LineageConfig
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    LineageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.ingestion.source_config.sql.bigquery import BigQueryConfig
+from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
+from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +31,13 @@ class BigQueryUsageConfig(BaseUsageConfig):
     )
 
 
-class BigQueryV2Config(BigQueryConfig, LineageConfig):
+class BigQueryV2Config(
+    BigQueryBaseConfig,
+    SQLAlchemyConfig,
+    LineageStatefulIngestionConfig,
+    UsageStatefulIngestionConfig,
+    ProfilingStatefulIngestionConfig,
+):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
@@ -103,6 +117,63 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         description="Convert urns to lowercase.",
     )
 
+    enable_legacy_sharded_table_support: bool = Field(
+        default=True,
+        description="Use the legacy sharded table urn suffix added.",
+    )
+
+    scheme: str = "bigquery"
+
+    log_page_size: PositiveInt = Field(
+        default=1000,
+        description="The number of log item will be queried per page for lineage collection",
+    )
+    credential: Optional[BigQueryCredential] = Field(
+        description="BigQuery credential informations"
+    )
+    # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
+    extra_client_options: Dict[str, Any] = Field(
+        default={},
+        description="Additional options to pass to google.cloud.logging_v2.client.Client.",
+    )
+    include_table_lineage: Optional[bool] = Field(
+        default=True,
+        description="Option to enable/disable lineage generation. Is enabled by default.",
+    )
+    max_query_duration: timedelta = Field(
+        default=timedelta(minutes=15),
+        description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
+    )
+
+    bigquery_audit_metadata_datasets: Optional[List[str]] = Field(
+        default=None,
+        description="A list of datasets that contain a table named cloudaudit_googleapis_com_data_access which contain BigQuery audit logs, specifically, those containing BigQueryAuditMetadata. It is recommended that the project of the dataset is also specified, for example, projectA.datasetB.",
+    )
+    use_exported_bigquery_audit_metadata: bool = Field(
+        default=False,
+        description="When configured, use BigQueryAuditMetadata in bigquery_audit_metadata_datasets to compute lineage information.",
+    )
+    use_date_sharded_audit_log_tables: bool = Field(
+        default=False,
+        description="Whether to read date sharded tables or time partitioned tables when extracting usage from exported audit logs.",
+    )
+    _credentials_path: Optional[str] = PrivateAttr(None)
+
+    upstream_lineage_in_report: bool = Field(
+        default=False,
+        description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",
+    )
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
+        if self.credential:
+            self._credentials_path = self.credential.create_credential_temp_file()
+            logger.debug(
+                f"Creating temporary credential file at {self._credentials_path}"
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
+
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
         # Extra default SQLAlchemy option for better connection pooling and threading.
@@ -170,3 +241,14 @@ class BigQueryV2Config(BigQueryConfig, LineageConfig):
         # based on the credentials or environment variables.
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return "bigquery://"
+
+    @validator("platform")
+    def platform_is_always_bigquery(cls, v):
+        return "bigquery"
+
+    @validator("platform_instance")
+    def bigquery_doesnt_need_platform_instance(cls, v):
+        if v is not None:
+            raise ConfigurationError(
+                "BigQuery project ids are globally unique. You do not need to specify a platform instance."
+            )

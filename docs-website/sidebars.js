@@ -273,7 +273,6 @@ module.exports = {
       "docs/deploy/gcp",
       "docker/README",
       "docs/deploy/kubernetes",
-      "docs/how/updating-datahub",
       {
         Authentication: [
           "docs/authentication/README",
@@ -318,6 +317,7 @@ module.exports = {
           "docs/advanced/no-code-upgrade",
         ],
       },
+      "docs/how/updating-datahub",
     ],
     "Developer Guides": [
       // The purpose of this section is to provide developers & technical users with
@@ -478,6 +478,7 @@ module.exports = {
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",
       "docs/sync-status",
+      "docs/lineage/lineage-feature-guide",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 

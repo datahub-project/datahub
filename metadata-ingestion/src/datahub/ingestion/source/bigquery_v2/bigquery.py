@@ -62,6 +62,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantRunSkipHandler,
+)
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -112,6 +116,7 @@ from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
 )
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -198,13 +203,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
+        if self.config.enable_legacy_sharded_table_support:
+            BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = ""
 
         set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
         self.usage_extractor = BigQueryUsageExtractor(config, self.report)
-        self.profiler = BigqueryProfiler(config, self.report)
 
         # Currently caching using instance variables
         # TODO - rewrite cache for readability or use out of the box solution
@@ -228,6 +234,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
+
+        self.redundant_run_skip_handler = RedundantRunSkipHandler(
+            source=self,
+            config=self.config,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
+        self.profiling_state_handler: Optional[ProfilingHandler] = None
+        if self.config.store_last_profiling_timestamps:
+            self.profiling_state_handler = ProfilingHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+        self.profiler = BigqueryProfiler(
+            config, self.report, self.profiling_state_handler
+        )
 
         atexit.register(cleanup, config)
 
@@ -600,9 +625,48 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 continue
 
         if self.config.include_table_lineage:
+            if (
+                self.config.store_last_lineage_extraction_timestamp
+                and self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                )
+            ):
+                # Skip this run
+                self.report.report_warning(
+                    "lineage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return
+
+            if self.config.store_last_lineage_extraction_timestamp:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+
             yield from self.generate_lineage(project_id)
 
         if self.config.include_usage_statistics:
+            if (
+                self.config.store_last_usage_extraction_timestamp
+                and self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                )
+            ):
+                self.report.report_warning(
+                    "usage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return
+
+            if self.config.store_last_usage_extraction_timestamp:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+
             yield from self.generate_usage_statistics(project_id)
 
     def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
@@ -736,12 +800,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_name: str,
         entity_urn: str,
-        entity_type: str,
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
@@ -899,7 +961,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         yield from self._get_domain_wu(
             dataset_name=str(datahub_dataset_name),
             entity_urn=dataset_urn,
-            entity_type="dataset",
         )
 
     def gen_lineage(
@@ -1170,15 +1231,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> List[BigqueryView]:
-        views = self.db_views.get(project_id)
+        views = self.db_views.get(project_id, {}).get(dataset_name, [])
 
         if not views:
             return BigQueryDataDictionary.get_views_for_dataset(
                 conn, project_id, dataset_name, self.config.profiling.enabled
             )
-
-        # Some schema may not have any table
-        return views.get(dataset_name, [])
+        return views
 
     def get_columns_for_table(
         self,

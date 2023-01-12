@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+from datetime import datetime
 from typing import Callable, Iterable, List, Optional, cast
 
 from snowflake.sqlalchemy import snowdialect
@@ -20,14 +21,12 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDatabase,
     SnowflakeTable,
 )
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeCommonProtocol,
-)
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
@@ -40,14 +39,16 @@ class SnowflakeProfilerRequest(GEProfilerRequest):
     profile_table_level_only: bool = False
 
 
-class SnowflakeProfiler(SnowflakeCommonMixin, GenericProfiler, SnowflakeCommonProtocol):
-    config: SnowflakeV2Config
-    report: SnowflakeV2Report
-
-    def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
-        super().__init__(config, report, self.platform)
-        self.config = config
-        self.report = report
+class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
+    def __init__(
+        self,
+        config: SnowflakeV2Config,
+        report: SnowflakeV2Report,
+        state_handler: Optional[ProfilingHandler] = None,
+    ) -> None:
+        super().__init__(config, report, self.platform, state_handler)
+        self.config: SnowflakeV2Config = config
+        self.report: SnowflakeV2Report = report
         self.logger = logger
 
     def get_workunits(self, databases: List[SnowflakeDatabase]) -> Iterable[WorkUnit]:
@@ -102,6 +103,13 @@ class SnowflakeProfiler(SnowflakeCommonMixin, GenericProfiler, SnowflakeCommonPr
                     self.config.platform_instance,
                     self.config.env,
                 )
+
+                # We don't add to the profiler state if we only do table level profiling as it always happens
+                if self.state_handler:
+                    self.state_handler.add_to_state(
+                        dataset_urn, int(datetime.now().timestamp() * 1000)
+                    )
+
                 yield self.wrap_aspect_as_workunit(
                     "dataset",
                     dataset_urn,

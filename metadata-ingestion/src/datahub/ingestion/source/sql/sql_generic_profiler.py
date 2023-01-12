@@ -6,12 +6,14 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig, SQLSourceReport
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.schema_classes import DatasetProfileClass
 from datahub.utilities.stats_collections import TopKDict
@@ -41,11 +43,16 @@ logger = logging.getLogger(__name__)
 
 class GenericProfiler:
     def __init__(
-        self, config: SQLAlchemyConfig, report: ProfilingSqlReport, platform: str
+        self,
+        config: SQLAlchemyConfig,
+        report: ProfilingSqlReport,
+        platform: str,
+        state_handler: Optional[ProfilingHandler] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.platform = platform
+        self.state_handler = state_handler
 
     def generate_profiles(
         self,
@@ -118,15 +125,37 @@ class GenericProfiler:
         size_in_bytes: Optional[int],
         rows_count: Optional[int],
     ) -> bool:
-        threshold_time: Optional[datetime] = None
-        if self.config.profiling.profile_if_updated_since_days is not None:
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+
+        if not self.config.table_pattern.allowed(dataset_name):
+            return False
+
+        last_profiled: Optional[int] = None
+        if self.state_handler:
+            last_profiled = self.state_handler.get_last_profiled(dataset_urn)
+            if last_profiled:
+                # If profiling state exists we have to carry over to the new state
+                self.state_handler.add_to_state(dataset_urn, last_profiled)
+
+        threshold_time: Optional[datetime] = (
+            datetime.fromtimestamp(last_profiled / 1000, timezone.utc)
+            if last_profiled
+            else None
+        )
+        if (
+            not threshold_time
+            and self.config.profiling.profile_if_updated_since_days is not None
+        ):
             threshold_time = datetime.now(timezone.utc) - timedelta(
                 self.config.profiling.profile_if_updated_since_days
             )
 
-        if not self.config.table_pattern.allowed(
-            dataset_name
-        ) or not self.config.profile_pattern.allowed(dataset_name):
+        if not self.config.profile_pattern.allowed(dataset_name):
             return False
 
         schema_name = dataset_name.rsplit(".", 1)[0]

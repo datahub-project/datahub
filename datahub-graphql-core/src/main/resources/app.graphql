@@ -196,6 +196,21 @@ type VisualConfig {
   Custom favicon url for the homepage & top banner
   """
   faviconUrl: String
+
+  """
+  Configuration for the queries tab
+  """
+  queriesTab: QueriesTabConfig
+}
+
+"""
+Configuration for the queries tab
+"""
+type QueriesTabConfig {
+  """
+  Number of queries to show in the queries tab
+  """
+  queriesTabResultSize: Int
 }
 
 """

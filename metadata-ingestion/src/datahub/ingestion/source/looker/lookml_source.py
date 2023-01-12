@@ -915,7 +915,9 @@ class LookerView:
             sql_query = derived_table["sql"]
             reporter.query_parse_attempts += 1
 
-            # Skip queries that contain liquid variables. We currently don't parse them correctly
+            # Skip queries that contain liquid variables. We currently don't parse them correctly.
+            # Docs: https://cloud.google.com/looker/docs/liquid-variable-reference.
+            # TODO: also support ${EXTENDS} and ${TABLE}
             if "{%" in sql_query:
                 try:
                     # test if parsing works
@@ -1432,6 +1434,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 checkout_dir = git_clone.clone(
                     ssh_key=self.source_config.github_info.deploy_key,
                     repo_url=self.source_config.github_info.repo_ssh_locator,
+                    branch=self.source_config.github_info.branch_for_clone,
                 )
                 self.reporter.git_clone_latency = datetime.now() - start_time
                 self.source_config.base_folder = checkout_dir.resolve()
@@ -1461,6 +1464,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 )
                             ),
                             repo_url=p_ref.repo_ssh_locator,
+                            branch=p_ref.branch_for_clone,
                         )
 
                         p_ref = p_checkout_dir.resolve()
