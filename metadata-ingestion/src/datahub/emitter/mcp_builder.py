@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ContainerClass,
     DomainsClass,
+    EmbedClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -362,3 +363,10 @@ def mcps_from_mce(
             aspect=aspect,
             systemMetadata=mce.systemMetadata,
         )
+
+
+def create_embed_mcp(urn: str, embed_url: str) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=urn,
+        aspect=EmbedClass(renderUrl=embed_url),
+    )

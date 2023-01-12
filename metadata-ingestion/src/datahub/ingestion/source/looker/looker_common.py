@@ -24,12 +24,12 @@ from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.models import User, WriteQuery
 from pydantic import Field
 from pydantic.class_validators import validator
-
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcp_builder
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -83,6 +83,7 @@ from datahub.metadata.schema_classes import (
     TagSnapshotClass,
 )
 from datahub.utilities.lossy_collections import LossyList, LossySet
+from datahub.utilities.url_util import url_util
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.looker.lookml_source import (
@@ -186,10 +187,6 @@ class LookerCommonConfig(DatasetSourceConfigBase):
     extract_column_level_lineage: bool = Field(
         True,
         description="When enabled, extracts column-level lineage from Views and Explores",
-    )
-    embed_urls_enabled: bool = Field(
-        True,
-        description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI. Embeds must be enabled inside of Looker to use this feature.",
     )
 
 
@@ -758,33 +755,19 @@ class LookerExplore:
         return browse_path
 
     def _get_url(self, base_url):
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = url_util.remove_port_from_url(base_url)
         return f"{base_url}/explore/{self.model_name}/{self.name}"
 
     def _get_embed_url(self, base_url: str) -> str:
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = url_util.remove_port_from_url(base_url)
         return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
 
-    def _create_embed_mcp(
-        self, urn: str, base_url: str
-    ) -> MetadataChangeProposalWrapper:
-        explore_embed_url = self._get_embed_url(base_url)
-        return MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
-            entityUrn=urn,
-            aspectName="embed",
-            aspect=EmbedClass(renderUrl=explore_embed_url),
-        )
-
     def _to_metadata_events(  # noqa: C901
-        self, config: LookerCommonConfig, reporter: SourceReport, base_url: str
+        self,
+        config: LookerCommonConfig,
+        reporter: SourceReport,
+        base_url: str,
+        extract_embed_urls: bool,
     ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
         # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
         # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
@@ -889,8 +872,10 @@ class LookerExplore:
         ]
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
-        if config.embed_urls_enabled:
-            embed_mcp = self._create_embed_mcp(dataset_snapshot.urn, base_url)
+        if extract_embed_urls:
+            embed_mcp = mcp_builder.create_embed_mcp(
+                dataset_snapshot.urn, self._get_embed_url(base_url)
+            )
             proposals.append(embed_mcp)
 
         return proposals
@@ -1079,10 +1064,7 @@ class LookerDashboardElement:
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = url_util.remove_port_from_url(base_url)
         if self.look_id is not None:
             return f"{base_url}/looks/{self.look_id}"
         else:
@@ -1090,10 +1072,7 @@ class LookerDashboardElement:
 
     def embed_url(self, base_url: str) -> Optional[str]:
         # A dashboard element can use a look or just a raw query against an explore
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = url_util.remove_port_from_url(base_url)
         if self.look_id is not None:
             return f"{base_url}/embed/looks/{self.look_id}"
         else:
@@ -1138,17 +1117,11 @@ class LookerDashboard:
     last_viewed_at: Optional[datetime.datetime] = None
 
     def url(self, base_url):
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = url_util.remove_port_from_url(base_url)
         return f"{base_url}/dashboards/{self.id}"
 
     def embed_url(self, base_url: str) -> str:
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = url_util.remove_port_from_url(base_url)
         return f"{base_url}/embed/dashboards/{self.id}"
 
     def get_urn_dashboard_id(self):

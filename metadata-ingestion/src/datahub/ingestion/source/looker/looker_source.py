@@ -26,6 +26,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcp_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -86,7 +87,6 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
-    EmbedClass,
     InputFieldClass,
     InputFieldsClass,
     OwnerClass,
@@ -150,7 +150,10 @@ class LookerDashboardSourceConfig(
         "30 days",
         description="Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage history for. See https://docs.looker.com/reference/filter-expressions#date_and_time.",
     )
-
+    extract_embed_urls: bool = Field(
+        True,
+        description="Produce URLs used to render Looker Explores as Previews inside of DataHub UI. Embeds must be enabled inside of Looker to use this feature.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
@@ -650,17 +653,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return chart_type
 
-    def _create_embed_mcp(
-        self, urn: str, embed_url: str
-    ) -> MetadataChangeProposalWrapper:
-        return MetadataChangeProposalWrapper(
-            entityType=urn.split(":")[2],
-            changeType=ChangeTypeClass.UPSERT,
-            entityUrn=urn,
-            aspectName="embed",
-            aspect=EmbedClass(renderUrl=embed_url),
-        )
-
     def _make_chart_metadata_events(
         self, dashboard_element: LookerDashboardElement, dashboard: LookerDashboard
     ) -> List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
@@ -703,7 +695,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
-            self.source_config.embed_urls_enabled
+            self.source_config.extract_embed_urls
             and self.source_config.external_base_url
         ):
             maybe_embed_url = dashboard_element.embed_url(
@@ -711,7 +703,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             )
             if maybe_embed_url:
                 proposals.append(
-                    self._create_embed_mcp(
+                    mcp_builder.create_embed_mcp(
                         chart_snapshot.urn,
                         maybe_embed_url,
                     )
@@ -759,11 +751,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
-            self.source_config.embed_urls_enabled
+            self.source_config.extract_embed_urls
             and self.source_config.external_base_url
         ):
             proposals.append(
-                self._create_embed_mcp(
+                mcp_builder.create_embed_mcp(
                     dashboard_snapshot.urn,
                     looker_dashboard.embed_url(self.source_config.external_base_url),
                 )
@@ -811,7 +803,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if looker_explore is not None:
             events = (
                 looker_explore._to_metadata_events(
-                    self.source_config, self.reporter, self.source_config.base_url
+                    self.source_config,
+                    self.reporter,
+                    self.source_config.base_url,
+                    self.source_config.extract_embed_urls,
                 )
                 or events
             )
