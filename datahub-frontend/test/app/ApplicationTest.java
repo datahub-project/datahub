@@ -161,4 +161,9 @@ public class ApplicationTest extends WithBrowser {
     assertTrue(sessionCookie.getValue().contains("actor=" + URLEncoder.encode(TEST_USER, StandardCharsets.UTF_8)));
   }
 
+  @Test
+  public void testOidcRedirectToRequestedUrl() throws InterruptedException {
+    browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
+    assertEquals("container/urn:li:container:DATABASE", browser.url());
+  }
 }

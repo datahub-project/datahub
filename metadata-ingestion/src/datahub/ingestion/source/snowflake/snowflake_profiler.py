@@ -107,7 +107,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                 # We don't add to the profiler state if we only do table level profiling as it always happens
                 if self.state_handler:
                     self.state_handler.add_to_state(
-                        dataset_urn, int(datetime.utcnow().timestamp() * 1000)
+                        dataset_urn, int(datetime.now().timestamp() * 1000)
                     )
 
                 yield self.wrap_aspect_as_workunit(
