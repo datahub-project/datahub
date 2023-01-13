@@ -474,7 +474,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             # Get the explore from the view directly
             explores = [element.query.view] if element.query.view is not None else []
             logger.debug(
-                "Element {}: Explores added: {}".format(element.title, explores)
+                f"Element {element.title}: Explores added via query: {explores}"
             )
             for exp in explores:
                 self.add_explore_to_fetch(
@@ -511,7 +511,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 input_fields = self._get_input_fields_from_query(element.look.query)
                 if element.look.query.view is not None:
                     explores = [element.look.query.view]
-                logger.debug(f"Element {title}: Explores added: {explores}")
+                logger.debug(f"Element {title}: Explores added via look: {explores}")
                 for exp in explores:
                     self.add_explore_to_fetch(
                         model=element.look.query.model,
@@ -552,7 +552,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 )
 
                 logger.debug(
-                    "Element {}: Explores added: {}".format(element.title, explores)
+                    f"Element {element.title}: Explores added via result_maker: {explores}"
                 )
 
                 for exp in explores:
@@ -605,6 +605,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 input_fields=input_fields,
             )
 
+        logger.debug(f"Element {element.title}: Unable to parse LookerDashboardElement")
         return None
 
     def _get_chart_type(
