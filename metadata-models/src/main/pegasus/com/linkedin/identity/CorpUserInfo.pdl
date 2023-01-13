@@ -92,4 +92,9 @@ record CorpUserInfo {
    * two uppercase letters country code. e.g.  US
    */
   countryCode: optional string
+
+  /**
+   * Custom properties
+  */
+  customProperties: optional string
 }
