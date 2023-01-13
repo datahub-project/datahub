@@ -1,5 +1,6 @@
 package com.linkedin.metadata.boot;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,6 +36,10 @@ public class OnBootApplicationListener {
   @Qualifier("bootstrapManager")
   private BootstrapManager _bootstrapManager;
 
+  @Autowired
+  @Qualifier("configurationProvider")
+  private ConfigurationProvider provider;
+
 
   @EventListener(ContextRefreshedEvent.class)
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
@@ -47,7 +52,7 @@ public class OnBootApplicationListener {
 
   public Runnable isSchemaRegistryAPIServeletReady() {
     return () -> {
-        final HttpGet request = new HttpGet("http://localhost:8080/schema-registry/api/up");
+        final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl() + "/up");
         int timeouts = 30;
         boolean openAPIServeletReady = false;
         while (!openAPIServeletReady && timeouts > 0) {

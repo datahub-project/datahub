@@ -35,6 +35,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 
@@ -71,9 +72,9 @@ public class SchemaRegistryController
     return CompatibilityApi.super.getAcceptHeader();
   }
 
-  @GetMapping(value = "/up", produces = MediaType.APPLICATION_JSON_VALUE)
-  public ResponseEntity.BodyBuilder isUp() {
-    return ResponseEntity.ok();
+  @RequestMapping(value = "/up", method = RequestMethod.GET)
+  public ResponseEntity<Void> isUp() {
+    return new ResponseEntity<>(HttpStatus.OK);
   }
 
   @Override
