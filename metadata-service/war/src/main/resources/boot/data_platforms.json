@@ -531,7 +531,7 @@
       "datasetNameDelimiter": ".",
       "name": "vertica",
       "displayName": "Vertica",
-      "type": "RELATIONAL_DB",
+      "type": "ANALYTIC_DB",
       "logoUrl": "/assets/platforms/verticalogo.png"
     }
   }
