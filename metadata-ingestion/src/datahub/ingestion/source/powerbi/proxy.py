@@ -51,7 +51,8 @@ class PowerBiAPI:
         state: str
         dashboards: List[Any]
         datasets: Dict[str, "PowerBiAPI.PowerBIDataset"]
-        reports: List["PowerBiAPI.Report"]
+        report_endorsements: Dict[str, List[str]]
+        dashboard_endorsements: Dict[str, List[str]]
 
     @dataclass
     class DataSource:
@@ -358,12 +359,16 @@ class PowerBiAPI:
             workspace_id=dashboard.workspace_id, entity="dashboards", _id=dashboard.id
         )
 
-    def get_dashboard_data(self, workspace: Workspace) -> dict:
+    def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
+        """
+        Get the list of dashboard from PowerBi for the given workspace identifier
+        TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get
+        -dashboards), there is no information available on pagination
+        """
         dashboard_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         dashboard_list_endpoint = dashboard_list_endpoint.format(
-            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
-            WORKSPACE_ID=workspace.id,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL, WORKSPACE_ID=workspace.id
         )
         # Hit PowerBi
         logger.info(f"Request to URL={dashboard_list_endpoint}")
@@ -374,55 +379,50 @@ class PowerBiAPI:
 
         # Check if we got response from PowerBi
         if response.status_code != 200:
-            logger.warning("Failed to fetch dashboard data from power-bi for")
+            logger.warning("Failed to fetch dashboard list from power-bi for")
             logger.warning(f"{Constant.WorkspaceId}={workspace.id}")
-            logger.warning(f"Http result code={response.status_code}")
             raise ConnectionError(
                 "Failed to fetch the dashboard list from the power-bi"
             )
 
-        return response.json()[Constant.VALUE]
+        dashboards_dict: List[Any] = response.json()[Constant.VALUE]
 
-    def get_dashboards(
-        self, workspace: Workspace, scan_result: dict
-    ) -> List[Dashboard]:
-        """
-        Get the list of dashboard from PowerBi for the given workspace identifier
-
-        TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get
-        -dashboards), there is no information available on pagination
-        """
-        dashboards: List[PowerBiAPI.Dashboard] = []
-        dashboard_data = self.get_dashboard_data(workspace)
-
-        for scanned_dashboard in scan_result["dashboards"]:
-            # Iterate through response and create a list of PowerBiAPI.Dashboard
-            dashboard_details = next(
-                (x for x in dashboard_data if x["id"] == scanned_dashboard["id"]), None
-            )
-            if not dashboard_details:
-                # Dashboard details was not found from REST API payload,
-                # which probably means we encountered an [App] Dashboard.
-                # Skip for now.
-                continue
-            # Iterate through response and create a list of PowerBiAPI.Dashboard
-            dashboard = PowerBiAPI.Dashboard(
-                id=scanned_dashboard.get("id"),
-                isReadOnly=dashboard_details.get("isReadOnly"),
-                displayName=dashboard_details.get("displayName"),
-                embedUrl=dashboard_details.get("embedUrl"),
-                webUrl=dashboard_details.get("webUrl"),
+        # Iterate through response and create a list of PowerBiAPI.Dashboard
+        dashboards: List[PowerBiAPI.Dashboard] = [
+            PowerBiAPI.Dashboard(
+                id=instance.get("id"),
+                isReadOnly=instance.get("isReadOnly"),
+                displayName=instance.get("displayName"),
+                embedUrl=instance.get("embedUrl"),
+                webUrl=instance.get("webUrl"),
                 workspace_id=workspace.id,
                 workspace_name=workspace.name,
                 tiles=[],
                 users=[],
-                tags=self.parse_endorsement(
-                    scanned_dashboard.get("endorsementDetails", None)
-                ),
+                tags=workspace.dashboard_endorsements.get(instance.get("id", None), []),
             )
-            dashboards.append(dashboard)
+            for instance in dashboards_dict
+            if instance is not None
+        ]
 
         return dashboards
+
+    def get_dashboard_endorsements(self, scan_result: dict) -> Dict[str, List[str]]:
+        """
+        Store saved dashboard endorsements into a dict with dashboard id as key and
+        endorsements or tags as list of strings
+        """
+        results = {}
+
+        for scanned_dashboard in scan_result["dashboards"]:
+            # Iterate through response and create a list of PowerBiAPI.Dashboard
+            dashboard_id = scanned_dashboard.get("id")
+            tags = self.parse_endorsement(
+                scanned_dashboard.get("endorsementDetails", None)
+            )
+            results[dashboard_id] = tags
+
+        return results
 
     @staticmethod
     def parse_endorsement(endorsements: Optional[dict]) -> List[str]:
@@ -673,6 +673,60 @@ class PowerBiAPI:
             for raw_instance in response_dict["value"]
         ]
 
+    def get_reports(
+        self, workspace: "PowerBiAPI.Workspace"
+    ) -> List["PowerBiAPI.Report"]:
+        """
+        Fetch the report from PowerBi for the given report identifier
+        """
+        if workspace is None:
+            logger.info("workspace is None")
+            return []
+
+        report_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.REPORT_LIST]
+        # Replace place holders
+        report_list_endpoint = report_list_endpoint.format(
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
+            WORKSPACE_ID=workspace.id,
+        )
+        # Hit PowerBi
+        logger.info(f"Request to report URL={report_list_endpoint}")
+        response = requests.get(
+            report_list_endpoint,
+            headers={Constant.Authorization: self.get_access_token()},
+        )
+
+        # Check if we got response from PowerBi
+        if response.status_code != 200:
+            message: str = "Failed to fetch reports from power-bi for"
+            logger.warning(message)
+            logger.warning(f"{Constant.WorkspaceId}={workspace.id}")
+            raise ConnectionError(message)
+
+        response_dict = response.json()
+        reports: List["PowerBiAPI.Report"] = [
+            PowerBiAPI.Report(
+                id=raw_instance["id"],
+                name=raw_instance.get("name"),
+                webUrl=raw_instance.get("webUrl"),
+                embedUrl=raw_instance.get("embedUrl"),
+                description=raw_instance.get("description"),
+                pages=self.get_pages_by_report(
+                    workspace_id=workspace.id, report_id=raw_instance["id"]
+                ),
+                users=self.__get_users(
+                    workspace_id=workspace.id, entity="reports", _id=raw_instance["id"]
+                ),
+                dataset=workspace.datasets.get(raw_instance.get("datasetId")),
+                tags=workspace.report_endorsements.get(
+                    raw_instance.get("id", None), []
+                ),
+            )
+            for raw_instance in response_dict["value"]
+        ]
+
+        return reports
+
     def get_groups(self):
         group_endpoint = PowerBiAPI.BASE_URL
         # Hit PowerBi
@@ -693,7 +747,8 @@ class PowerBiAPI:
                 state="",
                 datasets={},
                 dashboards=[],
-                reports=[],
+                report_endorsements={},
+                dashboard_endorsements={},
             )
             for workspace in groups.get("value", [])
             if workspace.get("type", None) == "Workspace"
@@ -868,44 +923,19 @@ class PowerBiAPI:
 
             return None
 
-        def handle_report(report_data: dict) -> Optional[PowerBiAPI.Report]:
-            try:
-                instance = self._get_report(workspace_id, report_data["id"])
-                if not instance:
-                    return None
-
-                instance.pages = self.get_pages_by_report(
-                    workspace_id=workspace.id, report_id=report_data["id"]
-                )
-                instance.dataset = workspace.datasets.get(
-                    report_data.get("datasetId", None)
-                )
-
-                if self.__config.extract_endorsements_to_tags:
-                    instance.tags = self.parse_endorsement(
-                        report_data.get("endorsementDetails", None)
-                    )
-
-                if self.__config.extract_ownership:
-                    instance.users = self.__get_users(
-                        workspace_id=workspace.id,
-                        entity="reports",
-                        _id=report_data["id"],
-                    )
-
-                return instance
-            except ConnectionError:
-                # Encountered [App] Report and must dismiss
-                return None
-
-        def scan_result_to_reports(scan_result: dict) -> List[PowerBiAPI.Report]:
+        def scan_result_to_report_endorsements(
+            scan_result: dict,
+        ) -> Dict[str, List[str]]:
+            results = {}
             reports: List[dict] = scan_result.get("reports", [])
 
-            result_reports: List[Optional[PowerBiAPI.Report]] = [
-                handle_report(report) for report in reports
-            ]
-            # filter None's out
-            return [report for report in result_reports if report]
+            for report in reports:
+                report_id = report.get("id", "")
+                endorsements = self.parse_endorsement(
+                    report.get("endorsementDetails", None)
+                )
+                results[report_id] = endorsements
+            return results
 
         logger.info("Creating scan job for workspace")
         logger.info("{}={}".format(Constant.WorkspaceId, workspace_id))
@@ -932,16 +962,22 @@ class PowerBiAPI:
             state=scan_result["state"],
             datasets={},
             dashboards=[],
-            reports=[],
+            report_endorsements={},
+            dashboard_endorsements={},
         )
+
+        if self.__config.extract_endorsements_to_tags:
+            workspace.dashboard_endorsements = self.get_dashboard_endorsements(
+                scan_result
+            )
+            workspace.report_endorsements = scan_result_to_report_endorsements(
+                scan_result
+            )
+
         # Get workspace dashboards
-        workspace.dashboards = self.get_dashboards(workspace, scan_result)
+        workspace.dashboards = self.get_dashboards(workspace)
 
         workspace.datasets = json_to_dataset_map(scan_result)
         init_dashboard_tiles(workspace)
-
-        if self.__config.extract_reports:
-            # Handle reports
-            workspace.reports = scan_result_to_reports(scan_result)
 
         return workspace
