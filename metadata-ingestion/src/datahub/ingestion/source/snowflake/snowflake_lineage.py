@@ -486,7 +486,6 @@ class SnowflakeLineageExtractor(
             f"A total of {self.report.num_table_to_view_edges_scanned} View upstream edges found."
         )
 
-
     def _process_view_upstream_lineage_row(self, db_row):
         # Process UpstreamTable/View/ExternalTable/Materialized View->View edge.
         view_upstream: str = self.get_dataset_identifier_from_qualified_name(
