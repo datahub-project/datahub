@@ -101,33 +101,28 @@ class ReportAttribute(BaseModel):
         }
         return log_levels[self.severity]
 
+    def log(self, msg: str) -> None:
+        logger.log(level=self.logger_sev, msg=msg, stacklevel=3)
+
 
 class EntityFilterReport(ReportAttribute):
     type: str
 
-    _processed: LossyList[str] = LossyList()
-    _dropped: LossyList[str] = LossyList()
+    processed_entities: LossyList[str] = pydantic.Field(default_factory=LossyList)
+    dropped_entities: LossyList[str] = pydantic.Field(default_factory=LossyList)
 
     def processed(self, entity: str, type: Optional[str] = None) -> None:
-        logger.log(
-            level=self.logger_sev,
-            msg=f"Processed {type or self.type} {entity}",
-            stacklevel=2,
-        )
-        self._processed.append(entity)
+        self.log(f"Processed {type or self.type} {entity}")
+        self.processed_entities.append(entity)
 
     def dropped(self, entity: str, type: Optional[str] = None) -> None:
-        logger.log(
-            level=self.logger_sev,
-            msg=f"Filtered {type or self.type} {entity}",
-            stacklevel=2,
-        )
-        self._dropped.append(entity)
+        self.log(f"Filtered {type or self.type} {entity}")
+        self.dropped_entities.append(entity)
 
     def as_obj(self) -> dict:
         return {
-            "filtered": self._dropped,
-            "processed": self._processed,
+            "filtered": self.dropped_entities.as_obj(),
+            "processed": self.processed_entities.as_obj(),
         }
 
     @staticmethod
