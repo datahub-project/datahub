@@ -25,7 +25,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && curl -sS -L https://github.com/treff7es/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-${DOCKERIZE_ARCH}-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 FROM base as prod-install
-COPY war*.war /datahub/datahub-gms/bin/war.war
+COPY war.war /datahub/datahub-gms/bin/war.war
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms/resources/entity-registry.yml
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/datahub-gms/jetty.xml /datahub/datahub-gms/scripts/jetty.xml
