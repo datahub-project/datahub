@@ -1,14 +1,23 @@
 import dataclasses
 import json
+import logging
 import pprint
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import humanfriendly
 import pydantic
+from pydantic import BaseModel
+from typing_extensions import Literal
+
+from datahub.ingestion.api.report_helpers import format_datetime_relative
+from datahub.utilities.lossy_collections import LossyList
+
+logger = logging.getLogger(__name__)
+LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
 
 # The sort_dicts option was added in Python 3.8.
 if sys.version_info >= (3, 8):
@@ -27,22 +36,7 @@ class Report:
             return humanfriendly.format_timespan(some_val)
         elif isinstance(some_val, datetime):
             try:
-                # check if we have a tz_aware object or not (https://stackoverflow.com/questions/5802108/how-to-check-if-a-datetime-object-is-localized-with-pytz)
-                tz_aware = (
-                    some_val.tzinfo is not None
-                    and some_val.tzinfo.utcoffset(some_val) is not None
-                )
-                now = datetime.now(timezone.utc) if tz_aware else datetime.now()
-                diff = now - some_val
-                if abs(diff) < timedelta(seconds=1):
-                    # the timestamps are close enough that printing a duration isn't useful
-                    return f"{some_val} (now)"
-                elif diff > timedelta(seconds=0):
-                    # timestamp is in the past
-                    return f"{some_val} ({humanfriendly.format_timespan(diff)} ago)"
-                else:
-                    # timestamp is in the future
-                    return f"{some_val} (in {humanfriendly.format_timespan(some_val - now)})"
+                return format_datetime_relative(some_val)
             except Exception:
                 # we don't want to fail reporting because we were unable to pretty print a timestamp
                 return str(datetime)
@@ -89,3 +83,51 @@ class Report:
 
     def as_json(self) -> str:
         return json.dumps(self.as_obj())
+
+    # TODO add helper method for warning / failure status + counts?
+
+
+class ReportAttribute(BaseModel):
+    severity: LogLevel = "DEBUG"
+    help: Optional[str] = None
+
+    @property
+    def logger_sev(self) -> int:
+        log_levels = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+        }
+        return log_levels[self.severity]
+
+
+class EntityFilterReport(ReportAttribute):
+    type: str
+
+    processed: LossyList[str] = LossyList()
+    filtered: LossyList[str] = LossyList()
+
+    def __call__(self, entity: str) -> Any:
+        logger.log(
+            level=self.logger_sev, msg=f"Processed {self.type} {entity}", stacklevel=2
+        )
+        self.processed.append(entity)
+
+    def dropped(self, entity: str) -> None:
+        logger.log(
+            level=self.logger_sev, msg=f"Filtered {self.type} {entity}", stacklevel=2
+        )
+        self.filtered.append(entity)
+
+    def as_obj(self) -> dict:
+        return {
+            "filtered": self.filtered,
+            "processed": self.processed,
+        }
+
+    @staticmethod
+    def field(type: str, severity: LogLevel = "DEBUG") -> "EntityFilterReport":
+        return dataclasses.field(
+            default_factory=lambda: EntityFilterReport(type=type, severity=severity)
+        )
