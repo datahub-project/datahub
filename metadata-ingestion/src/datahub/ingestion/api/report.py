@@ -108,15 +108,19 @@ class EntityFilterReport(ReportAttribute):
     _processed: LossyList[str] = LossyList()
     _dropped: LossyList[str] = LossyList()
 
-    def processed(self, entity: str) -> None:
+    def processed(self, entity: str, type: Optional[str] = None) -> None:
         logger.log(
-            level=self.logger_sev, msg=f"Processed {self.type} {entity}", stacklevel=2
+            level=self.logger_sev,
+            msg=f"Processed {type or self.type} {entity}",
+            stacklevel=2,
         )
         self._processed.append(entity)
 
-    def dropped(self, entity: str) -> None:
+    def dropped(self, entity: str, type: Optional[str] = None) -> None:
         logger.log(
-            level=self.logger_sev, msg=f"Filtered {self.type} {entity}", stacklevel=2
+            level=self.logger_sev,
+            msg=f"Filtered {type or self.type} {entity}",
+            stacklevel=2,
         )
         self._dropped.append(entity)
 

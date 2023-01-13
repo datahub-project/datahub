@@ -11,5 +11,4 @@ class UnityCatalogReport(StaleEntityRemovalSourceReport):
     metastores: EntityFilterReport = EntityFilterReport.field(type="metastore")
     catalogs: EntityFilterReport = EntityFilterReport.field(type="catalog")
     schemas: EntityFilterReport = EntityFilterReport.field(type="schema")
-    tables: EntityFilterReport = EntityFilterReport.field(type="table")
-    views: EntityFilterReport = EntityFilterReport.field(type="view")
+    tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
