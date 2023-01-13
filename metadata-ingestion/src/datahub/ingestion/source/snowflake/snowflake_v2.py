@@ -1315,7 +1315,6 @@ class SnowflakeV2Source(
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             description=schema.comment,
-            sub_types=[SqlContainerSubTypes.SCHEMA],
             parent_container_key=database_container_key,
             domain_urn=domain_urn,
             external_url=self.get_external_url_for_schema(schema.name, db_name)
