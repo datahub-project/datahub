@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict
+from typing import Any, ClassVar, Dict
 
 import humanfriendly
 import pydantic
@@ -19,6 +19,8 @@ else:
 
 @dataclass
 class Report:
+    _ALIASES: ClassVar[Dict[str, str]] = {}
+
     @staticmethod
     def to_str(some_val: Any) -> str:
         if isinstance(some_val, Enum):
@@ -36,13 +38,13 @@ class Report:
                 diff = now - some_val
                 if abs(diff) < timedelta(seconds=1):
                     # the timestamps are close enough that printing a duration isn't useful
-                    return f"{some_val} (now)."
+                    return f"{some_val} (now)"
                 elif diff > timedelta(seconds=0):
                     # timestamp is in the past
-                    return f"{some_val} ({humanfriendly.format_timespan(diff)} ago)."
+                    return f"{some_val} ({humanfriendly.format_timespan(diff)} ago)"
                 else:
                     # timestamp is in the future
-                    return f"{some_val} (in {humanfriendly.format_timespan(some_val - now)})."
+                    return f"{some_val} (in {humanfriendly.format_timespan(some_val - now)})"
             except Exception:
                 # we don't want to fail reporting because we were unable to pretty print a timestamp
                 return str(datetime)
@@ -78,10 +80,11 @@ class Report:
     def as_obj(self) -> dict:
         self.compute_stats()
         return {
-            str(key): Report.to_dict(value)
+            str(self._ALIASES.get(key, key)): Report.to_dict(value)
             for (key, value) in self.__dict__.items()
+            # ignore nulls and fields starting with _
             if value is not None
-            and not str(key).startswith("_")  # ignore nulls and fields starting with _
+            and not str(self._ALIASES.get(key, key)).startswith("_")
         }
 
     def as_string(self) -> str:

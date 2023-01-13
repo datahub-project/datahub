@@ -10,17 +10,21 @@ from datahub.utilities.stats_collections import TopKDict
 
 @dataclass
 class UnityCatalogReport(StaleEntityRemovalSourceReport):
+    # TODO remove these
     scanned_metastore: int = 0
     scanned_catalog: int = 0
     scanned_schema: int = 0
     scanned_table: int = 0
+
     num_catalogs_to_scan: Dict[str, int] = field(default_factory=TopKDict)
     num_schemas_to_scan: Dict[str, int] = field(default_factory=TopKDict)
     num_tables_to_scan: Dict[str, int] = field(default_factory=TopKDict)
+
+    # TODO remove this
     tables_scanned: int = 0
     views_scanned: int = 0
-    filtered: LossyList[str] = field(default_factory=LossyList)
 
+    # TODO remove this
     def increment_scanned_metastore(self, count: int = 1) -> None:
         self.scanned_metastore = self.scanned_metastore + count
 
@@ -33,9 +37,24 @@ class UnityCatalogReport(StaleEntityRemovalSourceReport):
     def increment_scanned_table(self, count: int = 1) -> None:
         self.scanned_table = self.scanned_table + count
 
+    # TODO remove this
+    filtered: LossyList[str] = field(default_factory=LossyList)
+
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
 
+    metastores: FilterReport = field(
+        default_factory=...
+    )  # -> dropped / processed + counts
+    catalog = TODO
+    schema = TODO
+    table = TODO
+    views = TODO
+
+    # metastores.processed(...)
+    # metastores.dropped(...)
+
+    # TODO remove this
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table
