@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 import pydantic
@@ -436,7 +436,7 @@ class MetabaseSource(Source):
 
         return custom_properties
 
-    def get_datasource_urn(self, card_details: dict):
+    def get_datasource_urn(self, card_details: dict) -> Optional[List]:
         (
             platform,
             database_name,
@@ -492,7 +492,7 @@ class MetabaseSource(Source):
                 return None
 
         if platform == "snowflake":
-            source_tables = [i.lower() for i in source_tables]
+            source_tables = set(i.lower() for i in source_tables)
 
         # Create dataset URNs
         dataset_urn = [
