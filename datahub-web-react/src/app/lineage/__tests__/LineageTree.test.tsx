@@ -51,12 +51,14 @@ describe('LineageTree', () => {
             mockFetchedEntities,
             Direction.Downstream,
             testEntityRegistry,
+            {},
         );
         const upstreamData = constructTree(
             { entity: dataset3WithLineage, type: EntityType.Dataset },
             mockFetchedEntities,
             Direction.Upstream,
             testEntityRegistry,
+            {},
         );
 
         const { getByTestId } = render(

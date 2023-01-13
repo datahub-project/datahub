@@ -7,7 +7,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 
 import LineageTree from './LineageTree';
 import constructTree from './utils/constructTree';
-import { ColumnEdge, Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
+import { ColumnEdge, Direction, EntityAndType, EntitySelectParams, FetchedEntity, UpdatedLineages } from './types';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -83,6 +83,7 @@ type Props = {
     width: number;
     height: number;
     fineGrainedMap?: any;
+    refetchCenterNode: () => void;
 };
 
 const HelpIcon = styled(QuestionCircleOutlined)`
@@ -102,6 +103,7 @@ export default function LineageVizInsideZoom({
     width,
     height,
     fineGrainedMap,
+    refetchCenterNode,
 }: Props) {
     const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
     const [collapsedColumnsNodes, setCollapsedColumnsNodes] = useState<Record<string, boolean>>({});
@@ -109,6 +111,7 @@ export default function LineageVizInsideZoom({
     const [highlightedEdges, setHighlightedEdges] = useState<ColumnEdge[]>([]);
     const [visibleColumnsByUrn, setVisibleColumnsByUrn] = useState<Record<string, Set<string>>>({});
     const [columnsByUrn, setColumnsByUrn] = useState<Record<string, SchemaField[]>>({});
+    const [updatedLineages, setUpdatedLineages] = useState<UpdatedLineages>({});
 
     const history = useHistory();
     const location = useLocation();
@@ -122,13 +125,13 @@ export default function LineageVizInsideZoom({
     const entityRegistry = useEntityRegistry();
 
     const downstreamData = useMemo(
-        () => constructTree(entityAndType, fetchedEntities, Direction.Downstream, entityRegistry),
-        [entityAndType, fetchedEntities, entityRegistry],
+        () => constructTree(entityAndType, fetchedEntities, Direction.Downstream, entityRegistry, updatedLineages),
+        [entityAndType, fetchedEntities, entityRegistry, updatedLineages],
     );
 
     const upstreamData = useMemo(
-        () => constructTree(entityAndType, fetchedEntities, Direction.Upstream, entityRegistry),
-        [entityAndType, fetchedEntities, entityRegistry],
+        () => constructTree(entityAndType, fetchedEntities, Direction.Upstream, entityRegistry, updatedLineages),
+        [entityAndType, fetchedEntities, entityRegistry, updatedLineages],
     );
 
     useEffect(() => {
@@ -158,6 +161,7 @@ export default function LineageVizInsideZoom({
                 setVisibleColumnsByUrn,
                 columnsByUrn,
                 setColumnsByUrn,
+                refetchCenterNode,
             }}
         >
             <ZoomContainer>
@@ -322,12 +326,12 @@ export default function LineageVizInsideZoom({
                         selectedEntity={selectedEntity}
                         hoveredEntity={hoveredEntity}
                         setHoveredEntity={setHoveredEntity}
-                        direction={Direction.Downstream}
                         canvasHeight={height}
                         setIsDraggingNode={setIsDraggingNode}
                         draggedNodes={draggedNodes}
                         setDraggedNodes={setDraggedNodes}
                         fetchedEntities={fetchedEntities}
+                        setUpdatedLineages={setUpdatedLineages}
                     />
                 </RootSvg>
             </ZoomContainer>

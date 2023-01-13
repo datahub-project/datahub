@@ -1,11 +1,11 @@
 import os
+from collections import OrderedDict
+from collections.abc import Mapping
+
 import click
 import yaml
-from collections.abc import Mapping
 from dotenv import dotenv_values
 from yaml import Loader
-from collections import OrderedDict
-
 
 # Generates a merged docker-compose file with env variables inlined.
 # Usage: python3 docker_compose_cli_gen.py ../docker-compose.yml ../docker-compose.override.yml ../docker-compose-gen.yml
@@ -54,7 +54,10 @@ def modify_docker_config(base_path, docker_yaml_config):
 
             # 5. Append to an "environment" block to YAML
             for key, value in env_vars.items():
-                service["environment"].append(f"{key}={value}")
+                if value is not None:
+                    service["environment"].append(f"{key}={value}")
+                else:
+                    service["environment"].append(f"{key}")
 
             # 6. Delete the "env_file" value
             del service["env_file"]

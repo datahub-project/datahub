@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 
-import com.linkedin.datahub.graphql.generated.OrFilter;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -103,7 +103,7 @@ public class ResolverUtils {
     // In the case that user sends filters to be or-d together, we need to build a series of conjunctive criterion
     // arrays, rather than just one for the AND case.
     public static ConjunctiveCriterionArray buildConjunctiveCriterionArrayWithOr(
-        @Nonnull List<OrFilter> orFilters
+        @Nonnull List<AndFilterInput> orFilters
     ) {
         return new ConjunctiveCriterionArray(orFilters.stream().map(orFilter -> {
                 CriterionArray andCriterionForOr = new CriterionArray(criterionListFromAndFilter(orFilter.getAnd()));
@@ -115,7 +115,7 @@ public class ResolverUtils {
     }
 
     @Nullable
-    public static Filter buildFilter(@Nullable List<FacetFilterInput> andFilters, @Nullable List<OrFilter> orFilters) {
+    public static Filter buildFilter(@Nullable List<FacetFilterInput> andFilters, @Nullable List<AndFilterInput> orFilters) {
         if ((andFilters == null || andFilters.isEmpty()) && (orFilters == null || orFilters.isEmpty())) {
             return null;
         }

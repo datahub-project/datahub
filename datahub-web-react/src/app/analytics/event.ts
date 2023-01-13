@@ -1,4 +1,5 @@
-import { EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import { Direction } from '../lineage/types';
 
 /**
  * Valid event types.
@@ -22,6 +23,7 @@ export enum EventType {
     RecommendationImpressionEvent,
     RecommendationClickEvent,
     HomePageRecommendationClickEvent,
+    HomePageExploreAllClickEvent,
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
@@ -48,6 +50,12 @@ export enum EventType {
     DeleteIngestionSourceEvent,
     ExecuteIngestionSourceEvent,
     SsoEvent,
+    CreateViewEvent,
+    UpdateViewEvent,
+    SetGlobalDefaultViewEvent,
+    SetUserDefaultViewEvent,
+    ManuallyCreateLineageEvent,
+    ManuallyDeleteLineageEvent,
 }
 
 /**
@@ -338,6 +346,10 @@ export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
 }
 
+export interface HomePageExploreAllClickEvent extends BaseEvent {
+    type: EventType.HomePageExploreAllClickEvent;
+}
+
 // Business glossary events
 
 export interface CreateGlossaryEntityEvent extends BaseEvent {
@@ -377,6 +389,58 @@ export interface SsoEvent extends BaseEvent {
     type: EventType.SsoEvent;
 }
 
+export interface ManuallyCreateLineageEvent extends BaseEvent {
+    type: EventType.ManuallyCreateLineageEvent;
+    direction: Direction;
+    sourceEntityType?: EntityType;
+    sourceEntityPlatform?: string;
+    destinationEntityType?: EntityType;
+    destinationEntityPlatform?: string;
+}
+
+export interface ManuallyDeleteLineageEvent extends BaseEvent {
+    type: EventType.ManuallyDeleteLineageEvent;
+    direction: Direction;
+    sourceEntityType?: EntityType;
+    sourceEntityPlatform?: string;
+    destinationEntityType?: EntityType;
+    destinationEntityPlatform?: string;
+}
+
+/**
+ * Emitted when a new View is created.
+ */
+export interface CreateViewEvent extends BaseEvent {
+    type: EventType.CreateViewEvent;
+    viewType: DataHubViewType;
+}
+
+/**
+ * Emitted when an existing View is updated.
+ */
+export interface UpdateViewEvent extends BaseEvent {
+    type: EventType.UpdateViewEvent;
+    viewType: DataHubViewType;
+    urn: string;
+}
+
+/**
+ * Emitted when a user sets or clears their personal default view.
+ */
+export interface SetUserDefaultViewEvent extends BaseEvent {
+    type: EventType.SetUserDefaultViewEvent;
+    urn: string | null;
+    viewType: DataHubViewType | null;
+}
+
+/**
+ * Emitted when a user sets or clears the global default view.
+ */
+export interface SetGlobalDefaultViewEvent extends BaseEvent {
+    type: EventType.SetGlobalDefaultViewEvent;
+    urn: string | null;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -389,6 +453,7 @@ export type Event =
     | ResetCredentialsEvent
     | SearchEvent
     | HomePageSearchEvent
+    | HomePageExploreAllClickEvent
     | SearchResultsViewEvent
     | SearchResultClickEvent
     | BrowseResultClickEvent
@@ -424,4 +489,10 @@ export type Event =
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
-    | SsoEvent;
+    | SsoEvent
+    | CreateViewEvent
+    | UpdateViewEvent
+    | SetUserDefaultViewEvent
+    | SetGlobalDefaultViewEvent
+    | ManuallyCreateLineageEvent
+    | ManuallyDeleteLineageEvent;

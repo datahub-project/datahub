@@ -105,6 +105,24 @@ module.exports = {
           // "docs/wip/guide-enrich-your-metadata",
         ],
       },
+      {
+        "Ingestion Quickstart Guides": [
+          {
+            BigQuery: [
+              "docs/quick-ingestion-guides/bigquery/overview",
+              "docs/quick-ingestion-guides/bigquery/setup",
+              "docs/quick-ingestion-guides/bigquery/configuration",
+            ],
+          },
+          {
+            Snowflake: [
+              "docs/quick-ingestion-guides/snowflake/overview",
+              "docs/quick-ingestion-guides/snowflake/setup",
+              "docs/quick-ingestion-guides/snowflake/configuration",
+            ],
+          },
+        ],
+      },
     ],
     "Ingest Metadata": [
       // The purpose of this section is to provide a deeper understanding of how ingestion works.
@@ -165,6 +183,7 @@ module.exports = {
           // },
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
+          "metadata-ingestion/docs/dev_guides/classification",
           "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
           "metadata-ingestion/docs/dev_guides/sql_profiles",
         ],
@@ -174,6 +193,7 @@ module.exports = {
       // The purpose of this section is to provide direction on how to enrich metadata when shift-left isn’t an option
       // "docs/wip/csv-enrichment",
       // "docs/wip/ui-based-enrichment",
+      "docs/enrich-metadata",
       "docs/domains",
       "docs/glossary/business-glossary",
       "docs/tags",
@@ -285,8 +305,7 @@ module.exports = {
       {
         "Advanced Guides": [
           "docs/how/delete-metadata",
-          "docs/how/updating-datahub",
-          "datahub-ranger-plugin/README",
+          "docs/how/configuring-authorization-with-apache-ranger",
           "docs/how/backup-datahub",
           "docs/how/restore-indices",
           "docs/advanced/db-retention",
@@ -298,6 +317,7 @@ module.exports = {
           "docs/advanced/no-code-upgrade",
         ],
       },
+      "docs/how/updating-datahub",
     ],
     "Developer Guides": [
       // The purpose of this section is to provide developers & technical users with
@@ -411,6 +431,7 @@ module.exports = {
         "Developing on DataHub": [
           "docs/developers",
           "docs/docker/development",
+          "metadata-ingestion/developing",
           {
             Modules: [
               "datahub-web-react/README",
@@ -424,6 +445,7 @@ module.exports = {
         ],
       },
       "docs/debugging",
+      "docs/plugins",
 
       {
         Advanced: [
@@ -436,7 +458,6 @@ module.exports = {
           "docs/advanced/es-7-upgrade",
           "docs/how/migrating-graph-service-implementation",
           "docs/advanced/field-path-spec-v2",
-          "metadata-ingestion/developing",
           "metadata-ingestion/adding-source",
           "docs/how/add-custom-ingestion-source",
           "docs/how/add-custom-data-platform",
@@ -457,6 +478,7 @@ module.exports = {
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",
       "docs/sync-status",
+      "docs/lineage/lineage-feature-guide",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 
@@ -476,12 +498,13 @@ module.exports = {
       "docs/CONTRIBUTING",
       "docs/links",
       "docs/rfc",
-      {
-        RFCs: list_ids_in_directory("docs/rfc/active"),
-      },
     ],
 
     "Release History": ["releases"],
+    "Managed DataHub Release History": [
+      "docs/managed-datahub/release-notes/v_0_1_69",
+      "docs/managed-datahub/release-notes/v_0_1_70",
+    ],
 
     // "Candidates for Deprecation": [
     // "README",

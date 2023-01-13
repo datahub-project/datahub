@@ -1,4 +1,4 @@
-from datahub_provider._airflow_compat import BaseOperator, ExternalTaskSensor, Operator
+from datahub_provider._airflow_compat import AIRFLOW_PATCHED
 
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Union, cast
 
@@ -13,12 +13,15 @@ from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 
+assert AIRFLOW_PATCHED
+
 if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models import DagRun, TaskInstance
 
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
+    from datahub_provider._airflow_shims import Operator
 
 
 def _task_downstream_task_ids(operator: "Operator") -> Set[str]:
@@ -32,6 +35,7 @@ class AirflowGenerator:
     def _get_dependencies(
         task: "Operator", dag: "DAG", flow_urn: DataFlowUrn
     ) -> List[DataJobUrn]:
+        from datahub_provider._airflow_shims import ExternalTaskSensor
 
         # resolve URNs for upstream nodes in subdags upstream of the current task.
         upstream_subdag_task_urns: List[DataJobUrn] = []
@@ -69,7 +73,6 @@ class AirflowGenerator:
             and dag.parent_dag is not None
             and len(task.upstream_task_ids) == 0
         ):
-
             # filter through the parent dag's tasks and find the subdag trigger(s)
             subdags = [
                 x for x in dag.parent_dag.task_dict.values() if x.subdag is not None
@@ -180,6 +183,8 @@ class AirflowGenerator:
 
     @staticmethod
     def _get_description(task: "Operator") -> Optional[str]:
+        from airflow.models.baseoperator import BaseOperator
+
         if not isinstance(task, BaseOperator):
             # TODO: Get docs for mapped operators.
             return None
@@ -277,7 +282,6 @@ class AirflowGenerator:
         dag: "DAG",
         data_job: Optional[DataJob] = None,
     ) -> DataProcessInstance:
-
         if data_job is None:
             data_job = AirflowGenerator.generate_datajob(cluster, task=task, dag=dag)
         dpi = DataProcessInstance.from_datajob(
@@ -293,7 +297,6 @@ class AirflowGenerator:
         start_timestamp_millis: Optional[int] = None,
         dataflow: Optional[DataFlow] = None,
     ) -> None:
-
         if dataflow is None:
             assert dag_run.dag
             dataflow = AirflowGenerator.generate_dataflow(cluster, dag_run.dag)

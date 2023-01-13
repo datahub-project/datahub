@@ -4,7 +4,7 @@ import com.datahub.authentication.Authentication;
 
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
-import com.datahub.authentication.Authenticator;
+import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.authentication.AuthenticationRequest;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;

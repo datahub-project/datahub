@@ -3,6 +3,7 @@ namespace com.linkedin.identity
 import com.linkedin.common.CorpGroupUrn
 import com.linkedin.common.CorpuserUrn
 import com.linkedin.common.EmailAddress
+import com.linkedin.common.AuditStamp
 
 /**
  * Information about a Corp Group ingested from a third party source
@@ -77,4 +78,15 @@ record CorpGroupInfo {
    * Slack channel for the group
    */
   slack: optional string
+
+  /**
+   * Created Audit stamp
+   */
+   @Searchable = {
+     "/time": {
+      "fieldName": "createdTime",
+      "fieldType": "DATETIME"
+     }
+   }
+   created: optional AuditStamp
 }

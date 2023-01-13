@@ -225,7 +225,7 @@ extend type Mutation {
   updateTest(urn: String!, input: UpdateTestInput!): String
 
   """
-  Create an existing test - note that this will NOT delete dangling pointers until the next execution of the test.
+  Delete an existing test - note that this will NOT delete dangling pointers until the next execution of the test.
   """
   deleteTest(urn: String!): Boolean
 }

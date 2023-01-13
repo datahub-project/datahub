@@ -117,7 +117,8 @@ public class StatefulTokenServiceTest {
 
   @Test
   public void testValidateAccessTokenFailsDueToExpiration() {
-    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    StatefulTokenService
+        tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     // Generate token that expires immediately.
     Date date = new Date();
     //This method returns the time in millis

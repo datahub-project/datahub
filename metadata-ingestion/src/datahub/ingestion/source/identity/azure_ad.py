@@ -29,7 +29,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
     GroupMembershipClass,
@@ -163,6 +162,13 @@ class AzureADSource(Source):
 
     from your Azure AD instance.
 
+    Note that any users ingested from this connector will not be able to log into DataHub unless you have Azure AD OIDC
+    SSO enabled. You can, however, have these users ingested into DataHub before they log in for the first time if you
+    would like to take actions like adding them to a group or assigning them a role.
+
+    For instructions on how to do configure Azure AD OIDC SSO, please read the documentation
+    [here](https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react-azure).
+
     ### Extracting DataHub Users
 
     #### Usernames
@@ -208,12 +214,7 @@ class AzureADSource(Source):
     ### Extracting Group Membership
 
     This connector additional extracts the edges between Users and Groups that are stored in [Azure AD](https://docs.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0&tabs=http#response-1). It maps them to the `GroupMembership` aspect
-    associated with DataHub users (CorpUsers). Today this has the unfortunate side effect of **overwriting** any Group Membership information that
-    was created outside of the connector. That means if you've used the DataHub REST API to assign users to groups, this information will be overridden
-    when the Azure AD Source is executed. If you intend to *always* pull users, groups, and their relationships from your Identity Provider, then
-    this should not matter.
-
-    This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/datahub-project/datahub/issues/3065).
+    associated with DataHub users (CorpUsers).
 
     ### Prerequisite
 
@@ -294,10 +295,7 @@ class AzureADSource(Source):
                     yield wu
 
                     group_origin_mcp = MetadataChangeProposalWrapper(
-                        entityType="corpGroup",
                         entityUrn=datahub_corp_group_snapshot.urn,
-                        changeType=ChangeTypeClass.UPSERT,
-                        aspectName="origin",
                         aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
                     )
                     group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
@@ -308,10 +306,7 @@ class AzureADSource(Source):
                     yield group_origin_wu
 
                     group_status_mcp = MetadataChangeProposalWrapper(
-                        entityType="corpGroup",
                         entityUrn=datahub_corp_group_snapshot.urn,
-                        changeType=ChangeTypeClass.UPSERT,
-                        aspectName="status",
                         aspect=StatusClass(removed=False),
                     )
                     group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
@@ -443,10 +438,7 @@ class AzureADSource(Source):
             yield wu
 
             user_origin_mcp = MetadataChangeProposalWrapper(
-                entityType="corpuser",
                 entityUrn=datahub_corp_user_snapshot.urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="origin",
                 aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
             )
             user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
@@ -455,10 +447,7 @@ class AzureADSource(Source):
             yield user_origin_wu
 
             user_status_mcp = MetadataChangeProposalWrapper(
-                entityType="corpuser",
                 entityUrn=datahub_corp_user_snapshot.urn,
-                changeType=ChangeTypeClass.UPSERT,
-                aspectName="status",
                 aspect=StatusClass(removed=False),
             )
             user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
@@ -468,9 +457,6 @@ class AzureADSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self) -> None:
-        pass
 
     def _get_azure_ad_groups(self) -> Iterable[List]:
         yield from self._get_azure_ad_data(kind="/groups")

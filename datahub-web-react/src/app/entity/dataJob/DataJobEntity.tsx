@@ -69,7 +69,7 @@ export class DataJobEntity implements Entity<DataJob> {
             useEntityQuery={useGetDataJobQuery}
             useUpdateQuery={useUpdateDataJobMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Documentation',
@@ -86,12 +86,6 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, dataJob: GetDataJobQuery) =>
-                            (dataJob?.dataJob?.upstream?.count || 0) !== 0 ||
-                            (dataJob?.dataJob?.downstream?.count || 0) !== 0,
-                    },
                 },
                 {
                     name: 'Runs',
@@ -148,6 +142,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
                 domain={data.domain?.domain}
+                externalUrl={data.properties?.externalUrl}
             />
         );
     };
