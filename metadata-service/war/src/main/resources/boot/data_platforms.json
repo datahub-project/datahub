@@ -531,7 +531,7 @@
       "datasetNameDelimiter": ".",
       "name": "vertica",
       "displayName": "Vertica",
-      "type": "ANALYTIC_DB",
+      "type": "OLAP_DATASTORE",
       "logoUrl": "/assets/platforms/verticalogo.png"
     }
   }
