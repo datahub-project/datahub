@@ -31,6 +31,9 @@ export const DEFAULT_APP_CONFIG = {
     testsConfig: {
         enabled: false,
     },
+    asdConfig: {
+        url: "/"
+    }
 };
 
 export const AppConfigContext = React.createContext<{

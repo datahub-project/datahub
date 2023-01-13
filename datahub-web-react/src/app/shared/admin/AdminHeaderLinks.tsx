@@ -55,11 +55,12 @@ export function AdminHeaderLinks(props: Props) {
     const showDomains = me?.platformPrivileges?.manageDomains || false;
     const showGlossary = me?.platformPrivileges?.manageGlossaries || false;
     const showASD = true;
+    const asdLink = config?.asd.url;
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
             {showASD && (
-                <a href="/">
+                <a href={asdLink}>
                     <Button type="text">Go to Advanced Search and Dashboards</Button>
                 </a>
             )}
