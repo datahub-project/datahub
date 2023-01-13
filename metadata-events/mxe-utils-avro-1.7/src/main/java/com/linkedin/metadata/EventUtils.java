@@ -5,7 +5,7 @@ import com.google.common.io.Resources;
 import com.linkedin.data.avro.DataTranslator;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.mxe.BuildIndicesHistoryEvent;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -43,7 +43,7 @@ public class EventUtils {
 
   private static final RecordDataSchema PE_PEGASUS_SCHEMA = new PlatformEvent().schema();
 
-  private static final RecordDataSchema BIHE_PEGASUS_SCHEMA = new BuildIndicesHistoryEvent().schema();
+  private static final RecordDataSchema DUHE_PEGASUS_SCHEMA = new DataHubUpgradeHistoryEvent().schema();
 
   private static final Schema ORIGINAL_MCE_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeEvent.avsc");
@@ -66,8 +66,8 @@ public class EventUtils {
   private static final Schema ORIGINAL_PE_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/PlatformEvent.avsc");
 
-  private static final Schema ORIGINAL_BIHE_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/BuildIndicesHistoryEvent.avsc");
+  private static final Schema ORIGINAL_DUHE_AVRO_SCHEMA =
+      getAvroSchemaFromResource("avro/com/linkedin/mxe/DataHubUpgradeHistoryEvent.avsc");
 
   private static final Schema RENAMED_MCE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.MetadataChangeEvent.SCHEMA$;
 
@@ -87,8 +87,8 @@ public class EventUtils {
   private static final Schema RENAMED_FMCP_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal.SCHEMA$;
 
-  private static final Schema RENAMED_BIHE_AVRO_SCHEMA =
-      com.linkedin.pegasus2avro.mxe.BuildIndicesHistoryEvent.SCHEMA$;
+  private static final Schema RENAMED_DUHE_AVRO_SCHEMA =
+      com.linkedin.pegasus2avro.mxe.DataHubUpgradeHistoryEvent.SCHEMA$;
 
   private EventUtils() {
     // Util class
@@ -176,10 +176,10 @@ public class EventUtils {
    * @return the Pegasus {@link PlatformEvent} model
    */
   @Nonnull
-  public static BuildIndicesHistoryEvent avroToPegasusBIHE(@Nonnull GenericRecord record) throws IOException {
-    return new BuildIndicesHistoryEvent(DataTranslator.genericRecordToDataMap(
-        renameSchemaNamespace(record, RENAMED_BIHE_AVRO_SCHEMA, ORIGINAL_BIHE_AVRO_SCHEMA),
-        BIHE_PEGASUS_SCHEMA, ORIGINAL_BIHE_AVRO_SCHEMA));
+  public static DataHubUpgradeHistoryEvent avroToPegasusDUHE(@Nonnull GenericRecord record) throws IOException {
+    return new DataHubUpgradeHistoryEvent(DataTranslator.genericRecordToDataMap(
+        renameSchemaNamespace(record, RENAMED_DUHE_AVRO_SCHEMA, ORIGINAL_DUHE_AVRO_SCHEMA),
+        DUHE_PEGASUS_SCHEMA, ORIGINAL_DUHE_AVRO_SCHEMA));
   }
 
   /**
@@ -302,17 +302,17 @@ public class EventUtils {
   }
 
   /**
-   * Converts a Pegasus Build Indices History Event into the equivalent Avro model as a {@link GenericRecord}.
+   * Converts a Pegasus DataHub Upgrade History Event into the equivalent Avro model as a {@link GenericRecord}.
    *
-   * @param event the Pegasus {@link com.linkedin.mxe.BuildIndicesHistoryEvent} model
+   * @param event the Pegasus {@link com.linkedin.mxe.DataHubUpgradeHistoryEvent} model
    * @return the Avro model with com.linkedin.pegasus2avro.event namespace
    * @throws IOException if the conversion fails
    */
   @Nonnull
-  public static GenericRecord pegasusToAvroBIHE(@Nonnull BuildIndicesHistoryEvent event) throws IOException {
+  public static GenericRecord pegasusToAvroDUHE(@Nonnull DataHubUpgradeHistoryEvent event) throws IOException {
     GenericRecord original =
-        DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_BIHE_AVRO_SCHEMA);
-    return renameSchemaNamespace(original, RENAMED_BIHE_AVRO_SCHEMA);
+        DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_DUHE_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_DUHE_AVRO_SCHEMA);
   }
 
   /**

@@ -10,7 +10,7 @@ import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.mxe.BuildIndicesHistoryEvent;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -69,9 +69,9 @@ public class PostBuildIndicesStep implements UpgradeStep {
           }
         }
 
-        BuildIndicesHistoryEvent buildIndicesHistoryEvent = new BuildIndicesHistoryEvent()
+        DataHubUpgradeHistoryEvent dataHubUpgradeHistoryEvent = new DataHubUpgradeHistoryEvent()
             .setVersion(_gitVersion.getVersion());
-        _kafkaEventProducer.produceBuildIndicesHistoryEvent(buildIndicesHistoryEvent);
+        _kafkaEventProducer.produceDataHubUpgradeHistoryEvent(dataHubUpgradeHistoryEvent);
       } catch (Exception e) {
         log.error("PostBuildIndicesStep failed.", e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);

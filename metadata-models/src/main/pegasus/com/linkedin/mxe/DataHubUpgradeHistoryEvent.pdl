@@ -1,9 +1,9 @@
 namespace com.linkedin.mxe
 
 /**
- * Kafka event for recording a historical index rebuild change. Used for backwards incompatible changes to mappings and settings that require full reindexing.
+ * Kafka event for recording a historical version upgrade. Used for backwards incompatible changes to infrastructure that requires infrastructure level blocking changes.
  */
-record BuildIndicesHistoryEvent {
+record DataHubUpgradeHistoryEvent {
 
   /**
    * Version of the build
