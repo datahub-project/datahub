@@ -231,7 +231,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
-        self.domain_registry: Optional[DomainRegistry] = None
+
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -774,6 +774,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_workunit(wu)
             yield wu
 
+    def _get_domain_wu(
+        self,
+        dataset_name: str,
+        entity_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(dataset_name)
+        if domain_urn:
+            wus = add_domain_to_entity_wu(
+                entity_urn=entity_urn,
+                domain_urn=domain_urn,
+            )
+            for wu in wus:
+                self.report.report_workunit(wu)
+                yield wu
+
     def gen_table_dataset_workunits(
         self,
         table: BigqueryTable,
@@ -926,15 +941,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         yield wu
         self.report.report_workunit(wu)
 
-        if self.config.domain and self.domain_registry:
-            yield from get_domain_wu(
-                dataset_name=str(datahub_dataset_name),
-                entity_urn=dataset_urn,
-                entity_type="dataset",
-                domain_config=self.config.domain,
-                domain_registry=self.domain_registry,
-                report=self.report,
-            )
+        yield from self._get_domain_wu(
+            dataset_name=str(datahub_dataset_name),
+            entity_urn=dataset_urn,
+        )
 
     def gen_lineage(
         self,

@@ -17,6 +17,7 @@ from sqlalchemy.engine.reflection import Inspector
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -520,15 +521,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
             self.report.report_workunit(subtypes_workunit)
             yield subtypes_workunit
 
-            if self.config.domain and self.domain_registry:
-                yield from get_domain_wu(
-                    dataset_name=dataset_name,
-                    entity_urn=dataset_urn,
-                    entity_type="dataset",
-                    domain_config=self.config.domain,
-                    domain_registry=self.domain_registry,
-                    report=self.report,
-                )
+            yield from self._get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                sql_config=sql_config,
+            )
 
     def get_hive_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
         where_clause_suffix = ""
@@ -746,15 +743,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 
-            if self.config.domain and self.domain_registry:
-                yield from get_domain_wu(
-                    dataset_name=dataset.dataset_name,
-                    entity_urn=dataset_urn,
-                    entity_type="dataset",
-                    domain_config=self.config.domain,
-                    domain_registry=self.domain_registry,
-                    report=self.report,
-                )
+            yield from self._get_domain_wu(
+                dataset_name=dataset.dataset_name,
+                entity_urn=dataset_urn,
+                sql_config=sql_config,
+            )
 
     def _get_db_filter_where_clause(self) -> str:
         if self.config.metastore_db_name is None:

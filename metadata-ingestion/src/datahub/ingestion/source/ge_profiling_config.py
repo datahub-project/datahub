@@ -101,7 +101,7 @@ class GEProfilingConfig(ConfigModel):
     )
 
     profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
-        default=1,
+        default=None,
         description="Profile table only if it has been updated since these many number of days. If set to `null`, no constraint of last modified time for tables to profile. Supported only in `snowflake` and `BigQuery`.",
     )
 

@@ -203,7 +203,6 @@ def delete(
             aspect_name=aspect_name,
             soft=soft,
             dry_run=dry_run,
-            entity_type=entity_type,
             start_time=start_time,
             end_time=end_time,
             cached_session_host=(session, host),

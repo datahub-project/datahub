@@ -126,15 +126,14 @@ class BigqueryProfiler(GenericProfiler):
                     ] = partition
                     return None, None
 
-                partition_column_type: str = "DATE"
+                # ingestion time partitoned tables partition column is not in the schema, so we default to TIMESTAMP type
+                partition_column_type: str = "TIMESTAMP"
                 for c in table.columns:
                     if c.is_partition_column:
                         partition_column_type = c.data_type
 
-                if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
-                elif table.time_partitioning.type_ in ("HOUR"):
-                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN '{partition_datetime}' AND '{upper_bound_partition_datetime}'"
+                if table.time_partitioning.type_ in ("HOUR", "DAY", "MONTH", "YEAR"):
+                    partition_where_clause = f"{partition_column_type}(`{table.time_partitioning.field}`) BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.time_partitioning.type_}"

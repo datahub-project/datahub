@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
+    make_tag_urn,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -37,7 +38,10 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeEdition,
     SnowflakeObjectDomain,
 )
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeV2Config,
+    TagOption,
+)
 from datahub.ingestion.source.snowflake.snowflake_lineage import (
     SnowflakeLineageExtractor,
 )
@@ -52,8 +56,10 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeQuery,
     SnowflakeSchema,
     SnowflakeTable,
+    SnowflakeTag,
     SnowflakeView,
 )
+from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
 )
@@ -85,8 +91,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    GlobalTags,
     Status,
     SubTypes,
+    TagAssociation,
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -109,6 +117,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringType,
     TimeType,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
+from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
@@ -186,6 +196,11 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
     supported=True,
 )
+@capability(
+    SourceCapability.TAGS,
+    "Optionally enabled via `extract_tags`",
+    supported=True,
+)
 class SnowflakeV2Source(
     ClassificationMixin,
     SnowflakeQueryMixin,
@@ -233,6 +248,10 @@ class SnowflakeV2Source(
         if config.include_usage_stats or config.include_operational_stats:
             # For usage stats
             self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
+
+        self.tag_extractor = SnowflakeTagExtractor(
+            config, self.data_dictionary, self.report
+        )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
         if self.config.store_last_profiling_timestamps:
@@ -357,6 +376,7 @@ class SnowflakeV2Source(
                     _report[SourceCapability.CONTAINERS] = CapabilityReport(
                         capable=True
                     )
+                    _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
                 elif privilege.object_type in (
                     "TABLE",
                     "VIEW",
@@ -390,6 +410,8 @@ class SnowflakeV2Source(
                         _report[SourceCapability.USAGE_STATS] = CapabilityReport(
                             capable=True
                         )
+                        _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
+
                 # If all capabilities supported, no need to continue
                 if set(capabilities) == set(_report.keys()):
                     break
@@ -413,6 +435,7 @@ class SnowflakeV2Source(
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.USAGE_STATS: "Current role does not have permissions to snowflake account usage views",
+            SourceCapability.TAGS: "Either no tags have been applied to objects, or the current role does not have permission to access the objects or to snowflake account usage views ",
         }
 
         for c in capabilities:  # type:ignore
@@ -424,6 +447,7 @@ class SnowflakeV2Source(
                 SourceCapability.LINEAGE_COARSE,
                 SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
+                SourceCapability.TAGS,
             ):
                 failure_message = (
                     f"Current role {current_role} does not have permissions to use warehouse {connection_conf.warehouse}. Please check the grants associated with this role."
@@ -446,7 +470,7 @@ class SnowflakeV2Source(
 
         return _report
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits(self) -> Iterable[WorkUnit]:
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -470,6 +494,7 @@ class SnowflakeV2Source(
         for snowflake_db in databases:
             try:
                 yield from self._process_database(snowflake_db)
+
             except SnowflakePermissionError as e:
                 # FIXME - This may break satetful ingestion if new tables than previous run are emitted above
                 # and stateful ingestion is enabled
@@ -629,10 +654,19 @@ class SnowflakeV2Source(
                 )
             return
 
+        if self.config.extract_tags != TagOption.skip:
+            snowflake_db.tags = self.tag_extractor.get_tags_on_object(
+                domain="database", db_name=db_name
+            )
+
         if self.config.include_technical_schema:
             yield from self.gen_database_containers(snowflake_db)
 
         self.fetch_schemas_for_database(snowflake_db, db_name)
+
+        if self.config.include_technical_schema and snowflake_db.tags:
+            for tag in snowflake_db.tags:
+                yield from self._process_tag(tag)
 
         for snowflake_schema in snowflake_db.schemas:
             yield from self._process_schema(snowflake_schema, db_name)
@@ -677,6 +711,12 @@ class SnowflakeV2Source(
             return
 
         schema_name = snowflake_schema.name
+
+        if self.config.extract_tags != TagOption.skip:
+            snowflake_schema.tags = self.tag_extractor.get_tags_on_object(
+                schema_name=schema_name, db_name=db_name, domain="schema"
+            )
+
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
@@ -693,6 +733,10 @@ class SnowflakeV2Source(
             if self.config.include_technical_schema:
                 for view in snowflake_schema.views:
                     yield from self._process_view(view, schema_name, db_name)
+
+        if self.config.include_technical_schema and snowflake_schema.tags:
+            for tag in snowflake_schema.tags:
+                yield from self._process_tag(tag)
 
         if not snowflake_schema.views and not snowflake_schema.tables:
             self.report_warning(
@@ -764,6 +808,22 @@ class SnowflakeV2Source(
             table, schema_name, db_name, dataset_name
         )
 
+        if self.config.extract_tags != TagOption.skip:
+            table.tags = self.tag_extractor.get_tags_on_object(
+                table_name=table.name,
+                schema_name=schema_name,
+                db_name=db_name,
+                domain="table",
+            )
+
+        if self.config.include_technical_schema:
+            if table.tags:
+                for tag in table.tags:
+                    yield from self._process_tag(tag)
+            for column_name in table.column_tags:
+                for tag in table.column_tags[column_name]:
+                    yield from self._process_tag(tag)
+
         yield from self.gen_dataset_workunits(table, schema_name, db_name)
 
     def fetch_sample_data_for_classification(
@@ -819,6 +879,10 @@ class SnowflakeV2Source(
     def fetch_columns_for_table(self, table, schema_name, db_name, table_identifier):
         try:
             table.columns = self.get_columns_for_table(table.name, schema_name, db_name)
+            if self.config.extract_tags != TagOption.skip:
+                table.column_tags = self.tag_extractor.get_column_tags_for_table(
+                    table.name, schema_name, db_name
+                )
         except Exception as e:
             logger.debug(
                 f"Failed to get columns for table {table_identifier} due to error {e}",
@@ -842,6 +906,10 @@ class SnowflakeV2Source(
 
         try:
             view.columns = self.get_columns_for_table(view.name, schema_name, db_name)
+            if self.config.extract_tags != TagOption.skip:
+                view.column_tags = self.tag_extractor.get_column_tags_for_table(
+                    view.name, schema_name, db_name
+                )
         except Exception as e:
             logger.debug(
                 f"Failed to get columns for view {view_name} due to error {e}",
@@ -849,7 +917,33 @@ class SnowflakeV2Source(
             )
             self.report_warning("Failed to get columns for view", view_name)
 
+        if self.config.extract_tags != TagOption.skip:
+            view.tags = self.tag_extractor.get_tags_on_object(
+                table_name=view.name,
+                schema_name=schema_name,
+                db_name=db_name,
+                domain="table",
+            )
+
+        if self.config.include_technical_schema:
+            if view.tags:
+                for tag in view.tags:
+                    yield from self._process_tag(tag)
+            for column_name in view.column_tags:
+                for tag in view.column_tags[column_name]:
+                    yield from self._process_tag(tag)
+
         yield from self.gen_dataset_workunits(view, schema_name, db_name)
+
+    def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
+        tag_identifier = tag.identifier()
+
+        if self.report.is_tag_processed(tag_identifier):
+            return
+
+        self.report.report_tag_processed(tag_identifier)
+
+        yield from self.gen_tag_workunits(tag)
 
     def gen_dataset_workunits(
         self,
@@ -902,14 +996,18 @@ class SnowflakeV2Source(
         )
         yield self.wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
 
-        if self.config.domain and self.domain_registry:
-            yield from get_domain_wu(
-                dataset_name=dataset_name,
-                entity_urn=dataset_urn,
-                entity_type="dataset",
-                domain_config=self.config.domain,
-                domain_registry=self.domain_registry,
-                report=self.report,
+        yield from self._get_domain_wu(
+            dataset_name=dataset_name,
+            entity_urn=dataset_urn,
+        )
+
+        if table.tags:
+            tag_associations = [
+                TagAssociation(tag=make_tag_urn(tag.identifier())) for tag in table.tags
+            ]
+            global_tags = GlobalTags(tag_associations)
+            yield self.wrap_aspect_as_workunit(
+                "dataset", dataset_urn, "globalTags", global_tags
             )
 
         if (
@@ -955,6 +1053,21 @@ class SnowflakeV2Source(
             else None,
         )
 
+    def gen_tag_workunits(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
+        tag_key = tag.identifier()
+        tag_urn = make_tag_urn(self.snowflake_identifier(tag_key))
+
+        tag_properties_aspect = TagProperties(
+            name=tag_key,
+            description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
+        )
+
+        self.stale_entity_removal_handler.add_entity_to_state("tag", tag_urn)
+
+        yield self.wrap_aspect_as_workunit(
+            "tag", tag_urn, "tagProperties", tag_properties_aspect
+        )
+
     def get_schema_metadata(
         self,
         table: Union[SnowflakeTable, SnowflakeView],
@@ -983,6 +1096,18 @@ class SnowflakeV2Source(
                     nullable=col.is_nullable,
                     isPartOfKey=col.name in table.pk.column_names
                     if isinstance(table, SnowflakeTable) and table.pk is not None
+                    else None,
+                    globalTags=GlobalTags(
+                        [
+                            TagAssociation(
+                                make_tag_urn(
+                                    self.snowflake_identifier(tag.identifier())
+                                )
+                            )
+                            for tag in table.column_tags[col.name]
+                        ]
+                    )
+                    if col.name in table.column_tags
                     else None,
                 )
                 for col in table.columns
@@ -1059,6 +1184,92 @@ class SnowflakeV2Source(
     def get_report(self) -> SourceReport:
         return self.report
 
+    def get_dataplatform_instance_aspect(
+        self, dataset_urn: str
+    ) -> Optional[MetadataWorkUnit]:
+        # If we are a platform instance based source, emit the instance aspect
+        if self.config.platform_instance:
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="dataPlatformInstance",
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
+                    ),
+                ),
+            )
+            wu = MetadataWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
+            self.report.report_workunit(wu)
+            return wu
+        else:
+            return None
+
+    def _get_domain_wu(
+        self,
+        dataset_name: str,
+        entity_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = self._gen_domain_urn(dataset_name)
+        if domain_urn:
+            wus = add_domain_to_entity_wu(
+                entity_urn=entity_urn,
+                domain_urn=domain_urn,
+            )
+            for wu in wus:
+                self.report.report_workunit(wu)
+                yield wu
+
+    def add_table_to_schema_container(
+        self, dataset_urn: str, db_name: str, schema: str
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(db_name, schema)
+        container_workunits = add_dataset_to_container(
+            container_key=schema_container_key,
+            dataset_urn=dataset_urn,
+        )
+
+        self.stale_entity_removal_handler.add_entity_to_state(
+            type="container",
+            urn=make_container_urn(
+                guid=schema_container_key.guid(),
+            ),
+        )
+
+        for wu in container_workunits:
+            self.report.report_workunit(wu)
+            yield wu
+
+    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
+        return SchemaKey(
+            database=db_name,
+            schema=schema,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
+        )
+
+    def gen_database_key(self, database: str) -> PlatformKey:
+        return DatabaseKey(
+            database=database,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            backcompat_instance_for_guid=self.config.env,
+        )
+
+    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
+        domain_urn: Optional[str] = None
+
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(dataset_name):
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
+
+        return domain_urn
+
     def gen_database_containers(
         self, database: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
@@ -1084,6 +1295,9 @@ class SnowflakeV2Source(
             else int(database.created.timestamp() * 1000)
             if database.created is not None
             else None,
+            tags=[self.snowflake_identifier(tag.identifier()) for tag in database.tags]
+            if database.tags
+            else None,
         )
 
     def gen_schema_containers(
@@ -1101,6 +1315,9 @@ class SnowflakeV2Source(
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             description=schema.comment,
+            sub_types=[SqlContainerSubTypes.SCHEMA],
+            parent_container_key=database_container_key,
+            domain_urn=domain_urn,
             external_url=self.get_external_url_for_schema(schema.name, db_name)
             if self.config.include_external_url
             else None,
@@ -1111,6 +1328,9 @@ class SnowflakeV2Source(
             if schema.last_altered is not None
             else int(schema.created.timestamp() * 1000)
             if schema.created is not None
+            else None,
+            tags=[self.snowflake_identifier(tag.identifier()) for tag in schema.tags]
+            if schema.tags
             else None,
         )
 

@@ -350,7 +350,7 @@ class SalesforceSource(Source):
 
         if domain_urn:
             yield from add_domain_to_entity_wu(
-                domain_urn=domain_urn, entity_type="dataset", entity_urn=datasetUrn
+                domain_urn=domain_urn, entity_urn=datasetUrn
             )
 
     def get_platform_instance_workunit(self, datasetUrn: str) -> WorkUnit:

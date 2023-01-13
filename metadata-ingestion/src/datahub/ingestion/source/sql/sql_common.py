@@ -259,6 +259,11 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
         default=True, description="Whether tables should be ingested."
     )
 
+    include_table_location_lineage: bool = Field(
+        default=True,
+        description="If the source supports it, include table lineage to the underlying storage location.",
+    )
+
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -487,8 +492,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 "sql_profiling_config",
                 config.profiling.config_for_telemetry(),
             )
-
-        self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -798,7 +801,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        if location_urn:
+        if self.config.include_table_location_lineage and location_urn:
             external_upstream_table = UpstreamClass(
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
@@ -858,15 +861,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        if self.config.domain and self.domain_registry:
-            yield from get_domain_wu(
-                dataset_name=dataset_name,
-                entity_urn=dataset_urn,
-                entity_type="dataset",
-                domain_registry=self.domain_registry,
-                domain_config=self.config.domain,
-                report=self.report,
-            )
+        yield from self._get_domain_wu(
+            dataset_name=dataset_name,
+            entity_urn=dataset_urn,
+            sql_config=sql_config,
+        )
 
     def get_database_properties(
         self, inspector: Inspector, database: str

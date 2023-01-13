@@ -6,6 +6,9 @@ try:
     from airflow.models.mappedoperator import MappedOperator
     from airflow.models.operator import Operator
 except ModuleNotFoundError:
+    # Operator isn't a real class, but rather a type alias defined
+    # as the union of BaseOperator and MappedOperator.
+    # Since older versions of Airflow don't have MappedOperator, we can just use BaseOperator.
     Operator = BaseOperator  # type: ignore
     MappedOperator = None  # type: ignore
 
