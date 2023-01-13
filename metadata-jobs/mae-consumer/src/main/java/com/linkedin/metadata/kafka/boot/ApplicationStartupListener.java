@@ -1,13 +1,9 @@
 package com.linkedin.metadata.kafka.boot;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
-import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.boot.steps.WaitForBuildIndicesStep;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.kafka.elasticsearch.indices.DataHubUpgradeKafkaListener;
-import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
