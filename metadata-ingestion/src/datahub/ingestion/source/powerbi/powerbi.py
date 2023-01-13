@@ -35,7 +35,6 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     ChartKeyClass,
-    CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
@@ -436,28 +435,6 @@ class Mapper:
         # Create an URN for user
         user_urn = builder.make_user_urn(user.get_urn_part())
 
-        user_info_instance = CorpUserInfoClass(
-            displayName=user.displayName,
-            email=user.emailAddress,
-            title=user.displayName,
-            active=True,
-        )
-
-        info_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.CORP_USER_INFO,
-            aspect=user_info_instance,
-        )
-
-        # removed status mcp
-        status_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.STATUS,
-            aspect=StatusClass(removed=False),
-        )
-
         user_key = CorpUserKeyClass(username=user.id)
 
         user_key_mcp = self.new_mcp(
@@ -467,7 +444,7 @@ class Mapper:
             aspect=user_key,
         )
 
-        return [info_mcp, status_mcp, user_key_mcp]
+        return [user_key_mcp]
 
     def to_datahub_users(
         self, users: List[PowerBiAPI.User]
