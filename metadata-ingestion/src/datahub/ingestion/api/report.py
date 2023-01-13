@@ -32,19 +32,11 @@ class Report:
     def to_str(some_val: Any) -> str:
         if isinstance(some_val, Enum):
             return some_val.name
-        elif isinstance(some_val, timedelta):
-            return humanfriendly.format_timespan(some_val)
-        elif isinstance(some_val, datetime):
-            try:
-                return format_datetime_relative(some_val)
-            except Exception:
-                # we don't want to fail reporting because we were unable to pretty print a timestamp
-                return str(datetime)
         else:
             return str(some_val)
 
     @staticmethod
-    def to_dict(some_val: Any) -> Any:
+    def to_pure_python_obj(some_val: Any) -> Any:
         """A cheap way to generate a dictionary."""
 
         if hasattr(some_val, "as_obj"):
@@ -54,13 +46,23 @@ class Report:
         elif dataclasses.is_dataclass(some_val):
             return dataclasses.asdict(some_val)
         elif isinstance(some_val, list):
-            return [Report.to_dict(v) for v in some_val if v is not None]
+            return [Report.to_pure_python_obj(v) for v in some_val if v is not None]
+        elif isinstance(some_val, timedelta):
+            return humanfriendly.format_timespan(some_val)
+        elif isinstance(some_val, datetime):
+            try:
+                return format_datetime_relative(some_val)
+            except Exception:
+                # we don't want to fail reporting because we were unable to pretty print a timestamp
+                return str(datetime)
         elif isinstance(some_val, dict):
             return {
-                Report.to_str(k): Report.to_dict(v)
+                Report.to_str(k): Report.to_pure_python_obj(v)
                 for k, v in some_val.items()
                 if v is not None
             }
+        elif isinstance(some_val, (int, float, bool)):
+            return some_val
         else:
             # fall through option
             return Report.to_str(some_val)
@@ -72,7 +74,7 @@ class Report:
     def as_obj(self) -> dict:
         self.compute_stats()
         return {
-            str(key): Report.to_dict(value)
+            str(key): Report.to_pure_python_obj(value)
             for (key, value) in self.__dict__.items()
             # ignore nulls and fields starting with _
             if value is not None and not str(key).startswith("_")

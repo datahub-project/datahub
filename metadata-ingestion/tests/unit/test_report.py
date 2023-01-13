@@ -1,7 +1,6 @@
 import dataclasses
 
 from datahub.ingestion.api.report import EntityFilterReport, Report
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
 
 @dataclasses.dataclass
@@ -9,8 +8,7 @@ class MyReport(Report):
     views: EntityFilterReport = EntityFilterReport.field(type="view")
 
 
-def test_report_types():
-
+def test_entity_filter_report():
     report = MyReport()
     assert report.views.type == "view"
 
@@ -23,12 +21,5 @@ def test_report_types():
         report.as_string() == "{'views': {'filtered': ['bar'], 'processed': ['foo']}}"
     )
 
+    # Verify that the reports don't accidentally share any state.
     assert report2.as_string() == "{'views': {'filtered': [], 'processed': []}}"
-
-
-def test_shared_defaults():
-    c1 = UnityCatalogSourceConfig(token="s", workspace_url="s")
-    c2 = UnityCatalogSourceConfig(token="s", workspace_url="s")
-
-    c1.catalog_pattern.allow += ["foo"]
-    assert c2.catalog_pattern.allow == [".*"]
