@@ -57,16 +57,7 @@ describe("search", () => {
 
     cy.contains("Add Term").click();
 
-    cy.focused().type("CypressTerm");
-
-    cy.get(".ant-select-item-option-content").within(() =>
-      cy.contains("CypressTerm").click({ force: true })
-    );
-
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-      force: true,
-    });
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').should("not.exist");
+    cy.selectOptionInTagTermModal("CypressTerm");
 
     cy.contains("CypressTerm");
     cy.visit("/search?query=cypress");
@@ -84,19 +75,9 @@ describe("search", () => {
 
     cy.contains("Add Filter").click();
 
-    cy.contains("Column Term").click({ force: true });
+    cy.contains("Column Glossary Term").click({ force: true });
 
-    cy.get('[data-testid="tag-term-modal-input"]').type("CypressColumnInfo");
-
-    cy.wait(2000);
-
-    cy.get('[data-testid="tag-term-option"]').click({ force: true });
-
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-      force: true,
-    });
-
-    cy.wait(2000);
+    cy.selectOptionInTagTermModal("CypressColumnInfo");
 
     // has the term in editable metadata
     cy.contains("SampleCypressHdfsDataset");
@@ -118,19 +99,9 @@ describe("search", () => {
 
     cy.contains("Add Filter").click();
 
-    cy.contains("Column Term").click({ force: true });
+    cy.contains("Column Glossary Term").click({ force: true });
 
-    cy.get('[data-testid="tag-term-modal-input"]').type("CypressColumnInfo");
-
-    cy.wait(2000);
-
-    cy.get('[data-testid="tag-term-option"]').click({ force: true });
-
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-      force: true,
-    });
-
-    cy.wait(2000);
+    cy.selectOptionInTagTermModal("CypressColumnInfo");
 
     cy.contains("Add Filter").click();
 
@@ -157,19 +128,9 @@ describe("search", () => {
 
     cy.contains("Add Filter").click();
 
-    cy.contains("Column Term").click({ force: true });
+    cy.contains("Column Glossary Term").click({ force: true });
 
-    cy.get('[data-testid="tag-term-modal-input"]').type("CypressColumnInfo");
-
-    cy.wait(2000);
-
-    cy.get('[data-testid="tag-term-option"]').click({ force: true });
-
-    cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({
-      force: true,
-    });
-
-    cy.wait(2000);
+    cy.selectOptionInTagTermModal("CypressColumnInfo");
 
     cy.contains("Add Filter").click();
 

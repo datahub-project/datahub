@@ -215,6 +215,7 @@ fragment searchResultFields on Entity {
                 key
                 value
             }
+            externalUrl
         }
         ownership {
             ...ownershipFields
@@ -251,6 +252,7 @@ fragment searchResultFields on Entity {
                         name
                         description
                         qualifiedName
+                        externalUrl
                     }
                 }
             }
@@ -451,6 +453,7 @@ fragment searchResultFields on Entity {
             name
             description
             project
+            externalUrl
         }
         ownership {
             ...ownershipFields
@@ -491,6 +494,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            externalUrl
         }
         globalTags {
             ...globalTagsFields
@@ -545,6 +549,9 @@ fragment searchResultFields on Entity {
         parentNodes {
             ...parentNodesFields
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
@@ -565,6 +572,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            externalUrl
         }
         platform {
             ...platformFields
@@ -757,6 +765,15 @@ fragment searchResults on SearchResults {
     }
 }
 
+fragment schemaFieldEntityFields on SchemaFieldEntity {
+    urn
+    type
+    fieldPath
+    parent {
+        ...searchResultFields
+    }
+}
+
 fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     start
     count
@@ -772,6 +789,14 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         insights {
             text
             icon
+        }
+        paths {
+            path {
+                ...searchResultFields
+                ... on SchemaFieldEntity {
+                    ...schemaFieldEntityFields
+                }
+            }
         }
         degree
     }

@@ -2,7 +2,7 @@ import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
@@ -59,13 +59,21 @@ export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, def
     const [expanded, setExpanded] = useState(false);
 
     const isFacetSelected = (field, value) => {
-        return selectedFilters.find((f) => f.field === field && f.values.includes(value)) !== undefined;
+        return selectedFilters.find((f) => f.field === field && f.values?.includes(value)) !== undefined;
     };
 
     // Aggregations filtered for count > 0 or selected = true
     const filteredAggregations = facet.aggregations.filter(
         (agg) => agg.count > 0 || isFacetSelected(facet.field, agg.value) || isGraphDegreeFilter(facet.field),
     );
+
+    // By default, render a Filter as open if it is selected
+    const isFilterSelected = !!filteredAggregations.find((agg) => isFacetSelected(facet.field, agg.value));
+    useEffect(() => {
+        if (isFilterSelected) {
+            setAreFiltersVisible(true);
+        }
+    }, [isFilterSelected]);
 
     const shouldTruncate = filteredAggregations.length > TRUNCATED_FILTER_LENGTH;
 
@@ -101,7 +109,12 @@ export const SimpleSearchFilter = ({ facet, selectedFilters, onFilterSelect, def
                                             onFilterSelect(e.target.checked, facet.field, aggregation.value)
                                         }
                                     >
-                                        <SearchFilterLabel field={facet.field} aggregation={aggregation} />
+                                        <SearchFilterLabel
+                                            field={facet.field}
+                                            value={aggregation.value}
+                                            count={aggregation.count}
+                                            entity={aggregation.entity}
+                                        />
                                     </CheckBox>
                                     <br />
                                 </span>

@@ -1,3 +1,4 @@
+import os
 from contextlib import contextmanager
 from typing import Iterator, List, Optional, Tuple
 
@@ -42,18 +43,37 @@ MIN_MEMORY_NEEDED = 3.8  # GB
 
 
 @contextmanager
-def get_client_with_error() -> Iterator[
-    Tuple[docker.DockerClient, Optional[Exception]]
-]:
+def get_client_with_error() -> (
+    Iterator[Tuple[docker.DockerClient, Optional[Exception]]]
+):
+    # This method is structured somewhat strangely because we
+    # need to make sure that we only yield once.
+
+    docker_cli = None
     try:
         docker_cli = docker.from_env()
     except docker.errors.DockerException as error:
-        yield None, error
-    else:
         try:
-            yield docker_cli, None
-        finally:
-            docker_cli.close()
+            # Docker Desktop 4.13.0 broke the docker.sock symlink.
+            # See https://github.com/docker/docker-py/issues/3059.
+            maybe_sock_path = os.path.expanduser("~/.docker/run/docker.sock")
+            if os.path.exists(maybe_sock_path):
+                docker_cli = docker.DockerClient(base_url=f"unix://{maybe_sock_path}")
+            else:
+                yield None, error
+        except docker.errors.DockerException as error:
+            yield None, error
+
+    if docker_cli is not None:
+        try:
+            docker_cli.ping()
+        except docker.errors.DockerException as error:
+            yield None, error
+        else:
+            try:
+                yield docker_cli, None
+            finally:
+                docker_cli.close()
 
 
 def memory_in_gb(mem_bytes: int) -> float:

@@ -1,7 +1,7 @@
 import json
 import logging
 import typing
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 import pydantic
 from pyathena.common import BaseCursor
@@ -88,11 +88,13 @@ class AthenaConfig(SQLAlchemyConfig):
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
+    - Lineage for S3 tables.
     - Profiling when enabled.
     """
 
@@ -109,9 +111,9 @@ class AthenaSource(SQLAlchemySource):
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
-            self.cursor = inspector.dialect._raw_connection(inspector.engine).cursor()
+            self.cursor = cast(BaseCursor, inspector.engine.raw_connection().cursor())
+            assert self.cursor
 
-        assert self.cursor
         # Unfortunately properties can be only get through private methods as those are not exposed
         # https://github.com/laughingman7743/PyAthena/blob/9e42752b0cc7145a87c3a743bb2634fe125adfa7/pyathena/model.py#L201
         metadata: AthenaTableMetadata = self.cursor._get_table_metadata(
@@ -163,7 +165,7 @@ class AthenaSource(SQLAlchemySource):
         return schemas
 
     def gen_database_containers(
-        self, database: str
+        self, inspector: Inspector, database: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         # In Athena the schema is the database and database is not existing
         return []
@@ -177,7 +179,7 @@ class AthenaSource(SQLAlchemySource):
         )
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> typing.Iterable[MetadataWorkUnit]:
         database_container_key = self.gen_database_key(database=schema)
 
@@ -194,3 +196,4 @@ class AthenaSource(SQLAlchemySource):
     def close(self):
         if self.cursor:
             self.cursor.close()
+        super().close()

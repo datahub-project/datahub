@@ -7,6 +7,9 @@ url: "https://github.com/datahub-project/datahub/"
 nodes:
   - name: Classification
     description: A set of terms related to Data Classification
+    knowledge_links:
+      - label: Wiki link for classification
+        url: "https://en.wikipedia.org/wiki/Classification"
     terms:
       - name: Sensitive
         description: Sensitive Data
@@ -20,6 +23,7 @@ nodes:
         description: Highly Confidential Data
         custom_properties:
           is_confidential: true
+        domain: Marketing
   - name: PersonalInformation
     description: All terms related to personal information
     owners:
@@ -27,6 +31,8 @@ nodes:
         - mjames
     terms:
       - name: Email
+        ## An example of using an id to pin a term to a specific guid
+        # id: "urn:li:glossaryTerm:41516e310acbfd9076fffc2c98d2d1a3"
         description: An individual's email address
         inherits:
           - Classification.Confidential
@@ -59,3 +65,55 @@ nodes:
         term_source: "EXTERNAL"
         source_ref: FIBO
         source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"
+  - name: Housing
+    description: Provides terms related to the housing domain
+    owners:
+      groups:
+        - interior
+    nodes:
+      - name: Colors
+        description: "Colors that are used in Housing construction"
+        terms:
+          - name: Red
+            description: "red color"
+            term_source: "EXTERNAL"
+            source_ref: FIBO
+            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+
+          - name: Green
+            description: "green color"
+            term_source: "EXTERNAL"
+            source_ref: FIBO
+            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+
+          - name: Pink
+            description: pink color
+            term_source: "EXTERNAL"
+            source_ref: FIBO
+            source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+    terms:
+      - name: WindowColor
+        description: Supported window colors
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        values:
+          - House.Colors.Red
+          - House.Colors.Pink
+
+      - name: Kitchen
+        description: a room or area where food is prepared and cooked.
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+
+      - name: Spoon
+        description: an implement consisting of a small, shallow oval or round bowl on a long handle, used for eating, stirring, and serving food.
+        term_source: "EXTERNAL"
+        source_ref: FIBO
+        source_url: "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        related_terms:
+          - House.Kitchen
+        knowledge_links:
+          - url: "https://en.wikipedia.org/wiki/Spoon"
+            label: Wiki link

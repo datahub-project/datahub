@@ -25,6 +25,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import { ChartSnippet } from '../chart/ChartSnippet';
+import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -78,7 +79,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             subHeader={{
                 component: DashboardStatsSummarySubHeader,
             }}
@@ -98,8 +99,12 @@ export class DashboardEntity implements Entity<Dashboard> {
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Properties',
-                    component: PropertiesTab,
+                    name: 'Preview',
+                    component: EmbedTab,
+                    display: {
+                        visible: (_, dashboard: GetDashboardQuery) => !!dashboard?.dashboard?.embed?.renderUrl,
+                        enabled: (_, dashboard: GetDashboardQuery) => !!dashboard?.dashboard?.embed?.renderUrl,
+                    },
                 },
                 {
                     name: 'Lineage',
@@ -107,15 +112,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
                     },
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, dashboard: GetDashboardQuery) => {
-                            return (
-                                (dashboard?.dashboard?.upstream?.total || 0) > 0 ||
-                                (dashboard?.dashboard?.downstream?.total || 0) > 0
-                            );
-                        },
-                    },
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
                 {
                     name: 'Datasets',

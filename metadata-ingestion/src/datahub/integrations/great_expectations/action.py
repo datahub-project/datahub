@@ -1,12 +1,13 @@
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
 import json
 import logging
-import os
 import sys
 import time
 from dataclasses import dataclass
 from datetime import timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
@@ -21,7 +22,6 @@ from great_expectations.data_asset.data_asset import DataAsset
 from great_expectations.data_context.data_context import DataContext
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
-    GeCloudIdentifier,
     ValidationResultIdentifier,
 )
 from great_expectations.execution_engine.sqlalchemy_execution_engine import (
@@ -32,6 +32,7 @@ from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
+from datahub.cli.cli_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
@@ -52,12 +53,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.utilities.sql_parser import DefaultSQLParser
 
+if TYPE_CHECKING:
+    from great_expectations.data_context.types.resource_identifiers import (
+        GXCloudIdentifier,
+    )
+
+assert MARKUPSAFE_PATCHED
 logger = logging.getLogger(__name__)
-if os.getenv("DATAHUB_DEBUG", False):
+if get_boolean_env_variable("DATAHUB_DEBUG", False):
     handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
@@ -100,12 +106,12 @@ class DataHubValidationAction(ValidationAction):
         self,
         validation_result_suite: ExpectationSuiteValidationResult,
         validation_result_suite_identifier: Union[
-            ValidationResultIdentifier, GeCloudIdentifier
+            ValidationResultIdentifier, "GXCloudIdentifier"
         ],
         data_asset: Union[Validator, DataAsset, Batch],
-        payload: Any = None,
+        payload: Optional[Any] = None,
         expectation_suite_identifier: Optional[ExpectationSuiteIdentifier] = None,
-        checkpoint_identifier: Any = None,
+        checkpoint_identifier: Optional[Any] = None,
     ) -> Dict:
         datasets = []
         try:
@@ -157,37 +163,27 @@ class DataHubValidationAction(ValidationAction):
             logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
 
             for assertion in assertions:
-
                 logger.info(
                     "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
                 )
 
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_info_mcp = MetadataChangeProposalWrapper(
-                    entityType="assertion",
-                    changeType=ChangeType.UPSERT,
                     entityUrn=assertion["assertionUrn"],
-                    aspectName="assertionInfo",
                     aspect=assertion["assertionInfo"],
                 )
                 emitter.emit_mcp(assertion_info_mcp)
 
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_platform_mcp = MetadataChangeProposalWrapper(
-                    entityType="assertion",
-                    changeType=ChangeType.UPSERT,
                     entityUrn=assertion["assertionUrn"],
-                    aspectName="dataPlatformInstance",
                     aspect=assertion["assertionPlatform"],
                 )
                 emitter.emit_mcp(assertion_platform_mcp)
 
                 for assertionResult in assertion["assertionResults"]:
                     dataset_assertionResult_mcp = MetadataChangeProposalWrapper(
-                        entityType="assertion",
-                        changeType=ChangeType.UPSERT,
                         entityUrn=assertionResult.assertionUrn,
-                        aspectName="assertionRunEvent",
                         aspect=assertionResult,
                     )
 
@@ -213,7 +209,6 @@ class DataHubValidationAction(ValidationAction):
         payload,
         datasets,
     ):
-
         dataPlatformInstance = DataPlatformInstance(
             platform=builder.make_data_platform_urn(GE_PLATFORM_NAME)
         )
@@ -347,7 +342,6 @@ class DataHubValidationAction(ValidationAction):
     def get_assertion_info(
         self, expectation_type, kwargs, dataset, fields, expectation_suite_name
     ):
-
         # TODO - can we find exact type of min and max value
         def get_min_max(kwargs, type=AssertionStdParameterType.UNKNOWN):
             return AssertionStdParameters(
@@ -710,7 +704,6 @@ def make_dataset_urn_from_sqlalchemy_uri(
     exclude_dbname=None,
     platform_alias=None,
 ):
-
     data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
     url_instance = make_url(sqlalchemy_uri)
 

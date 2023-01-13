@@ -4,6 +4,8 @@ import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -69,6 +71,9 @@ public class ESGraphQueryDAO {
   private static final String SOURCE = "source";
   private static final String DESTINATION = "destination";
   private static final String RELATIONSHIP_TYPE = "relationshipType";
+  private static final String SEARCH_EXECUTIONS_METRIC = "num_elasticSearch_reads";
+  private static final String CREATED_ON = "createdOn";
+  private static final String CREATED_ACTOR = "createdActor";
 
   @Nonnull
   public static void addFilterToQueryBuilder(@Nonnull Filter filter, String node, BoolQueryBuilder rootQuery) {
@@ -101,6 +106,7 @@ public class ESGraphQueryDAO {
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
+      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
       return client.search(searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error("Search query failed", e);
@@ -161,6 +167,7 @@ public class ESGraphQueryDAO {
     // Do a Level-order BFS
     Set<Urn> visitedEntities = ConcurrentHashMap.newKeySet();
     visitedEntities.add(entityUrn);
+    UrnArrayArray existingPaths = new UrnArrayArray();
     List<Urn> currentLevel = ImmutableList.of(entityUrn);
 
     for (int i = 0; i < maxHops; i++) {
@@ -176,7 +183,7 @@ public class ESGraphQueryDAO {
 
       // Do one hop on the lineage graph
       List<LineageRelationship> oneHopRelationships =
-          getLineageRelationshipsInBatches(currentLevel, direction, graphFilters, visitedEntities, i + 1, remainingTime);
+          getLineageRelationshipsInBatches(currentLevel, direction, graphFilters, visitedEntities, i + 1, remainingTime, existingPaths);
       result.addAll(oneHopRelationships);
       currentLevel = oneHopRelationships.stream().map(LineageRelationship::getEntity).collect(Collectors.toList());
       currentTime = System.currentTimeMillis();
@@ -197,11 +204,11 @@ public class ESGraphQueryDAO {
   // Get 1-hop lineage relationships asynchronously in batches with timeout
   @WithSpan
   public List<LineageRelationship> getLineageRelationshipsInBatches(@Nonnull List<Urn> entityUrns,
-      @Nonnull LineageDirection direction, GraphFilters graphFilters, Set<Urn> visitedEntities, int numHops, long remainingTime) {
+      @Nonnull LineageDirection direction, GraphFilters graphFilters, Set<Urn> visitedEntities, int numHops, long remainingTime, UrnArrayArray existingPaths) {
     List<List<Urn>> batches = Lists.partition(entityUrns, BATCH_SIZE);
     return ConcurrencyUtils.getAllCompleted(batches.stream()
         .map(batchUrns -> CompletableFuture.supplyAsync(
-            () -> getLineageRelationships(batchUrns, direction, graphFilters, visitedEntities, numHops)))
+            () -> getLineageRelationships(batchUrns, direction, graphFilters, visitedEntities, numHops, existingPaths)))
         .collect(Collectors.toList()), remainingTime, TimeUnit.MILLISECONDS)
         .stream()
         .flatMap(List::stream)
@@ -211,7 +218,7 @@ public class ESGraphQueryDAO {
   // Get 1-hop lineage relationships
   @WithSpan
   private List<LineageRelationship> getLineageRelationships(@Nonnull List<Urn> entityUrns,
-      @Nonnull LineageDirection direction, GraphFilters graphFilters, Set<Urn> visitedEntities, int numHops) {
+      @Nonnull LineageDirection direction, GraphFilters graphFilters, Set<Urn> visitedEntities, int numHops, UrnArrayArray existingPaths) {
     Map<String, List<Urn>> urnsPerEntityType = entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
     Map<String, List<EdgeInfo>> edgesPerEntityType = urnsPerEntityType.keySet()
         .stream()
@@ -228,21 +235,59 @@ public class ESGraphQueryDAO {
         .stream()
         .flatMap(entry -> entry.getValue().stream().map(edgeInfo -> Pair.of(entry.getKey(), edgeInfo)))
         .collect(Collectors.toSet());
-    return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops);
+    return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
+  }
+
+  private UrnArrayArray getAndUpdatePaths(UrnArrayArray existingPaths, Urn parentUrn, Urn childUrn, RelationshipDirection direction) {
+    try {
+      UrnArrayArray currentPaths = existingPaths.stream()
+          .filter(path -> path.get(direction == RelationshipDirection.OUTGOING ? 0 : path.size() - 1).equals(parentUrn))
+          .collect(Collectors.toCollection(UrnArrayArray::new));
+      UrnArrayArray resultPaths = new UrnArrayArray();
+      if (currentPaths.size() > 0) {
+        for (UrnArray path : currentPaths) {
+          UrnArray copyOfPath = path.clone();
+          if (direction == RelationshipDirection.OUTGOING) {
+            copyOfPath.add(0, childUrn);
+          } else {
+            copyOfPath.add(childUrn);
+          }
+          resultPaths.add(copyOfPath);
+          existingPaths.add(copyOfPath);
+        }
+      } else {
+        UrnArray path = new UrnArray();
+        if (direction == RelationshipDirection.OUTGOING) {
+          path.addAll(ImmutableList.of(childUrn, parentUrn));
+        } else {
+          path.addAll(ImmutableList.of(parentUrn, childUrn));
+        }
+        resultPaths.add(path);
+        existingPaths.add(path);
+      }
+      return resultPaths;
+    } catch (CloneNotSupportedException e) {
+      log.error(String.format("Failed to create paths for parentUrn %s and childUrn %s", parentUrn, childUrn), e);
+      throw new RuntimeException(e);
+    }
   }
 
   // Given set of edges and the search response, extract all valid edges that originate from the input entityUrns
   @WithSpan
   private List<LineageRelationship> extractRelationships(@Nonnull Set<Urn> entityUrns,
       @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges, Set<Urn> visitedEntities,
-      int numHops) {
-    List<LineageRelationship> result = new LinkedList<>();
+      int numHops, UrnArrayArray existingPaths) {
+    final List<LineageRelationship> result = new LinkedList<>();
     for (SearchHit hit : searchResponse.getHits().getHits()) {
-      Map<String, Object> document = hit.getSourceAsMap();
-      Urn sourceUrn = UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
-      Urn destinationUrn =
+      final Map<String, Object> document = hit.getSourceAsMap();
+      final Urn sourceUrn = UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
+      final Urn destinationUrn =
           UrnUtils.getUrn(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
-      String type = document.get(RELATIONSHIP_TYPE).toString();
+      final String type = document.get(RELATIONSHIP_TYPE).toString();
+      final Number createdOnNumber = (Number) document.getOrDefault(CREATED_ON, null);
+      final Long createdOn = createdOnNumber != null ? createdOnNumber.longValue() : null;
+      final String createdActorString = (String) document.getOrDefault(CREATED_ACTOR, null);
+      final Urn createdActor = createdActorString == null ? null : UrnUtils.getUrn(createdActorString);
 
       // Potential outgoing edge
       if (entityUrns.contains(sourceUrn)) {
@@ -251,7 +296,9 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
             Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(destinationUrn);
-          result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setDegree(numHops));
+          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, sourceUrn, destinationUrn, RelationshipDirection.OUTGOING);
+          final LineageRelationship relationship = createLineageRelationship(type, destinationUrn, numHops, paths, createdOn, createdActor);
+          result.add(relationship);
         }
       }
 
@@ -262,11 +309,31 @@ public class ESGraphQueryDAO {
         if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
             Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING, sourceUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(sourceUrn);
-          result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setDegree(numHops));
+          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, destinationUrn, sourceUrn, RelationshipDirection.INCOMING);
+          final LineageRelationship relationship = createLineageRelationship(type, sourceUrn, numHops, paths, createdOn, createdActor);
+          result.add(relationship);
         }
       }
     }
     return result;
+  }
+
+  private LineageRelationship createLineageRelationship(
+      @Nonnull final String type,
+      @Nonnull final Urn entityUrn,
+      final int numHops,
+      @Nonnull final UrnArrayArray paths,
+      @Nullable final Long createdOn,
+      @Nullable final Urn createdActor
+  ) {
+    final LineageRelationship relationship = new LineageRelationship().setType(type).setEntity(entityUrn).setDegree(numHops).setPaths(paths);
+    if (createdOn != null) {
+      relationship.setCreatedOn(createdOn);
+    }
+    if (createdActor != null) {
+      relationship.setCreatedActor(createdActor);
+    }
+    return relationship;
   }
 
   BoolQueryBuilder getOutGoingEdgeQuery(List<Urn> urns, List<EdgeInfo> outgoingEdges, GraphFilters graphFilters) {

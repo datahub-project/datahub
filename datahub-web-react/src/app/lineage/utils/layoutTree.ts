@@ -9,6 +9,7 @@ import {
     width as nodeWidth,
 } from '../constants';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
+import { convertInputFieldsToSchemaFields } from './columnLineageUtils';
 import { getTitleHeight, nodeHeightFromTitleLength } from './titleUtils';
 
 type ProcessArray = {
@@ -94,13 +95,12 @@ function layoutNodesForOneDirection(
                 currentXPosition +=
                     nodeHeightFromTitleLength(
                         expandTitles ? node.expandedName || node.name : undefined,
-                        node.schemaMetadata,
+                        node.schemaMetadata?.fields || convertInputFieldsToSchemaFields(node.inputFields),
                         showColumns,
                         !!collapsedColumnsNodes[node?.urn || 'no-op'], // avoid indexing on undefined if node is undefined
                     ) + VERTICAL_SPACE_BETWEEN_NODES;
 
                 nodesByUrn[node.urn] = vizNodeForNode;
-                nodesToRender.push(vizNodeForNode);
                 nodesInNextLayer = [
                     ...nodesInNextLayer,
                     ...(node.children?.map((child) => ({
@@ -108,6 +108,7 @@ function layoutNodesForOneDirection(
                         node: child,
                     })) || []),
                 ];
+                nodesToRender.push(vizNodeForNode);
             }
 
             if (parent) {

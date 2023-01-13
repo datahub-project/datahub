@@ -27,9 +27,12 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
+from sqlalchemy.types import TypeDecorator, TypeEngine
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -219,20 +222,11 @@ class SQLSourceReport(StaleEntityRemovalSourceReport):
         self.query_combiner = query_combiner_report
 
 
-class SQLAlchemyStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """
-    Specialization of StatefulStaleMetadataRemovalConfig to adding custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the SQLAlchemyConfig.
-    """
-
-    _entity_types: List[str] = pydantic.Field(
-        default=["assertion", "container", "table", "view"]
-    )
-
-
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
-    options: dict = {}
+    options: dict = pydantic.Field(
+        default_factory=dict,
+        description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
+    )
     # Although the 'table_pattern' enables you to skip everything from certain schemas,
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
@@ -265,9 +259,14 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
         default=True, description="Whether tables should be ingested."
     )
 
+    include_table_location_lineage: bool = Field(
+        default=True,
+        description="If the source supports it, include table lineage to the underlying storage location.",
+    )
+
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @pydantic.root_validator(pre=True)
     def view_pattern_is_table_pattern_unless_specified(
@@ -310,15 +309,20 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
     )
 
+    _database_alias_deprecation = pydantic_field_deprecated(
+        "database_alias",
+        message="database_alias is deprecated. Use platform_instance instead.",
+    )
+
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
             raise ValueError("host_port and schema or connect_uri required.")
 
         return self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,  # type: ignore
+            self.scheme,
             self.username,
             self.password.get_secret_value() if self.password is not None else None,
-            self.host_port,  # type: ignore
+            self.host_port,
             self.database,
             uri_opts=uri_opts,
         )
@@ -328,7 +332,7 @@ class SqlWorkUnit(MetadataWorkUnit):
     pass
 
 
-_field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
+_field_type_mapping: Dict[Type[TypeEngine], Type] = {
     types.Integer: NumberTypeClass,
     types.Numeric: NumberTypeClass,
     types.Boolean: BooleanTypeClass,
@@ -366,30 +370,28 @@ _field_type_mapping: Dict[Type[types.TypeEngine], Type] = {
     # assigns the NullType by default. We want to carry this warning through.
     types.NullType: NullTypeClass,
 }
-_known_unknown_field_types: Set[Type[types.TypeEngine]] = {
+_known_unknown_field_types: Set[Type[TypeEngine]] = {
     types.Interval,
     types.CLOB,
 }
 
 
-def register_custom_type(
-    tp: Type[types.TypeEngine], output: Optional[Type] = None
-) -> None:
+def register_custom_type(tp: Type[TypeEngine], output: Optional[Type] = None) -> None:
     if output:
         _field_type_mapping[tp] = output
     else:
         _known_unknown_field_types.add(tp)
 
 
-class _CustomSQLAlchemyDummyType(types.TypeDecorator):
+class _CustomSQLAlchemyDummyType(TypeDecorator):
     impl = types.LargeBinary
 
 
-def make_sqlalchemy_type(name: str) -> Type[types.TypeEngine]:
+def make_sqlalchemy_type(name: str) -> Type[TypeEngine]:
     # This usage of type() dynamically constructs a class.
     # See https://stackoverflow.com/a/15247202/5004662 and
     # https://docs.python.org/3/library/functions.html#type.
-    sqlalchemy_type: Type[types.TypeEngine] = type(
+    sqlalchemy_type: Type[TypeEngine] = type(
         name,
         (_CustomSQLAlchemyDummyType,),
         {
@@ -431,8 +433,8 @@ def get_schema_metadata(
     dataset_name: str,
     platform: str,
     columns: List[dict],
-    pk_constraints: dict = None,
-    foreign_keys: List[ForeignKeyConstraint] = None,
+    pk_constraints: Optional[dict] = None,
+    foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
     canonical_schema: List[SchemaField] = [],
 ) -> SchemaMetadata:
     schema_metadata = SchemaMetadata(
@@ -453,23 +455,6 @@ def get_schema_metadata(
 config_options_to_report = [
     "include_views",
     "include_tables",
-]
-
-# flags to emit telemetry for
-profiling_flags_to_report = [
-    "turn_off_expensive_profiling_metrics",
-    "profile_table_level_only",
-    "include_field_null_count",
-    "include_field_min_value",
-    "include_field_max_value",
-    "include_field_mean_value",
-    "include_field_median_value",
-    "include_field_stddev_value",
-    "include_field_quantiles",
-    "include_field_distinct_value_frequencies",
-    "include_field_histogram",
-    "include_field_sample_values",
-    "query_combiner_enabled",
 ]
 
 
@@ -508,13 +493,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
 
         if config.profiling.enabled:
-
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
-                {
-                    config_flag: config.profiling.dict().get(config_flag)
-                    for config_flag in profiling_flags_to_report
-                },
+                config.profiling.config_for_telemetry(),
             )
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -578,7 +559,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             backcompat_instance_for_guid=self.config.env,
         )
 
-    def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
+    def gen_database_containers(
+        self, inspector: Inspector, database: str
+    ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database)
 
         database_container_key = self.gen_database_key(database)
@@ -587,6 +570,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             name=database,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
+            extra_properties=self.get_database_properties(inspector, database=database),
+        )
+
+        # Add container to the checkpoint state
+        container_urn = make_container_urn(database_container_key.guid())
+        self.stale_entity_removal_handler.add_entity_to_state(
+            "container", container_urn
         )
 
         for wu in container_workunits:
@@ -594,7 +584,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             yield wu
 
     def gen_schema_containers(
-        self, schema: str, db_name: str
+        self, inspector: Inspector, schema: str, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_schema_key(db_name, schema)
 
@@ -603,11 +593,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             database_container_key = self.gen_database_key(database=db_name)
 
         container_workunits = gen_containers(
-            # TODO: this one is bad
-            schema_container_key,
-            schema,
-            [SqlContainerSubTypes.SCHEMA],
-            database_container_key,
+            container_key=schema_container_key,
+            name=schema,
+            sub_types=[SqlContainerSubTypes.SCHEMA],
+            parent_container_key=database_container_key,
+            extra_properties=self.get_schema_properties(
+                inspector, database=db_name, schema=schema
+            ),
+        )
+
+        # Add container to the checkpoint state
+        container_urn = make_container_urn(schema_container_key.guid())
+        self.stale_entity_removal_handler.add_entity_to_state(
+            "container", container_urn
         )
 
         for wu in container_workunits:
@@ -644,12 +642,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(db_name)
+            yield from self.gen_database_containers(
+                inspector=inspector, database=db_name
+            )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(schema, db_name)
+                yield from self.gen_schema_containers(
+                    inspector=inspector, schema=schema, db_name=db_name
+                )
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -743,14 +745,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         entity_urn: str,
-        entity_type: str,
         sql_config: SQLAlchemyConfig,
     ) -> Iterable[MetadataWorkUnit]:
-
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
@@ -851,7 +850,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        if location_urn:
+        if self.config.include_table_location_lineage and location_urn:
             external_upstream_table = UpstreamClass(
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
@@ -911,9 +910,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
+
+    def get_database_properties(
+        self, inspector: Inspector, database: str
+    ) -> Optional[Dict[str, str]]:
+        return None
+
+    def get_schema_properties(
+        self, inspector: Inspector, database: str, schema: str
+    ) -> Optional[Dict[str, str]]:
+        return None
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
@@ -1006,7 +1014,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         columns: List[dict],
-        pk_constraints: dict = None,
+        pk_constraints: Optional[dict] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaField]:
         canonical_schema = []
@@ -1024,7 +1032,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         dataset_name: str,
         column: dict,
-        pk_constraints: dict = None,
+        pk_constraints: Optional[dict] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         gtc: Optional[GlobalTagsClass] = None
@@ -1185,7 +1193,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
-            entity_type="dataset",
             sql_config=sql_config,
         )
 
@@ -1396,6 +1403,3 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        self.prepare_for_commit()

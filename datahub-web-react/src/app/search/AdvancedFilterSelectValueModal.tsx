@@ -7,6 +7,23 @@ import { SelectPlatformModal } from '../entity/shared/containers/profile/sidebar
 import EditTagTermsModal from '../shared/tags/AddTagsTermsModal';
 import { ChooseEntityTypeModal } from './ChooseEntityTypeModal';
 import { EditTextModal } from './EditTextModal';
+import {
+    CONTAINER_FILTER_NAME,
+    DESCRIPTION_FILTER_NAME,
+    DOMAINS_FILTER_NAME,
+    ENTITY_FILTER_NAME,
+    FIELD_DESCRIPTIONS_FILTER_NAME,
+    FIELD_GLOSSARY_TERMS_FILTER_NAME,
+    FIELD_PATHS_FILTER_NAME,
+    FIELD_TAGS_FILTER_NAME,
+    GLOSSARY_TERMS_FILTER_NAME,
+    ORIGIN_FILTER_NAME,
+    OWNERS_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+    REMOVED_FILTER_NAME,
+    TAGS_FILTER_NAME,
+    TYPE_NAMES_FILTER_NAME,
+} from './utils/constants';
 
 type Props = {
     facet?: FacetMetadata | null;
@@ -23,7 +40,7 @@ export const AdvancedFilterSelectValueModal = ({
     initialValues,
     facet,
 }: Props) => {
-    if (filterField === 'owners') {
+    if (filterField === OWNERS_FILTER_NAME) {
         return (
             <EditOwnersModal
                 title="Select Owners"
@@ -41,7 +58,7 @@ export const AdvancedFilterSelectValueModal = ({
             />
         );
     }
-    if (filterField === 'domains') {
+    if (filterField === DOMAINS_FILTER_NAME) {
         return (
             <SetDomainModal
                 titleOverride="Select Domain"
@@ -61,7 +78,7 @@ export const AdvancedFilterSelectValueModal = ({
         );
     }
 
-    if (filterField === 'container') {
+    if (filterField === CONTAINER_FILTER_NAME) {
         return (
             <ContainerSelectModal
                 titleOverride="Select Container"
@@ -78,7 +95,7 @@ export const AdvancedFilterSelectValueModal = ({
         );
     }
 
-    if (filterField === 'platform') {
+    if (filterField === PLATFORM_FILTER_NAME) {
         return (
             <SelectPlatformModal
                 defaultValues={initialValues?.map((urn) => ({
@@ -95,7 +112,7 @@ export const AdvancedFilterSelectValueModal = ({
         );
     }
 
-    if (filterField === 'fieldPaths') {
+    if (filterField === FIELD_PATHS_FILTER_NAME) {
         return (
             <EditTextModal
                 title="Filter by Column"
@@ -109,7 +126,7 @@ export const AdvancedFilterSelectValueModal = ({
         );
     }
 
-    if (filterField === 'description' || filterField === 'fieldDescriptions') {
+    if (filterField === DESCRIPTION_FILTER_NAME || filterField === FIELD_DESCRIPTIONS_FILTER_NAME) {
         return (
             <EditTextModal
                 title="Filter by Description"
@@ -123,7 +140,7 @@ export const AdvancedFilterSelectValueModal = ({
         );
     }
 
-    if (filterField === 'origin') {
+    if (filterField === ORIGIN_FILTER_NAME) {
         return (
             <EditTextModal
                 title="Filter by Environment"
@@ -137,10 +154,10 @@ export const AdvancedFilterSelectValueModal = ({
         );
     }
 
-    if (filterField === 'typeNames') {
+    if (filterField === TYPE_NAMES_FILTER_NAME) {
         return (
             <EditTextModal
-                title="Filter by Subtype"
+                title="Filter by Sub Type"
                 defaultValue={initialValues?.[0]}
                 onCloseModal={onCloseModal}
                 onOk={(newValue) => {
@@ -151,21 +168,21 @@ export const AdvancedFilterSelectValueModal = ({
         );
     }
 
-    if (filterField === 'entity') {
+    if (filterField === ENTITY_FILTER_NAME) {
         return (
             <ChooseEntityTypeModal
                 title="Filter by Entity Type"
-                defaultValue={initialValues?.[0]}
+                defaultValues={initialValues}
                 onCloseModal={onCloseModal}
-                onOk={(newValue) => {
-                    onSelect([newValue]);
+                onOk={(newValues) => {
+                    onSelect(newValues);
                     onCloseModal();
                 }}
             />
         );
     }
 
-    if (filterField === 'tags' || filterField === 'fieldTags') {
+    if (filterField === TAGS_FILTER_NAME || filterField === FIELD_TAGS_FILTER_NAME) {
         return (
             <EditTagTermsModal
                 resources={[]}
@@ -184,12 +201,12 @@ export const AdvancedFilterSelectValueModal = ({
         );
     }
 
-    if (filterField === 'removed') {
+    if (filterField === REMOVED_FILTER_NAME) {
         onSelect(['true']);
         onCloseModal();
     }
 
-    if (filterField === 'glossaryTerms' || filterField === 'fieldGlossaryTerms') {
+    if (filterField === GLOSSARY_TERMS_FILTER_NAME || filterField === FIELD_GLOSSARY_TERMS_FILTER_NAME) {
         return (
             <EditTagTermsModal
                 resources={[]}

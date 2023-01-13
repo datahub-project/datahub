@@ -1,33 +1,24 @@
 import dataclasses
 from dataclasses import dataclass
 from os import PathLike
-from typing import Any, Dict, Optional, Type, Union, cast
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, Optional, Union, cast
+from unittest.mock import patch
 
 import pytest
 import requests_mock
 from freezegun import freeze_time
 
 from datahub.configuration.common import DynamicTypedConfig
-from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
-from datahub.ingestion.source.dbt import (
-    DBTConfig,
-    DBTEntitiesEnabled,
-    DBTSource,
-    EmitDirective,
-    StatefulIngestionSourceBase,
-)
+from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.ingestion.source.sql.sql_types import (
     TRINO_SQL_TYPES_MAP,
     resolve_trino_modified_type,
 )
-from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
-from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     run_and_get_pipeline,
@@ -64,6 +55,8 @@ class DbtTestConfig:
         self.output_path = f"{tmp_path}/{self.output_file}"
 
         self.golden_path = f"{test_resources_dir}/{self.golden_file}"
+
+        self.source_config_modifiers.setdefault("incremental_lineage", True)
         self.source_config = dict(
             {
                 "manifest_path": self.manifest_path,
@@ -158,6 +151,14 @@ class DbtTestConfig:
             },
         ),
         DbtTestConfig(
+            "dbt-test-with-non-incremental-lineage",
+            "dbt_test_with_non_incremental_lineage_mces.json",
+            "dbt_test_with_non_incremental_lineage_mces_golden.json",
+            source_config_modifiers={
+                "incremental_lineage": "False",
+            },
+        ),
+        DbtTestConfig(
             "dbt-test-with-target-platform-instance",
             "dbt_test_with_target_platform_instance_mces.json",
             "dbt_test_with_target_platform_instance_mces_golden.json",
@@ -193,6 +194,7 @@ class DbtTestConfig:
 )
 @pytest.mark.integration
 @requests_mock.Mocker(kw="req_mock")
+@freeze_time(FROZEN_TIME)
 def test_dbt_ingest(dbt_test_config, pytestconfig, tmp_path, mock_time, **kwargs):
     config: DbtTestConfig = dbt_test_config
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
@@ -239,8 +241,8 @@ def test_dbt_ingest(dbt_test_config, pytestconfig, tmp_path, mock_time, **kwargs
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
-) -> Optional[Checkpoint]:
-    dbt_source = cast(DBTSource, pipeline.source)
+) -> Optional[Checkpoint[GenericCheckpointState]]:
+    dbt_source = cast(DBTCoreSource, pipeline.source)
     return dbt_source.get_current_checkpoint(
         dbt_source.stale_entity_removal_handler.job_id
     )
@@ -289,6 +291,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        "incremental_lineage": True,
         # enable stateful ingestion
         **stateful_config,
     }
@@ -300,6 +303,7 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "target_platform": "postgres",
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        "incremental_lineage": True,
         # enable stateful ingestion
         **stateful_config,
     }
@@ -345,10 +349,10 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         # Perform all assertions on the states. The deleted table should not be
         # part of the second state
-        state1 = cast(DbtCheckpointState, checkpoint1.state)
-        state2 = cast(DbtCheckpointState, checkpoint2.state)
+        state1 = checkpoint1.state
+        state2 = checkpoint2.state
         difference_urns = list(
-            state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+            state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
         )
 
         assert len(difference_urns) == 2
@@ -377,102 +381,6 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
-def test_dbt_state_backward_compatibility(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
-):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
-    manifest_path = f"{test_resources_dir}/dbt_manifest.json"
-    catalog_path = f"{test_resources_dir}/dbt_catalog.json"
-    sources_path = f"{test_resources_dir}/dbt_sources.json"
-
-    stateful_config: Dict[str, Any] = {
-        "stateful_ingestion": {
-            "enabled": True,
-            "remove_stale_metadata": True,
-            "fail_safe_threshold": 100.0,
-            "state_provider": {
-                "type": "datahub",
-                "config": {"datahub_api": {"server": GMS_SERVER}},
-            },
-        },
-    }
-
-    scd_config: Dict[str, Any] = {
-        "manifest_path": manifest_path,
-        "catalog_path": catalog_path,
-        "sources_path": sources_path,
-        "target_platform": "postgres",
-        # This will bypass check in get_workunits function of dbt.py
-        "write_semantics": "OVERRIDE",
-        "owner_extraction_pattern": r"^@(?P<owner>(.*))",
-        # enable stateful ingestion
-        **stateful_config,
-    }
-
-    pipeline_config_dict: Dict[str, Any] = {
-        "source": {
-            "type": "dbt",
-            "config": scd_config,
-        },
-        "sink": {
-            # we are not really interested in the resulting events for this test
-            "type": "console"
-        },
-        "pipeline_name": "statefulpipeline",
-    }
-
-    def get_fake_base_sql_alchemy_checkpoint_state(
-        job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
-    ) -> Optional[Checkpoint]:
-        if checkpoint_state_class is DbtCheckpointState:
-            raise Exception(
-                "DBT source will call this function again with BaseSQLAlchemyCheckpointState"
-            )
-
-        sql_state = BaseSQLAlchemyCheckpointState()
-        urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)"
-        urn2 = "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
-        sql_state.add_checkpoint_urn(type="table", urn=urn1)
-        sql_state.add_checkpoint_urn(type="table", urn=urn2)
-
-        assert dbt_source.ctx.pipeline_name is not None
-
-        return Checkpoint(
-            job_name=dbt_source.stale_entity_removal_handler.job_id,
-            pipeline_name=dbt_source.ctx.pipeline_name,
-            platform_instance_id=dbt_source.get_platform_instance_id(),
-            run_id=dbt_source.ctx.run_id,
-            config=dbt_source.config,
-            state=sql_state,
-        )
-
-    with patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, patch.object(
-        StatefulIngestionSourceBase,
-        "get_last_checkpoint",
-        MagicMock(side_effect=get_fake_base_sql_alchemy_checkpoint_state),
-    ) as mock_source_base_get_last_checkpoint:
-        mock_checkpoint.return_value = mock_datahub_graph
-        pipeline = Pipeline.create(pipeline_config_dict)
-        dbt_source = cast(DBTSource, pipeline.source)
-
-        last_checkpoint = dbt_source.get_last_checkpoint(
-            dbt_source.stale_entity_removal_handler.job_id, DbtCheckpointState
-        )
-        mock_source_base_get_last_checkpoint.assert_called()
-        # Our fake method is returning BaseSQLAlchemyCheckpointState,however it should get converted to DbtCheckpointState
-        assert last_checkpoint is not None and isinstance(
-            last_checkpoint.state, DbtCheckpointState
-        )
-
-        pipeline.run()
-        pipeline.raise_from_status()
-
-
-@pytest.mark.integration
-@freeze_time(FROZEN_TIME)
 def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
@@ -484,7 +392,7 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
         config=PipelineConfig(
             source=SourceConfig(
                 type="dbt",
-                config=DBTConfig(
+                config=DBTCoreConfig(
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -497,6 +405,7 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
                     ),
                     # this is just here to avoid needing to access datahub server
                     write_semantics="OVERRIDE",
+                    incremental_lineage=True,
                 ),
             ),
             sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
@@ -516,7 +425,6 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
 @pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
     output_file = tmp_path / "dbt_stateful_tests.json"
     golden_path = test_resources_dir / "dbt_stateful_tests_golden.json"
@@ -546,6 +454,7 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
         # This will bypass check in get_workunits function of dbt.py
         "write_semantics": "OVERRIDE",
         "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        "incremental_lineage": True,
         # enable stateful ingestion
         **stateful_config,
     }
@@ -626,7 +535,7 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
         config=PipelineConfig(
             source=SourceConfig(
                 type="dbt",
-                config=DBTConfig(
+                config=DBTCoreConfig(
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),
@@ -705,7 +614,7 @@ def test_dbt_only_test_definitions_and_results(
         config=PipelineConfig(
             source=SourceConfig(
                 type="dbt",
-                config=DBTConfig(
+                config=DBTCoreConfig(
                     manifest_path=str(
                         (test_resources_dir / "jaffle_shop_manifest.json").resolve()
                     ),

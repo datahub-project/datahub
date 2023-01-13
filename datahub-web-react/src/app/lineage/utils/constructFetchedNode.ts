@@ -63,6 +63,8 @@ export default function constructFetchedNode(
             status: fetchedNode.status,
             siblingPlatforms: fetchedNode.siblingPlatforms,
             schemaMetadata: fetchedNode.schemaMetadata,
+            inputFields: fetchedNode.inputFields,
+            canEditLineage: fetchedNode.canEditLineage,
         };
 
         // eslint-disable-next-line no-param-reassign

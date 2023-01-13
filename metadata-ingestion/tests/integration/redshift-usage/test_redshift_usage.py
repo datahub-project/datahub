@@ -36,14 +36,8 @@ def test_redshift_usage_config():
     assert config.include_tables
 
 
-def yield_function(li):
-    for i in li:
-        yield i
-
-
 @freeze_time(FROZEN_TIME)
 def test_redshift_usage_source(pytestconfig, tmp_path):
-
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/redshift-usage"
     )
@@ -95,7 +89,6 @@ def test_redshift_usage_source(pytestconfig, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 def test_redshift_usage_filtering(pytestconfig, tmp_path):
-
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/redshift-usage"
     )

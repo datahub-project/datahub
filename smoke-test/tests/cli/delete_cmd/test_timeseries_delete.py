@@ -1,6 +1,8 @@
 import json
 import tempfile
 import time
+import sys
+from json import JSONDecodeError
 from typing import Any, Dict, List, Optional
 
 from click.testing import CliRunner, Result
@@ -12,6 +14,7 @@ from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.aspect_generators.timeseries.dataset_profile_gen import \
     gen_dataset_profiles
 from tests.utils import get_strftime_from_timestamp_millis
+import requests_wrapper as requests
 
 test_aspect_name: str = "datasetProfile"
 test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
@@ -21,12 +24,11 @@ test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
     "TEST",
 )
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def sync_elastic() -> None:
-    elastic_sync_wait_time_seconds: int = 5
-    time.sleep(elastic_sync_wait_time_seconds)
+    time.sleep(requests.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
 
 def datahub_put_profile(dataset_profile: DatasetProfileClass) -> None:
@@ -55,7 +57,12 @@ def datahub_get_and_verify_profile(
     get_args: List[str] = ["get", "--urn", test_dataset_urn, "-a", test_aspect_name]
     get_result: Result = runner.invoke(datahub, get_args)
     assert get_result.exit_code == 0
-    get_result_output_obj: Dict = json.loads(get_result.output)
+    try:
+        get_result_output_obj: Dict = json.loads(get_result.stdout)
+    except JSONDecodeError as e:
+        print("Failed to decode: " + get_result.stdout, file=sys.stderr)
+        raise e
+
     if expected_profile is None:
         assert not get_result_output_obj
     else:

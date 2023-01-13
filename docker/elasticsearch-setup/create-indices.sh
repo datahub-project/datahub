@@ -100,11 +100,13 @@ function create_if_not_exists {
 
 # create indices for ES (non-AWS)
 function create_datahub_usage_event_datastream() {
-  # non-AWS env requires creation of two resources for Datahub usage events:
+  # non-AWS env requires creation of three resources for Datahub usage events:
   #   1. ILM policy
   create_if_not_exists "_ilm/policy/${PREFIX}datahub_usage_event_policy" policy.json
   #   2. index template
   create_if_not_exists "_index_template/${PREFIX}datahub_usage_event_index_template" index_template.json
+  #   3. although indexing request creates the data stream, it's not queryable before creation, causing GMS to throw exceptions
+  create_if_not_exists "_data_stream/${PREFIX}datahub_usage_event" "datahub_usage_event"
 }
 
 # create indices for ES OSS (AWS)
@@ -148,11 +150,11 @@ if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
   fi
 else
   echo -e "\ndatahub_analytics_enabled: $DATAHUB_ANALYTICS_ENABLED"
-  DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE=$(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "${ELASTICSEARCH_INSECURE}$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/cat/indices/${PREFIX}datahub_usage_event")
+  DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE=$(curl "${CURL_ARGS[@]}" -o /dev/null -w "%{http_code}" "$ELASTICSEARCH_URL/_cat/indices/${PREFIX}datahub_usage_event")
   if [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 404 ]
   then
     echo -e "\ncreating ${PREFIX}datahub_usage_event"
-    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "${ELASTICSEARCH_INSECURE}$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/${PREFIX}datahub_usage_event"
+    curl "${CURL_ARGS[@]}" -XPUT "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event"
   elif [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 200 ]; then
     echo -e "\n${PREFIX}datahub_usage_event exists"
   elif [ $DATAHUB_USAGE_EVENT_INDEX_RESPONSE_CODE -eq 403 ]; then

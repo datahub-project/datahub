@@ -1,4 +1,4 @@
-import { SchemaMetadata } from '../../../types.generated';
+import { SchemaField } from '../../../types.generated';
 import { COLUMN_HEIGHT, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, NUM_COLUMNS_PER_PAGE } from '../constants';
 
 interface OptionalOptions {
@@ -93,18 +93,17 @@ export function getTitleHeight(title?: string) {
 
 export function nodeHeightFromTitleLength(
     title?: string,
-    schemaMetadata?: SchemaMetadata,
+    fields?: SchemaField[],
     showColumns?: boolean,
     collapsed?: boolean,
 ) {
     let showColumnBuffer = 0;
     let columnPaginationBuffer = 0;
-    if (showColumns && schemaMetadata) {
+    if (showColumns && fields) {
         if (!collapsed) {
             showColumnBuffer =
-                Math.min(schemaMetadata.fields.length, NUM_COLUMNS_PER_PAGE) * COLUMN_HEIGHT +
-                EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT;
-            if (schemaMetadata.fields.length > NUM_COLUMNS_PER_PAGE) {
+                Math.min(fields.length, NUM_COLUMNS_PER_PAGE) * COLUMN_HEIGHT + EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT;
+            if (fields.length > NUM_COLUMNS_PER_PAGE) {
                 columnPaginationBuffer = 40;
             }
         } else {

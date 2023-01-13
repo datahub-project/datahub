@@ -206,6 +206,13 @@ fragment nonSiblingDatasetFields on Dataset {
             }
         }
     }
+    siblings {
+        isPrimary
+    }
+    privileges {
+        canEditLineage
+        canEditEmbed
+    }
 }
 
 mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {

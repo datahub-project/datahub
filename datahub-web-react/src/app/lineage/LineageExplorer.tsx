@@ -12,7 +12,6 @@ import { EntityAndType, EntitySelectParams, FetchedEntities } from './types';
 import LineageViz from './LineageViz';
 import extendAsyncEntities from './utils/extendAsyncEntities';
 import { EntityType } from '../../types.generated';
-import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
@@ -65,7 +64,7 @@ export default function LineageExplorer({ urn, type }: Props) {
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const showColumns = useIsShowColumnsMode();
 
-    const { loading, error, data } = useGetEntityLineageQuery({
+    const { loading, error, data, refetch } = useGetEntityLineageQuery({
         variables: { urn, separateSiblings: isHideSiblingMode, showColumns },
     });
 
@@ -125,6 +124,14 @@ export default function LineageExplorer({ urn, type }: Props) {
         [asyncEntities, setAsyncEntities, entityRegistry, fineGrainedMap],
     );
 
+    // set asyncEntity to have fullyFetched: false so we can update it in maybeAddAsyncLoadedEntity
+    function resetAsyncEntity(entityUrn: string) {
+        setAsyncEntities({
+            ...asyncEntities,
+            [entityUrn]: { ...asyncEntities[entityUrn], fullyFetched: false },
+        });
+    }
+
     const handleClose = () => {
         setIsDrawVisible(false);
         setSelectedEntity(undefined);
@@ -163,7 +170,13 @@ export default function LineageExplorer({ urn, type }: Props) {
                             );
                         }}
                         onLineageExpand={(asyncData: EntityAndType) => {
+                            resetAsyncEntity(asyncData.entity.urn);
                             maybeAddAsyncLoadedEntity(asyncData);
+                        }}
+                        refetchCenterNode={() => {
+                            refetch().then(() => {
+                                resetAsyncEntity(urn);
+                            });
                         }}
                     />
                 </div>
@@ -184,7 +197,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                                 Close
                             </Button>
                             <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
-                                <InfoCircleOutlined /> {capitalizeFirstLetter(selectedEntity.type)} Details
+                                <InfoCircleOutlined /> {entityRegistry.getEntityName(selectedEntity.type)} Details
                             </Button>
                         </FooterButtonGroup>
                     )

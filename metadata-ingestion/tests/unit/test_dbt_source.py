@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt import DBTConfig, DBTSource
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipSourceClass,
@@ -31,7 +31,7 @@ def create_owners_list_from_urn_list(
     return owners_list
 
 
-def create_mocked_dbt_source() -> DBTSource:
+def create_mocked_dbt_source() -> DBTCoreSource:
     ctx = PipelineContext("test-run-id")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
@@ -46,7 +46,7 @@ def create_mocked_dbt_source() -> DBTSource:
         ["non_dbt_existing", "dbt:existing"]
     )
     ctx.graph = graph
-    return DBTSource(DBTConfig(**create_base_dbt_config()), ctx, "dbt")
+    return DBTCoreSource(DBTCoreConfig(**create_base_dbt_config()), ctx, "dbt")
 
 
 def create_base_dbt_config() -> Dict:
@@ -180,7 +180,7 @@ def test_dbt_entity_emission_configuration():
         "entities_enabled": {"models": "Only", "seeds": "Only"},
     }
     try:
-        DBTConfig.parse_obj(config_dict)
+        DBTCoreConfig.parse_obj(config_dict)
     except ValidationError as ve:
         assert len(ve.errors()) == 1
         assert (
@@ -194,7 +194,7 @@ def test_dbt_entity_emission_configuration():
         "target_platform": "dummy_platform",
         "entities_enabled": {"models": "Yes", "seeds": "Only"},
     }
-    DBTConfig.parse_obj(config_dict)
+    DBTCoreConfig.parse_obj(config_dict)
 
 
 def test_dbt_entity_emission_configuration_helpers():
@@ -206,7 +206,7 @@ def test_dbt_entity_emission_configuration_helpers():
             "models": "Only",
         },
     }
-    config = DBTConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.parse_obj(config_dict)
     assert config.entities_enabled.can_emit_node_type("model")
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
@@ -217,7 +217,7 @@ def test_dbt_entity_emission_configuration_helpers():
         "catalog_path": "dummy_path",
         "target_platform": "dummy_platform",
     }
-    config = DBTConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.parse_obj(config_dict)
     assert config.entities_enabled.can_emit_node_type("model")
     assert config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
@@ -231,7 +231,7 @@ def test_dbt_entity_emission_configuration_helpers():
             "test_results": "Only",
         },
     }
-    config = DBTConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.parse_obj(config_dict)
     assert not config.entities_enabled.can_emit_node_type("model")
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
@@ -248,7 +248,7 @@ def test_dbt_entity_emission_configuration_helpers():
             "sources": "No",
         },
     }
-    config = DBTConfig.parse_obj(config_dict)
+    config = DBTCoreConfig.parse_obj(config_dict)
     assert not config.entities_enabled.can_emit_node_type("model")
     assert not config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")

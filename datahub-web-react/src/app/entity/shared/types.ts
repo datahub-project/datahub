@@ -32,6 +32,8 @@ import {
     DomainAssociation,
     InputFields,
     FineGrainedLineage,
+    EntityPrivileges,
+    Embed,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -99,6 +101,8 @@ export type GenericEntityProperties = {
     lastIngested?: Maybe<number>;
     inputFields?: Maybe<InputFields>;
     fineGrainedLineages?: Maybe<FineGrainedLineage[]>;
+    privileges?: Maybe<EntityPrivileges>;
+    embed?: Maybe<Embed>;
 };
 
 export type GenericEntityUpdate = {

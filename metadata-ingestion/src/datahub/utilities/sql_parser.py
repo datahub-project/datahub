@@ -5,7 +5,7 @@ import re
 import sys
 import traceback
 from multiprocessing import Process, Queue
-from typing import List, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple, Type
 
 from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
 from datahub.utilities.sql_parser_base import SQLParser
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 class MetadataSQLSQLParser(SQLParser):
     _DATE_SWAP_TOKEN = "__d_a_t_e"
 
-    def __init__(self, sql_query: str) -> None:
-        super().__init__(sql_query)
+    def __init__(self, sql_query: str, use_external_process: bool = True) -> None:
+        super().__init__(sql_query, use_external_process)
 
         original_sql_query = sql_query
 
@@ -68,9 +68,8 @@ class MetadataSQLSQLParser(SQLParser):
 
 
 def sql_lineage_parser_impl_func_wrapper(
-    queue: multiprocessing.Queue,
-    sql_query: str,
-) -> None:
+    queue: Optional[multiprocessing.Queue], sql_query: str, use_raw_names: bool = False
+) -> Optional[Tuple[List[str], List[str], Any]]:
     """
     The wrapper function that computes the tables and columns using the SqlLineageSQLParserImpl
     and puts the results on the shared IPC queue. This is used to isolate SqlLineageSQLParserImpl
@@ -78,13 +77,14 @@ def sql_lineage_parser_impl_func_wrapper(
     the sqllineage module.
     :param queue: The shared IPC queue on to which the results will be put.
     :param sql_query: The SQL query to extract the tables & columns from.
+    :param use_raw_names: Parameter used to ignore sqllineage's default lowercasing.
     :return: None.
     """
     exception_details: Optional[Tuple[Optional[Type[BaseException]], str]] = None
     tables: List[str] = []
     columns: List[str] = []
     try:
-        parser = SqlLineageSQLParserImpl(sql_query)
+        parser = SqlLineageSQLParserImpl(sql_query, use_raw_names)
         tables = parser.get_tables()
         columns = parser.get_columns()
     except BaseException:
@@ -93,17 +93,39 @@ def sql_lineage_parser_impl_func_wrapper(
         exception_details = (exc_info[0], exc_msg)
         logger.debug(exc_msg)
     finally:
-        queue.put((tables, columns, exception_details))
+        if queue is not None:
+            queue.put((tables, columns, exception_details))
+            return None
+        else:
+            return (tables, columns, exception_details)
 
 
 class SqlLineageSQLParser(SQLParser):
-    def __init__(self, sql_query: str) -> None:
-        super().__init__(sql_query)
-        self.tables, self.columns = self._get_tables_columns_process_wrapped(sql_query)
+    def __init__(
+        self,
+        sql_query: str,
+        use_external_process: bool = True,
+        use_raw_names: bool = False,
+    ) -> None:
+        super().__init__(sql_query, use_external_process)
+        if use_external_process:
+            self.tables, self.columns = self._get_tables_columns_process_wrapped(
+                sql_query, use_raw_names
+            )
+        else:
+            return_tuple = sql_lineage_parser_impl_func_wrapper(
+                None, sql_query, use_raw_names
+            )
+            if return_tuple is not None:
+                (
+                    self.tables,
+                    self.columns,
+                    some_exception,
+                ) = return_tuple
 
     @staticmethod
     def _get_tables_columns_process_wrapped(
-        sql_query: str,
+        sql_query: str, use_raw_names: bool = False
     ) -> Tuple[List[str], List[str]]:
         # Invoke sql_lineage_parser_impl_func_wrapper in a separate process to avoid
         # memory leaks from sqllineage module used by SqlLineageSQLParserImpl. This will help
@@ -112,10 +134,7 @@ class SqlLineageSQLParser(SQLParser):
         queue: multiprocessing.Queue = Queue()
         process: multiprocessing.Process = Process(
             target=sql_lineage_parser_impl_func_wrapper,
-            args=(
-                queue,
-                sql_query,
-            ),
+            args=(queue, sql_query, use_raw_names),
         )
         process.start()
         tables, columns, exception_details = queue.get(block=True)

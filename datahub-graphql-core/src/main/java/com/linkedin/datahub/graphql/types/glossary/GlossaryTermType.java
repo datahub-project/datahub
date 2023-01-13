@@ -53,6 +53,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm, Stri
         OWNERSHIP_ASPECT_NAME,
         STATUS_ASPECT_NAME,
         BROWSE_PATHS_ASPECT_NAME,
+        DOMAINS_ASPECT_NAME,
         DEPRECATION_ASPECT_NAME
     );
 

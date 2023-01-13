@@ -20,6 +20,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { ChartSnippet } from './ChartSnippet';
+import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -73,7 +74,7 @@ export class ChartEntity implements Entity<Chart> {
             useEntityQuery={useGetChartQuery}
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             subHeader={{
                 component: ChartStatsSummarySubHeader,
             }}
@@ -91,22 +92,18 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Properties',
-                    component: PropertiesTab,
+                    name: 'Preview',
+                    component: EmbedTab,
+                    display: {
+                        visible: (_, chart: GetChartQuery) => !!chart?.chart?.embed?.renderUrl,
+                        enabled: (_, chart: GetChartQuery) => !!chart?.chart?.embed?.renderUrl,
+                    },
                 },
                 {
                     name: 'Lineage',
                     component: LineageTab,
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
-                    },
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, chart: GetChartQuery) => {
-                            return (
-                                (chart?.chart?.upstream?.total || 0) > 0 || (chart?.chart?.downstream?.total || 0) > 0
-                            );
-                        },
                     },
                 },
                 {
@@ -116,6 +113,10 @@ export class ChartEntity implements Entity<Chart> {
                         visible: (_, _1) => true,
                         enabled: (_, chart: GetChartQuery) => (chart?.chart?.dashboards?.total || 0) > 0,
                     },
+                },
+                {
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
             sidebarSections={[

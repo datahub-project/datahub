@@ -1,7 +1,7 @@
 import React from 'react';
 import { Divider, List, Checkbox } from 'antd';
 import styled from 'styled-components';
-import { Entity } from '../../../../types.generated';
+import { Entity, EntityPath } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { IconStyleType } from '../../../entity/Entity';
@@ -13,7 +13,7 @@ const StyledCheckbox = styled(Checkbox)`
 `;
 
 const StyledList = styled(List)`
-    overflow-y: scroll;
+    overflow-y: auto;
     height: 100%;
     margin-top: -1px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
@@ -60,6 +60,7 @@ const ThinDivider = styled(Divider)`
 
 type AdditionalProperties = {
     degree?: number;
+    paths?: EntityPath[];
 };
 
 type Props = {
@@ -140,6 +141,7 @@ export const EntityNameList = ({
                             )}
                             <DefaultPreviewCard
                                 name={displayName}
+                                urn={entity.urn}
                                 logoUrl={platformLogoUrl || undefined}
                                 logoComponent={fallbackIcon}
                                 url={url}
@@ -153,6 +155,7 @@ export const EntityNameList = ({
                                 entityCount={entityCount}
                                 degree={additionalProperties?.degree}
                                 deprecation={deprecation}
+                                paths={additionalProperties?.paths}
                             />
                         </ListItem>
                         <ThinDivider />

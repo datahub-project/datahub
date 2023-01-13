@@ -1,14 +1,16 @@
 describe('analytics', () => {
-  it('can go to a dataset and see analytics in Section Views', () => {
+  it('can go to a chart and see analytics in Section Views', () => {
     cy.login();
 
-    cy.visit("/analytics");
-    cy.contains("documentation").should('not.exist');
+    cy.goToChart("urn:li:chart:(looker,cypress_baz1)");
+    cy.waitTextVisible("Baz Chart 1");
+    cy.openEntityTab("Dashboards");
+    cy.wait(1000);
 
-    cy.visit("/chart/urn:li:chart:(looker,baz1)");
-    cy.get("#rc-tabs-0-panel-Dashboards").click({ force: true });
-
-    cy.visit("/analytics");
-    cy.contains("documentation");
+    cy.goToAnalytics();
+    cy.contains("Section Views across Entity Types").scrollIntoView({
+      ensureScrollable: false
+    })
+    cy.waitTextPresent("dashboards");
   });
 })

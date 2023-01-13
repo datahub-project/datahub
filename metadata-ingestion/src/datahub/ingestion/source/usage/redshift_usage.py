@@ -3,13 +3,12 @@ import dataclasses
 import logging
 import time
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Set
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set
 
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from sqlalchemy.engine.result import ResultProxy, RowProxy
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
@@ -31,13 +30,16 @@ from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
 )
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    OperationClass,
-    OperationTypeClass,
-)
+from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    try:
+        from sqlalchemy.engine import Row  # type: ignore
+    except ImportError:
+        # See https://github.com/python/mypy/issues/1153.
+        from sqlalchemy.engine.result import RowProxy as Row  # type: ignore
 
 REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -134,7 +136,7 @@ class RedshiftAccessEvent(BaseModel):
     username: str
     query: int
     tbl: int
-    text: str = Field(None, alias="querytxt")
+    text: Optional[str] = Field(None, alias="querytxt")
     database: str
     schema_: str = Field(alias="schema")
     table: str
@@ -189,7 +191,6 @@ class RedshiftUsageSource(Source):
     1. For a specific dataset this plugin ingests the following statistics -
        1. top n queries.
        2. top users.
-       3. usage of each column in the dataset.
     2. Aggregation of these statistics into buckets, by day or hour granularity.
 
     :::note
@@ -267,7 +268,7 @@ class RedshiftUsageSource(Source):
         logger.debug(f"sql_alchemy_url = {url}")
         return create_engine(url, **self.config.options)
 
-    def _should_process_row(self, row: RowProxy) -> bool:
+    def _should_process_row(self, row: "Row") -> bool:
         # Check for mandatory proerties being present first.
         missing_props: List[str] = [
             prop
@@ -295,10 +296,13 @@ class RedshiftUsageSource(Source):
     def _gen_access_events_from_history_query(
         self, query: str, engine: Engine
     ) -> Iterable[RedshiftAccessEvent]:
-        results: ResultProxy = engine.execute(query)
-        for row in results:  # type: RowProxy
+        results = engine.execute(query)
+        for row in results:
             if not self._should_process_row(row):
                 continue
+            if hasattr(row, "_asdict"):
+                # Compatibility with sqlalchemy 1.4.x.
+                row = row._asdict()
             access_event = RedshiftAccessEvent(**dict(row.items()))
             # Replace database name with the alias name if one is provided in the config.
             if self.config.database_alias:
@@ -338,9 +342,6 @@ class RedshiftUsageSource(Source):
                 ),
             )
             mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                aspectName="operation",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=builder.make_dataset_urn_with_platform_instance(
                     "redshift",
                     resource.lower(),
@@ -403,6 +404,3 @@ class RedshiftUsageSource(Source):
 
     def get_report(self) -> RedshiftUsageSourceReport:
         return self.report
-
-    def close(self) -> None:
-        pass
