@@ -1,6 +1,6 @@
 import dataclasses
 
-from datahub.ingestion.api.report import EntityFilterReport, Report
+from datahub.ingestion.api.report import EntityFilterReport, Report, SupportsAsObj
 
 
 @dataclasses.dataclass
@@ -11,6 +11,7 @@ class MyReport(Report):
 def test_entity_filter_report():
     report = MyReport()
     assert report.views.type == "view"
+    assert isinstance(report, SupportsAsObj)
 
     report2 = MyReport()
 

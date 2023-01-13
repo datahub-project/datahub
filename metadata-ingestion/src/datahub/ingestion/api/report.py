@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 import humanfriendly
 import pydantic
 from pydantic import BaseModel
-from typing_extensions import Literal
+from typing_extensions import Literal, Protocol, runtime_checkable
 
 from datahub.ingestion.api.report_helpers import format_datetime_relative
 from datahub.utilities.lossy_collections import LossyList
@@ -26,8 +26,14 @@ else:
     PPRINT_OPTIONS: Dict = {}
 
 
+@runtime_checkable
+class SupportsAsObj(Protocol):
+    def as_obj(self) -> dict:
+        ...
+
+
 @dataclass
-class Report:
+class Report(SupportsAsObj):
     @staticmethod
     def to_str(some_val: Any) -> str:
         if isinstance(some_val, Enum):
@@ -39,7 +45,7 @@ class Report:
     def to_pure_python_obj(some_val: Any) -> Any:
         """A cheap way to generate a dictionary."""
 
-        if hasattr(some_val, "as_obj"):
+        if isinstance(some_val, SupportsAsObj):
             return some_val.as_obj()
         elif isinstance(some_val, pydantic.BaseModel):
             return some_val.dict()
@@ -129,6 +135,8 @@ class EntityFilterReport(ReportAttribute):
 
     @staticmethod
     def field(type: str, severity: LogLevel = "DEBUG") -> "EntityFilterReport":
+        """A helper to create a dataclass field."""
+
         return dataclasses.field(
             default_factory=lambda: EntityFilterReport(type=type, severity=severity)
         )
