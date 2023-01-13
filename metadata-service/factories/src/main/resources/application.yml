@@ -5,7 +5,7 @@ authentication:
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
-      # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
+    # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
     - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
@@ -28,7 +28,6 @@ authentication:
 
 # Authorization-related configurations.
 authorization:
-
   # Configurations for the default DataHub policies-based authorizer.
   defaultAuthorizer:
     enabled: ${AUTH_POLICIES_ENABLED:true}
@@ -36,7 +35,7 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}'
+  defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -92,6 +91,10 @@ platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
 
 visualConfig:
+  queriesTab:
+    # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
+    # overhaul coming.
+    queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/favicon.ico}

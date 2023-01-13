@@ -635,64 +635,64 @@ class DebeziumSourceConnector:
         server_name: Optional[str]
         database_name: Optional[str]
 
+    def get_server_name(self, connector_manifest: ConnectorManifest) -> str:
+        if "topic.prefix" in connector_manifest.config:
+            return connector_manifest.config["topic.prefix"]
+        else:
+            return connector_manifest.config.get("database.server.name", "")
+
     def get_parser(
         self,
         connector_manifest: ConnectorManifest,
     ) -> DebeziumParser:
         connector_class = connector_manifest.config.get("connector.class", "")
+
         if connector_class == "io.debezium.connector.mysql.MySqlConnector":
-            # https://debezium.io/documentation/reference/connectors/mysql.html#mysql-topic-names
             parser = self.DebeziumParser(
                 source_platform="mysql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=None,
             )
         elif connector_class == "MySqlConnector":
             parser = self.DebeziumParser(
                 source_platform="mysql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=None,
             )
         elif connector_class == "io.debezium.connector.mongodb.MongoDbConnector":
-            # https://debezium.io/documentation/reference/connectors/mongodb.html#mongodb-topic-names
             parser = self.DebeziumParser(
                 source_platform="mongodb",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=None,
             )
         elif connector_class == "io.debezium.connector.postgresql.PostgresConnector":
-            # https://debezium.io/documentation/reference/connectors/postgresql.html#postgresql-topic-names
             parser = self.DebeziumParser(
                 source_platform="postgres",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.oracle.OracleConnector":
-            # https://debezium.io/documentation/reference/connectors/oracle.html#oracle-topic-names
             parser = self.DebeziumParser(
                 source_platform="oracle",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.sqlserver.SqlServerConnector":
-            # https://debezium.io/documentation/reference/connectors/sqlserver.html#sqlserver-topic-names
             parser = self.DebeziumParser(
                 source_platform="mssql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.db2.Db2Connector":
-            # https://debezium.io/documentation/reference/connectors/db2.html#db2-topic-names
             parser = self.DebeziumParser(
                 source_platform="db2",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.vitess.VitessConnector":
-            # https://debezium.io/documentation/reference/connectors/vitess.html#vitess-topic-names
             parser = self.DebeziumParser(
                 source_platform="vitess",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("vitess.keyspace"),
             )
         else:
@@ -900,13 +900,10 @@ def transform_connector_config(
 class KafkaConnectSource(Source):
     """
     This plugin extracts the following:
-
     - Kafka Connect connector as individual `DataFlowSnapshotClass` entity
     - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
     - Lineage information between source database to Kafka topic
-
     Current limitations:
-
     - works only for
         - JDBC, Debezium, and Mongo source connectors
         - Generic connectors with user-defined lineage graph
@@ -948,7 +945,6 @@ class KafkaConnectSource(Source):
 
     def get_connectors_manifest(self) -> List[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API.
-
         Enrich with lineages metadata.
         """
         connectors_manifest = list()
