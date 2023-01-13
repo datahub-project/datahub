@@ -32,6 +32,14 @@ class SupportsAsObj(Protocol):
         ...
 
 
+def _stacklevel_if_supported(level: int) -> dict:
+    # The logging module added support for stacklevel in Python 3.8.
+    if sys.version_info >= (3, 8):
+        return {"stacklevel": level}
+    else:
+        return {}
+
+
 @dataclass
 class Report(SupportsAsObj):
     @staticmethod
@@ -110,7 +118,7 @@ class ReportAttribute(BaseModel):
         return log_levels[self.severity]
 
     def log(self, msg: str) -> None:
-        logger.log(level=self.logger_sev, msg=msg, stacklevel=3)
+        logger.log(level=self.logger_sev, msg=msg, **_stacklevel_if_supported(3))
 
 
 class EntityFilterReport(ReportAttribute):
