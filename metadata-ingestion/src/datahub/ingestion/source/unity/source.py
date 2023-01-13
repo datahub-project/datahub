@@ -175,16 +175,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         for metastore in self.unity_catalog_api_proxy.metastores():
             if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):
-                self.report.report_dropped(f"{metastore.metastore_id}.*.*.*")
+                self.report.metastores.dropped(metastore.metastore_id)
                 continue
+
             logger.info(
                 f"Started to process metastore: {metastore.metastore_id} ({metastore.name})"
             )
             yield from self.gen_metastore_containers(metastore)
             yield from self.process_catalogs(metastore)
-            self.report.increment_scanned_metastore(1)
-            logger.info(
-                f"Finished to process metastore: {metastore.metastore_id} ({metastore.name})"
+
+            self.report.metastores.processed(
+                f"{metastore.metastore_id} ({metastore.name})"
             )
 
     def process_catalogs(

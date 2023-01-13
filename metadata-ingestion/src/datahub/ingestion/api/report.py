@@ -105,25 +105,25 @@ class ReportAttribute(BaseModel):
 class EntityFilterReport(ReportAttribute):
     type: str
 
-    processed: LossyList[str] = LossyList()
-    filtered: LossyList[str] = LossyList()
+    _processed: LossyList[str] = LossyList()
+    _dropped: LossyList[str] = LossyList()
 
-    def __call__(self, entity: str) -> Any:
+    def processed(self, entity: str) -> None:
         logger.log(
             level=self.logger_sev, msg=f"Processed {self.type} {entity}", stacklevel=2
         )
-        self.processed.append(entity)
+        self._processed.append(entity)
 
     def dropped(self, entity: str) -> None:
         logger.log(
             level=self.logger_sev, msg=f"Filtered {self.type} {entity}", stacklevel=2
         )
-        self.filtered.append(entity)
+        self._dropped.append(entity)
 
     def as_obj(self) -> dict:
         return {
-            "filtered": self.filtered,
-            "processed": self.processed,
+            "filtered": self._dropped,
+            "processed": self._processed,
         }
 
     @staticmethod

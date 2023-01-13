@@ -12,7 +12,7 @@ def test_report_types():
 
     report = MyReport()
 
-    report.views(entity="foo")
+    report.views.processed(entity="foo")
     report.views.dropped(entity="bar")
 
     assert (
