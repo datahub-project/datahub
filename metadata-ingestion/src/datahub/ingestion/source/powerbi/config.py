@@ -140,9 +140,11 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_lineage: bool = pydantic.Field(
         default=True, description="Whether lineage should be ingested"
     )
-    # Enable/Disable extracting endorsements to tags
+    # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
+    # any existing tags defined to those entitiies
     extract_endorsements_to_tags: bool = pydantic.Field(
-        default=True, description="Whether to extract endorsements to tags"
+        default=False,
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags",
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
