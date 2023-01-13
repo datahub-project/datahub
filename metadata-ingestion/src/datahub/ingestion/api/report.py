@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, ClassVar, Dict
+from typing import Any, Dict
 
 import humanfriendly
 import pydantic
@@ -19,8 +19,6 @@ else:
 
 @dataclass
 class Report:
-    _ALIASES: ClassVar[Dict[str, str]] = {}
-
     @staticmethod
     def to_str(some_val: Any) -> str:
         if isinstance(some_val, Enum):
@@ -80,11 +78,10 @@ class Report:
     def as_obj(self) -> dict:
         self.compute_stats()
         return {
-            str(self._ALIASES.get(key, key)): Report.to_dict(value)
+            str(key): Report.to_dict(value)
             for (key, value) in self.__dict__.items()
             # ignore nulls and fields starting with _
-            if value is not None
-            and not str(self._ALIASES.get(key, key)).startswith("_")
+            if value is not None and not str(key).startswith("_")
         }
 
     def as_string(self) -> str:
