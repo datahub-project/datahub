@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel
