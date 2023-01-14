@@ -197,9 +197,7 @@ module.exports = {
       "docs/domains",
       "docs/glossary/business-glossary",
       "docs/tags",
-      {
-        Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
-      },
+      "docs/lineage/lineage-feature-guide",
     ],
 
     "Act on Metadata": [
