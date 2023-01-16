@@ -241,13 +241,12 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn))
 
-            if self.__config.extract_endorsements_to_tags and dataset.tags:
-                tags = self.transform_tags(dataset.tags)
+            if dataset.tags:
                 tags_mcp = self.new_mcp(
                     Constant.DATASET,
                     ds_urn,
                     Constant.GLOBAL_TAGS,
-                    tags,
+                    self.transform_tags(dataset.tags),
                 )
                 dataset_mcps.append(tags_mcp)
 
@@ -443,13 +442,12 @@ class Mapper:
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
-        if self.__config.extract_endorsements_to_tags and dashboard.tags:
-            tags = self.transform_tags(dashboard.tags)
+        if dashboard.tags:
             tags_mcp = self.new_mcp(
                 Constant.DASHBOARD,
                 dashboard_urn,
                 Constant.GLOBAL_TAGS,
-                tags,
+                self.transform_tags(dashboard.tags),
             )
             list_of_mcps.append(tags_mcp)
 
@@ -732,13 +730,12 @@ class Mapper:
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
-        if self.__config.extract_endorsements_to_tags and report.tags:
-            tags = self.transform_tags(report.tags)
+        if report.tags:
             tags_mcp = self.new_mcp(
                 Constant.DASHBOARD,
                 dashboard_urn,
                 Constant.GLOBAL_TAGS,
-                tags,
+                self.transform_tags(report.tags),
             )
             list_of_mcps.append(tags_mcp)
 

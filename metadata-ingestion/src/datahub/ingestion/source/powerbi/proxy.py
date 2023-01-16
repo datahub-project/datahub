@@ -476,6 +476,10 @@ class PowerBiAPI:
         logger.debug("datasets = {}".format(response_dict))
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of
         # None/details
+        tags = []
+        if self.__config.extract_endorsements_to_tags:
+            tags = self.parse_endorsement(endorsements)
+
         return PowerBiAPI.PowerBIDataset(
             id=response_dict.get("id"),
             name=response_dict.get("name"),
@@ -484,7 +488,7 @@ class PowerBiAPI:
             else None,
             workspace_id=workspace_id,
             tables=[],
-            tags=self.parse_endorsement(endorsements),
+            tags=tags,
         )
 
     def get_data_sources(
