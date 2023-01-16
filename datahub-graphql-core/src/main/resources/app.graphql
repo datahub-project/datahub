@@ -157,6 +157,11 @@ type AppConfig {
   Configurations related to DataHub tests
   """
   testsConfig: TestsConfig!
+
+  """
+  Configurations related to ASD
+  """
+  asdConfig: ASDConfig!
 }
 
 """
@@ -309,4 +314,14 @@ type TestsConfig {
   Whether Tests feature is enabled
   """
   enabled: Boolean!
+}
+
+"""
+Configurations related to ASD
+"""
+type ASDConfig {
+  """
+  Url to ASD
+  """
+  url: String
 }

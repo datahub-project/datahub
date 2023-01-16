@@ -73,11 +73,12 @@ export function HeaderLinks(props: Props) {
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
     const showDomains = me?.platformPrivileges.createDomains || me?.platformPrivileges.manageDomains;
     const showASD = true;
+    const asdLink = config?.asd.url;
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
             {showASD && (
-                <a href="/">
+                <a href={asdLink}>
                     <Button type="text">Go to Advanced Search and Dashboards</Button>
                 </a>
             )}

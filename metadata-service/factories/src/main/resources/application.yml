@@ -95,6 +95,9 @@ visualConfig:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/favicon.ico}
 
+asdConfig:
+  url: ${ASD_URL:http://localhost:8088}
+
 # Storage Layer
 
 # Only required if entityService.impl is ebean
