@@ -61,13 +61,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: str = Field(default="mssql+pytds", description="", hidden_from_schema=True)
     include_stored_procedures: bool = Field(
-        default=True, description="Include ingest of stored procedures."
+        default=True, description="Include ingest of stored procedures. Requires access to the 'sys' schema."
     )
     include_stored_procedures_code: bool = Field(
-        default=True, description="Include information about object code"
+        default=True, description="Include information about object code."
     )
     include_jobs: bool = Field(
-        default=True, description="Include ingest of MSSQL Jobs"
+        default=True, description="Include ingest of MSSQL Jobs. Requires access to the 'sys' schema."
     )
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
