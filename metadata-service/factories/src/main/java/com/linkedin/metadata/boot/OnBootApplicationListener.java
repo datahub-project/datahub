@@ -67,7 +67,6 @@ public class OnBootApplicationListener {
           } catch (IOException | InterruptedException e) {
             log.info("Failed to connect to open servlet: {}", e.getMessage());
           }
-          //openAPIServeletReady = isOpenAPIServeletReady();
           timeouts--;
         }
         if (!openAPIServeletReady) {
