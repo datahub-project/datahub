@@ -27,6 +27,16 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
+from datahub.ingestion.source.state.sql_common_state import BaseSQLAlchemyCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import StatefulIngestionSourceBase
+
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
@@ -715,7 +725,7 @@ class Mapper:
 @capability(
     SourceCapability.OWNERSHIP, "On by default but can disabled by configuration"
 )
-class PowerBiDashboardSource(Source):
+class PowerBiDashboardSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - Power BI dashboards, tiles and datasets
@@ -728,12 +738,24 @@ class PowerBiDashboardSource(Source):
     accessed_dashboards: int = 0
 
     def __init__(self, config: PowerBiDashboardSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
         self.auth_token = PowerBiAPI(self.source_config).get_access_token()
         self.powerbi_client = PowerBiAPI(self.source_config)
         self.mapper = Mapper(config, self.reporter)
+
+        # Create and register the stateful ingestion use-case handler.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.source_config,
+            state_type_class=BaseSQLAlchemyCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+        )
+
+    def get_platform_instance_id(self) -> str:
+        return self.source_config.platform_name
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -758,7 +780,7 @@ class PowerBiDashboardSource(Source):
             if key not in powerbi_data_platforms:
                 raise ValueError(f"PowerBI DataPlatform {key} is not supported")
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Datahub Ingestion framework invoke this method
         """
@@ -798,6 +820,15 @@ class PowerBiDashboardSource(Source):
                     ):
                         self.reporter.report_workunit(work_unit)
                         yield work_unit
+
+        # Clean up stale entities if configured.
+        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
 
     def get_report(self) -> SourceReport:
         return self.reporter
