@@ -324,6 +324,7 @@ class Mapper:
         )
 
         result_mcps = [info_mcp, status_mcp, chartkey_mcp]
+
         if self.__config.extract_workspaces_to_containers:
             container_mcp = self.add_urn_to_container(
                 workspace.get_workspace_key(self.__config.platform_name),
@@ -495,28 +496,6 @@ class Mapper:
         # Create an URN for user
         user_urn = builder.make_user_urn(user.get_urn_part())
 
-        user_info_instance = CorpUserInfoClass(
-            displayName=user.displayName,
-            email=user.emailAddress,
-            title=user.displayName,
-            active=True,
-        )
-
-        info_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.CORP_USER_INFO,
-            aspect=user_info_instance,
-        )
-
-        # removed status mcp
-        status_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.STATUS,
-            aspect=StatusClass(removed=False),
-        )
-
         user_key = CorpUserKeyClass(username=user.id)
 
         user_key_mcp = self.new_mcp(
@@ -526,7 +505,7 @@ class Mapper:
             aspect=user_key,
         )
 
-        return [info_mcp, status_mcp, user_key_mcp]
+        return [user_key_mcp]
 
     def to_datahub_users(
         self, users: List[PowerBiAPI.User]
@@ -634,7 +613,7 @@ class Mapper:
             # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
             chart_info_instance = ChartInfoClass(
-                title=page.name or "",
+                title=page.displayName or "",
                 description=page.displayName or "",
                 lastModified=ChangeAuditStamps(),
                 inputs=ds_input,
@@ -664,6 +643,7 @@ class Mapper:
                     Constant.CHART,
                 )
                 list_of_mcps.append(container_mcp)
+
             return list_of_mcps
 
         for page in pages:
