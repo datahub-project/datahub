@@ -37,7 +37,6 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartKeyClass,
     ContainerClass,
-    CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
