@@ -9,7 +9,7 @@ import msal
 import requests as requests
 
 from datahub.configuration.common import ConfigurationError
-from datahub.emitter.mcp_builder import PlatformKey, WorkspaceKey
+from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiAPIConfig,
@@ -18,6 +18,10 @@ from datahub.ingestion.source.powerbi.config import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+class WorkspaceKey(PlatformKey):
+    workspace: str
 
 
 class PowerBiAPI:

@@ -10,7 +10,7 @@ from typing import Iterable, List, Optional, Tuple, Union, cast
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import KeyType, gen_containers
+from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -242,13 +242,11 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn))
 
-            if self.__config.extract_workspaces_to_containers:
-                container_mcp = self.add_urn_to_container(
-                    workspace.get_workspace_key(self.__config.platform_name),
-                    ds_urn,
-                    Constant.DATASET,
-                )
-                dataset_mcps.append(container_mcp)
+            self.add_urn_to_container(
+                dataset_mcps,
+                workspace,
+                ds_urn,
+            )
 
         return dataset_mcps
 
@@ -324,13 +322,11 @@ class Mapper:
 
         result_mcps = [info_mcp, status_mcp, chartkey_mcp]
 
-        if self.__config.extract_workspaces_to_containers:
-            container_mcp = self.add_urn_to_container(
-                workspace.get_workspace_key(self.__config.platform_name),
-                chart_urn,
-                Constant.CHART,
-            )
-            result_mcps.append(container_mcp)
+        self.add_urn_to_container(
+            result_mcps,
+            workspace,
+            chart_urn,
+        )
 
         return result_mcps
 
@@ -444,33 +440,35 @@ class Mapper:
             dashboard_key_mcp,
         ]
 
-        if self.__config.extract_workspaces_to_containers:
-            container_mcp = self.add_urn_to_container(
-                workspace.get_workspace_key(self.__config.platform_name),
-                dashboard_urn,
-                Constant.DASHBOARD,
-            )
-            list_of_mcps.append(container_mcp)
+        self.add_urn_to_container(
+            list_of_mcps,
+            workspace,
+            dashboard_urn,
+        )
 
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
         return list_of_mcps
 
-    @staticmethod
     def add_urn_to_container(
-        container_key: KeyType, entity_urn: str, entity_type: str
-    ) -> MetadataChangeProposalWrapper:
-        container_urn = builder.make_container_urn(
-            guid=container_key.guid(),
-        )
+        self,
+        list_of_mcps: List[MetadataChangeProposalWrapper],
+        workspace: PowerBiAPI.Workspace,
+        entity_urn: str,
+    ) -> None:
+        if self.__config.extract_workspaces_to_containers:
+            container_key = workspace.get_workspace_key(self.__config.platform_name)
+            container_urn = builder.make_container_urn(
+                guid=container_key.guid(),
+            )
 
-        return MetadataChangeProposalWrapper(
-            entityType=entity_type,
-            changeType=ChangeTypeClass.UPSERT,
-            entityUrn=entity_urn,
-            aspect=ContainerClass(container=f"{container_urn}"),
-        )
+            mcp = MetadataChangeProposalWrapper(
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=entity_urn,
+                aspect=ContainerClass(container=f"{container_urn}"),
+            )
+            list_of_mcps.append(mcp)
 
     def generate_container_for_workspace(
         self, workspace: PowerBiAPI.Workspace
@@ -635,13 +633,11 @@ class Mapper:
             )
             list_of_mcps = [info_mcp, status_mcp]
 
-            if self.__config.extract_workspaces_to_containers:
-                container_mcp = self.add_urn_to_container(
-                    workspace.get_workspace_key(self.__config.platform_name),
-                    chart_urn,
-                    Constant.CHART,
-                )
-                list_of_mcps.append(container_mcp)
+            self.add_urn_to_container(
+                list_of_mcps,
+                workspace,
+                chart_urn,
+            )
 
             return list_of_mcps
 
@@ -755,13 +751,11 @@ class Mapper:
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
-        if self.__config.extract_workspaces_to_containers:
-            container_mcp = self.add_urn_to_container(
-                workspace.get_workspace_key(self.__config.platform_name),
-                dashboard_urn,
-                Constant.DASHBOARD,
-            )
-            list_of_mcps.append(container_mcp)
+        self.add_urn_to_container(
+            list_of_mcps,
+            workspace,
+            dashboard_urn,
+        )
 
         return list_of_mcps
 
