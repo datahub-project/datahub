@@ -61,17 +61,17 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: str = Field(default="mssql+pytds", description="", hidden_from_schema=True)
-    include_code: bool = Field(
-        default=False, description="Include information about object code"
-    )
     include_stored_procedures: bool = Field(
-        default=False, description="Include ingest of stored procedures."
+        default=True, description="Include ingest of stored procedures."
+    )
+    include_stored_procedures_code: bool = Field(
+        default=True, description="Include information about object code"
     )
     include_jobs: bool = Field(
-        default=False, description="Include ingest of MSSQL Jobs"
+        default=True, description="Include ingest of MSSQL Jobs"
     )
     include_descriptions: bool = Field(
-        default=False, description="Include table descriptions information."
+        default=True, description="Include table descriptions information."
     )
     use_odbc: bool = Field(
         default=False,
@@ -450,7 +450,7 @@ class SQLServerSource(SQLAlchemySource):
                 )
                 if procedure_definition:
                     data_job.add_property("definition", procedure_definition)
-                if sql_config.include_code and procedure_code:
+                if sql_config.include_stored_procedures_code and procedure_code:
                     data_job.add_property("code", procedure_code)
                 procedure_inputs = self._get_procedure_inputs(conn, procedure)
                 properties = self._get_procedure_properties(conn, procedure)
