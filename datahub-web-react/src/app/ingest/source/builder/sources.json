@@ -196,6 +196,13 @@
         "recipe": "source:\n    type: okta\n    config:\n        # Coordinates\n        okta_domain: # Your Okta Domain, e.g. \"dev-35531955.okta.com\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        okta_api_token: \"${OKTA_API_TOKEN}\" # Your Okta API Token, e.g. \"11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99\"\n\n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n\n        # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User\n        # profile. Reference: https://developer.okta.com/docs/reference/api/users/\n        # okta_profile_to_username_attr: str = \"login\"\n        # okta_profile_to_username_regex: str = \"([^@]+)\"\n    \n        # Optional: Customize the mapping to DataHub Group from an attribute appearing in the Okta Group\n        # profile. Reference: https://developer.okta.com/docs/reference/api/groups/\n        # okta_profile_to_group_name_attr: str = \"name\"\n        # okta_profile_to_group_name_regex: str = \"(.*)\"\n        \n        # Optional: Include deprovisioned or suspended Okta users in the ingestion.\n        # include_deprovisioned_users = False\n        # include_suspended_users = False"
     },
     {
+        "urn": "urn:li:dataPlatform:vertica",
+        "name": "vertica",
+        "displayName": "Vertica",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/vertica/",
+        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Vmart\n        # Credentials\n        username: dbadmin\n    password:null\n    include_tables: true\n        include_views: true\n    include_projections: true\n    include_oauth: true\n   include_models: true\n        include_view_lineage: true\n      include_projection_lineage: true\n    profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true  "
+    },
+    {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
         "displayName": "Other",
