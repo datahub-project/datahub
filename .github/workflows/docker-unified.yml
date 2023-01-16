@@ -88,7 +88,6 @@ jobs:
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
   gms_scan:
-    if: github.ref_name == 'master'
     permissions:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
@@ -106,6 +105,8 @@ jobs:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'template'
@@ -149,7 +150,6 @@ jobs:
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64
   mae_consumer_scan:
-    if: github.ref_name == 'master'
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, mae_consumer_build]
@@ -167,6 +167,8 @@ jobs:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'template'
@@ -210,7 +212,6 @@ jobs:
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64
   mce_consumer_scan:
-    if: github.ref_name == 'master'
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, mce_consumer_build]
@@ -228,6 +229,8 @@ jobs:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'template'
@@ -271,7 +274,6 @@ jobs:
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64
   datahub_upgrade_scan:
-    if: github.ref_name == 'master'
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_upgrade_build]
@@ -289,6 +291,8 @@ jobs:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'template'
@@ -331,7 +335,6 @@ jobs:
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
   frontend_scan:
-    if: github.ref_name == 'master'
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, frontend_build]
@@ -349,6 +352,8 @@ jobs:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_OFFLINE_SCAN: true
         with:
           image-ref: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'template'
