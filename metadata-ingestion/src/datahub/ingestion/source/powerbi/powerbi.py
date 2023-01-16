@@ -242,7 +242,7 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn))
 
-            self.add_urn_to_container(
+            self.append_container_mcp(
                 dataset_mcps,
                 workspace,
                 ds_urn,
@@ -322,7 +322,7 @@ class Mapper:
 
         result_mcps = [info_mcp, status_mcp, chartkey_mcp]
 
-        self.add_urn_to_container(
+        self.append_container_mcp(
             result_mcps,
             workspace,
             chart_urn,
@@ -440,7 +440,7 @@ class Mapper:
             dashboard_key_mcp,
         ]
 
-        self.add_urn_to_container(
+        self.append_container_mcp(
             list_of_mcps,
             workspace,
             dashboard_urn,
@@ -451,7 +451,7 @@ class Mapper:
 
         return list_of_mcps
 
-    def add_urn_to_container(
+    def append_container_mcp(
         self,
         list_of_mcps: List[MetadataChangeProposalWrapper],
         workspace: PowerBiAPI.Workspace,
@@ -633,7 +633,7 @@ class Mapper:
             )
             list_of_mcps = [info_mcp, status_mcp]
 
-            self.add_urn_to_container(
+            self.append_container_mcp(
                 list_of_mcps,
                 workspace,
                 chart_urn,
@@ -751,7 +751,7 @@ class Mapper:
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
-        self.add_urn_to_container(
+        self.append_container_mcp(
             list_of_mcps,
             workspace,
             dashboard_urn,
