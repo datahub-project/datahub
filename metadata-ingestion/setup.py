@@ -438,7 +438,6 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "powerbi-report-server",
-            "vertica",
             "salesforce",
             "unity-catalog"
             # airflow is added below
@@ -474,7 +473,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            "vertica",
+            # "vertica",
         ]
         for dependency in plugins[plugin]
     ),
