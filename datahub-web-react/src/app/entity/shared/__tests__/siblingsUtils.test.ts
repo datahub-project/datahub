@@ -113,7 +113,7 @@ const datasetUnprimary = {
                 __typename: 'SchemaField',
                 nullable: false,
                 recursive: false,
-                fieldPath: 'new_one_at_beginning',
+                fieldPath: 'new_one',
                 description: 'Test to make sure fields merge works',
                 type: SchemaFieldDataType.String,
                 nativeDataType: 'varchar(100)',
@@ -493,9 +493,9 @@ describe('siblingUtils', () => {
 
             // merges schema metadata properly  by fieldPath
             expect(combinedData.dataset.schemaMetadata?.fields).toHaveLength(3);
-            expect(combinedData.dataset.schemaMetadata?.fields[0].fieldPath).toEqual('new_one_at_beginning');
-            expect(combinedData.dataset.schemaMetadata?.fields[1].fieldPath).toEqual('user_id');
-            expect(combinedData.dataset.schemaMetadata?.fields[2].fieldPath).toEqual('user_name');
+            expect(combinedData.dataset.schemaMetadata?.fields[0].fieldPath).toEqual('user_id');
+            expect(combinedData.dataset.schemaMetadata?.fields[1].fieldPath).toEqual('user_name');
+            expect(combinedData.dataset.schemaMetadata?.fields[2].fieldPath).toEqual('new_one');
 
             // will overwrite string properties w/ primary
             expect(combinedData.dataset.editableProperties.description).toEqual('secondary description');

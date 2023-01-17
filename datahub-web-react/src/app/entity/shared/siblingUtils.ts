@@ -1,5 +1,5 @@
 import merge from 'deepmerge';
-import { unionBy } from 'lodash';
+import { unionBy, keyBy, values } from 'lodash';
 import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
 import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
@@ -51,6 +51,11 @@ const combineMerge = (target, source, options) => {
     return destination;
 };
 
+// use when you want to merge and array of objects by key in the object as opposed to by index of array
+const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], key: string) => {
+    return values(merge(keyBy(destinationArray, key), keyBy(sourceArray, key)));
+};
+
 const mergeTags = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'tag.urn');
 };
@@ -71,9 +76,8 @@ const mergeOwners = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'owner.urn');
 };
 
-// unionBy sourceArray (primary) first to get its descriptions prioritized
 const mergeFields = (destinationArray, sourceArray, _options) => {
-    return unionBy(sourceArray, destinationArray, 'fieldPath');
+    return mergeArrayOfObjectsByKey(sourceArray, destinationArray, 'fieldPath');
 };
 
 function getArrayMergeFunction(key) {
