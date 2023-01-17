@@ -71,8 +71,9 @@ const mergeOwners = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'owner.urn');
 };
 
+// unionBy sourceArray (primary) first to get its descriptions prioritized
 const mergeFields = (destinationArray, sourceArray, _options) => {
-    return unionBy(destinationArray, sourceArray, 'fieldPath');
+    return unionBy(sourceArray, destinationArray, 'fieldPath');
 };
 
 function getArrayMergeFunction(key) {
