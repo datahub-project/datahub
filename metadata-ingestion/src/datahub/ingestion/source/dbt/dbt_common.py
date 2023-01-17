@@ -18,6 +18,7 @@ from datahub.configuration.common import (
     ConfigurationError,
     LineageConfig,
 )
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -200,6 +201,8 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
     )
+    _deprecate_use_identifiers = pydantic_field_deprecated("use_identifiers")
+
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
         description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
@@ -251,6 +254,9 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="[deprecated] Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
+    )
+    _deprecate_skip_source_on_lineage_edge = pydantic_field_deprecated(
+        "backcompat_skip_source_on_lineage_edge"
     )
 
     incremental_lineage: bool = Field(
@@ -419,7 +425,6 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 def get_upstreams(
     upstreams: List[str],
     all_nodes: Dict[str, DBTNode],
-    use_identifiers: bool,
     target_platform: str,
     target_platform_instance: Optional[str],
     environment: str,
@@ -718,7 +723,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             upstream_urns = get_upstreams(
                 upstreams=node.upstream_nodes,
                 all_nodes=all_nodes_map,
-                use_identifiers=self.config.use_identifiers,
                 target_platform=self.config.target_platform,
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
@@ -1343,7 +1347,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         upstream_urns = get_upstreams(
             node.upstream_nodes,
             all_nodes_map,
-            self.config.use_identifiers,
             self.config.target_platform,
             self.config.target_platform_instance,
             self.config.env,
