@@ -119,12 +119,22 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 else:
                     metadata_dict = json.loads(max_row[0])  # type: ignore
                     system_metadata = json.loads(max_row[1])  # type: ignore
+                    real_version = system_metadata.get("properties", {}).get(
+                        "sysVersion"
+                    )
+                    if real_version is None:
+                        max_version_row = self.duckdb_client.execute(
+                            "SELECT max(version) FROM metadata_aspect_v2 WHERE urn = ? AND aspect_name = ?",
+                            [writeable.entityUrn, writeable.aspectName],
+                        ).fetchone()
+                        real_version = max_version_row[0]
+
                     if writeable_dict["aspect"]["json"] == metadata_dict:
                         needs_write = False
-                        new_version = system_metadata["sysVersion"]
+                        new_version = real_version
                     else:
                         needs_write = True
-                        new_version = system_metadata["sysVersion"] + 1
+                        new_version = real_version + 1
 
                 current_time = int(time.time() * 1000.0)
                 created_on = current_time
@@ -133,8 +143,19 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                     and writeable.systemMetadata.lastObserved
                 ):
                     created_on = writeable.systemMetadata.lastObserved
-                writeable_dict["systemMetadata"]["lastSeen"] = created_on
-                writeable_dict["systemMetadata"]["sysVersion"] = new_version
+
+                if writeable.systemMetadata is None:
+                    writeable.systemMetadata = SystemMetadataClass(
+                        lastObserved=created_on, properties={}
+                    )
+                elif writeable.systemMetadata.lastObserved is None:
+                    writeable.systemMetadata.lastObserved = created_on
+
+                if "properties" not in writeable_dict["systemMetadata"]:
+                    writeable_dict["systemMetadata"]["properties"] = {}
+                writeable_dict["systemMetadata"]["properties"][
+                    "sysVersion"
+                ] = new_version
                 if needs_write:
                     self.duckdb_client.execute(
                         query="INSERT INTO metadata_aspect_v2 VALUES (?, ?, ?, ?, ?, ?)",
@@ -171,11 +192,19 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                             ],
                         )
                 else:
-                    # this is a dup, we still want to update the lastSeen timestamp
+                    # this is a dup, we still want to update the lastObserved timestamp
+                    if not system_metadata:
+                        system_metadata = {
+                            "lastObserved": writeable.systemMetadata.lastObserved
+                        }
+                    else:
+                        system_metadata[
+                            "lastObserved"
+                        ] = writeable.systemMetadata.lastObserved
                     self.duckdb_client.execute(
                         query="UPDATE metadata_aspect_v2 SET system_metadata = ? WHERE urn = ? AND aspect_name = ? AND version = 0",
                         parameters=[
-                            json.dumps(writeable_dict["systemMetadata"]),
+                            json.dumps(system_metadata),
                             writeable.entityUrn,
                             writeable.aspectName,
                         ],
