@@ -12,7 +12,6 @@ from confluent_kafka.admin import (
     AdminClient,
     ConfigEntry,
     ConfigResource,
-    ResourceType,
     TopicMetadata,
 )
 
@@ -405,11 +404,10 @@ class KafkaSource(StatefulIngestionSourceBase):
 
     def fetch_topic_configurations(self, topics: List[str]) -> Dict[str, dict]:
         logger.info("Fetching config details for all topics")
-
         configs: Dict[
             ConfigResource, concurrent.futures.Future
         ] = self.admin_client.describe_configs(
-            resources=[ConfigResource(ResourceType.TOPIC, t) for t in topics],
+            resources=[ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics],
             request_timeout=self.source_config.connection.client_timeout_seconds,
         )
         logger.debug("Waiting for config details futures to complete")
