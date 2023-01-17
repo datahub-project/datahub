@@ -11,7 +11,7 @@ DataHub allows users to make Posts that can be displayed on the app. Currently, 
 
 ##  Posts Setup, Prerequisites, and Permissions
 
-Anyone can view Posts on the home page. To create Posts, a user must either have the **CREATE_GLOBAL_ANNOUNCEMENTS** Privilege, or possess the **Admin** DataHub Role.
+Anyone can view Posts on the home page. To create Posts, a user must either have the **Create Global Announcements** Privilege, or possess the **Admin** DataHub Role.
 
 ## Using Posts
 
