@@ -385,3 +385,13 @@ def test_only_cost_has_field_discriminator():
 
         if hasattr(cls, "fieldDiscriminator"):
             raise ValueError(f"{cls} has a fieldDiscriminator")
+
+    assert set(models.CostClass.RECORD_SCHEMA.fields_dict.keys()) == {
+        "cost",
+        "costType",
+    }
+    assert set(models.CostCostClass.RECORD_SCHEMA.fields_dict.keys()) == {
+        "fieldDiscriminator",
+        "costId",
+        "costCode",
+    }
