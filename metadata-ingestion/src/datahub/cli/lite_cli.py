@@ -59,7 +59,7 @@ def lite() -> None:
     pass
 
 
-@lite.command(context_settings=dict(allow_extra_args=True))
+@lite.command()
 @telemetry.with_telemetry
 def list_urns() -> None:
     """List all urns"""
@@ -140,7 +140,7 @@ def get(
         )
 
 
-@lite.command(context_settings=dict(allow_extra_args=True))
+@lite.command()
 @click.pass_context
 @telemetry.with_telemetry
 def nuke(ctx: click.Context) -> None:

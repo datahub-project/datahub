@@ -30,7 +30,7 @@ The following features are **NOT** supported:
 - Metadata change stream over Kafka (only forwarding of writes is supported)
 - GraphQL API
 
-## Pre-Requisites
+## Prerequisites
 
 There are no pre-requisites for DataHub Lite other than having a Python 3.7+ environment and a [`acryl-datahub`](https://pypi.org/project/acryl-datahub/) > 0.9.6. Install the `datahub` Python cli using the [instructions](./cli.md#using-pip).
 
