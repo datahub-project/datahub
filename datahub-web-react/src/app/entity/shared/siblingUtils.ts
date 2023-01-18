@@ -77,7 +77,7 @@ const mergeOwners = (destinationArray, sourceArray, _options) => {
 };
 
 const mergeFields = (destinationArray, sourceArray, _options) => {
-    return mergeArrayOfObjectsByKey(sourceArray, destinationArray, 'fieldPath');
+    return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath');
 };
 
 function getArrayMergeFunction(key) {
