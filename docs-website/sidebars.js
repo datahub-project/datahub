@@ -502,7 +502,6 @@ module.exports = {
 
     "Release History": ["releases"],
     "Managed DataHub": [
-      "docs/managed-datahub/acryl-table-contents",
       "docs/managed-datahub/welcome-acryl",
       {
         "Actions Guide": [
@@ -511,26 +510,9 @@ module.exports = {
         ],
       },
       {
-        "Administering Datahub": [
-          "docs/managed-datahub/administering-datahub/metadata-tests",
-          "docs/managed-datahub/administering-datahub/policies-guide",
-          "docs/managed-datahub/administering-datahub/proposals",
-          "docs/managed-datahub/administering-datahub/tags",
-          {
-            "Metadata Ingestion With Acryl": [
-              "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/ingestion",
-              "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/advanced-ingestion",
-              "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/deleting-ingested-metadata",
-            ],
-          },
-          {
-            "Pre-Ingestion Tasks": [
-              "docs/managed-datahub/administering-datahub/pre-ingestion-tasks/pre-ingestion",
-              "docs/managed-datahub/administering-datahub/pre-ingestion-tasks/installing-the-cli",
-              "docs/managed-datahub/administering-datahub/pre-ingestion-tasks/receiving-admin-credentials",
-              "docs/managed-datahub/administering-datahub/pre-ingestion-tasks/logging-in-as-administrator",
-            ],
-          },
+        "Metadata Ingestion With Acryl": [
+          "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/ingestion",
+          "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/advanced-ingestion",
         ],
       },
       {
@@ -539,27 +521,14 @@ module.exports = {
           "docs/managed-datahub/datahub-api/entity-events-api",
           {
             "GraphQL API": [
-              "docs/managed-datahub/datahub-api/graphql-api/graphql-api",
               "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-              "docs/managed-datahub/datahub-api/graphql-api/constraints-api",
-              "docs/managed-datahub/datahub-api/graphql-api/glossary-term-proposal-api",
               "docs/managed-datahub/datahub-api/graphql-api/incidents-api-beta",
-              "docs/managed-datahub/datahub-api/graphql-api/tag-proposal-api",
-            ],
-          },
-          {
-            Concepts: [
-              "docs/managed-datahub/datahub-api/concepts/concepts",
-              "docs/managed-datahub/datahub-api/concepts/urns",
-              "docs/managed-datahub/datahub-api/concepts/constructing-dataset-field-paths",
             ],
           },
         ],
       },
       {
         Integrations: [
-          "docs/managed-datahub/integrations/slack-integration",
-          "docs/managed-datahub/integrations/oidc-sso-integration",
           "docs/managed-datahub/integrations/aws-privatelink",
         ],
       },
@@ -570,7 +539,8 @@ module.exports = {
         ],
       },
       {
-        "Release History": ["docs/managed-datahub/release-notes/v_0_1_69"],
+        "Release History": ["docs/managed-datahub/release-notes/v_0_1_69",
+        "docs/managed-datahub/release-notes/v_0_1_70",],
       },
     ],
 
