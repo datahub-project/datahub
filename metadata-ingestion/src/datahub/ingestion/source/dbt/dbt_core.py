@@ -94,8 +94,12 @@ def get_columns(
     catalog_columns = catalog_node["columns"]
     manifest_columns = manifest_node.get("columns", {})
 
+    manifest_columns_lower = {k.lower(): v for k, v in manifest_columns.items()}
+
     for key, catalog_column in catalog_columns.items():
-        manifest_column = manifest_columns.get(key.lower(), {})
+        manifest_column = manifest_columns.get(
+            key, manifest_columns_lower.get(key.lower(), {})
+        )
 
         meta = manifest_column.get("meta", {})
 
@@ -103,7 +107,7 @@ def get_columns(
         tags = [tag_prefix + tag for tag in tags]
 
         dbtCol = DBTColumn(
-            name=catalog_column["name"].lower(),
+            name=catalog_column["name"],
             comment=catalog_column.get("comment", ""),
             description=manifest_column.get("description", ""),
             data_type=catalog_column["type"],
