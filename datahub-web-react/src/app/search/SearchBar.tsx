@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Input, AutoComplete, Image, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
 import { AutoCompleteResultForEntity, CorpUser, Entity, EntityType, ScenarioType, Tag } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
@@ -113,7 +113,7 @@ const getDisplayName = (registry: EntityRegistry, entity: Entity) => {
     );
 };
 
-const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityRegistry) => {
+export const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityRegistry) => {
     // Special rendering.
     if (entity.type === EntityType.CorpUser) {
         return renderUserSuggestion(query, entity as CorpUser, registry);

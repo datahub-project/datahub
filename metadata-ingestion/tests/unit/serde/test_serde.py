@@ -15,6 +15,8 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
 from datahub.metadata.schema_classes import (
+    ASPECT_CLASSES,
+    KEY_ASPECTS,
     MetadataChangeEventClass,
     OwnershipClass,
     _Aspect,
@@ -32,6 +34,12 @@ def test_codegen_aspect_name():
 
     assert OwnershipClass.ASPECT_NAME == "ownership"
     assert OwnershipClass.get_aspect_name() == "ownership"
+
+
+def test_codegen_aspects():
+    # These bounds are extremely loose, and mainly verify that the lists aren't empty.
+    assert len(ASPECT_CLASSES) > 30
+    assert len(KEY_ASPECTS) > 10
 
 
 def test_cannot_instantiated_codegen_aspect():
@@ -96,7 +104,6 @@ def test_serde_to_avro(
     with patch(
         "datahub.ingestion.api.common.PipelineContext", autospec=True
     ) as mock_pipeline_context:
-
         json_path = pytestconfig.rootpath / json_filename
         source = GenericFileSource(
             ctx=mock_pipeline_context, config=FileSourceConfig(path=str(json_path))
@@ -309,3 +316,23 @@ def test_reserved_keywords() -> None:
 
     filter3 = models.FilterClass.from_obj(filter2.to_obj())
     assert filter2 == filter3
+
+
+def test_read_empty_dict() -> None:
+    original = '{"type": "SUCCESS", "nativeResults": {}}'
+
+    model = models.AssertionResultClass.from_obj(json.loads(original))
+    assert model.nativeResults == {}
+    assert model == models.AssertionResultClass(
+        type=models.AssertionResultTypeClass.SUCCESS, nativeResults={}
+    )
+
+
+def test_write_optional_empty_dict() -> None:
+    model = models.AssertionResultClass(
+        type=models.AssertionResultTypeClass.SUCCESS, nativeResults={}
+    )
+    assert model.nativeResults == {}
+
+    out = json.dumps(model.to_obj())
+    assert out == '{"type": "SUCCESS", "nativeResults": {}}'

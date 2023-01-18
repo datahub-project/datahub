@@ -2,7 +2,13 @@ import React, { useCallback, useState } from 'react';
 import { Button } from 'antd';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
-import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
+import {
+    ArrowDownOutlined,
+    ArrowUpOutlined,
+    CaretDownFilled,
+    PartitionOutlined,
+    SubnodeOutlined,
+} from '@ant-design/icons';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '../../EntityContext';
@@ -15,6 +21,7 @@ import { generateSchemaFieldUrn } from './utils';
 import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
 import ColumnsLineageSelect from './ColumnLineageSelect';
 import { LineageTabContext } from './LineageTabContext';
+import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';
 
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: space-between;
@@ -36,12 +43,25 @@ const RightButtonsWrapper = styled.div`
     display: flex;
 `;
 
+const ManageLineageIcon = styled(SubnodeOutlined)`
+    &&& {
+        margin-right: -2px;
+    }
+`;
+
+const StyledCaretDown = styled(CaretDownFilled)`
+    &&& {
+        font-size: 12px;
+        margin-left: 4px;
+    }
+`;
+
 export const LineageTab = ({
     properties = { defaultDirection: LineageDirection.Downstream },
 }: {
     properties?: { defaultDirection: LineageDirection };
 }) => {
-    const { urn, entityType } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -49,6 +69,11 @@ export const LineageTab = ({
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(properties.defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
     const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!params?.column);
+    const [shouldRefetch, setShouldRefetch] = useState(false);
+
+    function resetShouldRefetch() {
+        setShouldRefetch(false);
+    }
 
     const routeToLineage = useCallback(() => {
         history.push(getEntityPath(entityType, urn, entityRegistry, true, false));
@@ -57,6 +82,7 @@ export const LineageTab = ({
     const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn) || '';
     const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);
     const impactAnalysisUrn = isColumnLevelLineage && selectedColumnUrn ? selectedColumnUrn : urn;
+    const canEditLineage = !!entityData?.privileges?.canEditLineage;
 
     return (
         <>
@@ -88,10 +114,32 @@ export const LineageTab = ({
                         <PartitionOutlined />
                         Visualize Lineage
                     </Button>
+                    <ManageLineageMenu
+                        entityUrn={urn}
+                        refetchEntity={() => setShouldRefetch(true)}
+                        setUpdatedLineages={() => {}}
+                        menuIcon={
+                            <Button type="text">
+                                <ManageLineageIcon />
+                                Edit
+                                <StyledCaretDown />
+                            </Button>
+                        }
+                        showLoading
+                        entityType={entityType}
+                        entityPlatform={entityData?.platform?.name}
+                        canEditLineage={canEditLineage}
+                        disableDropdown={!canEditLineage}
+                    />
                 </RightButtonsWrapper>
             </StyledTabToolbar>
             <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>
-                <ImpactAnalysis urn={impactAnalysisUrn} direction={lineageDirection as LineageDirection} />
+                <ImpactAnalysis
+                    urn={impactAnalysisUrn}
+                    direction={lineageDirection as LineageDirection}
+                    shouldRefetch={shouldRefetch}
+                    resetShouldRefetch={resetShouldRefetch}
+                />
             </LineageTabContext.Provider>
         </>
     );

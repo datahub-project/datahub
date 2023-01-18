@@ -275,7 +275,8 @@ class BigQueryUsageExtractor:
                 e,
             )
             self.report.report_failure(
-                f"{client.project}", f"unable to retrieve log entries {e}"
+                "lineage-extraction",
+                f"{client.project} - unable to retrieve log entries {e}",
             )
 
     def _get_exported_bigquery_audit_metadata(
@@ -367,7 +368,8 @@ class BigQueryUsageExtractor:
                 e,
             )
             self.report.report_failure(
-                f"{client.project}", f"unable to retrive log entrires {e}"
+                "usage-extraction",
+                f"{client.project} - unable to retrive log entrires {e}",
             )
 
     def _generate_filter(self, audit_templates: Dict[str, str]) -> str:
@@ -435,7 +437,7 @@ class BigQueryUsageExtractor:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
             # - SCRIPT statement type ends up here as well
-            logger.warning(f"Unable to find destination table in event {event}")
+            logger.debug(f"Unable to find destination table in event {event}")
             return None
 
     def _extract_operational_meta(
@@ -486,7 +488,6 @@ class BigQueryUsageExtractor:
     def _create_operation_aspect_work_unit(
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
-
         if not event.read_event and not event.query_event:
             return None
 
@@ -622,10 +623,8 @@ class BigQueryUsageExtractor:
                 self.report.num_query_events += 1
 
             if event is None:
-                self.error(
-                    logger,
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
+                logger.warning(
+                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
                 )
             else:
                 yield event
@@ -664,10 +663,8 @@ class BigQueryUsageExtractor:
             else:
                 self.error(
                     logger,
-                    f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
-                    f"Unable to parse audit metadata missing "
-                    f"QueryEvent keys:{str(missing_query_event_exported_audit)},"
-                    f" ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
+                    "usage-extraction",
+                    f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event_exported_audit)} ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
                 )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> Any:
@@ -737,9 +734,8 @@ class BigQueryUsageExtractor:
                     num_joined += 1
                     event.query_event = query_jobs[event.read_event.jobName]
                 else:
-                    self.report.report_warning(
-                        str(event.read_event.resource),
-                        f"Failed to match table read event {event.read_event.jobName} with reason {event.read_event.readReason} with job at {event.read_event.timestamp}; try increasing `query_log_delay` or `max_query_duration`",
+                    logger.debug(
+                        f"Failed to match table read event {event.read_event.jobName} with reason {event.read_event.readReason} with job at {event.read_event.timestamp}; try increasing `query_log_delay` or `max_query_duration`"
                     )
             yield event
         logger.info(f"Number of read events joined with query events: {num_joined}")
@@ -761,7 +757,7 @@ class BigQueryUsageExtractor:
             resource = event.read_event.resource.get_sanitized_table_ref()
             if (
                 resource.table_identifier.dataset not in tables
-                or resource.table_identifier.get_table_display_name()
+                or resource.table_identifier.get_table_name()
                 not in tables[resource.table_identifier.dataset]
             ):
                 logger.debug(f"Skipping non existing {resource} from usage")

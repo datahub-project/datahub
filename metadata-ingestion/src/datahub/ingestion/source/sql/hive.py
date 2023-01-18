@@ -41,7 +41,6 @@ register_custom_type(HiveTimestamp, TimeTypeClass)
 register_custom_type(HiveDecimal, NumberTypeClass)
 
 try:
-
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
     from pyhive.sqlalchemy_hive import _type_map
     from sqlalchemy import types, util
@@ -56,7 +55,7 @@ try:
         # Filter out empty rows and comment
         rows = [row for row in rows if row[0] and row[0] != "# col_name"]
         result = []
-        for (col_name, col_type, _comment) in rows:
+        for col_name, col_type, _comment in rows:
             # Handle both oss hive and Databricks' hive partition header, respectively
             if col_name in ("# Partition Information", "# Partitioning"):
                 break
@@ -150,7 +149,6 @@ class HiveSource(SQLAlchemySource):
         pk_constraints: Optional[Dict[Any, Any]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
-
         fields = super().get_schema_fields_for_column(
             dataset_name, column, pk_constraints
         )

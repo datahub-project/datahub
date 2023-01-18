@@ -18,6 +18,8 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
+    depends_on:
+      - elasticsearch
     volumes:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
       - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
@@ -25,10 +27,13 @@ services:
   kafka-setup:
     image: linkedin/datahub-kafka-setup:debug
     build:
-      context: kafka-setup
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: ./docker/kafka-setup/Dockerfile
       args:
         APP_ENV: dev
+    depends_on:
+      - broker
+      - schema-registry
 
   datahub-gms:
     image: linkedin/datahub-gms:debug
@@ -41,6 +46,7 @@ services:
       - SKIP_ELASTICSEARCH_CHECK=false
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+      - METADATA_SERVICE_AUTH_ENABLED=false
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml

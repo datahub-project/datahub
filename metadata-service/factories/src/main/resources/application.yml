@@ -5,7 +5,7 @@ authentication:
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
-      # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
+    # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
     - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
@@ -28,23 +28,14 @@ authentication:
 
 # Authorization-related configurations.
 authorization:
-
   # Configurations for the default DataHub policies-based authorizer.
   defaultAuthorizer:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
 
-  # Optional: A set of custom authorizers, serving in addition to the default DataHub policies-based authorizer.
-  authorizers:
-    - type: com.datahub.authorization.ranger.RangerAuthorizer
-      enabled: ${RANGER_AUTHORIZER_ENABLED:false}
-      configs:
-        username: ${RANGER_USERNAME}
-        password: ${RANGER_PASSWORD}
-
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}'
+  defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -53,7 +44,7 @@ telemetry:
   enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
 
 secretService:
-  encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
+  encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY']}:ENCRYPTION_KEY"
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
@@ -61,14 +52,22 @@ datahub:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+
+    # URI instead of above host/port/ssl
+    # Priority is given to the URI setting over separate host/port/useSSL parameters
+    uri: ${DATAHUB_GMS_URI:#{null}}
+
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
 
   plugin:
+    pluginSecurityMode: ${PLUGIN_SECURITY_MODE:RESTRICTED} # Possible value RESTRICTED or LENIENT, default to RESTRICTED
     entityRegistry:
-      path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
+        path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
     retention:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
+    auth:
+      path: ${AUTH_PLUGIN_PATH:/etc/datahub/plugins/auth}
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
@@ -88,13 +87,18 @@ searchService:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
 
 configEntityRegistry:
-  # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
+  # Priority is given to the `path` setting above (outside jar)
+  resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
 
 visualConfig:
+  queriesTab:
+    # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
+    # overhaul coming.
+    queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/favicon.ico}
@@ -114,6 +118,7 @@ ebean:
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
+  postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
 
 # Only required if entityService.impl is cassandra
 cassandra:
@@ -171,6 +176,11 @@ kafka:
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
+  producer:
+    retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
+    deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
+    requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
+    backoffTimeout: ${KAFKA_PRODUCER_BACKOFF_TIMEOUT:500}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081} # Application only for type = kafka
@@ -222,3 +232,14 @@ featureFlags:
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
+
+views:
+  enabled: ${VIEWS_ENABLED:true}
+
+entityClient:
+  retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
+  numRetries: ${ENTITY_CLIENT_NUM_RETRIES:3}
+
+usageClient:
+  retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
+  numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}

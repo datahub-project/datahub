@@ -28,40 +28,21 @@ public class Authenticator extends Security.Authenticator {
     }
 
     @Override
-    public String getUsername(@Nonnull Http.Context ctx) {
+    public Optional<String> getUsername(@Nonnull Http.Request req) {
         if (this.metadataServiceAuthEnabled) {
             // If Metadata Service auth is enabled, we only want to verify presence of the
             // "Authorization" header OR the presence of a frontend generated session cookie.
             // At this time, the actor is still considered to be unauthenicated.
-            return AuthUtils.isEligibleForForwarding(ctx) ? "urn:li:corpuser:UNKNOWN" : null;
+            return Optional.ofNullable(AuthUtils.isEligibleForForwarding(req) ? "urn:li:corpuser:UNKNOWN" : null);
         } else {
             // If Metadata Service auth is not enabled, verify the presence of a valid session cookie.
-            return AuthUtils.hasValidSessionCookie(ctx) ? ctx.session().get(ACTOR) : null;
-        }
-    }
-
-    @Override
-    public Optional<String> getUsername(@Nonnull Http.Request request) {
-        Http.Context ctx = Http.Context.current();
-        if (this.metadataServiceAuthEnabled) {
-            // If Metadata Service auth is enabled, we only want to verify presence of the
-            // "Authorization" header OR the presence of a frontend generated session cookie.
-            // At this time, the actor is still considered to be unauthenicated.
-            return Optional.ofNullable(AuthUtils.isEligibleForForwarding(ctx) ? "urn:li:corpuser:UNKNOWN" : null);
-        } else {
-            // If Metadata Service auth is not enabled, verify the presence of a valid session cookie.
-            return Optional.ofNullable(AuthUtils.hasValidSessionCookie(ctx) ? ctx.session().get(ACTOR) : null);
+            return Optional.ofNullable(AuthUtils.hasValidSessionCookie(req) ? req.session().data().get(ACTOR) : null);
         }
     }
 
     @Override
     @Nonnull
-    public Result onUnauthorized(@Nullable Http.Context ctx) {
-        return unauthorized();
-    }
-
-    @Override
-    public Result onUnauthorized(Http.Request req) {
+    public Result onUnauthorized(@Nullable Http.Request req) {
         return unauthorized();
     }
 }

@@ -6,7 +6,6 @@ from datahub.metadata.schema_classes import JobStatusClass
 
 
 class SageMakerJobInfo:
-
     # Note: The weird typing for the following commands is because the child classes
     # use a Final type to ensure that they're interpreted by the boto3 stubs correctly.
     # If we try to type these as plain strings, we get a TypeError because it's being converted
