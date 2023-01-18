@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Modal } from 'antd';
 import ClickOutside from '../../../../../shared/ClickOutside';
 import { DescriptionEditor } from './DescriptionEditor';
 import { DescriptionPreview } from './DescriptionPreview';
+import { useRouteToTab } from '../../../EntityContext';
 
 const modalStyle = {
     top: '5%',
@@ -19,11 +20,12 @@ const bodyStyle = {
 
 type DescriptionPreviewModalProps = {
     description: string;
+    editMode: boolean;
     onClose: (showConfirm?: boolean) => void;
 };
 
-export const DescriptionPreviewModal = ({ description, onClose }: DescriptionPreviewModalProps) => {
-    const [editMode, setEditMode] = useState(false);
+export const DescriptionPreviewModal = ({ description, editMode, onClose }: DescriptionPreviewModalProps) => {
+    const routeToTab = useRouteToTab();
 
     const onConfirmClose = () => {
         if (editMode) {
@@ -56,8 +58,17 @@ export const DescriptionPreviewModal = ({ description, onClose }: DescriptionPre
                 onCancel={onConfirmClose}
                 className="description-editor-wrapper"
             >
-                {(editMode && <DescriptionEditor onComplete={() => setEditMode(false)} />) || (
-                    <DescriptionPreview description={description} onEdit={() => setEditMode(true)} />
+                {(editMode && (
+                    <DescriptionEditor
+                        onComplete={() => routeToTab({ tabName: 'Documentation', tabParams: { modal: true } })}
+                    />
+                )) || (
+                    <DescriptionPreview
+                        description={description}
+                        onEdit={() =>
+                            routeToTab({ tabName: 'Documentation', tabParams: { editing: true, modal: true } })
+                        }
+                    />
                 )}
             </Modal>
         </ClickOutside>

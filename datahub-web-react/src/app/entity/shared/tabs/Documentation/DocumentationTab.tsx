@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import queryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 
@@ -31,22 +31,25 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
     const refetch = useRefetch();
-    const [showDocsModal, setShowDocsModal] = useState(false);
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const links = entityData?.institutionalMemory?.elements || [];
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
 
     const routeToTab = useRouteToTab();
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
+    const showModal = queryString.parse(useLocation().search, { parseBooleans: true }).modal;
 
     useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
-            routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+            routeToTab({
+                tabName: 'Documentation',
+                tabParams: { editing: true, modal: (showModal && true) || false },
+            });
         }
-    }, [urn, routeToTab, localStorageDictionary]);
+    }, [urn, routeToTab, showModal, localStorageDictionary]);
 
-    return isEditing ? (
+    return isEditing && !showModal ? (
         <>
             <DescriptionEditor onComplete={() => routeToTab({ tabName: 'Documentation' })} />
         </>
@@ -65,7 +68,15 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                         </div>
                         <div>
-                            <Button type="text" onClick={() => setShowDocsModal(true)}>
+                            <Button
+                                type="text"
+                                onClick={() =>
+                                    routeToTab({
+                                        tabName: 'Documentation',
+                                        tabParams: { modal: true },
+                                    })
+                                }
+                            >
                                 <ExpandAltOutlined />
                             </Button>
                         </div>
@@ -92,11 +103,11 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </EmptyTab>
             )}
-            {showDocsModal && (
+            {showModal && (
                 <DescriptionPreviewModal
+                    editMode={(isEditing && true) || false}
                     description={description}
                     onClose={() => {
-                        setShowDocsModal(false);
                         routeToTab({ tabName: 'Documentation' });
                     }}
                 />
