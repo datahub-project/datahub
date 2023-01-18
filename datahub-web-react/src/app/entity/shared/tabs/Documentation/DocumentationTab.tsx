@@ -1,10 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import queryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 
 import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
-import { EditOutlined } from '@ant-design/icons';
+import { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
 
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
@@ -15,6 +15,7 @@ import { LinkList } from './components/LinkList';
 import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { Editor } from './components/editor/Editor';
+import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
@@ -30,6 +31,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
     const refetch = useRefetch();
+    const [showDocsModal, setShowDocsModal] = useState(false);
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const links = entityData?.institutionalMemory?.elements || [];
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
@@ -62,6 +64,11 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             </Button>
                             {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                         </div>
+                        <div>
+                            <Button type="text" onClick={() => setShowDocsModal(true)}>
+                                <ExpandAltOutlined />
+                            </Button>
+                        </div>
                     </TabToolbar>
                     <div>
                         {description ? (
@@ -84,6 +91,15 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </Button>
                     {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </EmptyTab>
+            )}
+            {showDocsModal && (
+                <DescriptionPreviewModal
+                    description={description}
+                    onClose={() => {
+                        setShowDocsModal(false);
+                        routeToTab({ tabName: 'Documentation' });
+                    }}
+                />
             )}
         </>
     );
