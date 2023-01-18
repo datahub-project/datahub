@@ -150,10 +150,17 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         default=False,
         description="Whether to convert the PowerBI assets urns to lowercase",
     )
+
     # convert lineage dataset's urns to lowercase
     convert_lineage_urns_to_lowercase: bool = pydantic.Field(
         default=True,
         description="Whether to convert the urns of ingested lineage dataset to lowercase",
+    )
+
+    # convert lineage dataset's urns to lowercase
+    enable_admin_api: bool = pydantic.Field(
+        default=False,
+        description="Flag to enable PowerBI Admin API to fetch dataset metadata",
     )
 
     @validator("dataset_type_mapping")

@@ -45,7 +45,7 @@ def register_mock_api(request_mock):
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
                         "isReadOnly": True,
-                        "name": "Workspace 1",
+                        "name": "demo-workspace",
                         "type": "Workspace",
                     },
                     {
@@ -480,6 +480,7 @@ def default_source_config():
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": False,
         "extract_reports": False,
+        "enable_admin_api": True,
         "convert_lineage_urns_to_lowercase": False,
         "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
         "dataset_type_mapping": {
@@ -510,7 +511,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"{tmp_path}/powerbi_mces.json",
+                    "filename": f"/tmp/powerbi_mces.json",
                 },
             },
         }
