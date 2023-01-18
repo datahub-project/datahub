@@ -125,14 +125,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
         return uri
 
-    def get_identifier(self, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.database_alias:
-            return f"{self.database_alias}.{regular}"
-        if self.database:
-            return f"{self.database}.{regular}"
-        return regular
-
     @property
     def host(self):
         return self.platform_instance or self.host_port.split(":")[0]
