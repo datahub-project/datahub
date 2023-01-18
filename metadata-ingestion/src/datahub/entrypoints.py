@@ -12,7 +12,7 @@ from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     DATAHUB_CONFIG_PATH,
     get_boolean_env_variable,
-    write_datahub_config,
+    write_gms_config,
 )
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
@@ -140,7 +140,7 @@ def init() -> None:
         type=str,
         default="",
     )
-    write_datahub_config(host, token)
+    write_gms_config(host, token)
 
     click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
 

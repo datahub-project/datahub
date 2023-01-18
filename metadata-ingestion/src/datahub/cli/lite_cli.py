@@ -33,7 +33,9 @@ class DuckDBLiteConfigWrapper(DuckDBLiteConfig):
 
 
 class LiteCliConfig(DatahubConfig):
-    lite: LiteLocalConfig = LiteLocalConfig(type="duckdb")
+    lite: LiteLocalConfig = LiteLocalConfig(
+        type="duckdb", config=DuckDBLiteConfigWrapper()
+    )
 
 
 def get_lite_config() -> LiteLocalConfig:

@@ -127,7 +127,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                             "SELECT max(version) FROM metadata_aspect_v2 WHERE urn = ? AND aspect_name = ?",
                             [writeable.entityUrn, writeable.aspectName],
                         ).fetchone()
-                        real_version = max_version_row[0]
+                        real_version = max_version_row[0]  # type: ignore
 
                     if writeable_dict["aspect"]["json"] == metadata_dict:
                         needs_write = False

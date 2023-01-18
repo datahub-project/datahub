@@ -76,9 +76,25 @@ def persist_datahub_config(config: dict) -> None:
     return None
 
 
-def write_datahub_config(host: str, token: Optional[str]) -> None:
+def write_gms_config(
+    host: str, token: Optional[str], merge_with_previous: bool = True
+) -> None:
     config = DatahubConfig(gms=GmsConfig(server=host, token=token))
-    persist_datahub_config(config.dict())
+    if merge_with_previous:
+        try:
+            previous_config = get_client_config(as_dict=True)
+            assert isinstance(previous_config, dict)
+        except Exception as e:
+            # ok to fail on this
+            previous_config = {}
+            log.debug(
+                f"Failed to retrieve config from file {DATAHUB_CONFIG_PATH}. This isn't fatal.",
+                e,
+            )
+        config_dict = {**previous_config, **config.dict()}
+    else:
+        config_dict = config.dict()
+    persist_datahub_config(config_dict)
 
 
 def should_skip_config() -> bool:
@@ -91,7 +107,7 @@ def ensure_datahub_config() -> None:
             f"No {CONDENSED_DATAHUB_CONFIG_PATH} file found, generating one for you...",
             bold=True,
         )
-        write_datahub_config(DEFAULT_GMS_HOST, None)
+        write_gms_config(DEFAULT_GMS_HOST, None)
 
 
 def get_client_config(as_dict: bool = False) -> Union[Optional[DatahubConfig], dict]:
