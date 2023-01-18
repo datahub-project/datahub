@@ -155,7 +155,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
      * When the location of the browse changes, save the latest to local state.
      */
     useEffect(() => {
-        if (localState.selectedPath !== location.pathname) {
+        if (localState.selectedPath !== location.pathname || localState.selectedSearch !== location.search) {
             updateLocalState({
                 ...localState,
                 selectedPath: location.pathname,
