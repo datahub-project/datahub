@@ -65,9 +65,7 @@ pyarrow_type_map: Dict[Callable[[Any], bool], Type] = {
 
 
 def map_pyarrow_type(pyarrow_type: Type) -> Type:
-
     for checker, mapped_type in pyarrow_type_map.items():
-
         if checker(pyarrow_type):
             return mapped_type
 

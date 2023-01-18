@@ -2,7 +2,7 @@
 FROM confluentinc/cp-base-new:6.1.4 as confluent_base
 
 # Based on https://github.com/blacktop's alpine kafka build
-FROM --platform=$BUILDPLATFORM python:3-alpine
+FROM python:3-alpine
 
 ENV KAFKA_VERSION 2.8.2
 ENV SCALA_VERSION 2.13
@@ -57,6 +57,10 @@ ENV METADATA_CHANGE_PROPOSAL_TOPIC="MetadataChangeProposal_v1"
 ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC="FailedMetadataChangeProposal_v1"
 ENV PLATFORM_EVENT_TOPIC_NAME="PlatformEvent_v1"
 
-COPY ./kafka-setup.sh ./kafka-setup.sh
+COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
+COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh
+COPY docker/kafka-setup/kafka-topic-workers.sh ./kafka-topic-workers.sh
+
+RUN chmod +x ./kafka-setup.sh && chmod +x ./kafka-topic-workers.sh
 
 CMD ./kafka-setup.sh

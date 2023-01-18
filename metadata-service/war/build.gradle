@@ -1,4 +1,13 @@
-apply plugin: 'war'
+plugins {
+  id 'war'
+  id 'com.palantir.docker'
+}
+
+apply from: "../../gradle/versioning/versioning.gradle"
+
+ext {
+  docker_repo = 'datahub-gms'
+}
 
 ext.apiProject = project(':metadata-service:restli-api')
 
@@ -13,7 +22,6 @@ dependencies {
   runtime project(':metadata-jobs:mae-consumer')
   runtime project(':metadata-jobs:pe-consumer')
 
-  runtime externalDependency.logbackClassic
   runtime externalDependency.awsSecretsManagerJdbc
   runtime externalDependency.h2
   runtime externalDependency.mariadbConnector
@@ -24,6 +32,9 @@ dependencies {
   runtime spec.product.pegasus.restliDocgen
   runtime spec.product.pegasus.restliSpringBridge
 
+  runtime externalDependency.log4jCore
+  runtime externalDependency.log4j2Api
+  runtime externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
 }
 
@@ -40,3 +51,33 @@ task run(type: JavaExec, dependsOn: build) {
   args = [war.archivePath]
   classpath configurations.jetty9
 }
+
+war {
+  archiveFileName = "war.war"
+}
+
+docker {
+  name "${docker_registry}/${docker_repo}:${version}"
+  dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+  files war.outputs.files
+  files fileTree(rootProject.projectDir) {
+    include 'docker/monitoring/*'
+    include "docker/${docker_repo}/*"
+    include 'metadata-models/src/main/resources/*'
+  }
+  tag("-${version}", "${docker_registry}/${docker_repo}:v${version}")
+  tag("-version", "${docker_registry}/${docker_repo}:v${version}")
+
+  // platform('linux/arm64', 'linux/amd64')
+  buildx(true)
+  load(true)
+  push(false)
+}
+tasks.getByName("docker").dependsOn([build, war])
+
+task cleanLocalDockerImages {
+  doLast {
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}")
+  }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

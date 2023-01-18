@@ -4,6 +4,7 @@ import com.linkedin.common.DatasetUrn
 import com.linkedin.common.DataJobUrn
 import com.linkedin.dataset.FineGrainedLineage
 import com.linkedin.common.Urn
+import com.linkedin.common.Edge
 
 /**
  * Information about the inputs and outputs of a Data processing job
@@ -15,6 +16,7 @@ record DataJobInputOutput {
 
   /**
    * Input datasets consumed by the data job during processing
+   * Deprecated! Use inputDatasetEdges instead.
    */
   @Relationship = {
     "/*": {
@@ -31,10 +33,37 @@ record DataJobInputOutput {
       "queryByDefault": false
     }
   }
+  @deprecated
   inputDatasets: array[DatasetUrn]
 
   /**
+   * Input datasets consumed by the data job during processing
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true,
+      "createdOn": "inputDatasetEdges/*/created/time"
+      "createdActor": "inputDatasetEdges/*/created/actor"
+      "updatedOn": "inputDatasetEdges/*/lastModified/time"
+      "updatedActor": "inputDatasetEdges/*/lastModified/actor"
+      "properties": "inputDatasetEdges/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "inputDatasetEdges",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputDatasets",
+      "queryByDefault": false
+    }
+  }
+  inputDatasetEdges: optional array[Edge]
+
+  /**
    * Output datasets produced by the data job during processing
+   * Deprecated! Use outputDatasetEdges instead.
    */
   @Relationship = {
     "/*": {
@@ -52,10 +81,38 @@ record DataJobInputOutput {
       "queryByDefault": false
     }
   }
+  @deprecated
   outputDatasets: array[DatasetUrn]
 
   /**
+   * Output datasets produced by the data job during processing
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Produces",
+      "entityTypes": [ "dataset" ],
+      "isUpstream": false,
+      "isLineage": true,
+      "createdOn": "outputDatasetEdges/*/created/time"
+      "createdActor": "outputDatasetEdges/*/created/actor"
+      "updatedOn": "outputDatasetEdges/*/lastModified/time"
+      "updatedActor": "outputDatasetEdges/*/lastModified/actor"
+      "properties": "outputDatasetEdges/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "outputDatasetEdges",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
+    }
+  }
+  outputDatasetEdges: optional array[Edge]
+
+  /**
    * Input datajobs that this data job depends on
+   * Deprecated! Use inputDatajobEdges instead.
    */
   @Relationship = {
     "/*": {
@@ -64,7 +121,25 @@ record DataJobInputOutput {
       "isLineage": true
     }
   }
+  @deprecated
   inputDatajobs: optional array[DataJobUrn] 
+
+  /**
+   * Input datajobs that this data job depends on
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "DownstreamOf",
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true,
+      "createdOn": "inputDatajobEdges/*/created/time"
+      "createdActor": "inputDatajobEdges/*/created/actor"
+      "updatedOn": "inputDatajobEdges/*/lastModified/time"
+      "updatedActor": "inputDatajobEdges/*/lastModified/actor"
+      "properties": "inputDatajobEdges/*/properties"
+    }
+  }
+  inputDatajobEdges: optional array[Edge] 
 
   /**
   * Fields of the input datasets used by this job

@@ -51,8 +51,15 @@ public class KafkaEventConsumerFactory {
   @Qualifier("awsGlueSchemaRegistry")
   private SchemaRegistryConfig awsGlueSchemaRegistryConfig;
 
+  @Bean(name = "kafkaEventConsumerConcurrency")
+  protected int kafkaEventConsumerConcurrency() {
+    return kafkaListenerConcurrency;
+  }
+
   @Bean(name = "kafkaEventConsumer")
-  protected KafkaListenerContainerFactory<?> createInstance(KafkaProperties properties) {
+  protected KafkaListenerContainerFactory<?> createInstance(
+          KafkaProperties properties,
+          @Qualifier("kafkaEventConsumerConcurrency") int concurrency) {
 
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
 
@@ -81,15 +88,16 @@ public class KafkaEventConsumerFactory {
     schemaRegistryConfig.getProperties().entrySet()
       .stream()
       .filter(entry -> entry.getValue() != null && !entry.getValue().toString().isEmpty())
-      .forEach(entry -> props.put(entry.getKey(), entry.getValue())); 
+      .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props));
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
-    factory.setConcurrency(this.kafkaListenerConcurrency);
+    factory.setConcurrency(concurrency);
 
-    log.info("Event-based KafkaListenerContainerFactory built successfully");
+    log.info(String.format("Event-based KafkaListenerContainerFactory built successfully. Consumers = %s",
+            concurrency));
 
     return factory;
   }

@@ -16,7 +16,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig, SQLAlchemySource
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass
 class BaseColumn:
     name: str
     ordinal_position: int
@@ -53,7 +53,6 @@ class BaseView(Generic[SqlTableColumn]):
 
 
 class SQLAlchemyGenericConfig(SQLAlchemyConfig):
-
     platform: str = Field(
         description="Name of platform being ingested, used in constructing URNs."
     )

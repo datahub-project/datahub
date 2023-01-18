@@ -6,7 +6,7 @@ import pathlib
 from dataclasses import dataclass, field
 from enum import auto
 from io import BufferedReader
-from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import ijson
 from pydantic import validator
@@ -14,6 +14,7 @@ from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -194,10 +195,13 @@ class GenericFileSource(TestableSource):
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         for f in self.get_filenames():
             for i, obj in self.iterate_generic_file(f):
+                id = f"file://{f}:{i}"
                 wu: Union[MetadataWorkUnit, UsageStatsWorkUnit]
                 if isinstance(obj, UsageAggregationClass):
-                    wu = UsageStatsWorkUnit(f"file://{f}:{i}", obj)
-                elif isinstance(obj, MetadataChangeProposal):
+                    wu = UsageStatsWorkUnit(id, obj)
+                elif isinstance(
+                    obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
+                ):
                     self.report.entity_type_counts[obj.entityType] = (
                         self.report.entity_type_counts.get(obj.entityType, 0) + 1
                     )
@@ -211,9 +215,13 @@ class GenericFileSource(TestableSource):
                             and cur_aspect_name != self.config.aspect
                         ):
                             continue
-                    wu = MetadataWorkUnit(f"file://{f}:{i}", mcp_raw=obj)
+
+                    if isinstance(obj, MetadataChangeProposalWrapper):
+                        wu = MetadataWorkUnit(id, mcp=obj)
+                    else:
+                        wu = MetadataWorkUnit(id, mcp_raw=obj)
                 else:
-                    wu = MetadataWorkUnit(f"file://{f}:{i}", mce=obj)
+                    wu = MetadataWorkUnit(id, mce=obj)
                 self.report.report_workunit(wu)
                 yield wu
 
@@ -294,23 +302,18 @@ class GenericFileSource(TestableSource):
     ) -> Iterator[
         Tuple[
             int,
-            Union[MetadataChangeEvent, MetadataChangeProposal, UsageAggregationClass],
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposalWrapper,
+                MetadataChangeProposal,
+                UsageAggregationClass,
+            ],
         ]
     ]:
         for i, obj in self._iterate_file(path):
-            item: Union[
-                MetadataChangeEvent, MetadataChangeProposal, UsageAggregationClass
-            ]
             try:
                 deserialize_start_time = datetime.datetime.now()
-                if "proposedSnapshot" in obj:
-                    item = MetadataChangeEvent.from_obj(obj)
-                elif "aspect" in obj:
-                    item = MetadataChangeProposal.from_obj(obj)
-                else:
-                    item = UsageAggregationClass.from_obj(obj)
-                if not item.validate():
-                    raise ValueError(f"failed to parse: {obj} (index {i})")
+                item = _from_obj_for_file(obj)
                 deserialize_duration = datetime.datetime.now() - deserialize_start_time
                 self.report.add_deserialize_time(deserialize_duration)
                 yield i, item
@@ -348,3 +351,48 @@ class GenericFileSource(TestableSource):
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True)
             )
+
+
+def _from_obj_for_file(
+    obj: dict,
+) -> Union[
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+    MetadataChangeProposalWrapper,
+    UsageAggregationClass,
+]:
+    item: Union[
+        MetadataChangeEvent,
+        MetadataChangeProposalWrapper,
+        MetadataChangeProposal,
+        UsageAggregationClass,
+    ]
+
+    if "proposedSnapshot" in obj:
+        item = MetadataChangeEvent.from_obj(obj)
+    elif "aspect" in obj:
+        item = MetadataChangeProposalWrapper.from_obj(obj)
+    else:
+        item = UsageAggregationClass.from_obj(obj)
+    if not item.validate():
+        raise ValueError(f"failed to parse: {obj}")
+
+    return item
+
+
+def read_metadata_file(
+    file: pathlib.Path,
+) -> List[
+    Union[
+        MetadataChangeEvent,
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
+        UsageAggregationClass,
+    ]
+]:
+    # This simplified version of the FileSource can be used for testing purposes.
+    records = []
+    with file.open("r") as f:
+        for obj in json.load(f):
+            records.append(_from_obj_for_file(obj))
+    return records

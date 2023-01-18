@@ -97,6 +97,7 @@ from datahub.metadata.schema_classes import (
     DashboardUsageStatisticsClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    EmbedClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -251,6 +252,11 @@ class TableauConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
+    )
+
+    ingest_embed_url: Optional[bool] = Field(
+        default=True,
+        description="Ingest a URL to render an embedded Preview of assets within Tableau.",
     )
 
 
@@ -926,7 +932,6 @@ class TableauSource(StatefulIngestionSourceBase):
     def _create_lineage_to_upstream_tables(
         self, csql_urn: str, tables: List[dict], datasource: dict
     ) -> Iterable[MetadataWorkUnit]:
-
         # This adds an edge to upstream DatabaseTables using `upstreamTables`
         upstream_tables, _ = self.get_upstream_tables(
             tables,
@@ -1130,7 +1135,7 @@ class TableauSource(StatefulIngestionSourceBase):
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        for (table_urn, (columns, path, is_embedded)) in self.upstream_tables.items():
+        for table_urn, (columns, path, is_embedded) in self.upstream_tables.items():
             if not is_embedded and not self.config.ingest_tables_external:
                 logger.debug(
                     f"Skipping external table {table_urn} as ingest_tables_external is set to False"
@@ -1320,7 +1325,13 @@ class TableauSource(StatefulIngestionSourceBase):
                     builder.make_global_tag_aspect_with_tag_list(tag_list_str)
                 )
             yield self.get_metadata_change_event(chart_snapshot)
-
+            if sheet_external_url is not None and self.config.ingest_embed_url is True:
+                yield self.new_work_unit(
+                    self.new_embed_aspect_mcp(
+                        entity_urn=sheet_urn,
+                        embed_url=sheet_external_url,
+                    )
+                )
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "chart", chart_snapshot.urn
             )
@@ -1368,7 +1379,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
 
     def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
-
         workbook_container_key = self.gen_workbook_key(workbook)
         creator = workbook.get("owner", {}).get("username")
 
@@ -1465,6 +1475,43 @@ class TableauSource(StatefulIngestionSourceBase):
             entityUrn=dashboard_urn,
         ).as_workunit()
 
+    @staticmethod
+    def new_mcp(
+        entity_urn: str,
+        aspect_name: str,
+        aspect: builder.Aspect,
+        change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
+    ) -> MetadataChangeProposalWrapper:
+        """
+        Create MCP
+        """
+        return MetadataChangeProposalWrapper(
+            changeType=change_type,
+            entityUrn=entity_urn,
+            aspectName=aspect_name,
+            aspect=aspect,
+        )
+
+    @staticmethod
+    def new_embed_aspect_mcp(
+        entity_urn: str, embed_url: str
+    ) -> MetadataChangeProposalWrapper:
+        return TableauSource.new_mcp(
+            entity_urn=entity_urn,
+            aspect_name=EmbedClass.ASPECT_NAME,
+            aspect=EmbedClass(renderUrl=embed_url),
+        )
+
+    def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
+        return MetadataWorkUnit(
+            id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
+                PLATFORM=self.config.platform,
+                ENTITY_URN=mcp.entityUrn,
+                ASPECT_NAME=mcp.aspectName,
+            ),
+            mcp=mcp,
+        )
+
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
             dashboard_urn: str = builder.make_dashboard_urn(
@@ -1535,6 +1582,14 @@ class TableauSource(StatefulIngestionSourceBase):
                 dashboard_snapshot.aspects.append(owner)
 
             yield self.get_metadata_change_event(dashboard_snapshot)
+            # Yield embed MCP
+            if self.config.ingest_embed_url is True:
+                yield self.new_work_unit(
+                    self.new_embed_aspect_mcp(
+                        entity_urn=dashboard_urn,
+                        embed_url=dashboard_external_url,
+                    )
+                )
 
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "dashboard", dashboard_snapshot.urn
@@ -1559,7 +1614,6 @@ class TableauSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
-
         # For some databases, the schema attribute in tableau api does not return
         # correct schema name for the table. For more information, see
         # https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute.

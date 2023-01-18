@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import pydantic
 import snowflake.connector
@@ -19,6 +19,10 @@ from datahub.configuration.common import (
     OauthConfiguration,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.source.snowflake.constants import (
+    CLIENT_PREFETCH_THREADS,
+    CLIENT_SESSION_KEEP_ALIVE,
+)
 from datahub.ingestion.source.sql.oauth_generator import OauthTokenGenerator
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -83,7 +87,7 @@ class SnowflakeProvisionRoleConfig(ConfigModel):
         description="The username to be used for provisioning of role."
     )
 
-    admin_password: pydantic.SecretStr = pydantic.Field(
+    admin_password: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None,
         exclude=True,
         description="The password to be used for provisioning of role.",
@@ -131,22 +135,25 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
     )
     host_port: Optional[str] = pydantic.Field(
-        description="DEPRECATED: Snowflake account. e.g. abc48144"
+        default=None, description="DEPRECATED: Snowflake account. e.g. abc48144"
     )  # Deprecated
     account_id: Optional[str] = pydantic.Field(
-        description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details."
+        default=None,
+        description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details.",
     )  # Once host_port is removed this will be made mandatory
-    warehouse: Optional[str] = pydantic.Field(description="Snowflake warehouse.")
-    role: Optional[str] = pydantic.Field(description="Snowflake role.")
+    warehouse: Optional[str] = pydantic.Field(
+        default=None, description="Snowflake warehouse."
+    )
+    role: Optional[str] = pydantic.Field(default=None, description="Snowflake role.")
     include_table_lineage: bool = pydantic.Field(
         default=True,
-        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role.",
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
     )
     include_view_lineage: bool = pydantic.Field(
         default=True,
-        description="If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and include_table_lineage to be True.",
+        description="If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
     )
-    connect_args: Optional[Dict] = pydantic.Field(
+    connect_args: Optional[Dict[str, Any]] = pydantic.Field(
         default=None,
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
@@ -290,10 +297,29 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             },
         )
 
-    def get_sql_alchemy_connect_args(self) -> dict:
-        if self.authentication_type != "KEY_PAIR_AUTHENTICATOR":
-            return {}
-        if self.connect_args is None:
+    _computed_connect_args: Optional[dict] = None
+
+    def get_connect_args(self) -> dict:
+        """
+        Builds connect args, adding defaults and reading a private key from the file if needed.
+        Caches the results in a private instance variable to avoid reading the file multiple times.
+        """
+
+        if self._computed_connect_args is not None:
+            return self._computed_connect_args
+
+        connect_args: dict = {
+            # Improves performance and avoids timeout errors for larger query result
+            CLIENT_PREFETCH_THREADS: 10,
+            CLIENT_SESSION_KEEP_ALIVE: True,
+            # Let user override the default config values
+            **(self.connect_args or {}),
+        }
+
+        if (
+            "private_key" not in connect_args
+            and self.authentication_type == "KEY_PAIR_AUTHENTICATOR"
+        ):
             if self.private_key is not None:
                 pkey_bytes = self.private_key.replace("\\n", "\n").encode()
             else:
@@ -311,13 +337,16 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 backend=default_backend(),
             )
 
-            pkb = p_key.private_bytes(
+            pkb: bytes = p_key.private_bytes(
                 encoding=serialization.Encoding.DER,
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption(),
             )
-            self.connect_args = {"private_key": pkb}
-        return self.connect_args
+
+            connect_args["private_key"] = pkb
+
+        self._computed_connect_args = connect_args
+        return connect_args
 
 
 class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
@@ -341,11 +370,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         )
 
     def get_options(self) -> dict:
-        options_connect_args: Dict = super().get_sql_alchemy_connect_args()
+        options_connect_args: Dict = super().get_connect_args()
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
-        if self.connect_args is not None:
-            self.options["connect_args"].update(self.connect_args)
         return self.options
 
     def get_oauth_connection(self):
@@ -374,6 +401,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
             user=self.username,
             account=self.account_id,
             token=token,
+            role=self.role,
             warehouse=self.warehouse,
             authenticator=VALID_AUTH_TYPES.get(self.authentication_type),
             application=APPLICATION_NAME,

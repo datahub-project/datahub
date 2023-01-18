@@ -13,7 +13,7 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, Base
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass
 class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
@@ -57,7 +57,6 @@ class BigqueryProject:
 
 
 class BigqueryQuery:
-
     show_datasets: str = (
         "select schema_name from `{project_id}`.INFORMATION_SCHEMA.SCHEMATA"
     )
@@ -274,7 +273,6 @@ class BigQueryDataDictionary:
     def get_datasets_for_project_id_with_information_schema(
         conn: bigquery.Client, project_id: str
     ) -> List[BigqueryDataset]:
-
         schemas = BigQueryDataDictionary.get_query_result(
             conn,
             BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
@@ -298,7 +296,6 @@ class BigQueryDataDictionary:
         tables: Dict[str, TableListItem],
         with_data_read_permission: bool = False,
     ) -> List[BigqueryTable]:
-
         filter: str = ", ".join(f"'{table}'" for table in tables.keys())
 
         if with_data_read_permission:
@@ -331,9 +328,9 @@ class BigQueryDataDictionary:
                 name=table.table_name,
                 created=table.created,
                 last_altered=datetime.fromtimestamp(
-                    table.last_altered / 1000, tz=timezone.utc
+                    table.get("last_altered") / 1000, tz=timezone.utc
                 )
-                if "last_altered" in table
+                if table.get("last_altered") is not None
                 else table.created,
                 size_in_bytes=table.get("bytes"),
                 rows_count=table.get("row_count"),
@@ -368,7 +365,6 @@ class BigQueryDataDictionary:
         dataset_name: str,
         has_data_read: bool,
     ) -> List[BigqueryView]:
-
         if has_data_read:
             cur = BigQueryDataDictionary.get_query_result(
                 conn,
@@ -451,7 +447,6 @@ class BigQueryDataDictionary:
         table_identifier: BigqueryTableIdentifier,
         column_limit: Optional[int],
     ) -> List[BigqueryColumn]:
-
         cur = BigQueryDataDictionary.get_query_result(
             conn,
             BigqueryQuery.columns_for_table.format(table_identifier=table_identifier),

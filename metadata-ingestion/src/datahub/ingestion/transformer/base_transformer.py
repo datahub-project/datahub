@@ -39,7 +39,8 @@ class SingleAspectTransformer(metaclass=ABCMeta):
         """Implement this method to transform a single aspect for an entity.
         param: entity_urn: the entity that is being processed
         param: aspect_name: the aspect name corresponding to the subscription
-        param: aspect: an optional aspect corresponding to the aspect name that the transformer is interested in. Empty if no aspect with this name was produced by the underlying connector"""
+        param: aspect: an optional aspect corresponding to the aspect name that the transformer is interested in. Empty if no aspect with this name was produced by the underlying connector
+        """
         pass
 
 

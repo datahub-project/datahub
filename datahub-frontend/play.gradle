@@ -9,12 +9,11 @@ tasks.withType(PlayRun) {
 }
 
 configurations {
-  assets
   play
 }
 
 dependencies {
-  assets project(path: ':datahub-web-react', configuration: 'assets')
+  implementation project(':datahub-web-react')
 
   constraints {
     play(externalDependency.springCore)
@@ -33,7 +32,6 @@ dependencies {
 
   compile project(":metadata-service:restli-client")
   compile project(":metadata-service:auth-config")
-
 
   implementation externalDependency.jettyJaas
   implementation externalDependency.graphqlJava
@@ -62,8 +60,10 @@ dependencies {
   implementation externalDependency.kafkaClients
   implementation externalDependency.awsMskIamAuth
 
+  testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito
   testImplementation externalDependency.playTest
+  testImplementation 'org.awaitility:awaitility:4.2.0'
   testImplementation 'no.nav.security:mock-oauth2-server:0.3.1'
   testImplementation 'org.junit-pioneer:junit-pioneer:1.9.1'
   testImplementation externalDependency.junitJupiterApi
@@ -83,9 +83,6 @@ dependencies {
   annotationProcessor externalDependency.lombok
 }
 
-dist.dependsOn(':datahub-web-react:copyAssets')
-test.dependsOn(':datahub-frontend:testResources')
-
 play {
   platform {
     playVersion = '2.8.18'
@@ -96,67 +93,6 @@ play {
   injectedRoutesGenerator = true
 }
 
-model {
-  components {
-    play {
-      platform play: '2.8.18', scala: '2.12', java: '11'
-      injectedRoutesGenerator = true
-
-      binaries.all {
-        tasks.withType(PlatformScalaCompile) {
-          scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
-        }
-      }
-
-      binaries.all { binary ->
-        binary.assets.addAssetDir moveAssets.destinationDir
-        binary.assets.builtBy moveAssets
-      }
-    }
-  }
-}
-
 test {
   useJUnitPlatform()
-}
-
-sourceSets {
-  test {
-    resources {
-      srcDirs = ['test/resources']
-    }
-  }
-}
-
-// minimal files for low-level tests
-task testResources {
-    copy {
-      from '../datahub-web-react/public'
-      into 'test/resources/public'
-    }
-}
-
-task unzipAssets(type: Copy, dependsOn: [configurations.assets, ':datahub-web-react:yarnBuild']) {
-  into "${buildDir}/assets"
-  from {
-    configurations.assets.collect { zipTree(it) }
-  }
-}
-
-// move assets/assets into assets
-task moveAssets(type: Copy, dependsOn: unzipAssets) {
-  into "${buildDir}/assets"
-  from ("${buildDir}/assets/assets")
-}
-
-clean {
-  delete 'public/platforms'
-  delete 'public/static'
-  delete 'public/asset-manifest.json'
-  delete 'public/manifest.json'
-  delete 'public/robots.txt'
-  delete 'public/logo.png'
-  delete 'public/index.html'
-  delete 'public/favicon.ico'
-  delete 'test/resources/public'
 }

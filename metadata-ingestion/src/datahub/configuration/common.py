@@ -128,15 +128,19 @@ class DynamicTypedConfig(ConfigModel):
 
 
 class MetaError(Exception):
-    """A base class for all meta exceptions"""
+    """A base class for all meta exceptions."""
 
 
 class PipelineExecutionError(MetaError):
-    """An error occurred when executing the pipeline"""
+    """An error occurred when executing the pipeline."""
 
 
-class OperationalError(PipelineExecutionError):
-    """An error occurred because of client-provided metadata"""
+class GraphError(MetaError):
+    """An error in communicating with the DataHub Graph."""
+
+
+class OperationalError(GraphError):
+    """A GraphError with extra debug annotations."""
 
     message: str
     info: dict
@@ -147,11 +151,15 @@ class OperationalError(PipelineExecutionError):
 
 
 class ConfigurationError(MetaError):
-    """A configuration error has happened"""
+    """A configuration error."""
 
 
 class IgnorableError(MetaError):
-    """An error that can be ignored"""
+    """An error that can be ignored."""
+
+
+class ConfigurationWarning(Warning):
+    """A configuration warning."""
 
 
 class ConfigurationMechanism(ABC):

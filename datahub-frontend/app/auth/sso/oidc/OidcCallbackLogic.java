@@ -57,10 +57,10 @@ import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
 import auth.sso.SsoManager;
 
-import static auth.AuthUtils.ACCESS_TOKEN;
-import static auth.AuthUtils.ACTOR;
 import static auth.AuthUtils.createActorCookie;
-import static com.linkedin.metadata.Constants.*;
+import static auth.AuthUtils.createSessionMap;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static play.mvc.Results.internalServerError;
 
 
@@ -152,9 +152,16 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
       // Successfully logged in - Generate GMS login token
       final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.getId());
-      context.getNativeSession().adding(ACCESS_TOKEN, accessToken);
-      context.getNativeSession().adding(ACTOR, corpUserUrn.toString());
-      return result.withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
+      return result
+              .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
+              .withCookies(
+                  createActorCookie(
+                      corpUserUrn.toString(),
+                      oidcConfigs.getSessionTtlInHours(),
+                      oidcConfigs.getAuthCookieSameSite(),
+                      oidcConfigs.getAuthCookieSecure()
+                  )
+              );
     }
     return internalServerError(
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");

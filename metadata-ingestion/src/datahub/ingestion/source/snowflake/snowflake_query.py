@@ -35,6 +35,10 @@ class SnowflakeQuery:
         return "show databases"
 
     @staticmethod
+    def show_tags() -> str:
+        return "show tags"
+
+    @staticmethod
     def use_database(db_name: str) -> str:
         return f'use database "{db_name}"'
 
@@ -100,6 +104,52 @@ class SnowflakeQuery:
         where table_schema='{schema_name}'
         and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
+
+    @staticmethod
+    def get_all_tags_on_object_with_propagation(
+        db_name: str, quoted_identifier: str, domain: str
+    ) -> str:
+        # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html
+        return f"""
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        tag_value AS "TAG_VALUE"
+        FROM table("{db_name}".information_schema.tag_references('{quoted_identifier}', '{domain}'));
+        """
+
+    @staticmethod
+    def get_all_tags_in_database_without_propagation(db_name: str) -> str:
+        # https://docs.snowflake.com/en/sql-reference/account-usage/tag_references.html
+        return f"""
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        tag_value AS "TAG_VALUE",
+        object_database as "OBJECT_DATABASE",
+        object_schema AS "OBJECT_SCHEMA",
+        object_name AS "OBJECT_NAME",
+        column_name AS "COLUMN_NAME",
+        domain as "DOMAIN"
+        FROM snowflake.account_usage.tag_references
+        WHERE (object_database = '{db_name}' OR object_name = '{db_name}')
+        AND domain in ('DATABASE', 'SCHEMA', 'TABLE', 'COLUMN')
+        AND object_deleted IS NULL;
+        """
+
+    @staticmethod
+    def get_tags_on_columns_with_propagation(
+        db_name: str, quoted_table_identifier: str
+    ) -> str:
+        # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
+        return f"""
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        tag_value AS "TAG_VALUE",
+        column_name AS "COLUMN_NAME"
+        FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', 'table'));
+        """
 
     # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
     # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
@@ -541,7 +591,7 @@ class SnowflakeQuery:
                 'View',
                 'Materialized view',
                 'External table'
-            )
+            ) and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
             basic_usage_counts.bucket_start_time

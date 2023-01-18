@@ -207,7 +207,11 @@ fragment nonSiblingDatasetFields on Dataset {
         }
     }
     siblings {
-      isPrimary
+        isPrimary
+    }
+    privileges {
+        canEditLineage
+        canEditEmbed
     }
 }
 

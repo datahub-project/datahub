@@ -24,7 +24,7 @@ class DemoDataSource(GenericFileSource):
     """
 
     def __init__(self, ctx: PipelineContext, config: DemoDataConfig):
-        file_config = FileSourceConfig(filename=download_sample_data())
+        file_config = FileSourceConfig(path=download_sample_data())
         super().__init__(ctx, file_config)
 
     @classmethod
