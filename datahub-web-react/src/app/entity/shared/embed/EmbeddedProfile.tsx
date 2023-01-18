@@ -12,6 +12,7 @@ import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/
 import { SidebarOwnerSection } from '../containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarTagsSection } from '../containers/profile/sidebar/SidebarTagsSection';
 import { SidebarDomainSection } from '../containers/profile/sidebar/Domain/SidebarDomainSection';
+import UpstreamHealth from './UpstreamHealth/UpstreamHealth';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -69,6 +70,8 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
             {!loading && entityData && (
                 <>
                     <EmbeddedHeader />
+                    <StyledDivider />
+                    <UpstreamHealth />
                     <StyledDivider />
                     <SidebarAboutSection readOnly />
                     <StyledDivider />
