@@ -1,5 +1,54 @@
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Tuple
+
+
+def _pre_handle_union_with_aliases(
+    obj: Any,
+    from_pattern: str,
+    to_pattern: str,
+) -> Tuple[bool, Any]:
+    # PDL supports "Unions with aliases", which are unions that have a field name
+    # that is different from the type name.
+    # See https://linkedin.github.io/rest.li/pdl_schema#union-with-aliases
+    # When generating the avro schema, Rest.li adds a "fieldDiscriminator" field
+    # to disambiguate between the different union types.
+
+    if "fieldDiscriminator" in obj:
+        # On the way out, we need to remove the field discriminator.
+        field = obj["fieldDiscriminator"]
+        return True, {
+            field: _json_transform(obj[field], from_pattern, to_pattern, pre=True)
+        }
+
+    return False, None
+
+
+def _post_handle_unions_with_aliases(
+    obj: Any,
+    from_pattern: str,
+    to_pattern: str,
+) -> Tuple[bool, Any]:
+    # Note that "CostCostClass" is the only usage of a union with aliases in our
+    # current PDL / metadata model, so the below hardcoding works.
+    # Because this method is brittle and prone to becoming stale, we validate
+    # the aforementioned assumption in our tests.
+
+    if (
+        set(obj.keys()) == {"cost", "costType"}
+        and isinstance(obj["cost"], dict)
+        and len(obj["cost"].keys()) == 1
+        and list(obj["cost"].keys())[0] in {"costId", "costCode"}
+    ):
+        # On the way in, we need to add back the field discriminator.
+        return True, {
+            "cost": {
+                **obj["cost"],
+                "fieldDiscriminator": list(obj["cost"].keys())[0],
+            },
+            "costType": obj["costType"],
+        }
+
+    return False, None
 
 
 def _json_transform(obj: Any, from_pattern: str, to_pattern: str, pre: bool) -> Any:
@@ -13,33 +62,21 @@ def _json_transform(obj: Any, from_pattern: str, to_pattern: str, pre: bool) -> 
                     new_key: _json_transform(value, from_pattern, to_pattern, pre=pre)
                 }
 
-        # Avro uses "fieldDiscriminator" for unions between primitive types, while
-        # rest.li simply uses the field names. We have to add special handling for this.
-        if pre and "fieldDiscriminator" in obj:
-            # On the way out, we need to remove the field discriminator.
-            field = obj["fieldDiscriminator"]
-            return {
-                field: _json_transform(obj[field], from_pattern, to_pattern, pre=pre)
-            }
-        if (
-            not pre
-            and set(obj.keys()) == {"cost", "costType"}
-            and isinstance(obj["cost"], dict)
-            and len(obj["cost"].keys()) == 1
-            and list(obj["cost"].keys())[0] in {"costId", "costCode"}
-        ):
-            # On the way in, we need to add back the field discriminator.
-            # Note that "CostCostClass" is the only usage of fieldDiscriminator in our models,
-            # so this works ok.
-            return {
-                "cost": {
-                    **obj["cost"],
-                    "fieldDiscriminator": list(obj["cost"].keys())[0],
-                },
-                "costType": obj["costType"],
-            }
+        if pre:
+            handled, new_obj = _pre_handle_union_with_aliases(
+                obj, from_pattern, to_pattern
+            )
+            if handled:
+                return new_obj
 
-        new_obj: Any = {
+        if not pre:
+            handled, new_obj = _post_handle_unions_with_aliases(
+                obj, from_pattern, to_pattern
+            )
+            if handled:
+                return new_obj
+
+        new_obj = {
             key: _json_transform(value, from_pattern, to_pattern, pre=pre)
             for key, value in obj.items()
             if value is not None

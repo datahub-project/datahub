@@ -374,10 +374,10 @@ def test_json_transforms(model, ref_server_obj):
     assert recovered == model
 
 
-def test_only_cost_has_field_discriminator():
-    # We have special handling for field discriminators in our json serialization helpers.
-    # Those assume that this is the only class with a field discriminator, so we want to
-    # validate that assumption here.
+def test_unions_with_aliases_assumptions():
+    # We have special handling for unions with aliases in our json serialization helpers.
+    # Specifically, we assume that cost is the only instance of a union with alias.
+    # This test validates that assumption.
 
     for cls in set(models.__SCHEMA_TYPES.values()):
         if cls is models.CostCostClass:
