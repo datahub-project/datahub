@@ -168,6 +168,10 @@ class StoredProcedure:
     def full_name(self) -> str:
         return f"{self.db}.{self.schema}.{self.formatted_name}"
 
+    @property
+    def escape_full_name(self) -> str:
+        return f"[{self.db}].[{self.schema}].[{self.formatted_name}]"
+
 
 @dataclass
 class JobStep:
