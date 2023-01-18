@@ -5,8 +5,12 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"public issue_history\", \"description\": \"public issue_history\", \"tags\": []}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {},
+            "name": "public issue_history",
+            "description": "public issue_history",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -19,8 +23,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -33,8 +38,12 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"SNOWFLAKE_TESTTABLE\", \"description\": \"SNOWFLAKE_TESTTABLE\", \"tags\": []}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {},
+            "name": "SNOWFLAKE_TESTTABLE",
+            "description": "SNOWFLAKE_TESTTABLE",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -47,8 +56,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -61,8 +71,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.PBI_TEST.TEST.TESTTABLE,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.PBI_TEST.TEST.TESTTABLE,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -75,8 +95,12 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"snowflake native-query\", \"description\": \"snowflake native-query\", \"tags\": []}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {},
+            "name": "snowflake native-query",
+            "description": "snowflake native-query",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -89,8 +113,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -103,8 +128,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -117,8 +152,12 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"snowflake native-query-with-join\", \"description\": \"snowflake native-query-with-join\", \"tags\": []}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {},
+            "name": "snowflake native-query-with-join",
+            "description": "snowflake native-query-with-join",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -131,8 +170,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -145,8 +185,26 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.GSL_TEST_DB.PUBLIC.SALES_ANALYST,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.GSL_TEST_DB.PUBLIC.SALES_FORECAST,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.GSL_TEST_DB.PUBLIC.SALES_ANALYST,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.GSL_TEST_DB.PUBLIC.SALES_FORECAST,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -159,8 +217,26 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.GSL_TEST_DB.PUBLIC.SALES_ANALYST,PROD)\", \"type\": \"TRANSFORMED\"}, {\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.GSL_TEST_DB.PUBLIC.SALES_FORECAST,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.GSL_TEST_DB.PUBLIC.SALES_ANALYST,PROD)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sn-2.GSL_TEST_DB.PUBLIC.SALES_FORECAST,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -173,8 +249,12 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"job-history\", \"description\": \"job-history\", \"tags\": []}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {},
+            "name": "job-history",
+            "description": "job-history",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -187,8 +267,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -201,8 +282,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:oracle,high_performance_production_unit.salesdb.HR.EMPLOYEES,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,high_performance_production_unit.salesdb.HR.EMPLOYEES,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -215,8 +306,12 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"postgres_test_table\", \"description\": \"postgres_test_table\", \"tags\": []}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {},
+            "name": "postgres_test_table",
+            "description": "postgres_test_table",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -229,8 +324,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -243,8 +339,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,operational_instance.mics.public.order_date,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,operational_instance.mics.public.order_date,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -257,8 +363,12 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"dbo_book_issue\", \"description\": \"dbo_book_issue\", \"tags\": []}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {},
+            "name": "dbo_book_issue",
+            "description": "dbo_book_issue",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -271,8 +381,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -285,8 +396,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:mssql,reporting-db.library.dbo.book_issue,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,reporting-db.library.dbo.book_issue,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -299,8 +420,12 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "value": "{\"customProperties\": {}, \"name\": \"ms_sql_native_table\", \"description\": \"ms_sql_native_table\", \"tags\": []}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {},
+            "name": "ms_sql_native_table",
+            "description": "ms_sql_native_table",
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -313,8 +438,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -327,36 +453,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:mssql,reporting-db.COMMOPSDB.dbo.V_PS_CD_RETENTION,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-lineage-test"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserInfo",
-    "aspect": {
-        "value": "{\"active\": true, \"displayName\": \"user1\", \"email\": \"User1@foo.com\", \"title\": \"user1\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-lineage-test"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,reporting-db.COMMOPSDB.dbo.V_PS_CD_RETENTION,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -369,36 +477,9 @@
     "changeType": "UPSERT",
     "aspectName": "corpUserKey",
     "aspect": {
-        "value": "{\"username\": \"User1@foo.com\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-lineage-test"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserInfo",
-    "aspect": {
-        "value": "{\"active\": true, \"displayName\": \"user2\", \"email\": \"User2@foo.com\", \"title\": \"user2\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-lineage-test"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "username": "User1@foo.com"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -411,8 +492,9 @@
     "changeType": "UPSERT",
     "aspectName": "corpUserKey",
     "aspect": {
-        "value": "{\"username\": \"User2@foo.com\"}",
-        "contentType": "application/json"
+        "json": {
+            "username": "User2@foo.com"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -425,8 +507,46 @@
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"datasetId\": \"05169CD2-E713-41E6-9600-1D8066D95445\", \"reportId\": \"\", \"datasetWebUrl\": \"http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details\", \"createdFrom\": \"Dataset\"}, \"title\": \"test_tile\", \"description\": \"test_tile\", \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"inputs\": [{\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "reportId": "",
+                "datasetWebUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+                "createdFrom": "Dataset"
+            },
+            "title": "test_tile",
+            "description": "test_tile",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.snowflake_native-query-with-join,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.job-history,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.postgres_test_table,DEV)"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -439,8 +559,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -453,8 +574,10 @@
     "changeType": "UPSERT",
     "aspectName": "chartKey",
     "aspect": {
-        "value": "{\"dashboardTool\": \"powerbi\", \"chartId\": \"powerbi.linkedin.com/charts/B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0\"}",
-        "contentType": "application/json"
+        "json": {
+            "dashboardTool": "powerbi",
+            "chartId": "powerbi.linkedin.com/charts/B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -467,8 +590,34 @@
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"datasetId\": \"ba0130a1-5b03-40de-9535-b34e778ea6ed\", \"reportId\": \"\", \"datasetWebUrl\": \"http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed/details\", \"createdFrom\": \"Dataset\"}, \"title\": \"yearly_sales\", \"description\": \"yearly_sales\", \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"inputs\": [{\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)\"}, {\"string\": \"urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                "reportId": "",
+                "datasetWebUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed/details",
+                "createdFrom": "Dataset"
+            },
+            "title": "yearly_sales",
+            "description": "yearly_sales",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.dbo_book_issue,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,hr_pbi_test.ms_sql_native_table,DEV)"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -481,8 +630,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -495,8 +645,10 @@
     "changeType": "UPSERT",
     "aspectName": "chartKey",
     "aspect": {
-        "value": "{\"dashboardTool\": \"powerbi\", \"chartId\": \"powerbi.linkedin.com/charts/23212598-23b5-4980-87cc-5fc0ecd84385\"}",
-        "contentType": "application/json"
+        "json": {
+            "dashboardTool": "powerbi",
+            "chartId": "powerbi.linkedin.com/charts/23212598-23b5-4980-87cc-5fc0ecd84385"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -509,8 +661,11 @@
     "changeType": "UPSERT",
     "aspectName": "browsePaths",
     "aspect": {
-        "value": "{\"paths\": [\"/powerbi/demo-workspace\"]}",
-        "contentType": "application/json"
+        "json": {
+            "paths": [
+                "/powerbi/demo-workspace"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -523,8 +678,31 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
-        "value": "{\"customProperties\": {\"chartCount\": \"2\", \"workspaceName\": \"demo-workspace\", \"workspaceId\": \"64ED5CAD-7C10-4684-8180-826122881108\"}, \"title\": \"test_dashboard\", \"description\": \"test_dashboard\", \"charts\": [\"urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)\", \"urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)\"], \"datasets\": [], \"lastModified\": {\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}, \"dashboardUrl\": \"https://localhost/dashboards/web/1\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "chartCount": "2",
+                "workspaceName": "demo-workspace",
+                "workspaceId": "64ED5CAD-7C10-4684-8180-826122881108"
+            },
+            "title": "test_dashboard",
+            "description": "test_dashboard",
+            "charts": [
+                "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+                "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
+            ],
+            "datasets": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "dashboardUrl": "https://localhost/dashboards/web/1"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -537,8 +715,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -551,8 +730,10 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardKey",
     "aspect": {
-        "value": "{\"dashboardTool\": \"powerbi\", \"dashboardId\": \"powerbi.linkedin.com/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE\"}",
-        "contentType": "application/json"
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
@@ -565,8 +746,22 @@
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-        "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:users.User1@foo.com\", \"type\": \"NONE\"}, {\"owner\": \"urn:li:corpuser:users.User2@foo.com\", \"type\": \"NONE\"}], \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
-        "contentType": "application/json"
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:users.User1@foo.com",
+                    "type": "NONE"
+                },
+                {
+                    "owner": "urn:li:corpuser:users.User2@foo.com",
+                    "type": "NONE"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
