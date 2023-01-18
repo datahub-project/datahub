@@ -16,7 +16,9 @@
     "model.sample_dbt.payments_by_customer_by_month": [
       "model.sample_dbt.monthly_billing_with_cust"
     ],
-    "snapshot.sample_dbt.customer_snapshot": [],
+    "snapshot.sample_dbt.customer_snapshot": [
+      "model.sample_dbt.customer_details"
+    ],
     "source.sample_dbt.pagila.actor": [
       "test.sample_dbt.assert_source_actor_last_update_is_recent",
       "test.sample_dbt.source_not_null_pagila_actor_actor_id.ad63829d3e",
@@ -7534,12 +7536,12 @@
       "alias": "customer_details",
       "build_path": null,
       "checksum": {
-        "checksum": "038ac5af10d168699b8e5dcef54752c22a31a705eed010cacbf180e9ca214ceb",
+        "checksum": "84914e889940a80b3a628e160ff92910bfd2749fc253520a602aa885f878f28b",
         "name": "sha256"
       },
       "columns": {},
       "compiled": true,
-      "compiled_code": "\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id",
+      "compiled_code": "\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id",
       "compiled_path": "target/compiled/sample_dbt/models/transform/customer_details.sql",
       "config": {
         "alias": null,
@@ -7571,9 +7573,10 @@
       "depends_on": {
         "macros": [],
         "nodes": [
-          "source.sample_dbt.pagila.address",
           "source.sample_dbt.pagila.city",
-          "source.sample_dbt.pagila.customer"
+          "source.sample_dbt.pagila.address",
+          "source.sample_dbt.pagila.customer",
+          "snapshot.sample_dbt.customer_snapshot"
         ]
       },
       "description": "",
@@ -7596,8 +7599,12 @@
       "package_name": "sample_dbt",
       "patch_path": null,
       "path": "transform/customer_details.sql",
-      "raw_code": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
-      "refs": [],
+      "raw_code": "{{ config(\n    materialized = \"ephemeral\",\n) }}\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from {{ ref('customer_snapshot') }} cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    {{ source('pagila', 'customer')}} c\n    left outer join {{ source('pagila', 'address')}} a on c.address_id = a.address_id\n    left outer join {{ source('pagila', 'city') }} m on a.city_id = m.city_id",
+      "refs": [
+        [
+          "customer_snapshot"
+        ]
+      ],
       "relation_name": null,
       "resource_type": "model",
       "root_path": "/some-path/sample-dbt",
@@ -7605,11 +7612,11 @@
       "sources": [
         [
           "pagila",
-          "address"
+          "city"
         ],
         [
           "pagila",
-          "city"
+          "address"
         ],
         [
           "pagila",
@@ -7656,7 +7663,7 @@
         }
       },
       "compiled": true,
-      "compiled_code": "\n\nwith __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)SELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    \"pagila\".\"public\".\"payments_by_customer_by_month\" pbc\n    left outer join __dbt__cte__customer_details cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
+      "compiled_code": "\n\nwith __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)SELECT \n    pbc.billing_month,\n    pbc.customer_id,\n    pbc.amount,\n    cust.email\nFROM\n    \"pagila\".\"public\".\"payments_by_customer_by_month\" pbc\n    left outer join __dbt__cte__customer_details cust on pbc.customer_id = cust.customer_id\nORDER BY\n    pbc.billing_month",
       "compiled_path": "target/compiled/sample_dbt/models/billing/monthly_billing_with_cust.sql",
       "config": {
         "alias": "an-aliased-view-for-monthly-billing",
@@ -7700,7 +7707,7 @@
       "extra_ctes": [
         {
           "id": "model.sample_dbt.customer_details",
-          "sql": " __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)"
+          "sql": " __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)"
         }
       ],
       "extra_ctes_injected": true,
@@ -7779,12 +7786,12 @@
       "depends_on": {
         "macros": [],
         "nodes": [
-          "source.sample_dbt.pagila.payment_p2020_02",
-          "source.sample_dbt.pagila.payment_p2020_05",
           "source.sample_dbt.pagila.payment_p2020_01",
-          "source.sample_dbt.pagila.payment_p2020_04",
+          "source.sample_dbt.pagila.payment_p2020_06",
           "source.sample_dbt.pagila.payment_p2020_03",
-          "source.sample_dbt.pagila.payment_p2020_06"
+          "source.sample_dbt.pagila.payment_p2020_04",
+          "source.sample_dbt.pagila.payment_p2020_05",
+          "source.sample_dbt.pagila.payment_p2020_02"
         ]
       },
       "description": "",
@@ -7816,19 +7823,11 @@
       "sources": [
         [
           "pagila",
-          "payment_p2020_02"
-        ],
-        [
-          "pagila",
-          "payment_p2020_05"
-        ],
-        [
-          "pagila",
           "payment_p2020_01"
         ],
         [
           "pagila",
-          "payment_p2020_04"
+          "payment_p2020_06"
         ],
         [
           "pagila",
@@ -7836,7 +7835,15 @@
         ],
         [
           "pagila",
-          "payment_p2020_06"
+          "payment_p2020_04"
+        ],
+        [
+          "pagila",
+          "payment_p2020_05"
+        ],
+        [
+          "pagila",
+          "payment_p2020_02"
         ]
       ],
       "tags": [],
@@ -8386,7 +8393,7 @@
       "column_name": "customer_id",
       "columns": {},
       "compiled": true,
-      "compiled_code": "\n    \n    \n\nwith  __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n),child as (\n    select customer_id as from_field\n    from \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\n    where customer_id is not null\n),\n\nparent as (\n    select customer_id as to_field\n    from __dbt__cte__customer_details\n)\n\nselect\n    from_field\n\nfrom child\nleft join parent\n    on child.from_field = parent.to_field\n\nwhere parent.to_field is null\n\n\n",
+      "compiled_code": "\n    \n    \n\nwith  __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n),child as (\n    select customer_id as from_field\n    from \"pagila\".\"public\".\"an-aliased-view-for-monthly-billing\"\n    where customer_id is not null\n),\n\nparent as (\n    select customer_id as to_field\n    from __dbt__cte__customer_details\n)\n\nselect\n    from_field\n\nfrom child\nleft join parent\n    on child.from_field = parent.to_field\n\nwhere parent.to_field is null\n\n\n",
       "compiled_path": "target/compiled/sample_dbt/models/base.yml/relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3.sql",
       "config": {
         "alias": "relationships_monthly_billing__817cd169359f6f89fd618645234f8ff3",
@@ -8427,7 +8434,7 @@
       "extra_ctes": [
         {
           "id": "model.sample_dbt.customer_details",
-          "sql": " __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)"
+          "sql": " __dbt__cte__customer_details as (\n\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    (\n        select cs.first_name || ' ' || cs.last_name\n        from \"pagila\".\"public\".\"customer_snapshot\" cs where cs.customer_id = c.customer_id\n        order by dbt_valid_from desc\n        limit 1\n    ) as \"initial_full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id\n)"
         }
       ],
       "extra_ctes_injected": true,
@@ -8649,6 +8656,7 @@
   },
   "parent_map": {
     "model.sample_dbt.customer_details": [
+      "snapshot.sample_dbt.customer_snapshot",
       "source.sample_dbt.pagila.address",
       "source.sample_dbt.pagila.city",
       "source.sample_dbt.pagila.customer"

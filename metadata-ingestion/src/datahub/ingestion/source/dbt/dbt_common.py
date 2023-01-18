@@ -360,7 +360,7 @@ class DBTNode:
 
     node_type: str  # source, model
     max_loaded_at: Optional[datetime]
-    materialization: Optional[str]  # table, view, ephemeral, incremental
+    materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
 
@@ -1133,7 +1133,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         pass
 
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
-        materialized = node.materialization in {"table", "incremental"}
+        materialized = node.materialization in {"table", "incremental", "snapshot"}
         # this function is only called when raw sql is present. assert is added to satisfy lint checks
         assert node.raw_code is not None
         view_properties = ViewPropertiesClass(
@@ -1328,7 +1328,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not node.node_type:
             return None
         subtypes: Optional[List[str]]
-        if node.node_type == "model":
+        if node.node_type in {"model", "snapshot"}:
             if node.materialization:
                 subtypes = [node.materialization, "view"]
             else:
