@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 import { useGetMeLazyQuery } from '../../graphql/me.generated';
 import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
 import { CorpUser, PlatformPrivileges } from '../../types.generated';
 import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
+import { PageRoutes } from '../../conf/Global';
 
 // TODO: Migrate all usage of useAuthenticatedUser to using this provider.
 
@@ -29,6 +31,9 @@ const saveLocalState = (newState: LocalState) => {
  * A provider of context related to the currently authenticated user.
  */
 const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
+    const location = useLocation();
+    const history = useHistory();
+
     /**
      * Stores transient session state, and browser-persistent local state.
      */
@@ -123,6 +128,41 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
             });
         }
     }, [state, localState.selectedViewUrn, setDefaultSelectedView]);
+
+    /**
+     * Route to the most recently visited path once on first load of home page, if present in local storage.
+     */
+    useEffect(() => {
+        if (
+            location.pathname === PageRoutes.ROOT &&
+            !state.loadedInitialPath &&
+            localState.selectedPath !== location.pathname
+        ) {
+            setState({
+                ...state,
+                loadedInitialPath: true,
+            });
+            if (localState.selectedPath) {
+                history.push({
+                    pathname: localState.selectedPath,
+                    search: localState.selectedSearch || '',
+                });
+            }
+        }
+    }, [localState.selectedPath, localState.selectedSearch, location.pathname, location.search, state, history]);
+
+    /**
+     * When the location of the browse changes, save the latest to local state.
+     */
+    useEffect(() => {
+        if (localState.selectedPath !== location.pathname || localState.selectedSearch !== location.search) {
+            updateLocalState({
+                ...localState,
+                selectedPath: location.pathname,
+                selectedSearch: location.search,
+            });
+        }
+    }, [location.pathname, location.search, localState]);
 
     return (
         <UserContext.Provider
