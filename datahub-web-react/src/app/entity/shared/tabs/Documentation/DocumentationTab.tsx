@@ -44,7 +44,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         if (editedDescriptions.hasOwnProperty(urn)) {
             routeToTab({
                 tabName: 'Documentation',
-                tabParams: { editing: true, modal: (showModal && true) || false },
+                tabParams: { editing: true, modal: !!showModal },
             });
         }
     }, [urn, routeToTab, showModal, localStorageDictionary]);
