@@ -3,17 +3,98 @@ import os
 import pytest
 from pydantic import SecretStr
 
-from datahub.configuration.github import GitHubInfo
+from datahub.configuration.github import GitHubInfo, GitHubReference
 from datahub.ingestion.source.git.git_import import GitClone
 
 LOOKML_TEST_SSH_KEY = os.environ.get("DATAHUB_LOOKML_GIT_TEST_SSH_KEY")
+
+
+def test_base_url_guessing():
+    # Basic GitHub repo.
+    config = GitHubInfo(
+        repo="https://github.com/datahub-project/datahub", branch="master"
+    )
+    assert config.repo_ssh_locator == "git@github.com:datahub-project/datahub.git"
+
+    # Defaults to GitHub.
+    config = GitHubInfo(repo="datahub-project/datahub", branch="master")
+    assert (
+        config.get_url_for_file_path("docker/README.md")
+        == "https://github.com/datahub-project/datahub/blob/master/docker/README.md"
+    )
+    assert config.repo_ssh_locator == "git@github.com:datahub-project/datahub.git"
+
+    # GitLab repo (notice the trailing slash).
+    config_ref = GitHubReference(
+        repo="https://gitlab.com/gitlab-tests/sample-project/", branch="master"
+    )
+    assert (
+        config_ref.get_url_for_file_path("hello_world.md")
+        == "https://gitlab.com/gitlab-tests/sample-project/-/blob/master/hello_world.md"
+    )
+
+    # Three-tier GitLab repo.
+    config = GitHubInfo(
+        repo="https://gitlab.com/gitlab-com/gl-infra/reliability", branch="master"
+    )
+    assert (
+        config.get_url_for_file_path("onboarding/gitlab.nix")
+        == "https://gitlab.com/gitlab-com/gl-infra/reliability/-/blob/master/onboarding/gitlab.nix"
+    )
+    assert (
+        config.repo_ssh_locator == "git@gitlab.com:gitlab-com/gl-infra/reliability.git"
+    )
+
+    # Overrides.
+    config = GitHubInfo(
+        repo="https://gitea.com/gitea/tea",
+        branch="main",
+        url_template="https://gitea.com/gitea/tea/src/branch/{branch}/{file_path}",
+        repo_ssh_locator="https://gitea.com/gitea/tea.git",
+    )
+    config.get_url_for_file_path(
+        "cmd/admin.go"
+    ) == "https://gitea.com/gitea/tea/src/branch/main/cmd/admin.go"
+    config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
+
+
+def test_github_branch():
+    config = GitHubInfo(
+        repo="owner/repo",
+    )
+    assert config.branch_for_clone is None
+
+    config = GitHubInfo(
+        repo="owner/repo",
+        branch="main",
+    )
+    assert config.branch_for_clone == "main"
+
+
+def test_git_clone_public(tmp_path):
+    git_clone = GitClone(str(tmp_path))
+    checkout_dir = git_clone.clone(
+        ssh_key=None,
+        repo_url="https://github.com/githubtraining/first-day-on-github",
+        branch="3b65cb534549dbb0e1dd5e9a73f06b1ca9bbccd5",
+    )
+    assert os.path.exists(checkout_dir)
+    assert set(os.listdir(checkout_dir)) == {
+        ".github",
+        ".git",
+        ".gitignore",
+        "LICENSE",
+        "README.md",
+        "config.yml",
+        "course-details.md",
+    }
 
 
 @pytest.mark.skipif(
     LOOKML_TEST_SSH_KEY is None,
     reason="DATAHUB_LOOKML_GIT_TEST_SSH_KEY env variable is not configured",
 )
-def test_git_clone(tmp_path):
+def test_git_clone_private(tmp_path):
     git_clone = GitClone(str(tmp_path))
     secret_key = SecretStr(LOOKML_TEST_SSH_KEY) if LOOKML_TEST_SSH_KEY else None
 
@@ -35,16 +116,3 @@ def test_git_clone(tmp_path):
             "manifest.lkml",
         ]
     )
-
-
-def test_github_branch():
-    config = GitHubInfo(
-        repo="owner/repo",
-    )
-    assert config.branch_for_clone is None
-
-    config = GitHubInfo(
-        repo="owner/repo",
-        branch="main",
-    )
-    assert config.branch_for_clone == "main"
