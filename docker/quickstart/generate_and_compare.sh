@@ -17,6 +17,7 @@ python generate_docker_quickstart.py ../docker-compose-without-neo4j.yml ../dock
 python generate_docker_quickstart.py ../monitoring/docker-compose.monitoring.yml temp.monitoring.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose.consumers.yml temp.consumers.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose.consumers-without-neo4j.yml temp.consumers-without-neo4j.quickstart.yml
+python generate_docker_quickstart.py ../docker-compose.kafka-setup.yml temp.kafka-setup.yml
 
 for flavour in "${FLAVOURS[@]}"
 do

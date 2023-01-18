@@ -9,7 +9,6 @@ REQUIRED_CONTAINERS = [
     "elasticsearch",
     "datahub-gms",
     "datahub-frontend-react",
-    "kafka-setup",
     "schema-registry",
     "broker",
     "zookeeper",

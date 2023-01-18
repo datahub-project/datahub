@@ -24,17 +24,6 @@ services:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
       - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
 
-  kafka-setup:
-    image: linkedin/datahub-kafka-setup:debug
-    build:
-      context: ../
-      dockerfile: ./docker/kafka-setup/Dockerfile
-      args:
-        APP_ENV: dev
-    depends_on:
-      - broker
-      - schema-registry
-
   datahub-gms:
     image: linkedin/datahub-gms:debug
     build:
