@@ -3,8 +3,6 @@ services:
     image: kymeric/cp-kafka:latest
   mysql:
     image: mariadb:10.5.8
-  #schema-registry:
-  #  image: eugenetea/schema-registry-arm64:latest
   zookeeper:
     image: kymeric/cp-zookeeper:latest
   neo4j:

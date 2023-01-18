@@ -40,17 +40,6 @@ services:
     depends_on:
       - broker
 
-  #schema-registry:
-  #  image: confluentinc/cp-schema-registry:5.4.0
-  #  env_file: schema-registry/env/docker.env
-  #  hostname: schema-registry
-  #  container_name: schema-registry
-  #  depends_on:
-  #    - zookeeper
-  #    - broker
-  #  ports:
-  #    - "8081:8081"
-
   elasticsearch:
     image: elasticsearch:7.9.3
     env_file: elasticsearch/env/docker.env

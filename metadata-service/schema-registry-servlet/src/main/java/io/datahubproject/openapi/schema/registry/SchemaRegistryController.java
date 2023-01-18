@@ -162,13 +162,13 @@ public class SchemaRegistryController
 
   @Override
   @Operation(summary = "Schema Registry Root Resource", description = "The Root resource is a no-op, only used to "
-      + "validate endpoint is ready.", tags={ "Schema Registry Base" })
+      + "validate endpoint is ready.", tags = { "Schema Registry Base" })
   public ResponseEntity<String> get() {
     return new ResponseEntity<>(HttpStatus.OK);
   }
 
   @Override
-  @Operation(summary = "", description = "", tags={ "Schema Registry Base" })
+  @Operation(summary = "", description = "", tags = { "Schema Registry Base" })
   public ResponseEntity<Map<String, String>> post(Map<String, String> body) {
     log.error("[DefaultApi] post method not implemented");
     return DefaultApi.super.post(body);

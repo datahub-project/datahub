@@ -169,18 +169,6 @@ services:
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
-#  schema-registry:
-#    container_name: schema-registry
-#    depends_on:
-#    - zookeeper
-#    - broker
-#    environment:
-#    - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
-#    - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://broker:29092
-#    hostname: schema-registry
-#    image: confluentinc/cp-schema-registry:7.2.0
-#    ports:
-#    - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
     container_name: zookeeper
     environment:
