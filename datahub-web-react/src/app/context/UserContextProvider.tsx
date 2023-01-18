@@ -128,7 +128,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     /**
      * Route to the most recently visited path once on first load of home page, if present in local storage.
      */
-    useInitialRedirect(state, localState, setState, setLocalState);
+    useInitialRedirect(state, localState, setState, updateLocalState);
 
     return (
         <UserContext.Provider
