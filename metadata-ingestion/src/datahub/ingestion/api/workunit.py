@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional, Union, overload
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source import WorkUnit
+from datahub.ingestion.api.common import WorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
