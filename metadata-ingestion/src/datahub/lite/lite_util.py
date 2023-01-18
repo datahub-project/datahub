@@ -14,7 +14,11 @@ from datahub.lite.lite_local import (
     SearchFlavor,
 )
 from datahub.lite.lite_registry import lite_registry
-from datahub.metadata.schema_classes import MetadataChangeEventClass, _Aspect
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass,
+    SystemMetadataClass,
+    _Aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +67,9 @@ class DataHubLiteWrapper(DataHubLiteLocal):
         typed: bool = False,
         as_of: Optional[int] = None,
         details: Optional[bool] = False,
-    ) -> Optional[Dict[str, Union[str, _Aspect]]]:
+    ) -> Optional[
+        Dict[str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]]
+    ]:
         return self.get(id, aspects, typed, as_of, details)
 
     def search(
@@ -75,8 +81,8 @@ class DataHubLiteWrapper(DataHubLiteLocal):
     ) -> Iterable[Searchable]:
         yield from self.lite.search(query, flavor, aspects, snippet)
 
-    def ls(self, path: str) -> Iterable[Browseable]:
-        yield from self.lite.ls(path)
+    def ls(self, path: str) -> List[Browseable]:
+        return self.lite.ls(path)
 
     def get_all_entities(
         self, typed: bool = False

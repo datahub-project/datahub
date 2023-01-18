@@ -11,6 +11,7 @@ from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.lite.lite_local import (
+    AutoComplete,
     Browseable,
     DataHubLiteLocal,
     PathNotFoundException,
@@ -251,19 +252,23 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
 
         self.duckdb_client.execute(base_query, [id])
         results = self.duckdb_client.fetchall()
-        result_map: Dict[str, Union[str, dict, _Aspect]] = {}
+        result_map: Dict[
+            str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]
+        ] = {}
         for r in results:
-            aspect_name = r[1]
+            aspect_name: str = r[1]
             aspect: Union[dict, _Aspect] = json.loads(r[2])
             if typed:
+                assert isinstance(aspect, dict)
                 aspect = ASPECT_MAP[aspect_name].from_obj(aspect)
 
             result_map[aspect_name] = {"value": aspect}
             if details:
                 system_metadata: Union[dict, SystemMetadataClass] = json.loads(r[3])
                 if typed:
+                    assert isinstance(system_metadata, dict)
                     system_metadata = SystemMetadataClass.from_obj(system_metadata)
-                result_map[aspect_name]["systemMetadata"] = system_metadata
+                result_map[aspect_name].update({"systemMetadata": system_metadata})  # type: ignore
         if result_map:
             result_map = {**{"urn": id}, **result_map}
             return result_map
@@ -364,11 +369,16 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
 
         self.duckdb_client.commit()
 
-    def ls(self, path: str) -> Iterable[Browseable]:
+    def ls(self, path: str) -> List[Browseable]:
         def get_id_for_name(
-            name: str, allowed_src_ids: Optional[List[str]] = None
+            name: str,
+            allowed_src_ids: Optional[List[str]] = None,
+            expand_search: bool = False,
         ) -> List[str]:
-            query = f"SELECT src_id from metadata_edge_v2 where dst_id ='{name}' and relnship = 'name'"
+            if not expand_search:
+                query = f"SELECT src_id from metadata_edge_v2 where dst_id ='{name}' and relnship = 'name'"
+            else:
+                query = f"SELECT src_id from metadata_edge_v2 where dst_id ILIKE '{name}%' and relnship = 'name'"
             results = self.duckdb_client.execute(query).fetchall()
             if not results:
                 return []
@@ -399,7 +409,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         in_list = [pieces[0]]
         in_list_quoted = [f"'{r}'" for r in in_list]
 
-        for p in pieces[1:]:
+        for i, p in enumerate(pieces[1:]):
             ids = get_id_for_name(p, allowed_src_ids=in_list)
             if ids:
                 ids_quoted = [f"'{r}'" for r in ids]
@@ -408,8 +418,34 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 query = f"SELECT dst_id from metadata_edge_v2 where relnship = 'child' AND src_id IN ({','.join(in_list_quoted)}) and (dst_id = '{p}' OR dst_label = '{p}')"
             results = self.duckdb_client.execute(query).fetchall()
             if not results:
+                ids = get_id_for_name(p, allowed_src_ids=in_list, expand_search=True)
+                alternatives = None
+                if ids:
+                    ids_quoted = [f"'{r}'" for r in ids]
+                    query = f"SELECT dst_id from metadata_edge_v2 where relnship = 'child' AND src_id IN ({','.join(in_list_quoted)}) and dst_id IN ({','.join(ids_quoted)})"
+                    results = self.duckdb_client.execute(query).fetchall()
+                    success_path = "/" + "/".join(pieces[1 : i + 1])
+                    results_list = []
+                    for r in results:
+                        r_name = resolve_name_from_id(r[0])
+                        results_list.append(
+                            Browseable(
+                                id=r[0],
+                                name=r_name,
+                                leaf=False,
+                                parents=in_list,
+                                auto_complete=AutoComplete(
+                                    success_path=success_path,
+                                    failed_token=p,
+                                    suggested_path=f"{success_path}/{r_name}".replace(
+                                        "//", "/"
+                                    ),
+                                ),
+                            )
+                        )
+                    return results_list
                 raise PathNotFoundException(
-                    f"Path {path} not found at {p} for query: {query}"
+                    f"Path {path} not found at {p} for query: {query}, did you mean {alternatives}"
                 )
             in_list = [r[0] for r in results]
             in_list_quoted = [f"'{r}'" for r in in_list]
@@ -442,7 +478,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 for aspect_name, aspect_value in aspect_map.items():
                     assert isinstance(aspect_value, _Aspect)
                     self.post_update_hook(urn, aspect_name, aspect_value)
-                self.global_post_update_hook(urn, aspect_map)
+                self.global_post_update_hook(urn, aspect_map)  # type: ignore
 
     def get_all_entities(
         self, typed: bool = False
@@ -667,6 +703,12 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
             "child",
             str(data_platform_urn),
             data_platform_urn.get_entity_id_as_string(),
+        )
+        self.add_edge(
+            data_platform_urn,
+            "name",
+            data_platform_urn.get_entity_id_as_string(),
+            remove_existing=True,
         )
         # /<data_platform_category>/<data_platform>/instances
         self.add_edge(str(data_platform_urn), "child", str(data_platform_instances_urn))

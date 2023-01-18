@@ -5,10 +5,20 @@ from typing import Dict, Generic, Iterable, List, Optional, Type, TypeVar, Union
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
-from datahub.metadata.schema_classes import MetadataChangeEventClass, _Aspect
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass,
+    SystemMetadataClass,
+    _Aspect,
+)
 from datahub.utilities.type_annotations import get_class_from_annotation
 
 LiteConfig = TypeVar("LiteConfig", bound=ConfigModel)
+
+
+class AutoComplete(ConfigModel):
+    success_path: str
+    failed_token: str
+    suggested_path: str
 
 
 class Browseable(ConfigModel):
@@ -16,6 +26,7 @@ class Browseable(ConfigModel):
     name: str
     leaf: bool = False
     parents: Optional[List[str]] = None
+    auto_complete: Optional[AutoComplete] = None
 
 
 class Searchable(ConfigModel):
@@ -75,7 +86,9 @@ class DataHubLiteLocal(Generic[LiteConfig], Closeable, metaclass=ABCMeta):
         typed: bool = False,
         as_of: Optional[int] = None,
         details: Optional[bool] = False,
-    ) -> Optional[Dict[str, Union[str, _Aspect]]]:
+    ) -> Optional[
+        Dict[str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]]
+    ]:
         pass
 
     @abstractmethod
@@ -89,7 +102,7 @@ class DataHubLiteLocal(Generic[LiteConfig], Closeable, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def ls(self, path: str) -> Iterable[Browseable]:
+    def ls(self, path: str) -> List[Browseable]:
         pass
 
     @abstractmethod

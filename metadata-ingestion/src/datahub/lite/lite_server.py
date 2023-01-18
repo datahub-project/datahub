@@ -10,7 +10,7 @@ from datahub.lite.lite_local import (
     Searchable,
     SearchFlavor,
 )
-from datahub.metadata.schema_classes import _Aspect
+from datahub.metadata.schema_classes import SystemMetadataClass, _Aspect
 
 app = FastAPI()
 logger = logging.getLogger(__name__)
@@ -45,7 +45,9 @@ def entities_get(  # type: ignore
     id: str,
     aspects: Optional[List[str]] = Query(None),
     lite: DataHubLiteLocal = Depends(lite),
-) -> Optional[Dict[str, Union[str, _Aspect]]]:
+) -> Optional[
+    Dict[str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]]
+]:
     # Queried as GET /entities/<url-encoded urn>?aspects=aspect1&aspects=aspect2&...
     logger.warning(f"get {id} aspects={aspects}")
     return lite.get(id, aspects=aspects)

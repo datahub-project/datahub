@@ -19,7 +19,11 @@ from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.lite.duckdb_lite import DuckDBLiteConfig, SearchFlavor
-from datahub.lite.lite_local import DataHubLiteLocal, PathNotFoundException
+from datahub.lite.lite_local import (
+    AutoComplete,
+    DataHubLiteLocal,
+    PathNotFoundException,
+)
 from datahub.lite.lite_util import LiteLocalConfig, get_datahub_lite
 from datahub.telemetry import telemetry
 
@@ -187,16 +191,29 @@ def ls(ctx: click.Context, path: Optional[str]) -> None:
     path = path or "/"
     lite = _get_datahub_lite(read_only=True)
     try:
-        for browseable in lite.ls(path):
-            click.secho(
-                browseable.name,
-                fg="white"
-                if browseable.leaf
-                else "green"
-                if browseable.id.startswith("urn:")
-                and not browseable.id.startswith("urn:li:systemNode")
-                else "cyan",
+        browseables = lite.ls(path)
+        auto_complete: List[AutoComplete] = [
+            b.auto_complete for b in browseables if b.auto_complete is not None
+        ]
+        if auto_complete:
+            click.echo(
+                f"Path not found at {auto_complete[0].success_path}/".replace("//", "/")
+                + click.style(f"{auto_complete[0].failed_token}", fg="red")
             )
+            click.echo("Did you mean")
+            for completable in auto_complete:
+                click.secho(f"{completable.suggested_path}?")
+        else:
+            for browseable in [b for b in browseables if b.auto_complete is None]:
+                click.secho(
+                    browseable.name,
+                    fg="white"
+                    if browseable.leaf
+                    else "green"
+                    if browseable.id.startswith("urn:")
+                    and not browseable.id.startswith("urn:li:systemNode")
+                    else "cyan",
+                )
     except PathNotFoundException:
         click.echo(f"Path not found: {path}")
     except Exception as e:
