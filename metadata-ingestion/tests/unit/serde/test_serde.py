@@ -15,6 +15,8 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import FileSourceConfig, GenericFileSource
 from datahub.metadata.schema_classes import (
+    ASPECT_CLASSES,
+    KEY_ASPECTS,
     MetadataChangeEventClass,
     OwnershipClass,
     _Aspect,
@@ -32,6 +34,12 @@ def test_codegen_aspect_name():
 
     assert OwnershipClass.ASPECT_NAME == "ownership"
     assert OwnershipClass.get_aspect_name() == "ownership"
+
+
+def test_codegen_aspects():
+    # These bounds are extremely loose, and mainly verify that the lists aren't empty.
+    assert len(ASPECT_CLASSES) > 30
+    assert len(KEY_ASPECTS) > 10
 
 
 def test_cannot_instantiated_codegen_aspect():
