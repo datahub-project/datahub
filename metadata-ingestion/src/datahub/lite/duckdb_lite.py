@@ -236,7 +236,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         typed: bool = False,
         as_of: Optional[int] = None,
         details: Optional[bool] = False,
-    ) -> Optional[Dict[str, Union[str, _Aspect]]]:
+    ) -> Optional[
+        Dict[str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]]
+    ]:
         base_query = "SELECT urn, aspect_name, metadata, system_metadata from metadata_aspect_v2 WHERE urn = ?"
         if aspects:
             base_query += (
@@ -249,19 +251,21 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
 
         self.duckdb_client.execute(base_query, [id])
         results = self.duckdb_client.fetchall()
-        result_map = {}
+        result_map: Dict[str, Union[str, dict, _Aspect]] = {}
         for r in results:
             aspect_name = r[1]
-            aspect = json.loads(r[2])
+            aspect: Union[dict, _Aspect] = json.loads(r[2])
             if typed:
-                aspect = ASPECT_MAP.get(aspect).from_obj(aspect)  # type: ignore
+                aspect = ASPECT_MAP[aspect_name].from_obj(aspect)
 
-            result_map[aspect_name] = aspect
+            result_map[aspect_name] = {"value": aspect}
             if details:
-                system_metadata = json.loads(r[3])
-                result_map[f"{aspect_name}SystemMetadata"] = system_metadata
+                system_metadata: Union[dict, SystemMetadataClass] = json.loads(r[3])
+                if typed:
+                    system_metadata = SystemMetadataClass.from_obj(system_metadata)
+                result_map[aspect_name]["systemMetadata"] = system_metadata
         if result_map:
-            result_map.update({"urn": id})
+            result_map = {**{"urn": id}, **result_map}
             return result_map
         else:
             return None
@@ -438,7 +442,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 for aspect_name, aspect_value in aspect_map.items():
                     assert isinstance(aspect_value, _Aspect)
                     self.post_update_hook(urn, aspect_name, aspect_value)
-                self.global_post_update_hook(urn, aspect_map)  # type: ignore
+                self.global_post_update_hook(urn, aspect_map)
 
     def get_all_entities(
         self, typed: bool = False
@@ -484,7 +488,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         for r in results.fetchall():
             urn = r[0]
             aspect_name = r[1]
-            aspect_metadata = ASPECT_MAP.get(aspect_name).from_obj(json.loads(r[2]))  # type: ignore
+            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(json.loads(r[2]))  # type: ignore
             system_metadata = SystemMetadataClass.from_obj(json.loads(r[3]))
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=urn,

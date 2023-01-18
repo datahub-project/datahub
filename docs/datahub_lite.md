@@ -135,27 +135,50 @@ metadata_aspect_v2
 
 ### Read (get)
 
-Once you have located a path of interest, you can read metadata at that entity, by issuing a *get*. You can additionally filter the metadata retrieved from an entity by the aspect type of the metadata (e.g. to request the schema, filter by the *schemaMetadata* aspect). 
+Once you have located a path of interest, you can read metadata at that entity, by issuing a **get**. You can additionally filter the metadata retrieved from an entity by the aspect type of the metadata (e.g. to request the schema, filter by the **schemaMetadata** aspect).
 
 Aside: If you are curious what all types of entities and aspects DataHub supports, check out the metadata model of entities like [Dataset](./generated/metamodel/entities/dataset.md), [Dashboard](./generated/metamodel/entities/dashboard.md) etc.
 
+The general template for the get responses looks like:
+```
+{
+    "urn": <urn_of_the_entity>,
+    <aspect_name>: {
+        "value": <aspect_value>,    # aspect value as a dictionary
+        "systemMetadata": <system_metadata> # present if details are requested
+    }
+}
+```
+
 Here is what executing a *get* command looks like:
-```shell
+<details>
+<summary>
+Get metadata for an entity by path
+</summary>
+
+```json
 > datahub lite get /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2
 {
-  "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)": {
-    "container": {
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
+  "container": {
+    "value": {
       "container": "urn:li:container:21d4204e13d5b984c58acad468ecdbdd"
-    },
-    "status": {
+    }
+  },
+  "status": {
+    "value": {
       "removed": false
-    },
-    "datasetProperties": {
+    }
+  },
+  "datasetProperties": {
+    "value": {
       "customProperties": {},
       "name": "metadata_aspect_v2",
       "tags": []
-    },
-    "schemaMetadata": {
+    }
+  },
+  "schemaMetadata": {
+    "value": {
       "schemaName": "datahub.metadata_aspect_v2",
       "platform": "urn:li:dataPlatform:mysql",
       "version": 0,
@@ -271,37 +294,76 @@ Here is what executing a *get* command looks like:
           "isPartOfKey": false
         }
       ]
-    },
-    "subTypes": {
+    }
+  },
+  "subTypes": {
+    "value": {
       "typeNames": [
         "table"
       ]
     }
   }
 }
+```
 
+</details>
+
+
+
+#### Get metadata for an entity filtered by specific aspect
+
+```json
 > datahub lite get /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2 --aspect status
 {
-  "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)": {
-    "status": {
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
+  "status": {
+    "value": {
       "removed": false
     }
   }
 }
 ```
 
-Notice the *urn:li:dataset..* being returned by the metadata get command. This is the datahub id for the entity, and can be used instead of the path as the stable identifier for the entity. 
+#### Get metadata using the urn of the entity
 
-```shell
+```json
 > datahub lite get "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)" --aspect status
 {
-  "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)": {
-    "status": {
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
+  "status": {
+    "value": {
       "removed": false
     }
   }
 }
 ```
+
+<details>
+<summary>
+Get metadata with additional details (systemMetadata)
+</summary>
+
+```json
+> datahub lite get /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2 --aspect status --verbose
+{
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
+  "status": {
+    "value": {
+      "removed": false
+    },
+    "systemMetadata": {
+      "lastObserved": 1673982834666,
+      "runId": "mysql-2023_01_17-11_13_12",
+      "properties": {
+        "sysVersion": 1
+      }
+    }
+  }
+}
+```
+
+</details>
+
 
 #### Point-in-time Queries
 
@@ -326,7 +388,7 @@ null
 DataHub Lite also allows you to search using queries within the metadata using the `datahub lite search` command.
 You can provide a free form search query like: "customer" and DataHub Lite will attempt to find entities that match the name customer either in the id of the entity or within the name fields of aspects in the entities.
 
-```
+```shell
 > datahub lite search pet
 {"id": "urn:li:dataset:(urn:li:dataPlatform:looker,long_tail_companions.explore.long_tail_pets,PROD)", "aspect": "urn", "snippet": null}
 {"id": "urn:li:dataset:(urn:li:dataPlatform:looker,long_tail_companions.explore.long_tail_pets,PROD)", "aspect": "datasetProperties", "snippet": "{\"customProperties\": {\"looker.explore.label\": \"Long Tail Pets\", \"looker.explore.file\": \"long_tail_companions.model.lkml\"}, \"externalUrl\": \"https://acryl.cloud.looker.com/explore/long_tail_companions/long_tail_pets\", \"name\": \"Long Tail Pets\", \"tags\": []}"}
@@ -336,8 +398,8 @@ You can also query the metadata precisely using DuckDB's [JSON](https://duckdb.o
 Writing these functions requires that you understand the DataHub metadata model and how the data is laid out in DataHub Lite.
 
 For example, to find all entities whose *datasetProperties* aspect includes the *view_definition* in its *customProperties* sub-field, we can issue the following command:
-```
-datahub lite search --aspect datasetProperties --flavor exact "metadata -> '$.customProperties' ->> '$.view_definition' IS NOT NULL"
+```shell
+> datahub lite search --aspect datasetProperties --flavor exact "metadata -> '$.customProperties' ->> '$.view_definition' IS NOT NULL"
 ```
 ```json
 {"id": "urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.INNODB_MUTEXES,PROD)", "aspect": "datasetProperties", "snippet": "{\"customProperties\": {\"view_definition\": \"CREATE TEMPORARY TABLE `INNODB_MUTEXES` (\\n  `NAME` varchar(4000) NOT NULL DEFAULT '',\\n  `CREATE_FILE` varchar(4000) NOT NULL DEFAULT '',\\n  `CREATE_LINE` int(11) unsigned NOT NULL DEFAULT 0,\\n  `OS_WAITS` bigint(21) unsigned NOT NULL DEFAULT 0\\n) ENGINE=MEMORY DEFAULT CHARSET=utf8\", \"is_view\": \"True\"}, \"name\": \"INNODB_MUTEXES\", \"tags\": []}"}
@@ -346,8 +408,8 @@ datahub lite search --aspect datasetProperties --flavor exact "metadata -> '$.cu
 ```
 Search will return results that include the *id* of the entity that matched along with the *aspect* and the content of the aspect as part of the *snippet* field. If you just want the *id* of the entity to be returned, use the *--no-details* flag.
 
-```
-datahub lite search --aspect datasetProperties --flavor exact "metadata -> '$.customProperties' ->> '$.view_definition' IS NOT NULL" --no-details
+```shell
+> datahub lite search --aspect datasetProperties --flavor exact "metadata -> '$.customProperties' ->> '$.view_definition' IS NOT NULL" --no-details
 urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.INNODB_SYS_FOREIGN,PROD)
 urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.INNODB_CMPMEM_RESET,PROD)
 urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.INNODB_FT_DEFAULT_STOPWORD,PROD)
@@ -362,8 +424,8 @@ urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.USER_STATISTICS,PRO
 
 List all the ids in the DataHub Lite instance.
 
-```
-datahub lite list-urns
+```shell
+> datahub lite list-urns
 urn:li:container:21d4204e13d5b984c58acad468ecdbdd
 urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)
 urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_index,PROD)
@@ -383,8 +445,8 @@ urn:li:dataset:(urn:li:dataPlatform:mysql,information_schema.COLUMNS,PROD)
 
 DataHub Lite can be run as a lightweight HTTP server, exposing an OpenAPI spec over FastAPI.
 
-```
-datahub lite serve
+```shell
+> datahub lite serve
 INFO:     Started server process [33364]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
@@ -424,7 +486,7 @@ lite:
 
 The *export* command allows you to export the contents of DataHub Lite into a metadata events file that you can then send to another DataHub instance (e.g. over REST).
 
-```
+```shell
 > datahub lite export --file datahub_lite_export.json
 Successfully exported 1785 events to datahub_lite_export.json
 ```
@@ -433,7 +495,7 @@ Successfully exported 1785 events to datahub_lite_export.json
 
 If you want to clear your DataHub lite instance, you can just issue the `nuke` command.
 
-```
+```shell
 > datahub lite nuke
 DataHub Lite destroyed at <path>
 ```
@@ -443,8 +505,8 @@ DataHub Lite destroyed at <path>
 By default, DataHub Lite will create and use a local duckdb instance located at `~/.datahub/lite/datahub.duckdb`.
 If you want to use a different location, you can configure it using the `datahub lite init` command.
 
-```
-datahub lite init --type duckdb --file my_local_datahub.duckdb
+```shell
+> datahub lite init --type duckdb --file my_local_datahub.duckdb
 Will replace datahub lite config type='duckdb' config={'file': '/Users/<username>/.datahub/lite/datahub.duckdb', 'options': {}} with type='duckdb' config={'file': 'my_local_datahub.duckdb', 'options': {}} [y/N]: y
 DataHub Lite inited at my_local_datahub.duckdb
 ```
@@ -456,4 +518,4 @@ DataHub Lite maintains a few derived tables to make access possible via both the
 
 ## Caveat Emptor!
 
-DataHub Lite is a very experimental project. Do not use it for production use-cases. The API-s and storage formats are subject to change and we get feedback from early adopters. That said, we are really interested in accepting PR-s and suggestions for improvements to this fledgling project.
+DataHub Lite is a very new project. Do not use it for production use-cases. The API-s and storage formats are subject to change and we get feedback from early adopters. That said, we are really interested in accepting PR-s and suggestions for improvements to this fledgling project.
