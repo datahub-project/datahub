@@ -41,7 +41,7 @@ class SourceReport(Report):
 
     _urns_seen: Set[str] = field(default_factory=set)
     entities: Dict[str, list] = field(default_factory=lambda: defaultdict(LossyList))
-    aspects: Dict[str, dict[str, int]] = field(
+    aspects: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(int))
     )
 
