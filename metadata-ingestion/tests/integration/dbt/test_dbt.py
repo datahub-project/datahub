@@ -159,7 +159,7 @@ class DbtTestConfig:
             },
         ),
         DbtTestConfig(
-            "dbt-column-meta-mapping",
+            "dbt-column-meta-mapping",  # this also tests snapshot support
             "dbt_test_column_meta_mapping.json",
             "dbt_test_column_meta_mapping_golden.json",
             catalog_file="sample_dbt_catalog.json",
@@ -178,6 +178,10 @@ class DbtTestConfig:
                         "operation": "add_tag",
                         "config": {"tag": "sensitive"},
                     },
+                },
+                "entities_enabled": {
+                    "test_definitions": "NO",
+                    "test_results": "NO",
                 },
             },
         ),

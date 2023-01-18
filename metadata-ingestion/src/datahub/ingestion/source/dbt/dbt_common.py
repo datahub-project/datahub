@@ -138,6 +138,10 @@ class DBTEntitiesEnabled(ConfigModel):
         EmitDirective.YES,
         description="Emit metadata for dbt seeds when set to Yes or Only",
     )
+    snapshots: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit metadata for dbt snapshots when set to Yes or Only",
+    )
     test_definitions: EmitDirective = Field(
         EmitDirective.YES,
         description="Emit metadata for test definitions when enabled when set to Yes or Only",
@@ -168,17 +172,18 @@ class DBTEntitiesEnabled(ConfigModel):
     def can_emit_node_type(self, node_type: str) -> bool:
         # Node type comes from dbt's node types.
 
-        field_to_node_type_map = {
-            "model": "models",
-            "source": "sources",
-            "seed": "seeds",
-            "test": "test_definitions",
+        node_type_allow_map = {
+            "model": self.models,
+            "source": self.sources,
+            "seed": self.seeds,
+            "snapshot": self.snapshots,
+            "test": self.test_definitions,
         }
-        field = field_to_node_type_map.get(node_type)
-        if not field:
+        allowed = node_type_allow_map.get(node_type)
+        if allowed is None:
             return False
 
-        return self.__getattribute__(field) == EmitDirective.YES
+        return allowed == EmitDirective.YES
 
     @property
     def can_emit_test_results(self) -> bool:
