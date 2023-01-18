@@ -52,7 +52,7 @@ public class OnBootApplicationListener {
 
   public Runnable isSchemaRegistryAPIServeletReady() {
     return () -> {
-        final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl() + "/up");
+        final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl());
         int timeouts = 30;
         boolean openAPIServeletReady = false;
         while (!openAPIServeletReady && timeouts > 0) {

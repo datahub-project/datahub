@@ -33,7 +33,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 
@@ -68,11 +67,6 @@ public class SchemaRegistryController
   @Override
   public Optional<String> getAcceptHeader() {
     return CompatibilityApi.super.getAcceptHeader();
-  }
-
-  @RequestMapping(value = "/up", method = RequestMethod.GET)
-  public ResponseEntity<Void> isUp() {
-    return new ResponseEntity<>(HttpStatus.OK);
   }
 
   @Override
@@ -167,12 +161,14 @@ public class SchemaRegistryController
   }
 
   @Override
+  @Operation(summary = "Schema Registry Root Resource", description = "The Root resource is a no-op, only used to "
+      + "validate endpoint is ready.", tags={ "Schema Registry Base" })
   public ResponseEntity<String> get() {
-    log.error("[DefaultApi] get method not implemented");
-    return DefaultApi.super.get();
+    return new ResponseEntity<>(HttpStatus.OK);
   }
 
   @Override
+  @Operation(summary = "", description = "", tags={ "Schema Registry Base" })
   public ResponseEntity<Map<String, String>> post(Map<String, String> body) {
     log.error("[DefaultApi] post method not implemented");
     return DefaultApi.super.post(body);
