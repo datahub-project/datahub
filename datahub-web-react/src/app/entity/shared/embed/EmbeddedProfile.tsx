@@ -8,6 +8,7 @@ import useGetDataForProfile from '../containers/profile/useGetDataForProfile';
 import EntityContext from '../EntityContext';
 import { GenericEntityProperties } from '../types';
 import EmbeddedHeader from './EmbeddedHeader';
+import { SidebarAboutSection } from '../containers/profile/sidebar/AboutSection/SidebarAboutSection';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -65,6 +66,8 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
             {!loading && entityData && (
                 <>
                     <EmbeddedHeader />
+                    <StyledDivider />
+                    <SidebarAboutSection readOnly />
                     <StyledDivider />
                 </>
             )}
