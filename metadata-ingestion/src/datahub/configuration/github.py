@@ -27,7 +27,6 @@ class GitHubReference(ConfigModel):
         None,
         description=f"Template for generating a URL to a file in the repo e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos, and it is otherwise required."
         "It supports the following variables: {repo_url}, {branch}, {file_path}",
-        hidden_from_schema=True,
     )
 
     @validator("repo", pre=True)

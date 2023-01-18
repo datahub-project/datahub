@@ -75,18 +75,15 @@ def test_git_clone_public(tmp_path):
     git_clone = GitClone(str(tmp_path))
     checkout_dir = git_clone.clone(
         ssh_key=None,
-        repo_url="https://github.com/githubtraining/first-day-on-github",
-        branch="3b65cb534549dbb0e1dd5e9a73f06b1ca9bbccd5",
+        repo_url="https://gitlab.com/gitlab-tests/sample-project",
+        branch="90c439634077a85bcf42d38c2c79cd94664a94ad",
     )
-    assert os.path.exists(checkout_dir)
+    assert checkout_dir.exists()
     assert set(os.listdir(checkout_dir)) == {
-        ".github",
         ".git",
-        ".gitignore",
-        "LICENSE",
         "README.md",
-        "config.yml",
-        "course-details.md",
+        "hello_world.md",
+        "fork-sample-project.png",
     }
 
 
@@ -103,7 +100,7 @@ def test_git_clone_private(tmp_path):
         repo_url="git@github.com:acryldata/long-tail-companions-looker",
         branch="d380a2b777ec6f4653626f39c68dba85893faa74",
     )
-    assert os.path.exists(checkout_dir)
+    assert checkout_dir.exists()
     assert set(os.listdir(checkout_dir)) == set(
         [
             ".datahub",
