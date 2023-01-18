@@ -3,6 +3,7 @@ import os
 import pytest
 from pydantic import SecretStr
 
+from datahub.configuration.common import ConfigurationWarning
 from datahub.configuration.github import GitHubInfo, GitHubReference
 from datahub.ingestion.source.git.git_import import GitClone
 
@@ -56,6 +57,16 @@ def test_base_url_guessing():
         "cmd/admin.go"
     ) == "https://gitea.com/gitea/tea/src/branch/main/cmd/admin.go"
     config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
+
+    # Deprecated: base_url.
+    with pytest.warns(ConfigurationWarning, match="base_url is deprecated"):
+        config = GitHubInfo.parse_obj(
+            dict(
+                repo="https://github.com/datahub-project/datahub",
+                branch="master",
+                base_url="http://mygithubmirror.local",
+            )
+        )
 
 
 def test_github_branch():

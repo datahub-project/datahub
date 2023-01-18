@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 from pydantic import Field, FilePath, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 
 _GITHUB_PREFIX = "https://github.com/"
 _GITLAB_PREFIX = "https://gitlab.com/"
@@ -27,6 +28,12 @@ class GitHubReference(ConfigModel):
         None,
         description=f"Template for generating a URL to a file in the repo e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos, and it is otherwise required."
         "It supports the following variables: {repo_url}, {branch}, {file_path}",
+    )
+
+    _deprecated_base_url = pydantic_renamed_field(
+        "base_url",
+        "url_template",
+        transform=lambda url: _GITHUB_URL_TEMPLATE,
     )
 
     @validator("repo", pre=True)
