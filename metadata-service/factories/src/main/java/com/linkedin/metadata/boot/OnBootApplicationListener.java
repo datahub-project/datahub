@@ -71,6 +71,7 @@ public class OnBootApplicationListener {
         }
         if (!openAPIServeletReady) {
           log.error("Failed to bootstrap DataHub, OpenAPI servlet was not ready after 30 seconds");
+          System.exit(1);
         } else {
         _bootstrapManager.start();
         }

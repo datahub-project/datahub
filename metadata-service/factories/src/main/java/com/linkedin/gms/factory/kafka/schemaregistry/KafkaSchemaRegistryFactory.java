@@ -48,7 +48,8 @@ public class KafkaSchemaRegistryFactory {
   @Nonnull
   protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
     Map<String, Object> props = new HashMap<>();
-    //TODO: FIXME
+    // FIXME: Properties for this factory should come from ConfigurationProvider object, specifically under the
+    // KafkaConfiguration class. See InternalSchemaRegistryFactory as an example.
     props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaSchemaRegistryUrl);
     props.put(withNamespace(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG), sslTruststoreLocation);
     props.put(withNamespace(SslConfigs.SSL_TRUSTSTORE_PASSWORD_CONFIG), sslTruststorePassword);

@@ -24,7 +24,7 @@ dependencies {
     testImplementation externalDependency.springBootTest
     testCompile externalDependency.springBoot
     testCompile externalDependency.testContainers
-    testCompile "org.testcontainers:kafka:1.17.6"
+    testCompile externalDependency.testContainersKafka
     testCompile externalDependency.springKafka
     testCompile externalDependency.testng
     testCompile externalDependency.mockito

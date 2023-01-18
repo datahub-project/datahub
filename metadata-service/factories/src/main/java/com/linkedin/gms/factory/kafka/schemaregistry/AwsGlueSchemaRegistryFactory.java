@@ -35,7 +35,8 @@ public class AwsGlueSchemaRegistryFactory {
   @Nonnull
   protected SchemaRegistryConfig getInstance(ConfigurationProvider configurationProvider) {
     Map<String, Object> props = new HashMap<>();
-    //TODO: FIXME
+    // FIXME: Properties for this factory should come from ConfigurationProvider object, specifically under the
+    // KafkaConfiguration class. See InternalSchemaRegistryFactory as an example.
     props.put(AWSSchemaRegistryConstants.AWS_REGION, awsRegion);
     props.put(AWSSchemaRegistryConstants.DATA_FORMAT, "AVRO");
     props.put(AWSSchemaRegistryConstants.SCHEMA_AUTO_REGISTRATION_SETTING, "true");

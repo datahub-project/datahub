@@ -13,10 +13,27 @@ import com.linkedin.pegasus2avro.mxe.PlatformEvent;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.apache.avro.Schema;
 
 
 public class SchemaRegistryServiceImpl implements SchemaRegistryService {
+
+  @AllArgsConstructor
+  private enum TOPIC_ORDINAL {
+    MCP_TOPIC(MetadataChangeProposal.getClassSchema()),
+    FMCP_TOPIC(FailedMetadataChangeProposal.getClassSchema()),
+    MCL_TOPIC(MetadataChangeLog.getClassSchema()),
+    MCL_TIMESERIES_TOPIC(MetadataChangeLog.getClassSchema()),
+    PE_TOPIC(PlatformEvent.getClassSchema()),
+    MCE_TOPIC(MetadataChangeEvent.getClassSchema()),
+    FMCE_TOPIC(FailedMetadataChangeEvent.getClassSchema()),
+    MAE_TOPIC(MetadataAuditEvent.getClassSchema());
+
+    @Getter
+    private final Schema schema;
+  }
 
   private final Map<String, Schema> _schemaMap;
 
@@ -25,25 +42,26 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
   public SchemaRegistryServiceImpl(final TopicConvention convention) {
     this._schemaMap = new HashMap<>();
     this._subjectToIdMap = HashBiMap.create();
-    this._schemaMap.put(convention.getMetadataChangeProposalTopicName(), MetadataChangeProposal.getClassSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeProposalTopicName(), 1);
-    this._schemaMap.put(convention.getMetadataChangeLogVersionedTopicName(), MetadataChangeLog.getClassSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeLogVersionedTopicName(), 2);
-    this._schemaMap.put(convention.getMetadataChangeLogTimeseriesTopicName(), MetadataChangeLog.getClassSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeLogTimeseriesTopicName(), 3);
-    this._schemaMap.put(convention.getFailedMetadataChangeProposalTopicName(),
-        FailedMetadataChangeProposal.getClassSchema());
-    this._subjectToIdMap.put(convention.getFailedMetadataChangeProposalTopicName(), 4);
-    this._schemaMap.put(convention.getPlatformEventTopicName(), PlatformEvent.getClassSchema());
-    this._subjectToIdMap.put(convention.getPlatformEventTopicName(), 5);
+    this._schemaMap.put(convention.getMetadataChangeProposalTopicName(), TOPIC_ORDINAL.MCP_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getMetadataChangeProposalTopicName(), TOPIC_ORDINAL.MCP_TOPIC.ordinal());
+    this._schemaMap.put(convention.getMetadataChangeLogVersionedTopicName(), TOPIC_ORDINAL.MCL_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getMetadataChangeLogVersionedTopicName(), TOPIC_ORDINAL.MCL_TOPIC.ordinal());
+    this._schemaMap.put(convention.getMetadataChangeLogTimeseriesTopicName(),
+        TOPIC_ORDINAL.MCL_TIMESERIES_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getMetadataChangeLogTimeseriesTopicName(),
+        TOPIC_ORDINAL.MCL_TIMESERIES_TOPIC.ordinal());
+    this._schemaMap.put(convention.getFailedMetadataChangeProposalTopicName(), TOPIC_ORDINAL.FMCP_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getFailedMetadataChangeProposalTopicName(), TOPIC_ORDINAL.FMCP_TOPIC.ordinal());
+    this._schemaMap.put(convention.getPlatformEventTopicName(), TOPIC_ORDINAL.PE_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getPlatformEventTopicName(), TOPIC_ORDINAL.PE_TOPIC.ordinal());
 
     // Adding legacy topics as they are still produced in the EntityService IngestAspect code path.
-    this._schemaMap.put(convention.getMetadataChangeEventTopicName(), MetadataChangeEvent.getClassSchema());
-    this._subjectToIdMap.put(convention.getMetadataChangeEventTopicName(), 6);
-    this._schemaMap.put(convention.getFailedMetadataChangeEventTopicName(), FailedMetadataChangeEvent.getClassSchema());
-    this._subjectToIdMap.put(convention.getFailedMetadataChangeEventTopicName(), 7);
-    this._schemaMap.put(convention.getMetadataAuditEventTopicName(), MetadataAuditEvent.getClassSchema());
-    this._subjectToIdMap.put(convention.getMetadataAuditEventTopicName(), 8);
+    this._schemaMap.put(convention.getMetadataChangeEventTopicName(), TOPIC_ORDINAL.MCE_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getMetadataChangeEventTopicName(), TOPIC_ORDINAL.MCE_TOPIC.ordinal());
+    this._schemaMap.put(convention.getFailedMetadataChangeEventTopicName(), TOPIC_ORDINAL.FMCE_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getFailedMetadataChangeEventTopicName(), TOPIC_ORDINAL.FMCE_TOPIC.ordinal());
+    this._schemaMap.put(convention.getMetadataAuditEventTopicName(), TOPIC_ORDINAL.MAE_TOPIC.getSchema());
+    this._subjectToIdMap.put(convention.getMetadataAuditEventTopicName(), TOPIC_ORDINAL.MAE_TOPIC.ordinal());
   }
 
   @Override

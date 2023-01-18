@@ -231,7 +231,6 @@ public class SchemaRegistryController
   }
 
   @Override
-  @Operation(hidden = false)
   public ResponseEntity<RegisterSchemaResponse> register(String subject, RegisterSchemaRequest body,
       Boolean normalize) {
     final String topicName = subject.replaceFirst("-value", "");
