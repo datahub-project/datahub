@@ -32,8 +32,6 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         ? editedDescriptions[mutationUrn]
         : entityData?.editableProperties?.description || entityData?.properties?.description || '';
 
-    console.log(description);
-
     const [updatedDescription, setUpdatedDescription] = useState(description);
     const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(mutationUrn));
     const [confirmCloseModalVisible, setConfirmCloseModalVisible] = useState(false);
