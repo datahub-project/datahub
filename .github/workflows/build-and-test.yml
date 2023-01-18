@@ -46,6 +46,8 @@ jobs:
       - name: Gradle build (and test)
         run: |
           ${{ matrix.command }}
+        env:
+          NODE_OPTIONS: "--max-old-space-size=3072"
       - uses: actions/upload-artifact@v3
         if: always()
         with:
