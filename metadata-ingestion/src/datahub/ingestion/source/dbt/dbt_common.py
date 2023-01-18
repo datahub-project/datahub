@@ -438,7 +438,7 @@ def get_upstreams(
 ) -> List[str]:
     upstream_urns = []
 
-    for upstream in upstreams:
+    for upstream in sorted(upstreams):
         if upstream not in all_nodes:
             logger.debug(
                 f"Upstream node - {upstream} not found in all manifest entities."
@@ -454,7 +454,7 @@ def get_upstreams(
         materialized = upstream_manifest_node.materialization
 
         resource_type = upstream_manifest_node.node_type
-        if materialized in {"view", "table", "incremental"} or (
+        if materialized in {"view", "table", "incremental", "snapshot"} or (
             resource_type == "source" and legacy_skip_source_lineage
         ):
             # upstream urns point to the target platform
