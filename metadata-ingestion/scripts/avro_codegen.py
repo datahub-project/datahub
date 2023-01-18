@@ -272,7 +272,13 @@ def generate(entity_registry: str, schemas_path: str, outdir: str) -> None:
         aspect = aspects[entity.keyAspect]
 
         # This requires that entities cannot share a keyAspect.
-        assert "keyForEntity" not in aspect["Aspect"]
+        if (
+            "keyForEntity" in aspect["Aspect"]
+            and aspect["Aspect"]["keyForEntity"] != entity.name
+        ):
+            raise ValueError(
+                f'Entity key {entity.keyAspect} is used by {aspect["Aspect"]["keyForEntity"]} and {entity.name}'
+            )
 
         aspect["Aspect"]["keyForEntity"] = entity.name
         aspect["Aspect"]["entityCategory"] = entity.category
