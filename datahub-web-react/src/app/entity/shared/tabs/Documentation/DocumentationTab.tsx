@@ -108,7 +108,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     editMode={(isEditing && true) || false}
                     description={description}
                     onClose={() => {
-                        routeToTab({ tabName: 'Documentation' });
+                        routeToTab({ tabName: 'Documentation', tabParams: { editing: false } });
                     }}
                 />
             )}
