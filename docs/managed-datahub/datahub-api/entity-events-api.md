@@ -390,7 +390,7 @@ This event is emitted when a new field has been added to a **Dataset** **Schema*
 | Name      | Type    | Description                                                                                                                                                                | Optional |
 | --------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | fieldUrn  | String  | The urn of the new schema field.                                                                                                                                           | False    |
-| fieldPath | String  | The path of the new field. For more information about field paths, check out [constructing-dataset-field-paths.md](concepts/constructing-dataset-field-paths.md "mention") | False    |
+| fieldPath | String  | The path of the new field. For more information about field paths, check out [Dataset Field Paths Explained](docs/generated/metamodel/entities/dataset.md#field-paths-explained) | False    |
 | nullable  | Boolean | Whether the new field is nullable.                                                                                                                                         | False    |
 
 #### Sample Event
@@ -427,7 +427,7 @@ This event is emitted when a new field has been remove from a **Dataset** **Sche
 | Name      | Type    | Description                                                                                                                                                                    | Optional |
 | --------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
 | fieldUrn  | String  | The urn of the removed schema field.                                                                                                                                           | False    |
-| fieldPath | String  | The path of the removed field. For more information about field paths, check out [constructing-dataset-field-paths.md](concepts/constructing-dataset-field-paths.md "mention") | False    |
+| fieldPath | String  | The path of the removed field. For more information about field paths, check out [Dataset Field Paths Explained](docs/generated/metamodel/entities/dataset.md#field-paths-explained) | False    |
 | nullable  | Boolean | Whether the removed field is nullable.                                                                                                                                         | False    |
 
 #### Sample Event

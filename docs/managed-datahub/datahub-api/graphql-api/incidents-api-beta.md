@@ -150,7 +150,7 @@ To fetch the the ongoing incidents for a data asset, we can use the `incidents` 
 
 ### Datasets
 
-To retrieve all incidents for a Dataset with a particular [URN](../concepts/urns.md), you can reference the 'incidents' field of the Dataset type:&#x20;
+To retrieve all incidents for a Dataset with a particular [URN](docs/what/urn.md), you can reference the 'incidents' field of the Dataset type:&#x20;
 
 ```
 type Dataset {
@@ -403,5 +403,5 @@ These notifications are also able to tag the immediate asset's owners, along wit
 
 ![](../../imgs/saas/Screen-Shot-2022-03-22-at-6.46.41-PM.png)
 
-To do so, simply follow the [Slack Integration Guide](../../integrations/slack-integration.md) and contact your Acryl customer success team to enable the feature! &#x20;
+To do so, simply follow the [Slack Integration Guide](docs/managed-datahub/saas-slack-setup.md) and contact your Acryl customer success team to enable the feature! &#x20;
 
