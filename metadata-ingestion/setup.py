@@ -55,6 +55,7 @@ framework_common = {
     "ijson",
     "click-spinner",
     "requests_file",
+    "duckdb",
 }
 
 rest_common = {
@@ -240,6 +241,7 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
+    "datahub-lite": set(),
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
@@ -426,6 +428,7 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "datahub-rest",
+            "datahub-lite",
             "presto",
             "redash",
             "redshift",
@@ -564,6 +567,7 @@ entry_points = {
         "console = datahub.ingestion.sink.console:ConsoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
+        "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
     ],
     "datahub.ingestion.checkpointing_provider.plugins": [
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",

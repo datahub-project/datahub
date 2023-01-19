@@ -70,16 +70,31 @@ def set_env_variables_override_config(url: str, token: Optional[str]) -> None:
         config_override[ENV_METADATA_TOKEN] = token
 
 
-def write_datahub_config(host: str, token: Optional[str]) -> None:
-    config = {
-        "gms": {
-            "server": host,
-            "token": token,
-        }
-    }
+def persist_datahub_config(config: dict) -> None:
     with open(DATAHUB_CONFIG_PATH, "w+") as outfile:
         yaml.dump(config, outfile, default_flow_style=False)
     return None
+
+
+def write_gms_config(
+    host: str, token: Optional[str], merge_with_previous: bool = True
+) -> None:
+    config = DatahubConfig(gms=GmsConfig(server=host, token=token))
+    if merge_with_previous:
+        try:
+            previous_config = get_client_config(as_dict=True)
+            assert isinstance(previous_config, dict)
+        except Exception as e:
+            # ok to fail on this
+            previous_config = {}
+            log.debug(
+                f"Failed to retrieve config from file {DATAHUB_CONFIG_PATH}. This isn't fatal.",
+                e,
+            )
+        config_dict = {**previous_config, **config.dict()}
+    else:
+        config_dict = config.dict()
+    persist_datahub_config(config_dict)
 
 
 def should_skip_config() -> bool:
@@ -92,30 +107,40 @@ def ensure_datahub_config() -> None:
             f"No {CONDENSED_DATAHUB_CONFIG_PATH} file found, generating one for you...",
             bold=True,
         )
-        write_datahub_config(DEFAULT_GMS_HOST, None)
+        write_gms_config(DEFAULT_GMS_HOST, None)
 
 
-def get_details_from_config():
+def get_client_config(as_dict: bool = False) -> Union[Optional[DatahubConfig], dict]:
     with open(DATAHUB_CONFIG_PATH, "r") as stream:
         try:
             config_json = yaml.safe_load(stream)
+            if as_dict:
+                return config_json
             try:
-                datahub_config = DatahubConfig(**config_json)
+                datahub_config = DatahubConfig.parse_obj(config_json)
+                return datahub_config
             except ValidationError as e:
                 click.echo(
                     f"Received error, please check your {CONDENSED_DATAHUB_CONFIG_PATH}"
                 )
                 click.echo(e, err=True)
                 sys.exit(1)
-
-            gms_config = datahub_config.gms
-
-            gms_host = gms_config.server
-            gms_token = gms_config.token
-            return gms_host, gms_token
         except yaml.YAMLError as exc:
             click.secho(f"{DATAHUB_CONFIG_PATH} malformed, error: {exc}", bold=True)
-    return None, None
+            return None
+
+
+def get_details_from_config():
+    datahub_config = get_client_config(as_dict=False)
+    assert isinstance(datahub_config, DatahubConfig)
+    if datahub_config is not None:
+        gms_config = datahub_config.gms
+
+        gms_host = gms_config.server
+        gms_token = gms_config.token
+        return gms_host, gms_token
+    else:
+        return None, None
 
 
 def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
