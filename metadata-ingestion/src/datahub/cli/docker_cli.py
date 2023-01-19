@@ -661,103 +661,26 @@ def quickstart(
     if issues:
         _print_issue_list_and_exit(issues, "Unable to run quickstart:")
 
-    quickstart_compose_file = list(
+    quickstart_compose_file_list = list(
         quickstart_compose_file
     )  # convert to list from tuple
 
     auth_resources_folder = Path(DATAHUB_ROOT_FOLDER) / "plugins/auth/resources"
     os.makedirs(auth_resources_folder, exist_ok=True)
 
-    default_quickstart_compose_file = _get_default_quickstart_compose_file()
+    quickstart_compose_file_name = _get_default_quickstart_compose_file()
     if stop:
         _attempt_stop(quickstart_compose_file)
         return
     elif not quickstart_compose_file:
-        # download appropriate quickstart file
-        should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
-
-        if should_use_neo4j:
-            github_file = (
-                NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-                if not is_arch_m1(quickstart_arch)
-                else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
-            )
-        else:
-            github_file = (
-                ELASTIC_QUICKSTART_COMPOSE_URL
-                if not is_arch_m1(quickstart_arch)
-                else ELASTIC_M1_QUICKSTART_COMPOSE_URL
-            )
-
-        # also allow local files
-        request_session = requests.Session()
-        request_session.mount("file://", FileAdapter())
-
-        with open(
-            default_quickstart_compose_file, "wb"
-        ) if default_quickstart_compose_file else tempfile.NamedTemporaryFile(
-            suffix=".yml", delete=False
-        ) as tmp_file:
-            path = pathlib.Path(tmp_file.name)
-            quickstart_compose_file.append(path)
-            click.echo(f"Fetching docker-compose file {github_file} from GitHub")
-            # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = request_session.get(github_file)
-            quickstart_download_response.raise_for_status()
-            tmp_file.write(quickstart_download_response.content)
-            logger.debug(f"Copied to {path}")
-
-        if standalone_consumers:
-            consumer_github_file = (
-                f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
-                if should_use_neo4j
-                else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
-            )
-
-            default_consumer_compose_file = (
-                Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
-            )
-            with open(
-                default_consumer_compose_file, "wb"
-            ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
-                suffix=".yml", delete=False
-            ) as tmp_file:
-                path = pathlib.Path(tmp_file.name)
-                quickstart_compose_file.append(path)
-                click.echo(
-                    f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
-                )
-                # Download the quickstart docker-compose file from GitHub.
-                quickstart_download_response = request_session.get(consumer_github_file)
-                quickstart_download_response.raise_for_status()
-                tmp_file.write(quickstart_download_response.content)
-                logger.debug(f"Copied to {path}")
-
-        if kafka_setup:
-            kafka_setup_github_file = (
-                f"{DOCKER_COMPOSE_BASE}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
-            )
-
-            default_consumer_compose_file = (
-                Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
-            )
-            with open(
-                default_consumer_compose_file, "wb"
-            ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
-                suffix=".yml", delete=False
-            ) as tmp_file:
-                path = pathlib.Path(tmp_file.name)
-                quickstart_compose_file.append(path)
-                click.echo(
-                    f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
-                )
-                # Download the quickstart docker-compose file from GitHub.
-                quickstart_download_response = request_session.get(
-                    kafka_setup_github_file
-                )
-                quickstart_download_response.raise_for_status()
-                tmp_file.write(quickstart_download_response.content)
-                logger.debug(f"Copied to {path}")
+        download_compose_files(
+            quickstart_compose_file_name,
+            quickstart_compose_file_list,
+            graph_service_impl,
+            kafka_setup,
+            quickstart_arch,
+            standalone_consumers,
+        )
 
     # set version
     _set_environment_variables(
@@ -876,6 +799,94 @@ def quickstart(
         "Need support? Get in touch on Slack: https://slack.datahubproject.io/",
         fg="magenta",
     )
+
+
+def download_compose_files(
+    quickstart_compose_file_name,
+    quickstart_compose_file_list,
+    graph_service_impl,
+    kafka_setup,
+    quickstart_arch,
+    standalone_consumers,
+):
+    # download appropriate quickstart file
+    should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
+    if should_use_neo4j:
+        github_file = (
+            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+            if not is_arch_m1(quickstart_arch)
+            else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
+        )
+    else:
+        github_file = (
+            ELASTIC_QUICKSTART_COMPOSE_URL
+            if not is_arch_m1(quickstart_arch)
+            else ELASTIC_M1_QUICKSTART_COMPOSE_URL
+        )
+    # also allow local files
+    request_session = requests.Session()
+    request_session.mount("file://", FileAdapter())
+    with open(
+        quickstart_compose_file_name, "wb"
+    ) if quickstart_compose_file_name else tempfile.NamedTemporaryFile(
+        suffix=".yml", delete=False
+    ) as tmp_file:
+        path = pathlib.Path(tmp_file.name)
+        quickstart_compose_file_list.append(path)
+        click.echo(f"Fetching docker-compose file {github_file} from GitHub")
+        # Download the quickstart docker-compose file from GitHub.
+        quickstart_download_response = request_session.get(github_file)
+        quickstart_download_response.raise_for_status()
+        tmp_file.write(quickstart_download_response.content)
+        logger.debug(f"Copied to {path}")
+    if standalone_consumers:
+        consumer_github_file = (
+            f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            if should_use_neo4j
+            else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+        )
+
+        default_consumer_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
+        )
+        with open(
+            default_consumer_compose_file, "wb"
+        ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False
+        ) as tmp_file:
+            path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file_list.append(path)
+            click.echo(
+                f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
+            )
+            # Download the quickstart docker-compose file from GitHub.
+            quickstart_download_response = request_session.get(consumer_github_file)
+            quickstart_download_response.raise_for_status()
+            tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
+    if kafka_setup:
+        kafka_setup_github_file = (
+            f"{DOCKER_COMPOSE_BASE}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
+        )
+
+        default_consumer_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
+        )
+        with open(
+            default_consumer_compose_file, "wb"
+        ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False
+        ) as tmp_file:
+            path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file_list.append(path)
+            click.echo(
+                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
+            )
+            # Download the quickstart docker-compose file from GitHub.
+            quickstart_download_response = request_session.get(kafka_setup_github_file)
+            quickstart_download_response.raise_for_status()
+            tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
 
 
 def valid_restore_options(
