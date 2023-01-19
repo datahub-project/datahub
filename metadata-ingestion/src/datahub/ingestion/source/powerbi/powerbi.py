@@ -5,7 +5,7 @@
 #########################################################
 
 import logging
-from typing import Iterable, Iterator, List, Optional, Tuple, Union, cast
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple, Type, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DEFAULT_ENV
@@ -51,12 +51,15 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
     NullTypeClass,
+    NumberTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
+    StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    TimeTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -64,6 +67,15 @@ from datahub.utilities.dedup_list import deduplicate_list
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+powerbi_type_mapping: Dict[
+    str, Type[TimeTypeClass | StringTypeClass | NumberTypeClass]
+] = {
+    "DateTime": TimeTypeClass,
+    "String": StringTypeClass,
+    "Int64": NumberTypeClass,
+}
 
 
 class Mapper:
@@ -252,8 +264,7 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn))
 
-            if table.columns and self.__config.extract_schema_with_dax:
-                dataset_mces.extend(self.extract_schema(dataset, table, ds_urn))
+            self.extract_schema(dataset_mces, dataset, table, ds_urn)
 
             self.append_tag_mcp(
                 dataset_mcps,
@@ -265,24 +276,43 @@ class Mapper:
         return dataset_mcps, dataset_mces
 
     def extract_schema(
-        self, dataset: PowerBiAPI.PowerBIDataset, table: PowerBiAPI.Table, ds_urn: str
-    ) -> List[MetadataChangeEvent]:
-        if table.columns:
+        self,
+        dataset_mces: List[MetadataChangeEvent],
+        dataset: PowerBiAPI.PowerBIDataset,
+        table: PowerBiAPI.Table,
+        ds_urn: str,
+    ) -> None:
+        if table.columns or table.measures:
             dataset_snapshot = DatasetSnapshot(
                 urn=ds_urn,
                 aspects=[StatusClass(removed=False)],
             )
             fields = [
                 SchemaField(
-                    fieldPath=column,
-                    type=SchemaFieldDataType(type=NullTypeClass()),
-                    nativeDataType="unknown",
+                    fieldPath=column.name,
+                    type=SchemaFieldDataType(
+                        type=powerbi_type_mapping.get(column.data_type, NullTypeClass)()
+                    ),
+                    nativeDataType=column.data_type,
                     description=None,
                     nullable=False,
                     recursive=False,
                     globalTags=None,
                 )
                 for column in table.columns
+                if column.is_hidden is False
+            ] + [
+                SchemaField(
+                    fieldPath=measure.name,
+                    type=SchemaFieldDataType(type=NullTypeClass()),
+                    nativeDataType="Unknown",
+                    description=measure.description,
+                    nullable=False,
+                    recursive=False,
+                    globalTags=None,
+                )
+                for measure in table.measures
+                if measure.is_hidden is False
             ]
             schema_metadata = SchemaMetadata(
                 schemaName=dataset.name,
@@ -294,10 +324,7 @@ class Mapper:
             )
             dataset_snapshot.aspects.append(schema_metadata)
             snapshot_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            return [snapshot_mce]
-        return []
-
-        return dataset_mcps
+            dataset_mces.append(snapshot_mce)
 
     @staticmethod
     def transform_tags(tags: List[str]) -> GlobalTagsClass:

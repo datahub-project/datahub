@@ -88,11 +88,26 @@ class PowerBiAPI:
             return hash(self.__members())
 
     @dataclass
+    class Column:
+        name: str
+        data_type: str
+        is_hidden: bool
+        column_type: str
+
+    @dataclass
+    class Measure:
+        name: str
+        description: str
+        expression: str
+        is_hidden: bool
+
+    @dataclass
     class Table:
         name: str
         full_name: str
         expression: Optional[str]
-        columns: List[str]
+        columns: List["PowerBiAPI.Column"]
+        measures: List["PowerBiAPI.Measure"]
 
     # dataclasses for PowerBi Dashboard
     @dataclass
@@ -991,20 +1006,20 @@ class PowerBiAPI:
                     else dataset_instance.id
                 )
 
-                if not dataset_dict["tables"] and self.__config.extract_schema_with_dax:
-                    schema = self.get_dataset_schema(dataset_instance)
-                    for table_name, columns in schema.items():
-                        dataset_instance.tables.append(
-                            PowerBiAPI.Table(
-                                full_name="{}.{}".format(
-                                    dataset_name.replace(" ", "_"),
-                                    table_name.replace(" ", "_"),
-                                ),
-                                name=table_name,
-                                expression=None,
-                                columns=columns,
-                            )
-                        )
+                # if not dataset_dict["tables"] and self.__config.extract_schema_with_dax:
+                #     schema = self.get_dataset_schema(dataset_instance)
+                #     for table_name, columns in schema.items():
+                #         dataset_instance.tables.append(
+                #             PowerBiAPI.Table(
+                #                 full_name="{}.{}".format(
+                #                     dataset_name.replace(" ", "_"),
+                #                     table_name.replace(" ", "_"),
+                #                 ),
+                #                 name=table_name,
+                #                 expression=None,
+                #                 columns=columns,
+                #             )
+                #         )
 
                 for table in dataset_dict["tables"]:
                     expression: str = (
@@ -1020,11 +1035,38 @@ class PowerBiAPI:
                                 table["name"].replace(" ", "_"),
                             ),
                             expression=expression,
-                            columns=[],
+                            columns=get_columns(table.get("columns", [])),
+                            measures=get_measures(table.get("measures", [])),
                         )
                     )
 
             return dataset_map
+
+        def get_measures(measures: List[dict]) -> List[PowerBiAPI.Measure]:
+            results = []
+            for measure in measures:
+                ms = PowerBiAPI.Measure(
+                    name=measure.get("name", ""),
+                    description=measure.get("description", ""),
+                    expression=measure.get("expression", ""),
+                    is_hidden=measure.get("isHidden", False),
+                )
+                results.append(ms)
+
+            return results
+
+        def get_columns(columns: List[dict]) -> List[PowerBiAPI.Column]:
+            results = []
+            for column in columns:
+                col = PowerBiAPI.Column(
+                    name=column.get("name", ""),
+                    data_type=column.get("dataType", ""),
+                    column_type=column.get("columnType", ""),
+                    is_hidden=column.get("isHidden", False),
+                )
+                results.append(col)
+
+            return results
 
         def init_dashboard_tiles(workspace: PowerBiAPI.Workspace) -> None:
             for dashboard in workspace.dashboards:

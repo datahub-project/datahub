@@ -910,6 +910,7 @@ def dummy_dataset():
         webUrl=None,
         workspace_id="1234",
         tables=[],
+        tags=[],
     )
 
 

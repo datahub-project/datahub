@@ -116,6 +116,7 @@ def test_snowflake_regular_case():
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
         columns=[],
+        measures=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -140,6 +141,7 @@ def test_postgres_regular_case():
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
         columns=[],
+        measures=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -163,6 +165,7 @@ def test_oracle_regular_case():
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
         columns=[],
+        measures=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -186,6 +189,7 @@ def test_mssql_regular_case():
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
         columns=[],
+        measures=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -227,6 +231,7 @@ def test_mssql_with_query():
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
             columns=[],
+            measures=[],
         )
         reporter = PowerBiDashboardSourceReport()
 
@@ -264,6 +269,7 @@ def test_snowflake_native_query():
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
             columns=[],
+            measures=[],
         )
         reporter = PowerBiDashboardSourceReport()
 
@@ -286,6 +292,7 @@ def test_native_query_disabled():
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
         columns=[],
+        measures=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -303,6 +310,7 @@ def test_multi_source_table():
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
         columns=[],
+        measures=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -330,6 +338,7 @@ def test_table_combine():
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
         columns=[],
+        measures=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
