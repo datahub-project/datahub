@@ -324,6 +324,7 @@ module.exports = {
       // concrete tutorials for how to work with the DataHub CLI & APIs
       // "docs/wip/developer-guides",
       "docs/cli",
+      "docs/datahub_lite",
       {
         "GraphQL API": [
           {
