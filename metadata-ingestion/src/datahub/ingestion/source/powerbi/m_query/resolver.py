@@ -12,7 +12,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
     IdentifierAccessor,
 )
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +61,14 @@ class AbstractTableFullNameCreator(ABC):
 
 
 class AbstractDataAccessMQueryResolver(ABC):
-    table: PowerBiAPI.Table
+    table: Table
     parse_tree: Tree
     reporter: PowerBiDashboardSourceReport
     data_access_functions: List[str]
 
     def __init__(
         self,
-        table: PowerBiAPI.Table,
+        table: Table,
         parse_tree: Tree,
         reporter: PowerBiDashboardSourceReport,
     ):

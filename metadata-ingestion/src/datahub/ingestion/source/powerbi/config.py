@@ -45,6 +45,7 @@ class Constant:
     CORP_USER_INFO = "corpUserInfo"
     CORP_USER_KEY = "corpUserKey"
     CHART_INFO = "chartInfo"
+    GLOBAL_TAGS = "globalTags"
     STATUS = "status"
     CHART_ID = "powerbi.linkedin.com/charts/{}"
     CHART_KEY = "chartKey"
@@ -139,6 +140,12 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     extract_lineage: bool = pydantic.Field(
         default=True, description="Whether lineage should be ingested"
     )
+    # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
+    # any existing tags defined to those entities
+    extract_endorsements_to_tags: bool = pydantic.Field(
+        default=False,
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags",
+    )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
         default=True,
@@ -150,10 +157,17 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         default=False,
         description="Whether to convert the PowerBI assets urns to lowercase",
     )
+
     # convert lineage dataset's urns to lowercase
     convert_lineage_urns_to_lowercase: bool = pydantic.Field(
         default=True,
         description="Whether to convert the urns of ingested lineage dataset to lowercase",
+    )
+
+    # Enable/Disable PowerBI Dataset metadata
+    enable_admin_api: bool = pydantic.Field(
+        default=True,
+        description="Flag to enable/disable PowerBI Admin API to fetch PowerBI dataset metadata",
     )
 
     @validator("dataset_type_mapping")
