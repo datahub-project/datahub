@@ -11,7 +11,7 @@ services:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
     image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
-    env_file: datahub-mae-consumer/env/docker-without-neo4j.env
+    env_file: datahub-mae-consumer/env/docker.env
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
     ports:
