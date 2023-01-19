@@ -1,10 +1,12 @@
 ## Configuration Notes
 See the 
 1. [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) for the steps to create an app client ID and secret
-2. Login to Power BI as Admin and from Tenant settings allow below permissions
-- Allow service principles to use Power BI APIs
-- Allow service principals to use read-only Power BI admin APIs
-- Enhance admin APIs responses with detailed metadata
+2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags 
+
+    Login to Power BI as Admin and from Tenant settings allow below permissions
+    - Allow service principals to use read-only Power BI admin APIs
+    - Enhance admin APIs responses with detailed metadata
+
 ## Concept mapping 
 
 | Power BI              | Datahub                 |                                                                                               
