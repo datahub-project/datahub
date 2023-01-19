@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.javatuples.Quintet;
 import org.springframework.cache.CacheManager;
 
+import static com.datahub.util.RecordUtils.*;
+
 
 @RequiredArgsConstructor
 public class CachingAllEntitiesSearchAggregator {
@@ -27,6 +29,8 @@ public class CachingAllEntitiesSearchAggregator {
     return new CacheableSearcher<>(cacheManager.getCache(ALL_ENTITIES_SEARCH_AGGREGATOR_CACHE_NAME), batchSize,
         querySize -> aggregator.search(entities, input, postFilters, sortCriterion, querySize.getFrom(),
             querySize.getSize(), searchFlags),
-        querySize -> Quintet.with(entities, input, postFilters, sortCriterion, querySize), searchFlags, enableCache).getSearchResults(from, size);
+        querySize -> Quintet.with(entities, input, postFilters != null ? toJsonString(postFilters) : null,
+            sortCriterion != null ? toJsonString(sortCriterion) : null, querySize), searchFlags, enableCache)
+        .getSearchResults(from, size);
   }
 }
