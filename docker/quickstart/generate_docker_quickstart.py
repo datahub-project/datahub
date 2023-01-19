@@ -1,5 +1,4 @@
 import os
-from collections import OrderedDict
 from collections.abc import Mapping
 
 import click
@@ -27,9 +26,13 @@ def dict_merge(dct, merge_dct):
     for k, v in merge_dct.items():
         if k in dct and isinstance(dct[k], dict) and isinstance(merge_dct[k], Mapping):
             dict_merge(dct[k], merge_dct[k])
+        elif k in dct and isinstance(dct[k], list):
+            a = set(dct[k])
+            b = set(merge_dct[k])
+            if a != b:
+                dct[k] = list(a.union(b))
         else:
             dct[k] = merge_dct[k]
-
 
 def modify_docker_config(base_path, docker_yaml_config):
     # 0. Filter out services to be omitted.
@@ -80,7 +83,7 @@ def modify_docker_config(base_path, docker_yaml_config):
                 elif volumes[i].startswith("./"):
                     volumes[i] = "." + volumes[i]
 
-    # 9. Set docker compose version to 2.
+    # 10. Set docker compose version to 2.
     # We need at least this version, since we use features like start_period for
     # healthchecks and shell-like variable interpolation.
     docker_yaml_config["version"] = "2.3"
