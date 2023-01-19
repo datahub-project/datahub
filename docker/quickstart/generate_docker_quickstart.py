@@ -142,9 +142,11 @@ def dedup_env_vars(merged_docker_config):
                 caches = set()
                 results = []
                 for item in lst:
-                    prefix = item.rpartition('=')[0]
+                    partitions = item.rpartition('=')
+                    prefix = partitions[0]
+                    suffix = partitions[1]
                     # check whether prefix already exists
-                    if prefix not in caches:
+                    if prefix not in caches and suffix != "":
                         results.append(item)
                         caches.add(prefix)
                 if set(lst) != set(results):

@@ -35,7 +35,6 @@ services:
     - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
     - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
     - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
-    - DATAHUB_ACTIONS_SLACK_ENABLED
     hostname: actions
     image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
@@ -134,7 +133,7 @@ services:
     hostname: elasticsearch-setup
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
   mysql:
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     container_name: mysql
     environment:
     - MYSQL_DATABASE=datahub
