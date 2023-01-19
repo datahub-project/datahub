@@ -157,7 +157,6 @@ class PowerBiAPI:
                 )
 
         workspace.dashboards = self.__regular_fetcher.get_dashboards(workspace)
-        init_dashboard_tiles()
 
         datasets: Dict[str, PowerBIDataset] = {}
         # Fill datasets if Admin API is enabled
@@ -180,5 +179,7 @@ class PowerBiAPI:
             datasets = json_to_dataset_map(scan_result)
 
         workspace.datasets = datasets
+
+        init_dashboard_tiles()
 
         return workspace

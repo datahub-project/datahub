@@ -51,7 +51,7 @@ def register_mock_api(request_mock):
                     {
                         "id": "64ED5CAD-7C22-4684-8180-826122881108",
                         "isReadOnly": True,
-                        "name": "Workspace 2",
+                        "name": "second-demo-workspace",
                         "type": "Workspace",
                     },
                     {
@@ -511,7 +511,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"/tmp/powerbi_mces.json",
+                    "filename": f"{tmp_path}/powerbi_mces.json",
                 },
             },
         }
@@ -736,3 +736,51 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
         output_path=f"{tmp_path}/powerbi_lineage_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_admin_api_disabled(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-admin-api-disabled-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_lineage": True,
+                    "enable_admin_api": False,
+                    "dataset_type_mapping": {
+                        "PostgreSql": {"platform_instance": "operational_instance"},
+                        "Oracle": {
+                            "platform_instance": "high_performance_production_unit"
+                        },
+                        "Sql": {"platform_instance": "reporting-db"},
+                        "Snowflake": {"platform_instance": "sn-2"},
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_admin_api_disabled_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_admin_api_disabled.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_admin_api_disabled_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
