@@ -19,7 +19,7 @@ const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
 );
 
 const Hero = ({}) => {
-  const { isDarkTheme } = useColorMode();
+  const { colorMode } = useColorMode();
   return (
     <header className={clsx("hero", styles.hero)}>
       <div className="container">
@@ -39,11 +39,7 @@ const Hero = ({}) => {
             </Link>
           </div>
         </div>
-        <Image
-          className="hero__image"
-          img={require(`/img/diagrams/datahub-flow-diagram-${isDarkTheme ? "dark" : "light"}.png`)}
-          alt="DataHub Flow Diagram"
-        />
+        <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
         <div className={clsx("card", styles.quickLinks)}>
           <div className={styles.quickLinksLabel}>
             <QuestionCircleOutlined />
