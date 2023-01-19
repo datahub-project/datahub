@@ -22,7 +22,6 @@ from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
     PlatformKey,
     ProjectIdKey,
-    add_domain_to_entity_wu,
     wrap_aspect_as_workunit,
 )
 from datahub.ingestion.api.common import PipelineContext
