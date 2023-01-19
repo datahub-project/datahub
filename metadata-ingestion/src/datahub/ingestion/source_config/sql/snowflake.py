@@ -24,7 +24,7 @@ from datahub.ingestion.source.snowflake.constants import (
     CLIENT_SESSION_KEEP_ALIVE,
 )
 from datahub.ingestion.source.sql.oauth_generator import OauthTokenGenerator
-from datahub.ingestion.source.sql.sql_common import (
+from datahub.ingestion.source.sql.sql_config import (
     SQLAlchemyConfig,
     make_sqlalchemy_uri,
 )

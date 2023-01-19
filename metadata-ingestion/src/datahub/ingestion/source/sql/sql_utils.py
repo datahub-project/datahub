@@ -18,6 +18,7 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -50,11 +51,11 @@ def gen_database_key(
 
 
 def gen_schema_containers(
+    config: "SQLAlchemyConfig",
     schema: str,
     database: str,
-    platform: str,
     sub_types: List[str],
-    domain_config: Dict[str, AllowDenyPattern],
+    platform: Optional[str] = None,
     domain_registry: Optional[DomainRegistry] = None,
     platform_instance: Optional[str] = None,
     env: Optional[str] = None,
@@ -71,6 +72,18 @@ def gen_schema_containers(
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
+
+    if not platform:
+        platform = config.platform
+
+    assert platform
+
+    if not platform_instance:
+        platform_instance = config.platform_instance
+
+    if not env:
+        env = config.env
+
     database_container_key = (
         gen_database_key(
             database, platform=platform, platform_instance=platform_instance, env=env
@@ -95,7 +108,7 @@ def gen_schema_containers(
     if domain_registry:
         domain_urn = gen_domain_urn(
             f"{database}.{schema}",
-            domain_config=domain_config,
+            domain_config=config.domain,
             domain_registry=domain_registry,
         )
 
@@ -138,10 +151,10 @@ def gen_domain_urn(
 
 
 def gen_database_containers(
+    config: SQLAlchemyConfig,
     database: str,
-    platform: str,
     sub_types: List[str],
-    domain_config: Dict[str, AllowDenyPattern],
+    platform: Optional[str] = None,
     domain_registry: Optional[DomainRegistry] = None,
     platform_instance: Optional[str] = None,
     env: Optional[str] = None,
@@ -160,8 +173,19 @@ def gen_database_containers(
     domain_urn: Optional[str] = None
     if domain_registry:
         domain_urn = gen_domain_urn(
-            database, domain_config=domain_config, domain_registry=domain_registry
+            database, domain_config=config.domain, domain_registry=domain_registry
         )
+
+    if not platform:
+        platform = config.platform
+
+    assert platform
+
+    if not platform_instance:
+        platform_instance = config.platform_instance
+
+    if not env:
+        env = config.env
 
     database_container_key = (
         gen_database_key(
@@ -193,15 +217,28 @@ def gen_database_containers(
 
 
 def add_table_to_schema_container(
+    config: SQLAlchemyConfig,
     dataset_urn: str,
     db_name: str,
     schema: str,
-    platform: str,
+    platform: Optional[str] = None,
     platform_instance: Optional[str] = None,
     env: Optional[str] = None,
     report: Optional[SourceReport] = None,
     schema_container_key: Optional[PlatformKey] = None,
 ) -> Iterable[MetadataWorkUnit]:
+
+    if not platform:
+        platform = config.platform
+
+    assert platform
+
+    if not platform_instance:
+        platform_instance = config.platform_instance
+
+    if not env:
+        env = config.env
+
     schema_container_key = (
         gen_schema_key(
             db_name=db_name,
@@ -227,7 +264,6 @@ def add_table_to_schema_container(
 def get_domain_wu(
     dataset_name: str,
     entity_urn: str,
-    entity_type: str,
     domain_config: Dict[str, AllowDenyPattern],
     domain_registry: DomainRegistry,
     report: SourceReport,
@@ -235,7 +271,6 @@ def get_domain_wu(
     domain_urn = gen_domain_urn(dataset_name, domain_config, domain_registry)
     if domain_urn:
         wus = add_domain_to_entity_wu(
-            entity_type=entity_type,
             entity_urn=entity_urn,
             domain_urn=domain_urn,
         )

@@ -17,7 +17,6 @@ from sqlalchemy.engine.reflection import Inspector
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -29,11 +28,13 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
-    SQLAlchemyConfig,
     SQLAlchemySource,
     SqlWorkUnit,
     get_schema_metadata,
+)
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -324,13 +325,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
         yield from gen_database_containers(
+            config=self.config,
             database=database,
             sub_types=[self.database_container_subtype],
-            platform=self.platform,
-            domain_config=self.config.domain,
             domain_registry=self.domain_registry,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
             report=self.report,
         )
 
@@ -364,14 +362,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 continue
 
             yield from gen_schema_containers(
+                config=self.config,
                 database=database,
                 schema=schema,
                 sub_types=["Schema"],
-                platform=self.platform,
-                domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
                 report=self.report,
             )
 
@@ -489,12 +484,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
             db_name = self.get_db_name(inspector)
             schema = key.schema
             yield from add_table_to_schema_container(
+                config=self.config,
                 dataset_urn=dataset_urn,
                 db_name=db_name,
                 schema=schema,
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
                 report=self.report,
             )
 
@@ -521,10 +514,12 @@ class PrestoOnHiveSource(SQLAlchemySource):
             self.report.report_workunit(subtypes_workunit)
             yield subtypes_workunit
 
-            yield from self._get_domain_wu(
+            yield from get_domain_wu(
                 dataset_name=dataset_name,
                 entity_urn=dataset_urn,
-                sql_config=sql_config,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
             )
 
     def get_hive_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
@@ -689,6 +684,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             db_name = self.get_db_name(inspector)
             yield from add_table_to_schema_container(
+                config=self.config,
                 dataset_urn=dataset_urn,
                 db_name=db_name,
                 schema=dataset.schema_name,
@@ -743,10 +739,12 @@ class PrestoOnHiveSource(SQLAlchemySource):
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 
-            yield from self._get_domain_wu(
+            yield from get_domain_wu(
                 dataset_name=dataset.dataset_name,
                 entity_urn=dataset_urn,
-                sql_config=sql_config,
+                domain_registry=self.domain_registry,
+                domain_config=self.config.domain,
+                report=self.report,
             )
 
     def _get_db_filter_where_clause(self) -> str:
