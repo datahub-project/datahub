@@ -55,6 +55,7 @@ framework_common = {
     "ijson",
     "click-spinner",
     "requests_file",
+    "duckdb",
 }
 
 rest_common = {
@@ -240,6 +241,7 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
+    "datahub-lite": set(),
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
@@ -343,7 +345,7 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"sqlalchemy-vertica-dialect[vertica-python]==0.1.4"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
     "unity-catalog": databricks_cli | {"requests"},
 }
 
@@ -426,6 +428,7 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "datahub-rest",
+            "datahub-lite",
             "presto",
             "redash",
             "redshift",
@@ -438,7 +441,6 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "powerbi-report-server",
-            "vertica",
             "salesforce",
             "unity-catalog"
             # airflow is added below
@@ -474,7 +476,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            "vertica",
+            # "vertica",
         ]
         for dependency in plugins[plugin]
     ),
@@ -565,6 +567,7 @@ entry_points = {
         "console = datahub.ingestion.sink.console:ConsoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
+        "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
     ],
     "datahub.ingestion.checkpointing_provider.plugins": [
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",

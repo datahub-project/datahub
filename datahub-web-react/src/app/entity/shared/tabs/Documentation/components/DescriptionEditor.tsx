@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { message, Button } from 'antd';
 import { CheckOutlined } from '@ant-design/icons';
-import DOMPurify from 'dompurify';
+import styled from 'styled-components';
 
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 
-import StyledMDEditor from '../../../components/styled/StyledMDEditor';
 import TabToolbar from '../../../components/styled/TabToolbar';
 
 import { GenericEntityUpdate } from '../../../types';
@@ -13,6 +12,12 @@ import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../.
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
+import { Editor } from './editor/Editor';
+
+const EditorContainer = styled.div`
+    overflow: auto;
+    height: 100%;
+`;
 
 export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) => {
     const mutationUrn = useMutationUrn();
@@ -32,18 +37,16 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
     const updateDescriptionLegacy = () => {
-        const sanitizedDescription = DOMPurify.sanitize(updatedDescription);
         return updateEntity?.({
-            variables: { urn: mutationUrn, input: { editableProperties: { description: sanitizedDescription || '' } } },
+            variables: { urn: mutationUrn, input: { editableProperties: { description: updatedDescription || '' } } },
         });
     };
 
     const updateDescription = () => {
-        const sanitizedDescription = DOMPurify.sanitize(updatedDescription);
         return updateDescriptionMutation({
             variables: {
                 input: {
-                    description: sanitizedDescription,
+                    description: updatedDescription,
                     resourceUrn: mutationUrn,
                 },
             },
@@ -140,12 +143,9 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
                     <CheckOutlined /> Save
                 </Button>
             </TabToolbar>
-            <StyledMDEditor
-                value={updatedDescription}
-                onChange={(v) => handleEditorChange(v || '')}
-                preview="live"
-                visiableDragbar={false}
-            />
+            <EditorContainer>
+                <Editor content={updatedDescription} onChange={(v) => handleEditorChange(v)} />
+            </EditorContainer>
             {cancelModalVisible && (
                 <DiscardDescriptionModal
                     cancelModalVisible={cancelModalVisible}
