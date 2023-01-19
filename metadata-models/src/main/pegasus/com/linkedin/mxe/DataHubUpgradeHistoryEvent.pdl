@@ -6,7 +6,7 @@ namespace com.linkedin.mxe
 record DataHubUpgradeHistoryEvent {
 
   /**
-   * Version of the build
+   * Version of the upgrade
    */
   version: string
 
