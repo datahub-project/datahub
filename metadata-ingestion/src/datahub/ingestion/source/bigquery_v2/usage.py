@@ -218,7 +218,6 @@ class BigQueryUsageExtractor:
                     if self.config.usage.include_operational_stats:
                         operational_wu = self._create_operation_aspect_work_unit(event)
                         if operational_wu:
-                            self.report.report_workunit(operational_wu)
                             yield operational_wu
                             self.report.num_operational_stats_workunits_emitted += 1
                     if event.read_event:
@@ -799,9 +798,7 @@ class BigQueryUsageExtractor:
         self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self._make_usage_stat(aggregate)
                 self.report.num_usage_workunits_emitted += 1
 
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
