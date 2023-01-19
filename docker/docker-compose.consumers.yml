@@ -11,7 +11,7 @@ services:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
     image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
-    env_file: datahub-mae-consumer/env/docker.env
+    env_file: datahub-mae-consumer/env/docker-without-neo4j.env
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
     ports:
@@ -30,5 +30,12 @@ services:
     environment:
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+      - NEO4J_HOST=http://neo4j:7474
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
+      - GRAPH_SERVICE_IMPL=neo4j
     ports:
       - "9090:9090"
+    depends_on:
+      - neo4j

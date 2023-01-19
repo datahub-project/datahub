@@ -116,6 +116,9 @@ def generate(compose_files, output_file) -> None:
     for modified_file in modified_files:
         dict_merge(merged_docker_config, modified_file)
 
+    # Dedup env vars, last wins
+    dedup_env_vars(merged_docker_config)
+
     # Write output file
     output_dir = os.path.dirname(output_file)
     if len(output_dir) and not os.path.exists(output_dir):
@@ -128,6 +131,24 @@ def generate(compose_files, output_file) -> None:
         )
 
     print(f"Successfully generated {output_file}.")
+
+
+def dedup_env_vars(merged_docker_config):
+    for service in merged_docker_config['services']:
+        if 'environment' in merged_docker_config['services'][service]:
+            lst = merged_docker_config['services'][service]['environment']
+            if lst is not None:
+                # use a set to cache duplicates
+                caches = set()
+                results = []
+                for item in lst:
+                    prefix = item.rpartition('=')[0]
+                    # check whether prefix already exists
+                    if prefix not in caches:
+                        results.append(item)
+                        caches.add(prefix)
+                if set(lst) != set(results):
+                    merged_docker_config['services'][service]['environment'] = results
 
 
 if __name__ == "__main__":
