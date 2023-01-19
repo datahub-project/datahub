@@ -51,7 +51,7 @@ key to be human-readable. Proceed with caution: once you select a custom id, it 
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/set-domain-id.png"/>
 </p>
 
-By default, you don't need to worry about this. DataHub will auto-generate an unique Domain id for you. 
+By default, you don't need to worry about this. DataHub will auto-generate a unique Domain id for you. 
 
 Once you've chosen a name and a description, click 'Create' to create the new Domain. 
 

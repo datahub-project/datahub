@@ -324,8 +324,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         super(SQLAlchemySource, self).__init__(config, ctx)
         self.config = config
         self.platform = platform
-        if not self.config.platform:
-            self.config.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
 
         # Create and register the stateful ingestion use-case handlers.

@@ -411,9 +411,9 @@ def get_urns_by_filter(
             entities_yielded += 1
             log.debug(f"yielding {x['entity']}")
             yield x["entity"]
-        assert (
-            entities_yielded == num_entities
-        ), "Did not delete all entities, try running this command again!"
+        log.warning(
+            f"Discrepancy in entities yielded {entities_yielded} and num entities {num_entities}. This means all entities may not have been deleted."
+        )
     else:
         log.error(f"Failed to execute search query with {str(response.content)}")
         response.raise_for_status()
