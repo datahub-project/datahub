@@ -18,6 +18,9 @@ source:
     extract_ownership: true
     # Enable / Disable ingestion of orphan datasets
     extract_orphan_datasets: false
+    # Enable / Disable ingestion of endorsements.
+    # Please notice that this may overwrite any existing tags defined to ingested entities!
+    extract_endorsements_to_tags: false
     # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
         PostgreSql: postgres

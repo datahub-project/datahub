@@ -62,6 +62,8 @@ class PowerBiAPI:
         state: str
         dashboards: List[Any]
         datasets: Dict[str, "PowerBiAPI.PowerBIDataset"]
+        report_endorsements: Dict[str, List[str]]
+        dashboard_endorsements: Dict[str, List[str]]
 
     @dataclass
     class DataSource:
@@ -101,6 +103,7 @@ class PowerBiAPI:
         workspace_id: str
         # Table in datasets
         tables: List["PowerBiAPI.Table"]
+        tags: List[str]
 
         def get_urn_part(self):
             return f"datasets.{self.id}"
@@ -160,6 +163,7 @@ class PowerBiAPI:
         dataset: Optional["PowerBiAPI.PowerBIDataset"]
         pages: List["PowerBiAPI.Page"]
         users: List["PowerBiAPI.User"]
+        tags: List[str]
 
         def get_urn_part(self):
             return f"reports.{self.id}"
@@ -193,6 +197,7 @@ class PowerBiAPI:
         workspace_name: str
         tiles: List["PowerBiAPI.Tile"]
         users: List["PowerBiAPI.User"]
+        tags: List[str]
 
         def get_urn_part(self):
             return f"dashboards.{self.id}"
@@ -325,6 +330,7 @@ class PowerBiAPI:
             description=response_dict.get("description"),
             users=[],
             pages=[],
+            tags=[],
             dataset=self.get_dataset(
                 workspace_id=workspace_id, dataset_id=response_dict.get("datasetId")
             ),
@@ -368,7 +374,6 @@ class PowerBiAPI:
     def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
         """
         Get the list of dashboard from PowerBi for the given workspace identifier
-
         TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get
         -dashboards), there is no information available on pagination
         """
@@ -406,6 +411,7 @@ class PowerBiAPI:
                 workspace_name=workspace.name,
                 tiles=[],
                 users=[],
+                tags=workspace.dashboard_endorsements.get(instance.get("id", None), []),
             )
             for instance in dashboards_dict
             if instance is not None
@@ -413,7 +419,40 @@ class PowerBiAPI:
 
         return dashboards
 
-    def get_dataset(self, workspace_id: str, dataset_id: str) -> Any:
+    def get_dashboard_endorsements(self, scan_result: dict) -> Dict[str, List[str]]:
+        """
+        Store saved dashboard endorsements into a dict with dashboard id as key and
+        endorsements or tags as list of strings
+        """
+        results = {}
+
+        for scanned_dashboard in scan_result["dashboards"]:
+            # Iterate through response and create a list of PowerBiAPI.Dashboard
+            dashboard_id = scanned_dashboard.get("id")
+            tags = self.parse_endorsement(
+                scanned_dashboard.get("endorsementDetails", None)
+            )
+            results[dashboard_id] = tags
+
+        return results
+
+    @staticmethod
+    def parse_endorsement(endorsements: Optional[dict]) -> List[str]:
+        if not endorsements:
+            return []
+
+        endorsement = endorsements.get("endorsement", None)
+        if not endorsement:
+            return []
+
+        return [endorsement]
+
+    def get_dataset(
+        self,
+        workspace_id: str,
+        dataset_id: str,
+        endorsements: Optional[dict] = None,
+    ) -> Any:
         """
         Fetch the dataset from PowerBi for the given dataset identifier
         """
@@ -449,6 +488,10 @@ class PowerBiAPI:
         logger.debug("datasets = {}".format(response_dict))
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of
         # None/details
+        tags = []
+        if self.__config.extract_endorsements_to_tags:
+            tags = self.parse_endorsement(endorsements)
+
         return PowerBiAPI.PowerBIDataset(
             id=response_dict.get("id"),
             name=response_dict.get("name"),
@@ -457,6 +500,7 @@ class PowerBiAPI:
             else None,
             workspace_id=workspace_id,
             tables=[],
+            tags=tags,
         )
 
     def get_dataset_schema(self, dataset: PowerBIDataset) -> Dict[str, List[str]]:
@@ -767,6 +811,9 @@ class PowerBiAPI:
                     workspace_id=workspace.id, entity="reports", _id=raw_instance["id"]
                 ),
                 dataset=workspace.datasets.get(raw_instance.get("datasetId")),
+                tags=workspace.report_endorsements.get(
+                    raw_instance.get("id", None), []
+                ),
             )
             for raw_instance in response_dict["value"]
         ]
@@ -793,6 +840,8 @@ class PowerBiAPI:
                 state="",
                 datasets={},
                 dashboards=[],
+                report_endorsements={},
+                dashboard_endorsements={},
             )
             for workspace in groups.get("value", [])
             if workspace.get("type", None) == "Workspace"
@@ -932,6 +981,7 @@ class PowerBiAPI:
                 dataset_instance: PowerBiAPI.PowerBIDataset = self.get_dataset(
                     workspace_id=scan_result["id"],
                     dataset_id=dataset_dict["id"],
+                    endorsements=dataset_dict.get("endorsementDetails", None),
                 )
                 dataset_map[dataset_instance.id] = dataset_instance
                 # set dataset-name
@@ -982,6 +1032,20 @@ class PowerBiAPI:
 
             return None
 
+        def scan_result_to_report_endorsements(
+            scan_result: dict,
+        ) -> Dict[str, List[str]]:
+            results = {}
+            reports: List[dict] = scan_result.get("reports", [])
+
+            for report in reports:
+                report_id = report.get("id", "")
+                endorsements = self.parse_endorsement(
+                    report.get("endorsementDetails", None)
+                )
+                results[report_id] = endorsements
+            return results
+
         logger.info("Creating scan job for workspace")
         logger.info("{}={}".format(Constant.WorkspaceId, workspace_id))
         logger.debug("Hitting URL={}".format(scan_create_endpoint))
@@ -1007,7 +1071,18 @@ class PowerBiAPI:
             state=scan_result["state"],
             datasets={},
             dashboards=[],
+            report_endorsements={},
+            dashboard_endorsements={},
         )
+
+        if self.__config.extract_endorsements_to_tags:
+            workspace.dashboard_endorsements = self.get_dashboard_endorsements(
+                scan_result
+            )
+            workspace.report_endorsements = scan_result_to_report_endorsements(
+                scan_result
+            )
+
         # Get workspace dashboards
         workspace.dashboards = self.get_dashboards(workspace)
 

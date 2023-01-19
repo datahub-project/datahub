@@ -57,11 +57,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="database (catalog). If set to Null, all databases will be considered for ingestion.",
     )
 
-    database_alias: Optional[str] = Field(
-        default=None,
-        description="Alias to apply to database when ingesting. Ignored when `database` is not set.",
-    )
-
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
         if values["use_odbc"] and "driver" not in v:
@@ -203,7 +198,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
-        )  # type:Tuple[Optional[str], Dict[str, str], Optional[str]]
+        )
         # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(

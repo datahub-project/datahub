@@ -437,7 +437,7 @@ class BigQueryUsageExtractor:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
             # - SCRIPT statement type ends up here as well
-            logger.warning(f"Unable to find destination table in event {event}")
+            logger.debug(f"Unable to find destination table in event {event}")
             return None
 
     def _extract_operational_meta(
@@ -734,9 +734,8 @@ class BigQueryUsageExtractor:
                     num_joined += 1
                     event.query_event = query_jobs[event.read_event.jobName]
                 else:
-                    self.report.report_warning(
-                        str(event.read_event.resource),
-                        f"Failed to match table read event {event.read_event.jobName} with reason {event.read_event.readReason} with job at {event.read_event.timestamp}; try increasing `query_log_delay` or `max_query_duration`",
+                    logger.debug(
+                        f"Failed to match table read event {event.read_event.jobName} with reason {event.read_event.readReason} with job at {event.read_event.timestamp}; try increasing `query_log_delay` or `max_query_duration`"
                     )
             yield event
         logger.info(f"Number of read events joined with query events: {num_joined}")

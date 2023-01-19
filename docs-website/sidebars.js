@@ -324,6 +324,7 @@ module.exports = {
       // concrete tutorials for how to work with the DataHub CLI & APIs
       // "docs/wip/developer-guides",
       "docs/cli",
+      "docs/datahub_lite",
       {
         "GraphQL API": [
           {
@@ -478,6 +479,7 @@ module.exports = {
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",
       "docs/sync-status",
+      "docs/lineage/lineage-feature-guide",
       // "docs/wip/ui-ingestion-guide", -- not needed
       // "docs/wip/personal-access-tokens-guide", -- not needed
 

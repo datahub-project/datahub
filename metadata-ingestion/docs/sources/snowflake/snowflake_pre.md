@@ -16,7 +16,7 @@ grant usage on DATABASE "<your-database>" to role datahub_role;
 grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
 
-// If you are NOT using Snowflake Profiling or Classification feature: Grant references privileges to your tables and views 
+// If you are NOT using Snowflake Profiling or Classification feature: Grant references privileges to your tables and views
 grant references on all tables in database "<your-database>" to role datahub_role;
 grant references on future tables in database "<your-database>" to role datahub_role;
 grant references on all external tables in database "<your-database>" to role datahub_role;
@@ -30,10 +30,10 @@ grant select on future tables in database "<your-database>" to role datahub_role
 grant select on all external tables in database "<your-database>" to role datahub_role;
 grant select on future external tables in database "<your-database>" to role datahub_role;
 
-// Create a new DataHub user and assign the DataHub role to it 
+// Create a new DataHub user and assign the DataHub role to it
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
 
-// Grant the datahub_role to the new DataHub user. 
+// Grant the datahub_role to the new DataHub user.
 grant role datahub_role to user datahub_user;
 ```
 
@@ -50,7 +50,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 
 This represents the bare minimum privileges required to extract databases, schemas, views, tables from Snowflake.
 
-If you plan to enable extraction of table lineage, via the `include_table_lineage` config flag or extraction of usage statistics, via the `include_usage_stats` config, you'll also need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. This can be done by granting access to the `snowflake` database.
+If you plan to enable extraction of table lineage, via the `include_table_lineage` config flag, extraction of usage statistics, via the `include_usage_stats` config, or extraction of tags (without lineage), via the `extract_tags` config, you'll also need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. This can be done by granting access to the `snowflake` database.
 
 ```sql
 grant imported privileges on database snowflake to role datahub_role;
