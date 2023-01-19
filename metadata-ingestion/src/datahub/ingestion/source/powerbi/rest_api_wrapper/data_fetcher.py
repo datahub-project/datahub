@@ -132,6 +132,7 @@ class RegularFetcher(DataFetcherBase):
             description=response_dict.get("description"),
             users=[],
             pages=[],
+            tags=[],
             dataset=self.get_dataset(
                 workspace_id=workspace_id, dataset_id=response_dict.get("datasetId")
             ),
@@ -180,6 +181,7 @@ class RegularFetcher(DataFetcherBase):
                 workspace_name=workspace.name,
                 tiles=[],
                 users=[],
+                tags=[],
             )
             for instance in dashboards_dict
             if instance is not None
@@ -231,6 +233,7 @@ class RegularFetcher(DataFetcherBase):
             else None,
             workspace_id=workspace_id,
             tables=[],
+            tags=[],
         )
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
@@ -332,48 +335,7 @@ class RegularFetcher(DataFetcherBase):
         response.raise_for_status()
         return response.json()
 
-    def get_reports(self, workspace: Workspace) -> List[Report]:
-
-        report_list_endpoint: str = RegularFetcher.API_ENDPOINTS[Constant.REPORT_LIST]
-        # Replace place holders
-        report_list_endpoint = report_list_endpoint.format(
-            POWERBI_BASE_URL=DataFetcherBase.BASE_URL,
-            WORKSPACE_ID=workspace.id,
-        )
-        # Hit PowerBi
-        logger.info(f"Request to report URL={report_list_endpoint}")
-        response = requests.get(
-            report_list_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
-        )
-
-        # Check if we got response from PowerBi
-        if response.status_code != 200:
-            message: str = "Failed to fetch reports from power-bi for"
-            logger.warning(message)
-            logger.warning(f"{Constant.WorkspaceId}={workspace.id}")
-            raise ConnectionError(message)
-
-        response_dict = response.json()
-        reports: List[Report] = [
-            Report(
-                id=raw_instance["id"],
-                name=raw_instance.get("name"),
-                webUrl=raw_instance.get("webUrl"),
-                embedUrl=raw_instance.get("embedUrl"),
-                description=raw_instance.get("description"),
-                pages=self.get_pages_by_report(
-                    workspace_id=workspace.id, report_id=raw_instance["id"]
-                ),
-                users=[],  # It will be fetched by Admin Fetcher
-                dataset=workspace.datasets.get(raw_instance.get("datasetId")),
-            )
-            for raw_instance in response_dict["value"]
-        ]
-
-        return reports
-
-    def get_pages_by_report(self, workspace_id: str, report_id: str) -> List[Page]:
+    def _get_pages_by_report(self, workspace_id: str, report_id: str) -> List[Page]:
         pages_endpoint: str = RegularFetcher.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
@@ -405,6 +367,49 @@ class RegularFetcher(DataFetcherBase):
             )
             for raw_instance in response_dict["value"]
         ]
+
+    def get_reports(self, workspace: Workspace) -> List[Report]:
+
+        report_list_endpoint: str = RegularFetcher.API_ENDPOINTS[Constant.REPORT_LIST]
+        # Replace place holders
+        report_list_endpoint = report_list_endpoint.format(
+            POWERBI_BASE_URL=DataFetcherBase.BASE_URL,
+            WORKSPACE_ID=workspace.id,
+        )
+        # Hit PowerBi
+        logger.info(f"Request to report URL={report_list_endpoint}")
+        response = requests.get(
+            report_list_endpoint,
+            headers={Constant.Authorization: self.get_access_token()},
+        )
+
+        # Check if we got response from PowerBi
+        if response.status_code != 200:
+            message: str = "Failed to fetch reports from power-bi for"
+            logger.warning(message)
+            logger.warning(f"{Constant.WorkspaceId}={workspace.id}")
+            raise ConnectionError(message)
+
+        response_dict = response.json()
+        reports: List[Report] = [
+            Report(
+                id=raw_instance["id"],
+                name=raw_instance.get("name"),
+                webUrl=raw_instance.get("webUrl"),
+                embedUrl=raw_instance.get("embedUrl"),
+                description=raw_instance.get("description"),
+                pages=self._get_pages_by_report(
+                    workspace_id=workspace.id, report_id=raw_instance["id"]
+                ),
+                users=[],  # It will be fetched using Admin Fetcher based on condition
+                tags=[],   # It will be fetched using Admin Fetcher based on condition
+                dataset=workspace.datasets.get(raw_instance.get("datasetId")),
+            )
+            for raw_instance in response_dict["value"]
+        ]
+
+        return reports
+
 
 
 class AdminFetcher(DataFetcherBase):

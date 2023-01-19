@@ -41,11 +41,13 @@ from datahub.metadata.schema_classes import (
     DashboardKeyClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -239,7 +241,23 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn))
 
+            self.append_tag_mcp(
+                dataset_mcps,
+                ds_urn,
+                Constant.DATASET,
+                dataset.tags,
+            )
+
         return dataset_mcps
+
+    @staticmethod
+    def transform_tags(tags: List[str]) -> GlobalTagsClass:
+        return GlobalTagsClass(
+            tags=[
+                TagAssociationClass(builder.make_tag_urn(tag_to_add))
+                for tag_to_add in tags
+            ]
+        )
 
     def to_datahub_chart_mcp(
         self,
@@ -424,7 +442,30 @@ class Mapper:
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
+        self.append_tag_mcp(
+            list_of_mcps,
+            dashboard_urn,
+            Constant.DASHBOARD,
+            dashboard.tags,
+        )
+
         return list_of_mcps
+
+    def append_tag_mcp(
+        self,
+        list_of_mcps: List[MetadataChangeProposalWrapper],
+        entity_urn: str,
+        entity_type: str,
+        tags: List[str],
+    ) -> None:
+        if self.__config.extract_endorsements_to_tags and tags:
+            tags_mcp = self.new_mcp(
+                entity_type=entity_type,
+                entity_urn=entity_urn,
+                aspect_name=Constant.GLOBAL_TAGS,
+                aspect=self.transform_tags(tags),
+            )
+            list_of_mcps.append(tags_mcp)
 
     def to_datahub_user(
         self, user: powerbi_data_classes.User
@@ -684,6 +725,13 @@ class Mapper:
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
+        self.append_tag_mcp(
+            list_of_mcps,
+            dashboard_urn,
+            Constant.DASHBOARD,
+            report.tags,
+        )
+
         return list_of_mcps
 
     def report_to_datahub_work_units(
@@ -778,7 +826,6 @@ class PowerBiDashboardSource(Source):
             self.powerbi_client.fill_workspace(workspace, self.reporter)
 
             for dashboard in workspace.dashboards:
-
                 try:
                     # Fetch PowerBi users for dashboards
                     dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
@@ -798,13 +845,12 @@ class PowerBiDashboardSource(Source):
                     # Return workunit to Datahub Ingestion framework
                     yield workunit
 
-            if self.source_config.extract_reports:
-                for report in self.powerbi_client.get_reports(workspace=workspace):
-                    for work_unit in self.mapper.report_to_datahub_work_units(
-                        report, workspace
-                    ):
-                        self.reporter.report_workunit(work_unit)
-                        yield work_unit
+            for report in workspace.reports:
+                for work_unit in self.mapper.report_to_datahub_work_units(
+                    report, workspace
+                ):
+                    self.reporter.report_workunit(work_unit)
+                    yield work_unit
 
     def get_report(self) -> SourceReport:
         return self.reporter

@@ -11,8 +11,11 @@ class Workspace:
 
     id: str
     name: str
-    dashboards: List[Any]
+    dashboards: List["Dashboard"]
+    reports: List["Report"]
     datasets: Dict[str, "PowerBIDataset"]
+    report_endorsements: Dict[str, List[str]]
+    dashboard_endorsements: Dict[str, List[str]]
 
 
 @dataclass
@@ -54,6 +57,7 @@ class PowerBIDataset:
     workspace_id: str
     # Table in datasets
     tables: List["Table"]
+    tags: List[str]
 
     def get_urn_part(self):
         return f"datasets.{self.id}"
@@ -113,6 +117,7 @@ class Report:
     dataset: Optional["PowerBIDataset"]
     pages: List["Page"]
     users: List["User"]
+    tags: List[str]
 
     def get_urn_part(self):
         return f"reports.{self.id}"
@@ -148,6 +153,7 @@ class Dashboard:
     workspace_name: str
     tiles: List["Tile"]
     users: List["User"]
+    tags: List[str]
 
     def get_urn_part(self):
         return f"dashboards.{self.id}"
