@@ -691,7 +691,7 @@ def quickstart(
             github_file = (
                 ELASTIC_QUICKSTART_COMPOSE_URL
                 if not is_arch_m1(quickstart_arch)
-                else ELASTIC_M1_QUICKSTART_COMPOSE_FILE
+                else ELASTIC_M1_QUICKSTART_COMPOSE_URL
             )
 
         # also allow local files
