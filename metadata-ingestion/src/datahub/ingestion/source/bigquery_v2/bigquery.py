@@ -15,7 +15,6 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
-    make_domain_urn,
     make_tag_urn,
     set_dataset_urn_to_lower,
 )
@@ -23,6 +22,7 @@ from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
     PlatformKey,
     ProjectIdKey,
+    add_domain_to_entity_wu,
     wrap_aspect_as_workunit,
 )
 from datahub.ingestion.api.common import PipelineContext
@@ -456,8 +456,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def gen_project_id_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
         database_container_key = self.gen_project_id_key(database)
 
-        container_workunits = gen_containers(
-            container_key=database_container_key,
+        yield from gen_database_container(
+            database=database,
+            config=self.config,
             name=database,
             sub_types=["Project"],
             domain_registry=self.domain_registry,
@@ -760,18 +761,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.db_views[project_id][dataset_name].append(view)
 
         yield from self.gen_view_dataset_workunits(view, project_id, dataset_name)
-
-    def _get_domain_wu(
-        self,
-        dataset_name: str,
-        entity_urn: str,
-    ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(dataset_name)
-        if domain_urn:
-            yield from add_domain_to_entity_wu(
-                entity_urn=entity_urn,
-                domain_urn=domain_urn,
-            )
 
     def gen_table_dataset_workunits(
         self,
