@@ -15,3 +15,4 @@ python generate_docker_quickstart.py ../monitoring/docker-compose.monitoring.yml
 python generate_docker_quickstart.py ../docker-compose.consumers.yml docker-compose.consumers.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose.consumers-without-neo4j.yml docker-compose.consumers-without-neo4j.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose.kafka-setup.yml docker-compose.kafka-setup.quickstart.yml
+# TODO docker-compose-without-neo4j-m1.quickstart.yml is not getting generated
