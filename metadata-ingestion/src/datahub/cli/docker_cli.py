@@ -176,7 +176,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
         click.echo(
             "No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
             "To use neo4j as a graph backend, run \n"
-            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose.quickstart.yml`"
+            "`datahub docker quickstart --graph-service-impl neo4j`"
             "\nfrom the root of the datahub repo\n"
         )
         return False
@@ -675,11 +675,6 @@ def quickstart(
     elif not quickstart_compose_file:
         # download appropriate quickstart file
         should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
-        if should_use_neo4j and is_arch_m1(quickstart_arch):
-            click.secho(
-                "Running with neo4j on M1 is not currently supported, will be using elasticsearch as graph",
-                fg="red",
-            )
 
         if should_use_neo4j:
             github_file = (
