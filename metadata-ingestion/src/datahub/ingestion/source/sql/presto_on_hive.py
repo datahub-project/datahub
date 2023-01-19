@@ -39,8 +39,8 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
-    gen_database_containers,
-    gen_schema_containers,
+    gen_database_container,
+    gen_schema_container,
     get_domain_wu,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import JobId
@@ -324,7 +324,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_database_containers(
+        yield from gen_database_container(
             config=self.config,
             database=database,
             sub_types=[self.database_container_subtype],
@@ -361,7 +361,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             if not self.config.database_pattern.allowed(schema):
                 continue
 
-            yield from gen_schema_containers(
+            yield from gen_schema_container(
                 config=self.config,
                 database=database,
                 schema=schema,

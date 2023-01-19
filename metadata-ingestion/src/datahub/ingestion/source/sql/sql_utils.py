@@ -50,7 +50,7 @@ def gen_database_key(
     )
 
 
-def gen_schema_containers(
+def gen_schema_container(
     config: "SQLAlchemyConfig",
     schema: str,
     database: str,
@@ -150,7 +150,7 @@ def gen_domain_urn(
     return domain_urn
 
 
-def gen_database_containers(
+def gen_database_container(
     config: SQLAlchemyConfig,
     database: str,
     sub_types: List[str],

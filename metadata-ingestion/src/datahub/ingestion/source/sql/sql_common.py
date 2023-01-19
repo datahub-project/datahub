@@ -38,8 +38,8 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
-    gen_database_containers,
-    gen_schema_containers,
+    gen_database_container,
+    gen_schema_container,
     get_domain_wu,
 )
 from datahub.ingestion.source.state.sql_common_state import (
@@ -415,7 +415,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_database_containers(
+        yield from gen_database_container(
             config=self.config,
             database=database,
             sub_types=[SqlContainerSubTypes.DATABASE],
@@ -429,7 +429,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         schema: str,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_schema_containers(
+        yield from gen_schema_container(
             config=self.config,
             database=database,
             schema=schema,

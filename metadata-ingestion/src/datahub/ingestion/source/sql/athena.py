@@ -30,7 +30,7 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
-    gen_database_containers,
+    gen_database_container,
     gen_database_key,
 )
 
@@ -195,7 +195,7 @@ class AthenaSource(SQLAlchemySource):
         schema: str,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_database_containers(
+        yield from gen_database_container(
             config=self.config,
             database=database,
             sub_types=[SqlContainerSubTypes.DATABASE],

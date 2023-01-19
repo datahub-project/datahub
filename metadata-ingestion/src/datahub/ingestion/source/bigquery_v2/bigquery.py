@@ -60,8 +60,8 @@ from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
-    gen_database_containers,
-    gen_schema_containers,
+    gen_database_container,
+    gen_schema_container,
     get_domain_wu,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
@@ -454,7 +454,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def gen_project_id_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
         database_container_key = self.gen_project_id_key(database)
 
-        yield from gen_database_containers(
+        yield from gen_database_container(
             config=self.config,
             database=database,
             sub_types=["Project"],
@@ -470,7 +470,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         database_container_key = self.gen_project_id_key(database=project_id)
 
-        yield from gen_schema_containers(
+        yield from gen_schema_container(
             config=self.config,
             database=project_id,
             schema=dataset,

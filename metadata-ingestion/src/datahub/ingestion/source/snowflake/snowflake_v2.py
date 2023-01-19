@@ -72,8 +72,8 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
-    gen_database_containers,
-    gen_schema_containers,
+    gen_database_container,
+    gen_schema_container,
     get_dataplatform_instance_aspect,
     get_domain_wu,
 )
@@ -1188,7 +1188,7 @@ class SnowflakeV2Source(
     def gen_database_containers(
         self, database: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_database_containers(
+        yield from gen_database_container(
             config=self.config,
             name=database.name,
             database=self.snowflake_identifier(database.name),
@@ -1215,7 +1215,7 @@ class SnowflakeV2Source(
     def gen_schema_containers(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_schema_containers(
+        yield from gen_schema_container(
             config=self.config,
             name=schema.name,
             schema=self.snowflake_identifier(schema.name),
