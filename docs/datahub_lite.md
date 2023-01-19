@@ -1,3 +1,6 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # DataHub Lite (Experimental)
 
 ## What is it?
@@ -106,11 +109,17 @@ As a convenient short-cut, you can import metadata from any standard DataHub met
 
 ## Exploring Metadata
 
-The `datahub lite` group of commands provides a set of capabilities for you to explore the metadata you just ingested. 
+The `datahub lite` group of commands provides a set of capabilities for you to explore the metadata you just ingested.
 
 ### List (ls)
 
 Listing functions like a directory structure that is customized based on the kind of system being explored. DataHub's metadata is automatically organized into databases, tables, views, dashboards, charts, etc.
+
+:::note
+
+Using the `ls` command below is much more pleasant when you have tab completion enabled on your shell. Check out the [Setting up Tab Completion](#tab-completion) section at the bottom of the guide.
+
+:::
 
 ```shell
 > datahub lite ls /
@@ -132,6 +141,9 @@ metadata_index
 > datahub lite ls /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2
 metadata_aspect_v2
 ```
+
+
+
 
 ### Read (get)
 
@@ -157,7 +169,7 @@ Get metadata for an entity by path
 </summary>
 
 ```json
-> datahub lite get /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2
+> datahub lite get --path /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2
 {
   "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
   "container": {
@@ -313,7 +325,7 @@ Get metadata for an entity by path
 #### Get metadata for an entity filtered by specific aspect
 
 ```json
-> datahub lite get /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2 --aspect status
+> datahub lite get --path /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2 --aspect status
 {
   "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
   "status": {
@@ -324,10 +336,17 @@ Get metadata for an entity by path
 }
 ```
 
+:::note
+
+Using the `get` command by path is much more pleasant when you have tab completion enabled on your shell. Check out the [Setting up Tab Completion](#tab-completion) section at the bottom of the guide.
+
+:::
+
+
 #### Get metadata using the urn of the entity
 
 ```json
-> datahub lite get "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)" --aspect status
+> datahub lite get --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)" --aspect status
 {
   "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
   "status": {
@@ -344,7 +363,7 @@ Get metadata with additional details (systemMetadata)
 </summary>
 
 ```json
-> datahub lite get /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2 --aspect status --verbose
+> datahub lite get --path /databases/mysql/instances/default/databases/datahub/tables/metadata_aspect_v2 --aspect status --verbose
 {
   "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v2,PROD)",
   "status": {
@@ -519,3 +538,80 @@ DataHub Lite maintains a few derived tables to make access possible via both the
 ## Caveat Emptor!
 
 DataHub Lite is a very new project. Do not use it for production use-cases. The API-s and storage formats are subject to change and we get feedback from early adopters. That said, we are really interested in accepting PR-s and suggestions for improvements to this fledgling project.
+
+
+## Advanced Options
+
+### Tab Completion
+
+Using the datahub lite commands like `ls` or `get` is much more pleasant when you have tab completion enabled on your shell. Tab completion is supported on the command line through the [Click Shell completion](https://click.palletsprojects.com/en/8.1.x/shell-completion/) module.
+To set up shell completion for your shell, follow the instructions below:
+
+#### Option 1 (inline eval)
+<Tabs>
+<TabItem value="zsh" label="Zsh" default>
+
+Add this to ~/.zshrc:
+
+```shell
+eval "$(_DATAHUB_COMPLETE=zsh_source datahub)"
+```
+
+</TabItem>
+<TabItem value="bash" label="Bash">
+
+Add this to ~/.bashrc:
+
+```shell
+eval "$(_DATAHUB_COMPLETE=bash_source datahub)"
+```
+
+</TabItem>
+
+</Tabs>
+
+#### Option 2 (external completion script)
+
+Using eval means that the command is invoked and evaluated every time a shell is started, which can delay shell responsiveness. To speed it up, write the generated script to a file, then source that.
+
+<Tabs>
+<TabItem value="zsh" label="Zsh" default>
+
+Save the script somewhere.
+
+```shell
+_DATAHUB_COMPLETE=zsh_source datahub > ~/.datahub-complete.zsh
+```
+
+Source the file in ~/.zshrc.
+
+```shell
+. ~/.datahub-complete.zsh
+```
+
+</TabItem>
+<TabItem value="bash" label="Bash">
+
+```shell
+_DATAHUB_COMPLETE=bash_source datahub > ~/.datahub-complete.bash
+```
+
+Source the file in ~/.bashrc.
+
+```shell
+. ~/.datahub-complete.bash
+```
+
+</TabItem>
+
+<TabItem value="fish" label="Fish">
+
+Save the script to ~/.config/fish/completions/datahub.fish:
+
+```shell
+_DATAHUB_COMPLETE=fish_source datahub > ~/.config/fish/completions/datahub.fish
+```
+
+</TabItem>
+</Tabs>
+
