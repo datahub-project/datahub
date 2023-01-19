@@ -27,5 +27,7 @@ services:
     env_file: datahub-mce-consumer/env/docker.env
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
+    environment:
+      - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     ports:
       - "9090:9090"
