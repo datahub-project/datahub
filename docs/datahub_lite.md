@@ -545,9 +545,9 @@ DataHub Lite is a very new project. Do not use it for production use-cases. The 
 ### Tab Completion
 
 Using the datahub lite commands like `ls` or `get` is much more pleasant when you have tab completion enabled on your shell. Tab completion is supported on the command line through the [Click Shell completion](https://click.palletsprojects.com/en/8.1.x/shell-completion/) module.
-To set up shell completion for your shell, follow the instructions below:
+To set up shell completion for your shell, follow the instructions below based on your shell variant:
 
-#### Option 1 (inline eval)
+#### Option 1: Inline eval (easy, less performant)
 <Tabs>
 <TabItem value="zsh" label="Zsh" default>
 
@@ -570,7 +570,7 @@ eval "$(_DATAHUB_COMPLETE=bash_source datahub)"
 
 </Tabs>
 
-#### Option 2 (external completion script)
+#### Option 2: External completion script (recommended, better performance)
 
 Using eval means that the command is invoked and evaluated every time a shell is started, which can delay shell responsiveness. To speed it up, write the generated script to a file, then source that.
 
@@ -580,7 +580,8 @@ Using eval means that the command is invoked and evaluated every time a shell is
 Save the script somewhere.
 
 ```shell
-_DATAHUB_COMPLETE=zsh_source datahub > ~/.datahub-complete.zsh
+# the additional sed patches completion to be path oriented and not add spaces between each completed token
+_DATAHUB_COMPLETE=zsh_source datahub | sed 's;compadd;compadd -S /;' > ~/.datahub-complete.zsh
 ```
 
 Source the file in ~/.zshrc.
