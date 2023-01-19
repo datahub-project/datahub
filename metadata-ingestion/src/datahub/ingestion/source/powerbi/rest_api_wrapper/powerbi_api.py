@@ -92,18 +92,6 @@ class PowerBiAPI:
             entity_id=dashboard.id,
         )
 
-    def get_pages_by_report(self, workspace_id: str, report_id: str) -> List[Page]:
-        """
-        Fetch the report from PowerBi for the given report identifier
-        """
-        if workspace_id is None or report_id is None:
-            logger.info("workspace_id or report_id is None")
-            return []
-
-        return self.__regular_fetcher.get_pages_by_report(
-            workspace_id=workspace_id, report_id=report_id
-        )
-
     def get_reports(self, workspace: Workspace) -> List[Report]:
         """
         Fetch the report from PowerBi for the given Workspace
@@ -114,9 +102,11 @@ class PowerBiAPI:
 
         reports: List[Report] = self.__regular_fetcher.get_reports(workspace)
 
-        def fill_ownership():
+        def fill_ownership() -> None:
             if self.__config.extract_ownership is False:
-                logger.info("Skipping user retrieval for report as extract_ownership is set to false")
+                logger.info(
+                    "Skipping user retrieval for report as extract_ownership is set to false"
+                )
                 return
 
             for report in reports:
@@ -126,7 +116,7 @@ class PowerBiAPI:
                     entity_id=report.id,
                 )
 
-        def fill_tags():
+        def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
                 logger.info(
                     "Skipping endorsements tags retrieval for report as extract_endorsements_to_tags is set to false"
@@ -162,10 +152,10 @@ class PowerBiAPI:
         scan_id = self.__admin_fetcher.create_scan_job(workspace_id=workspace.id)
         logger.info("Waiting for scan to complete")
         if (
-                self.__admin_fetcher.wait_for_scan_to_complete(
-                    scan_id=scan_id, timeout=self.__config.scan_timeout
-                )
-                is False
+            self.__admin_fetcher.wait_for_scan_to_complete(
+                scan_id=scan_id, timeout=self.__config.scan_timeout
+            )
+            is False
         ):
             raise ValueError(
                 "Workspace detail is not available. Please increase scan_timeout to wait."
@@ -243,7 +233,9 @@ class PowerBiAPI:
 
     def _fill_admin_metadata_detail(self, workspace: Workspace) -> None:
         if self.__config.enable_admin_api is False:
-            logger.info("Admin API is disabled. Skipping metadata which require admin access")
+            logger.info(
+                "Admin API is disabled. Skipping metadata which require admin access"
+            )
             return
 
         scan_result = self._get_scan_result(workspace)
@@ -256,15 +248,11 @@ class PowerBiAPI:
             )
             return
 
-        workspace.dashboard_endorsements = self._get_dashboard_endorsements(
-            scan_result
-        )
-        workspace.report_endorsements = self._get_report_endorsements(
-            scan_result
-        )
+        workspace.dashboard_endorsements = self._get_dashboard_endorsements(scan_result)
+        workspace.report_endorsements = self._get_report_endorsements(scan_result)
 
-    def _fill_regular_metadata_detail(self, workspace: Workspace):
-        def fill_dashboards():
+    def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
+        def fill_dashboards() -> None:
             workspace.dashboards = self.__regular_fetcher.get_dashboards(workspace)
             # set tiles of Dashboard
             for dashboard in workspace.dashboards:
@@ -272,15 +260,19 @@ class PowerBiAPI:
                     workspace, dashboard=dashboard
                 )
 
-        def fill_reports():
+        def fill_reports() -> None:
             if self.__config.extract_reports is False:
-                logger.info("Skipping report retrieval as extract_reports is set to false")
+                logger.info(
+                    "Skipping report retrieval as extract_reports is set to false"
+                )
                 return
             workspace.reports = self.get_reports(workspace)
 
-        def fill_dashboard_tags():
+        def fill_dashboard_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
-                logger.info("Skipping tag retrieval for dashboard as extract_endorsements_to_tags is set to false")
+                logger.info(
+                    "Skipping tag retrieval for dashboard as extract_endorsements_to_tags is set to false"
+                )
                 return
             for dashboard in workspace.dashboards:
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
@@ -291,15 +283,11 @@ class PowerBiAPI:
 
     # flake8: noqa: C901
     def fill_workspace(
-            self, workspace: Workspace, reporter: PowerBiDashboardSourceReport
-    ) -> Workspace:
+        self, workspace: Workspace, reporter: PowerBiDashboardSourceReport
+    ) -> None:
 
         self._fill_admin_metadata_detail(
             workspace=workspace
         )  # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
 
-        self._fill_regular_metadata_detail(
-            workspace=workspace
-        )
-
-        return workspace
+        self._fill_regular_metadata_detail(workspace=workspace)

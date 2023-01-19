@@ -402,14 +402,13 @@ class RegularFetcher(DataFetcherBase):
                     workspace_id=workspace.id, report_id=raw_instance["id"]
                 ),
                 users=[],  # It will be fetched using Admin Fetcher based on condition
-                tags=[],   # It will be fetched using Admin Fetcher based on condition
+                tags=[],  # It will be fetched using Admin Fetcher based on condition
                 dataset=workspace.datasets.get(raw_instance.get("datasetId")),
             )
             for raw_instance in response_dict["value"]
         ]
 
         return reports
-
 
 
 class AdminFetcher(DataFetcherBase):
