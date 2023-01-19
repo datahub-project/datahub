@@ -8,6 +8,7 @@ from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import DatabaseKey, gen_containers
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -50,17 +51,34 @@ class AthenaConfig(SQLAlchemyConfig):
         default=3600,
         description="Duration to assume the AWS Role for. Maximum of 43200 (12 hours)",
     )
-    s3_staging_dir: str = pydantic.Field(
-        description="Staging s3 location where the Athena query results will be stored"
+    s3_staging_dir: Optional[str] = pydantic.Field(
+        default=None,
+        deprecated=True,
+        description="[deprecated in favor of `query_result_location`] S3 query location",
     )
     work_group: str = pydantic.Field(
         description="The name of your Amazon Athena Workgroups"
     )
     catalog_name: str = pydantic.Field(
-        default="awsdatacatalog", description="Athena Catalog Name"
+        default="awsdatacatalog",
+        description="Athena Catalog Name",
     )
 
-    include_views = False  # not supported for Athena
+    query_result_location: str = pydantic.Field(
+        description="S3 path to the [query result bucket](https://docs.aws.amazon.com/athena/latest/ug/querying.html#query-results-specify-location) which should be used by AWS Athena to store results of the"
+        "queries executed by DataHub."
+    )
+
+    # overwrite default behavior of SQLAlchemyConfing
+    include_views: Optional[bool] = pydantic.Field(
+        default=False, description="Whether views should be ingested."
+    )
+
+    _s3_staging_dir_population = pydantic_renamed_field(
+        old_name="s3_staging_dir",
+        new_name="query_result_location",
+        print_warning=True,
+    )
 
     def get_sql_alchemy_url(self):
         return make_sqlalchemy_uri(
@@ -70,7 +88,8 @@ class AthenaConfig(SQLAlchemyConfig):
             f"athena.{self.aws_region}.amazonaws.com:443",
             self.database,
             uri_opts={
-                "s3_staging_dir": self.s3_staging_dir,
+                # as an URI option `s3_staging_dir` is still used due to PyAthena
+                "s3_staging_dir": self.query_result_location,
                 "work_group": self.work_group,
                 "catalog_name": self.catalog_name,
                 "role_arn": self.aws_role_arn,
