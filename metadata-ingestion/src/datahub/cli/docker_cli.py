@@ -71,6 +71,7 @@ ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
     f"{DOCKER_COMPOSE_BASE}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
 )
 
+
 class Architectures(Enum):
     x86 = "x86"
     arm64 = "arm64"
@@ -681,11 +682,17 @@ def quickstart(
             )
 
         if should_use_neo4j:
-            github_file = NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL if not is_arch_m1(quickstart_arch) \
+            github_file = (
+                NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+                if not is_arch_m1(quickstart_arch)
                 else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
+            )
         else:
-            github_file = ELASTIC_QUICKSTART_COMPOSE_URL if not is_arch_m1(quickstart_arch) \
+            github_file = (
+                ELASTIC_QUICKSTART_COMPOSE_URL
+                if not is_arch_m1(quickstart_arch)
                 else ELASTIC_M1_QUICKSTART_COMPOSE_FILE
+            )
 
         # also allow local files
         request_session = requests.Session()
@@ -737,10 +744,10 @@ def quickstart(
             )
 
             default_consumer_compose_file = (
-                    Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
+                Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
             )
             with open(
-                    default_consumer_compose_file, "wb"
+                default_consumer_compose_file, "wb"
             ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
                 suffix=".yml", delete=False
             ) as tmp_file:
@@ -750,7 +757,9 @@ def quickstart(
                     f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
                 )
                 # Download the quickstart docker-compose file from GitHub.
-                quickstart_download_response = request_session.get(kafka_setup_github_file)
+                quickstart_download_response = request_session.get(
+                    kafka_setup_github_file
+                )
                 quickstart_download_response.raise_for_status()
                 tmp_file.write(quickstart_download_response.content)
                 logger.debug(f"Copied to {path}")
