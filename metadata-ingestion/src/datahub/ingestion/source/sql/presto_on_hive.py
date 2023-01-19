@@ -514,13 +514,15 @@ class PrestoOnHiveSource(SQLAlchemySource):
             self.report.report_workunit(subtypes_workunit)
             yield subtypes_workunit
 
-            yield from get_domain_wu(
-                dataset_name=dataset_name,
-                entity_urn=dataset_urn,
-                domain_config=self.config.domain,
-                domain_registry=self.domain_registry,
-                report=self.report,
-            )
+            if self.config.domain:
+                assert self.domain_registry
+                yield from get_domain_wu(
+                    dataset_name=dataset_name,
+                    entity_urn=dataset_urn,
+                    domain_config=self.config.domain,
+                    domain_registry=self.domain_registry,
+                    report=self.report,
+                )
 
     def get_hive_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
         where_clause_suffix = ""
@@ -739,13 +741,15 @@ class PrestoOnHiveSource(SQLAlchemySource):
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 
-            yield from get_domain_wu(
-                dataset_name=dataset.dataset_name,
-                entity_urn=dataset_urn,
-                domain_registry=self.domain_registry,
-                domain_config=self.config.domain,
-                report=self.report,
-            )
+            if self.config.domain:
+                assert self.domain_registry
+                yield from get_domain_wu(
+                    dataset_name=dataset.dataset_name,
+                    entity_urn=dataset_urn,
+                    domain_registry=self.domain_registry,
+                    domain_config=self.config.domain,
+                    report=self.report,
+                )
 
     def _get_db_filter_where_clause(self) -> str:
         if self.config.metastore_db_name is None:

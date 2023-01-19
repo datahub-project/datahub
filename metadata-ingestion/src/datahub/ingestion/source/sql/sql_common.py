@@ -356,6 +356,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 "sql_profiling_config",
                 config.profiling.config_for_telemetry(),
             )
+
+        self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -718,13 +720,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        yield from get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            domain_config=sql_config.domain,
-            domain_registry=self.domain_registry,
-            report=self.report,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=sql_config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_database_properties(
         self, inspector: Inspector, database: str

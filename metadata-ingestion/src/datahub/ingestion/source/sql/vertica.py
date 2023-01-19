@@ -577,13 +577,15 @@ class VerticaSource(SQLAlchemySource):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        yield from get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
-            report=self.report,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_projection_properties(
         self, inspector: Inspector, schema: str, projection: str
@@ -772,13 +774,15 @@ class VerticaSource(SQLAlchemySource):
         )
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
-        yield from get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
-            report=self.report,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_model_properties(
         self, inspector: Inspector, schema: str, model: str
@@ -953,13 +957,15 @@ class VerticaSource(SQLAlchemySource):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        yield from get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
-            report=self.report,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_oauth_properties(
         self, inspector: Inspector, schema: str, model: str
