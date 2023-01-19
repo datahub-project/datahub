@@ -3,35 +3,78 @@ from typing import Any, Dict, Optional
 
 from pydantic import Field, FilePath, SecretStr, validator
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigModel
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
+
+_GITHUB_PREFIX = "https://github.com/"
+_GITLAB_PREFIX = "https://gitlab.com/"
+
+_GITHUB_URL_TEMPLATE = "{repo_url}/blob/{branch}/{file_path}"
+_GITLAB_URL_TEMPLATE = "{repo_url}/-/blob/{branch}/{file_path}"
 
 
 class GitHubReference(ConfigModel):
+    """Reference to a hosted Git repository. Used to generate "view source" links."""
+
     repo: str = Field(
-        description="Name of your github repository in org/repo format. e.g. repo for https://github.com/datahub-project/datahub is `datahub-project/datahub`."
+        description="Name of your Git repo e.g. https://github.com/datahub-project/datahub or https://gitlab.com/gitlab-org/gitlab. If organization/repo is provided, we assume it is a GitHub repo."
     )
     branch: str = Field(
         "main",
         description="Branch on which your files live by default. Typically main or master. This can also be a commit hash.",
     )
-    base_url: str = Field(
-        "https://github.com",
-        description="Base url for Github. Used to construct clickable links on the UI.",
+
+    url_template: Optional[str] = Field(
+        None,
+        description=f"Template for generating a URL to a file in the repo e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos, and it is otherwise required."
+        "It supports the following variables: {repo_url}, {branch}, {file_path}",
     )
 
-    @validator("repo")
-    def repo_should_be_org_slash_repo(cls, repo: str) -> str:
-        if "/" not in repo or len(repo.split("/")) != 2:
-            raise ConfigurationError(
-                "github repo should be in organization/repo form e.g. datahub-project/datahub"
-            )
+    _deprecated_base_url = pydantic_renamed_field(
+        "base_url",
+        "url_template",
+        transform=lambda url: _GITHUB_URL_TEMPLATE,
+    )
+
+    @validator("repo", pre=True)
+    def simplify_repo_url(cls, repo: str) -> str:
+        if repo.startswith("github.com/"):
+            repo = f"https://{repo}"
+        elif repo.startswith("gitlab.com"):
+            repo = f"https://{repo}"
+        elif repo.count("/") == 1:
+            repo = f"https://github.com/{repo}"
+
+        if repo.endswith("/"):
+            repo = repo[:-1]
+
         return repo
 
+    @validator("url_template", always=True)
+    def infer_url_template(cls, url_template: Optional[str], values: dict) -> str:
+        if url_template is not None:
+            return url_template
+
+        repo: str = values["repo"]
+        if repo.startswith(_GITHUB_PREFIX):
+            return _GITHUB_URL_TEMPLATE
+        elif repo.startswith(_GITLAB_PREFIX):
+            return _GITLAB_URL_TEMPLATE
+        else:
+            raise ValueError(
+                "Unable to infer URL template from repo. Please set url_template manually."
+            )
+
     def get_url_for_file_path(self, file_path: str) -> str:
-        return f"{self.base_url}/{self.repo}/blob/{self.branch}/{file_path}"
+        assert self.url_template
+        return self.url_template.format(
+            repo_url=self.repo, branch=self.branch, file_path=file_path
+        )
 
 
 class GitHubInfo(GitHubReference):
+    """A reference to a Git repository, including a deploy key that can be used to clone it."""
+
     deploy_key_file: Optional[FilePath] = Field(
         None,
         description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. Use a file where possible, else see deploy_key for a config field that accepts a raw string.",
@@ -43,7 +86,7 @@ class GitHubInfo(GitHubReference):
 
     repo_ssh_locator: Optional[str] = Field(
         None,
-        description="Auto-inferred from repo as git@github.com:{repo}, but you can override this if needed.",
+        description="The url to call `git clone` on. We infer this for github and gitlab repos, but it is required for other hosts.",
     )
 
     @validator("deploy_key_file")
@@ -69,10 +112,21 @@ class GitHubInfo(GitHubReference):
         return v
 
     @validator("repo_ssh_locator", always=True)
-    def auto_infer_from_repo(cls, v: Optional[str], values: Dict[str, Any]) -> str:
-        if v is None:
-            return f"git@github.com:{values.get('repo')}"
-        return v
+    def infer_repo_ssh_locator(
+        cls, repo_ssh_locator: Optional[str], values: dict
+    ) -> str:
+        if repo_ssh_locator is not None:
+            return repo_ssh_locator
+
+        repo: str = values["repo"]
+        if repo.startswith(_GITHUB_PREFIX):
+            return f"git@github.com:{repo[len(_GITHUB_PREFIX):]}.git"
+        elif repo.startswith(_GITLAB_PREFIX):
+            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX):]}.git"
+        else:
+            raise ValueError(
+                "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."
+            )
 
     @property
     def branch_for_clone(self) -> Optional[str]:

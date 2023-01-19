@@ -308,7 +308,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         if self._computed_connect_args is not None:
             return self._computed_connect_args
 
-        connect_args: dict = {
+        connect_args: Dict[str, Any] = {
             # Improves performance and avoids timeout errors for larger query result
             CLIENT_PREFETCH_THREADS: 10,
             CLIENT_SESSION_KEEP_ALIVE: True,
