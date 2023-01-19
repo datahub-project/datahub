@@ -267,8 +267,10 @@ class RegularFetcher(DataFetcherBase):
             # Tile is either created from report or dataset or from custom visualization
             if report_fields["report"] is not None:
                 report_fields["createdFrom"] = Tile.CreatedFrom.REPORT
-            elif report_fields["dataset"] is not None or \
-                    (report_fields["dataset"] is None and tile_instance.get("datasetId") is not None): # Admin API is disabled and hence dataset instance is mising
+            elif report_fields["dataset"] is not None or (
+                report_fields["dataset"] is None
+                and tile_instance.get("datasetId") is not None
+            ):  # Admin API is disabled and hence dataset instance is mising
                 report_fields["createdFrom"] = Tile.CreatedFrom.DATASET
             else:
                 report_fields["createdFrom"] = Tile.CreatedFrom.VISUALIZATION

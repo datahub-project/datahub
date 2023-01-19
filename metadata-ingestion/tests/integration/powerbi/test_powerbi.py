@@ -740,7 +740,9 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-def test_admin_api_disabled(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_admin_api_disabled(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -783,4 +785,3 @@ def test_admin_api_disabled(mock_msal, pytestconfig, tmp_path, mock_time, reques
         output_path=f"{tmp_path}/powerbi_admin_api_disabled_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
-
