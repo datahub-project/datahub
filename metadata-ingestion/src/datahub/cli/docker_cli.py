@@ -43,7 +43,10 @@ NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
 ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
 )
-M1_QUICKSTART_COMPOSE_FILE = (
+NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose-m1.quickstart.yml"
+)
+ELASTIC_M1_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"
 )
 CONSUMERS_QUICKSTART_COMPOSE_FILE = (
@@ -61,8 +64,12 @@ NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
 ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
-M1_QUICKSTART_COMPOSE_URL = f"{DOCKER_COMPOSE_BASE}/{M1_QUICKSTART_COMPOSE_FILE}"
-
+NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
+    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+)
+ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
+    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+)
 
 class Architectures(Enum):
     x86 = "x86"
@@ -672,13 +679,13 @@ def quickstart(
                 "Running with neo4j on M1 is not currently supported, will be using elasticsearch as graph",
                 fg="red",
             )
-        github_file = (
-            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-            if should_use_neo4j and not is_arch_m1(quickstart_arch)
-            else ELASTIC_QUICKSTART_COMPOSE_URL
-            if not is_arch_m1(quickstart_arch)
-            else M1_QUICKSTART_COMPOSE_URL
-        )
+
+        if should_use_neo4j:
+            github_file = NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL if not is_arch_m1(quickstart_arch) \
+                else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
+        else:
+            github_file = ELASTIC_QUICKSTART_COMPOSE_URL if not is_arch_m1(quickstart_arch) \
+                else ELASTIC_M1_QUICKSTART_COMPOSE_FILE
 
         # also allow local files
         request_session = requests.Session()
