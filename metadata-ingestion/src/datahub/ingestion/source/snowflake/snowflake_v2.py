@@ -1227,6 +1227,8 @@ class SnowflakeV2Source(
     def gen_schema_containers(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
+        db_name = self.snowflake_identifier(db_name)
+        schema_name = self.snowflake_identifier(schema.name)
         database_container_key = gen_database_key(
             database=db_name,
             platform=self.platform,
@@ -1236,7 +1238,7 @@ class SnowflakeV2Source(
 
         schema_container_key = gen_schema_key(
             db_name=db_name,
-            schema=schema.name,
+            schema=schema_name,
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
