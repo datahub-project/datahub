@@ -34,7 +34,7 @@ mutation {
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{ "query":"{ createAccessToken(input: { type: PERSONAL, actorUrn: \"urn:li:corpuser:datahub\", duration: ONE_HOUR, name: \"my personal token\" } ) { accessToken metadata { id name description} } }", "variables":{}}'
+--data-raw '{ "query":"mutation { createAccessToken(input: { type: PERSONAL, actorUrn: \"urn:li:corpuser:datahub\", duration: ONE_HOUR, name: \"my personal token\" } ) { accessToken metadata { id name description} } }", "variables":{}}'
 ```
 
 ### Listing Access Tokens

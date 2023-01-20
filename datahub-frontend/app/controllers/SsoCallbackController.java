@@ -55,8 +55,11 @@ public class SsoCallbackController extends CallbackController {
           log.error("Caught exception while attempting to handle SSO callback! It's likely that SSO integration is mis-configured.", e);
           return Results.redirect(
               String.format("/login?error_msg=%s",
-                  URLEncoder.encode("Failed to sign in using Single Sign-On provider. Please contact your DataHub Administrator, "
-                      + "or refer to server logs for more information.", StandardCharsets.UTF_8)));
+                  URLEncoder.encode(
+                      "Failed to sign in using Single Sign-On provider. Please try again, or contact your DataHub Administrator.",
+                      StandardCharsets.UTF_8)))
+              .discardingCookie("actor")
+              .withNewSession();
         }
         return res;
       });

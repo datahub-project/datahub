@@ -241,7 +241,10 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
-    "datahub-lite": set(),
+    "datahub-lite": {
+        "fastapi",
+        "uvicorn",
+    },
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
