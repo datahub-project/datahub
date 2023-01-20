@@ -6,13 +6,12 @@ ARG APP_ENV=prod
 FROM golang:1.17-alpine3.15 AS binary
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
-RUN apk --no-cache --update add openssl git tar curl \
-    && git clone --depth 1 -b $DOCKERIZE_VERSION https://github.com/jwilder/dockerize.git
+
+RUN apk --no-cache --update add openssl git tar curl 
+
 WORKDIR /go/src/github.com/jwilder/dockerize
 
-ENV GO111MODULE=on
-RUN go mod tidy
-RUN go install
+RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
 FROM alpine:3 AS base
 RUN apk add --no-cache curl jq tar bash coreutils
