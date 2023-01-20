@@ -234,14 +234,12 @@ WHERE
                     dataset_urn, int(datetime.now().timestamp() * 1000)
                 )
 
-            wu = wrap_aspect_as_workunit(
+            yield wrap_aspect_as_workunit(
                 "dataset",
                 dataset_urn,
                 "datasetProfile",
                 profile,
             )
-            self.report.report_workunit(wu)
-            yield wu
 
     def get_bigquery_profile_request(
         self, project: str, dataset: str, table: BigqueryTable
