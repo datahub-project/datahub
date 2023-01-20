@@ -458,10 +458,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         yield from gen_database_container(
             database=database,
-            config=self.config,
             name=database,
             sub_types=["Project"],
             domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
             report=self.report,
             database_container_key=database_container_key,
         )
@@ -474,11 +474,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         database_container_key = self.gen_project_id_key(database=project_id)
 
         yield from gen_schema_container(
-            config=self.config,
             database=project_id,
             schema=dataset,
             sub_types=["Dataset"],
             domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
             report=self.report,
             schema_container_key=schema_container_key,
             database_container_key=database_container_key,

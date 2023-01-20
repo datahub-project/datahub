@@ -39,7 +39,9 @@ from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
+    gen_database_key,
     gen_schema_container,
+    gen_schema_key,
     get_domain_wu,
 )
 from datahub.ingestion.source.state.sql_common_state import (
@@ -420,12 +422,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_database_container(
-            config=self.config,
-            database=database,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+        database_container_key = gen_database_key(
+            database,
             platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_database_container(
+            database=database,
+            database_container_key=database_container_key,
+            sub_types=[SqlContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
             report=self.report,
         )
 
@@ -434,12 +443,30 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         schema: str,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
+
+        database_container_key = gen_database_key(
+            database,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        schema_container_key = gen_schema_key(
+            db_name=database,
+            schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
         yield from gen_schema_container(
-            config=self.config,
             database=database,
             schema=schema,
+            schema_container_key=schema_container_key,
+            database_container_key=database_container_key,
             sub_types=[SqlContainerSubTypes.SCHEMA],
             domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
             report=self.report,
         )
 

@@ -51,17 +51,14 @@ def gen_database_key(
 
 
 def gen_schema_container(
-    config: "SQLAlchemyConfig",
     schema: str,
     database: str,
     sub_types: List[str],
-    platform: Optional[str] = None,
+    database_container_key: PlatformKey,
+    schema_container_key: PlatformKey,
     domain_registry: Optional[DomainRegistry] = None,
-    platform_instance: Optional[str] = None,
-    env: Optional[str] = None,
+    domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     report: Optional[SourceReport] = None,
-    database_container_key: Optional[PlatformKey] = None,
-    schema_container_key: Optional[PlatformKey] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -73,42 +70,12 @@ def gen_schema_container(
     extra_properties: Optional[Dict[str, str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
 
-    if not platform:
-        platform = config.platform
-
-    assert platform
-
-    if not platform_instance:
-        platform_instance = config.platform_instance
-
-    if not env:
-        env = config.env
-
-    database_container_key = (
-        gen_database_key(
-            database, platform=platform, platform_instance=platform_instance, env=env
-        )
-        if not database_container_key
-        else database_container_key
-    )
-
-    schema_container_key = (
-        gen_schema_key(
-            db_name=database,
-            schema=schema,
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-        if not schema_container_key
-        else schema_container_key
-    )
-
     domain_urn: Optional[str] = None
     if domain_registry:
+        assert domain_config
         domain_urn = gen_domain_urn(
             f"{database}.{schema}",
-            domain_config=config.domain,
+            domain_config=domain_config,
             domain_registry=domain_registry,
         )
 
@@ -151,15 +118,12 @@ def gen_domain_urn(
 
 
 def gen_database_container(
-    config: SQLAlchemyConfig,
     database: str,
+    database_container_key: PlatformKey,
     sub_types: List[str],
-    platform: Optional[str] = None,
+    domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     domain_registry: Optional[DomainRegistry] = None,
-    platform_instance: Optional[str] = None,
-    env: Optional[str] = None,
     report: Optional[SourceReport] = None,
-    database_container_key: Optional[PlatformKey] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -172,28 +136,10 @@ def gen_database_container(
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn: Optional[str] = None
     if domain_registry:
+        assert domain_config
         domain_urn = gen_domain_urn(
-            database, domain_config=config.domain, domain_registry=domain_registry
+            database, domain_config=domain_config, domain_registry=domain_registry
         )
-
-    if not platform:
-        platform = config.platform
-
-    assert platform
-
-    if not platform_instance:
-        platform_instance = config.platform_instance
-
-    if not env:
-        env = config.env
-
-    database_container_key = (
-        gen_database_key(
-            database, platform=platform, platform_instance=platform_instance, env=env
-        )
-        if not database_container_key
-        else database_container_key
-    )
 
     container_workunits = gen_containers(
         container_key=database_container_key,

@@ -73,7 +73,9 @@ from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
+    gen_database_key,
     gen_schema_container,
+    gen_schema_key,
     get_dataplatform_instance_aspect,
     get_domain_wu,
 )
@@ -1190,12 +1192,20 @@ class SnowflakeV2Source(
     def gen_database_containers(
         self, database: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
+        database_container_key = gen_database_key(
+            self.snowflake_identifier(database.name),
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
         yield from gen_database_container(
-            config=self.config,
             name=database.name,
             database=self.snowflake_identifier(database.name),
+            database_container_key=database_container_key,
             sub_types=[SqlContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
             report=self.report,
             external_url=self.get_external_url_for_database(database.name)
             if self.config.include_external_url
@@ -1217,11 +1227,28 @@ class SnowflakeV2Source(
     def gen_schema_containers(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
+        database_container_key = gen_database_key(
+            database=db_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        schema_container_key = gen_schema_key(
+            db_name=db_name,
+            schema=schema.name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
         yield from gen_schema_container(
-            config=self.config,
             name=schema.name,
             schema=self.snowflake_identifier(schema.name),
             database=self.snowflake_identifier(db_name),
+            database_container_key=database_container_key,
+            domain_config=self.config.domain,
+            schema_container_key=schema_container_key,
             sub_types=[SqlContainerSubTypes.SCHEMA],
             report=self.report,
             domain_registry=self.domain_registry,

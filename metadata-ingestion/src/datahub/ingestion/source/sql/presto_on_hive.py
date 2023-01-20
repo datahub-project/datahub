@@ -40,7 +40,9 @@ from datahub.ingestion.source.sql.sql_config import (
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
+    gen_database_key,
     gen_schema_container,
+    gen_schema_key,
     get_domain_wu,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import JobId
@@ -324,11 +326,19 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
+        database_container_key = gen_database_key(
+            database,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
         yield from gen_database_container(
-            config=self.config,
             database=database,
+            database_container_key=database_container_key,
             sub_types=[self.database_container_subtype],
             domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
             report=self.report,
         )
 
@@ -360,13 +370,29 @@ class PrestoOnHiveSource(SQLAlchemySource):
             schema = row["schema"]
             if not self.config.database_pattern.allowed(schema):
                 continue
+            database_container_key = gen_database_key(
+                database,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            schema_container_key = gen_schema_key(
+                db_name=database,
+                schema=schema,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
 
             yield from gen_schema_container(
-                config=self.config,
                 database=database,
                 schema=schema,
                 sub_types=["Schema"],
+                database_container_key=database_container_key,
+                schema_container_key=schema_container_key,
                 domain_registry=self.domain_registry,
+                domain_config=self.config.domain,
                 report=self.report,
             )
 
