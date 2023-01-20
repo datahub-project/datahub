@@ -661,7 +661,7 @@ def quickstart(
     if issues:
         _print_issue_list_and_exit(issues, "Unable to run quickstart:")
 
-    quickstart_compose_file_list = list(
+    quickstart_compose_file = list(
         quickstart_compose_file
     )  # convert to list from tuple
 
@@ -673,9 +673,10 @@ def quickstart(
         _attempt_stop(quickstart_compose_file)
         return
     elif not quickstart_compose_file:
+        print("compose file name", quickstart_compose_file_name)
         download_compose_files(
             quickstart_compose_file_name,
-            quickstart_compose_file_list,
+            quickstart_compose_file,
             graph_service_impl,
             kafka_setup,
             quickstart_arch,
