@@ -9,7 +9,7 @@ from sqlalchemy.sql import sqltypes
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.ingestion.api.common import WorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
@@ -51,7 +51,9 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         self.report: SnowflakeV2Report = report
         self.logger = logger
 
-    def get_workunits(self, databases: List[SnowflakeDatabase]) -> Iterable[WorkUnit]:
+    def get_workunits(
+        self, databases: List[SnowflakeDatabase]
+    ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if self.config.profiling.enabled:

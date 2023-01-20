@@ -1,7 +1,7 @@
 import json
 import logging
 import typing
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 import pydantic
 from pyathena.common import BaseCursor
@@ -9,7 +9,7 @@ from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mcp_builder import DatabaseKey, gen_containers
+from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -21,9 +21,17 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemyConfig,
     SQLAlchemySource,
+    SqlContainerSubTypes,
+)
+from datahub.ingestion.source.sql.sql_config import (
+    SQLAlchemyConfig,
     make_sqlalchemy_uri,
+)
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    gen_database_container,
+    gen_database_key,
 )
 
 
@@ -33,7 +41,7 @@ class AthenaConfig(SQLAlchemyConfig):
         default=None,
         description="Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
     )
-    password: Optional[str] = pydantic.Field(
+    password: Optional[pydantic.SecretStr] = pydantic.Field(
         default=None, description="Same detection scheme as username"
     )
     database: Optional[str] = pydantic.Field(
@@ -84,7 +92,7 @@ class AthenaConfig(SQLAlchemyConfig):
         return make_sqlalchemy_uri(
             self.scheme,
             self.username or "",
-            self.password,
+            self.password.get_secret_value() if self.password else None,
             f"athena.{self.aws_region}.amazonaws.com:443",
             self.database,
             uri_opts={
@@ -175,6 +183,59 @@ class AthenaSource(SQLAlchemySource):
 
         return description, custom_properties, location
 
+    def gen_database_containers(
+        self,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        # In Athena the schema is the database and database is not existing
+        return []
+
+    def gen_schema_containers(
+        self,
+        schema: str,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        database_container_key = gen_database_key(
+            database,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_database_container(
+            database=database,
+            database_container_key=database_container_key,
+            sub_types=[SqlContainerSubTypes.DATABASE],
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
+            report=self.report,
+        )
+
+    def get_database_container_key(self, db_name: str, schema: str) -> PlatformKey:
+        # Because our overridden get_allowed_schemas method returns db_name as the schema name,
+        # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
+        assert db_name == schema
+        return gen_database_key(
+            db_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def add_table_to_schema_container(
+        self,
+        dataset_urn: str,
+        db_name: str,
+        schema: str,
+        schema_container_key: Optional[PlatformKey] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            parent_container_key=self.get_database_container_key(db_name, schema),
+            report=self.report,
+        )
+
     # It seems like database/schema filter in the connection string does not work and this to work around that
     def get_schema_names(self, inspector: Inspector) -> List[str]:
         athena_config = typing.cast(AthenaConfig, self.config)
@@ -182,35 +243,6 @@ class AthenaSource(SQLAlchemySource):
         if athena_config.database:
             return [schema for schema in schemas if schema == athena_config.database]
         return schemas
-
-    def gen_database_containers(
-        self, inspector: Inspector, database: str
-    ) -> typing.Iterable[MetadataWorkUnit]:
-        # In Athena the schema is the database and database is not existing
-        return []
-
-    def gen_schema_key(self, db_name: str, schema: str) -> DatabaseKey:
-        return DatabaseKey(
-            database=schema,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
-        )
-
-    def gen_schema_containers(
-        self, inspector: Inspector, schema: str, db_name: str
-    ) -> typing.Iterable[MetadataWorkUnit]:
-        database_container_key = self.gen_database_key(database=schema)
-
-        container_workunits = gen_containers(
-            database_container_key,
-            schema,
-            ["Database"],
-        )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def close(self):
         if self.cursor:
