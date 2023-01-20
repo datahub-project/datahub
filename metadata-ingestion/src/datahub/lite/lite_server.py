@@ -1,7 +1,7 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import RedirectResponse
 
 from datahub.lite.lite_local import (
@@ -10,7 +10,6 @@ from datahub.lite.lite_local import (
     Searchable,
     SearchFlavor,
 )
-from datahub.metadata.schema_classes import SystemMetadataClass, _Aspect
 
 app = FastAPI()
 logger = logging.getLogger(__name__)
@@ -22,8 +21,8 @@ def redirect_to_docs():
     return RedirectResponse(app.docs_url)
 
 
-@app.get("/ping")  # type: ignore
-def ping() -> dict:  # type: ignore
+@app.get("/ping")
+def ping() -> dict:
     return {"ping": "pong"}
 
 
@@ -34,44 +33,45 @@ def lite() -> DataHubLiteLocal:
     return lite
 
 
-@app.get("/entities")  # type: ignore
-def entities_list(lite: DataHubLiteLocal = Depends(lite)) -> Iterable[str]:  # type: ignore
+@app.get("/entities")
+def entities_list(lite: DataHubLiteLocal = Depends(lite)) -> List[str]:
     # TODO add some filtering capabilities
-    return lite.list_ids()
+    return list(lite.list_ids())
 
 
-@app.get("/entities/{id}")  # type: ignore
-def entities_get(  # type: ignore
+@app.get("/entities/{id}")
+def entities_get(
     id: str,
     aspects: Optional[List[str]] = Query(None),
     lite: DataHubLiteLocal = Depends(lite),
-) -> Optional[
-    Dict[str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]]
-]:
+) -> Dict[str, Union[str, Dict[str, dict]]]:
     # Queried as GET /entities/<url-encoded urn>?aspects=aspect1&aspects=aspect2&...
     logger.warning(f"get {id} aspects={aspects}")
-    return lite.get(id, aspects=aspects)
+    entities = lite.get(id, aspects=aspects, typed=False)
+    if not entities:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    return entities  # type: ignore
 
 
-@app.get("/browse")  # type: ignore
-def browse(  # type: ignore
+@app.get("/browse")
+def browse(
     path: str = Query("/"),
     catalog: DataHubLiteLocal = Depends(lite),
-) -> Iterable[Browseable]:
+) -> List[Browseable]:
     # Queried as GET /browse/?path=<url-encoded-path>
     logger.info(f"browse {path}")
-    return catalog.ls(path)
+    return list(catalog.ls(path))
 
 
-@app.get("/search")  # type: ignore
-def search(  # type: ignore
+@app.get("/search")
+def search(
     query: str = Query("*"),
     flavor: SearchFlavor = Query(SearchFlavor.FREE_TEXT),
     lite: DataHubLiteLocal = Depends(lite),
-) -> Iterable[Searchable]:
+) -> List[Searchable]:
     # Queried as GET /search/?query=<url-encoded-query>
     logger.info(f"search {query}")
-    return lite.search(query=query, flavor=flavor)
+    return list(lite.search(query=query, flavor=flavor))
 
 
 # TODO put command
