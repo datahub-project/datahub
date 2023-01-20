@@ -514,6 +514,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 env=self.config.env,
             )
 
+            if schema_container_key:
+                raise Exception(
+                    f"Test container guid: {schema_container_key.guid()} valuse: db_name: {db_name}, schema: {schema}, platform: {self.platform}, platform_instance: {self.config.platform_instance}, env: {self.config.env}"
+                )
             yield from add_table_to_schema_container(
                 dataset_urn=dataset_urn,
                 parent_container_key=schema_container_key,
