@@ -1,5 +1,8 @@
 import json
 import logging
+import os
+import os.path
+import platform
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
@@ -471,6 +474,8 @@ class SnowflakeV2Source(
         return _report
 
     def get_workunits(self) -> Iterable[WorkUnit]:
+        self._snowflake_clear_ocsp_cache()
+
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -1569,6 +1574,57 @@ class SnowflakeV2Source(
             if "Unsupported feature 'TAG'" in str(e):
                 return True
             raise
+
+    def _snowflake_clear_ocsp_cache(self):
+        # Because of some issues with the Snowflake Python connector, we wipe the OCSP cache.
+        #
+        # Why is this necessary:
+        # 1. Snowflake caches OCSP (certificate revocation) responses in a file on disk.
+        #       https://github.com/snowflakedb/snowflake-connector-python/blob/502e49f65368d4eed2d6f543b43139cc96e03c00/src/snowflake/connector/ocsp_snowflake.py#L78-L108
+        # 2. It uses pickle to serialize the cache to disk.
+        #       https://github.com/snowflakedb/snowflake-connector-python/blob/502e49f65368d4eed2d6f543b43139cc96e03c00/src/snowflake/connector/cache.py#L483-L495
+        # 3. In some cases, pyspark objects seem to make their way into the cache. This introduces a hard
+        #    dependency on the specific version of pyspark that the cache was written with because of the pickle
+        #    serialization process.
+        #
+        # As an example, if you run snowflake ingestion normally with pyspark v3.2.1, then downgrade pyspark to v3.0.3,
+        # and then run ingestion again, you will get an error like this:
+        #
+        #     error 250001: Could not connect to Snowflake backend after 0 attempt(s).
+        #     ModuleNotFoundError: No module named 'pyspark'
+        #
+        # While ideally the snowflake-connector-python library would be fixed to not serialize pyspark objects,
+        # or to handle serde errors gracefully, or to use a robust serialization format instead of pickle,
+        # we're stuck with this workaround for now.
+
+        # This file selection logic is mirrored from the snowflake-connector-python library.
+        # See https://github.com/snowflakedb/snowflake-connector-python/blob/502e49f65368d4eed2d6f543b43139cc96e03c00/src/snowflake/connector/cache.py#L349-L369
+        plat = platform.system().lower()
+        if plat == "darwin":
+            file_path = os.path.join(
+                "~", "Library", "Caches", "Snowflake", "ocsp_response_validation_cache"
+            )
+        elif plat == "windows":
+            file_path = os.path.join(
+                "~",
+                "AppData",
+                "Local",
+                "Snowflake",
+                "Caches",
+                "ocsp_response_validation_cache",
+            )
+        else:
+            # linux is the default fallback for snowflake
+            file_path = os.path.join(
+                "~", ".cache", "snowflake", "ocsp_response_validation_cache"
+            )
+
+        file_path = os.path.expanduser(file_path)
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            logger.debug(f'Failed to remove OCSP cache file at "{file_path}"')
 
     def close(self) -> None:
         super().close()
