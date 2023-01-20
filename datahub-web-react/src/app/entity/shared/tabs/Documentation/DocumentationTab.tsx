@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 
 import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
-import { EditOutlined } from '@ant-design/icons';
+import { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
 
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
@@ -15,6 +15,7 @@ import { LinkList } from './components/LinkList';
 import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 import { Editor } from './components/editor/Editor';
+import { DescriptionPreviewModal } from './components/DescriptionPreviewModal';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
@@ -36,15 +37,19 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
 
     const routeToTab = useRouteToTab();
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
+    const showModal = queryString.parse(useLocation().search, { parseBooleans: true }).modal;
 
     useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
-            routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+            routeToTab({
+                tabName: 'Documentation',
+                tabParams: { editing: true, modal: !!showModal },
+            });
         }
-    }, [urn, routeToTab, localStorageDictionary]);
+    }, [urn, routeToTab, showModal, localStorageDictionary]);
 
-    return isEditing ? (
+    return isEditing && !showModal ? (
         <>
             <DescriptionEditor onComplete={() => routeToTab({ tabName: 'Documentation' })} />
         </>
@@ -61,6 +66,19 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                                 <EditOutlined /> Edit
                             </Button>
                             {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
+                        </div>
+                        <div>
+                            <Button
+                                type="text"
+                                onClick={() =>
+                                    routeToTab({
+                                        tabName: 'Documentation',
+                                        tabParams: { modal: true },
+                                    })
+                                }
+                            >
+                                <ExpandAltOutlined />
+                            </Button>
                         </div>
                     </TabToolbar>
                     <div>
@@ -84,6 +102,15 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                     </Button>
                     {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </EmptyTab>
+            )}
+            {showModal && (
+                <DescriptionPreviewModal
+                    editMode={(isEditing && true) || false}
+                    description={description}
+                    onClose={() => {
+                        routeToTab({ tabName: 'Documentation', tabParams: { editing: false } });
+                    }}
+                />
             )}
         </>
     );

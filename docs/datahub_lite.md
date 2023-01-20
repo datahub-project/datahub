@@ -35,10 +35,10 @@ The following features are **NOT** supported:
 
 ## Prerequisites
 
-There are no pre-requisites for DataHub Lite other than having a Python 3.7+ environment and a [`acryl-datahub`](https://pypi.org/project/acryl-datahub/) > 0.9.6. Install the `datahub` Python cli using the [instructions](./cli.md#using-pip).
+To use `datahub lite` commands, you need to install [`acryl-datahub`](https://pypi.org/project/acryl-datahub/) > 0.9.6 ([install instructions](./cli.md#using-pip)) and the `datahub-lite` plugin.
 
 ```shell
-pip install acryl-datahub
+pip install acryl-datahub[datahub-lite]
 ```
 
 ## Importing Metadata
