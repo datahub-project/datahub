@@ -17,6 +17,12 @@ type Props = {
     onCreateToken: () => void;
 };
 
+type FormProps = {
+    name: string;
+    description?: string;
+    duration: AccessTokenDuration;
+};
+
 const ExpirationSelectContainer = styled.div`
     padding: 1px;
 `;
@@ -34,16 +40,14 @@ const OptionText = styled.span<{ isRed: boolean }>`
 `;
 
 export default function CreateTokenModal({ currentUserUrn, visible, onClose, onCreateToken }: Props) {
-    const [tokenName, setTokenName] = useState('');
-    const [tokenDescription, setTokenDescription] = useState('');
-    const [selectedTokenDuration, setSelectedTokenDuration] = useState(ACCESS_TOKEN_DURATIONS[2].duration);
+    const [selectedTokenDuration, setSelectedTokenDuration] = useState<AccessTokenDuration | null>(null);
 
     const [showModal, setShowModal] = useState(false);
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
 
     const [createAccessToken, { data }] = useCreateAccessTokenMutation();
 
-    const [form] = Form.useForm();
+    const [form] = Form.useForm<FormProps>();
 
     // Check and show the modal once the data for createAccessToken will generate
     useEffect(() => {
@@ -54,34 +58,34 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
 
     // Function to handle the close or cross button of Access Token Modal
     const onDetailModalClose = () => {
+        setSelectedTokenDuration(null);
         setShowModal(false);
         onClose();
     };
 
     // Function to handle the close or cross button of Create Token Modal
     const onModalClose = () => {
-        setTokenName('');
-        setTokenDescription('');
-        setSelectedTokenDuration(ACCESS_TOKEN_DURATIONS[2].duration);
         form.resetFields();
         onClose();
     };
 
     const onCreateNewToken = () => {
+        const { duration, name, description } = form.getFieldsValue();
         const input: CreateAccessTokenInput = {
             actorUrn: currentUserUrn,
             type: AccessTokenType.Personal,
-            duration: selectedTokenDuration,
-            name: tokenName,
-            description: tokenDescription,
+            duration,
+            name,
+            description,
         };
         createAccessToken({ variables: { input } })
             .then(({ errors }) => {
                 if (!errors) {
+                    setSelectedTokenDuration(duration);
                     analytics.event({
                         type: EventType.CreateAccessTokenEvent,
                         accessTokenType: AccessTokenType.Personal,
-                        duration: selectedTokenDuration,
+                        duration,
                     });
                 }
             })
@@ -96,12 +100,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
     };
 
     const accessToken = data && data.createAccessToken?.accessToken;
-    const selectedExpiresInText = getTokenExpireDate(selectedTokenDuration);
-
-    // Function to handle the selection of Token Duration
-    const onSelectTokenDurationHandler = (duration: AccessTokenDuration) => {
-        setSelectedTokenDuration(duration);
-    };
+    const selectedExpiresInText = selectedTokenDuration && getTokenExpireDate(selectedTokenDuration);
 
     // Handle the Enter press
     useEnterKeyListener({
@@ -129,7 +128,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
             >
                 <Form
                     form={form}
-                    initialValues={{}}
+                    initialValues={{ duration: ACCESS_TOKEN_DURATIONS[2].duration }}
                     layout="vertical"
                     onFieldsChange={() =>
                         setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
@@ -149,40 +148,38 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                             ]}
                             hasFeedback
                         >
-                            <Input
-                                placeholder="A name for your token"
-                                value={tokenName}
-                                onChange={(event) => setTokenName(event.target.value)}
-                            />
+                            <Input placeholder="A name for your token" />
                         </Form.Item>
                     </Form.Item>
                     <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                         <Typography.Paragraph>An optional description for your new token.</Typography.Paragraph>
                         <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
-                            <Input
-                                placeholder="A description for your token"
-                                value={tokenDescription}
-                                onChange={(event) => setTokenDescription(event.target.value)}
-                            />
+                            <Input placeholder="A description for your token" />
                         </Form.Item>
                     </Form.Item>
                     <ExpirationSelectContainer>
                         <Typography.Text strong>Expires in</Typography.Text>
-                        <ExpirationDurationSelect
-                            value={selectedTokenDuration}
-                            onSelect={(duration) => onSelectTokenDurationHandler(duration as AccessTokenDuration)}
-                        >
-                            {ACCESS_TOKEN_DURATIONS.map((duration) => (
-                                <Select.Option key={duration.text} value={duration.duration}>
-                                    <OptionText isRed={duration.duration === AccessTokenDuration.NoExpiry}>
-                                        {duration.text}
-                                    </OptionText>
-                                </Select.Option>
-                            ))}
-                        </ExpirationDurationSelect>
-                        <Typography.Text type="secondary" style={hasSelectedNoExpiration ? { color: `${red[5]}` } : {}}>
-                            {getTokenExpireDate(selectedTokenDuration)}
-                        </Typography.Text>
+                        <Form.Item name="duration" noStyle>
+                            <ExpirationDurationSelect>
+                                {ACCESS_TOKEN_DURATIONS.map((duration) => (
+                                    <Select.Option key={duration.text} value={duration.duration}>
+                                        <OptionText isRed={duration.duration === AccessTokenDuration.NoExpiry}>
+                                            {duration.text}
+                                        </OptionText>
+                                    </Select.Option>
+                                ))}
+                            </ExpirationDurationSelect>
+                        </Form.Item>
+                        <Form.Item shouldUpdate={(prev, cur) => prev.duration !== cur.duration} noStyle>
+                            {({ getFieldValue }) => (
+                                <Typography.Text
+                                    type="secondary"
+                                    style={hasSelectedNoExpiration ? { color: `${red[5]}` } : {}}
+                                >
+                                    {getFieldValue('duration') && getTokenExpireDate(getFieldValue('duration'))}
+                                </Typography.Text>
+                            )}
+                        </Form.Item>
                     </ExpirationSelectContainer>
                 </Form>
             </Modal>
