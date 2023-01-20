@@ -233,6 +233,7 @@ class SnowflakeV2Source(
             run_id=self.ctx.run_id,
         )
 
+        self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -994,13 +995,14 @@ class SnowflakeV2Source(
         )
         yield self.wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
 
-        yield from get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
-            report=self.report,
-        )
+        if self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
         if table.tags:
             tag_associations = [
