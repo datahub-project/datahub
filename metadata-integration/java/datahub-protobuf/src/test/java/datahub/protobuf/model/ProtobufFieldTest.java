@@ -258,7 +258,8 @@ public class ProtobufFieldTest {
 
         SchemaField addressField = testMetadata.getFields()
                 .stream().filter(f -> f.getFieldPath()
-                        .equals("[version=2.0].[type=extended_protobuf_UserMsg].[type=extended_protobuf_UserMsg_AddressMsg].address.[type=google_protobuf_StringValue].zipcode"))
+                        .equals("[version=2.0].[type=extended_protobuf_UserMsg]."
+                                + "[type=extended_protobuf_UserMsg_AddressMsg].address.[type=google_protobuf_StringValue].zipcode"))
                 .findFirst()
                 .orElseThrow();
 
