@@ -74,9 +74,9 @@ jobs:
         with:
           python-version: "3.7"
       - name: Download YQ
-        uses: chrisdickinson/setup-yq@v1.0.0
+        uses: chrisdickinson/setup-yq@v1.0.1
         with:
-          yq-version: 4.28.2
+          yq-version: v4.28.2
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
 
