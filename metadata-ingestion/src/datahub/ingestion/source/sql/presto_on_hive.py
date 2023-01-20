@@ -719,7 +719,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             dataset_snapshot.aspects.append(view_properties)
 
             yield from self.add_hive_dataset_to_container(
-                dataset_urn=dataset_urn, inspector=inspector, schema=schema
+                dataset_urn=dataset_urn, inspector=inspector, schema=dataset.schema_name
             )
 
             # construct mce
