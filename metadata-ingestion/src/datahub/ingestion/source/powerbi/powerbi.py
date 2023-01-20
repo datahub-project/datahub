@@ -19,7 +19,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.powerbi.config import (
     Constant,
@@ -27,18 +27,17 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
-from datahub.ingestion.source.state.sql_common_state import BaseSQLAlchemyCheckpointState
+from datahub.ingestion.source.powerbi.m_query import parser, resolver
+from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
+from datahub.ingestion.source.state.sql_common_state import (
+    BaseSQLAlchemyCheckpointState,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
-from datahub.ingestion.source.state.stateful_ingestion_base import StatefulIngestionSourceBase
-
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, resolver
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
@@ -61,6 +60,10 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -784,6 +787,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
     source_config: PowerBiDashboardSourceConfig
     reporter: PowerBiDashboardSourceReport
     accessed_dashboards: int = 0
+    platform: str = "powerbi"
 
     def __init__(self, config: PowerBiDashboardSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)

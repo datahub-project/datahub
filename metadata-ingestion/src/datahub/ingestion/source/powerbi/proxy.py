@@ -566,10 +566,17 @@ class PowerBiAPI:
             """
             report_fields = {
                 "dataset": (
-                    None
+                    workspace.datasets[tile_instance.get("datasetId")]
+                    if tile_instance.get("datasetId") is not None
+                    else None
                 ),
                 "report": (
-                    None
+                    self._get_report(
+                        workspace_id=workspace.id,
+                        report_id=tile_instance.get("reportId"),
+                    )
+                    if tile_instance.get("reportId") is not None
+                    else None
                 ),
                 "createdFrom": PowerBiAPI.Tile.CreatedFrom.UNKNOWN,
             }
@@ -937,26 +944,26 @@ class PowerBiAPI:
         logger.info("Creating scan job for workspace")
         logger.info("{}={}".format(Constant.WorkspaceId, workspace_id))
         logger.debug("Hitting URL={}".format(scan_create_endpoint))
-        # scan_id = create_scan_job()
-        # logger.info("Waiting for scan to complete")
-        # if (
-        #     wait_for_scan_to_complete(
-        #         scan_id=scan_id, timeout=self.__config.scan_timeout
-        #     )
-        #     is False
-        # ):
-        #     raise ValueError(
-        #         "Workspace detail is not available. Please increase scan_timeout to wait."
-        #     )
-        #
-        # # Scan is complete lets take the result
-        # scan_result = get_scan_result(scan_id=scan_id)
+        scan_id = create_scan_job()
+        logger.info("Waiting for scan to complete")
+        if (
+            wait_for_scan_to_complete(
+                scan_id=scan_id, timeout=self.__config.scan_timeout
+            )
+            is False
+        ):
+            raise ValueError(
+                "Workspace detail is not available. Please increase scan_timeout to wait."
+            )
 
-        # logger.debug(f"scan result = %s", json.dumps(scan_result, indent=1))
+        # Scan is complete lets take the result
+        scan_result = get_scan_result(scan_id=scan_id)
+
+        logger.debug(f"scan result = %s", json.dumps(scan_result, indent=1))
         workspace = PowerBiAPI.Workspace(
-            id="bd77dbaa-db07-4a90-b25b-0b7f1d439982", #scan_result["id"],
-            name="DataHub", #scan_result["name"],
-            state="ready", #scan_result["state"],
+            id=scan_result["id"],
+            name=scan_result["name"],
+            state=scan_result["state"],
             datasets={},
             dashboards=[],
             report_endorsements={},
@@ -974,7 +981,7 @@ class PowerBiAPI:
         # Get workspace dashboards
         workspace.dashboards = self.get_dashboards(workspace)
 
-        # workspace.datasets = json_to_dataset_map(scan_result)
+        workspace.datasets = json_to_dataset_map(scan_result)
         init_dashboard_tiles(workspace)
 
         return workspace

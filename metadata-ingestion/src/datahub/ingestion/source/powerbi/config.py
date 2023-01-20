@@ -8,11 +8,14 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DEFAULT_ENV, EnvBasedSourceConfigBase
+from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import StatefulStaleMetadataRemovalConfig
-from datahub.ingestion.source.state.stateful_ingestion_base import LineageStatefulIngestionConfig, \
-    UsageStatefulIngestionConfig, ProfilingStatefulIngestionConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,9 +105,7 @@ class PlatformDetail:
     )
 
 
-class PowerBiAPIConfig(
-        EnvBasedSourceConfigBase,
-    ):
+class PowerBiAPIConfig(StatefulIngestionConfigBase):
     # Organisation Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
@@ -167,6 +168,10 @@ class PowerBiAPIConfig(
         default=True,
         description="Whether to convert the urns of ingested lineage dataset to lowercase",
     )
+    # Configuration for stateful ingestion
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+        default=None, description="PowerBI Stateful Ingestion Config."
+    )
 
     @validator("dataset_type_mapping")
     @classmethod
@@ -202,10 +207,6 @@ class PowerBiAPIConfig(
 
 class PowerBiDashboardSourceConfig(
     PowerBiAPIConfig,
-    LineageStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
-    StatefulStaleMetadataRemovalConfig,
 ):
     platform_name: str = "powerbi"
     platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
