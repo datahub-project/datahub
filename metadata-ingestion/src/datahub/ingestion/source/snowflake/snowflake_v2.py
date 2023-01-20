@@ -978,7 +978,7 @@ class SnowflakeV2Source(
 
         schema_container_key = gen_schema_key(
             db_name=self.snowflake_identifier(db_name),
-            schema=schema_name,
+            schema=self.snowflake_identifier(schema_name),
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
@@ -986,7 +986,7 @@ class SnowflakeV2Source(
 
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
-            schema_container_key=schema_container_key,
+            parent_container_key=schema_container_key,
             report=self.report,
         )
         dpi_aspect = get_dataplatform_instance_aspect(

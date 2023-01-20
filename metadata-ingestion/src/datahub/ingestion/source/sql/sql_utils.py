@@ -163,12 +163,12 @@ def gen_database_container(
 
 def add_table_to_schema_container(
     dataset_urn: str,
-    schema_container_key: PlatformKey,
+    parent_container_key: PlatformKey,
     report: Optional[SourceReport] = None,
 ) -> Iterable[MetadataWorkUnit]:
 
     container_workunits = add_dataset_to_container(
-        container_key=schema_container_key,
+        container_key=parent_container_key,
         dataset_urn=dataset_urn,
     )
     for wu in container_workunits:
