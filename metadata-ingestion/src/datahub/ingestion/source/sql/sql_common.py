@@ -328,9 +328,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
 
-        if not self.config.platform:
-            self.config.platform = self.platform
-
         # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,

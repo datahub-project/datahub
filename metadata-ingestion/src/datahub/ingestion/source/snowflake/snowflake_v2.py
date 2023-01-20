@@ -217,8 +217,7 @@ class SnowflakeV2Source(
         self.logger = logger
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
-        if not self.config.platform:
-            self.config.platform = self.platform
+
         # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,

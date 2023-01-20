@@ -203,8 +203,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
         self.platform: str = "bigquery"
-        if not self.config.platform:
-            self.config.platform = self.platform
 
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
