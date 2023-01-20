@@ -504,20 +504,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
             dataset_snapshot.aspects.append(dataset_properties)
 
-            db_name = self.get_db_name(inspector)
-            schema = key.schema
-            schema_container_key = gen_schema_key(
-                db_name=db_name,
-                schema=schema,
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-
-            yield from add_table_to_schema_container(
-                dataset_urn=dataset_urn,
-                parent_container_key=schema_container_key,
-                report=self.report,
+            yield from self.add_hive_dataset_to_container(
+                dataset_urn=dataset_urn, inspector=inspector, schema=key.schema
             )
 
             # construct mce
@@ -552,6 +540,23 @@ class PrestoOnHiveSource(SQLAlchemySource):
                     domain_registry=self.domain_registry,
                     report=self.report,
                 )
+
+    def add_hive_dataset_to_container(
+        self, dataset_urn: str, inspector: Inspector, schema: str
+    ) -> Iterable[MetadataWorkUnit]:
+        db_name = self.get_db_name(inspector)
+        schema_container_key = gen_schema_key(
+            db_name=db_name,
+            schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            parent_container_key=schema_container_key,
+            report=self.report,
+        )
 
     def get_hive_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
         where_clause_suffix = ""
@@ -713,19 +718,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
             dataset_snapshot.aspects.append(view_properties)
 
-            db_name = self.get_db_name(inspector)
-            schema_container_key = gen_schema_key(
-                db_name=db_name,
-                schema=schema,
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-
-            yield from add_table_to_schema_container(
-                dataset_urn=dataset_urn,
-                parent_container_key=schema_container_key,
-                report=self.report,
+            yield from self.add_hive_dataset_to_container(
+                dataset_urn=dataset_urn, inspector=inspector, schema=schema
             )
 
             # construct mce
