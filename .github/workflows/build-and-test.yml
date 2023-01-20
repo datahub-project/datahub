@@ -73,9 +73,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
-      - name: Install yq for yaml parsing
-        run: VERSION=v4.30.8 and BINARY=yq_linux_amd64 wget https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz -O - |\
-            tar xz && mv ${BINARY} /usr/bin/yq
+      - uses: chrisdickinson/setup-yq@4.30.8
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
 
