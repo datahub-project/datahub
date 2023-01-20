@@ -482,6 +482,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
 
         yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
             schema_container_key=schema_container_key,
             report=self.report,
         )

@@ -987,7 +987,6 @@ class SnowflakeV2Source(
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             schema_container_key=schema_container_key,
-            schema=self.snowflake_identifier(schema_name),
             report=self.report,
         )
         dpi_aspect = get_dataplatform_instance_aspect(

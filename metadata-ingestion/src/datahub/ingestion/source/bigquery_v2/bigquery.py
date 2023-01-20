@@ -888,7 +888,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
-            schema=dataset_name,
             report=self.report,
             schema_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
