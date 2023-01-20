@@ -1067,8 +1067,6 @@ class SnowflakeV2Source(
             description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
         )
 
-        self.stale_entity_removal_handler.add_entity_to_state("tag", tag_urn)
-
         yield self.wrap_aspect_as_workunit(
             "tag", tag_urn, "tagProperties", tag_properties_aspect
         )
