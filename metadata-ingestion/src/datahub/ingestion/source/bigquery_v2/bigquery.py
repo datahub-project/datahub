@@ -887,9 +887,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
         yield from add_table_to_schema_container(
-            config=self.config,
             dataset_urn=dataset_urn,
-            db_name=project_id,
             schema=dataset_name,
             report=self.report,
             schema_container_key=self.gen_dataset_key(project_id, dataset_name),

@@ -468,9 +468,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 aspects=[StatusClass(removed=False)],
             )
 
-            # enable tables stateful ingestion
-            self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
-
             # add table schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns)
 
@@ -509,11 +506,16 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             db_name = self.get_db_name(inspector)
             schema = key.schema
-            yield from add_table_to_schema_container(
-                config=self.config,
-                dataset_urn=dataset_urn,
+            schema_container_key = gen_schema_key(
                 db_name=db_name,
                 schema=schema,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            yield from add_table_to_schema_container(
+                schema_container_key=schema_container_key,
                 report=self.report,
             )
 
@@ -711,18 +713,18 @@ class PrestoOnHiveSource(SQLAlchemySource):
             dataset_snapshot.aspects.append(view_properties)
 
             db_name = self.get_db_name(inspector)
-            yield from add_table_to_schema_container(
-                config=self.config,
-                dataset_urn=dataset_urn,
+            schema_container_key = gen_schema_key(
                 db_name=db_name,
-                schema=dataset.schema_name,
+                schema=schema,
                 platform=self.platform,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
-                report=self.report,
             )
 
-            self.stale_entity_removal_handler.add_entity_to_state("view", dataset_urn)
+            yield from add_table_to_schema_container(
+                schema_container_key=schema_container_key,
+                report=self.report,
+            )
 
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)

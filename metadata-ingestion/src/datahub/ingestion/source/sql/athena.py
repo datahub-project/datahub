@@ -229,11 +229,8 @@ class AthenaSource(SQLAlchemySource):
         schema: str,
         schema_container_key: Optional[PlatformKey] = None,
     ) -> Iterable[MetadataWorkUnit]:
+
         yield from add_table_to_schema_container(
-            config=self.config,
-            dataset_urn=dataset_urn,
-            db_name=db_name,
-            schema=schema,
             schema_container_key=self.get_database_container_key(db_name, schema),
             report=self.report,
         )

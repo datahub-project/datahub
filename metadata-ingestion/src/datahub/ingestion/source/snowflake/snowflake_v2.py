@@ -976,10 +976,17 @@ class SnowflakeV2Source(
             "dataset", dataset_urn, "datasetProperties", dataset_properties
         )
 
-        yield from add_table_to_schema_container(
-            config=self.config,
-            dataset_urn=dataset_urn,
+        schema_container_key = gen_schema_key(
             db_name=self.snowflake_identifier(db_name),
+            schema=schema_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            schema_container_key=schema_container_key,
             schema=self.snowflake_identifier(schema_name),
             report=self.report,
         )

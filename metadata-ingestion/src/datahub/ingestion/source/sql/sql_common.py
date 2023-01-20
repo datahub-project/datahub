@@ -32,7 +32,6 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
@@ -472,13 +471,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         dataset_urn: str,
         db_name: str,
         schema: str,
-        schema_container_key: Optional[PlatformKey] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from add_table_to_schema_container(
-            config=self.config,
-            dataset_urn=dataset_urn,
+
+        schema_container_key = gen_schema_key(
             db_name=db_name,
             schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from add_table_to_schema_container(
             schema_container_key=schema_container_key,
             report=self.report,
         )

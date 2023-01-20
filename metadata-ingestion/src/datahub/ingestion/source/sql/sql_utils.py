@@ -18,7 +18,6 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -163,39 +162,10 @@ def gen_database_container(
 
 
 def add_table_to_schema_container(
-    config: SQLAlchemyConfig,
     dataset_urn: str,
-    db_name: str,
-    schema: str,
-    platform: Optional[str] = None,
-    platform_instance: Optional[str] = None,
-    env: Optional[str] = None,
+    schema_container_key: PlatformKey,
     report: Optional[SourceReport] = None,
-    schema_container_key: Optional[PlatformKey] = None,
 ) -> Iterable[MetadataWorkUnit]:
-
-    if not platform:
-        platform = config.platform
-
-    assert platform
-
-    if not platform_instance:
-        platform_instance = config.platform_instance
-
-    if not env:
-        env = config.env
-
-    schema_container_key = (
-        gen_schema_key(
-            db_name=db_name,
-            schema=schema,
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-        if not schema_container_key
-        else schema_container_key
-    )
 
     container_workunits = add_dataset_to_container(
         container_key=schema_container_key,
