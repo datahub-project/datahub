@@ -1,8 +1,8 @@
 FROM golang:1.17-alpine3.15 AS binary
-ENV DOCKERIZE_VERSION 0.6.1
+ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
 RUN apk --no-cache --update add openssl git tar curl \
-    && git clone https://github.com/jwilder/dockerize.git
+    && git clone --depth 1 -b $DOCKERIZE_VERSION https://github.com/jwilder/dockerize.git
 WORKDIR /go/src/github.com/jwilder/dockerize
 
 ENV GO111MODULE=on
