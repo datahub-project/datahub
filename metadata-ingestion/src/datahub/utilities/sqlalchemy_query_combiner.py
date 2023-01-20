@@ -333,7 +333,7 @@ class SQLAlchemyQueryCombiner:
             # Extract the results into a result for each query.
             index = 0
             for _, query_future in pending_queue.items():
-                cols = query_future.query.columns
+                cols = query_future.query.subquery().columns
 
                 data = {}
                 for col in cols:
