@@ -245,7 +245,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     )
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter tables for profiling during ingestion. Allowed by the `table_pattern`.",
+        description="Regex patterns to filter tables (or specific columns) for profiling during ingestion. Note that only tables allowed by the `table_pattern` will be considered.",
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
