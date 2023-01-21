@@ -7,7 +7,7 @@ import pydantic
 
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 
