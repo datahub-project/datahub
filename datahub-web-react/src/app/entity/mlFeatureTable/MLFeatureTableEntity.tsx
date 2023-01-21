@@ -16,6 +16,7 @@ import Sources from './profile/Sources';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -118,7 +119,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 description={data.description}
                 owners={data.ownership?.owners}
                 logoUrl={data.platform?.properties?.logoUrl}
-                platformName={data.platform?.displayName}
+                platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
             />
         );
     };
@@ -132,7 +133,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 description={data.description || ''}
                 owners={data.ownership?.owners}
                 logoUrl={data.platform?.properties?.logoUrl}
-                platformName={data.platform?.displayName}
+                platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
             />
         );
