@@ -1,4 +1,5 @@
 FROM golang:1.17-alpine3.15 AS binary
+
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
 
