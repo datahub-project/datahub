@@ -37,7 +37,6 @@ from great_expectations.dataset.dataset import Dataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
-from packaging import version
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
@@ -60,14 +59,13 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
+    IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
     get_query_columns,
 )
 
 assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
-
-IS_SQLALCHEMY_1_4 = version.parse(sa.__version__) >= version.parse("1.4.0")
 
 P = ParamSpec("P")
 
