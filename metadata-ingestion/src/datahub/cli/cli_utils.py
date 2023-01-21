@@ -706,7 +706,7 @@ def get_aspects_for_entity(
         return dict(aspect_map)
 
 
-def make_shim_command(name: str, suggestion: str) -> None:
+def make_shim_command(name: str, suggestion: str) -> click.Command:
     @click.command(
         name=name,
         context_settings=dict(
