@@ -21,6 +21,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProper
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DomainsClass,
+    EmbedClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -201,7 +202,7 @@ def gen_containers(
     )
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
-        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+        # entityKeyAspect=ContainerKeyClass(guid=parent_container_key.guid()),
         aspect=ContainerProperties(
             name=name,
             description=description,
@@ -309,3 +310,10 @@ def mcps_from_mce(
             aspect=aspect,
             systemMetadata=mce.systemMetadata,
         )
+
+
+def create_embed_mcp(urn: str, embed_url: str) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=urn,
+        aspect=EmbedClass(renderUrl=embed_url),
+    )

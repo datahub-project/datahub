@@ -35,17 +35,18 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     ChartInfoClass,
     ChartKeyClass,
-    CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -239,7 +240,23 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn))
 
+            self.append_tag_mcp(
+                dataset_mcps,
+                ds_urn,
+                Constant.DATASET,
+                dataset.tags,
+            )
+
         return dataset_mcps
+
+    @staticmethod
+    def transform_tags(tags: List[str]) -> GlobalTagsClass:
+        return GlobalTagsClass(
+            tags=[
+                TagAssociationClass(builder.make_tag_urn(tag_to_add))
+                for tag_to_add in tags
+            ]
+        )
 
     def to_datahub_chart_mcp(
         self, tile: PowerBiAPI.Tile, ds_mcps: List[MetadataChangeProposalWrapper]
@@ -422,7 +439,30 @@ class Mapper:
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
 
+        self.append_tag_mcp(
+            list_of_mcps,
+            dashboard_urn,
+            Constant.DASHBOARD,
+            dashboard.tags,
+        )
+
         return list_of_mcps
+
+    def append_tag_mcp(
+        self,
+        list_of_mcps: List[MetadataChangeProposalWrapper],
+        entity_urn: str,
+        entity_type: str,
+        tags: List[str],
+    ) -> None:
+        if self.__config.extract_endorsements_to_tags and tags:
+            tags_mcp = self.new_mcp(
+                entity_type=entity_type,
+                entity_urn=entity_urn,
+                aspect_name=Constant.GLOBAL_TAGS,
+                aspect=self.transform_tags(tags),
+            )
+            list_of_mcps.append(tags_mcp)
 
     def to_datahub_user(
         self, user: PowerBiAPI.User
@@ -436,28 +476,6 @@ class Mapper:
         # Create an URN for user
         user_urn = builder.make_user_urn(user.get_urn_part())
 
-        user_info_instance = CorpUserInfoClass(
-            displayName=user.displayName,
-            email=user.emailAddress,
-            title=user.displayName,
-            active=True,
-        )
-
-        info_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.CORP_USER_INFO,
-            aspect=user_info_instance,
-        )
-
-        # removed status mcp
-        status_mcp = self.new_mcp(
-            entity_type=Constant.CORP_USER,
-            entity_urn=user_urn,
-            aspect_name=Constant.STATUS,
-            aspect=StatusClass(removed=False),
-        )
-
         user_key = CorpUserKeyClass(username=user.id)
 
         user_key_mcp = self.new_mcp(
@@ -467,7 +485,7 @@ class Mapper:
             aspect=user_key,
         )
 
-        return [info_mcp, status_mcp, user_key_mcp]
+        return [user_key_mcp]
 
     def to_datahub_users(
         self, users: List[PowerBiAPI.User]
@@ -567,7 +585,7 @@ class Mapper:
             # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
             chart_info_instance = ChartInfoClass(
-                title=page.name or "",
+                title=page.displayName or "",
                 description=page.displayName or "",
                 lastModified=ChangeAuditStamps(),
                 inputs=ds_input,
@@ -700,6 +718,13 @@ class Mapper:
 
         if owner_mcp is not None:
             list_of_mcps.append(owner_mcp)
+
+        self.append_tag_mcp(
+            list_of_mcps,
+            dashboard_urn,
+            Constant.DASHBOARD,
+            report.tags,
+        )
 
         return list_of_mcps
 
