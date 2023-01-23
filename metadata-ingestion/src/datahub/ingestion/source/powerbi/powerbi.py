@@ -8,6 +8,7 @@ import logging
 from typing import Iterable, List, Optional, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
+import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -28,7 +29,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -141,7 +142,7 @@ class Mapper:
         )
 
     def extract_lineage(
-        self, table: PowerBiAPI.Table, ds_urn: str
+        self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
@@ -205,7 +206,7 @@ class Mapper:
         return mcps
 
     def to_datahub_dataset(
-        self, dataset: Optional[PowerBiAPI.PowerBIDataset]
+        self, dataset: Optional[powerbi_data_classes.PowerBIDataset]
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi dataset to datahub dataset. Here we are mapping each table of PowerBi Dataset to Datahub dataset.
@@ -272,7 +273,9 @@ class Mapper:
         )
 
     def to_datahub_chart_mcp(
-        self, tile: PowerBiAPI.Tile, ds_mcps: List[MetadataChangeProposalWrapper]
+        self,
+        tile: powerbi_data_classes.Tile,
+        ds_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi tile to datahub chart
@@ -287,7 +290,7 @@ class Mapper:
 
         ds_input: List[str] = self.to_urn_set(ds_mcps)
 
-        def tile_custom_properties(tile: PowerBiAPI.Tile) -> dict:
+        def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties = {
                 "datasetId": tile.dataset.id if tile.dataset else "",
                 "reportId": tile.report.id if tile.report else "",
@@ -352,7 +355,7 @@ class Mapper:
 
     def to_datahub_dashboard_mcp(
         self,
-        dashboard: PowerBiAPI.Dashboard,
+        dashboard: powerbi_data_classes.Dashboard,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
@@ -367,7 +370,7 @@ class Mapper:
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
         user_urn_list: List[str] = self.to_urn_set(user_mcps)
 
-        def chart_custom_properties(dashboard: PowerBiAPI.Dashboard) -> dict:
+        def chart_custom_properties(dashboard: powerbi_data_classes.Dashboard) -> dict:
             return {
                 "chartCount": str(len(dashboard.tiles)),
                 "workspaceName": dashboard.workspace_name,
@@ -478,7 +481,7 @@ class Mapper:
             list_of_mcps.append(tags_mcp)
 
     def to_datahub_user(
-        self, user: PowerBiAPI.User
+        self, user: powerbi_data_classes.User
     ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi user to datahub user
@@ -501,7 +504,7 @@ class Mapper:
         return [user_key_mcp]
 
     def to_datahub_users(
-        self, users: List[PowerBiAPI.User]
+        self, users: List[powerbi_data_classes.User]
     ) -> List[MetadataChangeProposalWrapper]:
         user_mcps = []
 
@@ -511,7 +514,7 @@ class Mapper:
         return user_mcps
 
     def to_datahub_chart(
-        self, tiles: List[PowerBiAPI.Tile]
+        self, tiles: List[powerbi_data_classes.Tile]
     ) -> Tuple[
         List[MetadataChangeProposalWrapper], List[MetadataChangeProposalWrapper]
     ]:
@@ -540,7 +543,7 @@ class Mapper:
         return ds_mcps, chart_mcps
 
     def to_datahub_work_units(
-        self, dashboard: PowerBiAPI.Dashboard
+        self, dashboard: powerbi_data_classes.Dashboard
     ) -> List[EquableMetadataWorkUnit]:
         mcps = []
 
@@ -571,7 +574,9 @@ class Mapper:
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
     def pages_to_chart(
-        self, pages: List[PowerBiAPI.Page], ds_mcps: List[MetadataChangeProposalWrapper]
+        self,
+        pages: List[powerbi_data_classes.Page],
+        ds_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
 
         chart_mcps = []
@@ -583,7 +588,8 @@ class Mapper:
         logger.debug(f"Converting pages(count={len(pages)}) to charts")
 
         def to_chart_mcps(
-            page: PowerBiAPI.Page, ds_mcps: List[MetadataChangeProposalWrapper]
+            page: powerbi_data_classes.Page,
+            ds_mcps: List[MetadataChangeProposalWrapper],
         ) -> List[MetadataChangeProposalWrapper]:
             logger.debug("Converting page {} to chart".format(page.displayName))
             # Create a URN for chart
@@ -634,7 +640,7 @@ class Mapper:
     def report_to_dashboard(
         self,
         workspace_name: str,
-        report: PowerBiAPI.Report,
+        report: powerbi_data_classes.Report,
         chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
@@ -742,7 +748,9 @@ class Mapper:
         return list_of_mcps
 
     def report_to_datahub_work_units(
-        self, report: PowerBiAPI.Report, workspace: PowerBiAPI.Workspace
+        self,
+        report: powerbi_data_classes.Report,
+        workspace: powerbi_data_classes.Workspace,
     ) -> Iterable[MetadataWorkUnit]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
@@ -793,7 +801,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
-        self.auth_token = PowerBiAPI(self.source_config).get_access_token()
         self.powerbi_client = PowerBiAPI(self.source_config)
         self.mapper = Mapper(config, self.reporter)
 
@@ -814,10 +821,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workspace_ids(self) -> Iterable[str]:
+    def get_allowed_workspaces(self) -> Iterable[powerbi_data_classes.Workspace]:
         all_workspaces = self.powerbi_client.get_workspaces()
         return [
-            workspace.id
+            workspace
             for workspace in all_workspaces
             if self.source_config.workspace_id_pattern.allowed(workspace.id)
         ]
@@ -840,12 +847,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         # Validate dataset type mapping
         self.validate_dataset_type_mapping()
         # Fetch PowerBi workspace for given workspace identifier
-        for workspace_id in self.get_workspace_ids():
-            logger.info(f"Scanning workspace id: {workspace_id}")
-            workspace = self.powerbi_client.get_workspace(workspace_id, self.reporter)
+        for workspace in self.get_allowed_workspaces():
+            logger.info(f"Scanning workspace id: {workspace.id}")
+            self.powerbi_client.fill_workspace(workspace, self.reporter)
 
             for dashboard in workspace.dashboards:
-
                 try:
                     # Fetch PowerBi users for dashboards
                     dashboard.users = self.powerbi_client.get_dashboard_users(dashboard)
@@ -865,13 +871,12 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     # Return workunit to Datahub Ingestion framework
                     yield workunit
 
-            if self.source_config.extract_reports:
-                for report in self.powerbi_client.get_reports(workspace=workspace):
-                    for work_unit in self.mapper.report_to_datahub_work_units(
-                        report, workspace
-                    ):
-                        self.reporter.report_workunit(work_unit)
-                        yield work_unit
+            for report in workspace.reports:
+                for work_unit in self.mapper.report_to_datahub_work_units(
+                    report, workspace
+                ):
+                    self.reporter.report_workunit(work_unit)
+                    yield work_unit
 
         # Clean up stale entities if configured.
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()

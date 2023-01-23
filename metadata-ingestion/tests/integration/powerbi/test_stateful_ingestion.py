@@ -1,4 +1,3 @@
-
 def register_mock_api_state1(request_mock):
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/groups": {
@@ -33,28 +32,20 @@ def register_mock_api_state1(request_mock):
                         "displayName": "sales",
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
-                    }
-
+                    },
                 ]
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
             "method": "GET",
             "status_code": 200,
-            "json": {
-                "value": [
-                ]
-            },
+            "json": {"value": []},
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/e41cbfe7-9f54-40ad-8d6a-043ab97cf303/tiles": {
             "method": "GET",
             "status_code": 200,
-            "json": {
-                "value": [
-                ]
-            },
+            "json": {"value": []},
         },
-
     }
 
     for url in api_vs_response.keys():
@@ -100,18 +91,14 @@ def register_mock_api_state2(request_mock):
                         "displayName": "sales",
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
-                    }
-
+                    },
                 ]
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
             "method": "GET",
             "status_code": 200,
-            "json": {
-                "value": [
-                ]
-            },
+            "json": {"value": []},
         },
     }
 

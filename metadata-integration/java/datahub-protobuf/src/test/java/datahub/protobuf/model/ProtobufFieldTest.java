@@ -43,7 +43,7 @@ public class ProtobufFieldTest {
 
     @Test
     public void fieldTest() {
-        FieldDescriptorProto expectedField =  FieldDescriptorProto.newBuilder()
+        FieldDescriptorProto expectedField = FieldDescriptorProto.newBuilder()
                 .setName("field1")
                 .setNumber(1)
                 .setType(FieldDescriptorProto.Type.TYPE_BYTES)
@@ -83,7 +83,7 @@ public class ProtobufFieldTest {
     @Test
     public void fieldPathTypeTest() {
         Arrays.stream(FieldDescriptorProto.Type.values()).forEach(type -> {
-            final  FieldDescriptorProto expectedField;
+            final FieldDescriptorProto expectedField;
             if (type == FieldDescriptorProto.Type.TYPE_MESSAGE) {
                 expectedField = FieldDescriptorProto.newBuilder()
                         .setName("field1")
@@ -121,7 +121,7 @@ public class ProtobufFieldTest {
     @Test
     public void fieldPathTypeArrayTest() {
         Arrays.stream(FieldDescriptorProto.Type.values()).forEach(type -> {
-            final  FieldDescriptorProto expectedField;
+            final FieldDescriptorProto expectedField;
 
             if (type == FieldDescriptorProto.Type.TYPE_MESSAGE) {
                 expectedField = FieldDescriptorProto.newBuilder()
@@ -162,7 +162,7 @@ public class ProtobufFieldTest {
     @Test
     public void schemaFieldTypeTest() {
         Arrays.stream(FieldDescriptorProto.Type.values()).forEach(type -> {
-            final  FieldDescriptorProto expectedField;
+            final FieldDescriptorProto expectedField;
             if (type == FieldDescriptorProto.Type.TYPE_MESSAGE) {
                 expectedField = FieldDescriptorProto.newBuilder()
                         .setName("field1")
@@ -206,7 +206,7 @@ public class ProtobufFieldTest {
     @Test
     public void schemaFieldTypeArrayTest() {
         Arrays.stream(FieldDescriptorProto.Type.values()).forEach(type -> {
-            final  FieldDescriptorProto expectedField;
+            final FieldDescriptorProto expectedField;
             if (type == FieldDescriptorProto.Type.TYPE_MESSAGE) {
                 expectedField = FieldDescriptorProto.newBuilder()
                         .setName("field1")
@@ -255,5 +255,14 @@ public class ProtobufFieldTest {
                 .orElseThrow();
 
         assertEquals("profile url info", profileUrlField.getDescription());
+
+        SchemaField addressField = testMetadata.getFields()
+                .stream().filter(f -> f.getFieldPath()
+                        .equals("[version=2.0].[type=extended_protobuf_UserMsg]."
+                                + "[type=extended_protobuf_UserMsg_AddressMsg].address.[type=google_protobuf_StringValue].zipcode"))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("Zip code, alphanumeric", addressField.getDescription());
     }
 }

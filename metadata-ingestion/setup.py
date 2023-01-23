@@ -55,7 +55,6 @@ framework_common = {
     "ijson",
     "click-spinner",
     "requests_file",
-    "duckdb",
 }
 
 rest_common = {
@@ -241,7 +240,11 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
-    "datahub-lite": set(),
+    "datahub-lite": {
+        "duckdb",
+        "fastapi",
+        "uvicorn",
+    },
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
@@ -349,10 +352,14 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks_cli | {"requests"},
 }
 
+# This is mainly used to exclude plugins from the Docker image.
 all_exclude_plugins: Set[str] = {
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
+    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
+    # simply exclude it.
+    "datahub-lite",
 }
 
 mypy_stubs = {

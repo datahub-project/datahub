@@ -147,7 +147,7 @@ class PowerBiAPIConfig(StatefulIngestionConfigBase):
         default=True, description="Whether lineage should be ingested"
     )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
-    # any existing tags defined to those entitiies
+    # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
         description="Whether to extract endorsements to tags, note that this may overwrite existing tags",
@@ -163,6 +163,7 @@ class PowerBiAPIConfig(StatefulIngestionConfigBase):
         default=False,
         description="Whether to convert the PowerBI assets urns to lowercase",
     )
+
     # convert lineage dataset's urns to lowercase
     convert_lineage_urns_to_lowercase: bool = pydantic.Field(
         default=True,
@@ -171,6 +172,12 @@ class PowerBiAPIConfig(StatefulIngestionConfigBase):
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="PowerBI Stateful Ingestion Config."
+    )
+
+    # Enable/Disable PowerBI Dataset metadata
+    enable_admin_api: bool = pydantic.Field(
+        default=True,
+        description="Flag to enable/disable PowerBI Admin API to fetch PowerBI dataset metadata",
     )
 
     @validator("dataset_type_mapping")
