@@ -35,7 +35,7 @@ import GlossaryNodeEntity from './app/entity/glossaryNode/GlossaryNodeEntity';
 import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity';
 
 /*
-    Construct Apollo Client
+    Construct Apollo Client, test comment
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
