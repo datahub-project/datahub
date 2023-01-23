@@ -7,7 +7,7 @@ from lark import Lark, Tree
 
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query import resolver, validator
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ def _parse_expression(expression: str) -> Tree:
 
 
 def get_upstream_tables(
-    table: PowerBiAPI.Table,
+    table: Table,
     reporter: PowerBiDashboardSourceReport,
     native_query_enabled: bool = True,
 ) -> List[resolver.DataPlatformTable]:
