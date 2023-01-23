@@ -26,7 +26,7 @@ public enum DataHubUsageEventType {
   HOME_PAGE_EXPLORE_ALL_CLICK_EVENT("HomePageExploreAllClickEvent"),
   SEARCH_ACROSS_LINEAGE_EVENT("SearchAcrossLineageEvent"),
   SEARCH_ACROSS_LINEAGE_RESULTS_VIEW_EVENT("SearchAcrossLineageResultsViewEvent"),
-  DOWNLOAD_CSV_EVENT("DownloadAsCsvEvent"),
+  DOWNLOAD_AS_CSV_EVENT("DownloadAsCsvEvent"),
   SIGN_UP_EVENT("SignUpEvent"),
   RESET_CREDENTIALS_EVENT("ResetCredentialsEvent"),
   CREATE_ACCESS_TOKEN_EVENT("CreateAccessTokenEvent"),
@@ -54,8 +54,6 @@ public enum DataHubUsageEventType {
   UPDATE_VIEW_EVENT("UpdateViewEvent"),
   SET_GLOBAL_DEFAULT_VIEW_EVENT("SetGlobalDefaultViewEvent"),
   SET_USER_DEFAULT_VIEW_EVENT("SetUserDefaultViewEvent"),
-  // Just to test that github workflow is working fine
-  // MANUALLY_CREATE_LINEAGE_EVENT("ManuallyCreateLineageEvent"),
   MANUALLY_DELETE_LINEAGE_EVENT("ManuallyDeleteLineageEvent");
 
   private final String type;
