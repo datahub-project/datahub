@@ -14,6 +14,9 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -25,8 +28,9 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.CountRequest;
+import org.elasticsearch.search.SearchHit;
 
-import static com.linkedin.metadata.search.utils.SearchUtils.EMPTY_SEARCH_RESULT;
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 
 /**
@@ -35,6 +39,7 @@ import static com.linkedin.metadata.search.utils.SearchUtils.EMPTY_SEARCH_RESULT
 @Slf4j
 @RequiredArgsConstructor
 public class ESSearchDAO {
+  private static final int PAGE_SIZE = 1000;
 
   private final EntityRegistry entityRegistry;
   private final RestHighLevelClient client;
@@ -130,20 +135,57 @@ public class ESSearchDAO {
    * @param limit the number of suggestions returned
    * @return A list of suggestions as string
    */
+//  @Nonnull
+//  public AutoCompleteResult autoComplete(@Nonnull String entityName, @Nonnull String query, @Nullable String field,
+//      @Nullable Filter requestParams, int limit) {
+//    try {
+//      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+//      AutocompleteRequestHandler builder = AutocompleteRequestHandler.getBuilder(entitySpec);
+//      SearchRequest req = builder.getSearchRequest(query, field, requestParams, limit);
+//      req.indices(indexConvention.getIndexName(entitySpec));
+//      SearchResponse searchResponse = client.search(req, RequestOptions.DEFAULT);
+//      return builder.extractResult(searchResponse, query);
+//    } catch (Exception e) {
+//      log.error("Auto complete query failed:" + e.getMessage());
+//      throw new ESQueryException("Auto complete query failed:", e);
+//    }
+//  }
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityName, @Nonnull String query, @Nullable String field,
       @Nullable Filter requestParams, int limit) {
-    try {
-      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
-      AutocompleteRequestHandler builder = AutocompleteRequestHandler.getBuilder(entitySpec);
-      SearchRequest req = builder.getSearchRequest(query, field, requestParams, limit);
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    AutocompleteRequestHandler builder = AutocompleteRequestHandler.getBuilder(entitySpec);
+    final List<SearchHit> hits = new ArrayList<>(limit);
+    SearchRequest req = builder.getSearchRequest(query, field, requestParams, Math.min(PAGE_SIZE, limit));
+    SearchResponse searchResponse;
+    Object[] sortAfterValues;
+
+    while (hits.size() < limit) {
       req.indices(indexConvention.getIndexName(entitySpec));
-      SearchResponse searchResponse = client.search(req, RequestOptions.DEFAULT);
-      return builder.extractResult(searchResponse, query);
-    } catch (Exception e) {
-      log.error("Auto complete query failed:" + e.getMessage());
-      throw new ESQueryException("Auto complete query failed:", e);
+      try {
+        searchResponse = client.search(req, RequestOptions.DEFAULT);
+        SearchHit[] searchHits = searchResponse.getHits().getHits();
+        if (searchHits.length == 0) {
+          break;
+        }
+
+        Collections.addAll(hits, searchHits);
+        SearchHit lastHit = searchHits[searchHits.length - 1];
+        if (lastHit == null || lastHit.getSortValues() == null || lastHit.getSortValues().length == 0
+            || hits.size() >= limit) {
+          break;
+        }
+        sortAfterValues = lastHit.getSortValues();
+
+        req = builder.getSearchRequest(query, field, requestParams, Math.min(PAGE_SIZE, limit - hits.size()),
+            sortAfterValues);
+      } catch (Exception e) {
+        log.error("Auto complete query failed:" + e.getMessage());
+        return builder.extractResult(hits, query);
+      }
     }
+
+    return builder.extractResult(hits, query);
   }
 
   /**

@@ -33,6 +33,8 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.elasticsearch.search.sort.SortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 
 
 @Slf4j
@@ -66,6 +68,23 @@ public class AutocompleteRequestHandler {
     searchSourceBuilder.query(getQuery(input, field));
     searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter));
     searchSourceBuilder.highlighter(getHighlights(field));
+    SortBuilder sortBuilder = SortBuilders.fieldSort("_id");
+    searchSourceBuilder.sort(sortBuilder);
+    searchRequest.source(searchSourceBuilder);
+    return searchRequest;
+  }
+
+  public SearchRequest getSearchRequest(@Nonnull String input, @Nullable String field, @Nullable Filter filter,
+      int limit, final Object[] sortAfterValue) {
+    SearchRequest searchRequest = new SearchRequest();
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.size(limit);
+    searchSourceBuilder.query(getQuery(input, field));
+    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter));
+    searchSourceBuilder.highlighter(getHighlights(field));
+    SortBuilder sortBuilder = SortBuilders.fieldSort("_id");
+    searchSourceBuilder.sort(sortBuilder);
+    searchSourceBuilder.searchAfter(sortAfterValue);
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
   }
@@ -108,6 +127,31 @@ public class AutocompleteRequestHandler {
     Set<String> results = new LinkedHashSet<>();
     Set<AutoCompleteEntity> entityResults = new HashSet<>();
     for (SearchHit hit : searchResponse.getHits()) {
+      Optional<String> matchedFieldValue = hit.getHighlightFields()
+          .entrySet()
+          .stream()
+          .findFirst()
+          .map(entry -> entry.getValue().getFragments()[0].string());
+      Optional<String> matchedUrn = Optional.ofNullable((String) hit.getSourceAsMap().get("urn"));
+      try {
+        if (matchedUrn.isPresent()) {
+          entityResults.add(new AutoCompleteEntity().setUrn(Urn.createFromString(matchedUrn.get())));
+        }
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to create urn %s", matchedUrn.get()), e);
+      }
+      matchedFieldValue.ifPresent(results::add);
+    }
+    return new AutoCompleteResult()
+        .setQuery(input)
+        .setSuggestions(new StringArray(results))
+        .setEntities(new AutoCompleteEntityArray(entityResults));
+  }
+
+  public AutoCompleteResult extractResult(@Nonnull List<SearchHit> searchHits, @Nonnull String input) {
+    Set<String> results = new LinkedHashSet<>();
+    Set<AutoCompleteEntity> entityResults = new HashSet<>();
+    for (SearchHit hit : searchHits) {
       Optional<String> matchedFieldValue = hit.getHighlightFields()
           .entrySet()
           .stream()
