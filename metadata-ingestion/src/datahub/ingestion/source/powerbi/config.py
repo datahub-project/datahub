@@ -173,7 +173,6 @@ class PowerBiAPIConfig(StatefulIngestionConfigBase):
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="PowerBI Stateful Ingestion Config."
     )
-
     # Enable/Disable PowerBI Dataset metadata
     enable_admin_api: bool = pydantic.Field(
         default=True,

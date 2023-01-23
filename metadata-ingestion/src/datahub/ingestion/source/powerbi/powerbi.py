@@ -798,7 +798,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
     platform: str = "powerbi"
 
     def __init__(self, config: PowerBiDashboardSourceConfig, ctx: PipelineContext):
-        super().__init__(config, ctx)
+        super(PowerBiDashboardSource, self).__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
         self.powerbi_client = PowerBiAPI(self.source_config)
