@@ -120,9 +120,9 @@ def get_column_unique_count_patch(self, column):
         element_values = self.engine.execute(
             sa.select(
                 [
-                    sa.text(
+                    sa.text(  # type:ignore
                         f'APPROX_COUNT_DISTINCT("{sa.column(column)}")'
-                    )  # type:ignore
+                    )
                 ]
             ).select_from(self._table)
         )
