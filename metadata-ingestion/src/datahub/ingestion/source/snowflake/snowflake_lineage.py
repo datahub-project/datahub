@@ -241,7 +241,7 @@ class SnowflakeLineageExtractor(
                     if upstream_lineage is not None:
                         yield MetadataChangeProposalWrapper(
                             entityUrn=dataset_urn, aspect=upstream_lineage
-                        )
+                        ).as_workunit()
 
     def get_view_upstream_workunits(self, discovered_views):
         if self.config.include_view_lineage:
@@ -257,7 +257,7 @@ class SnowflakeLineageExtractor(
                     if upstream_lineage is not None:
                         yield MetadataChangeProposalWrapper(
                             entityUrn=dataset_urn, aspect=upstream_lineage
-                        )
+                        ).as_workunit()
 
     def _get_upstream_lineage_info(
         self, dataset_name: str
