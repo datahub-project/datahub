@@ -1,22 +1,13 @@
-import { message, Modal, Popover, Tag, Typography } from 'antd';
+import { message, Modal, Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useRemoveOwnerMutation } from '../../../../../graphql/mutations.generated';
-
-import { EntityType, Owner } from '../../../../../types.generated';
-import { CustomAvatar } from '../../../../shared/avatar';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import analytics, { EventType, EntityActionType } from '../../../../analytics';
-import { useEntityData } from '../../EntityContext';
-import { getDescriptionFromType, getNameFromType } from '../../containers/profile/sidebar/Ownership/ownershipUtils';
-
-type Props = {
-    entityUrn?: string;
-    owner: Owner;
-    hidePopOver?: boolean | undefined;
-    refetch?: () => Promise<any>;
-};
+import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
+import { EntityType, Owner } from '../../../../../../types.generated';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import analytics, { EventType, EntityActionType } from '../../../../../analytics';
+import { useEntityData } from '../../../EntityContext';
+import OwnerContent from './OwnerContent';
 
 const OwnerTag = styled(Tag)`
     padding: 2px;
@@ -26,11 +17,18 @@ const OwnerTag = styled(Tag)`
     align-items: center;
 `;
 
-export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props) => {
+type Props = {
+    entityUrn?: string;
+    owner: Owner;
+    hidePopOver?: boolean | undefined;
+    refetch?: () => Promise<any>;
+    readOnly?: boolean;
+};
+
+export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
-
     let name = '';
     if (owner.owner.__typename === 'CorpGroup') {
         name = entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner);
@@ -38,10 +36,8 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props)
     if (owner.owner.__typename === 'CorpUser') {
         name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
     }
-
     const pictureLink =
         (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
-
     const onDelete = async () => {
         if (!entityUrn) {
             return;
@@ -70,7 +66,6 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props)
         }
         refetch?.();
     };
-
     const onClose = (e) => {
         e.preventDefault();
         Modal.confirm({
@@ -87,22 +82,13 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props)
     };
 
     return (
-        <OwnerTag onClose={onClose} closable={!!entityUrn}>
-            <Link to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}`}>
-                <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
-                {(hidePopOver && <>{name}</>) || (
-                    <Popover
-                        overlayStyle={{ maxWidth: 200 }}
-                        placement="left"
-                        title={<Typography.Text strong>{getNameFromType(owner.type)}</Typography.Text>}
-                        content={
-                            <Typography.Text type="secondary">{getDescriptionFromType(owner.type)}</Typography.Text>
-                        }
-                    >
-                        {name}
-                    </Popover>
-                )}
-            </Link>
+        <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
+            {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
+            {!readOnly && (
+                <Link to={entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}>
+                    <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />
+                </Link>
+            )}
         </OwnerTag>
     );
 };

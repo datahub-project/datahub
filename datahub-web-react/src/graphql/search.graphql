@@ -781,6 +781,17 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     searchResults {
         entity {
             ...searchResultFields
+            ... on Dataset {
+                assertions @include(if: $includeAssertions) {
+                    assertions {
+                        runEvents(limit: 1) {
+                            total
+                            failed
+                            succeeded
+                        }
+                    }
+                }
+            }
         }
         matchedFields {
             name
@@ -817,7 +828,7 @@ query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-query searchAcrossLineage($input: SearchAcrossLineageInput!) {
+query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
     }

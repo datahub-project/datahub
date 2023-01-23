@@ -8,7 +8,7 @@ import { GenericEntityProperties } from '../shared/types';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
 import ModelGroupModels from './profile/ModelGroupModels';
