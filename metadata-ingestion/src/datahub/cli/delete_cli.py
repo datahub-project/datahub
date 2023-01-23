@@ -197,7 +197,8 @@ def delete(
                     tablefmt="grid",
                 )
             )
-            remove_references = click.confirm("Do you want to delete these references?")
+            if not force:
+                remove_references = click.confirm("Do you want to delete these references?")
 
         if remove_references:
             delete_references(urn, dry_run=False, cached_session_host=(session, host))
