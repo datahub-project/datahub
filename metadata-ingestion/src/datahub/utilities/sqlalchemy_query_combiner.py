@@ -342,6 +342,7 @@ class SQLAlchemyQueryCombiner:
             for _, query_future in pending_queue.items():
                 query = query_future.query
                 if IS_SQLALCHEMY_1_4:
+                    # On 1.4, it prints a warning if we don't call subquery.
                     query = query.subquery()  # type: ignore
                 cols = query.columns
 
