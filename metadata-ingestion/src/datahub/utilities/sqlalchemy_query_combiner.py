@@ -342,7 +342,7 @@ class SQLAlchemyQueryCombiner:
             for _, query_future in pending_queue.items():
                 query = query_future.query
                 if IS_SQLALCHEMY_1_4:
-                    query = query.subquery()
+                    query = query.subquery()  # type: ignore
                 cols = query.columns
 
                 data = {}
