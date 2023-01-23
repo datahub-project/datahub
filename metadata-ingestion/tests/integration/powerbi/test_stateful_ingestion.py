@@ -1,4 +1,4 @@
-from typing import cast, Optional
+from typing import Optional, cast
 from unittest import mock
 
 from freezegun import freeze_time
@@ -7,11 +7,9 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-
 from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
-
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -133,7 +131,7 @@ def default_source_config():
         "enable_admin_api": False,
         "extract_ownership": False,
         "stateful_ingestion": {
-          "enabled": True,
+            "enabled": True,
         },
         "convert_lineage_urns_to_lowercase": False,
         "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
@@ -166,19 +164,19 @@ def get_current_checkpoint_from_pipeline(
 
 def ingest(pipeline_name, tmp_path):
     config_dict = {
-            "pipeline_name": pipeline_name,
-            "source": {
-                "type": "powerbi",
-                "config": {
-                    **default_source_config(),
-                },
+        "pipeline_name": pipeline_name,
+        "source": {
+            "type": "powerbi",
+            "config": {
+                **default_source_config(),
             },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/powerbi_mces.json",
-                },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{tmp_path}/powerbi_mces.json",
             },
+        },
     }
 
     pipeline = Pipeline.create(config_dict)
@@ -190,7 +188,9 @@ def ingest(pipeline_name, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-def test_powerbi_stateful_ingestion(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_powerbi_stateful_ingestion(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
 
     register_mock_api_state1(request_mock=requests_mock)
     pipeline1 = ingest("run1", tmp_path)
