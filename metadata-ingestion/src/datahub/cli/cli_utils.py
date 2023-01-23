@@ -704,3 +704,25 @@ def get_aspects_for_entity(
         return {k: v for (k, v) in aspect_map.items() if k in aspects}
     else:
         return dict(aspect_map)
+
+
+def make_shim_command(name: str, suggestion: str) -> click.Command:
+    @click.command(
+        name=name,
+        context_settings=dict(
+            ignore_unknown_options=True,
+            allow_extra_args=True,
+        ),
+    )
+    @click.pass_context
+    def command(ctx: click.Context) -> None:
+        """<disabled due to missing dependencies>"""
+
+        click.secho(
+            "This command is disabled due to missing dependencies. "
+            f"Please {suggestion} to enable it.",
+            fg="red",
+        )
+        ctx.exit(1)
+
+    return command
