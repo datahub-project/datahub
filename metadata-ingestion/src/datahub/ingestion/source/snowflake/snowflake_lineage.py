@@ -195,35 +195,39 @@ class SnowflakeLineageExtractor(
         if self.connection is None:
             return
 
-        self._populate_table_lineage()
-
         if self.config.include_view_lineage:
             if len(discovered_views) > 0:
-                self._populate_view_lineage()
+                self._populate_upstream_lineages_for_view()
             else:
                 logger.info("No views found. Skipping View Lineage Extraction.")
 
-        self._populate_external_lineage()
+        self._populate_external_lineage_upstreams()
 
-        if (
-            len(self._lineage_map.keys()) == 0
-            and len(self._external_lineage_map.keys()) == 0
-        ):
-            logger.debug("No lineage found.")
-            return
+        if len(self._external_lineage_map.keys()) == 0:
+            logger.debug("No external lineage found.")
 
-        yield from self.get_table_upstream_workunits(discovered_tables)
         yield from self.get_view_upstream_workunits(discovered_views)
 
-    def _populate_table_lineage(self):
+        self._populate_upstream_lineages_for_table()
+
+        yield from self.get_table_upstream_workunits(discovered_tables)
+
+    def _populate_upstream_lineages_for_table(self):
         if self.report.edition == SnowflakeEdition.STANDARD:
             logger.info(
-                "Snowflake Account is Standard Edition. Table to Table Lineage Feature is not supported."
+                "Snowflake Account is Standard Edition. Table to Table and View to Table Lineage Feature is not supported."
             )  # See Edition Note above for why
         else:
             with PerfTimer() as timer:
                 self._populate_lineage()
                 self.report.table_lineage_query_secs = timer.elapsed_seconds()
+
+            if self.config.include_view_lineage:
+                with PerfTimer() as timer:
+                    self._populate_view_downstream_lineage()
+                    self.report.view_downstream_lineage_query_secs = (
+                        timer.elapsed_seconds()
+                    )
 
     def get_table_upstream_workunits(self, discovered_tables):
         if self.config.include_table_lineage:
@@ -304,21 +308,12 @@ class SnowflakeLineageExtractor(
         else:
             return None
 
-    def _populate_view_lineage(self) -> None:
+    def _populate_upstream_lineages_for_view(self) -> None:
         with PerfTimer() as timer:
             self._populate_view_upstream_lineage()
             self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
 
-        if self.report.edition == SnowflakeEdition.STANDARD:
-            logger.info(
-                "Snowflake Account is Standard Edition. View to Table Lineage Feature is not supported."
-            )  # See Edition Note above for why
-        else:
-            with PerfTimer() as timer:
-                self._populate_view_downstream_lineage()
-                self.report.view_downstream_lineage_query_secs = timer.elapsed_seconds()
-
-    def _populate_external_lineage(self) -> None:
+    def _populate_external_lineage_upstreams(self) -> None:
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
