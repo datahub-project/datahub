@@ -37,8 +37,8 @@ Cypress.Commands.add('deleteUrn', (urn) => {
 })
 
 Cypress.Commands.add("logout", () => {
-  cy.get(selectorWithtestId("manage-account-menu")).first().click();
-  cy.get(selectorWithtestId("log-out-menu-item")).first().click();
+  cy.get(selectorWithtestId("manage-account-menu")).click();
+  cy.get(selectorWithtestId("log-out-menu-item")).click();
   cy.waitTextVisible("Username");
   cy.waitTextVisible("Password");
 });
