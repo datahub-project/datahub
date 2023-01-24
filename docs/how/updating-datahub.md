@@ -7,7 +7,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 - #7103 This should only impact users who have configured explicit non-default names for DataHub's Kafka topics. The environment variables used to configure Kafka topics for DataHub used in the `kafka-setup` docker image have been updated to be in-line with other DataHub components, for more info see our docs on [Configuring Kafka in DataHub
-](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC`. This change should not affect any user who is using default Kafka names.
+](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
 
 ### Potential Downtime
 
