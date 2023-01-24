@@ -346,7 +346,10 @@ class TableauSource(StatefulIngestionSourceBase):
         if self.server is None:
             return
 
+        view: TSC.ViewItem
         for view in TSC.Pager(self.server.views, usage=True):
+            if not view.id:
+                continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 

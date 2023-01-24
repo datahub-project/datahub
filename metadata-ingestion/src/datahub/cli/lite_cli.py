@@ -211,11 +211,10 @@ def serve(port: int) -> None:
     uvicorn.run(app, port=port)
 
 
-@lite.command(context_settings=dict(allow_extra_args=True))
+@lite.command()
 @click.argument("path", required=False, type=CompleteablePath())
-@click.pass_context
 @telemetry.with_telemetry
-def ls(ctx: click.Context, path: Optional[str]) -> None:
+def ls(path: Optional[str]) -> None:
     """List at a path"""
 
     start_time = time.time()

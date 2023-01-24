@@ -1,7 +1,6 @@
 import datetime
 import logging
 import traceback
-from abc import abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
@@ -18,49 +17,40 @@ from typing import (
     Type,
     Union,
 )
-from urllib.parse import quote_plus
 
-import pydantic
 import sqlalchemy.dialects.postgresql.base
-from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
-from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.emitter.mce_builder import (
-    make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
-    make_domain_urn,
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    DatabaseKey,
-    PlatformKey,
-    SchemaKey,
-    add_dataset_to_container,
-    add_domain_to_entity_wu,
-    gen_containers,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    gen_database_container,
+    gen_database_key,
+    gen_schema_container,
+    gen_schema_key,
+    get_domain_wu,
+)
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -98,6 +88,10 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import telemetry
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -157,34 +151,6 @@ def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
     return "external"
 
 
-def make_sqlalchemy_uri(
-    scheme: str,
-    username: Optional[str],
-    password: Optional[str],
-    at: Optional[str],
-    db: Optional[str],
-    uri_opts: Optional[Dict[str, Any]] = None,
-) -> str:
-    url = f"{scheme}://"
-    if username is not None:
-        url += f"{quote_plus(username)}"
-        if password is not None:
-            url += f":{quote_plus(password)}"
-        url += "@"
-    if at is not None:
-        url += f"{at}"
-    if db is not None:
-        url += f"/{db}"
-    if uri_opts is not None:
-        if db is None:
-            url += "/"
-        params = "&".join(
-            f"{key}={quote_plus(value)}" for (key, value) in uri_opts.items() if value
-        )
-        url = f"{url}?{params}"
-    return url
-
-
 class SqlContainerSubTypes(str, Enum):
     DATABASE = "Database"
     SCHEMA = "Schema"
@@ -220,112 +186,6 @@ class SQLSourceReport(StaleEntityRemovalSourceReport):
         self, query_combiner_report: SQLAlchemyQueryCombinerReport
     ) -> None:
         self.query_combiner = query_combiner_report
-
-
-class SQLAlchemyConfig(StatefulIngestionConfigBase):
-    options: dict = pydantic.Field(
-        default_factory=dict,
-        description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
-    )
-    # Although the 'table_pattern' enables you to skip everything from certain schemas,
-    # having another option to allow/deny on schema level is an optimization for the case when there is a large number
-    # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
-    # them out afterwards via the table_pattern.
-    schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schemas to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
-    )
-    table_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in database.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
-    )
-    view_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for views to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
-    )
-    profile_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter tables for profiling during ingestion. Allowed by the `table_pattern`.",
-    )
-    domain: Dict[str, AllowDenyPattern] = Field(
-        default=dict(),
-        description='Attach domains to databases, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
-    )
-
-    include_views: Optional[bool] = Field(
-        default=True, description="Whether views should be ingested."
-    )
-    include_tables: Optional[bool] = Field(
-        default=True, description="Whether tables should be ingested."
-    )
-
-    include_table_location_lineage: bool = Field(
-        default=True,
-        description="If the source supports it, include table lineage to the underlying storage location.",
-    )
-
-    profiling: GEProfilingConfig = GEProfilingConfig()
-    # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-
-    @pydantic.root_validator(pre=True)
-    def view_pattern_is_table_pattern_unless_specified(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        view_pattern = values.get("view_pattern")
-        table_pattern = values.get("table_pattern")
-        if table_pattern and not view_pattern:
-            logger.info(f"Applying table_pattern {table_pattern} to view_pattern.")
-            values["view_pattern"] = table_pattern
-        return values
-
-    @pydantic.root_validator()
-    def ensure_profiling_pattern_is_passed_to_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        profiling: Optional[GEProfilingConfig] = values.get("profiling")
-        if profiling is not None and profiling.enabled:
-            profiling._allow_deny_patterns = values["profile_pattern"]
-        return values
-
-    @abstractmethod
-    def get_sql_alchemy_url(self):
-        pass
-
-
-class BasicSQLAlchemyConfig(SQLAlchemyConfig):
-    username: Optional[str] = Field(default=None, description="username")
-    password: Optional[pydantic.SecretStr] = Field(
-        default=None, exclude=True, description="password"
-    )
-    host_port: str = Field(description="host URL")
-    database: Optional[str] = Field(default=None, description="database (catalog)")
-    database_alias: Optional[str] = Field(
-        default=None, description="Alias to apply to database when ingesting."
-    )
-    scheme: str = Field(description="scheme")
-    sqlalchemy_uri: Optional[str] = Field(
-        default=None,
-        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
-    )
-
-    _database_alias_deprecation = pydantic_field_deprecated(
-        "database_alias",
-        message="database_alias is deprecated. Use platform_instance instead.",
-    )
-
-    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
-        if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
-            raise ValueError("host_port and schema or connect_uri required.")
-
-        return self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,
-            self.username,
-            self.password.get_secret_value() if self.password is not None else None,
-            self.host_port,
-            self.database,
-            uri_opts=uri_opts,
-        )
 
 
 class SqlWorkUnit(MetadataWorkUnit):
@@ -497,6 +357,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 "sql_profiling_config",
                 config.profiling.config_for_telemetry(),
             )
+
+        self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -542,76 +404,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         database = config_dict.get("database", "no_database")
         return f"{self.platform}_{host_port}_{database}"
 
-    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
-        return SchemaKey(
-            database=db_name,
-            schema=schema,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
-        )
-
-    def gen_database_key(self, database: str) -> PlatformKey:
-        return DatabaseKey(
-            database=database,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
-        )
-
-    def gen_database_containers(
-        self, inspector: Inspector, database: str
-    ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(database)
-
-        database_container_key = self.gen_database_key(database)
-        container_workunits = gen_containers(
-            container_key=database_container_key,
-            name=database,
-            sub_types=[SqlContainerSubTypes.DATABASE],
-            domain_urn=domain_urn,
-            extra_properties=self.get_database_properties(inspector, database=database),
-        )
-
-        # Add container to the checkpoint state
-        container_urn = make_container_urn(database_container_key.guid())
-        self.stale_entity_removal_handler.add_entity_to_state(
-            "container", container_urn
-        )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
-    def gen_schema_containers(
-        self, inspector: Inspector, schema: str, db_name: str
-    ) -> Iterable[MetadataWorkUnit]:
-        schema_container_key = self.gen_schema_key(db_name, schema)
-
-        database_container_key: Optional[PlatformKey] = None
-        if db_name is not None:
-            database_container_key = self.gen_database_key(database=db_name)
-
-        container_workunits = gen_containers(
-            container_key=schema_container_key,
-            name=schema,
-            sub_types=[SqlContainerSubTypes.SCHEMA],
-            parent_container_key=database_container_key,
-            extra_properties=self.get_schema_properties(
-                inspector, database=db_name, schema=schema
-            ),
-        )
-
-        # Add container to the checkpoint state
-        container_urn = make_container_urn(schema_container_key.guid())
-        self.stale_entity_removal_handler.add_entity_to_state(
-            "container", container_urn
-        )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
     def get_allowed_schemas(self, inspector: Inspector, db_name: str) -> Iterable[str]:
         # this function returns the schema names which are filtered by schema_pattern.
         for schema in self.get_schema_names(inspector):
@@ -622,7 +414,80 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 self.add_information_for_schema(inspector, schema)
                 yield schema
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def gen_database_containers(
+        self,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        database_container_key = gen_database_key(
+            database,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_database_container(
+            database=database,
+            database_container_key=database_container_key,
+            sub_types=[SqlContainerSubTypes.DATABASE],
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
+            report=self.report,
+        )
+
+    def gen_schema_containers(
+        self,
+        schema: str,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+
+        database_container_key = gen_database_key(
+            database,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        schema_container_key = gen_schema_key(
+            db_name=database,
+            schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_schema_container(
+            database=database,
+            schema=schema,
+            schema_container_key=schema_container_key,
+            database_container_key=database_container_key,
+            sub_types=[SqlContainerSubTypes.SCHEMA],
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
+            report=self.report,
+        )
+
+    def add_table_to_schema_container(
+        self,
+        dataset_urn: str,
+        db_name: str,
+        schema: str,
+    ) -> Iterable[MetadataWorkUnit]:
+
+        schema_container_key = gen_schema_key(
+            db_name=db_name,
+            schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            parent_container_key=schema_container_key,
+            report=self.report,
+        )
+
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
@@ -643,14 +508,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             db_name = self.get_db_name(inspector)
             yield from self.gen_database_containers(
-                inspector=inspector, database=db_name
+                database=db_name,
             )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
                 yield from self.gen_schema_containers(
-                    inspector=inspector, schema=schema, db_name=db_name
+                    database=db_name,
+                    schema=schema,
                 )
 
                 if sql_config.include_tables:
@@ -669,8 +535,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     profile_requests, profiler, platform=self.platform
                 )
 
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
 
     def standardize_schema_table_names(
         self, schema: str, entity: str
@@ -729,33 +598,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def normalise_dataset_name(self, dataset_name: str) -> str:
         return dataset_name
-
-    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
-        domain_urn: Optional[str] = None
-
-        for domain, pattern in self.config.domain.items():
-            if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(
-                    self.domain_registry.get_domain_urn(domain)
-                )
-
-        return domain_urn
-
-    def _get_domain_wu(
-        self,
-        dataset_name: str,
-        entity_urn: str,
-        sql_config: SQLAlchemyConfig,
-    ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(dataset_name)
-        if domain_urn:
-            wus = add_domain_to_entity_wu(
-                entity_urn=entity_urn,
-                domain_urn=domain_urn,
-            )
-            for wu in wus:
-                self.report.report_workunit(wu)
-                yield wu
 
     def loop_tables(  # noqa: C901
         self,
@@ -827,8 +669,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
+
         description, properties, location_urn = self.get_table_properties(
             inspector, schema, table
         )
@@ -886,7 +727,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
-        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+
+        yield from self.add_table_to_schema_container(
+            dataset_urn=dataset_urn, db_name=db_name, schema=schema
+        )
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = SqlWorkUnit(id=dataset_name, mce=mce)
         self.report.report_workunit(wu)
@@ -907,11 +751,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            sql_config=sql_config,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=sql_config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_database_properties(
         self, inspector: Inspector, database: str
@@ -1146,10 +994,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             aspects=[StatusClass(removed=False)],
         )
         db_name = self.get_db_name(inspector)
-        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-
-        # Add view to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("view", dataset_urn)
+        yield from self.add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            db_name=db_name,
+            schema=schema,
+        )
 
         dataset_properties = DatasetPropertiesClass(
             name=view,
@@ -1190,26 +1039,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            sql_config=sql_config,
-        )
-
-    def get_parent_container_key(self, db_name: str, schema: str) -> PlatformKey:
-        return self.gen_schema_key(db_name, schema)
-
-    def add_table_to_schema_container(
-        self, dataset_urn: str, db_name: str, schema: str
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        parent_container_key = self.get_parent_container_key(db_name, schema)
-        container_workunits = add_dataset_to_container(
-            container_key=parent_container_key,
-            dataset_urn=dataset_urn,
-        )
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
+        if self.config.domain and self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=sql_config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
