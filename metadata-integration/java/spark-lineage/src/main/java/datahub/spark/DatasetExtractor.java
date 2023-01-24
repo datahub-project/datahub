@@ -60,6 +60,7 @@ public class DatasetExtractor {
   private static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
   private static final String TABLE_HIVE_PLATFORM_ALIAS = "metadata.table.hive_platform_alias";
   private static final String INCLUDE_SCHEME_KEY = "metadata.include_scheme";
+  private static final String REMOVE_PARTITION_PATTERN = "metadata.remove_partition_pattern";
   // TODO InsertIntoHiveDirCommand, InsertIntoDataSourceDirCommand
 
   private DatasetExtractor() {
@@ -127,7 +128,7 @@ public class DatasetExtractor {
       }
       return Optional.of(Collections.singletonList(new HdfsPathDataset(cmd.outputPath(),
           getCommonPlatformInstance(datahubConfig), getIncludeScheme(datahubConfig),
-          getCommonFabricType(datahubConfig))));
+          getCommonFabricType(datahubConfig), getRemovePartitionPattern(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(LogicalRelation.class, (p, ctx, datahubConfig) -> {
@@ -151,7 +152,7 @@ public class DatasetExtractor {
       } else if (options.containsKey("path")) {
         return Optional.of(Collections.singletonList(new HdfsPathDataset(new Path(options.get("path")),
             getCommonPlatformInstance(datahubConfig), getIncludeScheme(datahubConfig),
-            getCommonFabricType(datahubConfig))));
+            getCommonFabricType(datahubConfig), getRemovePartitionPattern(datahubConfig))));
       } else {
         return Optional.empty();
       }
@@ -191,7 +192,7 @@ public class DatasetExtractor {
       // TODO mapping to URN TBD
       return Optional.of(Collections.singletonList(new HdfsPathDataset(res.get(0),
           getCommonPlatformInstance(datahubConfig), getIncludeScheme(datahubConfig),
-          getCommonFabricType(datahubConfig))));
+          getCommonFabricType(datahubConfig), getRemovePartitionPattern(datahubConfig))));
     });
     REL_TO_DATASET.put(JDBCRelation.class, (r, ctx, datahubConfig) -> {
       JDBCRelation rel = (JDBCRelation) r;
@@ -280,5 +281,10 @@ public class DatasetExtractor {
   private static boolean getIncludeScheme(Config datahubConfig) {
     return datahubConfig.hasPath(INCLUDE_SCHEME_KEY) ? datahubConfig.getBoolean(INCLUDE_SCHEME_KEY)
         : true;
+  }
+
+  private static String getRemovePartitionPattern(Config datahubConfig) {
+    return datahubConfig.hasPath(REMOVE_PARTITION_PATTERN) ? datahubConfig.getString(REMOVE_PARTITION_PATTERN)
+        : null;
   }
 }

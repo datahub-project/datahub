@@ -207,7 +207,8 @@ def get_dataplatform_instance_aspect(
         )
 
         return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=aspect
+            entityUrn=dataset_urn,
+            aspect=aspect,
         ).as_workunit()
     else:
         return None

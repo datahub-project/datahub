@@ -9,6 +9,7 @@ from sqlalchemy.sql import sqltypes
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
@@ -112,12 +113,9 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                         dataset_urn, int(datetime.now().timestamp() * 1000)
                     )
 
-                yield self.wrap_aspect_as_workunit(
-                    "dataset",
-                    dataset_urn,
-                    "datasetProfile",
-                    profile,
-                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=profile
+                ).as_workunit()
 
     def get_snowflake_profile_request(
         self,
