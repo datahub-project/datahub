@@ -275,6 +275,7 @@ def register_mock_api(request_mock):
                         "datasets": [
                             {
                                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "endorsementDetails": {"endorsement": "Promoted"},
                                 "name": "test_sf_pbi_test",
                                 "tables": [
                                     {
@@ -390,6 +391,20 @@ def register_mock_api(request_mock):
                                 ],
                             },
                         ],
+                        "dashboards": [
+                            {
+                                "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
+                                "isReadOnly": True,
+                            }
+                        ],
+                        "reports": [
+                            {
+                                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                                "name": "SalesMarketing",
+                                "description": "Acryl sales marketing report",
+                            }
+                        ],
                     },
                 ]
             },
@@ -418,6 +433,20 @@ def register_mock_api(request_mock):
                                 ],
                             }
                         ],
+                        "dashboards": [
+                            {
+                                "id": "7D668CAD-8FFC-4505-9215-655BCA5BEBAE",
+                                "isReadOnly": True,
+                            }
+                        ],
+                        "reports": [
+                            {
+                                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                                "name": "SalesMarketing",
+                                "description": "Acryl sales marketing report",
+                            }
+                        ],
                     },
                 ]
             },
@@ -441,6 +470,18 @@ def register_mock_api(request_mock):
                         "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
                     }
                 ]
+            },
+        },
+        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "id": "5b218778-e7a5-4d73-8187-f10824047715",
+                "name": "SalesMarketing",
+                "description": "Acryl sales marketing report",
+                "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
+                "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
@@ -734,4 +775,44 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
         pytestconfig,
         output_path=f"{tmp_path}/powerbi_lineage_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_extract_endorsements(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": False,
+                    "extract_endorsements_to_tags": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_endorsement_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    mce_out_file = "golden_test_endorsement.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "powerbi_endorsement_mces.json",
+        golden_path=f"{test_resources_dir}/{mce_out_file}",
     )

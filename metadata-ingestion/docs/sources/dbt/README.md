@@ -11,6 +11,7 @@ Ingesting metadata from dbt requires either using the **dbt** module or the **db
 | dbt Model - view         | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `view`        |
 | dbt Model - incremental  | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `incremental` |
 | dbt Model - ephemeral    | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `ephemeral`   |
+| dbt Snapshot             | [Dataset](../../metamodel/entities/dataset.md)                | Subtype `snapshot`    |
 | dbt Test                 | [Assertion](../../metamodel/entities/assertion.md)            |                       |
 | dbt Test Result          | [Assertion Run Result](../../metamodel/entities/assertion.md) |                       |
 

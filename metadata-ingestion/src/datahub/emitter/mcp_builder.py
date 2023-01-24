@@ -202,7 +202,7 @@ def gen_containers(
     )
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
-        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+        # entityKeyAspect=ContainerKeyClass(guid=parent_container_key.guid()),
         aspect=ContainerProperties(
             name=name,
             description=description,

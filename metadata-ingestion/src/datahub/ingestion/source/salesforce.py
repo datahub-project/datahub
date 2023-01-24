@@ -28,12 +28,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BooleanTypeClass,
     BytesTypeClass,
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
@@ -360,9 +358,10 @@ class SalesforceSource(Source):
                 self.platform, self.config.platform_instance  # type:ignore
             ),
         )
-        return self.wrap_aspect_as_workunit(
-            "dataset", datasetUrn, "dataPlatformInstance", dataPlatformInstance
-        )
+
+        return MetadataChangeProposalWrapper(
+            entityUrn=datasetUrn, aspect=dataPlatformInstance
+        ).as_workunit()
 
     def get_operation_workunit(
         self, customObject: dict, datasetUrn: str
@@ -377,9 +376,10 @@ class SalesforceSource(Source):
                 lastUpdatedTimestamp=timestamp,
                 actor=builder.make_user_urn(customObject["CreatedBy"]["Username"]),
             )
-            yield self.wrap_aspect_as_workunit(
-                "dataset", datasetUrn, "operation", operation
-            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=datasetUrn, aspect=operation
+            ).as_workunit()
 
             # Note - Object Level LastModified captures changes at table level metadata e.g. table
             # description and does NOT capture field level metadata e.g. new field added, existing
@@ -399,9 +399,9 @@ class SalesforceSource(Source):
                         customObject["LastModifiedBy"]["Username"]
                     ),
                 )
-                yield self.wrap_aspect_as_workunit(
-                    "dataset", datasetUrn, "operation", operation
-                )
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=datasetUrn, aspect=operation
+                ).as_workunit()
 
     def get_time_from_salesforce_timestamp(self, date: str) -> int:
         return round(
@@ -443,9 +443,9 @@ class SalesforceSource(Source):
             description=customObject.get("Description"),
             customProperties=sObjectProperties,
         )
-        return self.wrap_aspect_as_workunit(
-            "dataset", datasetUrn, "datasetProperties", datasetProperties
-        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=datasetUrn, aspect=datasetProperties
+        ).as_workunit()
 
     def get_subtypes_workunit(self, sObjectName: str, datasetUrn: str) -> WorkUnit:
         subtypes = []
@@ -454,12 +454,9 @@ class SalesforceSource(Source):
         else:
             subtypes.append("Standard Object")
 
-        return self.wrap_aspect_as_workunit(
-            entityName="dataset",
-            entityUrn=datasetUrn,
-            aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=subtypes),
-        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=datasetUrn, aspect=SubTypesClass(typeNames=subtypes)
+        ).as_workunit()
 
     def get_profile_workunit(
         self, sObjectName: str, datasetUrn: str
@@ -486,9 +483,9 @@ class SalesforceSource(Source):
                 rowCount=entry["count"],
                 columnCount=self.fieldCounts[sObjectName],
             )
-            yield self.wrap_aspect_as_workunit(
-                "dataset", datasetUrn, "datasetProfile", datasetProfile
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=datasetUrn, aspect=datasetProfile
+            ).as_workunit()
 
     # Here field description is created from label, description and inlineHelpText
     def _get_field_description(self, field: dict, customField: dict) -> str:
@@ -682,9 +679,9 @@ class SalesforceSource(Source):
             )
         self.fieldCounts[sObjectName] = len(fields)
 
-        yield self.wrap_aspect_as_workunit(
-            "dataset", datasetUrn, "schemaMetadata", schemaMetadata
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=datasetUrn, aspect=schemaMetadata
+        ).as_workunit()
 
     def get_foreign_keys_from_field(
         self, fieldName: str, field: dict, datasetUrn: str
@@ -707,22 +704,6 @@ class SalesforceSource(Source):
                 foreignFields=[builder.make_schema_field_urn(foreignDataset, "Id")],
                 sourceFields=[builder.make_schema_field_urn(datasetUrn, fieldName)],
             )
-
-    def wrap_aspect_as_workunit(
-        self, entityName: str, entityUrn: str, aspectName: str, aspect: builder.Aspect
-    ) -> WorkUnit:
-        wu = MetadataWorkUnit(
-            id=f"{aspectName}-for-{entityUrn}",
-            mcp=MetadataChangeProposalWrapper(
-                entityType=entityName,
-                entityUrn=entityUrn,
-                aspectName=aspectName,
-                aspect=aspect,
-                changeType=ChangeTypeClass.UPSERT,
-            ),
-        )
-        self.report.report_workunit(wu)
-        return wu
 
     def get_report(self) -> SourceReport:
         return self.report
