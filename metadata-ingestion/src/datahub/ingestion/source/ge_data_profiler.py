@@ -24,6 +24,7 @@ from typing import (
 )
 
 import sqlalchemy as sa
+import sqlalchemy.sql.compiler
 from great_expectations.core.util import convert_to_json_serializable
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -58,6 +59,7 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
+    IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
     get_query_columns,
 )
@@ -119,7 +121,11 @@ def get_column_unique_count_patch(self, column):
     elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
         element_values = self.engine.execute(
             sa.select(
-                [sa.text(f"APPROX_COUNT_DISTINCT({sa.column(column)})")]  # type:ignore
+                [
+                    sa.text(  # type:ignore
+                        f'APPROX_COUNT_DISTINCT("{sa.column(column)}")'
+                    )
+                ]
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
@@ -679,6 +685,21 @@ class DatahubGEProfiler:
         # make the threading code work correctly. As such, we need to make sure we've
         # got an engine here.
         self.base_engine = conn.engine
+
+        if IS_SQLALCHEMY_1_4:
+            # SQLAlchemy 1.4 added a statement "linter", which issues warnings about cartesian products in SELECT statements.
+            # Changelog: https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#change-4737.
+            # Code: https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/sql/compiler.py#L549
+            #
+            # The query combiner does indeed produce queries with cartesian products, but they are
+            # safe because each "FROM" clause only returns one row, so the cartesian product
+            # is also always a single row. As such, we disable the linter here.
+
+            # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
+            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined]
+                ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
+            )
+
         self.platform = platform
 
     @contextlib.contextmanager
