@@ -59,3 +59,6 @@ COPY ./base-requirements.txt requirements.txt
 
 RUN pip install -r requirements.txt && \
     pip uninstall -y acryl-datahub
+
+# This is required to fix security vulnerability in htrace-core4
+RUN rm -f /usr/local/lib/python3.10/site-packages/pyspark/jar/htrace-core4-4.1.0-incubating.jar
