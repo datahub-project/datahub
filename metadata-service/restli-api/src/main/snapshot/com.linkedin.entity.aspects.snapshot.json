@@ -2366,7 +2366,7 @@
         "queryByDefault" : true
       }
     }, {
-      "name" : "qcountryCode",
+      "name" : "countryCode",
       "type" : "string",
       "doc" : "two uppercase letters country code. e.g.  US",
       "optional" : true
