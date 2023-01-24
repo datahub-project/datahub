@@ -14,7 +14,7 @@ record EthicalConsiderations {
   data: optional array[string]
 
   /**
-   *  Is the MLModel intended to inform decisions about matters central to human life or flourishing – e.g., health or safety? Or could it be used in such a way?
+   *  Is the MLModel intended to inform decisions about matters central to human life or flourishing - e.g., health or safety? Or could it be used in such a way?
    */
   humanLife: optional array[string]
 

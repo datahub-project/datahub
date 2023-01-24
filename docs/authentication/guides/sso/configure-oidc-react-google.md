@@ -6,6 +6,13 @@ authentication responsibility to identity providers like Google.
 
 This guide will provide steps for configuring DataHub authentication using Google.
 
+:::caution
+Even when OIDC is configured, the root user can still login without OIDC by going
+to `/login` URL endpoint. It is recommended that you don't use the default
+credentials by mounting a different file in the front end container. To do this
+please see [this guide](../jaas.md) to mount a custom user.props file for a JAAS authenticated deployment.
+:::
+
 ## Steps
 
 ### 1. Create a project in the Google API Console
