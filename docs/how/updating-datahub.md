@@ -6,6 +6,14 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Potential Downtime
+
+### Deprecations
+
+## 0.9.6
+
+### Breaking Changes
+
 - #6742 The metadata file sink's output format no longer contains nested JSON strings for MCP aspects, but instead unpacks the stringified JSON into a real JSON object. The previous sink behavior can be recovered using the `legacy_nested_json_string` option. The file source is backwards compatible and supports both formats.
 - #6901 The `env` and `database_alias` fields have been marked deprecated across all sources. We recommend using `platform_instance` where possible instead.
 
@@ -15,6 +23,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 #6851 - Sources bigquery-legacy and bigquery-usage-legacy have been removed.
 
 ### Other notable Changes
+- If anyone faces issues with login please clear your cookies. Some security updates are part of this release. That may cause login issues until cookies are cleared.
 
 ## 0.9.4 / 0.9.5
 

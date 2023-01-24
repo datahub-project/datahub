@@ -18,6 +18,7 @@ from datahub.configuration.common import (
     ConfigurationError,
     LineageConfig,
 )
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -137,6 +138,10 @@ class DBTEntitiesEnabled(ConfigModel):
         EmitDirective.YES,
         description="Emit metadata for dbt seeds when set to Yes or Only",
     )
+    snapshots: EmitDirective = Field(
+        EmitDirective.YES,
+        description="Emit metadata for dbt snapshots when set to Yes or Only",
+    )
     test_definitions: EmitDirective = Field(
         EmitDirective.YES,
         description="Emit metadata for test definitions when enabled when set to Yes or Only",
@@ -167,17 +172,18 @@ class DBTEntitiesEnabled(ConfigModel):
     def can_emit_node_type(self, node_type: str) -> bool:
         # Node type comes from dbt's node types.
 
-        field_to_node_type_map = {
-            "model": "models",
-            "source": "sources",
-            "seed": "seeds",
-            "test": "test_definitions",
+        node_type_allow_map = {
+            "model": self.models,
+            "source": self.sources,
+            "seed": self.seeds,
+            "snapshot": self.snapshots,
+            "test": self.test_definitions,
         }
-        field = field_to_node_type_map.get(node_type)
-        if not field:
+        allowed = node_type_allow_map.get(node_type)
+        if allowed is None:
             return False
 
-        return self.__getattribute__(field) == EmitDirective.YES
+        return allowed == EmitDirective.YES
 
     @property
     def can_emit_test_results(self) -> bool:
@@ -200,6 +206,8 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
         default=False,
         description="Use model identifier instead of model name if defined (if not, default to model name).",
     )
+    _deprecate_use_identifiers = pydantic_field_deprecated("use_identifiers")
+
     entities_enabled: DBTEntitiesEnabled = Field(
         DBTEntitiesEnabled(),
         description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
@@ -251,6 +259,9 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="[deprecated] Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
+    )
+    _deprecate_skip_source_on_lineage_edge = pydantic_field_deprecated(
+        "backcompat_skip_source_on_lineage_edge"
     )
 
     incremental_lineage: bool = Field(
@@ -349,7 +360,7 @@ class DBTNode:
 
     node_type: str  # source, model
     max_loaded_at: Optional[datetime]
-    materialization: Optional[str]  # table, view, ephemeral, incremental
+    materialization: Optional[str]  # table, view, ephemeral, incremental, snapshot
     # see https://docs.getdbt.com/reference/artifacts/manifest-json
     catalog_type: Optional[str]
 
@@ -419,7 +430,6 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 def get_upstreams(
     upstreams: List[str],
     all_nodes: Dict[str, DBTNode],
-    use_identifiers: bool,
     target_platform: str,
     target_platform_instance: Optional[str],
     environment: str,
@@ -428,7 +438,7 @@ def get_upstreams(
 ) -> List[str]:
     upstream_urns = []
 
-    for upstream in upstreams:
+    for upstream in sorted(upstreams):
         if upstream not in all_nodes:
             logger.debug(
                 f"Upstream node - {upstream} not found in all manifest entities."
@@ -444,7 +454,7 @@ def get_upstreams(
         materialized = upstream_manifest_node.materialization
 
         resource_type = upstream_manifest_node.node_type
-        if materialized in {"view", "table", "incremental"} or (
+        if materialized in {"view", "table", "incremental", "snapshot"} or (
             resource_type == "source" and legacy_skip_source_lineage
         ):
             # upstream urns point to the target platform
@@ -718,7 +728,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             upstream_urns = get_upstreams(
                 upstreams=node.upstream_nodes,
                 all_nodes=all_nodes_map,
-                use_identifiers=self.config.use_identifiers,
                 target_platform=self.config.target_platform,
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
@@ -1124,7 +1133,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         pass
 
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
-        materialized = node.materialization in {"table", "incremental"}
+        materialized = node.materialization in {"table", "incremental", "snapshot"}
         # this function is only called when raw sql is present. assert is added to satisfy lint checks
         assert node.raw_code is not None
         view_properties = ViewPropertiesClass(
@@ -1319,7 +1328,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not node.node_type:
             return None
         subtypes: Optional[List[str]]
-        if node.node_type == "model":
+        if node.node_type in {"model", "snapshot"}:
             if node.materialization:
                 subtypes = [node.materialization, "view"]
             else:
@@ -1343,7 +1352,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         upstream_urns = get_upstreams(
             node.upstream_nodes,
             all_nodes_map,
-            self.config.use_identifiers,
             self.config.target_platform,
             self.config.target_platform_instance,
             self.config.env,
