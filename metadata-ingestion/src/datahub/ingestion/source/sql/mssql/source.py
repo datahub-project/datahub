@@ -596,7 +596,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         mcp = MetadataChangeProposalWrapper(
             entityType=data_job.type,
-            entityUrn=data_job.full_server_urn,
+            entityUrn=data_job.urn,
             changeType=ChangeTypeClass.UPSERT,
             **data_job.as_datajob_info_aspect_data,
         )
@@ -609,7 +609,7 @@ class SQLServerSource(SQLAlchemySource):
 
         mcp = MetadataChangeProposalWrapper(
             entityType=data_job.type,
-            entityUrn=data_job.full_server_urn,
+            entityUrn=data_job.urn,
             changeType=ChangeTypeClass.UPSERT,
             **data_job.as_datajob_input_output_aspect_data,
         )
@@ -626,7 +626,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         mcp = MetadataChangeProposalWrapper(
             entityType=data_flow.type,
-            entityUrn=data_flow.full_server_urn,
+            entityUrn=data_flow.urn,
             changeType=ChangeTypeClass.UPSERT,
             **data_flow.as_dataflow_info_aspect_data,
         )

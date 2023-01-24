@@ -172,15 +172,6 @@ class MSSQLDataJob:
     @property
     def urn(self):
         return make_data_job_urn(
-            orchestrator=self.entity.flow.source,
-            flow_id=self.entity.flow.formatted_name,
-            job_id=self.entity.full_name,
-            cluster=self.entity.flow.env,
-        )
-
-    @property
-    def full_server_urn(self):
-        return make_data_job_urn(
             orchestrator=self.entity.flow.orchestrator,
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.full_name,
@@ -235,14 +226,6 @@ class MSSQLDataFlow:
 
     @property
     def urn(self):
-        return make_data_flow_urn(
-            orchestrator=self.entity.source,
-            flow_id=self.entity.formatted_name,
-            cluster=self.entity.env,
-        )
-
-    @property
-    def full_server_urn(self):
         return make_data_flow_urn(
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
