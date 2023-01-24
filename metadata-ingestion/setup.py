@@ -326,7 +326,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.6"},
-    "redshift-beta": {"redshift_connector"},
+    "redshift-beta": {"redshift-connector"},
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},

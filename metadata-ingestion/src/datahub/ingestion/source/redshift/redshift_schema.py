@@ -10,7 +10,7 @@ from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass
 class RedshiftColumn(BaseColumn):
     dist_key: bool = False
     sort_key: bool = False

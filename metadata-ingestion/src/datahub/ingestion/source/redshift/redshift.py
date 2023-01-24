@@ -14,6 +14,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_tag_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -48,9 +49,11 @@ from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes, SqlWor
 from datahub.ingestion.source.sql.sql_types import resolve_postgres_modified_type
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
-    gen_database_containers,
+    gen_database_container,
+    gen_database_key,
     gen_lineage,
-    gen_schema_containers,
+    gen_schema_container,
+    gen_schema_key,
     get_dataplatform_instance_aspect,
     get_domain_wu,
 )
@@ -73,9 +76,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
     ViewProperties,
 )
-
-# TRICKY: it's necessary to import the Postgres source because
-# that module has some side effects that we care about here.
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
@@ -355,21 +355,31 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
 
-            schema_workunits = gen_schema_containers(
+            schema_container_key = gen_schema_key(
+                db_name=database,
                 schema=schema.name,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            database_container_key = gen_database_key(
                 database=database,
                 platform=self.platform,
                 platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            yield from gen_schema_container(
+                schema=schema.name,
+                database=database,
+                schema_container_key=schema_container_key,
+                database_container_key=database_container_key,
                 domain_config=self.config.domain,
                 domain_registry=self.domain_registry,
                 sub_types=[SqlContainerSubTypes.SCHEMA],
-                env=self.config.env,
                 report=self.report,
             )
-
-            for wu in schema_workunits:
-                self.report.report_workunit(wu)
-                yield wu
 
             schema_columns: Dict[str, Dict[str, List[RedshiftColumn]]] = {}
             schema_columns[schema.name] = RedshiftDataDictionary.get_columns_for_schema(
@@ -493,6 +503,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         if table.serde_parameters:
             custom_properties["serde_parameters"] = table.serde_parameters
 
+        assert table.schema
+        assert table.type
         yield from self.gen_dataset_workunits(
             table=table,
             database=database,
@@ -634,23 +646,25 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         if custom_properties:
             dataset_properties.customProperties = custom_properties
 
-        wu = wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "datasetProperties", dataset_properties
-        )
-        yield wu
-        self.report.report_workunit(wu)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=dataset_properties
+        ).as_workunit()
 
         # TODO: Check if needed
         # if tags_to_add:
         #    yield gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
+        schema_container_key = gen_schema_key(
+            db_name=database,
+            schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
         yield from add_table_to_schema_container(
             dataset_urn,
-            database,
-            schema,
-            platform_instance=self.config.platform_instance,
-            platform=self.platform,
-            env=self.config.env,
+            parent_container_key=schema_container_key,
             report=self.report,
         )
         dpi_aspect = get_dataplatform_instance_aspect(
@@ -663,15 +677,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             yield dpi_aspect
 
         subTypes = SubTypes(typeNames=[sub_type])
-        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
-        yield wu
-        self.report.report_workunit(wu)
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=subTypes
+        ).as_workunit()
 
         if self.domain_registry:
             yield from get_domain_wu(
                 dataset_name=str(datahub_dataset_name),
                 entity_urn=dataset_urn,
-                entity_type="dataset",
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
                 report=self.report,
@@ -685,14 +698,19 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.db_tables[database] = defaultdict()
         self.db_views[database] = defaultdict()
 
-        yield from gen_database_containers(
+        database_container_key = gen_database_key(
+            database=database,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_database_container(
+            database_container_key=database_container_key,
             database=database,
             domain_config=self.config.domain,
             domain_registry=self.domain_registry,
             report=self.report,
-            platform_instance=self.config.platform_instance,
-            platform=self.platform,
-            env=self.config.env,
             sub_types=[SqlContainerSubTypes.DATABASE],
         )
         self.cache_tables_and_views(connection, database)
@@ -759,27 +777,27 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         for schema in views:
             if self.config.schema_pattern.allowed(f"{database}.{schema}"):
                 self.db_views[database][schema] = []
-                for table in views[schema]:
+                for view in views[schema]:
                     if self.config.view_pattern.allowed(
-                        f"{database}.{schema}.{table.name}"
+                        f"{database}.{schema}.{view.name}"
                     ):
-                        self.db_views[database][schema].append(table)
+                        self.db_views[database][schema].append(view)
 
     def get_all_tables(
         self,
     ) -> Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]:
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
-            **self.db_tables,
-        }  # type: ignore
+            **self.db_tables,  # type: ignore
+        }
         for db in self.db_views.keys():
             if db in all_tables:
                 for schema in self.db_views[db].keys():
                     if schema in all_tables[db]:
                         all_tables[db][schema].extend(self.db_views[db][schema])
                     else:
-                        all_tables[db][schema] = self.db_views[db][schema]
+                        all_tables[db][schema] = self.db_views[db][schema]  # type: ignore
             else:
-                all_tables[db] = self.db_views[db]
+                all_tables[db] = self.db_views[db]  # type: ignore
         return all_tables
 
     def extract_usage(
