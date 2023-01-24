@@ -16,9 +16,7 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
 
 :::
 
-2. Install [jq](https://stedolan.github.io/jq/download/)
-   
-3. Launch the Docker Engine from command line or the desktop app.
+2. Launch the Docker Engine from command line or the desktop app.
 
 3. Install the DataHub CLI
 
@@ -26,9 +24,8 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
 
    b. Run the following commands in your terminal
 
-   ```
+   ```sh
    python3 -m pip install --upgrade pip wheel setuptools
-   python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
    python3 -m pip install --upgrade acryl-datahub
    datahub version
    ```
@@ -88,7 +85,7 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
 
 5. To ingest the sample metadata, run the following CLI command from your terminal
 
-   ```
+   ```bash
    datahub docker ingest-sample-data
    ```
 
@@ -110,13 +107,13 @@ Command not found: datahub
 If running the datahub cli produces "command not found" errors inside your terminal, your system may be defaulting to an
 older version of Python. Try prefixing your `datahub` commands with `python3 -m`:
 
-```
+```bash
 python3 -m datahub docker quickstart
 ```
 
 Another possibility is that your system PATH does not include pip's `$HOME/.local/bin` directory.  On linux, you can add this to your `~/.bashrc`:
 
-```
+```bash
 if [ -d "$HOME/.local/bin" ] ; then
     PATH="$HOME/.local/bin:$PATH"
 fi

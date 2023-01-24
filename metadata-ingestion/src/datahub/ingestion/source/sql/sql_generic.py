@@ -13,10 +13,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass
 class BaseColumn:
     name: str
     ordinal_position: int

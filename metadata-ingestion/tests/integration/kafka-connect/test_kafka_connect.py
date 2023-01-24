@@ -35,7 +35,9 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         str(test_resources_dir_kafka / "docker-compose.yml"),
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
-    with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+    with docker_compose_runner(
+        docker_compose_file, "kafka-connect", cleanup=False
+    ) as docker_services:
         wait_for_port(
             docker_services,
             "test_mysql",
@@ -43,6 +45,13 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
             timeout=120,
             checker=lambda: is_mysql_up("test_mysql", 3306),
         )
+
+    with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+        # We sometimes run into issues where the broker fails to come up on the first try because
+        # of all the other processes that are running. By running docker compose twice, we can
+        # avoid some test flakes. How does this work? The "key" is the same between both
+        # calls to the docker_compose_runner and the first one sets cleanup=False.
+
         wait_for_port(docker_services, "test_broker", 59092, timeout=120)
         wait_for_port(docker_services, "test_connect", 58083, timeout=120)
         docker_services.wait_until_responsive(

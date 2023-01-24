@@ -6,6 +6,13 @@ This enables operators of DataHub to integrate with 3rd party identity providers
 When configured, OIDC auth will be enabled between clients of the DataHub UI & `datahub-frontend` server. Beyond this point is considered
 to be a secure environment and as such authentication is validated & enforced only at the "front door" inside datahub-frontend.
 
+:::caution
+Even if OIDC is configured the root user can still login without OIDC by going
+to `/login` URL endpoint. It is recommended that you don't use the default
+credentials by mounting a different file in the front end container. To do this
+please see [this guide](../jaas.md) to mount a custom user.props file for a JAAS authenticated deployment.
+:::
+
 ## Provider-Specific Guides
 
 1. [Configuring OIDC using Google](configure-oidc-react-google.md)
@@ -182,10 +189,3 @@ A brief summary of the steps that occur when the user navigates to the React app
 6. DataHub fetches the authenticated user's profile and extracts a username to identify the user on DataHub (eg. urn:li:corpuser:username)
 7. DataHub sets session cookies for the newly authenticated user
 8. DataHub redirects the user to the homepage ("/")
-
-### Root user
-
-Even if OIDC is configured the root user can still login without OIDC by going
-to `/login` URL endpoint. It is recommended that you don't use the default
-credentials by mounting a different file in the front end container. To do this
-please see how to mount a custom user.props file for a JAAS authenticated deployment.

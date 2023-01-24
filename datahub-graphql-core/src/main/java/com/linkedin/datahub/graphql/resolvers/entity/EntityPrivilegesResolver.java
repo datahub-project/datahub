@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -65,7 +66,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     }
     Urn parentNodeUrn = GlossaryUtils.getParentUrn(termUrn, context, _entityClient);
     if (parentNodeUrn != null) {
-      Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn);
+      Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
     return result;
@@ -79,12 +80,12 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
       result.setCanManageChildren(true);
       return result;
     }
-    Boolean canManageChildren = GlossaryUtils.canManageChildrenEntities(context, nodeUrn);
+    Boolean canManageChildren = GlossaryUtils.canManageChildrenEntities(context, nodeUrn, _entityClient);
     result.setCanManageChildren(canManageChildren);
 
     Urn parentNodeUrn = GlossaryUtils.getParentUrn(nodeUrn, context, _entityClient);
     if (parentNodeUrn != null) {
-      Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn);
+      Boolean canManage = GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient);
       result.setCanManageEntity(canManage);
     }
     return result;
@@ -110,18 +111,21 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditLineage(canEditEntityLineage(urn, context));
+    result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     return result;
   }
 
   private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditLineage(canEditEntityLineage(urn, context));
+    result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     return result;
   }
 
   private EntityPrivileges getDashboardPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditLineage(canEditEntityLineage(urn, context));
+    result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     return result;
   }
 

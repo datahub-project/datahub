@@ -51,7 +51,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobI
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
-from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -709,7 +709,7 @@ class GlueSource(StatefulIngestionSourceBase):
             ] = mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
             if dataset_properties and "Location" in dataset_properties.customProperties:
                 location = dataset_properties.customProperties["Location"]
-                if location.startswith("s3://"):
+                if is_s3_uri(location):
                     s3_dataset_urn = make_s3_urn(location, self.source_config.env)
                     if self.source_config.glue_s3_lineage_direction == "upstream":
                         upstream_lineage = UpstreamLineageClass(
@@ -930,12 +930,11 @@ class GlueSource(StatefulIngestionSourceBase):
         return None
 
     def _get_domain_wu(
-        self, dataset_name: str, entity_urn: str, entity_type: str
+        self, dataset_name: str, entity_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
@@ -985,7 +984,6 @@ class GlueSource(StatefulIngestionSourceBase):
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
                 entity_urn=dataset_urn,
-                entity_type="dataset",
             )
             yield from self.add_table_to_database_container(
                 dataset_urn=dataset_urn, db_name=database_name

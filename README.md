@@ -3,9 +3,8 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export const Logo = (props) => {
   return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
+    <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
       <img
-        height="150"
         alt="DataHub Logo"
         src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
         {...props}
@@ -121,6 +120,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Grofers](https://grofers.com)
 - [Haibo Technology](https://www.botech.com.cn)
 - [hipages](https://hipages.com.au/)
+- [inovex](https://www.inovex.de/)
 - [IOMED](https://iomed.health)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)

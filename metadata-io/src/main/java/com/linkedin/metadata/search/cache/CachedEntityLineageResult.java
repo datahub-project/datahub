@@ -1,11 +1,24 @@
 package com.linkedin.metadata.search.cache;
 
 import com.linkedin.metadata.graph.EntityLineageResult;
+import java.io.Serializable;
 import lombok.Data;
+
+import static com.datahub.util.RecordUtils.*;
+import static com.linkedin.metadata.search.utils.GZIPUtil.*;
 
 
 @Data
-public class CachedEntityLineageResult {
-  private final EntityLineageResult entityLineageResult;
+public class CachedEntityLineageResult implements Serializable {
+  private final byte[] entityLineageResult;
   private final long timestamp;
+
+  public CachedEntityLineageResult(EntityLineageResult lineageResult, long timestamp) {
+    this.entityLineageResult = gzipCompress(toJsonString(lineageResult));
+    this.timestamp = timestamp;
+  }
+
+  public EntityLineageResult getEntityLineageResult() {
+    return toRecordTemplate(EntityLineageResult.class, gzipDecompress(entityLineageResult));
+  }
 }

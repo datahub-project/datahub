@@ -1,5 +1,5 @@
 # TODO: Remove to common
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -18,9 +18,7 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 
@@ -51,18 +49,15 @@ def gen_database_key(
     )
 
 
-def gen_schema_containers(
+def gen_schema_container(
     schema: str,
     database: str,
-    platform: str,
     sub_types: List[str],
-    domain_config: Dict[str, AllowDenyPattern],
+    database_container_key: PlatformKey,
+    schema_container_key: PlatformKey,
     domain_registry: Optional[DomainRegistry] = None,
-    platform_instance: Optional[str] = None,
-    env: Optional[str] = None,
+    domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     report: Optional[SourceReport] = None,
-    database_container_key: Optional[PlatformKey] = None,
-    schema_container_key: Optional[PlatformKey] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -73,28 +68,10 @@ def gen_schema_containers(
     last_modified: Optional[int] = None,
     extra_properties: Optional[Dict[str, str]] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    database_container_key = (
-        gen_database_key(
-            database, platform=platform, platform_instance=platform_instance, env=env
-        )
-        if not database_container_key
-        else database_container_key
-    )
-
-    schema_container_key = (
-        gen_schema_key(
-            db_name=database,
-            schema=schema,
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-        if not schema_container_key
-        else schema_container_key
-    )
 
     domain_urn: Optional[str] = None
     if domain_registry:
+        assert domain_config
         domain_urn = gen_domain_urn(
             f"{database}.{schema}",
             domain_config=domain_config,
@@ -139,16 +116,13 @@ def gen_domain_urn(
     return domain_urn
 
 
-def gen_database_containers(
+def gen_database_container(
     database: str,
-    platform: str,
+    database_container_key: PlatformKey,
     sub_types: List[str],
-    domain_config: Dict[str, AllowDenyPattern],
+    domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     domain_registry: Optional[DomainRegistry] = None,
-    platform_instance: Optional[str] = None,
-    env: Optional[str] = None,
     report: Optional[SourceReport] = None,
-    database_container_key: Optional[PlatformKey] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -161,17 +135,10 @@ def gen_database_containers(
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn: Optional[str] = None
     if domain_registry:
+        assert domain_config
         domain_urn = gen_domain_urn(
             database, domain_config=domain_config, domain_registry=domain_registry
         )
-
-    database_container_key = (
-        gen_database_key(
-            database, platform=platform, platform_instance=platform_instance, env=env
-        )
-        if not database_container_key
-        else database_container_key
-    )
 
     container_workunits = gen_containers(
         container_key=database_container_key,
@@ -196,28 +163,12 @@ def gen_database_containers(
 
 def add_table_to_schema_container(
     dataset_urn: str,
-    db_name: str,
-    schema: str,
-    platform: str,
-    platform_instance: Optional[str] = None,
-    env: Optional[str] = None,
+    parent_container_key: PlatformKey,
     report: Optional[SourceReport] = None,
-    schema_container_key: Optional[PlatformKey] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    schema_container_key = (
-        gen_schema_key(
-            db_name=db_name,
-            schema=schema,
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-        if not schema_container_key
-        else schema_container_key
-    )
 
     container_workunits = add_dataset_to_container(
-        container_key=schema_container_key,
+        container_key=parent_container_key,
         dataset_urn=dataset_urn,
     )
     for wu in container_workunits:
@@ -229,7 +180,6 @@ def add_table_to_schema_container(
 def get_domain_wu(
     dataset_name: str,
     entity_urn: str,
-    entity_type: str,
     domain_config: Dict[str, AllowDenyPattern],
     domain_registry: DomainRegistry,
     report: SourceReport,
@@ -237,7 +187,6 @@ def get_domain_wu(
     domain_urn = gen_domain_urn(dataset_name, domain_config, domain_registry)
     if domain_urn:
         wus = add_domain_to_entity_wu(
-            entity_type=entity_type,
             entity_urn=entity_urn,
             domain_urn=domain_urn,
         )
@@ -261,36 +210,3 @@ def get_dataplatform_instance_aspect(
         )
     else:
         return None
-
-
-def gen_lineage(
-    dataset_urn: str,
-    lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
-    incremental_lineage: bool = True,
-) -> Iterable[MetadataWorkUnit]:
-    if lineage_info is None:
-        return
-
-    upstream_lineage, upstream_column_props = lineage_info
-    if upstream_lineage is not None:
-        if incremental_lineage:
-            patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(urn=dataset_urn)
-            for upstream in upstream_lineage.upstreams:
-                patch_builder.add_upstream_lineage(upstream)
-
-            lineage_workunits = [
-                MetadataWorkUnit(
-                    id=f"upstreamLineage-for-{dataset_urn}",
-                    mcp_raw=mcp,
-                )
-                for mcp in patch_builder.build()
-            ]
-        else:
-            lineage_workunits = [
-                wrap_aspect_as_workunit(
-                    "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-                )
-            ]
-
-        for wu in lineage_workunits:
-            yield wu

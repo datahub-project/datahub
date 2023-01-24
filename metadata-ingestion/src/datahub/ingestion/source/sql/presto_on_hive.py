@@ -28,17 +28,21 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
-    SQLAlchemyConfig,
     SQLAlchemySource,
     SqlWorkUnit,
     get_schema_metadata,
+)
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
-    gen_database_containers,
-    gen_schema_containers,
+    gen_database_container,
+    gen_database_key,
+    gen_schema_container,
+    gen_schema_key,
     get_domain_wu,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import JobId
@@ -322,14 +326,19 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_database_containers(
-            database=database,
-            sub_types=[self.database_container_subtype],
+        database_container_key = gen_database_key(
+            database,
             platform=self.platform,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+        )
+
+        yield from gen_database_container(
+            database=database,
+            database_container_key=database_container_key,
+            sub_types=[self.database_container_subtype],
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
             report=self.report,
         )
 
@@ -361,16 +370,29 @@ class PrestoOnHiveSource(SQLAlchemySource):
             schema = row["schema"]
             if not self.config.database_pattern.allowed(schema):
                 continue
+            database_container_key = gen_database_key(
+                database,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
 
-            yield from gen_schema_containers(
+            schema_container_key = gen_schema_key(
+                db_name=database,
+                schema=schema,
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            yield from gen_schema_container(
                 database=database,
                 schema=schema,
                 sub_types=["Schema"],
-                platform=self.platform,
-                domain_config=self.config.domain,
+                database_container_key=database_container_key,
+                schema_container_key=schema_container_key,
                 domain_registry=self.domain_registry,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
+                domain_config=self.config.domain,
                 report=self.report,
             )
 
@@ -446,9 +468,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 aspects=[StatusClass(removed=False)],
             )
 
-            # enable tables stateful ingestion
-            self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
-
             # add table schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns)
 
@@ -485,16 +504,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
             dataset_snapshot.aspects.append(dataset_properties)
 
-            db_name = self.get_db_name(inspector)
-            schema = key.schema
-            yield from add_table_to_schema_container(
-                dataset_urn=dataset_urn,
-                db_name=db_name,
-                schema=schema,
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                report=self.report,
+            yield from self.add_hive_dataset_to_container(
+                dataset_urn=dataset_urn, inspector=inspector, schema=key.schema
             )
 
             # construct mce
@@ -520,15 +531,32 @@ class PrestoOnHiveSource(SQLAlchemySource):
             self.report.report_workunit(subtypes_workunit)
             yield subtypes_workunit
 
-            if self.config.domain and self.domain_registry:
+            if self.config.domain:
+                assert self.domain_registry
                 yield from get_domain_wu(
                     dataset_name=dataset_name,
                     entity_urn=dataset_urn,
-                    entity_type="dataset",
                     domain_config=self.config.domain,
                     domain_registry=self.domain_registry,
                     report=self.report,
                 )
+
+    def add_hive_dataset_to_container(
+        self, dataset_urn: str, inspector: Inspector, schema: str
+    ) -> Iterable[MetadataWorkUnit]:
+        db_name = self.get_db_name(inspector)
+        schema_container_key = gen_schema_key(
+            db_name=db_name,
+            schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            parent_container_key=schema_container_key,
+            report=self.report,
+        )
 
     def get_hive_view_columns(self, inspector: Inspector) -> Iterable[ViewDataset]:
         where_clause_suffix = ""
@@ -690,18 +718,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
             dataset_snapshot.aspects.append(view_properties)
 
-            db_name = self.get_db_name(inspector)
-            yield from add_table_to_schema_container(
-                dataset_urn=dataset_urn,
-                db_name=db_name,
-                schema=dataset.schema_name,
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                report=self.report,
+            yield from self.add_hive_dataset_to_container(
+                dataset_urn=dataset_urn, inspector=inspector, schema=dataset.schema_name
             )
-
-            self.stale_entity_removal_handler.add_entity_to_state("view", dataset_urn)
 
             # construct mce
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -746,13 +765,13 @@ class PrestoOnHiveSource(SQLAlchemySource):
             self.report.report_workunit(view_properties_wu)
             yield view_properties_wu
 
-            if self.config.domain and self.domain_registry:
+            if self.config.domain:
+                assert self.domain_registry
                 yield from get_domain_wu(
                     dataset_name=dataset.dataset_name,
                     entity_urn=dataset_urn,
-                    entity_type="dataset",
-                    domain_config=self.config.domain,
                     domain_registry=self.domain_registry,
+                    domain_config=self.config.domain,
                     report=self.report,
                 )
 

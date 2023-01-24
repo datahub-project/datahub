@@ -65,7 +65,7 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
                     }
 
                     DataMap resolvedAspect = entityResponse.getAspects().get(aspectSpec.getName()).getValue().data();
-                    if (resolvedAspect == null || resolvedAspect.keySet().size() != 1) {
+                    if (resolvedAspect == null) {
                         return;
                     }
 

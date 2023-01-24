@@ -126,15 +126,14 @@ class BigqueryProfiler(GenericProfiler):
                     ] = partition
                     return None, None
 
-                partition_column_type: str = "DATE"
+                # ingestion time partitoned tables partition column is not in the schema, so we default to TIMESTAMP type
+                partition_column_type: str = "TIMESTAMP"
                 for c in table.columns:
                     if c.is_partition_column:
                         partition_column_type = c.data_type
 
-                if table.time_partitioning.type_ in ("DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
-                elif table.time_partitioning.type_ in ("HOUR"):
-                    partition_where_clause = f"`{table.time_partitioning.field}` BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
+                if table.time_partitioning.type_ in ("HOUR", "DAY", "MONTH", "YEAR"):
+                    partition_where_clause = f"{partition_column_type}(`{table.time_partitioning.field}`) BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.time_partitioning.type_}"
@@ -232,17 +231,15 @@ WHERE
             # We don't add to the profiler state if we only do table level profiling as it always happens
             if self.state_handler and not request.profile_table_level_only:
                 self.state_handler.add_to_state(
-                    dataset_urn, int(datetime.utcnow().timestamp() * 1000)
+                    dataset_urn, int(datetime.now().timestamp() * 1000)
                 )
 
-            wu = wrap_aspect_as_workunit(
+            yield wrap_aspect_as_workunit(
                 "dataset",
                 dataset_urn,
                 "datasetProfile",
                 profile,
             )
-            self.report.report_workunit(wu)
-            yield wu
 
     def get_bigquery_profile_request(
         self, project: str, dataset: str, table: BigqueryTable

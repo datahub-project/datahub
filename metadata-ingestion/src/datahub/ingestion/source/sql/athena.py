@@ -8,6 +8,7 @@ from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -20,14 +21,16 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemyConfig,
     SQLAlchemySource,
     SqlContainerSubTypes,
+)
+from datahub.ingestion.source.sql.sql_config import (
+    SQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
-    gen_database_containers,
+    gen_database_container,
     gen_database_key,
 )
 
@@ -56,17 +59,34 @@ class AthenaConfig(SQLAlchemyConfig):
         default=3600,
         description="Duration to assume the AWS Role for. Maximum of 43200 (12 hours)",
     )
-    s3_staging_dir: str = pydantic.Field(
-        description="Staging s3 location where the Athena query results will be stored"
+    s3_staging_dir: Optional[str] = pydantic.Field(
+        default=None,
+        deprecated=True,
+        description="[deprecated in favor of `query_result_location`] S3 query location",
     )
     work_group: str = pydantic.Field(
         description="The name of your Amazon Athena Workgroups"
     )
     catalog_name: str = pydantic.Field(
-        default="awsdatacatalog", description="Athena Catalog Name"
+        default="awsdatacatalog",
+        description="Athena Catalog Name",
     )
 
-    include_views = False  # not supported for Athena
+    query_result_location: str = pydantic.Field(
+        description="S3 path to the [query result bucket](https://docs.aws.amazon.com/athena/latest/ug/querying.html#query-results-specify-location) which should be used by AWS Athena to store results of the"
+        "queries executed by DataHub."
+    )
+
+    # overwrite default behavior of SQLAlchemyConfing
+    include_views: Optional[bool] = pydantic.Field(
+        default=False, description="Whether views should be ingested."
+    )
+
+    _s3_staging_dir_population = pydantic_renamed_field(
+        old_name="s3_staging_dir",
+        new_name="query_result_location",
+        print_warning=True,
+    )
 
     def get_sql_alchemy_url(self):
         return make_sqlalchemy_uri(
@@ -76,7 +96,8 @@ class AthenaConfig(SQLAlchemyConfig):
             f"athena.{self.aws_region}.amazonaws.com:443",
             self.database,
             uri_opts={
-                "s3_staging_dir": self.s3_staging_dir,
+                # as an URI option `s3_staging_dir` is still used due to PyAthena
+                "s3_staging_dir": self.query_result_location,
                 "work_group": self.work_group,
                 "catalog_name": self.catalog_name,
                 "role_arn": self.aws_role_arn,
@@ -94,11 +115,13 @@ class AthenaConfig(SQLAlchemyConfig):
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
+@capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
+    - Lineage for S3 tables.
     - Profiling when enabled.
     """
 
@@ -172,14 +195,19 @@ class AthenaSource(SQLAlchemySource):
         schema: str,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from gen_database_containers(
-            database=database,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+        database_container_key = gen_database_key(
+            database,
             platform=self.platform,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+        )
+
+        yield from gen_database_container(
+            database=database,
+            database_container_key=database_container_key,
+            sub_types=[SqlContainerSubTypes.DATABASE],
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
             report=self.report,
         )
 
@@ -201,14 +229,10 @@ class AthenaSource(SQLAlchemySource):
         schema: str,
         schema_container_key: Optional[PlatformKey] = None,
     ) -> Iterable[MetadataWorkUnit]:
+
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
-            db_name=db_name,
-            schema=schema,
-            schema_container_key=self.get_database_container_key(db_name, schema),
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
+            parent_container_key=self.get_database_container_key(db_name, schema),
             report=self.report,
         )
 

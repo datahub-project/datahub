@@ -24,7 +24,8 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>=1.5.1,<1.10.3",
+    # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
+    "pydantic>=1.5.1,!=1.10.3",
     "mixpanel>=4.9.0",
 }
 
@@ -110,7 +111,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy>=1.3.24, <2",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12",
+    "great-expectations>=0.15.12, <=0.15.41",
     # scipy version restricted to reduce backtracking, used by great-expectations,
     "scipy>=1.7.2",
     # GE added handling for higher version of jinja2
@@ -215,7 +216,7 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ==1.0.1",
+    "pydeequ>=1.0.1",
     "pyspark==3.0.3",
 }
 
@@ -239,6 +240,11 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
+    "datahub-lite": {
+        "duckdb",
+        "fastapi",
+        "uvicorn",
+    },
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
@@ -341,16 +347,20 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
-    "powerbi": microsoft_common,
+    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
     "unity-catalog": databricks_cli | {"requests"},
 }
 
+# This is mainly used to exclude plugins from the Docker image.
 all_exclude_plugins: Set[str] = {
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
+    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
+    # simply exclude it.
+    "datahub-lite",
 }
 
 mypy_stubs = {
@@ -393,7 +403,7 @@ base_dev_requirements = {
     "mypy==0.991",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic >=1.9.0",
+    "pydantic>=1.9.0",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
@@ -426,6 +436,7 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "datahub-rest",
+            "datahub-lite",
             "presto",
             "redash",
             "redshift-beta",
@@ -439,7 +450,6 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "powerbi-report-server",
-            "vertica",
             "salesforce",
             "unity-catalog"
             # airflow is added below
@@ -475,7 +485,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            "vertica",
+            # "vertica",
         ]
         for dependency in plugins[plugin]
     ),
@@ -567,6 +577,7 @@ entry_points = {
         "console = datahub.ingestion.sink.console:ConsoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
+        "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
     ],
     "datahub.ingestion.checkpointing_provider.plugins": [
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
@@ -622,6 +633,8 @@ setuptools.setup(
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
+        "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
+        "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
     },
     entry_points=entry_points,
     # Dependencies.

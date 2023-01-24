@@ -84,7 +84,9 @@ def delete_for_registry(
 @click.option("--urn", required=False, type=str, help="the urn of the entity")
 @click.option(
     "-a",
+    # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
     "--aspect_name",
+    "--aspect-name",
     required=False,
     type=str,
     help="the aspect name associated with the entity(only for timeseries aspects)",
@@ -106,11 +108,13 @@ def delete_for_registry(
     "-p", "--platform", required=False, type=str, help="the platform of the entity"
 )
 @click.option(
+    # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
     "--entity_type",
+    "--entity-type",
     required=False,
     type=str,
     default="dataset",
-    help="the entity_type of the entity",
+    help="the entity type of the entity",
 )
 @click.option("--query", required=False, type=str)
 @click.option(
@@ -203,7 +207,6 @@ def delete(
             aspect_name=aspect_name,
             soft=soft,
             dry_run=dry_run,
-            entity_type=entity_type,
             start_time=start_time,
             end_time=end_time,
             cached_session_host=(session, host),

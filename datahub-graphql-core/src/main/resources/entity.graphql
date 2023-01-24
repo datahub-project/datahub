@@ -576,6 +576,11 @@ type Mutation {
     Update lineage for an entity
     """
     updateLineage(input: UpdateLineageInput!): Boolean
+
+    """
+    Update the Embed information for a Dataset, Dashboard, or Chart.
+    """
+    updateEmbed(input: UpdateEmbedInput!): Boolean
 }
 
 """
@@ -1087,6 +1092,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     status: Status
 
     """
+    Embed information about the Dataset
+    """
+    embed: Embed
+
+    """
     Tags used for searching dataset
     """
     tags: GlobalTags
@@ -1531,7 +1541,7 @@ type GlossaryTerm implements Entity {
     type: EntityType!
 
     """
-    Name / id of the glossary term
+    A unique identifier for the Glossary Term. Deprecated - Use properties.name field instead.
     """
     name: String! @deprecated
 
@@ -3561,7 +3571,7 @@ type Tag implements Entity {
     type: EntityType!
 
     """
-    The name / id of the tag. Use properties.name instead.
+    A unique identifier for the Tag. Deprecated - Use properties.name field instead.
     """
     name: String! @deprecated
 
@@ -4419,6 +4429,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     status: Status
 
     """
+    Embed information about the Dashboard
+    """
+    embed: Embed
+
+    """
     The deprecation status of the dashboard
     """
     deprecation: Deprecation
@@ -4720,6 +4735,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     The deprecation status of the chart
     """
     deprecation: Deprecation
+
+    """
+    Embed information about the Chart
+    """
+    embed: Embed
 
     """
     The tags associated with the chart
@@ -10017,4 +10037,29 @@ input UpdateCorpUserViewsSettingsInput {
   If not provided, any existing default view will be removed.
   """
   defaultView: String
+}
+
+"""
+Information required to render an embedded version of an asset
+"""
+type Embed {
+    """
+    A URL which can be rendered inside of an iframe.
+    """
+    renderUrl: String
+}
+
+"""
+Input required to set or clear information related to rendering a Data Asset inside of DataHub.
+"""
+input UpdateEmbedInput {
+  """
+  The URN associated with the Data Asset to update. Only dataset, dashboard, and chart urns are currently supported.
+  """
+  urn: String!
+
+  """
+  Set or clear a URL used to render an embedded asset.
+  """
+  renderUrl: String
 }
