@@ -6,6 +6,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import io.sentry.Sentry;
 
 
 /**
@@ -17,13 +18,25 @@ public class BootstrapManager {
 
   private final ExecutorService _asyncExecutor = Executors.newFixedThreadPool(5);
   private final List<BootstrapStep> _bootSteps;
+  private final BootstrapManagerArgs _args;
 
-  public BootstrapManager(final List<BootstrapStep> bootSteps) {
+  public BootstrapManager(final List<BootstrapStep> bootSteps, final BootstrapManagerArgs args) {
     _bootSteps = bootSteps;
+    _args = args;
   }
 
   public void start() {
     log.info("Starting Bootstrap Process...");
+
+    if (_args.isSentryEnabled()) {
+      Sentry.init(options -> {
+        options.setDsn(_args.getSentryDsn());
+        options.setRelease(_args.getGitVersion().getVersion());
+        options.setEnvironment(_args.getSentryEnv());
+        options.setTracesSampleRate(0.0);
+        options.setDebug(false);
+      });
+    }
 
     List<BootstrapStep> stepsToExecute = _bootSteps;
 

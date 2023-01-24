@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
+import com.linkedin.metadata.boot.BootstrapManagerArgs;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
@@ -28,6 +29,8 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+
+import com.linkedin.metadata.version.GitVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,6 +72,19 @@ public class BootstrapManagerFactory {
   @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
   private Boolean _upgradeDefaultBrowsePathsEnabled;
 
+  @Autowired
+  @Qualifier("gitVersion")
+  private GitVersion gitVersion;
+
+  @Value("${sentry.enabled}")
+  private Boolean sentryEnabled;
+
+  @Value("${sentry.dsn}")
+  private String sentryDsn;
+
+  @Value("${sentry.env}")
+  private String sentryEnv;
+
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
@@ -98,6 +114,12 @@ public class BootstrapManagerFactory {
       finalSteps.add(new UpgradeDefaultBrowsePathsStep(_entityService));
     }
 
-    return new BootstrapManager(finalSteps);
+    BootstrapManagerArgs args = new BootstrapManagerArgs();
+    args.setGitVersion(gitVersion);
+    args.setSentryEnabled(sentryEnabled);
+    args.setSentryEnv(sentryEnv);
+    args.setSentryDsn(sentryDsn);
+
+    return new BootstrapManager(finalSteps, args);
   }
 }
