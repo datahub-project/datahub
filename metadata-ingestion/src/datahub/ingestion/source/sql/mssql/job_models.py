@@ -29,48 +29,6 @@ class ProcedureLineageStream:
     dependencies: List[ProcedureDependency]
 
     @property
-    def as_datajobs_url_list(self):
-        datajobs_list = []
-        job_flows: Dict[str, MSSQLProceduresContainer] = {}
-        for dependency in self.dependencies:
-            if dependency.type != "SQL_STORED_PROCEDURE":
-                continue
-            if dependency.schema in job_flows:
-                flow = job_flows[dependency.schema]
-            else:
-                procedure_flow_name = (
-                    f"{dependency.db}.{dependency.schema}.stored_procedures"
-                )
-                flow = MSSQLProceduresContainer(
-                    name=procedure_flow_name,
-                    env=dependency.env,
-                    db=dependency.db,
-                    host_port=dependency.server,
-                )
-                job_flows[dependency.schema] = flow
-            upstream_procedure = StoredProcedure(
-                flow=flow,
-                db=dependency.db,
-                schema=dependency.schema,
-                name=dependency.name,
-            )
-            data_job = MSSQLDataJob(entity=upstream_procedure)
-            datajobs_list.append(data_job.full_server_urn)
-        return datajobs_list
-
-    @property
-    def as_datasets_url_list(self):
-        return [
-            make_dataset_urn(
-                platform=dep.source,
-                name=f"{dep.db}.{dep.schema}.{dep.name}",
-                env=dep.env,
-            )
-            for dep in self.dependencies
-            if dep.type in ("TABLE_TYPE", "VIEW", "USER_TABLE")
-        ]
-
-    @property
     def as_property(self):
         return {
             f"{dep.db}.{dep.schema}.{dep.name}": dep.type for dep in self.dependencies
