@@ -12,6 +12,8 @@ from tests.test_helpers.state_helpers import (
 )
 
 FROZEN_TIME = "2022-02-03 07:00:00"
+GMS_PORT = 8080
+GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
 def register_mock_api_state1(request_mock):
@@ -132,6 +134,10 @@ def default_source_config():
         "extract_ownership": False,
         "stateful_ingestion": {
             "enabled": True,
+            "state_provider": {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": GMS_SERVER}},
+            }
         },
         "convert_lineage_urns_to_lowercase": False,
         "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
@@ -162,7 +168,7 @@ def get_current_checkpoint_from_pipeline(
     )
 
 
-def ingest(pipeline_name, tmp_path):
+def ingest(pipeline_name, tmp_path, mock_datahub_graph):
     config_dict = {
         "pipeline_name": pipeline_name,
         "source": {
@@ -178,28 +184,33 @@ def ingest(pipeline_name, tmp_path):
             },
         },
     }
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
 
-    pipeline = Pipeline.create(config_dict)
-    pipeline.run()
-    pipeline.raise_from_status()
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
 
-    return pipeline
+        return pipeline
 
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_stateful_ingestion(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
 ):
 
     register_mock_api_state1(request_mock=requests_mock)
-    pipeline1 = ingest("run1", tmp_path)
+    pipeline1 = ingest("run1", tmp_path, mock_datahub_graph)
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline1)
     assert checkpoint1
     assert checkpoint1.state
 
     register_mock_api_state2(request_mock=requests_mock)
-    pipeline2 = ingest("run2", tmp_path)
+    pipeline2 = ingest("run2", tmp_path, mock_datahub_graph)
     checkpoint2 = get_current_checkpoint_from_pipeline(pipeline2)
     assert checkpoint2
     assert checkpoint2.state
@@ -221,4 +232,5 @@ def test_powerbi_stateful_ingestion(
         state1.get_urns_not_in(type="dashboard", other_checkpoint_state=state2)
     )
 
-    print(difference_dashboard_urns)
+    assert len(difference_dashboard_urns) == 1
+    assert difference_dashboard_urns == ["urn:li:dashboard:(powerbi,dashboards.e41cbfe7-9f54-40ad-8d6a-043ab97cf303)"]
