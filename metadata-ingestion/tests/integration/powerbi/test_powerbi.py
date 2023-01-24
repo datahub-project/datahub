@@ -370,6 +370,23 @@ def register_mock_api(request_mock):
                                     },
                                     {
                                         "name": "postgres_test_table",
+                                        "columns": [
+                                            {
+                                                "name": "event_name",
+                                                "description": "column description",
+                                                "dataType": "String",
+                                                "columnType": "DATA",
+                                                "isHidden": False
+                                            }
+                                        ],
+                                        "measures": [
+                                            {
+                                                "name": "event_name",
+                                                "description": "column description",
+                                                "expression": "let\n x",
+                                                "isHidden": False
+                                            }
+                                        ],
                                         "source": [
                                             {
                                                 "expression": 'let\n    Source = PostgreSQL.Database("localhost"  ,   "mics"      ),\n  public_order_date =    Source{[Schema="public",Item="order_date"]}[Data] \n in \n public_order_date',
