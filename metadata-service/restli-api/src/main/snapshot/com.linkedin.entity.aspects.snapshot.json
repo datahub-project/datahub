@@ -2287,6 +2287,7 @@
     "name" : "CorpUserInfo",
     "namespace" : "com.linkedin.identity",
     "doc" : "Linkedin corp user information",
+    "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
       "name" : "active",
       "type" : "boolean",
@@ -2365,7 +2366,7 @@
         "queryByDefault" : true
       }
     }, {
-      "name" : "countryCode",
+      "name" : "qcountryCode",
       "type" : "string",
       "doc" : "two uppercase letters country code. e.g.  US",
       "optional" : true
