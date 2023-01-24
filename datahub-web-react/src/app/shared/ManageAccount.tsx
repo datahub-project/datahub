@@ -102,7 +102,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                 <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
             </MenuItem>
             <Menu.Divider />
-            <MenuItem danger key="logout" tabIndex={0}>
+            <MenuItem danger key="logout" tabIndex={0} data-testid="log-out-menu-item">
                 <a href="/logOut" onClick={handleLogout}>
                     Sign Out
                 </a>
@@ -112,7 +112,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
 
     return (
         <Dropdown overlay={menu} trigger={['click']}>
-            <DropdownWrapper>
+            <DropdownWrapper data-testid="manage-account-menu">
                 <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
                 <DownArrow />
             </DropdownWrapper>

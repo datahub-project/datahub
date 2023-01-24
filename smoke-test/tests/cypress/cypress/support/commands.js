@@ -20,8 +20,8 @@ Cypress.Commands.add('login', () => {
       method: 'POST',
       url: '/logIn',
       body: {
-        username: Cypress.env('ADMIN_USERNAME'),
-        password: Cypress.env('ADMIN_PASSWORD'),
+        username: "datahub",
+        password: "datahub",
       },
       retryOnStatusCodeFailure: true,
     });
@@ -37,7 +37,8 @@ Cypress.Commands.add('deleteUrn', (urn) => {
 })
 
 Cypress.Commands.add("logout", () => {
-  cy.visit("/logOut")
+  cy.get(selectorWithtestId("manage-account-menu")).first().click();
+  cy.get(selectorWithtestId("log-out-menu-item")).first().click();
   cy.waitTextVisible("Username");
   cy.waitTextVisible("Password");
 });

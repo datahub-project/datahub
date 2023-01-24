@@ -25,6 +25,7 @@ describe("add_user", () => {
         cy.waitTextVisible(/signup\?invite_token=\w+/).then(($elem) => {
             const inviteLink = $elem.text();
             cy.log(inviteLink);
+            cy.visit("/settings/identities/users");
             cy.logout();
             cy.visit(inviteLink);
             let name = tryToSignUp();
