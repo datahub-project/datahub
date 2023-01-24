@@ -79,6 +79,7 @@ class PowerBiAPI:
     @dataclass
     class Column:
         name: str
+        description: str
         data_type: str
         is_hidden: bool
         column_type: str
@@ -957,6 +958,7 @@ class PowerBiAPI:
             for column in columns:
                 col = PowerBiAPI.Column(
                     name=column.get("name", ""),
+                    description=column.get("description", ""),
                     data_type=column.get("dataType", ""),
                     column_type=column.get("columnType", ""),
                     is_hidden=column.get("isHidden", False),

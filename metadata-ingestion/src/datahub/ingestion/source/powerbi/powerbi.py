@@ -288,31 +288,10 @@ class Mapper:
                 aspects=[StatusClass(removed=False)],
             )
             fields = [
-                SchemaField(
-                    fieldPath=column.name,
-                    type=SchemaFieldDataType(
-                        type=powerbi_type_mapping.get(column.data_type, NullTypeClass)()
-                    ),
-                    nativeDataType=column.data_type,
-                    description=None,
-                    nullable=False,
-                    recursive=False,
-                    globalTags=None,
-                )
-                for column in table.columns
-                if column.is_hidden is False
-            ] + [
-                SchemaField(
-                    fieldPath=measure.name,
-                    type=SchemaFieldDataType(type=NullTypeClass()),
-                    nativeDataType="Unknown",
-                    description=measure.description,
-                    nullable=False,
-                    recursive=False,
-                    globalTags=None,
-                )
-                for measure in table.measures
-                if measure.is_hidden is False
+                schema_field
+                for field
+                in [*table.columns, *table.measures]
+                if (schema_field := self.get_schema_field(field)) is not None
             ]
             schema_metadata = SchemaMetadata(
                 schemaName=dataset.name,
@@ -325,6 +304,23 @@ class Mapper:
             dataset_snapshot.aspects.append(schema_metadata)
             snapshot_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             dataset_mces.append(snapshot_mce)
+
+    @staticmethod
+    def get_schema_field(column: Union[PowerBiAPI.Column, PowerBiAPI.Measure]) -> Optional[SchemaField]:
+        if column.is_hidden:
+            return None
+
+        return SchemaField(
+            fieldPath=column.name,
+            type=SchemaFieldDataType(
+                type=powerbi_type_mapping.get(getattr(column, 'data_type', None), NullTypeClass)()
+            ),
+            nativeDataType=getattr(column, 'data_type', 'Unknown'),
+            description=column.description,
+            nullable=False,
+            recursive=False,
+            globalTags=None,
+        )
 
     @staticmethod
     def transform_tags(tags: List[str]) -> GlobalTagsClass:
