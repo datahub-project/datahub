@@ -34,7 +34,6 @@ services:
     hostname: schema-registry
     container_name: schema-registry
     depends_on:
-      - zookeeper
       - broker
     ports:
       - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081

@@ -64,29 +64,29 @@ services:
     depends_on:
     - mysql
     environment:
-    - EBEAN_DATASOURCE_HOST=mysql:3306
-    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
-    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
-    - GRAPH_SERVICE_IMPL=elasticsearch
-    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
-    - MAE_CONSUMER_ENABLED=true
-    - UI_INGESTION_ENABLED=true
-    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
-    - PE_CONSUMER_ENABLED=true
-    - JAVA_OPTS=-Xms1g -Xmx1g
-    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - ELASTICSEARCH_HOST=elasticsearch
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
     - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
-    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
+    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
     - EBEAN_DATASOURCE_USERNAME=datahub
     - MCE_CONSUMER_ENABLED=true
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - EBEAN_DATASOURCE_PASSWORD=datahub
+    - JAVA_OPTS=-Xms1g -Xmx1g
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+    - UI_INGESTION_ENABLED=true
     - ENTITY_SERVICE_ENABLE_RETENTION=true
+    - MAE_CONSUMER_ENABLED=true
+    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+    - GRAPH_SERVICE_IMPL=elasticsearch
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - ELASTICSEARCH_PORT=9200
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
+    - EBEAN_DATASOURCE_HOST=mysql:3306
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - PE_CONSUMER_ENABLED=true
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
@@ -153,11 +153,11 @@ services:
   schema-registry:
     container_name: schema-registry
     depends_on:
-    - zookeeper
     - broker
     environment:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
-    - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
+    - SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL=PLAINTEXT
+    - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=broker:29092
     hostname: schema-registry
     image: confluentinc/cp-schema-registry:7.2.2
     ports:

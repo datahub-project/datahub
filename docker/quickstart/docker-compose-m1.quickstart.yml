@@ -175,11 +175,11 @@ services:
   schema-registry:
     container_name: schema-registry
     depends_on:
-    - zookeeper
     - broker
     environment:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
-    - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
+    - SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL=PLAINTEXT
+    - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=broker:29092
     hostname: schema-registry
     image: confluentinc/cp-schema-registry:7.2.2
     ports:
