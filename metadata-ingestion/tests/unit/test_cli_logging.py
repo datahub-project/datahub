@@ -6,6 +6,7 @@ import regex
 from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
+from datahub.utilities.logging_manager import get_log_buffer
 
 
 @datahub.command()
@@ -56,3 +57,8 @@ ZeroDivisionError: division by zero
     # The log file should match the output exactly.
     log_file_output = log_file.read_text()
     assert log_file_output == result.output
+
+    # The in-memory log buffer should contain the log messages.
+    # The first two lines are stdout, so we skip them.
+    expected_log_output = "\n".join(result.output.splitlines()[2:])
+    assert get_log_buffer().format_lines() == expected_log_output
