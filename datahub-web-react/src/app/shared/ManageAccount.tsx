@@ -103,7 +103,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             </MenuItem>
             <Menu.Divider />
             <MenuItem danger key="logout" tabIndex={0}>
-                <a href="/logOut" onClick={handleLogout}>
+                <a href="/logOut" onClick={handleLogout} data-testid="log-out-menu-item">
                     Sign Out
                 </a>
             </MenuItem>
@@ -112,7 +112,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
 
     return (
         <Dropdown overlay={menu} trigger={['click']}>
-            <DropdownWrapper>
+            <DropdownWrapper data-testid="manage-account-menu">
                 <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
                 <DownArrow />
             </DropdownWrapper>
