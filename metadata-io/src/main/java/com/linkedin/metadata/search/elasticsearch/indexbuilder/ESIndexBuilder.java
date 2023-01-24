@@ -6,7 +6,9 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.version.GitVersion;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.CountRequest;
 import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.GetIndexRequest;
+import org.elasticsearch.client.indices.GetIndexResponse;
 import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.client.indices.PutMappingRequest;
 import org.elasticsearch.client.tasks.TaskSubmissionResponse;
@@ -410,5 +413,29 @@ public class ESIndexBuilder {
     createIndexRequest.settings(state.targetSettings());
     searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
     log.info("Created index {}", indexName);
+  }
+
+  private List<String> getOrphanedIndices(String indexNamePattern, Date retentionDate) {
+    List<String> orphanedIndices = new ArrayList<>();
+    try {
+      GetIndexResponse response = searchClient.indices().get(new GetIndexRequest(indexNamePattern), RequestOptions.DEFAULT);
+      for (String index : response.getIndices()) {
+        var creationDateStr = response.getSetting(index, "index.creation_date");
+        var creationDateEpoch = Long.parseLong(creationDateStr);
+        var creationDate = new Date(creationDateEpoch);
+
+        if (creationDate.after(retentionDate)) {
+          continue;
+        }
+
+        if (response.getAliases().containsKey(index) && response.getAliases().get(index).size() == 0) {
+          log.info("Index {} is orphaned", index);
+          orphanedIndices.add(index);
+        }
+      }
+    } catch (Exception e) {
+      log.info("Failed to get orphaned indices with pattern {}: Exception {}", indexNamePattern, e.toString());
+    }
+    return orphanedIndices;
   }
 }
