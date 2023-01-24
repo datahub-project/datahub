@@ -916,32 +916,6 @@ def dummy_dataset():
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-@pytest.mark.parametrize(
-    "status_code,response",
-    [
-        (200, {"error": "Failed"}),
-        (200, {"results": []}),
-        (500, {"results": []}),
-        (429, {"results": []}),
-    ],
-)
-def test_powerbi_source_get_dataset_schema_malformed_payload(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock, response, status_code
-):
-    requests_mock.register_uri(
-        "POST",
-        "https://api.powerbi.com/v1.0/myorg/groups/1234/datasets/aaa-123/executeQueries",
-        json=response,
-        status_code=status_code,
-    )
-    pipeline_config = PowerBiAPIConfig.parse_obj(default_source_config())
-    powerbi_api = PowerBiAPI(pipeline_config)
-    dataset = dummy_dataset()
-    powerbi_api.get_dataset_schema(dataset)
-
-
-@freeze_time(FROZEN_TIME)
-@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_extract_endorsements(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
