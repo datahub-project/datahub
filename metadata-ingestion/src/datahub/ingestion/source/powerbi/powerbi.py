@@ -292,9 +292,9 @@ class Mapper:
                 *table.measures,
             ]
             fields = [
-                schema_field
+                self.get_schema_field(field)
                 for field in columns
-                if (schema_field := self.get_schema_field(field)) is not None
+                if not field.is_hidden
             ]
             schema_metadata = SchemaMetadata(
                 schemaName=dataset.name,
@@ -312,9 +312,6 @@ class Mapper:
     def get_schema_field(
         column: Union[PowerBiAPI.Column, PowerBiAPI.Measure]
     ) -> Optional[SchemaField]:
-        if column.is_hidden:
-            return None
-
         return SchemaField(
             fieldPath=column.name,
             type=SchemaFieldDataType(
