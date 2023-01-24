@@ -208,11 +208,9 @@ class SnowflakeLineageExtractor(
 
         yield from self.get_view_upstream_workunits(discovered_views)
 
-        self._populate_upstream_lineages_for_table()
+        yield from self.fetch_table_upstream_workunits(discovered_tables)
 
-        yield from self.get_table_upstream_workunits(discovered_tables)
-
-    def _populate_upstream_lineages_for_table(self):
+    def _get_upstream_lineages_for_table(self):
         if self.report.edition == SnowflakeEdition.STANDARD:
             logger.info(
                 "Snowflake Account is Standard Edition. Table to Table and View to Table Lineage Feature is not supported."
@@ -229,7 +227,8 @@ class SnowflakeLineageExtractor(
                         timer.elapsed_seconds()
                     )
 
-    def get_table_upstream_workunits(self, discovered_tables):
+    def fetch_table_upstream_workunits(self, discovered_tables):
+        self._get_upstream_lineages_for_table()
         if self.config.include_table_lineage:
             for dataset_name in discovered_tables:
                 if self._is_dataset_pattern_allowed(
