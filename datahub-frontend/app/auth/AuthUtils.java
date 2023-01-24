@@ -4,6 +4,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import lombok.extern.slf4j.Slf4j;
 import play.mvc.Http;
 
+import javax.annotation.Nonnull;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -43,6 +44,11 @@ public class AuthUtils {
     public static final String SESSION_TTL_CONFIG_PATH = "auth.session.ttlInHours";
     public static final Integer DEFAULT_SESSION_TTL_HOURS = 720;
     public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
+
+    public static final String AUTH_COOKIE_SAME_SITE = "play.http.session.sameSite";
+    public static final String DEFAULT_AUTH_COOKIE_SAME_SITE = "LAX";
+    public static final String AUTH_COOKIE_SECURE = "play.http.session.secure";
+    public static final boolean DEFAULT_AUTH_COOKIE_SECURE = false;
 
     public static final String LOGIN_ROUTE = "/login";
     public static final String USER_NAME = "username";
@@ -96,11 +102,18 @@ public class AuthUtils {
      * @param actorUrn the urn of the authenticated actor, e.g. "urn:li:corpuser:datahub"
      * @param ttlInHours the number of hours until the actor cookie expires after being set
      */
-    public static Http.Cookie createActorCookie(final String actorUrn, final Integer ttlInHours) {
+    public static Http.Cookie createActorCookie(
+        @Nonnull final String actorUrn,
+        @Nonnull final Integer ttlInHours,
+        @Nonnull final String sameSite,
+        final boolean isSecure
+    ) {
         return Http.Cookie.builder(ACTOR, actorUrn)
-                .withHttpOnly(false)
-                .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
-                .build();
+            .withHttpOnly(false)
+            .withMaxAge(Duration.of(ttlInHours, ChronoUnit.HOURS))
+            .withSameSite(convertSameSiteValue(sameSite))
+            .withSecure(isSecure)
+            .build();
     }
 
     public static Map<String, String> createSessionMap(final String userUrnStr, final String accessToken) {
@@ -111,5 +124,14 @@ public class AuthUtils {
     }
 
     private AuthUtils() { }
+
+    private static Http.Cookie.SameSite convertSameSiteValue(@Nonnull final String sameSiteValue) {
+        try {
+            return Http.Cookie.SameSite.valueOf(sameSiteValue);
+        } catch (IllegalArgumentException e) {
+            log.warn(String.format("Invalid AUTH_COOKIE_SAME_SITE value: %s. Using LAX instead.", sameSiteValue), e);
+            return Http.Cookie.SameSite.LAX;
+        }
+    }
 
 }

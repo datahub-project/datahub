@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, cast
 from dateutil.relativedelta import relativedelta
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
-from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -231,17 +231,12 @@ WHERE
             # We don't add to the profiler state if we only do table level profiling as it always happens
             if self.state_handler and not request.profile_table_level_only:
                 self.state_handler.add_to_state(
-                    dataset_urn, int(datetime.utcnow().timestamp() * 1000)
+                    dataset_urn, int(datetime.now().timestamp() * 1000)
                 )
 
-            wu = wrap_aspect_as_workunit(
-                "dataset",
-                dataset_urn,
-                "datasetProfile",
-                profile,
-            )
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=profile
+            ).as_workunit()
 
     def get_bigquery_profile_request(
         self, project: str, dataset: str, table: BigqueryTable

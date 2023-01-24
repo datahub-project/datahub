@@ -3,6 +3,8 @@ from typing import Type
 
 import pydantic
 
+from datahub.configuration.common import ConfigurationWarning
+
 
 def pydantic_removed_field(
     field: str,
@@ -13,7 +15,7 @@ def pydantic_removed_field(
             if print_warning:
                 warnings.warn(
                     f"The {field} was removed, please remove it from your recipe.",
-                    UserWarning,
+                    ConfigurationWarning,
                     stacklevel=2,
                 )
             values.pop(field)

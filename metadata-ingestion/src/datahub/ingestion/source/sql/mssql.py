@@ -23,10 +23,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
     SQLAlchemySource,
-    make_sqlalchemy_uri,
     register_custom_type,
+)
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    make_sqlalchemy_uri,
 )
 from datahub.metadata.schema_classes import BooleanTypeClass, UnionTypeClass
 
@@ -55,11 +57,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     database: Optional[str] = Field(
         default=None,
         description="database (catalog). If set to Null, all databases will be considered for ingestion.",
-    )
-
-    database_alias: Optional[str] = Field(
-        default=None,
-        description="Alias to apply to database when ingesting. Ignored when `database` is not set.",
     )
 
     @pydantic.validator("uri_args")

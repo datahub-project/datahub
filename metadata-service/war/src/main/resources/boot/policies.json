@@ -45,7 +45,8 @@
       },
       "privileges":[
         "EDIT_ENTITY",
-        "VIEW_ENTITY_PAGE"
+        "VIEW_ENTITY_PAGE",
+        "EDIT_LINEAGE"
       ],
       "displayName":"Root User - Edit and View All Resources",
       "description":"Grants full edit and view privileges for all resources to root 'datahub' root user.",
@@ -216,7 +217,8 @@
         "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
-        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
+        "EDIT_LINEAGE"
 
       ],
       "displayName":"Admins - Metadata Policy",
@@ -290,7 +292,8 @@
         "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
-        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
+        "EDIT_LINEAGE"
       ],
       "displayName":"Editors - Metadata Policy",
       "description":"Editors have all metadata privileges.",
@@ -380,7 +383,8 @@
         "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
-        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
+        "EDIT_LINEAGE"
       ],
       "displayName":"Asset Owners - Metadata Policy",
       "description":"Asset Owners have all metadata privileges ONLY for assets they own.",

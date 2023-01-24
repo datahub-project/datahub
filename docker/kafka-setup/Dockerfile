@@ -51,13 +51,16 @@ ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"
 ENV FAILED_METADATA_CHANGE_EVENT_NAME="FailedMetadataChangeEvent_v4"
 ENV DATAHUB_USAGE_EVENT_NAME="DataHubUsageEvent_v1"
-ENV METADATA_CHANGE_LOG_VERSIONED_TOPIC="MetadataChangeLog_Versioned_v1"
-ENV METADATA_CHANGE_LOG_TIMESERIES_TOPIC="MetadataChangeLog_Timeseries_v1"
-ENV METADATA_CHANGE_PROPOSAL_TOPIC="MetadataChangeProposal_v1"
-ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC="FailedMetadataChangeProposal_v1"
+ENV METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME="MetadataChangeLog_Versioned_v1"
+ENV METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME="MetadataChangeLog_Timeseries_v1"
+ENV METADATA_CHANGE_PROPOSAL_TOPIC_NAME="MetadataChangeProposal_v1"
+ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME="FailedMetadataChangeProposal_v1"
 ENV PLATFORM_EVENT_TOPIC_NAME="PlatformEvent_v1"
 
 COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
-RUN chmod +x ./kafka-setup.sh
+COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh
+COPY docker/kafka-setup/kafka-topic-workers.sh ./kafka-topic-workers.sh
+
+RUN chmod +x ./kafka-setup.sh && chmod +x ./kafka-topic-workers.sh
 
 CMD ./kafka-setup.sh

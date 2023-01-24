@@ -10,6 +10,10 @@ Read on to find out how to perform these kinds of deletes.
 
 _Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._ 
 
+
+:::info
+Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Domain, it will not delete those children, you will instead need to delete each child by URN in addition to deleting the parent. 
+:::
 ## Delete By Urn
 
 To delete all the data related to a single entity, run

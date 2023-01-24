@@ -27,5 +27,15 @@ services:
     env_file: datahub-mce-consumer/env/docker.env
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
+    environment:
+      - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+      - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+      - NEO4J_HOST=http://neo4j:7474
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
+      - GRAPH_SERVICE_IMPL=neo4j
     ports:
       - "9090:9090"
+    depends_on:
+      - neo4j

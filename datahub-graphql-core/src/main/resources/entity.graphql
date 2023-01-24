@@ -1541,7 +1541,7 @@ type GlossaryTerm implements Entity {
     type: EntityType!
 
     """
-    Name / id of the glossary term
+    A unique identifier for the Glossary Term. Deprecated - Use properties.name field instead.
     """
     name: String! @deprecated
 
@@ -3571,7 +3571,7 @@ type Tag implements Entity {
     type: EntityType!
 
     """
-    The name / id of the tag. Use properties.name instead.
+    A unique identifier for the Tag. Deprecated - Use properties.name field instead.
     """
     name: String! @deprecated
 

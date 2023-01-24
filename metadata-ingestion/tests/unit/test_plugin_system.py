@@ -2,7 +2,7 @@ import warnings
 
 import pytest
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, ConfigurationWarning
 from datahub.ingestion.api.registry import PluginRegistry
 from datahub.ingestion.api.sink import Sink
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
@@ -97,9 +97,9 @@ def test_registry():
         "console-alias",
         "console",
         lambda: warnings.warn(
-            UserWarning("console-alias is deprecated, use console instead")
+            ConfigurationWarning("console-alias is deprecated, use console instead")
         ),
     )
-    with pytest.warns(UserWarning):
+    with pytest.warns(ConfigurationWarning):
         assert fake_registry.get("console-alias") == ConsoleSink
     assert "console-alias" not in fake_registry.summary(verbose=False)

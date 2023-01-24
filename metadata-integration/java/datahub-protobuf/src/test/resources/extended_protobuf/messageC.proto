@@ -1,0 +1,25 @@
+syntax = "proto3";
+package extended_protobuf;
+
+import "google/protobuf/wrappers.proto";
+
+
+message UserMsg {
+  message UserInfo {
+    string nickname = 1; // nickname info
+    string profile_url = 2; // profile url info
+  }
+
+  message AddressMsg {
+    google.protobuf.StringValue zipcode = 1;  // Zip code, alphanumeric
+    google.protobuf.StringValue city = 2;  // City corresponding to zip code
+    google.protobuf.StringValue country = 3;  // County
+  }
+
+  string id = 1; // user id
+  string name = 2; // user name
+  UserInfo user_info = 3; // user info
+
+  // address
+  AddressMsg address = 4;
+}

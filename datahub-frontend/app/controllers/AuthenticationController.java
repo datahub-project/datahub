@@ -17,7 +17,9 @@ import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
+import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.core.exception.http.RedirectionAction;
+import org.pac4j.core.util.Pac4jConstants;
 import org.pac4j.play.PlayWebContext;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlaySessionStore;
@@ -30,7 +32,11 @@ import play.mvc.Result;
 import play.mvc.Results;
 import security.AuthenticationManager;
 
+import static auth.AuthUtils.AUTH_COOKIE_SAME_SITE;
+import static auth.AuthUtils.AUTH_COOKIE_SECURE;
 import static auth.AuthUtils.DEFAULT_ACTOR_URN;
+import static auth.AuthUtils.DEFAULT_AUTH_COOKIE_SAME_SITE;
+import static auth.AuthUtils.DEFAULT_AUTH_COOKIE_SECURE;
 import static auth.AuthUtils.DEFAULT_SESSION_TTL_HOURS;
 import static auth.AuthUtils.EMAIL;
 import static auth.AuthUtils.FULL_NAME;
@@ -99,7 +105,7 @@ public class AuthenticationController extends Controller {
 
         // 1. If SSO is enabled, redirect to IdP if not authenticated.
         if (_ssoManager.isSsoEnabled()) {
-            return redirectToIdentityProvider(request).orElse(
+            return redirectToIdentityProvider(request, redirectPath).orElse(
                     Results.redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE))
             );
         }
@@ -113,10 +119,15 @@ public class AuthenticationController extends Controller {
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
         final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
+        int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+            : DEFAULT_SESSION_TTL_HOURS;
+        String authCookieSameSite = _configs.hasPath(AUTH_COOKIE_SAME_SITE) ? _configs.getString(AUTH_COOKIE_SAME_SITE)
+            : DEFAULT_AUTH_COOKIE_SAME_SITE;
+        boolean authCookieSecure = _configs.hasPath(AUTH_COOKIE_SECURE) ? _configs.getBoolean(AUTH_COOKIE_SECURE)
+            : DEFAULT_AUTH_COOKIE_SECURE;
+
         return Results.redirect(redirectPath).withSession(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken))
-            .withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(),
-                _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-                    : DEFAULT_SESSION_TTL_HOURS));
+            .withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), ttlInHours, authCookieSameSite, authCookieSecure));
     }
 
     /**
@@ -125,7 +136,7 @@ public class AuthenticationController extends Controller {
     @Nonnull
     public Result sso(Http.Request request) {
         if (_ssoManager.isSsoEnabled()) {
-            return redirectToIdentityProvider(request).orElse(
+            return redirectToIdentityProvider(request, "/").orElse(
                 Results.redirect(LOGIN_ROUTE + String.format("?%s=%s", ERROR_MESSAGE_URI_PARAM, SSO_NO_REDIRECT_MESSAGE))
             );
         }
@@ -268,17 +279,10 @@ public class AuthenticationController extends Controller {
         return createSession(userUrnString, accessToken);
     }
 
-    private Optional<Result> redirectToIdentityProvider(Http.RequestHeader request) {
+    private Optional<Result> redirectToIdentityProvider(Http.RequestHeader request, String redirectPath) {
         final PlayWebContext playWebContext = new PlayWebContext(request, _playSessionStore);
         final Client client = _ssoManager.getSsoProvider().client();
-
-        // This is to prevent previous login attempts from being cached.
-        // We replicate the logic here, which is buried in the Pac4j client.
-        if (_playSessionStore.get(playWebContext, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX) != null) {
-            _logger.debug("Found previous login attempt. Removing it manually to prevent unexpected errors.");
-            _playSessionStore.set(playWebContext, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
-        }
-
+        configurePac4jSessionStore(playWebContext, client, redirectPath);
         try {
             final Optional<RedirectionAction> action = client.getRedirectionAction(playWebContext);
             return action.map(act -> new PlayHttpActionAdapter().adapt(act, playWebContext));
@@ -288,6 +292,17 @@ public class AuthenticationController extends Controller {
                 String.format("/login?error_msg=%s",
                 URLEncoder.encode("Failed to redirect to Single Sign-On provider. Please contact your DataHub Administrator, "
                     + "or refer to server logs for more information.", StandardCharsets.UTF_8))));
+        }
+    }
+
+    private void configurePac4jSessionStore(PlayWebContext context, Client client, String redirectPath) {
+        // Set the originally requested path for post-auth redirection.
+        _playSessionStore.set(context, Pac4jConstants.REQUESTED_URL, new FoundAction(redirectPath));
+        // This is to prevent previous login attempts from being cached.
+        // We replicate the logic here, which is buried in the Pac4j client.
+        if (_playSessionStore.get(context, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX) != null) {
+            _logger.debug("Found previous login attempt. Removing it manually to prevent unexpected errors.");
+            _playSessionStore.set(context, client.getName() + ATTEMPTED_AUTHENTICATION_SUFFIX, "");
         }
     }
 
@@ -323,7 +338,12 @@ public class AuthenticationController extends Controller {
     private Result createSession(String userUrnString, String accessToken) {
         int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
             : DEFAULT_SESSION_TTL_HOURS;
+        String authCookieSameSite = _configs.hasPath(AUTH_COOKIE_SAME_SITE) ? _configs.getString(AUTH_COOKIE_SAME_SITE)
+            : DEFAULT_AUTH_COOKIE_SAME_SITE;
+        boolean authCookieSecure = _configs.hasPath(AUTH_COOKIE_SECURE) ? _configs.getBoolean(AUTH_COOKIE_SECURE)
+            : DEFAULT_AUTH_COOKIE_SECURE;
+
         return Results.ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(createActorCookie(userUrnString, ttlInHours));
+            .withCookies(createActorCookie(userUrnString, ttlInHours, authCookieSameSite,  authCookieSecure));
     }
 }

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -12,7 +13,9 @@ import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -64,6 +67,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
         final UUID uuid = UUID.randomUUID();
         final String uuidStr = uuid.toString();
         key.setId(uuidStr);
+        final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.EXECUTION_REQUEST_ENTITY_NAME);
         proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
         final ExecutionRequestInput execInput = new ExecutionRequestInput();
@@ -73,7 +77,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
         execInput.setRequestedAt(System.currentTimeMillis());
 
         Map<String, String> arguments = new HashMap<>();
-        arguments.put(RECIPE_ARG_NAME, input.getRecipe());
+        arguments.put(RECIPE_ARG_NAME, IngestionUtils.injectPipelineName(input.getRecipe(), executionRequestUrn.toString()));
         if (input.getVersion() != null) {
           arguments.put(VERSION_ARG_NAME, input.getVersion());
         }

@@ -43,7 +43,8 @@ public class CentralLogoutController extends LogoutController {
         return redirect(
             String.format("/login?error_msg=%s",
                 URLEncoder.encode("Failed to sign out using Single Sign-On provider. Please contact your DataHub Administrator, "
-                    + "or refer to server logs for more information.", StandardCharsets.UTF_8)));
+                    + "or refer to server logs for more information.", StandardCharsets.UTF_8)))
+        .withNewSession();
       }
     }
     return Results.redirect(DEFAULT_BASE_URL_PATH)

@@ -38,7 +38,7 @@ The business glossary source file should be a `.yml` file with the following top
 - **custom_properties**: A map of key/value pairs of arbitrary custom properties
 - **domain**: (optional) domain name or domain urn
 
-You can also view an example business glossary file checked in [here](../../../examples/bootstrap_data/business_glossary.yml)
+You can also view an example business glossary file checked in [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/bootstrap_data/business_glossary.yml)
 
 ## Compatibility
 
