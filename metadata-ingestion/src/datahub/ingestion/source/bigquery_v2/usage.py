@@ -14,7 +14,7 @@ from ratelimiter import RateLimiter
 
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import make_user_urn
-from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BQ_AUDIT_V2,
@@ -536,14 +536,10 @@ class BigQueryUsageExtractor:
             if event.query_event and event.query_event.numAffectedRows:
                 operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
-        return wrap_aspect_as_workunit(
-            "dataset",
-            destination_table.to_urn(
-                env=self.config.env,
-            ),
-            "operation",
-            operation_aspect,
-        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=destination_table.to_urn(env=self.config.env),
+            aspect=operation_aspect,
+        ).as_workunit()
 
     def _create_operational_custom_properties(
         self, event: AuditEvent
