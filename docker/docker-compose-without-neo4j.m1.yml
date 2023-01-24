@@ -1,7 +1,3 @@
 services:
-  broker:
-    image: kymeric/cp-kafka:latest
   mysql:
     image: mariadb:10.5.8
-  zookeeper:
-    image: kymeric/cp-zookeeper:latest

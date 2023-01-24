@@ -24,11 +24,13 @@ services:
   datahub-mce-consumer:
     container_name: datahub-mce-consumer
     environment:
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - MCE_CONSUMER_ENABLED=true
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
     - EBEAN_DATASOURCE_HOST=mysql:3306
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/

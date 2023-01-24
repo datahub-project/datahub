@@ -9,7 +9,6 @@ REQUIRED_CONTAINERS = [
     "elasticsearch",
     "datahub-gms",
     "datahub-frontend-react",
-    "kafka-setup",
     "broker",
     "zookeeper",
     # These two containers are not necessary - only helpful in debugging.
