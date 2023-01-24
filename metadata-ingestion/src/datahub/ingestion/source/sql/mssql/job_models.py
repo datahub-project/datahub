@@ -141,7 +141,7 @@ class JobStep:
 
     @property
     def formatted_step_name(self) -> str:
-        return self.step_name.replace(",", "-")
+        return self.step_name.replace(",", "-").replace(" ", "_").lower()
 
     @property
     def formatted_job_name(self) -> str:

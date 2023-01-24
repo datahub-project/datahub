@@ -368,7 +368,7 @@ class SQLServerSource(SQLAlchemySource):
         for step_id, step_data in job_steps.items():
             step = JobStep(
                 job_name=job.formatted_name,
-                step_name=step_data["step_name"].lower().replace(" ", "_"),
+                step_name=step_data["step_name"],
                 flow=job,
             )
             data_job = MSSQLDataJob(entity=step)
