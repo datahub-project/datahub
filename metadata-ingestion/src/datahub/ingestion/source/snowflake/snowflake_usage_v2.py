@@ -204,12 +204,10 @@ class SnowflakeUsageExtractor(
                 self.config.platform_instance,
                 self.config.env,
             )
-            yield self.wrap_aspect_as_workunit(
-                "dataset",
-                dataset_urn,
-                "datasetUsageStatistics",
-                stats,
-            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=stats
+            ).as_workunit()
         except Exception as e:
             logger.debug(
                 f"Failed to parse usage statistics for dataset {dataset_identifier} due to error {e}.",
