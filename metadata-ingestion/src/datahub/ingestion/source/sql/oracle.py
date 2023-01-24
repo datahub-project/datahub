@@ -85,9 +85,9 @@ class OracleConfig(BasicSQLAlchemyConfig):
         # schema, table is already normalized, we just to normalize database
         regular = f"{schema}.{table}"
         if self.database_alias:
-            return f"{self.database_alias.lower()}.{regular}"
+            return f"{self.database_alias}.{regular}"
         if self.database:
-            return f"{self.database.lower()}.{regular}"
+            return f"{self.database}.{regular}"
         return regular
 
 
