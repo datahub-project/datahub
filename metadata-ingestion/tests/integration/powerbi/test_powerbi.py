@@ -209,62 +209,6 @@ def register_mock_api(request_mock):
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445",
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445/executeQueries": {
-            "method": "POST",
-            "status_code": 200,
-            "json": {
-                "results": [
-                    {
-                        "tables": [
-                            {
-                                "rows": [
-                                    {
-                                        "[Table Name]": "articles",
-                                        "[Column Name]": "link",
-                                        "[Min]": 0,
-                                        "[Max]": 1,
-                                        "[Cardinality]": 2,
-                                        "[Max Length]": None,
-                                    },
-                                    {
-                                        "[Table Name]": "LocalDateTable-mm11",
-                                        "[Column Name]": "description",
-                                        "[Min]": "0",
-                                        "[Max]": "1",
-                                        "[Cardinality]": 2,
-                                        "[Max Length]": 1,
-                                    },
-                                    {
-                                        "[Table Name]": "articles",
-                                        "[Column Name]": "description",
-                                        "[Min]": "0",
-                                        "[Max]": "1",
-                                        "[Cardinality]": 2,
-                                        "[Max Length]": 1,
-                                    },
-                                    {
-                                        "[Table Name]": "articles",
-                                        "[Column Name]": "RowNumber-aabb11",
-                                        "[Min]": "0",
-                                        "[Max]": "1",
-                                        "[Cardinality]": 2,
-                                        "[Max Length]": 1,
-                                    },
-                                    {
-                                        "[Table Name]": "articles",
-                                        "[Column Name]": "topic",
-                                        "[Min]": 0,
-                                        "[Max]": 1,
-                                        "[Cardinality]": 2,
-                                        "[Max Length]": None,
-                                    },
-                                ]
-                            }
-                        ]
-                    }
-                ],
-            },
-        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445": {
             "method": "GET",
             "status_code": 200,
@@ -877,7 +821,6 @@ def test_extract_odbc_tables(
             "config": {
                 **source_config,
                 "extract_orphan_datasets": True,
-                "extract_schema_with_dax": True,
             },
         },
         "sink": {
