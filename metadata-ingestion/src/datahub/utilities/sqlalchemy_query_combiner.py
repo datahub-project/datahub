@@ -13,12 +13,19 @@ import greenlet
 import sqlalchemy
 import sqlalchemy.engine
 import sqlalchemy.sql
+from packaging import version
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 from datahub.ingestion.api.report import Report
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# The type annotations for SA 1.3.x don't have the __version__ attribute,
+# so we need to ignore the error here.
+SQLALCHEMY_VERSION = sqlalchemy.__version__  # type: ignore[attr-defined]
+IS_SQLALCHEMY_1_4 = version.parse(SQLALCHEMY_VERSION) >= version.parse("1.4.0")
+
 
 MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
 
@@ -333,7 +340,11 @@ class SQLAlchemyQueryCombiner:
             # Extract the results into a result for each query.
             index = 0
             for _, query_future in pending_queue.items():
-                cols = query_future.query.columns
+                query = query_future.query
+                if IS_SQLALCHEMY_1_4:
+                    # On 1.4, it prints a warning if we don't call subquery.
+                    query = query.subquery()  # type: ignore
+                cols = query.columns
 
                 data = {}
                 for col in cols:
