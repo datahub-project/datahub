@@ -1,0 +1,12 @@
+services:
+  kafka-setup:
+    container_name: kafka-setup
+    depends_on:
+    - broker
+    - schema-registry
+    environment:
+    - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    hostname: kafka-setup
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+version: '2.3'

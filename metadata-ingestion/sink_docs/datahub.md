@@ -116,6 +116,69 @@ The options in the producer config and schema registry config are passed to the 
 
 For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.dhub.yaml).
 
+## DataHub Lite (experimental)
+
+A sink that provides integration with [DataHub Lite](../../docs/datahub_lite.md) for local metadata exploration and serving.
+
+### Setup
+
+To install this plugin, run `pip install 'acryl-datahub[datahub-lite]'`.
+
+### Capabilities
+
+Pushes metadata to a local DataHub Lite instance.
+
+### Quickstart recipe
+
+Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
+
+For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+
+```yml
+source:
+  # source configs
+sink:
+  type: "datahub-lite"
+```
+
+By default, `datahub-lite` uses a **DuckDB** database and will write to a database file located under **~/.datahub/lite/**.
+
+To configure the location, you can specify it directly in the config:
+
+```yml
+source:
+  # source configs
+sink:
+  type: "datahub-lite"
+  config:
+    type: "duckdb"
+    config:
+      file: "<path_to_duckdb_file>"
+```
+
+:::note
+
+DataHub Lite currently doesn't support stateful ingestion, so you'll have to turn off stateful ingestion in your recipe to use it. This will be fixed shortly.
+
+:::
+
+### Config details
+
+Note that a `.` is used to denote nested fields in the YAML recipe.
+
+| Field                      | Required | Default              | Description                                                                                        |
+|----------------------------|----------|----------------------|----------------------------------------------------------------------------------------------------|
+| `type`                   |       |      duckdb                | Type of DataHub Lite implementation to use |
+| `config`              |          | `{"file": "~/.datahub/lite/datahub.duckdb"}`                   | Config dictionary to pass through to the DataHub Lite implementation. See below for fields accepted by the DuckDB implementation |
+
+#### DuckDB Config Details
+
+| Field                      | Required | Default              | Description                                                                                        |
+|----------------------------|----------|----------------------|----------------------------------------------------------------------------------------------------|
+| `file`                   |       |   `"~/.datahub/lite/datahub.duckdb"`     | File to use for DuckDB storage |
+| `options`                |          | `{}`                   | Options dictionary to pass through to DuckDB library. See [the official spec](https://duckdb.org/docs/sql/configuration.html) for the options supported by DuckDB. |
+
+
 ## Questions
 
 If you've got any questions on configuring this sink, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

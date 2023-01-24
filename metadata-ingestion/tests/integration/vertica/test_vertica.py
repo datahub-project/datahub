@@ -7,6 +7,10 @@ from tests.test_helpers.docker_helpers import is_responsive, wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
+pytestmark = pytest.mark.skip(
+    reason="Vertica tests are disabled due to a dependency conflict with SQLAlchemy 1.3.24"
+)
+
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
