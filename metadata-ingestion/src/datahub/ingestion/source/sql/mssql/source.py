@@ -67,7 +67,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=True, description="Include information about object code."
     )
     include_jobs: bool = Field(
-        default=True, description="Include ingest of MSSQL Jobs. Requires access to the 'sys' schema."
+        default=True, description="Include ingest of MSSQL Jobs. Requires access to the 'msdb' and 'sys' schema."
     )
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
@@ -408,6 +408,9 @@ class SQLServerSource(SQLAlchemySource):
                 data_job = MSSQLDataJob(
                     entity=procedure,
                 )
+                # TODO: because of this upstream and downstream are more dependencies,
+                #  can't be used as DataJobInputOutput.
+                #  Should be reorganized into lineage.
                 data_job.add_property("procedure_depends_on", str(upstream.as_property))
                 data_job.add_property(
                     "depending_on_procedure", str(downstream.as_property)
