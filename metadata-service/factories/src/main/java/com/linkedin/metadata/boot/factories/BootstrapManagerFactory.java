@@ -70,8 +70,8 @@ public class BootstrapManagerFactory {
   private IngestRetentionPoliciesStep _ingestRetentionPoliciesStep;
 
   @Autowired
-  @Qualifier("buildIndicesKafkaListener")
-  private BootstrapDependency _buildIndicesKafkaListener;
+  @Qualifier("dataHubUpgradeKafkaListener")
+  private BootstrapDependency _dataHubUpgradeKafkaListener;
 
   @Autowired
   private ConfigurationProvider _configurationProvider;
@@ -99,7 +99,8 @@ public class BootstrapManagerFactory {
     final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices = new RestoreColumnLineageIndices(_entityService, _entityRegistry);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep = new IngestDefaultGlobalSettingsStep(_entityService);
-    final WaitForBuildIndicesStep waitForBuildIndicesStep = new WaitForBuildIndicesStep(_buildIndicesKafkaListener, _configurationProvider);
+    final WaitForBuildIndicesStep waitForBuildIndicesStep = new WaitForBuildIndicesStep(_dataHubUpgradeKafkaListener,
+        _configurationProvider);
 
     final List<BootstrapStep> finalSteps = new ArrayList<>(ImmutableList.of(
             waitForBuildIndicesStep,

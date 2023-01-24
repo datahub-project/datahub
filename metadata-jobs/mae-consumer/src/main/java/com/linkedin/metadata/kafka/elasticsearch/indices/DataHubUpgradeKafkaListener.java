@@ -5,7 +5,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.mxe.BuildIndicesHistoryEvent;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.Topics;
 
 import java.util.Map;
@@ -30,17 +30,17 @@ import org.springframework.stereotype.Component;
 
 // We don't disable this on GMS since we want GMS to also wait until the indices are ready to read in case of
 // backwards incompatible query logic dependent on index updates.
-@Component("buildIndicesKafkaListener")
+@Component("dataHubUpgradeKafkaListener")
 @RequiredArgsConstructor
 @Slf4j
 @EnableKafka
-public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDependency {
+public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, BootstrapDependency {
   @Autowired
   private KafkaListenerEndpointRegistry registry;
 
-  private static final String CONSUMER_GROUP = "${BUILD_INDICES_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-bihe-consumer-job-client}";
+  private static final String CONSUMER_GROUP = "${DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-duhe-consumer-job-client}";
   private static final String SUFFIX = "temp";
-  private static final String TOPIC_NAME = "${BUILD_INDICES_HISTORY_TOPIC_NAME:" + Topics.BUILD_INDICES_HISTORY_TOPIC_NAME + "}";
+  private static final String TOPIC_NAME = "${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME  + "}";
 
   private final DefaultKafkaConsumerFactory<String, GenericRecord> _defaultKafkaConsumerFactory;
   private final GitVersion _gitVersion;
@@ -72,9 +72,9 @@ public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDe
   public void checkIndexVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
 
-    BuildIndicesHistoryEvent event;
+    DataHubUpgradeHistoryEvent event;
     try {
-      event = EventUtils.avroToPegasusBIHE(record);
+      event = EventUtils.avroToPegasusDUHE(record);
       log.info("Latest index update version: {}", event.getVersion());
       if (_gitVersion.getVersion().equals(event.getVersion())) {
         isUpdated.getAndSet(true);

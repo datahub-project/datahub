@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class WaitForBuildIndicesStep implements BootstrapStep {
 
-  private final BootstrapDependency _buildIndicesKafkaListener;
+  private final BootstrapDependency _dataHubUpgradeKafkaListener;
   private final ConfigurationProvider _enableWaitForBuildIndices;
 
   @Override
@@ -18,7 +18,7 @@ public class WaitForBuildIndicesStep implements BootstrapStep {
 
   @Override
   public void execute() throws Exception {
-    if (!_buildIndicesKafkaListener.waitForBootstrap()) {
+    if (!_dataHubUpgradeKafkaListener.waitForBootstrap()) {
       throw new IllegalStateException("Build indices was unsuccessful, stopping bootstrap process.");
     }
   }
