@@ -186,7 +186,7 @@ def delete(
         )
         remove_references: bool = False
 
-        if references_count > 0:
+        if (not force) and references_count > 0:
             click.echo(
                 f"This urn was referenced in {references_count} other aspects across your metadata graph:"
             )
@@ -199,7 +199,7 @@ def delete(
             )
             remove_references = click.confirm("Do you want to delete these references?")
 
-        if remove_references:
+        if force or remove_references:
             delete_references(urn, dry_run=False, cached_session_host=(session, host))
 
         deletion_result: DeletionResult = delete_one_urn_cmd(

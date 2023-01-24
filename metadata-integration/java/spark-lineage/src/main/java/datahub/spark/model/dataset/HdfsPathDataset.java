@@ -11,14 +11,13 @@ import java.net.URI;
 @ToString
 public class HdfsPathDataset extends SparkDataset {
 
-  private static String getPath(Path path, boolean includeScheme) {
+  private static String getPath(Path path, boolean includeScheme, String removePartitionPattern) {
     URI uri = path.toUri();
-
-    if (includeScheme) {
-      return uri.toString();
-    } else {
-      return uri.getHost() + uri.getPath();
+    String uriPath = includeScheme ? uri.toString() : uri.getHost() + uri.getPath();
+    if (removePartitionPattern != null) {
+      return uriPath.replaceAll(removePartitionPattern, "");
     }
+    return uriPath;
   }
 
   private static String getPlatform(Path path) {
@@ -30,9 +29,14 @@ public class HdfsPathDataset extends SparkDataset {
     }
   }
 
-  public HdfsPathDataset(Path path, String platformInstance, boolean includeScheme, FabricType fabricType) {
+  public HdfsPathDataset(
+          Path path,
+          String platformInstance,
+          boolean includeScheme,
+          FabricType fabricType,
+          String removePartitionPattern) {
     // TODO check static partitions?
-    this(getPath(path, includeScheme), platformInstance, getPlatform(path), fabricType);
+    this(getPath(path, includeScheme, removePartitionPattern), platformInstance, getPlatform(path), fabricType);
   }
 
   public HdfsPathDataset(String pathUri, String platformInstance, String platform, FabricType fabricType) {
