@@ -12,13 +12,13 @@ from datahub.cli.check_cli import check
 from datahub.cli.cli_utils import (
     DATAHUB_CONFIG_PATH,
     get_boolean_env_variable,
+    make_shim_command,
     write_gms_config,
 )
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
-from datahub.cli.lite_cli import lite
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.state_cli import state
@@ -155,15 +155,25 @@ datahub.add_command(state)
 datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)
-datahub.add_command(lite)
+
+try:
+    from datahub.cli.lite_cli import lite
+
+    datahub.add_command(lite)
+except ImportError as e:
+    logger.debug(f"Failed to load datahub lite command: {e}")
+    datahub.add_command(
+        make_shim_command("lite", "run `pip install 'acryl-datahub[datahub-lite]'`")
+    )
+
 try:
     from datahub_actions.cli.actions import actions
 
     datahub.add_command(actions)
-except ImportError:
-    # TODO: Increase the log level once this approach has been validated.
-    logger.debug(
-        "Failed to load datahub actions framework. Please confirm that the acryl-datahub-actions package has been installed from PyPi."
+except ImportError as e:
+    logger.debug(f"Failed to load datahub actions framework: {e}")
+    datahub.add_command(
+        make_shim_command("actions", "run `pip install acryl-datahub-actions`")
     )
 
 

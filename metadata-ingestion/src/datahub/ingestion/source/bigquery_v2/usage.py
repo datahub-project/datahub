@@ -14,7 +14,7 @@ from ratelimiter import RateLimiter
 
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import make_user_urn
-from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BQ_AUDIT_V2,
@@ -218,7 +218,6 @@ class BigQueryUsageExtractor:
                     if self.config.usage.include_operational_stats:
                         operational_wu = self._create_operation_aspect_work_unit(event)
                         if operational_wu:
-                            self.report.report_workunit(operational_wu)
                             yield operational_wu
                             self.report.num_operational_stats_workunits_emitted += 1
                     if event.read_event:
@@ -537,14 +536,10 @@ class BigQueryUsageExtractor:
             if event.query_event and event.query_event.numAffectedRows:
                 operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
-        return wrap_aspect_as_workunit(
-            "dataset",
-            destination_table.to_urn(
-                env=self.config.env,
-            ),
-            "operation",
-            operation_aspect,
-        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=destination_table.to_urn(env=self.config.env),
+            aspect=operation_aspect,
+        ).as_workunit()
 
     def _create_operational_custom_properties(
         self, event: AuditEvent
@@ -799,9 +794,7 @@ class BigQueryUsageExtractor:
         self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self._make_usage_stat(aggregate)
                 self.report.num_usage_workunits_emitted += 1
 
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:

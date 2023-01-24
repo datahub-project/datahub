@@ -3,6 +3,7 @@ import { useGetMeLazyQuery } from '../../graphql/me.generated';
 import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
 import { CorpUser, PlatformPrivileges } from '../../types.generated';
 import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
+import { useInitialRedirect } from './useInitialRedirect';
 
 // TODO: Migrate all usage of useAuthenticatedUser to using this provider.
 
@@ -123,6 +124,11 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
             });
         }
     }, [state, localState.selectedViewUrn, setDefaultSelectedView]);
+
+    /**
+     * Route to the most recently visited path once on first load of home page, if present in local storage.
+     */
+    useInitialRedirect(state, localState, setState, updateLocalState);
 
     return (
         <UserContext.Provider

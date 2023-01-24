@@ -25,6 +25,12 @@ from datahub.metadata.schema_classes import (
 )
 
 
+@pytest.fixture
+def mock_admin_client():
+    with patch("datahub.ingestion.source.kafka.AdminClient", autospec=True) as mock:
+        yield mock
+
+
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_configuration(mock_kafka):
     ctx = PipelineContext(run_id="test")
@@ -37,7 +43,7 @@ def test_kafka_source_configuration(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_wildcard_topic(mock_kafka):
+def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
     mock_cluster_metadata.topics = {"foobar": None, "bazbaz": None}
@@ -58,7 +64,7 @@ def test_kafka_source_workunits_wildcard_topic(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_topic_pattern(mock_kafka):
+def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
     mock_cluster_metadata.topics = {"test": None, "foobar": None, "bazbaz": None}
@@ -92,7 +98,7 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_kafka_source_workunits_with_platform_instance(mock_kafka):
+def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_client):
     PLATFORM_INSTANCE = "kafka_cluster"
     PLATFORM = "kafka"
     TOPIC_NAME = "test"
@@ -145,7 +151,7 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
-def test_close(mock_kafka):
+def test_close(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource.create(
@@ -193,7 +199,7 @@ def test_kafka_source_stateful_ingestion_requires_platform_instance():
 )
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_schema_registry_subject_name_strategies(
-    mock_kafka_consumer, mock_schema_registry_client
+    mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
 ):
     # Setup the topic to key/value schema mappings for all types of schema registry subject name strategies.
     # <key=topic_name, value=(<key_schema>,<value_schema>)
@@ -362,6 +368,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
 def test_kafka_ignore_warnings_on_schema_type(
     mock_kafka_consumer,
     mock_schema_registry_client,
+    mock_admin_client,
     ignore_warnings_on_schema_type,
 ):
     # define the key and value schemas for topic1
