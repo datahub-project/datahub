@@ -27,7 +27,6 @@ class Constant:
     DATASET_GET = "DATASET_GET"
     REPORT_GET = "REPORT_GET"
     DATASOURCE_GET = "DATASOURCE_GET"
-    DATASET_EXECUTE_QUERIES_POST = "DATASET_EXECUTE_QUERIES_POST"
     TILE_GET = "TILE_GET"
     ENTITY_USER_LIST = "ENTITY_USER_LIST"
     SCAN_CREATE = "SCAN_CREATE"
@@ -140,11 +139,6 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Enable / Disable ingestion of orphan datasets
     extract_orphan_datasets: bool = pydantic.Field(
         default=False, description="Whether orphan datasets should be ingested"
-    )
-    # Enable / Disable schema extraction with DAX query
-    extract_schema_with_dax: bool = pydantic.Field(
-        default=False,
-        description="Whether to extract schema through DAX query, if tables are not present",
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(

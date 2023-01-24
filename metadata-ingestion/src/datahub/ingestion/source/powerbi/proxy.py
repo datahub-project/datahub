@@ -7,9 +7,6 @@ from typing import Any, Dict, List, Optional
 
 import msal
 import requests as requests
-from requests import HTTPError, RequestException
-from requests.adapters import HTTPAdapter
-from urllib3 import Retry
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.powerbi.config import (
@@ -22,13 +19,6 @@ from datahub.ingestion.source.powerbi.config import (
 logger = logging.getLogger(__name__)
 
 
-def is_blocked(item_name: str, blocked_items: List[str]) -> bool:
-    for blocked_item in blocked_items:
-        if blocked_item in item_name:
-            return True
-    return False
-
-
 class PowerBiAPI:
     # API endpoints of PowerBi to fetch dashboards, tiles, datasets
     API_ENDPOINTS = {
@@ -37,7 +27,6 @@ class PowerBiAPI:
         Constant.TILE_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards/{DASHBOARD_ID}/tiles",
         Constant.DATASET_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}",
         Constant.DATASOURCE_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/datasources",
-        Constant.DATASET_EXECUTE_QUERIES_POST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
         Constant.REPORT_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}",
         Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
         Constant.SCAN_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanStatus/{SCAN_ID}",
@@ -518,83 +507,6 @@ class PowerBiAPI:
             tags=tags,
         )
 
-    def get_dataset_schema(self, dataset: PowerBIDataset) -> Dict[str, List[str]]:
-        try:
-            blocked_table_names = ["LocalDateTable", "DateTableTemplate"]
-            blocked_column_names = ["RowNumber"]
-
-            dataset_query_endpoint: str = PowerBiAPI.API_ENDPOINTS[
-                Constant.DATASET_EXECUTE_QUERIES_POST
-            ]
-            # Replace place holders
-            dataset_query_endpoint = dataset_query_endpoint.format(
-                POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
-                WORKSPACE_ID=dataset.workspace_id,
-                DATASET_ID=dataset.id,
-            )
-
-            retry_strategy = Retry(
-                total=3,
-                status_forcelist=[500, 503, 504],
-                allowed_methods=["POST"],
-            )
-            adapter = HTTPAdapter(max_retries=retry_strategy)
-            r_session = requests.Session()
-            r_session.mount(dataset_query_endpoint, adapter)
-
-            # Hit PowerBi
-            logger.info(f"Request to query endpoint URL={dataset_query_endpoint}")
-            payload = {
-                "queries": [
-                    {
-                        "query": "EVALUATE COLUMNSTATISTICS()",
-                    }
-                ],
-                "serializerSettings": {
-                    "includeNulls": True,
-                },
-            }
-            response = r_session.post(
-                dataset_query_endpoint,
-                json=payload,
-                headers={Constant.Authorization: self.get_access_token()},
-            )
-            response.raise_for_status()
-
-            results = {}
-            data = response.json()
-            rows = data["results"][0]["tables"][0]["rows"]
-            for row in rows:
-                table_name = row["[Table Name]"]
-                col_name = row["[Column Name]"]
-
-                # If table or column is blocked, skip processing the line
-                if is_blocked(table_name, blocked_table_names) or is_blocked(
-                    col_name, blocked_column_names
-                ):
-                    continue
-
-                if table_name not in results:
-                    results[table_name] = [col_name]
-                else:
-                    results[table_name].append(col_name)
-            return results
-        except (KeyError, IndexError) as ex:
-            logger.warning(
-                f"Schema discovery failed for dataset {dataset.id}, with {ex}, unexpected format",
-            )
-            return {}
-        except HTTPError as ex:
-            logger.warning(
-                f"Schema discovery failed for dataset {dataset.id}, with status code {ex.response.status_code}",
-            )
-            return {}
-        except RequestException as ex:
-            logger.warning(
-                f"Schema discovery failed for dataset {dataset.id}, with {ex}",
-            )
-            return {}
-
     def get_data_sources(
         self, dataset: PowerBIDataset
     ) -> Optional[Dict[str, "PowerBiAPI.DataSource"]]:
@@ -1005,21 +917,6 @@ class PowerBiAPI:
                     if dataset_instance.name is not None
                     else dataset_instance.id
                 )
-
-                # if not dataset_dict["tables"] and self.__config.extract_schema_with_dax:
-                #     schema = self.get_dataset_schema(dataset_instance)
-                #     for table_name, columns in schema.items():
-                #         dataset_instance.tables.append(
-                #             PowerBiAPI.Table(
-                #                 full_name="{}.{}".format(
-                #                     dataset_name.replace(" ", "_"),
-                #                     table_name.replace(" ", "_"),
-                #                 ),
-                #                 name=table_name,
-                #                 expression=None,
-                #                 columns=columns,
-                #             )
-                #         )
 
                 for table in dataset_dict["tables"]:
                     expression: str = (
