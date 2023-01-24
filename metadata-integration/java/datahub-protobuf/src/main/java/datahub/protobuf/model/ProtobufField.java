@@ -76,8 +76,8 @@ public class ProtobufField implements ProtobufElement {
         return nativeType();
     }
 
-    public int getNumber() { 
-        return fieldProto.getNumber(); 
+    public int getNumber() {
+        return fieldProto.getNumber();
     }
 
     @Override
@@ -151,7 +151,7 @@ public class ProtobufField implements ProtobufElement {
 
     public boolean isMessage() {
         return Optional.ofNullable(isMessageType).orElseGet(() ->
-                    fieldProto.getType().equals(FieldDescriptorProto.Type.TYPE_MESSAGE));
+                fieldProto.getType().equals(FieldDescriptorProto.Type.TYPE_MESSAGE));
     }
 
     public int sortWeight() {
@@ -250,7 +250,11 @@ public class ProtobufField implements ProtobufElement {
             messageType = messageType.getNestedType(value);
         }
 
-        return messageType.getField(pathList.get(pathList.size() - 1));
+        if (pathList.get(pathSize - 2) == DescriptorProto.FIELD_FIELD_NUMBER) {
+            return messageType.getField(pathList.get(pathSize - 1));
+        } else {
+            return null;
+        }
     }
 
     private boolean isEnumType(List<Integer> pathList) {
