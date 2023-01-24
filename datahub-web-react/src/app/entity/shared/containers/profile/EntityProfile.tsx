@@ -249,10 +249,6 @@ export const EntityProfile = <T, U>({
         tab.display?.visible(entityData, dataPossiblyCombinedWithSiblings),
     );
 
-    const enabledAndVisibleTabs = visibleTabs.filter((tab) =>
-        tab.display?.enabled(entityData, dataPossiblyCombinedWithSiblings),
-    );
-
     const routedTab = useRoutedTab(enabledAndVisibleTabs);
 
     if (isCompact) {
