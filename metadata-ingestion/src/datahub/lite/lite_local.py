@@ -5,11 +5,7 @@ from typing import Dict, Generic, Iterable, List, Optional, Type, TypeVar, Union
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
-from datahub.metadata.schema_classes import (
-    MetadataChangeEventClass,
-    SystemMetadataClass,
-    _Aspect,
-)
+from datahub.metadata.schema_classes import MetadataChangeEventClass, _Aspect
 from datahub.utilities.type_annotations import get_class_from_annotation
 
 LiteConfig = TypeVar("LiteConfig", bound=ConfigModel)
@@ -86,9 +82,7 @@ class DataHubLiteLocal(Generic[LiteConfig], Closeable, metaclass=ABCMeta):
         typed: bool = False,
         as_of: Optional[int] = None,
         details: Optional[bool] = False,
-    ) -> Optional[
-        Dict[str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]]
-    ]:
+    ) -> Optional[Dict[str, Union[str, dict, _Aspect]]]:
         pass
 
     @abstractmethod
