@@ -5,6 +5,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #7016 urn from oracle source is changed, {schema}.{table} to {database}.{schema}.{table} like postgresql. There is no fallback provided to previous behavior because it was inconsistent in application earlier.
 
 ### Potential Downtime
 
