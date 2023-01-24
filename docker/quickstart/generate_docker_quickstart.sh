@@ -11,6 +11,9 @@ source venv/bin/activate
 pip install -r requirements.txt
 python generate_docker_quickstart.py ../docker-compose.yml ../docker-compose.override.yml docker-compose.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose-without-neo4j.yml ../docker-compose-without-neo4j.override.yml docker-compose-without-neo4j.quickstart.yml
+python generate_docker_quickstart.py ../docker-compose.yml ../docker-compose.override.yml ../docker-compose.m1.yml docker-compose-m1.quickstart.yml
+python generate_docker_quickstart.py ../docker-compose-without-neo4j.yml ../docker-compose-without-neo4j.override.yml ../docker-compose-without-neo4j.m1.yml  docker-compose-without-neo4j-m1.quickstart.yml
 python generate_docker_quickstart.py ../monitoring/docker-compose.monitoring.yml docker-compose.monitoring.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose.consumers.yml docker-compose.consumers.quickstart.yml
 python generate_docker_quickstart.py ../docker-compose.consumers-without-neo4j.yml docker-compose.consumers-without-neo4j.quickstart.yml
+python generate_docker_quickstart.py ../docker-compose.kafka-setup.yml docker-compose.kafka-setup.quickstart.yml

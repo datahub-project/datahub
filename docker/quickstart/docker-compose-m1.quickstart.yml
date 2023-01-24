@@ -19,6 +19,8 @@ services:
     image: confluentinc/cp-kafka:7.2.2
     ports:
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
+    volumes:
+    - broker:/var/lib/kafka/data/
   datahub-actions:
     depends_on:
     - datahub-gms
@@ -62,37 +64,44 @@ services:
   datahub-gms:
     container_name: datahub-gms
     depends_on:
+    - neo4j
     - mysql
     environment:
-    - ELASTICSEARCH_HOST=elasticsearch
-    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
-    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - EBEAN_DATASOURCE_USERNAME=datahub
-    - MCE_CONSUMER_ENABLED=true
     - EBEAN_DATASOURCE_PASSWORD=datahub
-    - JAVA_OPTS=-Xms1g -Xmx1g
-    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - EBEAN_DATASOURCE_HOST=mysql:3306
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
+    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
-    - UI_INGESTION_ENABLED=true
+    - ELASTICSEARCH_HOST=elasticsearch
+    - ELASTICSEARCH_PORT=9200
+    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
+    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+    - NEO4J_HOST=http://neo4j:7474
+    - NEO4J_URI=bolt://neo4j
+    - NEO4J_USERNAME=neo4j
+    - NEO4J_PASSWORD=datahub
+    - JAVA_OPTS=-Xms1g -Xmx1g
+    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
+    - GRAPH_SERVICE_IMPL=neo4j
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - ENTITY_SERVICE_ENABLE_RETENTION=true
     - MAE_CONSUMER_ENABLED=true
-    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
-    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
-    - GRAPH_SERVICE_IMPL=elasticsearch
-    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
-    - ELASTICSEARCH_PORT=9200
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
-    - EBEAN_DATASOURCE_HOST=mysql:3306
-    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
+    - UI_INGESTION_ENABLED=true
+    - METADATA_SERVICE_AUTH_ENABLED=false
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
-    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
+    - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -150,6 +159,19 @@ services:
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
+  neo4j:
+    container_name: neo4j
+    environment:
+    - NEO4J_AUTH=neo4j/datahub
+    - NEO4J_dbms_default__database=graph.db
+    - NEO4J_dbms_allow__upgrade=true
+    hostname: neo4j
+    image: neo4j/neo4j-arm64-experimental:4.0.6-arm64
+    ports:
+    - ${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}:7474
+    - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
+    volumes:
+    - neo4jdata:/data
   schema-registry:
     container_name: schema-registry
     depends_on:
@@ -175,6 +197,8 @@ services:
     - zkdata:/var/lib/zookeeper
 version: '2.3'
 volumes:
+  broker: null
   esdata: null
   mysqldata: null
+  neo4jdata: null
   zkdata: null
