@@ -6,6 +6,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_domain_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     DatabaseKey,
     PlatformKey,
@@ -13,7 +14,6 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     add_domain_to_entity_wu,
     gen_containers,
-    wrap_aspect_as_workunit,
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -206,9 +206,9 @@ def get_dataplatform_instance_aspect(
             instance=make_dataplatform_instance_urn(platform, platform_instance),
         )
 
-        return wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "dataPlatformInstance", aspect
-        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=aspect
+        ).as_workunit()
     else:
         return None
 
@@ -237,9 +237,9 @@ def gen_lineage(
             ]
         else:
             lineage_workunits = [
-                wrap_aspect_as_workunit(
-                    "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-                )
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=upstream_lineage
+                ).as_workunit()
             ]
 
         for wu in lineage_workunits:
