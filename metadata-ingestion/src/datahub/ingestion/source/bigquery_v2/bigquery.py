@@ -18,12 +18,8 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
     set_dataset_urn_to_lower,
 )
-from datahub.emitter.mcp_builder import (
-    BigQueryDatasetKey,
-    PlatformKey,
-    ProjectIdKey,
-    wrap_aspect_as_workunit,
-)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import BigQueryDatasetKey, PlatformKey, ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -420,10 +416,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     self.platform, self.config.platform_instance
                 ),
             )
-
-            return wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "dataPlatformInstance", aspect
-            )
+            return MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=aspect
+            ).as_workunit()
         else:
             return None
 
@@ -831,12 +826,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         view_properties_aspect = ViewProperties(
             materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
         )
-        yield wrap_aspect_as_workunit(
-            "dataset",
-            self.gen_dataset_urn(dataset_name, project_id, table.name),
-            "viewProperties",
-            view_properties_aspect,
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self.gen_dataset_urn(dataset_name, project_id, table.name),
+            aspect=view_properties_aspect,
+        ).as_workunit()
 
     def gen_dataset_workunits(
         self,
@@ -850,7 +843,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(dataset_name, project_id, table.name)
 
         status = Status(removed=False)
-        yield wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=status
+        ).as_workunit()
 
         datahub_dataset_name = BigqueryTableIdentifier(
             project_id, dataset_name, table.name
@@ -879,9 +874,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if custom_properties:
             dataset_properties.customProperties.update(custom_properties)
 
-        yield wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "datasetProperties", dataset_properties
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=dataset_properties
+        ).as_workunit()
 
         if tags_to_add:
             yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
@@ -896,7 +891,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield dpi_aspect
 
         subTypes = SubTypes(typeNames=sub_types)
-        yield wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=subTypes
+        ).as_workunit()
 
         if self.domain_registry:
             yield from get_domain_wu(
@@ -933,9 +930,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 ]
             else:
                 yield from [
-                    wrap_aspect_as_workunit(
-                        "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-                    )
+                    MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=upstream_lineage
+                    ).as_workunit()
                 ]
 
     def gen_tags_aspect_workunit(
@@ -944,7 +941,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         tags = GlobalTagsClass(
             tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
         )
-        return wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=tags
+        ).as_workunit()
 
     def gen_dataset_urn(self, dataset_name: str, project_id: str, table: str) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
@@ -1021,9 +1020,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             platformSchema=MySqlDDL(tableSchema=""),
             fields=self.gen_schema_fields(table.columns),
         )
-        return wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "schemaMetadata", schema_metadata
-        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=schema_metadata
+        ).as_workunit()
 
     def get_report(self) -> BigQueryV2Report:
         return self.report
