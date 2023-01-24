@@ -1,11 +1,9 @@
 from typing import Any, Dict
 from unittest import mock
 
-import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.powerbi.config import PowerBiAPIConfig
 from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 from tests.test_helpers import mce_helpers
 

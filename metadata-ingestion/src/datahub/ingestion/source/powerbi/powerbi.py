@@ -287,10 +287,13 @@ class Mapper:
                 urn=ds_urn,
                 aspects=[StatusClass(removed=False)],
             )
+            columns: List[Union[PowerBiAPI.Column, PowerBiAPI.Measure]] = [
+                *table.columns,
+                *table.measures,
+            ]
             fields = [
                 schema_field
-                for field
-                in [*table.columns, *table.measures]
+                for field in columns
                 if (schema_field := self.get_schema_field(field)) is not None
             ]
             schema_metadata = SchemaMetadata(
@@ -306,16 +309,20 @@ class Mapper:
             dataset_mces.append(snapshot_mce)
 
     @staticmethod
-    def get_schema_field(column: Union[PowerBiAPI.Column, PowerBiAPI.Measure]) -> Optional[SchemaField]:
+    def get_schema_field(
+        column: Union[PowerBiAPI.Column, PowerBiAPI.Measure]
+    ) -> Optional[SchemaField]:
         if column.is_hidden:
             return None
 
         return SchemaField(
             fieldPath=column.name,
             type=SchemaFieldDataType(
-                type=powerbi_type_mapping.get(getattr(column, 'data_type', None), NullTypeClass)()
+                type=powerbi_type_mapping.get(
+                    getattr(column, "data_type", ""), NullTypeClass
+                )()
             ),
-            nativeDataType=getattr(column, 'data_type', 'Unknown'),
+            nativeDataType=getattr(column, "data_type", "Unknown"),
             description=column.description,
             nullable=False,
             recursive=False,
