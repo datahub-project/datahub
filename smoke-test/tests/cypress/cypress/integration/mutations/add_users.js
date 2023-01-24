@@ -26,7 +26,6 @@ describe("add_user", () => {
             const inviteLink = $elem.text();
             cy.log(inviteLink);
             cy.visit("/settings/identities/users");
-
             cy.logout();
             cy.visit(inviteLink);
             let name = tryToSignUp();
