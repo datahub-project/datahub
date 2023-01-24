@@ -137,7 +137,7 @@ def default_source_config():
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": GMS_SERVER}},
-            }
+            },
         },
         "convert_lineage_urns_to_lowercase": False,
         "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
@@ -233,4 +233,6 @@ def test_powerbi_stateful_ingestion(
     )
 
     assert len(difference_dashboard_urns) == 1
-    assert difference_dashboard_urns == ["urn:li:dashboard:(powerbi,dashboards.e41cbfe7-9f54-40ad-8d6a-043ab97cf303)"]
+    assert difference_dashboard_urns == [
+        "urn:li:dashboard:(powerbi,dashboards.e41cbfe7-9f54-40ad-8d6a-043ab97cf303)"
+    ]
