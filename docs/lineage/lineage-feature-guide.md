@@ -168,6 +168,7 @@ Here is a sample usage of this lineage:
 
 ### GraphQL
 
+* [updateLineage](../../graphql/mutations.md#updatelineage)
 * [searchAcrossLineage](../../graphql/queries.md#searchacrosslineage)
 * [searchAcrossLineageInput](../../graphql/inputObjects.md#searchacrosslineageinput)
 
