@@ -3,10 +3,20 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3 AS base
+FROM golang:1.17-alpine3.15 AS binary
+
 ENV DOCKERIZE_VERSION v0.6.1
-RUN apk add --no-cache curl jq tar bash coreutils \
-    && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
+WORKDIR /go/src/github.com/jwilder
+
+RUN apk --no-cache --update add openssl git tar curl 
+
+WORKDIR /go/src/github.com/jwilder/dockerize
+
+RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
+
+FROM alpine:3 AS base
+RUN apk add --no-cache curl jq tar bash coreutils
+COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base AS prod-install
 
@@ -24,3 +34,4 @@ CMD if [ "$ELASTICSEARCH_USE_SSL" == "true" ]; then ELASTICSEARCH_PROTOCOL=https
     && if [[ "$SKIP_ELASTICSEARCH_CHECK" != "true" ]]; then \
         dockerize -wait $ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT -wait-http-header "${ELASTICSEARCH_HTTP_HEADERS}" -timeout 120s /create-indices.sh; \
     else /create-indices.sh; fi
+

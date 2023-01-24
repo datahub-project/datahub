@@ -24,7 +24,7 @@ from datahub.ingestion.source.snowflake.constants import (
     CLIENT_SESSION_KEEP_ALIVE,
 )
 from datahub.ingestion.source.sql.oauth_generator import OauthTokenGenerator
-from datahub.ingestion.source.sql.sql_common import (
+from datahub.ingestion.source.sql.sql_config import (
     SQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
@@ -308,7 +308,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         if self._computed_connect_args is not None:
             return self._computed_connect_args
 
-        connect_args: dict = {
+        connect_args: Dict[str, Any] = {
             # Improves performance and avoids timeout errors for larger query result
             CLIENT_PREFETCH_THREADS: 10,
             CLIENT_SESSION_KEEP_ALIVE: True,

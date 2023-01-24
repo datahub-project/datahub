@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { message, Button } from 'antd';
-import { CheckOutlined } from '@ant-design/icons';
-import DOMPurify from 'dompurify';
-
+import { message } from 'antd';
+import styled from 'styled-components';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-
-import StyledMDEditor from '../../../components/styled/StyledMDEditor';
-import TabToolbar from '../../../components/styled/TabToolbar';
-
 import { GenericEntityUpdate } from '../../../types';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../EntityContext';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
+import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
+import { Editor } from './editor/Editor';
 
-export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) => {
+const EditorContainer = styled.div`
+    overflow: auto;
+    height: 100%;
+`;
+
+type DescriptionEditorProps = {
+    onComplete?: () => void;
+};
+
+export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const mutationUrn = useMutationUrn();
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
@@ -29,28 +34,42 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
     const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(mutationUrn));
-    const [cancelModalVisible, setCancelModalVisible] = useState(false);
+    const [confirmCloseModalVisible, setConfirmCloseModalVisible] = useState(false);
+
+    /**
+     * Auto-Save the description edits to local storage every 5 seconds.
+     */
+    useEffect(() => {
+        let delayDebounceFn: ReturnType<typeof setTimeout>;
+        const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
+
+        if (isDescriptionUpdated) {
+            delayDebounceFn = setTimeout(() => {
+                editedDescriptionsLocal[mutationUrn] = updatedDescription;
+                localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
+            }, 5000);
+        }
+        return () => clearTimeout(delayDebounceFn);
+    }, [mutationUrn, isDescriptionUpdated, updatedDescription, localStorageDictionary]);
 
     const updateDescriptionLegacy = () => {
-        const sanitizedDescription = DOMPurify.sanitize(updatedDescription);
         return updateEntity?.({
-            variables: { urn: mutationUrn, input: { editableProperties: { description: sanitizedDescription || '' } } },
+            variables: { urn: mutationUrn, input: { editableProperties: { description: updatedDescription || '' } } },
         });
     };
 
     const updateDescription = () => {
-        const sanitizedDescription = DOMPurify.sanitize(updatedDescription);
         return updateDescriptionMutation({
             variables: {
                 input: {
-                    description: sanitizedDescription,
+                    description: updatedDescription,
                     resourceUrn: mutationUrn,
                 },
             },
         });
     };
 
-    const handleSaveDescription = async () => {
+    const handleSave = async () => {
         message.loading({ content: 'Saving...' });
         try {
             if (updateEntity) {
@@ -95,32 +114,14 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
         }
     };
 
-    // Updating the localStorage when the user has paused for 5 sec
-    useEffect(() => {
-        let delayDebounceFn: ReturnType<typeof setTimeout>;
-        const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
-
-        if (isDescriptionUpdated) {
-            delayDebounceFn = setTimeout(() => {
-                editedDescriptionsLocal[mutationUrn] = updatedDescription;
-                localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
-            }, 5000);
-        }
-        return () => clearTimeout(delayDebounceFn);
-    }, [mutationUrn, isDescriptionUpdated, updatedDescription, localStorageDictionary]);
-
     // Handling the Discard Modal
-    const showModal = () => {
-        if (isDescriptionUpdated) {
-            setCancelModalVisible(true);
+    const handleConfirmClose = (showConfirm: boolean | undefined = true) => {
+        if (showConfirm && isDescriptionUpdated) {
+            setConfirmCloseModalVisible(true);
         } else if (onComplete) onComplete();
     };
 
-    function onCancel() {
-        setCancelModalVisible(false);
-    }
-
-    const onDiscard = () => {
+    const handleCloseWithoutSaving = () => {
         delete editedDescriptions[mutationUrn];
         if (Object.keys(editedDescriptions).length === 0) {
             localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
@@ -132,25 +133,19 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
 
     return entityData ? (
         <>
-            <TabToolbar>
-                <Button type="text" onClick={showModal}>
-                    Back
-                </Button>
-                <Button onClick={handleSaveDescription} disabled={!isDescriptionUpdated}>
-                    <CheckOutlined /> Save
-                </Button>
-            </TabToolbar>
-            <StyledMDEditor
-                value={updatedDescription}
-                onChange={(v) => handleEditorChange(v || '')}
-                preview="live"
-                visiableDragbar={false}
+            <DescriptionEditorToolbar
+                onSave={handleSave}
+                onClose={handleConfirmClose}
+                disableSave={!isDescriptionUpdated}
             />
-            {cancelModalVisible && (
+            <EditorContainer>
+                <Editor content={updatedDescription} onChange={handleEditorChange} />
+            </EditorContainer>
+            {confirmCloseModalVisible && (
                 <DiscardDescriptionModal
-                    cancelModalVisible={cancelModalVisible}
-                    onDiscard={onDiscard}
-                    onCancel={onCancel}
+                    cancelModalVisible={confirmCloseModalVisible}
+                    onDiscard={handleCloseWithoutSaving}
+                    onCancel={() => setConfirmCloseModalVisible(false)}
                 />
             )}
         </>

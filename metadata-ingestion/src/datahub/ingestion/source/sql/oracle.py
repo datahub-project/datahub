@@ -19,10 +19,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
     SQLAlchemySource,
     make_sqlalchemy_type,
 )
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 
 logger = logging.getLogger(__name__)
 
