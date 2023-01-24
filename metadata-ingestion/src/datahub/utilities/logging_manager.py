@@ -5,7 +5,8 @@ Configure logging and stdout for the CLI. Our goal is to have the following beha
 2. If the user passes --debug, show DEBUG level logs from datahub and INFOs from everything else.
 3. If the user passes --log-file, write all logs and stdout to the specified file.
    This should contain debug logs regardless of the user's CLI args.
-4. When outputting to a TTY, colorize the logs.
+4. Maintain an in-memory buffer of the latest logs for reporting purposes.
+5. When outputting to a TTY, colorize the logs.
 
 This code path should not be executed if we're being used as a library.
 """
