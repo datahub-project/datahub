@@ -26,7 +26,6 @@ class TopKDict(Dict[_KT, _VT]):
             dict_as_tuples = sorted_tuples[:10]
             trimmed_dict = {k: v for k, v in dict_as_tuples}
             trimmed_dict[f"... top(10) of total {len(big_dict)} entries"] = ""
-            print(f"Dropping entries {sorted_tuples[11:]}")
             return trimmed_dict
 
         return big_dict

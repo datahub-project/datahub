@@ -123,7 +123,7 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
 
     @abstractmethod
     def write_record_async(
-        self, record_envelope: RecordEnvelope, callback: WriteCallback
+        self, record_envelope: RecordEnvelope, write_callback: WriteCallback
     ) -> None:
         # must call callback when done.
         pass

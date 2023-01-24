@@ -131,22 +131,6 @@ def dataset_key_to_urn(key: DatasetKeyClass) -> str:
     )
 
 
-def make_container_new_urn(guid: str) -> str:
-    return f"urn:dh:container:0:({guid})"
-
-
-def container_new_urn_to_key(dataset_urn: str) -> Optional[ContainerKeyClass]:
-    pattern = r"urn:dh:container:0:\((.*)\)"
-    results = re.search(pattern, dataset_urn)
-    if results is not None:
-        return ContainerKeyClass(guid=results[1])
-    return None
-
-
-# def make_container_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
-#    return f"urn:li:container:({make_data_platform_urn(platform)},{env},{name})"
-
-
 def make_container_urn(guid: str) -> str:
     return f"urn:li:container:{guid}"
 
