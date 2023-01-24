@@ -822,3 +822,11 @@ query searchAcrossLineage($input: SearchAcrossLineageInput!) {
         ...searchAcrossRelationshipResults
     }
 }
+
+query getEntityMentionNode($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...searchResultFields
+    }
+}

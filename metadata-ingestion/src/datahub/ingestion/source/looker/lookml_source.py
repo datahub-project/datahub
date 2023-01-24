@@ -1525,7 +1525,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                     repo = p_cloner.get_last_repo_cloned()
                     assert repo
                     remote_github_info = GitHubInfo(
-                        base_url=remote_project.url,
+                        url_template=remote_project.url,
                         repo="dummy/dummy",  # set to dummy values to bypass validation
                         branch=repo.active_branch.name,
                     )

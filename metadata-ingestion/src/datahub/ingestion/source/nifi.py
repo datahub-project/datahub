@@ -1074,9 +1074,8 @@ class NifiSource(Source):
             else dataset_platform
         )
         wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        if wu.id not in self.report.event_ids:
-            self.report.report_workunit(wu)
-            yield wu
+        self.report.report_workunit(wu)
+        yield wu
 
         mcp = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -1086,6 +1085,5 @@ class NifiSource(Source):
         )
 
         wu = MetadataWorkUnit(id=f"{platform}.{dataset_name}.{mcp.aspectName}", mcp=mcp)
-        if wu.id not in self.report.event_ids:
-            self.report.report_workunit(wu)
-            yield wu
+        self.report.report_workunit(wu)
+        yield wu

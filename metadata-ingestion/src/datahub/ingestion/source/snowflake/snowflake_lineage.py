@@ -9,6 +9,7 @@ from pydantic.error_wrappers import ValidationError
 from snowflake.connector import SnowflakeConnection
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.snowflake.constants import (
@@ -238,9 +239,9 @@ class SnowflakeLineageExtractor(
                     )
                     upstream_lineage = self._get_upstream_lineage_info(dataset_name)
                     if upstream_lineage is not None:
-                        yield self.wrap_aspect_as_workunit(
-                            "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-                        )
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=dataset_urn, aspect=upstream_lineage
+                        ).as_workunit()
 
     def get_view_upstream_workunits(self, discovered_views):
         if self.config.include_view_lineage:
@@ -254,9 +255,9 @@ class SnowflakeLineageExtractor(
                     )
                     upstream_lineage = self._get_upstream_lineage_info(view_name)
                     if upstream_lineage is not None:
-                        yield self.wrap_aspect_as_workunit(
-                            "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-                        )
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=dataset_urn, aspect=upstream_lineage
+                        ).as_workunit()
 
     def _get_upstream_lineage_info(
         self, dataset_name: str
