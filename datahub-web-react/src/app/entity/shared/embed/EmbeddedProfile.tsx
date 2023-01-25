@@ -55,6 +55,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
                 urn,
                 entityType,
                 entityData,
+                loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,
                 routeToTab: () => {},
