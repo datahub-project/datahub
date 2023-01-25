@@ -201,8 +201,7 @@ First, verify that all values are consistent across them (e.g. the host URL wher
 are misspelled (client id, client secret). 
 
 Next, verify that the scopes requested are supported by your Identity Provider
-and that the claim (i.e. attribute) DataHub uses for uniquely identifying the user is supported by your Identity Provider (refer to Identity Provider OpenID Connect documentation). 
-By default, this claim is `email`. 
+and that the claim (i.e. attribute) DataHub uses for uniquely identifying the user is supported by your Identity Provider (refer to Identity Provider OpenID Connect documentation). By default, this claim is `email`. 
 
 Then, make sure the Discovery URI you've configured (`AUTH_OIDC_DISCOVERY_URI`) is accessible where the datahub-frontend container is running. You
 can do this by issuing a basic CURL to the address (**Pro-Tip**: you may also visit the address in your browser to check more specific details about your Identity Provider). 
