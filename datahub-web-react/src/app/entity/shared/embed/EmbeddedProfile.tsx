@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { Divider } from 'antd';
+import { Divider, Result } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityType, Exact } from '../../../../types.generated';
@@ -48,6 +48,10 @@ interface Props<T> {
 export default function EmbeddedProfile<T>({ urn, entityType, getOverrideProperties, useEntityQuery }: Props<T>) {
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+
+    if (entityData?.exists === false) {
+        return <Result status="404" title="Not Found" subTitle="Sorry, we are unable to find this entity in DataHub" />;
+    }
 
     return (
         <EntityContext.Provider

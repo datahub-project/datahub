@@ -73,6 +73,13 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
         result.setLastIngested(lastIngested);
 
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~");
+        System.out.println(entityResponse);
+        System.out.println("..........");
+        System.out.println(aspectMap);
+        System.out.println("..........");
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~");
+
         MappingHelper<Dataset> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(DATASET_KEY_ASPECT_NAME, this::mapDatasetKey);
         mappingHelper.mapToResult(DATASET_PROPERTIES_ASPECT_NAME, (entity, dataMap) -> this.mapDatasetProperties(entity, dataMap, entityUrn));
@@ -110,6 +117,12 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
 
     private void mapDatasetKey(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
         final DatasetKey gmsKey = new DatasetKey(dataMap);
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~NOW~~~~~~~~~~~~~~~");
+        System.out.println(gmsKey);
+        System.out.println("........");
+        System.out.println(gmsKey.getName());
+        System.out.println("~~~~~~~~~~~~~~~~~~~~~~NOW~~~~~~~~~~~~~~~");
+
         dataset.setName(gmsKey.getName());
         dataset.setOrigin(FabricType.valueOf(gmsKey.getOrigin().toString()));
         dataset.setPlatform(DataPlatform.builder()
