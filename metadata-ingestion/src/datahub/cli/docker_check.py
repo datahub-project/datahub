@@ -21,7 +21,6 @@ REQUIRED_CONTAINERS = [
 ]
 
 ENSURE_EXIT_SUCCESS = [
-    "kafka-setup",
     "elasticsearch-setup",
     "mysql-setup",
 ]
