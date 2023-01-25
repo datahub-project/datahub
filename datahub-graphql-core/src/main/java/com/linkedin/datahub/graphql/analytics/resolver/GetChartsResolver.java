@@ -180,7 +180,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             ImmutableList.of("glossaryTerms.keyword"), Collections.emptyMap(),
             ImmutableMap.of("removed", ImmutableList.of("true")), Optional.empty(), false);
     AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, entitiesPerTerm, Constants.GLOSSARY_TERM_ENTITY_NAME,
-        ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
+        ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
     if (!entitiesPerTerm.isEmpty()) {
       charts.add(BarChart.builder().setTitle("Entities per Term").setBars(entitiesPerTerm).build());
     }
