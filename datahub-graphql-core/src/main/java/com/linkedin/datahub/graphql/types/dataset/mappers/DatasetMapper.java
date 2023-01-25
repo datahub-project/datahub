@@ -177,7 +177,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         dataset.setDomain(DomainAssociationMapper.map(domains, dataset.getUrn()));
     }
 
-    private void mapSLAInfo(@Nonnull Dataset dataset, @Nonnull DataMap dataMap){
+    private void mapSLAInfo(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
         final com.linkedin.datajob.SLAInfo gmsSLAInfo = new com.linkedin.datajob.SLAInfo(dataMap);
         final SLAInfo slaInfo = new SLAInfo();
         slaInfo.setSlaDefined(gmsSLAInfo.getSlaDefined());

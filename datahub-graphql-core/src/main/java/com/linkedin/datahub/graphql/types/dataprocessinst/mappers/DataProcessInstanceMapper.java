@@ -54,7 +54,7 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
         }
     }
 
-    private void mapSLAInfo(@Nonnull DataProcessInstance dpi, @Nonnull DataMap dataMap){
+    private void mapSLAInfo(@Nonnull DataProcessInstance dpi, @Nonnull DataMap dataMap) {
         final com.linkedin.datajob.SLAInfo gmsSLAInfo = new com.linkedin.datajob.SLAInfo(dataMap);
         final SLAInfo slaInfo = new SLAInfo();
         slaInfo.setSlaDefined(gmsSLAInfo.getSlaDefined());
