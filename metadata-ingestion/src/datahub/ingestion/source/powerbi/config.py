@@ -9,9 +9,8 @@ from pydantic.class_validators import root_validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DEFAULT_ENV
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StatefulStaleMetadataRemovalConfig,
+    StatefulStaleMetadataRemovalConfig, StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -74,7 +73,7 @@ class Constant:
 
 
 @dataclass
-class PowerBiDashboardSourceReport(SourceReport):
+class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned: int = 0
     charts_scanned: int = 0
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
