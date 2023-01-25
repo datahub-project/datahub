@@ -142,7 +142,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,
-    "Optionally enabled via configuration, only table level profiling is supported",
+    "Optionally enabled via configuration",
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
