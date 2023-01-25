@@ -123,7 +123,7 @@ class RedshiftConfig(
 
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
-        if values["include_usage_statistics"]:
+        if values.get("include_usage_statistics"):
             assert (
                 "email_domain" in values
             ), "email_domain needs to be set if usage is enabled"

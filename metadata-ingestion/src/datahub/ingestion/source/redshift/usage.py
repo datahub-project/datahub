@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Union
 
+import pydantic.error_wrappers
 import redshift_connector
 from pydantic.fields import Field
 from pydantic.main import BaseModel
@@ -260,29 +261,38 @@ class RedshiftUsageExtractor:
         connection: redshift_connector.Connection,
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[RedshiftAccessEvent]:
+        access_events = []
         cursor = connection.cursor()
         cursor.execute(query)
         results = cursor.fetchmany()
         field_names = [i[0] for i in cursor.description]
         while results:
             for row in results:
-                access_event = RedshiftAccessEvent(
-                    userid=row[field_names.index("userid")],
-                    username=row[field_names.index("username")],
-                    query=row[field_names.index("query")],
-                    querytxt=row[field_names.index("querytxt")].strip()
-                    if row[field_names.index("querytxt")]
-                    else None,
-                    tbl=row[field_names.index("tbl")],
-                    database=row[field_names.index("database")],
-                    schema=row[field_names.index("schema")],
-                    table=row[field_names.index("table")],
-                    starttime=row[field_names.index("starttime")],
-                    endtime=row[field_names.index("endtime")],
-                    operation_type=row[field_names.index("operation_type")]
-                    if "operation_type" in field_names
-                    else None,
-                )
+                try:
+                    access_event = RedshiftAccessEvent(
+                        userid=row[field_names.index("userid")],
+                        username=row[field_names.index("username")],
+                        query=row[field_names.index("query")],
+                        querytxt=row[field_names.index("querytxt")].strip()
+                        if row[field_names.index("querytxt")]
+                        else None,
+                        tbl=row[field_names.index("tbl")],
+                        database=row[field_names.index("database")],
+                        schema=row[field_names.index("schema")],
+                        table=row[field_names.index("table")],
+                        starttime=row[field_names.index("starttime")],
+                        endtime=row[field_names.index("endtime")],
+                        operation_type=row[field_names.index("operation_type")]
+                        if "operation_type" in field_names
+                        else None,
+                    )
+                except pydantic.error_wrappers.ValidationError as e:
+                    logging.debug(
+                        f"Validation error on access event creation from row {row}. The error was: {e} Skipping ...."
+                    )
+                    self.report.num_usage_stat_skipped += 1
+                    continue
+
                 # Replace database name with the alias name if one is provided in the config.
                 if self.config.database_alias:
                     access_event.database = self.config.database_alias
@@ -292,9 +302,11 @@ class RedshiftUsageExtractor:
                     self.report.num_usage_stat_skipped += 1
                     continue
 
-                yield access_event
+                # yield access_event
+                access_events.append(access_event)
 
             results = cursor.fetchmany()
+        return access_events
 
     def _gen_operation_aspect_workunits_from_access_events(
         self,
