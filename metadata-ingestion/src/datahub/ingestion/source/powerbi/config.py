@@ -10,7 +10,8 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StatefulStaleMetadataRemovalConfig, StaleEntityRemovalSourceReport,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -104,7 +105,11 @@ class PlatformDetail:
     )
 
 
-class PowerBiAPIConfig(StatefulIngestionConfigBase):
+class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
+    platform_name: str = "powerbi"
+
+    platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
+
     # Organisation Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
@@ -208,10 +213,3 @@ class PowerBiAPIConfig(StatefulIngestionConfigBase):
             )
             values.pop("workspace_id")
         return values
-
-
-class PowerBiDashboardSourceConfig(
-    PowerBiAPIConfig,
-):
-    platform_name: str = "powerbi"
-    platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
