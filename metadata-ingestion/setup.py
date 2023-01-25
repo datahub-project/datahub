@@ -259,7 +259,7 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
+    | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1", "google-cloud-datacatalog-lineage==0.2.0"},
     "bigquery-beta": sql_common
     | bigquery_common
     | {

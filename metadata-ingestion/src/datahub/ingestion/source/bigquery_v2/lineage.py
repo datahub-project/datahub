@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
+from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from ratelimiter import RateLimiter
 
@@ -191,6 +192,128 @@ timestamp < "{end_time}"
             self.error(
                 logger,
                 "lineage-exported-gcp-audit-logs",
+                f"Error: {e}",
+            )
+            raise e
+
+    def compute_bigquery_lineage_via_catalog_lineage_api(
+        self, project_id: str
+    ) -> Dict[str, Set[str]]:
+        """
+        Uses Data Catalog API to request lineage metadata. Please take a look at the API documentation for more details.
+
+        NOTE: It's necessary for you to enable the service API in your Google Cloud Project.
+
+        Args:
+            project_id(str): Google project id. Used to search for tables and datasets.
+
+        Returns:
+            Dict[str, Set[str]] - A dictionary, where keys are the downstream table's identifier and values is a set
+            of upstream tables identifiers.
+        """
+        logger.info("Populating lineage info via Catalog Data Linage API")
+        #  Data Catalog API version 0.2.0 don't export views lineage, but future versions can cover it
+        #  NOTE: Users can enable to parse views DDL to build views lineage
+        if self.config.include_views:
+            logger.warning(
+                "It's not possible to extract views lineage from Catalog API. Views will be ignored."
+            )
+
+        # Regions to search for BigQuery tables: projects/{project_id}/locations/{region}
+        enabled_regions: List[str] = ["US", "EU"]
+
+        try:
+            lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
+            bigquery_client: BigQueryClient = BigQueryClient()
+            # Filtering datasets
+            datasets = list(
+                filter(
+                    lambda x: self.config.dataset_pattern.allowed(x.dataset_id),
+                    list(bigquery_client.list_datasets(project_id)),
+                )
+            )
+            project_tables = []
+            for dataset in datasets:
+                # Enables only tables where type is TABLE (removes VIEWS)
+                project_tables.extend(
+                    [
+                        table
+                        for table in bigquery_client.list_tables(dataset.dataset_id)
+                        if table.table_type == "TABLE"
+                    ]
+                )
+
+            # Convert project tables to <project_id>.<dataset_id>.<table_id> format
+            project_tables = list(
+                map(
+                    lambda table: "{}.{}.{}".format(
+                        table.project, table.dataset_id, table.table_id
+                    ),
+                    project_tables,
+                )
+            )
+
+            # Filtering tables
+            if self.config.table_pattern:
+                project_tables = list(
+                    filter(self.config.table_pattern.allowed, project_tables)
+                )
+
+            lineage_map: Dict[str, Set[str]] = {}
+            for table in project_tables:
+                logger.info("Creating lineage map for table %s", table)
+                upstreams = []
+                downstream_table = lineage_v1.EntityReference()
+                # fully_qualified_name in format: "bigquery:<project_id>.<dataset_id>.<table_id>"
+                downstream_table.fully_qualified_name = f"bigquery:{table}"
+                # Searches in different regions
+                for region in enabled_regions:
+                    location_request = lineage_v1.SearchLinksRequest(
+                        target=downstream_table,
+                        parent=f"projects/{project_id}/locations/{region.lower()}",
+                    )
+                    response = lineage_client.search_links(request=location_request)
+                    upstreams.extend(
+                        [
+                            str(lineage.source.fully_qualified_name).replace(
+                                "bigquery:", ""
+                            )
+                            for lineage in response
+                        ]
+                    )
+
+                # Downstream table identifier
+                destination_table_str = str(
+                    BigQueryTableRef(
+                        table_identifier=BigqueryTableIdentifier(*table.split("."))
+                    )
+                )
+                # Filter tables (only enabled tables to avoid ghost entities in the lineage graph)
+                upstreams = list(
+                    filter(
+                        self.config.table_pattern.allowed,
+                        list(set(upstreams)),  # unique tables
+                    )
+                )
+                # Only builds lineage map when the table has upstreams
+                if upstreams:
+                    lineage_map[destination_table_str] = set(
+                        [
+                            str(
+                                BigQueryTableRef(
+                                    table_identifier=BigqueryTableIdentifier(
+                                        *source_table.split(".")
+                                    )
+                                )
+                            )
+                            for source_table in upstreams
+                        ]
+                    )
+            return lineage_map
+        except Exception as e:
+            self.error(
+                logger,
+                "lineage-exported-catalog-lineage-api",
                 f"Error: {e}",
             )
             raise e
@@ -397,7 +520,6 @@ timestamp < "{end_time}"
                 )
                 continue
 
-            destination_table_str = destination_table.table_identifier.get_table_name()
             destination_table_str = str(
                 BigQueryTableRef(table_identifier=destination_table.table_identifier)
             )
@@ -517,19 +639,26 @@ timestamp < "{end_time}"
         )
         lineage_metadata: Dict[str, Set[str]]
         try:
-            if self.config.use_exported_bigquery_audit_metadata:
-                # Exported bigquery_audit_metadata should contain every projects' audit metada
-                if self.loaded_project_ids:
-                    return {}
+            if self.config.extract_lineage_from_catalog and self.config.include_tables:
                 lineage_metadata = (
-                    lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
-                )
-            else:
-                lineage_metadata = (
-                    lineage_extractor.compute_bigquery_lineage_via_gcp_logging(
+                    lineage_extractor.compute_bigquery_lineage_via_catalog_lineage_api(
                         project_id
                     )
                 )
+            else:
+                if self.config.use_exported_bigquery_audit_metadata:
+                    # Exported bigquery_audit_metadata should contain every projects' audit metada
+                    if self.loaded_project_ids:
+                        return {}
+                    lineage_metadata = (
+                        lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
+                    )
+                else:
+                    lineage_metadata = (
+                        lineage_extractor.compute_bigquery_lineage_via_gcp_logging(
+                            project_id
+                        )
+                    )
         except Exception as e:
             if project_id:
                 self.report.lineage_failed_extraction.append(project_id)
