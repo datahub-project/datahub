@@ -81,7 +81,6 @@ EXEC dbo.sp_add_schedule
     @schedule_name = N'RunOnce',
     @freq_type = 1,
     @active_start_time = 233000 ;
-USE NewData ;
 GO
 EXEC sp_attach_schedule
    @job_name = N'Weekly Sales Data Backup',
