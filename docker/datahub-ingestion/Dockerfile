@@ -33,7 +33,9 @@ RUN cd /datahub-ingestion && \
     sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
     cat src/datahub/__init__.py && \
     pip install ".[all]" && \
-    pip freeze
+    pip freeze && \
+    # This is required to fix security vulnerability in htrace-core4
+    rm -f /usr/local/lib/python3.10/site-packages/pyspark/jars/htrace-core4-4.1.0-incubating.jar
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
