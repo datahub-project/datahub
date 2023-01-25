@@ -146,6 +146,10 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         default=False,
         description="Whether to extract endorsements to tags, note that this may overwrite existing tags",
     )
+    # Enable/Disable extracting workspace information to DataHub containers
+    extract_workspaces_to_containers: bool = pydantic.Field(
+        default=True, description="Extract workspaces to DataHub containers"
+    )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
         default=True,
