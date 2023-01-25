@@ -7256,7 +7256,7 @@ input UpdateParentNodeInput {
     """
     The new parent node urn
     """
-    parentNode: String!
+    parentNode: String
 
     """
     The primary key of the resource to update the parent node for
