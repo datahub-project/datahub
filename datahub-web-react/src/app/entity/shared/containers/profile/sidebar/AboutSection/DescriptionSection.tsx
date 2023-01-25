@@ -5,6 +5,7 @@ import CompactContext from '../../../../../../shared/CompactContext';
 import MarkdownViewer, { MarkdownView } from '../../../../components/legacy/MarkdownViewer';
 import NoMarkdownViewer, { removeMarkdown } from '../../../../components/styled/StripMarkdownText';
 import { useRouteToTab } from '../../../../EntityContext';
+import { useIsOnTab } from '../../utils';
 
 const ABBREVIATED_LIMIT = 150;
 
@@ -25,6 +26,7 @@ export default function DescriptionSection({ description }: Props) {
     const [isExpanded, setIsExpanded] = useState(!isOverLimit);
     const routeToTab = useRouteToTab();
     const isCompact = React.useContext(CompactContext);
+    const shouldShowReadMore = !useIsOnTab('Documentation');
 
     // if we're not in compact mode, route them to the Docs tab for the best documentation viewing experience
     function readMore() {
@@ -46,7 +48,9 @@ export default function DescriptionSection({ description }: Props) {
             {!isExpanded && (
                 <NoMarkdownViewer
                     limit={ABBREVIATED_LIMIT}
-                    readMore={<Typography.Link onClick={readMore}>Read More</Typography.Link>}
+                    readMore={
+                        shouldShowReadMore ? <Typography.Link onClick={readMore}>Read More</Typography.Link> : undefined
+                    }
                     shouldWrap
                 >
                     {description}
