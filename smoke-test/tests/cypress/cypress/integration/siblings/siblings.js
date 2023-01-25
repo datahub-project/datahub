@@ -124,7 +124,7 @@ describe('siblings', () => {
 
     // check the platform
     cy.get('svg').get('text:contains(dbt & BigQuery)').should('have.length', 0);
-    cy.get('svg').get('text:contains(Dbt)').should('have.length', 3);
-    cy.get('svg').get('text:contains(Bigquery)').should('have.length', 1);
+    cy.get('svg').get('text:contains(dbt)').should('have.length', 3);
+    cy.get('svg').get('text:contains(BigQuery)').should('have.length', 1);
   });
 });

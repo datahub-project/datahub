@@ -21,6 +21,7 @@ import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySub
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
 import { ChartSnippet } from './ChartSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -154,7 +155,7 @@ export class ChartEntity implements Entity<Chart> {
         return (
             <ChartPreview
                 urn={data.urn}
-                platform={data.platform.properties?.displayName || data.platform.name}
+                platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
                 access={data.properties?.access}
@@ -173,7 +174,7 @@ export class ChartEntity implements Entity<Chart> {
         return (
             <ChartPreview
                 urn={data.urn}
-                platform={data.platform.properties?.displayName || data.platform.name}
+                platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -197,9 +198,9 @@ export class ChartEntity implements Entity<Chart> {
     getLineageVizConfig = (entity: Chart) => {
         return {
             urn: entity.urn,
-            name: entity.properties?.name || '',
+            name: entity.properties?.name || entity.urn,
             type: EntityType.Chart,
-            icon: entity?.platform?.properties?.logoUrl || '',
+            icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
         };
     };

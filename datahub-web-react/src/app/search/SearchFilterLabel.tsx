@@ -15,7 +15,7 @@ import {
     Entity,
 } from '../../types.generated';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
-import { capitalizeFirstLetter } from '../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { DomainLink } from '../shared/tags/DomainLink';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ENTITY_FILTER_NAME } from './utils/constants';
@@ -123,12 +123,16 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
 
     if (entity?.type === EntityType.DataPlatform) {
         const platform = entity as DataPlatform;
-        const displayName = platform.properties?.displayName || platform.info?.displayName || platform.name;
+        const displayName =
+            platform.properties?.displayName ||
+            platform.info?.displayName ||
+            capitalizeFirstLetterOnly(platform.name) ||
+            '';
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
                 {!!platform.properties?.logoUrl && (
-                    <PreviewImage src={platform.properties?.logoUrl} alt={platform.name} />
+                    <PreviewImage src={platform.properties?.logoUrl} alt={displayName} />
                 )}
                 <span>
                     {truncatedDisplayName}
@@ -181,7 +185,7 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
 
     // Warning: Special casing for Sub-Types
     if (field === 'typeNames') {
-        const displayName = capitalizeFirstLetter(value) || '';
+        const displayName = capitalizeFirstLetterOnly(value) || '';
         const truncatedDomainName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
