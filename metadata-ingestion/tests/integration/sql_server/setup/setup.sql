@@ -88,5 +88,6 @@ EXEC sp_attach_schedule
    @schedule_name = N'RunOnce';
 GO
 EXEC dbo.sp_add_jobserver
-    @job_name = N'Weekly Sales Data Backup';
+    @job_name = N'Weekly Sales Data Backup',
+    @servername = @@Servername;
 GO
