@@ -36,7 +36,6 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.schema_classes import BooleanTypeClass, UnionTypeClass
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
 from .domains import (
@@ -276,61 +275,37 @@ class SQLServerSource(SQLAlchemySource):
                 column["comment"] = description
         return columns
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        sql_config = self.config
-        if logger.isEnabledFor(logging.DEBUG):
-            # If debug logging is enabled, we also want to echo each SQL query issued.
-            sql_config.options.setdefault("echo", True)
+    def get_database_level_workunits(
+            self,
+            sql_config: SQLServerConfig,
+            inspector: Inspector,
+            db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from super().get_database_level_workunits(
+            sql_config=sql_config,
+            inspector=inspector,
+            db_name=db_name,
+        )
+        if sql_config.include_jobs:
+            yield from self.loop_jobs(inspector, sql_config)
 
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.profiling.enabled:
-            sql_config.options.setdefault(
-                "max_overflow", sql_config.profiling.max_workers
+    def get_schema_level_workunits(
+            self,
+            sql_config: SQLServerConfig,
+            inspector: Inspector,
+            schema: str,
+            db_name: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from super().get_schema_level_workunits(
+            sql_config=sql_config,
+            inspector=inspector,
+            schema=schema,
+            db_name=db_name,
+        )
+        if sql_config.include_stored_procedures:
+            yield from self.loop_stored_procedures(
+                inspector, schema, sql_config
             )
-
-        for inspector in self.get_inspectors():
-            profiler = None
-            profile_requests: List["GEProfilerRequest"] = []
-            if sql_config.profiling.enabled:
-                profiler = self.get_profiler_instance(inspector)
-
-            db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(
-                inspector=inspector, database=db_name
-            )
-            if sql_config.include_jobs:
-                yield from self.loop_jobs(inspector, sql_config)
-            for schema in self.get_allowed_schemas(inspector, db_name):
-                self.add_information_for_schema(inspector, schema)
-
-                yield from self.gen_schema_containers(
-                    inspector=inspector, schema=schema, db_name=db_name
-                )
-
-                if sql_config.include_tables:
-                    yield from self.loop_tables(inspector, schema, sql_config)
-
-                if sql_config.include_views:
-                    yield from self.loop_views(inspector, schema, sql_config)
-
-                if profiler:
-                    profile_requests += list(
-                        self.loop_profiler_requests(inspector, schema, sql_config)
-                    )
-
-                if sql_config.include_stored_procedures:
-                    yield from self.loop_stored_procedures(
-                        inspector, schema, sql_config
-                    )
-
-            if profiler and profile_requests:
-                yield from self.loop_profiler(
-                    profile_requests, profiler, platform=self.platform
-                )
-
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
         jobs_data = conn.execute(
