@@ -32,6 +32,7 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     make_sqlalchemy_uri,
+    SQLAlchemyConfig,
 )
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
@@ -271,30 +272,30 @@ class SQLServerSource(SQLAlchemySource):
 
     def get_database_level_workunits(
             self,
-            sql_config: SQLServerConfig,
+            sql_config: SQLAlchemyConfig,
             inspector: Inspector,
-            db_name: str,
+            database: str,
     ) -> Iterable[MetadataWorkUnit]:
         yield from super().get_database_level_workunits(
             sql_config=sql_config,
             inspector=inspector,
-            db_name=db_name,
+            database=database,
         )
         if sql_config.include_jobs:
             yield from self.loop_jobs(inspector, sql_config)
 
     def get_schema_level_workunits(
             self,
-            sql_config: SQLServerConfig,
+            sql_config: SQLAlchemyConfig,
             inspector: Inspector,
             schema: str,
-            db_name: str,
+            database: str,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_schema_level_workunits(
             sql_config=sql_config,
             inspector=inspector,
             schema=schema,
-            db_name=db_name,
+            database=database,
         )
         if sql_config.include_stored_procedures:
             yield from self.loop_stored_procedures(
