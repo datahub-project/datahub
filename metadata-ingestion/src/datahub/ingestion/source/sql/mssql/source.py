@@ -27,10 +27,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
-    make_sqlalchemy_uri,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    make_sqlalchemy_uri,
+)
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     ChangeTypeClass,
