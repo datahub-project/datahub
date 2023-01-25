@@ -878,9 +878,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     self.reporter.report_workunit(work_unit)
                     yield work_unit
 
-        # Clean up stale entities if configured.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
