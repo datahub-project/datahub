@@ -71,7 +71,8 @@ public class DataJobType implements SearchableEntityType<DataJob, String>, Brows
         STATUS_ASPECT_NAME,
         DOMAINS_ASPECT_NAME,
         DEPRECATION_ASPECT_NAME,
-        DATA_PLATFORM_INSTANCE_ASPECT_NAME
+        DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+        SLA_INFO_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
     private final EntityClient _entityClient;

@@ -1,0 +1,38 @@
+namespace com.linkedin.datajob
+
+@Aspect = {
+  "name": "slaInfo"
+}
+
+record SLAInfo {
+
+  @Searchable = {
+    "fieldName": "slaDefined",
+    "fieldType": "TEXT",
+    "addToFilters": true,
+    "hasValuesFieldName": "hasSLA",
+    "queryByDefault": false,
+    "filterNameOverride": "SLA Info"
+  }
+   slaDefined: string
+
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  errorStartedBy: optional float
+
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  errorFinishedBy: optional float
+
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  warnStartedBy: optional float
+
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  warnFinishedBy: optional float
+}

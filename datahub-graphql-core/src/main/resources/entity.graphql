@@ -1241,6 +1241,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    User-defined SLA info set on the corresponding Dataset
+    """
+    slaInfo: SLAInfo
 }
 
 type FineGrainedLineage {
@@ -5354,6 +5359,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    User-defined SLA info set on the corresponding Data Job
+    """
+    slaInfo: SLAInfo
 }
 
 """
@@ -5401,6 +5411,11 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     The link to view the task run in the source system
     """
     externalUrl: String
+
+    """
+    User-defined SLA info set on the corresponding data process
+    """
+    slaInfo: SLAInfo
 }
 
 """
@@ -5483,6 +5498,23 @@ enum DataProcessInstanceRunResultType {
     UP_FOR_RETRY
 }
 
+"""
+User-defined SLAs set on DataJobs, Datasets and DataProcessInstances
+"""
+type SLAInfo {
+    """
+    Whether or not there is an SLA defined
+    """
+    slaDefined: String!
+
+    """
+    Different SLA types and levels
+    """
+    errorStartedBy: Float
+    errorFinishedBy: Float
+    warnStartedBy: Float
+    warnFinishedBy: Float
+}
 
 """
 Deprecated, use DataJobProperties instead

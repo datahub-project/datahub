@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
+import com.linkedin.datahub.graphql.generated.SLAInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.EmbedMapper;
@@ -105,6 +106,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setFineGrainedLineages(UpstreamLineagesMapper.map(new UpstreamLineage(dataMap))));
         mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setEmbed(EmbedMapper.map(new Embed(dataMap))));
+        mappingHelper.mapToResult(SLA_INFO_ASPECT_NAME, this::mapSLAInfo);
         return mappingHelper.getResult();
     }
 
@@ -173,5 +175,16 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     private void mapDomains(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
         final Domains domains = new Domains(dataMap);
         dataset.setDomain(DomainAssociationMapper.map(domains, dataset.getUrn()));
+    }
+
+    private void mapSLAInfo(@Nonnull Dataset dataset, @Nonnull DataMap dataMap){
+        final com.linkedin.datajob.SLAInfo gmsSLAInfo = new com.linkedin.datajob.SLAInfo(dataMap);
+        final SLAInfo slaInfo = new SLAInfo();
+        slaInfo.setSlaDefined(gmsSLAInfo.getSlaDefined());
+        slaInfo.setErrorStartedBy(gmsSLAInfo.getErrorStartedBy());
+        slaInfo.setWarnStartedBy(gmsSLAInfo.getWarnStartedBy());
+        slaInfo.setErrorFinishedBy(gmsSLAInfo.getErrorFinishedBy());
+        slaInfo.setWarnFinishedBy(gmsSLAInfo.getWarnFinishedBy());
+        dataset.setSlaInfo(slaInfo);
     }
 }

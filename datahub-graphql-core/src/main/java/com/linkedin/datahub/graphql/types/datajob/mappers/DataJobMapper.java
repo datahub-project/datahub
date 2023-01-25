@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataJobProperties;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.SLAInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -98,6 +99,15 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                 result.setDeprecation(DeprecationMapper.map(new Deprecation(data)));
             } else if (DATA_PLATFORM_INSTANCE_ASPECT_NAME.equals(name)) {
                 result.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(data)));
+            } else if (SLA_INFO_ASPECT_NAME.equals(name)) {
+                final com.linkedin.datajob.SLAInfo gmsSLAInfo = new com.linkedin.datajob.SLAInfo(data);
+                final SLAInfo slaInfo = new SLAInfo();
+                slaInfo.setSlaDefined(gmsSLAInfo.getSlaDefined());
+                slaInfo.setErrorStartedBy(gmsSLAInfo.getErrorStartedBy());
+                slaInfo.setWarnStartedBy(gmsSLAInfo.getWarnStartedBy());
+                slaInfo.setErrorFinishedBy(gmsSLAInfo.getErrorFinishedBy());
+                slaInfo.setWarnFinishedBy(gmsSLAInfo.getWarnFinishedBy());
+                result.setSlaInfo(slaInfo);
             }
         });
 
