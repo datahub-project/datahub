@@ -225,7 +225,15 @@ export const EntityProfile = <T, U>({
             },
         })) || [];
 
-    const routedTab = useRoutedTab([...tabsWithDefaults, ...autoRenderTabs]);
+    const visibleTabs = [...tabsWithDefaults, ...autoRenderTabs].filter((tab) =>
+        tab.display?.visible(entityData, dataPossiblyCombinedWithSiblings),
+    );
+
+    const enabledAndVisibleTabs = visibleTabs.filter((tab) =>
+        tab.display?.enabled(entityData, dataPossiblyCombinedWithSiblings),
+    );
+
+    const routedTab = useRoutedTab(enabledAndVisibleTabs);
 
     if (isCompact) {
         return (
@@ -234,6 +242,7 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
+                    loading,
                     baseEntity: dataPossiblyCombinedWithSiblings,
                     dataNotCombinedWithSiblings,
                     updateEntity,
@@ -271,6 +280,7 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
+                loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,
                 updateEntity,
@@ -324,10 +334,7 @@ export const EntityProfile = <T, U>({
                                                 subHeader={subHeader}
                                                 refreshBrowser={refreshBrowser}
                                             />
-                                            <EntityTabs
-                                                tabs={[...tabsWithDefaults, ...autoRenderTabs]}
-                                                selectedTab={routedTab}
-                                            />
+                                            <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
                                         </Header>
                                         <TabContent>
                                             {routedTab && <routedTab.component properties={routedTab.properties} />}
