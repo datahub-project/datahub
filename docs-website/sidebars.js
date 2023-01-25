@@ -319,83 +319,79 @@ module.exports = {
       },
       "docs/how/updating-datahub",
     ],
-    "Developer Guides": [
-      // The purpose of this section is to provide developers & technical users with
-      // concrete tutorials for how to work with the DataHub CLI & APIs
-      // "docs/wip/developer-guides",
-      "docs/cli",
-      "docs/datahub_lite",
-      {
-        "GraphQL API": [
-          {
-            label: "Overview",
-            type: "doc",
-            id: "docs/api/graphql/overview",
-          },
-          {
-            Reference: [
-              {
-                type: "doc",
-                label: "Queries",
-                id: "graphql/queries",
-              },
-              {
-                type: "doc",
-                label: "Mutations",
-                id: "graphql/mutations",
-              },
-              {
-                type: "doc",
-                label: "Objects",
-                id: "graphql/objects",
-              },
-              {
-                type: "doc",
-                label: "Inputs",
-                id: "graphql/inputObjects",
-              },
-              {
-                type: "doc",
-                label: "Interfaces",
-                id: "graphql/interfaces",
-              },
-              {
-                type: "doc",
-                label: "Unions",
-                id: "graphql/unions",
-              },
-              {
-                type: "doc",
-                label: "Enums",
-                id: "graphql/enums",
-              },
-              {
-                type: "doc",
-                label: "Scalars",
-                id: "graphql/scalars",
-              },
-            ],
-          },
-          {
-            Guides: [
-              {
-                type: "doc",
-                label: "Getting Started",
-                id: "docs/api/graphql/getting-started",
-              },
-              {
-                type: "doc",
-                label: "Working with Metadata Entities",
-                id: "docs/api/graphql/querying-entities",
-              },
-              {
-                type: "doc",
-                label: "Access Token Management",
-                id: "docs/api/graphql/token-management",
-              },
-            ],
-          },
-        ],
+    "DataHub API":[
+       "docs/api/datahub-apis",
+        {
+          "GraphQL API": [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/api/graphql/overview",
+            },
+            {
+              Reference: [
+                {
+                  type: "doc",
+                  label: "Queries",
+                  id: "graphql/queries",
+                },
+                {
+                  type: "doc",
+                  label: "Mutations",
+                  id: "graphql/mutations",
+                },
+                {
+                  type: "doc",
+                  label: "Objects",
+                  id: "graphql/objects",
+                },
+                {
+                  type: "doc",
+                  label: "Inputs",
+                  id: "graphql/inputObjects",
+                },
+                {
+                  type: "doc",
+                  label: "Interfaces",
+                  id: "graphql/interfaces",
+                },
+                {
+                  type: "doc",
+                  label: "Unions",
+                  id: "graphql/unions",
+                },
+                {
+                  type: "doc",
+                  label: "Enums",
+                  id: "graphql/enums",
+                },
+                {
+                  type: "doc",
+                  label: "Scalars",
+                  id: "graphql/scalars",
+                },
+              ],
+            },
+            {
+              Guides: [
+                {
+                  type: "doc",
+                  label: "Getting Started",
+                  id: "docs/api/graphql/getting-started",
+                },
+                {
+                  type: "doc",
+                  label: "Working with Metadata Entities",
+                  id: "docs/api/graphql/querying-entities",
+                },
+                {
+                  type: "doc",
+                  label: "Access Token Management",
+                  id: "docs/api/graphql/token-management",
+                },
+              ],
+            },
+          ],
       },
       {
         OpenAPI: [
@@ -406,13 +402,24 @@ module.exports = {
           },
           "docs/dev-guides/timeline",
         ],
-      },
+      }
+    ],
+    "Tools": [
+      "docs/cli",
+      "docs/datahub_lite",  
       {
         SDKs: [
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
         ],
-      },
+      }, 
+    ],
+    "Developer Guides": [
+      // The purpose of this section is to provide developers & technical users with
+      // concrete tutorials for how to work with the DataHub CLI & APIs
+      // "docs/wip/developer-guides",
+     
+
       {
         "DataHub Metadata Model": [
           "docs/modeling/metadata-model",
