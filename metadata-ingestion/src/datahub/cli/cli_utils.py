@@ -88,8 +88,7 @@ def write_gms_config(
             # ok to fail on this
             previous_config = {}
             log.debug(
-                f"Failed to retrieve config from file {DATAHUB_CONFIG_PATH}. This isn't fatal.",
-                e,
+                f"Failed to retrieve config from file {DATAHUB_CONFIG_PATH}: {e}. This isn't fatal."
             )
         config_dict = {**previous_config, **config.dict()}
     else:
