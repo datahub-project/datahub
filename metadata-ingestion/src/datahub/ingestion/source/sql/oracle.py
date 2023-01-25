@@ -65,6 +65,9 @@ class OracleConfig(BasicSQLAlchemyConfig):
     database: Optional[str] = Field(
         default=None, description="If using, omit `service_name`."
     )
+    add_database_name_to_urn: Optional[bool] = Field(
+        default=False, description="Add oracle database name to urn, default urn is schema.table"
+    )
 
     @pydantic.validator("service_name")
     def check_service_name(cls, v, values):
@@ -81,14 +84,16 @@ class OracleConfig(BasicSQLAlchemyConfig):
             url = f"{url}/?service_name={self.service_name}"
         return url
 
-    def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
-        # schema, table is already normalized, we just to normalize database
+    def get_identifier(self, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
-        if self.database_alias:
-            return f"{self.database_alias}.{regular}"
-        if self.database:
-            return f"{self.database}.{regular}"
-        return regular
+        if self.add_database_name_to_urn:
+            if self.database_alias:
+                return f"{self.database_alias}.{regular}"
+            if self.database:
+                return f"{self.database}.{regular}"
+            return regular
+        else:
+            return regular
 
 
 class OracleInspectorObjectWrapper:
