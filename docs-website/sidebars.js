@@ -403,16 +403,31 @@ module.exports = {
           "docs/dev-guides/timeline",
         ],
       },
+      {
+        "Rest.li": [
+        {
+            type: "doc",
+            label: "Rest.li API",
+            id: "docs/api/restli/restli-overview",
+          },
+          {
+            type: "doc",
+            label: "Aspect Versioning and Rest.li Modeling",
+            id: "docs/advanced/aspect-versioning",
+          },
+         
+        ],
+      }   
     ],
     Tools: [
       "docs/cli",
-      "docs/datahub_lite",
       {
         SDKs: [
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
         ],
       },
+      "docs/datahub_lite",
     ],
     "Developer Guides": [
       // The purpose of this section is to provide developers & technical users with
@@ -461,7 +476,6 @@ module.exports = {
           "docker/datahub-upgrade/README",
           "docs/advanced/no-code-modeling",
           "datahub-web-react/src/app/analytics/README",
-          "docs/advanced/aspect-versioning",
           "docs/advanced/es-7-upgrade",
           "docs/how/migrating-graph-service-implementation",
           "docs/advanced/field-path-spec-v2",
