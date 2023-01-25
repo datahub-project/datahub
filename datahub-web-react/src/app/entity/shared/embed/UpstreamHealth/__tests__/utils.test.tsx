@@ -1,4 +1,3 @@
-import React from 'react';
 import { dataset1, dataset2, dataset3 } from '../../../../../../Mocks';
 import { Dataset } from '../../../../../../types.generated';
 import * as utils from '../utils';

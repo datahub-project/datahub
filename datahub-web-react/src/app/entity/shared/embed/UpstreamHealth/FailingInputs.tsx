@@ -48,7 +48,7 @@ export default function FailingInputs({ upstreamSummary }: Props) {
     return (
         <div>
             <StyledWarning />
-            <TextWrapper>Unhealthy Data Inputs</TextWrapper>
+            <TextWrapper>Some data inputs are not healthy</TextWrapper>
             <FailingDetailsWrapper onClick={() => setAreFailingDetailsVisible(!areFailingDetailsVisible)}>
                 view details <StyledArrow isOpen={areFailingDetailsVisible} />
             </FailingDetailsWrapper>

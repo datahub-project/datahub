@@ -76,7 +76,7 @@ export default function UpstreamHealth() {
         return (
             <div>
                 <StyledCheck />
-                <TextWrapper>Healthy Data Inputs</TextWrapper>
+                <TextWrapper>All data inputs are healthy</TextWrapper>
             </div>
         );
     }
