@@ -40,7 +40,7 @@ from datahub.metadata.schema_classes import (
 )
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
-from .domains import (
+from .job_models import (
     JobStep,
     MSSQLDataFlow,
     MSSQLDataJob,
