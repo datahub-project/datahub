@@ -127,7 +127,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.test1,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -142,7 +142,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.test1,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test1,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -161,7 +161,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "oradoc.schema1.test1",
+                        "schemaName": "OraDoc.schema1.test1",
                         "platform": "urn:li:dataPlatform:oracle",
                         "version": 0,
                         "created": {
@@ -191,7 +191,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.test1,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -205,7 +205,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.test2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -220,7 +220,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.test2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test2,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -239,7 +239,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "oradoc.schema1.test2",
+                        "schemaName": "OraDoc.schema1.test2",
                         "platform": "urn:li:dataPlatform:oracle",
                         "version": 0,
                         "created": {
@@ -269,7 +269,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema1.test2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -353,7 +353,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.test3,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test3,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -368,7 +368,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.test3,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test3,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -387,7 +387,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "oradoc.schema2.test3",
+                        "schemaName": "OraDoc.schema2.test3",
                         "platform": "urn:li:dataPlatform:oracle",
                         "version": 0,
                         "created": {
@@ -417,7 +417,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.test3,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test3,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -431,7 +431,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.test4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -446,7 +446,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.test4,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test4,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -465,7 +465,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "oradoc.schema2.test4",
+                        "schemaName": "OraDoc.schema2.test4",
                         "platform": "urn:li:dataPlatform:oracle",
                         "version": 0,
                         "created": {
@@ -495,7 +495,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,oradoc.schema2.test4,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
