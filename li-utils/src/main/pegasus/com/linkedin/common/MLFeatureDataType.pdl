@@ -12,7 +12,7 @@ enum MLFeatureDataType {
   USELESS
 
   /**
-   * Nominal data is made of discrete values with no numerical relationship between the different categories — mean and median are meaningless.
+   * Nominal data is made of discrete values with no numerical relationship between the different categories - mean and median are meaningless.
    * Animal species is one example. For example, pig is not higher than bird and lower than fish.
    */
   NOMINAL
@@ -24,19 +24,19 @@ enum MLFeatureDataType {
   ORDINAL
 
   /**
-   * Binary data is discrete data that can be in only one of two categories — either yes or no, 1 or 0, off or on, etc
+   * Binary data is discrete data that can be in only one of two categories - either yes or no, 1 or 0, off or on, etc
    */
   BINARY
 
   /**
-   * Count data is discrete whole number data — no negative numbers here.
+   * Count data is discrete whole number data - no negative numbers here.
    * Count data often has many small values, such as zero and one.
    */
   COUNT
 
   /**
    * Time data is a cyclical, repeating continuous form of data.
-   * The relevant time features can be any period— daily, weekly, monthly, annual, etc.
+   * The relevant time features can be any period- daily, weekly, monthly, annual, etc.
    */
   TIME
 

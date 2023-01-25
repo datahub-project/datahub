@@ -29,13 +29,16 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
-    SQLAlchemyConfig,
     SQLAlchemySource,
     SQLSourceReport,
     SqlWorkUnit,
     get_schema_metadata,
 )
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemyConfig,
+)
+from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -160,16 +163,12 @@ class VerticaSource(SQLAlchemySource):
                 profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(
-                inspector=inspector, database=db_name
-            )
+            yield from self.gen_database_containers(database=db_name)
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(
-                    inspector=inspector, schema=schema, db_name=db_name
-                )
+                yield from self.gen_schema_containers(schema=schema, database=db_name)
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -578,11 +577,15 @@ class VerticaSource(SQLAlchemySource):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            sql_config=sql_config,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_projection_properties(
         self, inspector: Inspector, schema: str, projection: str
@@ -771,11 +774,15 @@ class VerticaSource(SQLAlchemySource):
         )
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            sql_config=sql_config,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_model_properties(
         self, inspector: Inspector, schema: str, model: str
@@ -950,11 +957,15 @@ class VerticaSource(SQLAlchemySource):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            sql_config=sql_config,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_oauth_properties(
         self, inspector: Inspector, schema: str, model: str
