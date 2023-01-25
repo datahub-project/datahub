@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from datahub.ingestion.source.powerbi.config import (
-    PowerBiAPIConfig,
+    PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 class PowerBiAPI:
-    def __init__(self, config: PowerBiAPIConfig) -> None:
-        self.__config: PowerBiAPIConfig = config
+    def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
+        self.__config: PowerBiDashboardSourceConfig = config
 
         self.__regular_fetcher = RegularFetcher(
             client_id=self.__config.client_id,

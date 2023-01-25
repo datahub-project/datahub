@@ -52,6 +52,8 @@ class SourceReport(Report):
         self.events_produced += 1
 
         if isinstance(wu, MetadataWorkUnit):
+            urn = wu.get_urn()
+
             # Specialized entity reporting.
             if not isinstance(wu.metadata, MetadataChangeEvent):
                 mcps = [wu.metadata]
@@ -59,10 +61,6 @@ class SourceReport(Report):
                 mcps = list(mcps_from_mce(wu.metadata))
 
             for mcp in mcps:
-                urn = mcp.entityUrn
-                if not urn:  # this case is rare
-                    continue
-
                 entityType = mcp.entityType
                 aspectName = mcp.aspectName
 
@@ -70,7 +68,7 @@ class SourceReport(Report):
                     self._urns_seen.add(urn)
                     self.entities[entityType].append(urn)
 
-                if aspectName:  # usually true
+                if aspectName is not None:  # usually true
                     self.aspects[entityType][aspectName] += 1
 
     def report_warning(self, key: str, reason: str) -> None:
