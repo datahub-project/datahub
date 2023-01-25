@@ -14,6 +14,7 @@ This code path should not be executed if we're being used as a library.
 import collections
 import contextlib
 import logging
+import os
 import sys
 from typing import Deque, Iterator, Optional
 
@@ -32,6 +33,8 @@ DATAHUB_PACKAGES = [
 ]
 IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
 
+NO_COLOR = os.environ.get("NO_COLOR", False)
+
 
 class _ColorLogFormatter(logging.Formatter):
     # Adapted from https://stackoverflow.com/a/56944256/3638629.
@@ -48,7 +51,7 @@ class _ColorLogFormatter(logging.Formatter):
         super().__init__(BASE_LOGGING_FORMAT)
 
     def formatMessage(self, record: logging.LogRecord) -> str:
-        if sys.stderr.isatty():
+        if not NO_COLOR and sys.stderr.isatty():
             return self._formatMessageColor(record)
         else:
             return super().formatMessage(record)
@@ -153,7 +156,7 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
 
         # Create the in-memory buffer handler.
         buffer_handler = _BufferLogHandler(_log_buffer)
-        buffer_handler.addFilter(_DatahubLogFilter(debug=True))
+        buffer_handler.addFilter(_DatahubLogFilter(debug=debug))
         buffer_handler.setFormatter(_default_formatter)
 
         handlers = [
