@@ -24,8 +24,8 @@ public class EntityExistsResolver implements DataFetcher<CompletableFuture<Boole
   @Override
   public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
     String entityUrnString = bindArgument(environment.getArgument("urn"), String.class);
-    if (entityUrnString == null) {
-      // resolver can be used as its own endpoint or when hydrating an entity
+    // resolver can be used as its own endpoint or when hydrating an entity
+    if (entityUrnString == null && environment.getSource() != null) {
       entityUrnString = ((Entity) environment.getSource()).getUrn();
     }
     Objects.requireNonNull(entityUrnString, "Entity urn must not be null!");
