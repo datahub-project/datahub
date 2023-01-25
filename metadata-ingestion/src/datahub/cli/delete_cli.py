@@ -155,7 +155,7 @@ def delete(
     # one of these must be provided
     if not urn and not platform and not env and not query and not registry_id:
         raise click.UsageError(
-            "You must provide one of urn / platform / env / query /registry_id for me to delete anything"
+            "You must provide one of urn / platform / env / query / registry_id in order to delete entities."
         )
 
     include_removed: bool
