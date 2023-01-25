@@ -8,6 +8,11 @@ message MessageC1 {
   MessageC2 messageList = 1;
 }
 
+/*
+   This contains nested type
+
+   Description for MessageC2
+*/
 message MessageC2 {
   repeated MessageC3 list = 1;
 }
