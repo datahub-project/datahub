@@ -95,6 +95,14 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
+                    name: 'Datasets',
+                    component: DashboardDatasetsTab,
+                    display: {
+                        visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                    },
+                },
+                {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
@@ -116,14 +124,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
-                },
-                {
-                    name: 'Datasets',
-                    component: DashboardDatasetsTab,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
-                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
-                    },
                 },
             ]}
             sidebarSections={[
