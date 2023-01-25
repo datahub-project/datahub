@@ -14,7 +14,7 @@ import {
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '../../../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
 
@@ -43,7 +43,7 @@ export const DashboardPreview = ({
     snippet,
 }: {
     urn: string;
-    platform: string;
+    platform?: string;
     platformInstanceId?: string;
     name?: string;
     subtype?: string | null;
@@ -66,7 +66,6 @@ export const DashboardPreview = ({
     snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalizedPlatform = capitalizeFirstLetter(platform);
 
     return (
         <DefaultPreviewCard
@@ -78,7 +77,7 @@ export const DashboardPreview = ({
             typeIcon={entityRegistry.getIcon(EntityType.Dashboard, 14, IconStyleType.ACCENT)}
             logoUrl={logoUrl || ''}
             platformInstanceId={platformInstanceId}
-            platform={capitalizedPlatform}
+            platform={platform}
             qualifier={access}
             owners={owners}
             tags={tags}
