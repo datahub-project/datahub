@@ -66,6 +66,7 @@ EXEC sys.sp_addextendedproperty
 @level2type = N'COLUMN',@level2name = 'LastName';
 GO
 USE NewData ;
+GO
 EXEC dbo.sp_add_job
     @job_name = N'Weekly Sales Data Backup' ;
 GO
