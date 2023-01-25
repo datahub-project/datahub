@@ -3,7 +3,7 @@ import pathlib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -584,7 +584,7 @@ class LineageExtractor:
         table: Union[RedshiftTable, RedshiftView],
         dataset_urn: str,
         schema: RedshiftSchema,
-    ) -> Optional[tuple[UpstreamLineageClass, dict[str, str]]]:
+    ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
         dataset_key = mce_builder.dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
             return None
