@@ -1,1 +1,1 @@
-from datahub.ingestion.source.sql.mssql.models import SQLServerConfig, SQLServerSource
+from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
