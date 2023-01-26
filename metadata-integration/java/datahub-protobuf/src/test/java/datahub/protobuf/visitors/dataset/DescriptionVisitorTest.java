@@ -16,11 +16,11 @@ public class DescriptionVisitorTest {
 
     @Test
     public void visitorTest() throws IOException {
-        ProtobufGraph graph = getTestProtobufGraph("protobuf", "messageB");
+        ProtobufGraph graph = getTestProtobufGraph("protobuf", "messageC2", "protobuf.MessageC2");
 
         DescriptionVisitor test = new DescriptionVisitor();
 
-        assertEquals(Set.of("This contains nested types.\n\nOwned by TeamB"),
-                graph.accept(getVisitContextBuilder("protobuf.MessageB"), List.of(test)).collect(Collectors.toSet()));
+        assertEquals(Set.of("This contains nested type\n\nDescription for MessageC2"),
+                graph.accept(getVisitContextBuilder("protobuf.MessageC2"), List.of(test)).collect(Collectors.toSet()));
     }
 }

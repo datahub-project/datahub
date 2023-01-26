@@ -18,9 +18,14 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
-    return data?.dataFlow?.platform?.properties?.displayName || data?.dataFlow?.platform?.name || '';
+    return (
+        data?.dataFlow?.platform?.properties?.displayName ||
+        capitalizeFirstLetterOnly(data?.dataFlow?.platform?.name) ||
+        ''
+    );
 };
 
 /**
@@ -194,7 +199,7 @@ export class DataJobEntity implements Entity<DataJob> {
             name: this.displayName(entity),
             expandedName: this.getExpandedNameForDataJob(entity),
             type: EntityType.DataJob,
-            icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
+            icon: entity?.dataFlow?.platform?.properties?.logoUrl || undefined,
             platform: entity?.dataFlow?.platform,
         };
     };

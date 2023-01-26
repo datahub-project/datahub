@@ -77,7 +77,7 @@ export const DomainsList = () => {
 
     const handleDelete = (urn: string) => {
         removeFromListDomainsCache(client, urn, page, pageSize);
-        setTimeout(function () {
+        setTimeout(() => {
             refetch?.();
         }, 2000);
     };

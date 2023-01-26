@@ -1,6 +1,7 @@
 import * as QueryString from 'query-string';
 
 import { MatchedField } from '../../../types.generated';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { GenericEntityProperties } from './types';
 
@@ -71,7 +72,7 @@ export const singularizeCollectionName = (collectionName: string): string => {
 };
 
 export function getPlatformName(entityData: GenericEntityProperties | null) {
-    return entityData?.platform?.properties?.displayName || entityData?.platform?.name;
+    return entityData?.platform?.properties?.displayName || capitalizeFirstLetterOnly(entityData?.platform?.name);
 }
 
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
