@@ -386,9 +386,8 @@ class LDAPSource(StatefulIngestionSourceBase):
         custom_props_map = {}
         if self.config.custom_props_list:
             for prop in self.config.custom_props_list:
-                custom_props_map[prop] = (
-                    attrs[prop][0]
-                ).decode()
+                if prop in attrs:
+                    custom_props_map[prop] = (attrs[prop][0]).decode()
 
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
