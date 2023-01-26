@@ -1,5 +1,5 @@
 import { Tooltip, Typography } from 'antd';
-import React from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 import { CorpUser, Maybe, UserUsageCounts } from '../../../../../../../types.generated';
 import { InfoItem } from '../../../../components/styled/InfoItem';
@@ -50,6 +50,7 @@ export default function TableStats({
     ) {
         return null;
     }
+    const sortedUsers = useMemo(() => users?.slice().sort((a, b) => (b?.count || 0) - (a?.count || 0)), [users]);
     return (
         <StatSection>
             <Typography.Title level={5}>Table Stats</Typography.Title>
@@ -77,7 +78,7 @@ export default function TableStats({
                         </Typography.Text>
                     </InfoItem>
                 )}
-                {users && users.length > 0 && (
+                {sortedUsers && sortedUsers.length > 0 && (
                     <InfoItem title="Top Users">
                         <div style={{ paddingTop: 8 }}>
                             <ExpandedActorGroup
@@ -85,7 +86,7 @@ export default function TableStats({
                                     justifyContent: 'left',
                                 }}
                                 actors={
-                                    users
+                                    sortedUsers
                                         .filter((user) => user && user?.user !== undefined && user?.user !== null)
                                         .map((user) => user?.user as CorpUser) || []
                                 }
