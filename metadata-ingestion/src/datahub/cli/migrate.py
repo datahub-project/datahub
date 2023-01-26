@@ -262,7 +262,7 @@ def dataplatform2instance_func(
             delete_cli._delete_one_urn(src_entity_urn, soft=not hard, run_id=run_id)
         migration_report.on_entity_migrated(src_entity_urn, "status")  # type: ignore
 
-    print(f"{migration_report}")
+    click.echo(f"{migration_report}")
     migrate_containers(
         dry_run=dry_run,
         env=env,
@@ -372,7 +372,7 @@ def migrate_containers(
             delete_cli._delete_one_urn(src_urn, soft=not hard, run_id=run_id)
         migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
 
-    print(f"{migration_report}")
+    click.echo(f"{migration_report}")
 
 
 def get_containers_for_migration(env: str) -> List[Any]:

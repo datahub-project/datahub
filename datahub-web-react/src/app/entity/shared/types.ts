@@ -48,7 +48,7 @@ export type EntityTab = {
 };
 
 export type EntitySidebarSection = {
-    component: React.FunctionComponent<{ properties?: any }>;
+    component: React.FunctionComponent<{ properties?: any; readOnly?: boolean }>;
     display?: {
         visible: (GenericEntityProperties, T) => boolean; // Whether the sidebar is visible on the UI. Defaults to true.
     };

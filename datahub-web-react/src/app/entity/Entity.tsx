@@ -167,4 +167,9 @@ export interface Entity<T> {
      * Returns the supported features for the entity
      */
     supportedCapabilities: () => Set<EntityCapabilityType>;
+
+    /**
+     * Returns the profile component to be displayed in our Chrome extension
+     */
+    renderEmbeddedProfile?: (urn: string) => JSX.Element;
 }
