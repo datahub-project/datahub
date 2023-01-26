@@ -63,25 +63,30 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
     mock_cursor.execute.return_value = None
     mock_connection.cursor.return_value = mock_cursor
 
-    mock_cursor1 = Mock()
-    mock_cursor2 = Mock()
-    mock_cursor1.execute.return_value = None
-    mock_cursor2.execute.return_value = None
-    mock_cursor1.fetchmany.side_effect = [
+    mock_cursor_usage_query = Mock()
+    mock_cursor_operational_query = Mock()
+    mock_cursor_usage_query.execute.return_value = None
+    mock_cursor_operational_query.execute.return_value = None
+    mock_cursor_usage_query.fetchmany.side_effect = [
         [list(row.values()) for row in mock_usage_query_result_dict],
         [],
     ]
-    mock_cursor2.fetchmany.side_effect = [
+    mock_cursor_operational_query.fetchmany.side_effect = [
         [list(row.values()) for row in mock_operational_query_result_dict],
         [],
     ]
 
-    mock_cursor1.description = [[key] for key in mock_usage_query_result_dict[0].keys()]
-    mock_cursor2.description = [
+    mock_cursor_usage_query.description = [
+        [key] for key in mock_usage_query_result_dict[0].keys()
+    ]
+    mock_cursor_operational_query.description = [
         [key] for key in mock_operational_query_result_dict[0].keys()
     ]
 
-    mock_connection.cursor.side_effect = [mock_cursor2, mock_cursor1]
+    mock_connection.cursor.side_effect = [
+        mock_cursor_operational_query,
+        mock_cursor_usage_query,
+    ]
 
     config = RedshiftConfig(host_port="test:1234", email_domain="acryl.io")
     source_report = RedshiftReport()
@@ -162,25 +167,30 @@ def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tm
     mock_cursor.execute.return_value = None
     mock_connection.cursor.return_value = mock_cursor
 
-    mock_cursor1 = Mock()
-    mock_cursor2 = Mock()
-    mock_cursor1.execute.return_value = None
-    mock_cursor2.execute.return_value = None
-    mock_cursor1.fetchmany.side_effect = [
+    mock_cursor_usage_query = Mock()
+    mock_cursor_operational_query = Mock()
+    mock_cursor_usage_query.execute.return_value = None
+    mock_cursor_operational_query.execute.return_value = None
+    mock_cursor_usage_query.fetchmany.side_effect = [
         [list(row.values()) for row in mock_usage_query_result_dict],
         [],
     ]
-    mock_cursor2.fetchmany.side_effect = [
+    mock_cursor_operational_query.fetchmany.side_effect = [
         [list(row.values()) for row in mock_operational_query_result_dict],
         [],
     ]
 
-    mock_cursor1.description = [[key] for key in mock_usage_query_result_dict[0].keys()]
-    mock_cursor2.description = [
+    mock_cursor_usage_query.description = [
+        [key] for key in mock_usage_query_result_dict[0].keys()
+    ]
+    mock_cursor_operational_query.description = [
         [key] for key in mock_operational_query_result_dict[0].keys()
     ]
 
-    mock_connection.cursor.side_effect = [mock_cursor2, mock_cursor1]
+    mock_connection.cursor.side_effect = [
+        mock_cursor_operational_query,
+        mock_cursor_usage_query,
+    ]
 
     config = RedshiftConfig(host_port="test:1234", email_domain="acryl.io")
     usage_extractor = RedshiftUsageExtractor(

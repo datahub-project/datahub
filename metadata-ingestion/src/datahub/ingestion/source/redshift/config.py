@@ -38,7 +38,8 @@ class S3LineageProviderConfig(ConfigModel):
     """
 
     path_specs: List[PathSpec] = Field(
-        description="List of PathSpec. See below the details about PathSpec"
+        default=[],
+        description="List of PathSpec. See below the details about PathSpec",
     )
 
     strip_urls: bool = Field(
@@ -52,8 +53,9 @@ class DatasetS3LineageProviderConfigBase(ConfigModel):
     Any source that produces s3 lineage from/to Datasets should inherit this class.
     """
 
-    s3_lineage_config: Optional[S3LineageProviderConfig] = Field(
-        default=None, description="Common config for S3 lineage generation"
+    s3_lineage_config: S3LineageProviderConfig = Field(
+        default=S3LineageProviderConfig(),
+        description="Common config for S3 lineage generation",
     )
 
 

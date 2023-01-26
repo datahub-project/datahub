@@ -1,5 +1,4 @@
 import logging
-import pathlib
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
@@ -95,11 +94,12 @@ class LineageExtractor:
         if self.config.s3_lineage_config:
             for path_spec in self.config.s3_lineage_config.path_specs:
                 if path_spec.allowed(path):
-                    table_name, table_path = path_spec.extract_table_name_and_path(path)
+                    _, table_path = path_spec.extract_table_name_and_path(path)
                     return table_path
 
             if self.config.s3_lineage_config.strip_urls:
-                return str(pathlib.Path(path))
+                if "/" in urlparse(path).path:
+                    return str(path.rsplit("/", 1)[0])
 
         return path
 
@@ -210,26 +210,30 @@ class LineageExtractor:
                         ]
 
                     for source in sources:
-                        db, schema, table = source.path.split(".")
-                        if (
-                            source.platform == LineageDatasetPlatform.REDSHIFT
-                            and db == raw_db_name
-                        ):
-                            db = alias_db_name
-                            path = f"{db}.{schema}.{table}"
-                            source = LineageDataset(platform=source.platform, path=path)
+                        if source.platform == LineageDatasetPlatform.REDSHIFT:
+                            db, schema, table = source.path.split(".")
+                            if db == raw_db_name:
+                                db = alias_db_name
+                                path = f"{db}.{schema}.{table}"
+                                source = LineageDataset(
+                                    platform=source.platform, path=path
+                                )
 
-                        # Filtering out tables which does not exist in Redshift
-                        # It was deleted in the meantime or query parser did not capture well the table name
-                        if source.platform == LineageDatasetPlatform.REDSHIFT and (
-                            db not in all_tables
-                            or schema not in all_tables[db]
-                            or not any(table == t.name for t in all_tables[db][schema])
-                        ):
-                            self.warn(
-                                logger, "missing-table", f"{source.path} missing table"
-                            )
-                            continue
+                            # Filtering out tables which does not exist in Redshift
+                            # It was deleted in the meantime or query parser did not capture well the table name
+                            if (
+                                db not in all_tables
+                                or schema not in all_tables[db]
+                                or not any(
+                                    table == t.name for t in all_tables[db][schema]
+                                )
+                            ):
+                                self.warn(
+                                    logger,
+                                    "missing-table",
+                                    f"{source.path} missing table",
+                                )
+                                continue
 
                         target.upstreams.add(source)
 
