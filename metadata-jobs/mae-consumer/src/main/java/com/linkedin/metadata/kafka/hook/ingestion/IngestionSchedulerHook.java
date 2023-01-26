@@ -4,6 +4,7 @@ import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.ingestion.IngestionSchedulerFactory;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;

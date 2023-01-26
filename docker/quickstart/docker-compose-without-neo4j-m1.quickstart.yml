@@ -64,30 +64,29 @@ services:
     depends_on:
     - mysql
     environment:
-    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
-    - MAE_CONSUMER_ENABLED=true
-    - ENTITY_SERVICE_ENABLE_RETENTION=true
     - ELASTICSEARCH_PORT=9200
-    - MCE_CONSUMER_ENABLED=true
-    - JAVA_OPTS=-Xms1g -Xmx1g
-    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - PE_CONSUMER_ENABLED=true
-    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
-    - ELASTICSEARCH_HOST=elasticsearch
-    - EBEAN_DATASOURCE_USERNAME=datahub
-    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
-    - GRAPH_SERVICE_IMPL=elasticsearch
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     - UI_INGESTION_ENABLED=true
-    - EBEAN_DATASOURCE_PASSWORD=datahub
-    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
-    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+    - JAVA_OPTS=-Xms1g -Xmx1g
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - EBEAN_DATASOURCE_HOST=mysql:3306
+    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
+    - MAE_CONSUMER_ENABLED=true
+    - MCE_CONSUMER_ENABLED=true
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - ELASTICSEARCH_HOST=elasticsearch
+    - PE_CONSUMER_ENABLED=true
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
-    - ASYNC_INGEST_DEFAULT=true
+    - GRAPH_SERVICE_IMPL=elasticsearch
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - EBEAN_DATASOURCE_HOST=mysql:3306
+    - EBEAN_DATASOURCE_PASSWORD=datahub
+    - EBEAN_DATASOURCE_USERNAME=datahub
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
