@@ -143,7 +143,7 @@ export const AccessTokens = () => {
                         message.error({ content: `Failed to revoke Token!: \n ${e.message || ''}`, duration: 3 });
                     })
                     .finally(() => {
-                        setTimeout(function () {
+                        setTimeout(() => {
                             tokensRefetch?.();
                         }, 3000);
                     });
@@ -283,7 +283,7 @@ export const AccessTokens = () => {
                 onClose={() => setIsCreatingToken(false)}
                 onCreateToken={() => {
                     // Hack to deal with eventual consistency.
-                    setTimeout(function () {
+                    setTimeout(() => {
                         tokensRefetch?.();
                     }, 3000);
                 }}
