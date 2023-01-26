@@ -1,0 +1,54 @@
+import React from 'react';
+import { useParams } from 'react-router';
+import styled from 'styled-components/macro';
+import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
+import { EntityType } from '../../types.generated';
+import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
+import { VIEW_ENTITY_PAGE } from '../entity/shared/constants';
+import { decodeUrn } from '../entity/shared/utils';
+import CompactContext from '../shared/CompactContext';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
+
+const EmbeddedPageWrapper = styled.div`
+    max-height: 100%;
+    overflow: auto;
+    padding: 16px;
+`;
+
+interface RouteParams {
+    urn: string;
+}
+
+interface Props {
+    entityType: EntityType;
+}
+
+export default function EmbeddedPage({ entityType }: Props) {
+    const entityRegistry = useEntityRegistry();
+    const { urn: encodedUrn } = useParams<RouteParams>();
+    const urn = decodeUrn(encodedUrn);
+
+    const authenticatedUserUrn = useGetAuthenticatedUserUrn();
+    const { data } = useGetGrantedPrivilegesQuery({
+        variables: {
+            input: {
+                actorUrn: authenticatedUserUrn,
+                resourceSpec: { resourceType: entityType, resourceUrn: urn },
+            },
+        },
+        fetchPolicy: 'cache-first',
+    });
+
+    const privileges = data?.getGrantedPrivileges?.privileges || [];
+    const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
+
+    return (
+        <CompactContext.Provider value>
+            {data && !canViewEntityPage && <UnauthorizedPage />}
+            {data && canViewEntityPage && (
+                <EmbeddedPageWrapper>{entityRegistry.renderEmbeddedProfile(entityType, urn)}</EmbeddedPageWrapper>
+            )}
+        </CompactContext.Provider>
+    );
+}

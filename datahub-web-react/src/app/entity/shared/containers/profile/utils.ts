@@ -104,6 +104,14 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     return routedTab;
 }
 
+export function useIsOnTab(tabName: string): boolean {
+    const { pathname } = useLocation();
+    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
+    const splitPathName = trimmedPathName.split('/');
+    const lastTokenInPath = splitPathName[splitPathName.length - 1];
+    return lastTokenInPath === tabName;
+}
+
 export function formatDateString(time: number) {
     const date = new Date(time);
     return date.toLocaleDateString('en-US');
