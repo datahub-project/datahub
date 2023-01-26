@@ -2,8 +2,9 @@
 
 DataHub supplys several APIs to manipulate metadata on the platform:
 - The [GraphQL API](docs/api/graphql/getting-started.md) is our recommended option for querying and manipulating the metadata graph. 
-- We offer an [OpenAPI](docs/api/openapi/openapi-usage-guide.md) schema defining the REST API used by our SDKs.
 - The [Rest.li API](docs/api/restli/restli-overview.md) is a much more powerful, low level API intended only for advanced users. 
+- We offer an [OpenAPI](docs/api/openapi/openapi-usage-guide.md) schema defining the Rest.li API used by our SDKs.
+
 
 ## GraphQL API
 
@@ -15,14 +16,7 @@ The GraphQL API serves as the primary public API for the platform. It can be use
     Get started with the GraphQL API
 </a>
 
-## OpenAPI
 
-A schema defining our REST API.
-<a
-    className='button button--primary button--lg'
-    href="openapi/openapi-usage-guide">
-    Get started with OpenAPI
-</a>
 
 ## Rest.li API
 :::caution
@@ -33,5 +27,14 @@ The Rest.li API represents the underlying persistence layer, and exposes the raw
 <a
     className='button button--primary button--lg'
     href="restli/restli-overview">
-    Get started with our REST API
+    Get started with our Rest.li API
+</a>
+
+### OpenAPI
+
+A schema defining the Rest.li API.
+<a
+    className='button button--primary button--lg'
+    href="openapi/openapi-usage-guide">
+    Get started with OpenAPI
 </a>
