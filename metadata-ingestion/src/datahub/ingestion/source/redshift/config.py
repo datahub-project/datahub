@@ -108,6 +108,11 @@ class RedshiftConfig(
         description="Generate usage statistic. email_domain config parameter needs to be set if enabled",
     )
 
+    include_unload_lineage: Optional[bool] = Field(
+        default=True,
+        description="Whether lineage should be collected from unload commands",
+    )
+
     capture_lineage_query_parser_failures: Optional[bool] = Field(
         default=False,
         description="Whether to capture lineage query parser errors with dataset properties for debuggings",
