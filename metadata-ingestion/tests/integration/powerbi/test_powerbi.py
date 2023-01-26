@@ -376,7 +376,7 @@ def register_mock_api(request_mock):
                                                 "description": "column description",
                                                 "dataType": "String",
                                                 "columnType": "DATA",
-                                                "isHidden": False
+                                                "isHidden": False,
                                             }
                                         ],
                                         "measures": [
@@ -384,7 +384,7 @@ def register_mock_api(request_mock):
                                                 "name": "event_name",
                                                 "description": "column description",
                                                 "expression": "let\n x",
-                                                "isHidden": False
+                                                "isHidden": False,
                                             }
                                         ],
                                         "source": [
@@ -858,17 +858,6 @@ def test_extract_odbc_tables(
         pytestconfig,
         output_path=tmp_path / "powerbi_odbc_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
-    )
-
-
-def dummy_dataset():
-    return PowerBiAPI.PowerBIDataset(
-        id="aaa-123",
-        name="test-123",
-        webUrl=None,
-        workspace_id="1234",
-        tables=[],
-        tags=[],
     )
 
 
