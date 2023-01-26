@@ -40,6 +40,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
@@ -70,11 +71,16 @@ logger = logging.getLogger(__name__)
 
 
 powerbi_type_mapping: Dict[
-    str, Type[TimeTypeClass | StringTypeClass | NumberTypeClass]
+    str, Type[TimeTypeClass | StringTypeClass | NumberTypeClass | BooleanTypeClass]
 ] = {
     "DateTime": TimeTypeClass,
+    "Date": TimeTypeClass,
+    "Time": TimeTypeClass,
     "String": StringTypeClass,
     "Int64": NumberTypeClass,
+    "Double": NumberTypeClass,
+    "Decimal": NumberTypeClass,
+    "Boolean": BooleanTypeClass,
 }
 
 
@@ -292,9 +298,7 @@ class Mapper:
                 *table.measures,
             ]
             fields = [
-                self.get_schema_field(field)
-                for field in columns
-                if not field.is_hidden
+                self.get_schema_field(field) for field in columns if not field.is_hidden
             ]
             schema_metadata = SchemaMetadata(
                 schemaName=dataset.name,
@@ -311,7 +315,7 @@ class Mapper:
     @staticmethod
     def get_schema_field(
         column: Union[PowerBiAPI.Column, PowerBiAPI.Measure]
-    ) -> Optional[SchemaField]:
+    ) -> SchemaField:
         return SchemaField(
             fieldPath=column.name,
             type=SchemaFieldDataType(
