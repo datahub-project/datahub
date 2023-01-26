@@ -347,16 +347,6 @@ module.exports = {
         ],
       },
       {
-        OpenAPI: [
-          {
-            label: "Usage Guide",
-            type: "doc",
-            id: "docs/api/openapi/openapi-usage-guide",
-          },
-          "docs/dev-guides/timeline",
-        ],
-      },
-      {
         "Rest.li": [
         {
             type: "doc",
@@ -369,7 +359,17 @@ module.exports = {
             id: "docs/advanced/aspect-versioning",
           },
         ],
-      }   
+      },   
+      {
+        OpenAPI: [
+          {
+            label: "Usage Guide",
+            type: "doc",
+            id: "docs/api/openapi/openapi-usage-guide",
+          },
+          "docs/dev-guides/timeline",
+        ],
+      },
     ],
     Tools: [
       "docs/cli",
