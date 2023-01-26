@@ -14,11 +14,7 @@ from datahub.lite.lite_local import (
     SearchFlavor,
 )
 from datahub.lite.lite_registry import lite_registry
-from datahub.metadata.schema_classes import (
-    MetadataChangeEventClass,
-    SystemMetadataClass,
-    _Aspect,
-)
+from datahub.metadata.schema_classes import MetadataChangeEventClass, _Aspect
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +63,7 @@ class DataHubLiteWrapper(DataHubLiteLocal):
         typed: bool = False,
         as_of: Optional[int] = None,
         details: Optional[bool] = False,
-    ) -> Optional[
-        Dict[str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]]
-    ]:
+    ) -> Optional[Dict[str, Union[str, dict, _Aspect]]]:
         return self.get(id, aspects, typed, as_of, details)
 
     def search(

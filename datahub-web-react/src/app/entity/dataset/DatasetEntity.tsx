@@ -15,7 +15,7 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { capitalizeFirstLetter } from '../../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
@@ -224,7 +224,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return {
             name: dataset?.properties?.name || dataset?.name,
             externalUrl: dataset?.properties?.externalUrl,
-            entityTypeOverride: subTypes ? capitalizeFirstLetter(subTypes.typeNames?.[0]) : '',
+            entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
             properties: extendedProperties,
         };
     };
@@ -237,7 +237,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 origin={data.origin}
                 subtype={data.subTypes?.typeNames?.[0]}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformName={
+                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                }
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
@@ -260,11 +262,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 name={data.properties?.name || data.name}
                 origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformName={
+                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                }
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 platformNames={genericProperties?.siblingPlatforms?.map(
-                    (platform) => platform.properties?.displayName || platform.name,
+                    (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
                 )}
                 platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}

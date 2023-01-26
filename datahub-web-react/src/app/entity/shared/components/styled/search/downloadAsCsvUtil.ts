@@ -1,4 +1,5 @@
 import { CorpGroup, CorpUser, EntityType } from '../../../../../../types.generated';
+import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import EntityRegistry from '../../../../EntityRegistry';
 import { GenericEntityProperties } from '../../../types';
 import { SearchResultInterface } from './types';
@@ -80,7 +81,7 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // domain
         properties?.domain?.domain?.properties?.name || '',
         // properties
-        properties?.platform?.properties?.displayName || '',
+        properties?.platform?.properties?.displayName || capitalizeFirstLetterOnly(properties?.platform?.name) || '',
         // container
         properties?.container?.properties?.name || '',
         // entity url

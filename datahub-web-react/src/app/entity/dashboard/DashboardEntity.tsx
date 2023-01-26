@@ -95,6 +95,14 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
                 {
+                    name: 'Datasets',
+                    component: DashboardDatasetsTab,
+                    display: {
+                        visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                    },
+                },
+                {
                     name: 'Documentation',
                     component: DocumentationTab,
                 },
@@ -116,14 +124,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
-                },
-                {
-                    name: 'Datasets',
-                    component: DashboardDatasetsTab,
-                    display: {
-                        visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
-                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
-                    },
                 },
             ]}
             sidebarSections={[
@@ -166,7 +166,7 @@ export class DashboardEntity implements Entity<Dashboard> {
         return (
             <DashboardPreview
                 urn={data.urn}
-                platform={data.platform.properties?.displayName || data.platform.name}
+                platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
                 access={data.properties?.access}
@@ -193,7 +193,7 @@ export class DashboardEntity implements Entity<Dashboard> {
         return (
             <DashboardPreview
                 urn={data.urn}
-                platform={data.platform.properties?.displayName || data.platform.name}
+                platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
@@ -226,10 +226,10 @@ export class DashboardEntity implements Entity<Dashboard> {
     getLineageVizConfig = (entity: Dashboard) => {
         return {
             urn: entity.urn,
-            name: entity.properties?.name || '',
+            name: entity.properties?.name || entity.urn,
             type: EntityType.Dashboard,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
-            icon: entity?.platform?.properties?.logoUrl || '',
+            icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
         };
     };

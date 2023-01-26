@@ -24,7 +24,8 @@ public interface ProtobufElement {
         List<SourceCodeInfo.Location> fileLocations = fileProto().getSourceCodeInfo().getLocationList();
         return fileLocations.stream()
                 .filter(loc -> loc.getPathCount() > 1
-                        && loc.getPath(0) == FileDescriptorProto.MESSAGE_TYPE_FIELD_NUMBER);
+                        && loc.getPath(0) == FileDescriptorProto.MESSAGE_TYPE_FIELD_NUMBER
+                        && messageProto() == fileProto().getMessageType(loc.getPath(1)));
     }
 
     <T> Stream<T> accept(ProtobufModelVisitor<T> v, VisitContext context);
