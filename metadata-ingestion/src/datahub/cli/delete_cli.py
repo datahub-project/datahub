@@ -152,10 +152,10 @@ def delete(
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
     cli_utils.test_connectivity_complain_exit("delete")
-    # one of urn / platform / env / query must be provided
+    # one of these must be provided
     if not urn and not platform and not env and not query and not registry_id:
         raise click.UsageError(
-            "You must provide either an urn or a platform or an env or a query for me to delete anything"
+            "You must provide one of urn / platform / env / query / registry_id in order to delete entities."
         )
 
     include_removed: bool
