@@ -25,27 +25,25 @@ const Tab = styled(Tabs.TabPane)`
 `;
 
 export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
-    const { entityData } = useEntityData();
+    const { entityData, loading } = useEntityData();
     const routeToTab = useRouteToTab();
     const baseEntity = useBaseEntity<T>();
 
-    useEffect(() => {
-        if (!selectedTab) {
-            if (tabs[0]) {
-                routeToTab({ tabName: tabs[0].name, method: 'replace' });
-            }
-        }
-    }, [tabs, selectedTab, routeToTab]);
+    const enabledTabs = tabs.filter((tab) => tab.display?.enabled(entityData, baseEntity));
 
-    const visibleTabs = tabs.filter((tab) => tab.display?.visible(entityData, baseEntity));
+    useEffect(() => {
+        if (!loading && !selectedTab && enabledTabs[0]) {
+            routeToTab({ tabName: enabledTabs[0].name, method: 'replace' });
+        }
+    }, [loading, enabledTabs, selectedTab, routeToTab]);
 
     return (
         <UnborderedTabs
-            activeKey={selectedTab?.name}
+            activeKey={selectedTab?.name || ''}
             size="large"
             onTabClick={(tab: string) => routeToTab({ tabName: tab })}
         >
-            {visibleTabs.map((tab) => {
+            {tabs.map((tab) => {
                 if (!tab.display?.enabled(entityData, baseEntity)) {
                     return <Tab tab={tab.name} key={tab.name} disabled />;
                 }

@@ -15,19 +15,11 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
-    make_domain_urn,
     make_tag_urn,
     set_dataset_urn_to_lower,
 )
-from datahub.emitter.mcp_builder import (
-    BigQueryDatasetKey,
-    PlatformKey,
-    ProjectIdKey,
-    add_dataset_to_container,
-    add_domain_to_entity_wu,
-    gen_containers,
-    wrap_aspect_as_workunit,
-)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import BigQueryDatasetKey, PlatformKey, ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -62,6 +54,12 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    gen_database_container,
+    gen_schema_container,
+    get_domain_wu,
+)
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
@@ -115,6 +113,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -143,7 +142,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,
-    "Optionally enabled via configuration, only table level profiling is supported",
+    "Optionally enabled via configuration",
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
@@ -200,6 +199,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
         self.platform: str = "bigquery"
+
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
@@ -230,6 +230,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             run_id=self.ctx.run_id,
         )
 
+        self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -415,10 +416,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     self.platform, self.config.platform_instance
                 ),
             )
-
-            return wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "dataPlatformInstance", aspect
-            )
+            return MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=aspect
+            ).as_workunit()
         else:
             return None
 
@@ -446,32 +446,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             backcompat_instance_for_guid=self.config.env,
         )
 
-    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
-        domain_urn: Optional[str] = None
-
-        for domain, pattern in self.config.domain.items():
-            if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(
-                    self.domain_registry.get_domain_urn(domain)
-                )
-
-        return domain_urn
-
     def gen_project_id_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(database)
-
         database_container_key = self.gen_project_id_key(database)
 
-        container_workunits = gen_containers(
-            container_key=database_container_key,
+        yield from gen_database_container(
+            database=database,
             name=database,
             sub_types=["Project"],
-            domain_urn=domain_urn,
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
+            report=self.report,
+            database_container_key=database_container_key,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def gen_dataset_containers(
         self, dataset: str, project_id: str
@@ -480,33 +466,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         database_container_key = self.gen_project_id_key(database=project_id)
 
-        container_workunits = gen_containers(
-            schema_container_key,
-            dataset,
-            ["Dataset"],
-            database_container_key,
+        yield from gen_schema_container(
+            database=project_id,
+            schema=dataset,
+            sub_types=["Dataset"],
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
+            report=self.report,
+            schema_container_key=schema_container_key,
+            database_container_key=database_container_key,
             external_url=BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
                 project=project_id, dataset=dataset
             )
             if self.config.include_external_url
             else None,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
-    def add_table_to_dataset_container(
-        self, dataset_urn: str, db_name: str, schema: str
-    ) -> Iterable[MetadataWorkUnit]:
-        schema_container_key = self.gen_dataset_key(db_name, schema)
-        container_workunits = add_dataset_to_container(
-            container_key=schema_container_key,
-            dataset_urn=dataset_urn,
-        )
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Getting projects")
@@ -552,13 +526,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             logger.info("Starting profiling...")
             yield from self.profiler.get_workunits(self.db_tables)
 
-        # Clean up stale entities if configured.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report,
+                auto_status_aspect(self.get_workunits_internal()),
+            ),
         )
 
     def _process_project(
@@ -569,11 +543,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.db_tables[project_id] = {}
         self.db_views[project_id] = {}
 
-        database_workunits = self.gen_project_id_containers(project_id)
-
-        for wu in database_workunits:
-            self.report.report_workunit(wu)
-            yield wu
+        yield from self.gen_project_id_containers(project_id)
 
         try:
             bigquery_project.datasets = (
@@ -713,14 +683,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self, conn: bigquery.Client, project_id: str, bigquery_dataset: BigqueryDataset
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = bigquery_dataset.name
-        schema_workunits = self.gen_dataset_containers(
+
+        yield from self.gen_dataset_containers(
             dataset_name,
             project_id,
         )
-
-        for wu in schema_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
         if self.config.include_tables:
             bigquery_dataset.tables = self.get_tables_for_dataset(
@@ -760,12 +727,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 f"Table doesn't have any column or unable to get columns for table: {table_identifier}"
             )
 
-        table_workunits = self.gen_table_dataset_workunits(
-            table, project_id, schema_name
-        )
-        for wu in table_workunits:
-            self.report.report_workunit(wu)
-            yield wu
+        yield from self.gen_table_dataset_workunits(table, project_id, schema_name)
 
     def _process_view(
         self,
@@ -791,25 +753,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         self.db_views[project_id][dataset_name].append(view)
 
-        view_workunits = self.gen_view_dataset_workunits(view, project_id, dataset_name)
-        for wu in view_workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
-    def _get_domain_wu(
-        self,
-        dataset_name: str,
-        entity_urn: str,
-    ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(dataset_name)
-        if domain_urn:
-            wus = add_domain_to_entity_wu(
-                entity_urn=entity_urn,
-                domain_urn=domain_urn,
-            )
-            for wu in wus:
-                self.report.report_workunit(wu)
-                yield wu
+        yield from self.gen_view_dataset_workunits(view, project_id, dataset_name)
 
     def gen_table_dataset_workunits(
         self,
@@ -819,10 +763,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         custom_properties: Dict[str, str] = {}
         if table.expires:
-            custom_properties["expiration_date"] = str(str(table.expires))
+            custom_properties["expiration_date"] = str(table.expires)
 
         if table.time_partitioning:
-            custom_properties["time_partitioning"] = str(str(table.time_partitioning))
+            custom_properties["time_partitioning"] = str(table.time_partitioning)
 
         if table.size_in_bytes:
             custom_properties["size_in_bytes"] = str(table.size_in_bytes)
@@ -882,14 +826,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         view_properties_aspect = ViewProperties(
             materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
         )
-        wu = wrap_aspect_as_workunit(
-            "dataset",
-            self.gen_dataset_urn(dataset_name, project_id, table.name),
-            "viewProperties",
-            view_properties_aspect,
-        )
-        yield wu
-        self.report.report_workunit(wu)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=self.gen_dataset_urn(dataset_name, project_id, table.name),
+            aspect=view_properties_aspect,
+        ).as_workunit()
 
     def gen_dataset_workunits(
         self,
@@ -903,9 +843,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(dataset_name, project_id, table.name)
 
         status = Status(removed=False)
-        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
-        yield wu
-        self.report.report_workunit(wu)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=status
+        ).as_workunit()
 
         datahub_dataset_name = BigqueryTableIdentifier(
             project_id, dataset_name, table.name
@@ -934,34 +874,35 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if custom_properties:
             dataset_properties.customProperties.update(custom_properties)
 
-        wu = wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "datasetProperties", dataset_properties
-        )
-        yield wu
-        self.report.report_workunit(wu)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=dataset_properties
+        ).as_workunit()
 
         if tags_to_add:
             yield self.gen_tags_aspect_workunit(dataset_urn, tags_to_add)
 
-        yield from self.add_table_to_dataset_container(
-            dataset_urn,
-            project_id,
-            dataset_name,
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            report=self.report,
+            parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
-            self.report.report_workunit(dpi_aspect)
             yield dpi_aspect
 
         subTypes = SubTypes(typeNames=sub_types)
-        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
-        yield wu
-        self.report.report_workunit(wu)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=subTypes
+        ).as_workunit()
 
-        yield from self._get_domain_wu(
-            dataset_name=str(datahub_dataset_name),
-            entity_urn=dataset_urn,
-        )
+        if self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=str(datahub_dataset_name),
+                entity_urn=dataset_urn,
+                domain_registry=self.domain_registry,
+                domain_config=self.config.domain,
+                report=self.report,
+            )
 
     def gen_lineage(
         self,
@@ -980,7 +921,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for upstream in upstream_lineage.upstreams:
                     patch_builder.add_upstream_lineage(upstream)
 
-                lineage_workunits = [
+                yield from [
                     MetadataWorkUnit(
                         id=f"upstreamLineage-for-{dataset_urn}",
                         mcp_raw=mcp,
@@ -988,15 +929,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     for mcp in patch_builder.build()
                 ]
             else:
-                lineage_workunits = [
-                    wrap_aspect_as_workunit(
-                        "dataset", dataset_urn, "upstreamLineage", upstream_lineage
-                    )
+                yield from [
+                    MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=upstream_lineage
+                    ).as_workunit()
                 ]
-
-            for wu in lineage_workunits:
-                yield wu
-                self.report.report_workunit(wu)
 
     def gen_tags_aspect_workunit(
         self, dataset_urn: str, tags_to_add: List[str]
@@ -1004,9 +941,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         tags = GlobalTagsClass(
             tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
         )
-        wu = wrap_aspect_as_workunit("dataset", dataset_urn, "globalTags", tags)
-        self.report.report_workunit(wu)
-        return wu
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=tags
+        ).as_workunit()
 
     def gen_dataset_urn(self, dataset_name: str, project_id: str, table: str) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
@@ -1083,11 +1020,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             platformSchema=MySqlDDL(tableSchema=""),
             fields=self.gen_schema_fields(table.columns),
         )
-        wu = wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "schemaMetadata", schema_metadata
-        )
-        self.report.report_workunit(wu)
-        return wu
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=schema_metadata
+        ).as_workunit()
 
     def get_report(self) -> BigQueryV2Report:
         return self.report

@@ -18,6 +18,8 @@ source:
     extract_ownership: true
     # Enable / Disable ingestion of orphan datasets
     extract_orphan_datasets: false
+    # Enable/Disable extracting workspace information to DataHub containers
+    extract_workspaces_to_containers: true
     # Enable / Disable ingestion of endorsements.
     # Please notice that this may overwrite any existing tags defined to ingested entities!
     extract_endorsements_to_tags: false

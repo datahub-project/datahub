@@ -107,7 +107,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (termAggregation.isPresent()) {
       List<NamedBar> termChart = buildBarChart(termAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, termChart, Constants.GLOSSARY_TERM_ENTITY_NAME,
-          ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
+          ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
       charts.add(BarChart.builder().setTitle("Entities by Term").setBars(termChart).build());
     }
 

@@ -10,6 +10,7 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.serialization_helper import post_json_transform
 from datahub.lite.lite_local import (
     AutoComplete,
     Browseable,
@@ -237,9 +238,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         typed: bool = False,
         as_of: Optional[int] = None,
         details: Optional[bool] = False,
-    ) -> Optional[
-        Dict[str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]]
-    ]:
+    ) -> Optional[Dict[str, Union[str, dict, _Aspect]]]:
         base_query = "SELECT urn, aspect_name, metadata, system_metadata from metadata_aspect_v2 WHERE urn = ?"
         if aspects:
             base_query += (
@@ -252,23 +251,21 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
 
         self.duckdb_client.execute(base_query, [id])
         results = self.duckdb_client.fetchall()
-        result_map: Dict[
-            str, Union[str, Dict[str, Union[dict, _Aspect, SystemMetadataClass]]]
-        ] = {}
+        result_map: Dict[str, Union[str, dict, _Aspect]] = {}
         for r in results:
             aspect_name: str = r[1]
             aspect: Union[dict, _Aspect] = json.loads(r[2])
             if typed:
                 assert isinstance(aspect, dict)
-                aspect = ASPECT_MAP[aspect_name].from_obj(aspect)
+                aspect = ASPECT_MAP[aspect_name].from_obj(post_json_transform(aspect))
 
-            result_map[aspect_name] = {"value": aspect}
+            result_map[aspect_name] = aspect
             if details:
                 system_metadata: Union[dict, SystemMetadataClass] = json.loads(r[3])
                 if typed:
                     assert isinstance(system_metadata, dict)
                     system_metadata = SystemMetadataClass.from_obj(system_metadata)
-                result_map[aspect_name].update({"systemMetadata": system_metadata})  # type: ignore
+                result_map[aspect_name].update({"__systemMetadata": system_metadata})  # type: ignore
         if result_map:
             result_map = {**{"urn": id}, **result_map}
             return result_map
@@ -496,7 +493,9 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                     aspect_name in ASPECT_MAP
                 ), f"Missing aspect name {aspect_name} in the registry"
                 try:
-                    aspect_payload = ASPECT_MAP[aspect_name].from_obj(aspect_payload)
+                    aspect_payload = ASPECT_MAP[aspect_name].from_obj(
+                        post_json_transform(aspect_payload)
+                    )
                 except Exception as e:
                     logger.exception(
                         f"Failed to process urn: {urn}, aspect_name: {aspect_name}, metadata: {aspect_payload}",
@@ -524,7 +523,7 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
         for r in results.fetchall():
             urn = r[0]
             aspect_name = r[1]
-            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(json.loads(r[2]))  # type: ignore
+            aspect_metadata = ASPECT_MAP[aspect_name].from_obj(post_json_transform(json.loads(r[2])))  # type: ignore
             system_metadata = SystemMetadataClass.from_obj(json.loads(r[3]))
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=urn,
@@ -560,17 +559,17 @@ class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
                 "iceberg",
                 "trino",
             ],
-            "streaming_systems": ["kafka"],
+            "streaming": ["kafka"],
             "orchestrators": ["airflow", "spark"],
             "data_movers": ["kafka-connect", "nifi"],
             "transformation_tools": ["dbt"],
-            "data_quality_tools": ["great-expectations"],
+            "data_quality": ["great-expectations"],
         }
         for k, v in category_to_platform_map.items():
             if data_platform_urn.get_entity_id_as_string() in v:
                 return Urn(entity_type="systemNode", entity_id=[k])
 
-        logger.warning(
+        logger.debug(
             f"Failed to find category for platform {data_platform_urn}, mapping to generic data_platform"
         )
         return Urn(entity_type="systemNode", entity_id=["data_platforms"])

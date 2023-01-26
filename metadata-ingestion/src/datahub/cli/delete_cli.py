@@ -152,10 +152,10 @@ def delete(
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
     cli_utils.test_connectivity_complain_exit("delete")
-    # one of urn / platform / env / query must be provided
+    # one of these must be provided
     if not urn and not platform and not env and not query and not registry_id:
         raise click.UsageError(
-            "You must provide either an urn or a platform or an env or a query for me to delete anything"
+            "You must provide one of urn / platform / env / query / registry_id in order to delete entities."
         )
 
     include_removed: bool
@@ -186,7 +186,7 @@ def delete(
         )
         remove_references: bool = False
 
-        if references_count > 0:
+        if (not force) and references_count > 0:
             print(
                 f"This urn was referenced in {references_count} other aspects across your metadata graph:"
             )
@@ -199,7 +199,7 @@ def delete(
             )
             remove_references = click.confirm("Do you want to delete these references?")
 
-        if remove_references:
+        if force or remove_references:
             delete_references(urn, dry_run=False, cached_session_host=(session, host))
 
         deletion_result: DeletionResult = delete_one_urn_cmd(

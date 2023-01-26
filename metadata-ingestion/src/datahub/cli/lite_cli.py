@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import click
+from click.shell_completion import CompletionItem
 from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import (
@@ -73,9 +74,36 @@ def list_urns() -> None:
         click.echo(result)
 
 
+class CompleteablePath(click.ParamType):
+    name = "path"
+
+    def shell_complete(self, ctx, param, incomplete):
+        path = incomplete or "/"
+        lite = _get_datahub_lite(read_only=True)
+        try:
+            completions = lite.ls(path)
+            return [
+                CompletionItem(browseable.auto_complete.suggested_path, type="plain")
+                if browseable.auto_complete
+                else CompletionItem(
+                    f"{incomplete}/{browseable.name}".replace("//", "/")
+                )
+                for browseable in completions
+                if not browseable.leaf
+            ]
+        except Exception as e:
+            logger.debug(f"failed with {e}")
+            return []
+
+
 @lite.command(context_settings=dict(allow_extra_args=True))
 @click.option("--urn", required=False, type=str, help="Get metadata rooted at an urn")
-@click.option("--path", required=False, type=str, help="Get metadata rooted at a path")
+@click.option(
+    "--path",
+    required=False,
+    type=CompleteablePath(),
+    help="Get metadata rooted at a path",
+)
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.option("--asof", required=False, type=click.DateTime(formats=["%Y-%m-%d"]))
 @click.option("--verbose", required=False, is_flag=True, default=False)
@@ -90,7 +118,7 @@ def get(
     verbose: bool,
 ) -> None:
     """Get one or more metadata elements"""
-
+    start_time = time.time()
     if urn is None and path is None:
         if not ctx.args:
             raise click.UsageError(
@@ -142,6 +170,8 @@ def get(
                 indent=2,
             )
         )
+    end_time = time.time()
+    logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
 
 
 @lite.command()
@@ -181,17 +211,19 @@ def serve(port: int) -> None:
     uvicorn.run(app, port=port)
 
 
-@lite.command(context_settings=dict(allow_extra_args=True))
-@click.argument("path", required=False)
-@click.pass_context
+@lite.command()
+@click.argument("path", required=False, type=CompleteablePath())
 @telemetry.with_telemetry
-def ls(ctx: click.Context, path: Optional[str]) -> None:
+def ls(path: Optional[str]) -> None:
     """List at a path"""
 
+    start_time = time.time()
     path = path or "/"
     lite = _get_datahub_lite(read_only=True)
     try:
         browseables = lite.ls(path)
+        end_time = time.time()
+        logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
         auto_complete: List[AutoComplete] = [
             b.auto_complete for b in browseables if b.auto_complete is not None
         ]

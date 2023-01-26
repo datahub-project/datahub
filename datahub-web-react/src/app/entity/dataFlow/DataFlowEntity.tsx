@@ -15,6 +15,7 @@ import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -117,7 +118,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 urn={data.urn}
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformName={
+                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                }
                 platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
@@ -135,7 +138,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 name={data.properties?.name || ''}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description || ''}
-                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformName={
+                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                }
                 platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
