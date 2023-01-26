@@ -272,6 +272,7 @@ module.exports = {
       },
       "docs/how/updating-datahub",
     ],
+
     "DataHub API": [
       "docs/api/datahub-apis",
       {
@@ -371,6 +372,7 @@ module.exports = {
         ],
       },
     ],
+
     Tools: [
       "docs/cli",
       {
@@ -381,10 +383,10 @@ module.exports = {
       },
       "docs/datahub_lite",
     ],
+
     "Developer Guides": [
       // The purpose of this section is to provide developers & technical users with
       // concrete tutorials for how to work with the DataHub CLI & APIs
-
       {
         "DataHub Metadata Model": [
           "docs/modeling/metadata-model",
@@ -437,6 +439,7 @@ module.exports = {
         ],
       },
     ],
+    
     "Feature Guides": [
       "docs/how/search",
       "docs/schema-history",
