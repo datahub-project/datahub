@@ -61,7 +61,7 @@ export default function SelectRole({ user, userRoleUrn, selectRoleOptions, refet
 
     const onConfirm = () => {
         setIsViewingAssignRole(false);
-        setTimeout(function () {
+        setTimeout(() => {
             refetch?.();
             clearRoleListCache(client); // Update roles.
         }, 3000);

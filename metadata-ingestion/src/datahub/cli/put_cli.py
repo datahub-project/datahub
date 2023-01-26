@@ -5,9 +5,9 @@ from typing import Any, Optional
 import click
 from click_default_group import DefaultGroup
 
-from datahub.cli.cli_utils import get_url_and_token, post_entity
+from datahub.cli.cli_utils import post_entity
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     DataPlatformInfoClass as DataPlatformInfo,
     PlatformTypeClass,
@@ -97,8 +97,7 @@ def platform(
         displayName=display_name or platform_name,
         logoUrl=logo,
     )
-    (url, token) = get_url_and_token()
-    datahub_graph = DataHubGraph(DataHubGraphConfig(server=url, token=token))
+    datahub_graph = get_default_graph()
     datahub_graph.emit(
         MetadataChangeProposalWrapper(
             entityUrn=str(platform_urn), aspect=data_platform_info
