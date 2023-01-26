@@ -30,7 +30,7 @@ The Rest.li API represents the underlying persistence layer, and exposes the raw
     Get started with our Rest.li API
 </a>
 
-### OpenAPI
+## OpenAPI
 
 A schema defining the Rest.li API.
 <a

@@ -368,7 +368,6 @@ module.exports = {
             label: "Aspect Versioning and Rest.li Modeling",
             id: "docs/advanced/aspect-versioning",
           },
-         
         ],
       }   
     ],
