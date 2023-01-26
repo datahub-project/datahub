@@ -216,7 +216,7 @@ real-time support
 
 **I'm seeing an error in the `datahub-frontend` logs when a user tries to login**
 ```shell
-Caused by: java.lang.RuntimeException: Failed to resolve user name claim from profile provided by Identity Provider. Missing attribute. Attribute: 'email', Regex: '(.*)', Profile: {sub=2QrOwEUELuLJYrqBrZw77hy │
+Caused by: java.lang.RuntimeException: Failed to resolve user name claim from profile provided by Identity Provider. Missing attribute. Attribute: 'email', Regex: '(.*)', Profile: { ...
 ```
 **what do I do?**
 
