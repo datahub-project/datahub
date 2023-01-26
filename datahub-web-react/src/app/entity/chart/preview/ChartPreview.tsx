@@ -14,7 +14,6 @@ import {
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
 
@@ -41,7 +40,7 @@ export const ChartPreview = ({
     snippet,
 }: {
     urn: string;
-    platform: string;
+    platform?: string;
     platformInstanceId?: string;
     name?: string;
     description?: string | null;
@@ -62,7 +61,6 @@ export const ChartPreview = ({
     snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalizedPlatform = capitalizeFirstLetter(platform);
 
     return (
         <DefaultPreviewCard
@@ -73,7 +71,7 @@ export const ChartPreview = ({
             type="Chart"
             typeIcon={entityRegistry.getIcon(EntityType.Chart, 14, IconStyleType.ACCENT)}
             logoUrl={logoUrl || ''}
-            platform={capitalizedPlatform}
+            platform={platform}
             platformInstanceId={platformInstanceId}
             qualifier={access}
             tags={tags}

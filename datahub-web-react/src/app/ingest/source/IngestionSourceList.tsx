@@ -266,7 +266,7 @@ export const IngestionSourceList = () => {
                 message.success({ content: 'Removed ingestion source.', duration: 2 });
                 const newRemovedUrns = [...removedUrns, urn];
                 setRemovedUrns(newRemovedUrns);
-                setTimeout(function () {
+                setTimeout(() => {
                     refetch?.();
                 }, 3000);
             })

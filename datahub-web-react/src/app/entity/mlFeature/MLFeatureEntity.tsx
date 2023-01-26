@@ -169,7 +169,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             // eslint-disable-next-line
             icon: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.properties?.logoUrl || undefined,
             // eslint-disable-next-line
-            platform: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.name,
+            platform: entity?.['featureTables']?.relationships?.[0]?.entity?.platform,
         };
     };
 
