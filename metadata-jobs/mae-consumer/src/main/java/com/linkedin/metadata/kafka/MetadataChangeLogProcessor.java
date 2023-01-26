@@ -4,6 +4,7 @@ import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
@@ -36,7 +37,8 @@ import org.springframework.stereotype.Component;
     IngestionSchedulerHook.class,
     EntityChangeEventGeneratorHook.class,
     KafkaEventConsumerFactory.class,
-    SiblingAssociationHook.class
+    SiblingAssociationHook.class,
+    ConfigurationProvider.class
 })
 @EnableKafka
 public class MetadataChangeLogProcessor {

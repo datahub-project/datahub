@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.metadata.kafka.config.DataHubUsageEventsProcessorCondition;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
@@ -27,7 +28,7 @@ import org.springframework.stereotype.Component;
 @Component
 @EnableKafka
 @Conditional(DataHubUsageEventsProcessorCondition.class)
-@Import({SimpleKafkaConsumerFactory.class})
+@Import({SimpleKafkaConsumerFactory.class, ConfigurationProvider.class})
 public class DataHubUsageEventsProcessor {
 
   private final ElasticsearchConnector elasticSearchConnector;

@@ -39,7 +39,7 @@ public class InternalSchemaRegistryFactory {
     props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaConfiguration
         .getSchemaRegistry().getUrl());
 
-    log.info("Creating internal registry, at url {}", kafkaConfiguration.getSchemaRegistry().getUrl());
+    log.info("Creating internal registry configuration for url {}", kafkaConfiguration.getSchemaRegistry().getUrl());
     return new SchemaRegistryConfig(KafkaAvroSerializer.class, KafkaAvroDeserializer.class, props);
   }
 

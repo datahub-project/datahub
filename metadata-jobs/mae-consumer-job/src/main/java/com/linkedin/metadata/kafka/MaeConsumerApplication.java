@@ -9,11 +9,11 @@ import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestCli
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 
+
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class,
     SolrHealthContributorAutoConfiguration.class})
-@ComponentScan(basePackages = {"com.linkedin.gms.factory.config"},
-    excludeFilters = {
+@ComponentScan(excludeFilters = {
     @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = ScheduledAnalyticsFactory.class)})
 public class MaeConsumerApplication {
 

@@ -1,6 +1,3 @@
-networks:
-  default:
-    name: datahub_network
 services:
   datahub-gms:
     environment:
@@ -16,7 +13,7 @@ services:
     - MAE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=datahub-gms:8080/schema-registry/api/
+    - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
@@ -49,7 +46,7 @@ services:
     - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=datahub-gms:8080/schema-registry/api/
+    - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
