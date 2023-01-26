@@ -8,6 +8,7 @@ from typing import List, Optional
 import click
 from click.shell_completion import CompletionItem
 from click_default_group import DefaultGroup
+from tabulate import tabulate
 
 from datahub.cli.cli_utils import (
     DATAHUB_ROOT_FOLDER,
@@ -26,6 +27,7 @@ from datahub.lite.lite_local import (
     PathNotFoundException,
 )
 from datahub.lite.lite_util import LiteLocalConfig, get_datahub_lite
+from datahub.metadata.schema_classes import DatasetProfileClass, SchemaMetadataClass
 from datahub.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
@@ -172,6 +174,100 @@ def get(
         )
     end_time = time.time()
     logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+
+
+def _format_proportion(proportion: Optional[float]) -> str:
+    if proportion is None:
+        return ""
+    return f"{proportion * 100:.2f}%"
+
+
+@lite.command()
+@click.argument(
+    "path",
+    required=True,
+    type=CompleteablePath(),
+)
+@click.option("--stats", is_flag=True, default=False, help="Show stats for the dataset")
+@telemetry.with_telemetry
+def get_schema(path: str, stats: bool = False) -> None:
+    lite = _get_datahub_lite(read_only=True)
+
+    items = lite.ls(path)
+    assert len(items) == 1
+
+    browseable = items[0]
+    if not (browseable.id and browseable.leaf):
+        raise click.UsageError(f"Path {path} does not point at a leaf node")
+
+    aspects = lite.get(
+        id=browseable.id, aspects=["schemaMetadata", "datasetProfile"], typed=True
+    )
+    schemaMetadata: SchemaMetadataClass = aspects["schemaMetadata"]  # type: ignore
+    datasetProfile: Optional[DatasetProfileClass] = aspects.get("datasetProfile")  # type: ignore
+
+    if stats:
+        if not datasetProfile or not datasetProfile.fieldProfiles:
+            raise click.UsageError(
+                "Dataset profile not available. Please run `datahub ingest` to generate it."
+            )
+        click.echo(
+            f"Table {browseable.name} has {datasetProfile.columnCount} fields and {datasetProfile.rowCount} rows"
+        )
+        headers = [
+            "Field",
+            "Type",
+            "Min",
+            "Max",
+            "Mean",
+            "Median",
+            "Stddev",
+            "Null #",
+            "Null %",
+            "Unique #",
+            "Unique %",
+            "Sample values",
+        ]
+        table = []
+        for field in schemaMetadata.fields:
+            profile = None
+            for fp in datasetProfile.fieldProfiles:
+                if fp.fieldPath == field.fieldPath:
+                    profile = fp
+                    break
+
+            table.append(
+                [
+                    field.fieldPath,
+                    field.nativeDataType,
+                    profile.min if profile else "",
+                    profile.max if profile else "",
+                    profile.mean if profile else "",
+                    profile.median if profile else "",
+                    profile.stdev if profile else "",
+                    profile.nullCount if profile else "",
+                    _format_proportion(profile.nullProportion) if profile else "",
+                    profile.uniqueCount if profile else "",
+                    _format_proportion(profile.uniqueProportion) if profile else "",
+                    profile.sampleValues[:3]
+                    if profile and profile.sampleValues
+                    else "",
+                ]
+            )
+    else:
+        headers = ["Field", "Type", "Description", "Nullable"]
+        table = []
+        for field in schemaMetadata.fields:
+            table.append(
+                [
+                    field.fieldPath,
+                    field.nativeDataType,
+                    field.description,
+                    field.nullable,
+                ]
+            )
+
+    click.echo(tabulate(table, headers, tablefmt="fancy_grid"))
 
 
 @lite.command()
