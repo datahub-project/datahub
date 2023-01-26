@@ -72,7 +72,6 @@ module.exports = {
       },
       {
         "Managed DataHub": [
-      
           "docs/authentication/guides/add-users",
 
           {
@@ -111,10 +110,7 @@ module.exports = {
       // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
       // and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)
       {
-        Overview: [
-          "metadata-ingestion/README",
-          "docs/ui-ingestion",
-        ],
+        Overview: ["metadata-ingestion/README", "docs/ui-ingestion"],
       },
 
       {
@@ -152,7 +148,7 @@ module.exports = {
               "metadata-ingestion/schedule_docs/kubernetes",
             ],
           },
-    
+
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
           "metadata-ingestion/docs/dev_guides/classification",
@@ -349,7 +345,7 @@ module.exports = {
       },
       {
         "Rest.li": [
-        {
+          {
             type: "doc",
             label: "Rest.li API",
             id: "docs/api/restli/restli-overview",
@@ -360,7 +356,7 @@ module.exports = {
             id: "docs/advanced/aspect-versioning",
           },
         ],
-      },   
+      },
       {
         OpenAPI: [
           {
@@ -439,7 +435,7 @@ module.exports = {
         ],
       },
     ],
-    
+
     "Feature Guides": [
       "docs/how/search",
       "docs/schema-history",
@@ -453,7 +449,6 @@ module.exports = {
       "docs/posts",
       "docs/sync-status",
       "docs/lineage/lineage-feature-guide",
-
     ],
 
     "Join the Community": [
