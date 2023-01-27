@@ -4,6 +4,7 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.OneofDescriptorProto;
+import com.google.protobuf.DescriptorProtos.SourceCodeInfo;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.schema.ArrayType;
 import com.linkedin.schema.BooleanType;
@@ -76,8 +77,8 @@ public class ProtobufField implements ProtobufElement {
         return nativeType();
     }
 
-    public int getNumber() { 
-        return fieldProto.getNumber(); 
+    public int getNumber() {
+        return fieldProto.getNumber();
     }
 
     @Override
@@ -151,7 +152,7 @@ public class ProtobufField implements ProtobufElement {
 
     public boolean isMessage() {
         return Optional.ofNullable(isMessageType).orElseGet(() ->
-                    fieldProto.getType().equals(FieldDescriptorProto.Type.TYPE_MESSAGE));
+                fieldProto.getType().equals(FieldDescriptorProto.Type.TYPE_MESSAGE));
     }
 
     public int sortWeight() {
@@ -209,6 +210,14 @@ public class ProtobufField implements ProtobufElement {
     }
 
     @Override
+    public Stream<SourceCodeInfo.Location> messageLocations() {
+        List<SourceCodeInfo.Location> fileLocations = fileProto().getSourceCodeInfo().getLocationList();
+        return fileLocations.stream()
+                .filter(loc -> loc.getPathCount() > 1
+                        && loc.getPath(0) == FileDescriptorProto.MESSAGE_TYPE_FIELD_NUMBER);
+    }
+
+    @Override
     public String comment() {
         return messageLocations()
                 .filter(location -> location.getPathCount() > 3)
@@ -250,7 +259,11 @@ public class ProtobufField implements ProtobufElement {
             messageType = messageType.getNestedType(value);
         }
 
-        return messageType.getField(pathList.get(pathList.size() - 1));
+        if (pathList.get(pathSize - 2) == DescriptorProto.FIELD_FIELD_NUMBER) {
+            return messageType.getField(pathList.get(pathSize - 1));
+        } else {
+            return null;
+        }
     }
 
     private boolean isEnumType(List<Integer> pathList) {

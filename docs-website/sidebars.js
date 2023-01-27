@@ -197,9 +197,7 @@ module.exports = {
       "docs/domains",
       "docs/glossary/business-glossary",
       "docs/tags",
-      {
-        Lineage: ["docs/lineage/intro", "docs/lineage/sample_code"],
-      },
+      "docs/lineage/lineage-feature-guide",
     ],
 
     "Act on Metadata": [
@@ -324,6 +322,7 @@ module.exports = {
       // concrete tutorials for how to work with the DataHub CLI & APIs
       // "docs/wip/developer-guides",
       "docs/cli",
+      "docs/datahub_lite",
       {
         "GraphQL API": [
           {
@@ -539,8 +538,11 @@ module.exports = {
         ],
       },
       {
-        "Release History": ["docs/managed-datahub/release-notes/v_0_1_69",
-        "docs/managed-datahub/release-notes/v_0_1_70",],
+        "Release History": [
+        "docs/managed-datahub/release-notes/v_0_1_72",
+        "docs/managed-datahub/release-notes/v_0_1_70",
+        "docs/managed-datahub/release-notes/v_0_1_69",
+        ],
       },
     ],
 

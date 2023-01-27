@@ -6,6 +6,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import CompactContext from '../../../shared/CompactContext';
 import { AvatarsGroup } from '../../../shared/avatar';
 import MarkdownViewer from '../../shared/components/legacy/MarkdownViewer';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 
 const HeaderInfoItem = styled.div`
     display: inline-block;
@@ -32,6 +33,8 @@ export default function MLFeatureTableHeader({ mlFeatureTable: { platform, descr
     const entityRegistry = useEntityRegistry();
     const isCompact = React.useContext(CompactContext);
 
+    const platformName = platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name);
+
     return (
         <>
             <Space direction="vertical" size="middle">
@@ -49,10 +52,10 @@ export default function MLFeatureTableHeader({ mlFeatureTable: { platform, descr
                                         preview={false}
                                         src={platform.properties?.logoUrl}
                                         placeholder
-                                        alt={platform.name}
+                                        alt={platformName}
                                     />
                                 ) : null}
-                                <PlatformName>{platform.name}</PlatformName>
+                                <PlatformName>{platformName}</PlatformName>
                             </Space>
                         </HeaderInfoItem>
                     ) : null}

@@ -9,6 +9,7 @@ import msal
 import requests as requests
 
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiAPIConfig,
@@ -17,6 +18,10 @@ from datahub.ingestion.source.powerbi.config import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+class WorkspaceKey(PlatformKey):
+    workspace: str
 
 
 class PowerBiAPI:
@@ -54,6 +59,15 @@ class PowerBiAPI:
         report_endorsements: Dict[str, List[str]]
         dashboard_endorsements: Dict[str, List[str]]
 
+        def get_urn_part(self):
+            return self.name
+
+        def get_workspace_key(self, platform_name: str) -> PlatformKey:
+            return WorkspaceKey(
+                workspace=self.get_urn_part(),
+                platform=platform_name,
+            )
+
     @dataclass
     class DataSource:
         """
@@ -89,6 +103,7 @@ class PowerBiAPI:
         name: str
         webUrl: Optional[str]
         workspace_id: str
+        workspace_name: str
         # Table in datasets
         tables: List["PowerBiAPI.Table"]
         tags: List[str]
@@ -275,7 +290,7 @@ class PowerBiAPI:
         return users
 
     def _get_report(
-        self, workspace_id: str, report_id: str
+        self, workspace_id: str, report_id: str, workspace_name: str
     ) -> Optional["PowerBiAPI.Report"]:
         """
         Fetch the report from PowerBi for the given report identifier
@@ -320,7 +335,9 @@ class PowerBiAPI:
             pages=[],
             tags=[],
             dataset=self.get_dataset(
-                workspace_id=workspace_id, dataset_id=response_dict.get("datasetId")
+                workspace_id=workspace_id,
+                dataset_id=response_dict.get("datasetId"),
+                workspace_name=workspace_name,
             ),
         )
 
@@ -439,6 +456,7 @@ class PowerBiAPI:
         self,
         workspace_id: str,
         dataset_id: str,
+        workspace_name: str,
         endorsements: Optional[dict] = None,
     ) -> Any:
         """
@@ -487,6 +505,7 @@ class PowerBiAPI:
             if response_dict.get("webUrl") is not None
             else None,
             workspace_id=workspace_id,
+            workspace_name=workspace_name,
             tables=[],
             tags=tags,
         )
@@ -574,6 +593,7 @@ class PowerBiAPI:
                     self._get_report(
                         workspace_id=workspace.id,
                         report_id=tile_instance.get("reportId"),
+                        workspace_name=workspace.name,
                     )
                     if tile_instance.get("reportId") is not None
                     else None
@@ -892,6 +912,7 @@ class PowerBiAPI:
                 dataset_instance: PowerBiAPI.PowerBIDataset = self.get_dataset(
                     workspace_id=scan_result["id"],
                     dataset_id=dataset_dict["id"],
+                    workspace_name=scan_result["name"],
                     endorsements=dataset_dict.get("endorsementDetails", None),
                 )
                 dataset_map[dataset_instance.id] = dataset_instance
