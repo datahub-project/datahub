@@ -194,9 +194,6 @@ class VerticaSource(SQLAlchemySource):
             if sql_config.include_oauth:
                 yield from self.loop_oauth(inspector, oauth_schema, sql_config)
 
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
-
     def get_database_properties(
         self, inspector: Inspector, database: str
     ) -> Optional[Dict[str, str]]:

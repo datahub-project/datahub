@@ -1018,9 +1018,6 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.extract_transforms:
             yield from self._transform_extraction()
 
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
-
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
         flow_names: Dict[str, str] = {}
