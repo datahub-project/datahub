@@ -18,7 +18,7 @@ ext {
 }
 
 task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
-    dependsOn(quickstart_modules.collect { it + ':dockerTag-version' })
+    dependsOn(quickstart_modules.collect { it + ':dockerTag' })
     shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
 
     environment "DATAHUB_TELEMETRY_ENABLED", "false"

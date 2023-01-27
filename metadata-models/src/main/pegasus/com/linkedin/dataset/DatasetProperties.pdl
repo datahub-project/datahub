@@ -46,6 +46,7 @@ record DatasetProperties includes CustomProperties, ExternalReference {
   /**
    * The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).
    */
+  @deprecated = "Use ExternalReference.externalUrl field instead."
   uri: optional Uri
 
   /**

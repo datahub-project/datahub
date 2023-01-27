@@ -113,7 +113,7 @@ const getDisplayName = (registry: EntityRegistry, entity: Entity) => {
     );
 };
 
-const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityRegistry) => {
+export const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityRegistry) => {
     // Special rendering.
     if (entity.type === EntityType.CorpUser) {
         return renderUserSuggestion(query, entity as CorpUser, registry);

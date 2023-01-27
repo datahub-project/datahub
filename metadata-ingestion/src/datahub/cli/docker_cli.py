@@ -43,7 +43,10 @@ NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
 ELASTIC_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
 )
-M1_QUICKSTART_COMPOSE_FILE = (
+NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose-m1.quickstart.yml"
+)
+ELASTIC_M1_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"
 )
 CONSUMERS_QUICKSTART_COMPOSE_FILE = (
@@ -52,14 +55,21 @@ CONSUMERS_QUICKSTART_COMPOSE_FILE = (
 ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml"
 )
-
+KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
+    "docker/quickstart/docker-compose.kafka-setup.quickstart.yml"
+)
 NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
 ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
-M1_QUICKSTART_COMPOSE_URL = f"{DOCKER_COMPOSE_BASE}/{M1_QUICKSTART_COMPOSE_FILE}"
+NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
+    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+)
+ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
+    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+)
 
 
 class Architectures(Enum):
@@ -166,7 +176,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
         click.echo(
             "No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
             "To use neo4j as a graph backend, run \n"
-            "`datahub docker quickstart --quickstart-compose-file ./docker/quickstart/docker-compose.quickstart.yml`"
+            "`datahub docker quickstart --graph-service-impl neo4j`"
             "\nfrom the root of the datahub repo\n"
         )
         return False
@@ -582,6 +592,13 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="Launches MAE & MCE consumers as stand alone docker containers",
 )
 @click.option(
+    "--kafka-setup",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Launches Kafka setup job as part of the compose deployment",
+)
+@click.option(
     "--arch",
     required=False,
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
@@ -608,6 +625,7 @@ def quickstart(
     restore_indices: bool,
     no_restore_indices: bool,
     standalone_consumers: bool,
+    kafka_setup: bool,
     arch: Optional[str],
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
@@ -650,69 +668,20 @@ def quickstart(
     auth_resources_folder = Path(DATAHUB_ROOT_FOLDER) / "plugins/auth/resources"
     os.makedirs(auth_resources_folder, exist_ok=True)
 
-    default_quickstart_compose_file = _get_default_quickstart_compose_file()
+    quickstart_compose_file_name = _get_default_quickstart_compose_file()
     if stop:
         _attempt_stop(quickstart_compose_file)
         return
     elif not quickstart_compose_file:
-        # download appropriate quickstart file
-        should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
-        if should_use_neo4j and is_arch_m1(quickstart_arch):
-            click.secho(
-                "Running with neo4j on M1 is not currently supported, will be using elasticsearch as graph",
-                fg="red",
-            )
-        github_file = (
-            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-            if should_use_neo4j and not is_arch_m1(quickstart_arch)
-            else ELASTIC_QUICKSTART_COMPOSE_URL
-            if not is_arch_m1(quickstart_arch)
-            else M1_QUICKSTART_COMPOSE_URL
+        print("compose file name", quickstart_compose_file_name)
+        download_compose_files(
+            quickstart_compose_file_name,
+            quickstart_compose_file,
+            graph_service_impl,
+            kafka_setup,
+            quickstart_arch,
+            standalone_consumers,
         )
-
-        # also allow local files
-        request_session = requests.Session()
-        request_session.mount("file://", FileAdapter())
-
-        with open(
-            default_quickstart_compose_file, "wb"
-        ) if default_quickstart_compose_file else tempfile.NamedTemporaryFile(
-            suffix=".yml", delete=False
-        ) as tmp_file:
-            path = pathlib.Path(tmp_file.name)
-            quickstart_compose_file.append(path)
-            click.echo(f"Fetching docker-compose file {github_file} from GitHub")
-            # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = request_session.get(github_file)
-            quickstart_download_response.raise_for_status()
-            tmp_file.write(quickstart_download_response.content)
-            logger.debug(f"Copied to {path}")
-
-        if standalone_consumers:
-            consumer_github_file = (
-                f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
-                if should_use_neo4j
-                else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
-            )
-
-            default_consumer_compose_file = (
-                Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
-            )
-            with open(
-                default_consumer_compose_file, "wb"
-            ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
-                suffix=".yml", delete=False
-            ) as tmp_file:
-                path = pathlib.Path(tmp_file.name)
-                quickstart_compose_file.append(path)
-                click.echo(
-                    f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
-                )
-                # Download the quickstart docker-compose file from GitHub.
-                quickstart_download_response = request_session.get(consumer_github_file)
-                quickstart_download_response.raise_for_status()
-                tmp_file.write(quickstart_download_response.content)
-                logger.debug(f"Copied to {path}")
 
     # set version
     _set_environment_variables(
@@ -831,6 +800,94 @@ def quickstart(
         "Need support? Get in touch on Slack: https://slack.datahubproject.io/",
         fg="magenta",
     )
+
+
+def download_compose_files(
+    quickstart_compose_file_name,
+    quickstart_compose_file_list,
+    graph_service_impl,
+    kafka_setup,
+    quickstart_arch,
+    standalone_consumers,
+):
+    # download appropriate quickstart file
+    should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
+    if should_use_neo4j:
+        github_file = (
+            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+            if not is_arch_m1(quickstart_arch)
+            else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
+        )
+    else:
+        github_file = (
+            ELASTIC_QUICKSTART_COMPOSE_URL
+            if not is_arch_m1(quickstart_arch)
+            else ELASTIC_M1_QUICKSTART_COMPOSE_URL
+        )
+    # also allow local files
+    request_session = requests.Session()
+    request_session.mount("file://", FileAdapter())
+    with open(
+        quickstart_compose_file_name, "wb"
+    ) if quickstart_compose_file_name else tempfile.NamedTemporaryFile(
+        suffix=".yml", delete=False
+    ) as tmp_file:
+        path = pathlib.Path(tmp_file.name)
+        quickstart_compose_file_list.append(path)
+        click.echo(f"Fetching docker-compose file {github_file} from GitHub")
+        # Download the quickstart docker-compose file from GitHub.
+        quickstart_download_response = request_session.get(github_file)
+        quickstart_download_response.raise_for_status()
+        tmp_file.write(quickstart_download_response.content)
+        logger.debug(f"Copied to {path}")
+    if standalone_consumers:
+        consumer_github_file = (
+            f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            if should_use_neo4j
+            else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+        )
+
+        default_consumer_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
+        )
+        with open(
+            default_consumer_compose_file, "wb"
+        ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False
+        ) as tmp_file:
+            path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file_list.append(path)
+            click.echo(
+                f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
+            )
+            # Download the quickstart docker-compose file from GitHub.
+            quickstart_download_response = request_session.get(consumer_github_file)
+            quickstart_download_response.raise_for_status()
+            tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
+    if kafka_setup:
+        kafka_setup_github_file = (
+            f"{DOCKER_COMPOSE_BASE}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
+        )
+
+        default_consumer_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
+        )
+        with open(
+            default_consumer_compose_file, "wb"
+        ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False
+        ) as tmp_file:
+            path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file_list.append(path)
+            click.echo(
+                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
+            )
+            # Download the quickstart docker-compose file from GitHub.
+            quickstart_download_response = request_session.get(kafka_setup_github_file)
+            quickstart_download_response.raise_for_status()
+            tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
 
 
 def valid_restore_options(

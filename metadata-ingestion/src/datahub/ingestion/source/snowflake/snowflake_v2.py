@@ -1,5 +1,8 @@
 import json
 import logging
+import os
+import os.path
+import platform
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
 
@@ -8,25 +11,14 @@ from snowflake.connector import SnowflakeConnection
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
-    make_container_urn,
     make_data_platform_urn,
-    make_dataplatform_instance_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
-    make_domain_urn,
     make_schema_field_urn,
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    DatabaseKey,
-    PlatformKey,
-    SchemaKey,
-    add_dataset_to_container,
-    add_domain_to_entity_wu,
-    gen_containers,
-)
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -82,6 +74,15 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeQueryMixin,
 )
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
+from datahub.ingestion.source.sql.sql_utils import (
+    add_table_to_schema_container,
+    gen_database_container,
+    gen_database_key,
+    gen_schema_container,
+    gen_schema_key,
+    get_dataplatform_instance_aspect,
+    get_domain_wu,
+)
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
@@ -123,8 +124,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
-from datahub.metadata.schema_classes import ChangeTypeClass, DataPlatformInstanceClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -217,6 +221,7 @@ class SnowflakeV2Source(
         self.logger = logger
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
+
         # Create and register the stateful ingestion use-case handlers.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
@@ -233,6 +238,7 @@ class SnowflakeV2Source(
             run_id=self.ctx.run_id,
         )
 
+        self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
@@ -470,7 +476,9 @@ class SnowflakeV2Source(
 
         return _report
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self._snowflake_clear_ocsp_cache()
+
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -502,9 +510,6 @@ class SnowflakeV2Source(
                 return
 
         self.connection.close()
-
-        # Emit Stale entity workunits
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
         # TODO: The checkpoint state for stale entity detection can be comitted here.
 
@@ -560,6 +565,12 @@ class SnowflakeV2Source(
                 )
 
             yield from self.usage_extractor.get_workunits(discovered_datasets)
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
 
     def report_warehouse_failure(self):
         if self.config.warehouse is not None:
@@ -956,58 +967,70 @@ class SnowflakeV2Source(
             self.config.env,
         )
 
-        # Add the entity to the state.
-        type = (
-            SnowflakeObjectDomain.TABLE
-            if isinstance(table, SnowflakeTable)
-            else SnowflakeObjectDomain.VIEW
-        )
-        self.stale_entity_removal_handler.add_entity_to_state(
-            type=type, urn=dataset_urn
-        )
-
         status = Status(removed=False)
-        yield self.wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=status
+        ).as_workunit()
 
         schema_metadata = self.get_schema_metadata(table, dataset_name, dataset_urn)
-        yield self.wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "schemaMetadata", schema_metadata
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=schema_metadata
+        ).as_workunit()
 
         dataset_properties = self.get_dataset_properties(
             table, schema_name, db_name, dataset_name
         )
-        yield self.wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "datasetProperties", dataset_properties
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=dataset_properties
+        ).as_workunit()
+
+        schema_container_key = gen_schema_key(
+            db_name=self.snowflake_identifier(db_name),
+            schema=self.snowflake_identifier(schema_name),
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
-        yield from self.add_table_to_schema_container(
-            dataset_urn,
-            self.snowflake_identifier(db_name),
-            self.snowflake_identifier(schema_name),
+        yield from add_table_to_schema_container(
+            dataset_urn=dataset_urn,
+            parent_container_key=schema_container_key,
+            report=self.report,
         )
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        dpi_aspect = get_dataplatform_instance_aspect(
+            dataset_urn=dataset_urn,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+        )
         if dpi_aspect:
             yield dpi_aspect
 
         subTypes = SubTypes(
             typeNames=["view"] if isinstance(table, SnowflakeView) else ["table"]
         )
-        yield self.wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
 
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=subTypes
+        ).as_workunit()
+
+        if self.domain_registry:
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
         if table.tags:
             tag_associations = [
                 TagAssociation(tag=make_tag_urn(tag.identifier())) for tag in table.tags
             ]
             global_tags = GlobalTags(tag_associations)
-            yield self.wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "globalTags", global_tags
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=global_tags
+            ).as_workunit()
 
         if (
             isinstance(table, SnowflakeView)
@@ -1019,12 +1042,10 @@ class SnowflakeV2Source(
                 viewLanguage="SQL",
                 viewLogic=view.view_definition,
             )
-            yield self.wrap_aspect_as_workunit(
-                "dataset",
-                dataset_urn,
-                "viewProperties",
-                view_properties_aspect,
-            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=view_properties_aspect
+            ).as_workunit()
 
     def get_dataset_properties(self, table, schema_name, db_name, dataset_name):
         return DatasetProperties(
@@ -1061,11 +1082,9 @@ class SnowflakeV2Source(
             description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
         )
 
-        self.stale_entity_removal_handler.add_entity_to_state("tag", tag_urn)
-
-        yield self.wrap_aspect_as_workunit(
-            "tag", tag_urn, "tagProperties", tag_properties_aspect
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=tag_urn, aspect=tag_properties_aspect
+        ).as_workunit()
 
     def get_schema_metadata(
         self,
@@ -1183,109 +1202,28 @@ class SnowflakeV2Source(
     def get_report(self) -> SourceReport:
         return self.report
 
-    def get_dataplatform_instance_aspect(
-        self, dataset_urn: str
-    ) -> Optional[MetadataWorkUnit]:
-        # If we are a platform instance based source, emit the instance aspect
-        if self.config.platform_instance:
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
-                    instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
-                    ),
-                ),
-            )
-            wu = MetadataWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
-            self.report.report_workunit(wu)
-            return wu
-        else:
-            return None
-
-    def _get_domain_wu(
-        self,
-        dataset_name: str,
-        entity_urn: str,
-    ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(dataset_name)
-        if domain_urn:
-            wus = add_domain_to_entity_wu(
-                entity_urn=entity_urn,
-                domain_urn=domain_urn,
-            )
-            for wu in wus:
-                self.report.report_workunit(wu)
-                yield wu
-
-    def add_table_to_schema_container(
-        self, dataset_urn: str, db_name: str, schema: str
-    ) -> Iterable[MetadataWorkUnit]:
-        schema_container_key = self.gen_schema_key(db_name, schema)
-        container_workunits = add_dataset_to_container(
-            container_key=schema_container_key,
-            dataset_urn=dataset_urn,
-        )
-
-        self.stale_entity_removal_handler.add_entity_to_state(
-            type="container",
-            urn=make_container_urn(
-                guid=schema_container_key.guid(),
-            ),
-        )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
-    def gen_schema_key(self, db_name: str, schema: str) -> PlatformKey:
-        return SchemaKey(
-            database=db_name,
-            schema=schema,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
-        )
-
-    def gen_database_key(self, database: str) -> PlatformKey:
-        return DatabaseKey(
-            database=database,
-            platform=self.platform,
-            instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
-        )
-
-    def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
-        domain_urn: Optional[str] = None
-
-        for domain, pattern in self.config.domain.items():
-            if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(
-                    self.domain_registry.get_domain_urn(domain)
-                )
-
-        return domain_urn
-
     def gen_database_containers(
         self, database: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(database.name)
-
-        database_container_key = self.gen_database_key(
-            self.snowflake_identifier(database.name)
+        database_container_key = gen_database_key(
+            self.snowflake_identifier(database.name),
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
-        container_workunits = gen_containers(
-            container_key=database_container_key,
+
+        yield from gen_database_container(
             name=database.name,
-            description=database.comment,
+            database=self.snowflake_identifier(database.name),
+            database_container_key=database_container_key,
             sub_types=[SqlContainerSubTypes.DATABASE],
-            domain_urn=domain_urn,
+            domain_registry=self.domain_registry,
+            domain_config=self.config.domain,
+            report=self.report,
             external_url=self.get_external_url_for_database(database.name)
             if self.config.include_external_url
             else None,
+            description=database.comment,
             created=int(database.created.timestamp() * 1000)
             if database.created is not None
             else None,
@@ -1299,40 +1237,36 @@ class SnowflakeV2Source(
             else None,
         )
 
-        self.stale_entity_removal_handler.add_entity_to_state(
-            type="container",
-            urn=make_container_urn(
-                guid=database_container_key.guid(),
-            ),
-        )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
     def gen_schema_containers(
         self, schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        domain_urn = self._gen_domain_urn(f"{db_name}.{schema.name}")
-
-        schema_container_key = self.gen_schema_key(
-            self.snowflake_identifier(db_name),
-            self.snowflake_identifier(schema.name),
+        schema_name = self.snowflake_identifier(schema.name)
+        database_container_key = gen_database_key(
+            database=self.snowflake_identifier(db_name),
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
 
-        database_container_key: Optional[PlatformKey] = None
-        if db_name is not None:
-            database_container_key = self.gen_database_key(
-                database=self.snowflake_identifier(db_name)
-            )
+        schema_container_key = gen_schema_key(
+            db_name=self.snowflake_identifier(db_name),
+            schema=schema_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
-        container_workunits = gen_containers(
-            container_key=schema_container_key,
+        yield from gen_schema_container(
             name=schema.name,
-            description=schema.comment,
+            schema=self.snowflake_identifier(schema.name),
+            database=self.snowflake_identifier(db_name),
+            database_container_key=database_container_key,
+            domain_config=self.config.domain,
+            schema_container_key=schema_container_key,
             sub_types=[SqlContainerSubTypes.SCHEMA],
-            parent_container_key=database_container_key,
-            domain_urn=domain_urn,
+            report=self.report,
+            domain_registry=self.domain_registry,
+            description=schema.comment,
             external_url=self.get_external_url_for_schema(schema.name, db_name)
             if self.config.include_external_url
             else None,
@@ -1348,10 +1282,6 @@ class SnowflakeV2Source(
             if schema.tags
             else None,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def get_tables_for_schema(
         self, schema_name: str, db_name: str
@@ -1569,6 +1499,57 @@ class SnowflakeV2Source(
             if "Unsupported feature 'TAG'" in str(e):
                 return True
             raise
+
+    def _snowflake_clear_ocsp_cache(self):
+        # Because of some issues with the Snowflake Python connector, we wipe the OCSP cache.
+        #
+        # Why is this necessary:
+        # 1. Snowflake caches OCSP (certificate revocation) responses in a file on disk.
+        #       https://github.com/snowflakedb/snowflake-connector-python/blob/502e49f65368d4eed2d6f543b43139cc96e03c00/src/snowflake/connector/ocsp_snowflake.py#L78-L108
+        # 2. It uses pickle to serialize the cache to disk.
+        #       https://github.com/snowflakedb/snowflake-connector-python/blob/502e49f65368d4eed2d6f543b43139cc96e03c00/src/snowflake/connector/cache.py#L483-L495
+        # 3. In some cases, pyspark objects seem to make their way into the cache. This introduces a hard
+        #    dependency on the specific version of pyspark that the cache was written with because of the pickle
+        #    serialization process.
+        #
+        # As an example, if you run snowflake ingestion normally with pyspark v3.2.1, then downgrade pyspark to v3.0.3,
+        # and then run ingestion again, you will get an error like this:
+        #
+        #     error 250001: Could not connect to Snowflake backend after 0 attempt(s).
+        #     ModuleNotFoundError: No module named 'pyspark'
+        #
+        # While ideally the snowflake-connector-python library would be fixed to not serialize pyspark objects,
+        # or to handle serde errors gracefully, or to use a robust serialization format instead of pickle,
+        # we're stuck with this workaround for now.
+
+        # This file selection logic is mirrored from the snowflake-connector-python library.
+        # See https://github.com/snowflakedb/snowflake-connector-python/blob/502e49f65368d4eed2d6f543b43139cc96e03c00/src/snowflake/connector/cache.py#L349-L369
+        plat = platform.system().lower()
+        if plat == "darwin":
+            file_path = os.path.join(
+                "~", "Library", "Caches", "Snowflake", "ocsp_response_validation_cache"
+            )
+        elif plat == "windows":
+            file_path = os.path.join(
+                "~",
+                "AppData",
+                "Local",
+                "Snowflake",
+                "Caches",
+                "ocsp_response_validation_cache",
+            )
+        else:
+            # linux is the default fallback for snowflake
+            file_path = os.path.join(
+                "~", ".cache", "snowflake", "ocsp_response_validation_cache"
+            )
+
+        file_path = os.path.expanduser(file_path)
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            logger.debug(f'Failed to remove OCSP cache file at "{file_path}"')
 
     def close(self) -> None:
         super().close()

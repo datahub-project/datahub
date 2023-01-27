@@ -1,6 +1,5 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import { EntityHealthStatus } from './EntityHealthStatus';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
@@ -16,6 +15,7 @@ import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types'
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import ExternalUrlButton from '../../../ExternalUrlButton';
 import ShareButton from '../../../../../shared/share/ShareButton';
+import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -89,15 +89,13 @@ export const EntityHeader = ({
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const me = useGetAuthenticatedUser();
-    const basePlatformName = getPlatformName(entityData);
-    const platformName = capitalizeFirstLetterOnly(basePlatformName);
+    const platformName = getPlatformName(entityData);
     const externalUrl = entityData?.externalUrl || undefined;
     const entityCount = entityData?.entityCount;
     const isCompact = React.useContext(CompactContext);
 
     const entityName = entityData?.name;
-    const subType =
-        (entityData?.subTypes?.typeNames?.length || 0) > 0 ? entityData?.subTypes?.typeNames![0] : undefined;
+    const subType = capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) || undefined;
 
     const canEditName =
         isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);

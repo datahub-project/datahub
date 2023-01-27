@@ -81,8 +81,8 @@ meta_mapping:
   data_tier:
     match: "Bronze|Silver|Gold"
     operation: "add_term"
-     config:
-       term: "{{ $match }}"
+    config:
+      term: "{{ $match }}"
 ```
 
 to match any data_tier of Bronze, Silver or Gold and maps it to a glossary term with the same name.

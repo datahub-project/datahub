@@ -54,97 +54,117 @@ workbook_graphql_query = """
       }
       sheets {
         id
-        name
-        path
-        luid
-        createdAt
-        updatedAt
-        tags {
-          name
-        }
-        containedInDashboards {
-          name
-          path
-        }
-        datasourceFields {
-          __typename
-          id
-          name
-          description
-          datasource {
-            id
-            name
-          }
-          ... on ColumnField {
-            dataCategory
-            role
-            dataType
-            aggregation
-          }
-          ... on CalculatedField {
-            role
-            dataType
-            aggregation
-            formula
-          }
-          ... on GroupField {
-            role
-            dataType
-          }
-          ... on DatasourceField {
-            remoteField {
-              __typename
-              id
-              name
-              description
-              folderName
-              ... on ColumnField {
-                dataCategory
-                role
-                dataType
-                aggregation
-              }
-              ... on CalculatedField {
-                role
-                dataType
-                aggregation
-                formula
-              }
-              ... on GroupField {
-                role
-                dataType
-              }
-            }
-          }
-        }
       }
       dashboards {
         id
-        name
-        path
-        luid
-        createdAt
-        updatedAt
-        sheets {
-          id
-          name
-        }
-        tags {
-            name
-        }
       }
       embeddedDatasources {
         id
       }
-      upstreamDatasources {
-        name
-        id
-        downstreamSheets {
-          name
-          id
-        }
-      }
     }
+"""
+
+sheet_graphql_query = """
+{
+    id
+    name
+    path
+    luid
+    createdAt
+    updatedAt
+    tags {
+        name
+    }
+    containedInDashboards {
+        name
+        path
+    }
+    workbook {
+        id
+        name
+        projectName
+        owner {
+          username
+        }
+    }
+    datasourceFields {
+        __typename
+        id
+        name
+        description
+        datasource {
+        id
+        name
+        }
+        ... on ColumnField {
+        dataCategory
+        role
+        dataType
+        aggregation
+        }
+        ... on CalculatedField {
+        role
+        dataType
+        aggregation
+        formula
+        }
+        ... on GroupField {
+        role
+        dataType
+        }
+        ... on DatasourceField {
+        remoteField {
+            __typename
+            id
+            name
+            description
+            folderName
+            ... on ColumnField {
+            dataCategory
+            role
+            dataType
+            aggregation
+            }
+            ... on CalculatedField {
+            role
+            dataType
+            aggregation
+            formula
+            }
+            ... on GroupField {
+            role
+            dataType
+            }
+        }
+        }
+    }
+}
+"""
+
+dashboard_graphql_query = """
+{
+    id
+    name
+    path
+    luid
+    createdAt
+    updatedAt
+    sheets {
+        id
+        name
+    }
+    tags {
+        name
+    }
+    workbook {
+        id
+        name
+        projectName
+        owner {
+          username
+        }
+    }
+}
 """
 
 embedded_datasource_graphql_query = """

@@ -48,7 +48,7 @@ export const Preview = ({
     name: string;
     origin: FabricType;
     description?: string | null;
-    platformName: string;
+    platformName?: string;
     platformLogo?: string | null;
     platformNames?: (Maybe<string> | undefined)[];
     platformLogos?: (Maybe<string> | undefined)[];
@@ -69,7 +69,6 @@ export const Preview = ({
     lastUpdatedMs?: number | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalPlatformName = capitalizeFirstLetterOnly(platformName);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
@@ -79,7 +78,7 @@ export const Preview = ({
             type={capitalizeFirstLetterOnly(subtype) || 'Dataset'}
             logoUrl={platformLogo || ''}
             typeIcon={entityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT)}
-            platform={capitalPlatformName}
+            platform={platformName}
             platforms={platformNames}
             logoUrls={platformLogos}
             platformInstanceId={platformInstanceId}

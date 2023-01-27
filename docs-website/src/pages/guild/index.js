@@ -308,7 +308,7 @@ const guildSections = [
             <b>Analytics Engineer, CDX</b>
             <p>
               <p> </p>
-              Consistently provides guidance to others in the #troublshoot and #ingestion Slack channels
+              Consistently provides guidance to others in the #troubleshoot and #ingestion Slack channels
             </p>
           </>
         ),
@@ -340,7 +340,7 @@ const guildSections = [
             <b>Platform Engineer</b>
             <p>
               <p> </p>
-              Freqeuntly helps others navigate implementation questions in the #all-things-deployment and #troublshoot Slack channels
+              Frequently helps others navigate implementation questions in the #all-things-deployment and #troubleshoot Slack channels
             </p>
           </>
         ),
@@ -356,7 +356,7 @@ const guildSections = [
             <b>Big Data and Data Governance Consultant, Graphenus</b>
             <p>
               <p> </p>
-              Consistently jumps in to address questions in the #troublshoot and #all-things-deployment Slack channels
+              Consistently jumps in to address questions in the #troubleshoot and #all-things-deployment Slack channels
             </p>
           </>
         ),
@@ -372,7 +372,7 @@ const guildSections = [
             <b>Data Engineering, Hurb</b>
             <p>
               <p> </p>
-              Regularly provides guidance to Community Members in the #troublshoot and #ingestion Slack channels
+              Regularly provides guidance to Community Members in the #troubleshoot and #ingestion Slack channels
             </p>
           </>
         ),

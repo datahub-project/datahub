@@ -124,8 +124,7 @@ async def get_server_version_stats(
             server_config = await get_server_config(host, token)
             log.debug(f"server_config:{server_config}")
         except Exception as e:
-            log.debug("Failed to get a valid server", e)
-            pass
+            log.debug(f"Failed to get a valid server: {e}")
     else:
         server_config = server.server_config
 
