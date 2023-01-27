@@ -1243,7 +1243,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     privileges: EntityPrivileges
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -1592,7 +1592,7 @@ type GlossaryTerm implements Entity {
     privileges: EntityPrivileges
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -1729,7 +1729,7 @@ type GlossaryNode implements Entity {
     privileges: EntityPrivileges
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -2099,7 +2099,7 @@ type Container implements Entity {
     status: Status
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -4237,7 +4237,7 @@ type Notebook implements Entity & BrowsableEntity {
     browsePaths: [BrowsePath!]
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -4552,7 +4552,7 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     privileges: EntityPrivileges
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -4852,7 +4852,7 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     privileges: EntityPrivileges
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -5204,7 +5204,7 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     platform: DataPlatform!
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -5396,7 +5396,7 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     privileges: EntityPrivileges
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -8238,7 +8238,7 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     editableProperties: MLModelEditableProperties
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -8344,7 +8344,7 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     editableProperties: MLModelGroupEditableProperties
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -8463,7 +8463,7 @@ type MLFeature implements EntityWithRelationships & Entity {
     editableProperties: MLFeatureEditableProperties
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -8632,7 +8632,7 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     editableProperties: MLPrimaryKeyEditableProperties
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }
@@ -8754,7 +8754,7 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     editableProperties: MLFeatureTableEditableProperties
 
     """
-    Whether or not this entity exists in the database
+    Whether or not this entity exists on DataHub
     """
     exists: Boolean
 }

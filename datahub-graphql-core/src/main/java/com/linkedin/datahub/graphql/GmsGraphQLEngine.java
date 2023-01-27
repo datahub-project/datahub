@@ -1263,9 +1263,7 @@ public class GmsGraphQLEngine {
                         .filter(graphType -> graphType instanceof EntityType)
                         .map(graphType -> (EntityType<?, ?>) graphType)
                         .collect(Collectors.toList())
-                ))
-                .dataFetcher("exists", new EntityExistsResolver(entityService))
-            )
+                )))
             .type("EntityWithRelationships", typeWiring -> typeWiring
                 .typeResolver(new EntityInterfaceTypeResolver(loadableTypes.stream()
                         .filter(graphType -> graphType instanceof EntityType)
