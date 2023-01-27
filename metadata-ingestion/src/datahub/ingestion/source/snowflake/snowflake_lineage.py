@@ -208,27 +208,19 @@ class SnowflakeLineageExtractor(
 
         yield from self.get_view_upstream_workunits(discovered_views)
 
-        yield from self.fetch_table_upstream_workunits(discovered_tables)
+        yield from self.get_table_upstream_workunits(discovered_tables) 
 
-    def _get_upstream_lineages_for_table(self):
+
+    def get_table_upstream_workunits(self, discovered_tables):
         if self.report.edition == SnowflakeEdition.STANDARD:
             logger.info(
                 "Snowflake Account is Standard Edition. Table to Table and View to Table Lineage Feature is not supported."
             )  # See Edition Note above for why
         else:
             with PerfTimer() as timer:
-                self._populate_lineage()
+                self._fetch_upstream_lineages_for_table()
                 self.report.table_lineage_query_secs = timer.elapsed_seconds()
 
-            if self.config.include_view_lineage:
-                with PerfTimer() as timer:
-                    self._populate_view_downstream_lineage()
-                    self.report.view_downstream_lineage_query_secs = (
-                        timer.elapsed_seconds()
-                    )
-
-    def fetch_table_upstream_workunits(self, discovered_tables):
-        self._get_upstream_lineages_for_table()
         if self.config.include_table_lineage:
             for dataset_name in discovered_tables:
                 if self._is_dataset_pattern_allowed(
@@ -401,12 +393,13 @@ class SnowflakeLineageExtractor(
                 f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
             )
 
-    def _populate_lineage(self) -> None:
+    def _fetch_upstream_lineages_for_table(self) -> None:
         query: str = SnowflakeQuery.table_to_table_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
         )
         self.report.num_table_to_table_edges_scanned = 0

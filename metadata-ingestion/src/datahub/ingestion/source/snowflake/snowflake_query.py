@@ -292,12 +292,13 @@ class SnowflakeQuery:
     def table_to_table_lineage_history(
         start_time_millis: int,
         end_time_millis: int,
+        include_view_lineage: bool = True,
         include_column_lineage: bool = True,
     ) -> str:
         if include_column_lineage:
-            return SnowflakeQuery.table_upstreams_with_column_lineage(start_time_millis, end_time_millis)
+            return SnowflakeQuery.table_upstreams_with_column_lineage(start_time_millis, end_time_millis, include_view_lineage)
         else:
-            return SnowflakeQuery.table_upstreams_only(start_time_millis, end_time_millis)
+            return SnowflakeQuery.table_upstreams_only(start_time_millis, end_time_millis, include_view_lineage)
     @staticmethod
     def view_dependencies() -> str:
         return """
@@ -574,7 +575,12 @@ class SnowflakeQuery:
     def table_upstreams_with_column_lineage(
         start_time_millis: int,
         end_time_millis: int,
+        include_view_lineage: bool = True,
     ) -> str:
+        if include_view_lineage:
+            allowed_upstream_table_domains = "('Table', 'External table', 'View', 'Materialized view')"
+        else:
+            allowed_upstream_table_domains = "('Table', 'External table')"
         return f"""
         WITH column_lineage_history AS (
             SELECT 
@@ -609,7 +615,7 @@ class SnowflakeQuery:
                 AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
-                AND upstream_table_domain in ('Table', 'External table', 'View', 'Materialized view') 
+                AND upstream_table_domain in {allowed_upstream_table_domains} 
                 AND downstream_table_domain = 'Table'
             ), 
         table_upstreams AS (
@@ -686,7 +692,12 @@ class SnowflakeQuery:
     def table_upstreams_only(
         start_time_millis: int,
         end_time_millis: int,
+        include_view_lineage: bool = True,
     )->str:
+        if include_view_lineage:
+            allowed_upstream_table_domains = "('Table', 'External table', 'View', 'Materialized view')"
+        else:
+            allowed_upstream_table_domains = "('Table', 'External table')"
         return f"""
             WITH table_lineage_history AS (
                 SELECT
@@ -707,7 +718,7 @@ class SnowflakeQuery:
                 AND w.value:"objectName" NOT LIKE '%.GE_TEMP_%'
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-                AND upstream_table_domain in ('Table', 'External table', 'View', 'Materialized view') 
+                AND upstream_table_domain in {allowed_upstream_table_domains} 
                 AND downstream_table_domain = 'Table'
                 )
             SELECT

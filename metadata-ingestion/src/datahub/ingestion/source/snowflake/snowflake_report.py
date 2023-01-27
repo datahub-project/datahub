@@ -52,6 +52,8 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
 
     edition: Optional[SnowflakeEdition] = None
 
+    num_tables_with_upstreams: int = 0
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table or a schema or a database
