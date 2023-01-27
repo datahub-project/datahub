@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { Divider, Result } from 'antd';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { EntityType, Exact } from '../../../../types.generated';
@@ -13,6 +13,7 @@ import { SidebarOwnerSection } from '../containers/profile/sidebar/Ownership/Sid
 import { SidebarTagsSection } from '../containers/profile/sidebar/SidebarTagsSection';
 import { SidebarDomainSection } from '../containers/profile/sidebar/Domain/SidebarDomainSection';
 import UpstreamHealth from './UpstreamHealth/UpstreamHealth';
+import NonExistentEntityPage from '../entity/NonExistentEntityPage';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -50,7 +51,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
     if (entityData?.exists === false) {
-        return <Result status="404" title="Not Found" subTitle="Sorry, we are unable to find this entity in DataHub" />;
+        return <NonExistentEntityPage />;
     }
 
     return (
