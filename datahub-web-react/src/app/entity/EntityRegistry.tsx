@@ -114,6 +114,12 @@ export default class EntityRegistry {
         return entity.renderPreview(PreviewType.BROWSE, data);
     }
 
+    // render the regular profile if embedded profile doesn't exist. Compact context should be set to true.
+    renderEmbeddedProfile(type: EntityType, urn: string): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.renderEmbeddedProfile ? entity.renderEmbeddedProfile(urn) : entity.renderProfile(urn);
+    }
+
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);

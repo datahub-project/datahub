@@ -9,7 +9,7 @@ from deprecated import deprecated
 from requests.adapters import Response
 from requests.models import HTTPError
 
-from datahub.cli.cli_utils import get_boolean_env_variable
+from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -452,3 +452,8 @@ class DataHubGraph(DatahubRestEmitter):
             args["urnLike"] = urn_like
         results = self._post_generic(self._get_aspect_count_endpoint(), args)
         return results["value"]
+
+
+def get_default_graph() -> DataHubGraph:
+    (url, token) = get_url_and_token()
+    return DataHubGraph(DataHubGraphConfig(server=url, token=token))

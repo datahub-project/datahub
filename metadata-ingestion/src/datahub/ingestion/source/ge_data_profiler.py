@@ -34,6 +34,7 @@ from great_expectations.data_context.types.base import (
     datasourceConfigSchema,
 )
 from great_expectations.dataset.dataset import Dataset
+from great_expectations.dataset.sqlalchemy_dataset import SqlAlchemyDataset
 from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDatasource
 from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
@@ -110,7 +111,7 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
-def get_column_unique_count_patch(self, column):
+def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
     if self.engine.dialect.name.lower() == "redshift":
         element_values = self.engine.execute(
             sa.select(
@@ -118,7 +119,7 @@ def get_column_unique_count_patch(self, column):
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
+    elif self.engine.dialect.name.lower() == "bigquery":
         element_values = self.engine.execute(
             sa.select(
                 [
@@ -127,6 +128,13 @@ def get_column_unique_count_patch(self, column):
                     )
                 ]
             ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "snowflake":
+        element_values = self.engine.execute(
+            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     return convert_to_json_serializable(
@@ -251,7 +259,7 @@ class _SingleColumnSpec:
 
 @dataclasses.dataclass
 class _SingleDatasetProfiler(BasicDatasetProfilerBase):
-    dataset: Dataset
+    dataset: SqlAlchemyDataset
     dataset_name: str
     partition: Optional[str]
     config: GEProfilingConfig
@@ -364,7 +372,16 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            column_profile.median = str(self.dataset.get_column_median(column))
+            if self.dataset.engine.dialect.name.lower() == "snowflake":
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select([sa.func.median(sa.column(column))]).select_from(
+                            self.dataset._table
+                        )
+                    ).scalar()
+                )
+            else:
+                column_profile.median = str(self.dataset.get_column_median(column))
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column median for column {column}. {e}"

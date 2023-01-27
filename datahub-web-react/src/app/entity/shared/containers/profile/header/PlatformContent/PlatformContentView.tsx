@@ -5,7 +5,6 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container, GlossaryNode } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
-import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
 import ParentNodesView, {
     StyledRightOutlined,
     ParentNodesWrapper as ParentContainersWrapper,
@@ -102,7 +101,7 @@ function PlatformContentView(props: Props) {
     return (
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
-            <PlatformText>{capitalizeFirstLetterOnly(entityType)}</PlatformText>
+            <PlatformText>{entityType}</PlatformText>
             {(!!platformName || !!instanceId || !!parentContainers?.length || !!parentNodes?.length) && (
                 <PlatformDivider />
             )}

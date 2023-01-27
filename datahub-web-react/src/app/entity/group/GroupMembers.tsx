@@ -113,7 +113,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                     message.success({ content: 'Removed Group Member!', duration: 2 });
                     onChangeMembers?.();
                     // Hack to deal with eventual consistency
-                    setTimeout(function () {
+                    setTimeout(() => {
                         // Reload the page.
                         refetch();
                     }, 2000);
@@ -131,7 +131,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
 
     const onAddMembers = () => {
         onChangeMembers?.();
-        setTimeout(function () {
+        setTimeout(() => {
             // Reload the page.
             refetch();
         }, 3000);

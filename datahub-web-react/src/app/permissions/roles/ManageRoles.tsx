@@ -119,7 +119,7 @@ export const ManageRoles = () => {
                         content: `Assigned Role to users!`,
                         duration: 2,
                     });
-                    setTimeout(function () {
+                    setTimeout(() => {
                         rolesRefetch();
                         clearUserListCache(client);
                     }, 3000);
