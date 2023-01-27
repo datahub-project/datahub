@@ -463,13 +463,8 @@ module.exports = {
 
     "Release History": ["releases"],
     "Managed DataHub": [
+      "docs/managed-datahub/managed-datahub-overview",
       "docs/managed-datahub/welcome-acryl",
-      {
-        "Actions Guide": [
-          "docs/managed-datahub/actions-guide/tag-sync",
-          "docs/managed-datahub/actions-guide/term-sync-propagation",
-        ],
-      },
       {
         "Metadata Ingestion With Acryl": [
           "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/ingestion",
@@ -479,24 +474,60 @@ module.exports = {
       {
         "DataHub API": [
           "docs/managed-datahub/datahub-api/datahub-architecture",
-          "docs/managed-datahub/datahub-api/entity-events-api",
+          {
+            type: "doc",
+            id:  "docs/managed-datahub/datahub-api/entity-events-api",
+            className: "saasOnly",
+          },
           {
             "GraphQL API": [
               "docs/managed-datahub/datahub-api/graphql-api/getting-started",
-              "docs/managed-datahub/datahub-api/graphql-api/incidents-api-beta",
+              {
+                type: "doc",
+                id:  "docs/managed-datahub/datahub-api/graphql-api/incidents-api-beta",
+                className: "saasOnly",
+              },
+              
             ],
           },
         ],
       },
       {
+        "Actions Guide": [  {
+          type: "doc",
+          id: "docs/managed-datahub/actions-guide/tag-sync",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id:           "docs/managed-datahub/actions-guide/term-sync-propagation",
+          className: "saasOnly",
+        },
+        ],
+      },
+      {
         Integrations: [
-          "docs/managed-datahub/integrations/aws-privatelink",
+          {
+            type: "doc",
+            id: "docs/managed-datahub/integrations/aws-privatelink",
+            className: "saasOnly",
+          },
+          
         ],
       },
       {
         "Operator Guide": [
-          "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
-          "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+          {
+            type: "doc",
+            id:  "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
+            className: "saasOnly",
+          },
+          {
+            type: "doc",
+            id:            "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+            className: "saasOnly",
+          },
+          
         ],
       },
       {

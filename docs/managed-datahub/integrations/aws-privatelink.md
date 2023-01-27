@@ -1,3 +1,5 @@
+<FeatureAvailability saasOnly />
+
 # AWS PrivateLink
 
 If you require a private connection between the provisioned DataHub instance and your own existing AWS account, Acryl supports using AWS PrivateLink in order to complete this private connection.&#x20;

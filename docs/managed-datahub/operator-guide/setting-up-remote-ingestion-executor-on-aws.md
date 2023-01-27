@@ -4,6 +4,7 @@ description: >-
   executor, which allows you to ingest metadata from private metadata sources
   via the DataHub UI.
 ---
+<FeatureAvailability saasOnly />
 
 # Setting up Remote Ingestion Executor on AWS
 

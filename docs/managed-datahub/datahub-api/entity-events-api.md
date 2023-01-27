@@ -4,6 +4,7 @@ description: >-
   things change on DataHub.
 ---
 
+<FeatureAvailability saasOnly />
 # Entity Events API
 
 ## Introduction

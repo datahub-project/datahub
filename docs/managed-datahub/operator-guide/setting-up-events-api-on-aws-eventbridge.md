@@ -4,6 +4,8 @@ description: >-
   Acryl DataHub events via AWS EventBridge.
 ---
 
+<FeatureAvailability saasOnly />
+
 # Setting up Events API on AWS EventBridge
 
 ## Event Structure

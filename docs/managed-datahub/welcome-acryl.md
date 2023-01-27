@@ -1,10 +1,7 @@
-# Welcome to Acryl DataHub (Beta)
+# Getting Started with Acryl DataHub
 
-## Welcoming our Beta Partners
 
-Welcome to the Acryl DataHub Beta program! We at Acryl are on a mission to make data reliable by bringing clarity to the who, what, when, & how of your data ecosystem. We're thrilled to be on this journey with you - our beta partners - and cannot wait to see what we build together!&#x20;
-
-During the beta, we hope this site will serve as a resource for you. Check back here for tutorials, FAQs, how-to's, architecture references, & more. For now, you can follow the instructions below to start using your deployment of Acryl DataHub.&#x20;
+Welcome to the Acryl DataHub! We at Acryl are on a mission to make data reliable by bringing clarity to the who, what, when, & how of your data ecosystem. We're thrilled to be on this journey with you; and cannot wait to see what we build together!&#x20;
 
 Close communication is not only welcomed, but highly encouraged. For all questions, concerns, & feedback, please reach out to us directly at support@acryl.io. &#x20;
 
@@ -57,8 +54,6 @@ To push metadata into DataHub, Acryl provide's an ingestion framework written in
 ### Discovering Metadata
 
 There are 2 primary ways to find metadata: search and browse. Both can be accessed via the DataHub home page.&#x20;
-
-We'll be soon adding a guide covering all the tips and tricks for search metadata you've ingested. For now, we'll provide a sneak peak.&#x20;
 
 By default, we provide rich search capabilities across your ingested metadata. This includes the ability to search by tags, descriptions, column names, column descriptions, and more using the global search bar found on the home page.&#x20;
 

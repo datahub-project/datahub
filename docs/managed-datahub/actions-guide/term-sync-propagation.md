@@ -1,3 +1,6 @@
+<FeatureAvailability saasOnly />
+
+
 # Term Sync (Propagation)
 
 The Term Sync (or Term Propagation) Action allows you to propagate glossary terms from your assets into downstream entities.
