@@ -74,7 +74,7 @@
         "json": {
             "customProperties": {},
             "name": "public issue_history",
-            "description": "public issue_history",
+            "description": "public issue_history\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -122,7 +122,7 @@
         "json": {
             "customProperties": {},
             "name": "SNOWFLAKE_TESTTABLE",
-            "description": "SNOWFLAKE_TESTTABLE",
+            "description": "SNOWFLAKE_TESTTABLE\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -170,7 +170,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query",
-            "description": "snowflake native-query",
+            "description": "snowflake native-query\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -218,7 +218,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query-with-join",
-            "description": "snowflake native-query-with-join",
+            "description": "snowflake native-query-with-join\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -266,7 +266,7 @@
         "json": {
             "customProperties": {},
             "name": "job-history",
-            "description": "job-history",
+            "description": "job-history\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -314,7 +314,7 @@
         "json": {
             "customProperties": {},
             "name": "postgres_test_table",
-            "description": "postgres_test_table",
+            "description": "postgres_test_table\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -362,7 +362,7 @@
         "json": {
             "customProperties": {},
             "name": "dbo_book_issue",
-            "description": "dbo_book_issue",
+            "description": "dbo_book_issue\n-----\nhr pbi test description",
             "tags": []
         }
     },
@@ -410,7 +410,7 @@
         "json": {
             "customProperties": {},
             "name": "ms_sql_native_table",
-            "description": "ms_sql_native_table",
+            "description": "ms_sql_native_table\n-----\nhr pbi test description",
             "tags": []
         }
     },
@@ -693,7 +693,7 @@
                 "workspaceId": "64ED5CAD-7C10-4684-8180-826122881108"
             },
             "title": "test_dashboard",
-            "description": "test_dashboard",
+            "description": "test_dashboard\n-----\nDescription of test dashboard",
             "charts": [
                 "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
                 "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
@@ -752,21 +752,6 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -792,6 +777,21 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
@@ -800,7 +800,7 @@
         "json": {
             "customProperties": {},
             "name": "public issue_history",
-            "description": "public issue_history",
+            "description": "public issue_history\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -848,7 +848,7 @@
         "json": {
             "customProperties": {},
             "name": "SNOWFLAKE_TESTTABLE",
-            "description": "SNOWFLAKE_TESTTABLE",
+            "description": "SNOWFLAKE_TESTTABLE\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -896,7 +896,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query",
-            "description": "snowflake native-query",
+            "description": "snowflake native-query\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -944,7 +944,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query-with-join",
-            "description": "snowflake native-query-with-join",
+            "description": "snowflake native-query-with-join\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -992,7 +992,7 @@
         "json": {
             "customProperties": {},
             "name": "job-history",
-            "description": "job-history",
+            "description": "job-history\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -1040,7 +1040,7 @@
         "json": {
             "customProperties": {},
             "name": "postgres_test_table",
-            "description": "postgres_test_table",
+            "description": "postgres_test_table\n-----\nLibrary dataset description",
             "tags": []
         }
     },
@@ -1293,7 +1293,7 @@
         "json": {
             "customProperties": {},
             "title": "SalesMarketing",
-            "description": "Acryl sales marketing report",
+            "description": "SalesMarketing\n-----\nAcryl sales marketing report",
             "charts": [
                 "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection)",
                 "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection1)"
