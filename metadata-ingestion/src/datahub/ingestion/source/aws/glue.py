@@ -109,9 +109,7 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueSourceConfig(
-    AwsSourceConfig, GlueProfilingConfig, StatefulIngestionConfigBase
-):
+class GlueSourceConfig(AwsSourceConfig, StatefulIngestionConfigBase):
     extract_owners: Optional[bool] = Field(
         default=True,
         description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",
