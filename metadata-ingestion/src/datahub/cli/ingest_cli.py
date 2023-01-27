@@ -393,5 +393,5 @@ def rollback(
                     writer.writerow([row.get("urn")])
 
         except IOError as e:
-            print(e)
+            logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")
