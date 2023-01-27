@@ -144,9 +144,7 @@ assemble {
     dependsOn shadowJar
 }
 
-// Make Spark integration test use docker quickstart task to boot up a local
-// docker compose deployment of DataHub with locally built images
-task integrationTest(type: Exec, dependsOn: ':docker:quickstart') {
+task integrationTest(type: Exec ) {
   commandLine "spark-smoke-test/smoke.sh"
 }
 

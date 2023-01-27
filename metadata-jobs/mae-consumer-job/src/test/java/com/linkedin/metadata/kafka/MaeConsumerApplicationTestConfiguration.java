@@ -2,11 +2,12 @@ package com.linkedin.metadata.kafka;
 
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import io.ebean.EbeanServer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -32,8 +33,11 @@ public class MaeConsumerApplicationTestConfiguration {
   private EntityRegistry entityRegistry;
 
   @MockBean
-  private EntityRegistryFactory entityRegistryFactory;
+  private GraphService _graphService;
 
   @MockBean
-  private ConfigEntityRegistry configEntityRegistry;
+  private ElasticSearchSystemMetadataService _elasticSearchSystemMetadataService;
+
+  @MockBean
+  private ConfigEntityRegistry _configEntityRegistry;
 }
