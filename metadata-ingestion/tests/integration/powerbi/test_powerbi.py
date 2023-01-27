@@ -529,6 +529,7 @@ def default_source_config():
             "Oracle": "oracle",
         },
         "env": "DEV",
+        "extract_workspaces_to_containers": False,
     }
 
 
@@ -865,4 +866,44 @@ def test_admin_api_disabled(
         pytestconfig,
         output_path=f"{tmp_path}/powerbi_admin_api_disabled_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_workspace_container(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_workspaces_to_containers": True,
+                    "extract_reports": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_container_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    mce_out_file = "golden_test_container.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "powerbi_container_mces.json",
+        golden_path=f"{test_resources_dir}/{mce_out_file}",
     )

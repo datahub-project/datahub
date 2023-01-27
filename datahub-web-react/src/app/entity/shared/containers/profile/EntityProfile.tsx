@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
-import { getDataForEntityType, getEntityPath, getOnboardingStepIdsForEntityType, useRoutedTab } from './utils';
+import { getEntityPath, getOnboardingStepIdsForEntityType, useRoutedTab } from './utils';
 import {
     EntitySidebarSection,
     EntitySubHeaderSection,
@@ -30,11 +30,12 @@ import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
+import { useIsSeparateSiblingsMode } from '../../siblingUtils';
 import { EntityActionItem } from '../../entity/EntityActions';
 import { ErrorSection } from '../../../../shared/error/ErrorSection';
 import { EntityHead } from '../../../../shared/EntityHead';
 import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
+import useGetDataForProfile from './useGetDataForProfile';
 
 type Props<T, U> = {
     urn: string;
@@ -195,18 +196,8 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
-    const {
-        loading,
-        error,
-        data: dataNotCombinedWithSiblings,
-        refetch,
-    } = useEntityQuery({
-        variables: { urn },
-    });
-
-    const dataPossiblyCombinedWithSiblings = isHideSiblingMode
-        ? dataNotCombinedWithSiblings
-        : combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
+    const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
+        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -215,17 +206,6 @@ export const EntityProfile = <T, U>({
     if (maybeUpdateEntity) {
         [updateEntity] = maybeUpdateEntity;
     }
-
-    const entityData =
-        (dataPossiblyCombinedWithSiblings &&
-            Object.keys(dataPossiblyCombinedWithSiblings).length > 0 &&
-            getDataForEntityType({
-                data: dataPossiblyCombinedWithSiblings[Object.keys(dataPossiblyCombinedWithSiblings)[0]],
-                entityType,
-                getOverrideProperties,
-                isHideSiblingMode,
-            })) ||
-        null;
 
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
@@ -245,7 +225,15 @@ export const EntityProfile = <T, U>({
             },
         })) || [];
 
-    const routedTab = useRoutedTab([...tabsWithDefaults, ...autoRenderTabs]);
+    const visibleTabs = [...tabsWithDefaults, ...autoRenderTabs].filter((tab) =>
+        tab.display?.visible(entityData, dataPossiblyCombinedWithSiblings),
+    );
+
+    const enabledAndVisibleTabs = visibleTabs.filter((tab) =>
+        tab.display?.enabled(entityData, dataPossiblyCombinedWithSiblings),
+    );
+
+    const routedTab = useRoutedTab(enabledAndVisibleTabs);
 
     if (isCompact) {
         return (
@@ -254,6 +242,7 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
+                    loading,
                     baseEntity: dataPossiblyCombinedWithSiblings,
                     dataNotCombinedWithSiblings,
                     updateEntity,
@@ -291,6 +280,7 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
+                loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,
                 updateEntity,
@@ -344,10 +334,7 @@ export const EntityProfile = <T, U>({
                                                 subHeader={subHeader}
                                                 refreshBrowser={refreshBrowser}
                                             />
-                                            <EntityTabs
-                                                tabs={[...tabsWithDefaults, ...autoRenderTabs]}
-                                                selectedTab={routedTab}
-                                            />
+                                            <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
                                         </Header>
                                         <TabContent>
                                             {routedTab && <routedTab.component properties={routedTab.properties} />}

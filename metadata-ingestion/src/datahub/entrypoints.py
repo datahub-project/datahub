@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 import sys
+from typing import Optional
 
 import click
 import stackprinter
@@ -25,21 +26,11 @@ from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.telemetry import telemetry
+from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
 
 logger = logging.getLogger(__name__)
-
-# Configure some loggers.
-logging.getLogger("urllib3").setLevel(logging.ERROR)
-logging.getLogger("snowflake").setLevel(level=logging.WARNING)
-# logging.getLogger("botocore").setLevel(logging.INFO)
-# logging.getLogger("google").setLevel(logging.INFO)
-
-# Configure logger.
-BASE_LOGGING_FORMAT = (
-    "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
-)
-logging.basicConfig(format=BASE_LOGGING_FORMAT)
+_logging_configured = None
 
 MAX_CONTENT_WIDTH = 120
 
@@ -56,6 +47,12 @@ MAX_CONTENT_WIDTH = 120
     type=bool,
     is_flag=True,
     default=False,
+    help="Enable debug logging.",
+)
+@click.option(
+    "--log-file",
+    type=click.Path(dir_okay=False),
+    default=None,
     help="Enable debug logging.",
 )
 @click.option(
@@ -79,35 +76,31 @@ MAX_CONTENT_WIDTH = 120
 )
 @click.pass_context
 def datahub(
-    ctx: click.Context, debug: bool, debug_vars: bool, detect_memory_leaks: bool
+    ctx: click.Context,
+    debug: bool,
+    log_file: Optional[str],
+    debug_vars: bool,
+    detect_memory_leaks: bool,
 ) -> None:
     if debug_vars:
+        # debug_vars implies debug. This option isn't actually used here, but instead
+        # read directly from the command line arguments in the main entrypoint.
         debug = True
 
-    # Insulate 'datahub' and all child loggers from inadvertent changes to the
-    # root logger by the external site packages that we import.
-    # (Eg: https://github.com/reata/sqllineage/commit/2df027c77ea0a8ea4909e471dcd1ecbf4b8aeb2f#diff-30685ea717322cd1e79c33ed8d37903eea388e1750aa00833c33c0c5b89448b3R11
-    #  changes the root logger's handler level to WARNING, causing any message below
-    #  WARNING level to be dropped  after this module is imported, irrespective
-    #  of the logger's logging level! The lookml source was affected by this).
+    debug = debug or get_boolean_env_variable("DATAHUB_DEBUG", False)
 
-    # 1. Create 'datahub' parent logger.
-    datahub_logger = logging.getLogger("datahub")
-    # 2. Setup the stream handler with formatter.
-    stream_handler = logging.StreamHandler()
-    formatter = logging.Formatter(BASE_LOGGING_FORMAT)
-    stream_handler.setFormatter(formatter)
-    datahub_logger.addHandler(stream_handler)
-    # 3. Turn off propagation to the root handler.
-    datahub_logger.propagate = False
-    # 4. Adjust log-levels.
-    if debug or get_boolean_env_variable("DATAHUB_DEBUG", False):
-        logging.getLogger().setLevel(logging.INFO)
-        datahub_logger.setLevel(logging.DEBUG)
-        logging.getLogger("datahub_classify").setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.WARNING)
-        datahub_logger.setLevel(logging.INFO)
+    # Note that we're purposely leaking the context manager here.
+    # Technically we should wrap this with ctx.with_resource(). However, we have
+    # some important error logging in the main() wrapper function that we don't
+    # want to miss. If we wrap this with ctx.with_resource(), then click would
+    # clean it up before those error handlers are processed.
+    # So why is this ok? Because we're leaking a context manager, this will
+    # still get cleaned up automatically when the memory is reclaimed, which is
+    # worse-case at program exit.
+    global _logging_configured
+    _logging_configured = None  # see if we can force python to GC this
+    _logging_configured = configure_logging(debug=debug, log_file=log_file)
+    _logging_configured.__enter__()
 
     # Setup the context for the memory_leak_detector decorator.
     ctx.ensure_object(dict)
@@ -232,16 +225,3 @@ def main(**kwargs):
         )
         logger.debug(f"GMS config {get_gms_config()}")
         sys.exit(1)
-
-
-def _get_pretty_chained_message(exc: Exception) -> str:
-    pretty_msg = f"{exc.__class__.__name__} {exc}"
-    tmp_exc = exc.__cause__
-    indent = "\n\t\t"
-    while tmp_exc:
-        pretty_msg = (
-            f"{pretty_msg} due to {indent}{tmp_exc.__class__.__name__}{tmp_exc}"
-        )
-        tmp_exc = tmp_exc.__cause__
-        indent += "\t"
-    return pretty_msg

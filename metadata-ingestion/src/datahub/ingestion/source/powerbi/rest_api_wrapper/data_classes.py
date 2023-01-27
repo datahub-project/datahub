@@ -2,6 +2,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from datahub.emitter.mcp_builder import PlatformKey
+
+
+class WorkspaceKey(PlatformKey):
+    workspace: str
+
 
 @dataclass
 class Workspace:
@@ -16,6 +22,15 @@ class Workspace:
     datasets: Dict[str, "PowerBIDataset"]
     report_endorsements: Dict[str, List[str]]
     dashboard_endorsements: Dict[str, List[str]]
+
+    def get_urn_part(self):
+        return self.name
+
+    def get_workspace_key(self, platform_name: str) -> PlatformKey:
+        return WorkspaceKey(
+            workspace=self.get_urn_part(),
+            platform=platform_name,
+        )
 
 
 @dataclass

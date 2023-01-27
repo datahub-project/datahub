@@ -403,7 +403,7 @@ describe('constructTree', () => {
                     urn: dataJob1.urn,
                     children: [],
                     countercurrentChildrenUrns: [],
-                    icon: '',
+                    icon: undefined,
                     status: null,
                     platform: airflowPlatform,
                     subtype: undefined,

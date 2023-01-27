@@ -257,7 +257,7 @@ export const ManagePolicies = () => {
                     entityType: EntityType.DatahubPolicy,
                 });
                 message.success('Successfully removed policy.');
-                setTimeout(function () {
+                setTimeout(() => {
                     policiesRefetch();
                 }, 3000);
                 onCancelViewPolicy();
@@ -283,7 +283,7 @@ export const ManagePolicies = () => {
             },
         });
         message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
-        setTimeout(function () {
+        setTimeout(() => {
             policiesRefetch();
         }, 3000);
         setShowViewPolicyModal(false);
@@ -306,7 +306,7 @@ export const ManagePolicies = () => {
             });
         }
         message.success('Successfully saved policy.');
-        setTimeout(function () {
+        setTimeout(() => {
             policiesRefetch();
         }, 3000);
         onClosePolicyBuilder();
