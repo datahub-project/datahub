@@ -21,7 +21,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 logger = logging.getLogger(__name__)
 
 
-class DataFetcherBase:
+class DataResolverBase:
     SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
     BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/groups"
     ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
@@ -39,7 +39,7 @@ class DataFetcherBase:
         self.__msal_client = msal.ConfidentialClientApplication(
             client_id,
             client_credential=client_secret,
-            authority=DataFetcherBase.AUTHORITY + tenant_id,
+            authority=DataResolverBase.AUTHORITY + tenant_id,
         )
 
         # Test connection by generating access token
@@ -55,7 +55,7 @@ class DataFetcherBase:
         logger.info("Generating PowerBi access token")
 
         auth_response = self.__msal_client.acquire_token_for_client(
-            scopes=[DataFetcherBase.SCOPE]
+            scopes=[DataResolverBase.SCOPE]
         )
 
         if not auth_response.get("access_token"):
@@ -75,10 +75,10 @@ class DataFetcherBase:
         return self.__access_token
 
     def __get_authority_url(self):
-        return "{}{}".format(DataFetcherBase.AUTHORITY, self.__tenant_id)
+        return "{}{}".format(DataResolverBase.AUTHORITY, self.__tenant_id)
 
 
-class RegularFetcher(DataFetcherBase):
+class RegularAPIResolver(DataResolverBase):
     # Regular access endpoints
     API_ENDPOINTS = {
         Constant.DASHBOARD_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards",
@@ -100,10 +100,10 @@ class RegularFetcher(DataFetcherBase):
             logger.info(f"{Constant.ReportId}={report_id}")
             return None
 
-        report_get_endpoint: str = RegularFetcher.API_ENDPOINTS[Constant.REPORT_GET]
+        report_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.REPORT_GET]
         # Replace place holders
         report_get_endpoint = report_get_endpoint.format(
-            POWERBI_BASE_URL=DataFetcherBase.BASE_URL,
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
             WORKSPACE_ID=workspace_id,
             REPORT_ID=report_id,
         )
@@ -145,12 +145,12 @@ class RegularFetcher(DataFetcherBase):
         TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get
         -dashboards), there is no information available on pagination
         """
-        dashboard_list_endpoint: str = RegularFetcher.API_ENDPOINTS[
+        dashboard_list_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
             Constant.DASHBOARD_LIST
         ]
         # Replace place holders
         dashboard_list_endpoint = dashboard_list_endpoint.format(
-            POWERBI_BASE_URL=DataFetcherBase.BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
         )
         # Hit PowerBi
         logger.info(f"Request to URL={dashboard_list_endpoint}")
@@ -199,10 +199,12 @@ class RegularFetcher(DataFetcherBase):
             logger.info(f"{Constant.DatasetId}={dataset_id}")
             return None
 
-        dataset_get_endpoint: str = RegularFetcher.API_ENDPOINTS[Constant.DATASET_GET]
+        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.DATASET_GET
+        ]
         # Replace place holders
         dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=DataFetcherBase.BASE_URL,
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
             WORKSPACE_ID=workspace_id,
             DATASET_ID=dataset_id,
         )
@@ -287,10 +289,10 @@ class RegularFetcher(DataFetcherBase):
 
             return report_fields
 
-        tile_list_endpoint: str = RegularFetcher.API_ENDPOINTS[Constant.TILE_LIST]
+        tile_list_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.TILE_LIST]
         # Replace place holders
         tile_list_endpoint = tile_list_endpoint.format(
-            POWERBI_BASE_URL=DataFetcherBase.BASE_URL,
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
             WORKSPACE_ID=dashboard.workspace_id,
             DASHBOARD_ID=dashboard.id,
         )
@@ -325,7 +327,7 @@ class RegularFetcher(DataFetcherBase):
         return tiles
 
     def get_groups(self):
-        group_endpoint = DataFetcherBase.BASE_URL
+        group_endpoint = DataResolverBase.BASE_URL
         # Hit PowerBi
         logger.info(f"Request to get groups endpoint URL={group_endpoint}")
         response = requests.get(
@@ -336,10 +338,10 @@ class RegularFetcher(DataFetcherBase):
         return response.json()
 
     def _get_pages_by_report(self, workspace_id: str, report_id: str) -> List[Page]:
-        pages_endpoint: str = RegularFetcher.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
+        pages_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
-            POWERBI_BASE_URL=DataFetcherBase.BASE_URL,
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
             WORKSPACE_ID=workspace_id,
             REPORT_ID=report_id,
         )
@@ -370,10 +372,12 @@ class RegularFetcher(DataFetcherBase):
 
     def get_reports(self, workspace: Workspace) -> List[Report]:
 
-        report_list_endpoint: str = RegularFetcher.API_ENDPOINTS[Constant.REPORT_LIST]
+        report_list_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.REPORT_LIST
+        ]
         # Replace place holders
         report_list_endpoint = report_list_endpoint.format(
-            POWERBI_BASE_URL=DataFetcherBase.BASE_URL,
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
             WORKSPACE_ID=workspace.id,
         )
         # Hit PowerBi
@@ -411,7 +415,7 @@ class RegularFetcher(DataFetcherBase):
         return reports
 
 
-class AdminFetcher(DataFetcherBase):
+class AdminAPIResolver(DataResolverBase):
     # Admin access endpoints
     API_ENDPOINTS = {
         Constant.SCAN_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanStatus/{SCAN_ID}",
@@ -426,9 +430,9 @@ class AdminFetcher(DataFetcherBase):
         """
         request_body = {"workspaces": [workspace_id]}
 
-        scan_create_endpoint = AdminFetcher.API_ENDPOINTS[Constant.SCAN_CREATE]
+        scan_create_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_CREATE]
         scan_create_endpoint = scan_create_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataFetcherBase.ADMIN_BASE_URL
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL
         )
 
         logger.debug("Creating metadata scan job, request body (%s)", request_body)
@@ -475,12 +479,12 @@ class AdminFetcher(DataFetcherBase):
         Poll the PowerBi service for workspace scan to complete
         """
         minimum_sleep = 3
-        max_trial: int = AdminFetcher._calculate_max_trial(minimum_sleep, timeout)
+        max_trial: int = AdminAPIResolver._calculate_max_trial(minimum_sleep, timeout)
         logger.info(f"Max trial {max_trial}")
 
-        scan_get_endpoint = AdminFetcher.API_ENDPOINTS[Constant.SCAN_GET]
+        scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
         scan_get_endpoint = scan_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataFetcherBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
         )
         logger.debug(f"Hitting URL={scan_get_endpoint}")
         trail = 1
@@ -514,10 +518,12 @@ class AdminFetcher(DataFetcherBase):
         Get user for the given PowerBi entity
         """
 
-        user_list_endpoint: str = AdminFetcher.API_ENDPOINTS[Constant.ENTITY_USER_LIST]
+        user_list_endpoint: str = AdminAPIResolver.API_ENDPOINTS[
+            Constant.ENTITY_USER_LIST
+        ]
         # Replace place holders
         user_list_endpoint = user_list_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataFetcherBase.ADMIN_BASE_URL,
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
             ENTITY=entity,
             ENTITY_ID=entity_id,
         )
@@ -560,9 +566,11 @@ class AdminFetcher(DataFetcherBase):
     def get_scan_result(self, scan_id: str) -> dict:
         logger.info("Fetching scan result")
         logger.info(f"{Constant.SCAN_ID}={scan_id}")
-        scan_result_get_endpoint = AdminFetcher.API_ENDPOINTS[Constant.SCAN_RESULT_GET]
+        scan_result_get_endpoint = AdminAPIResolver.API_ENDPOINTS[
+            Constant.SCAN_RESULT_GET
+        ]
         scan_result_get_endpoint = scan_result_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataFetcherBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
         )
 
         logger.debug(f"Hitting URL={scan_result_get_endpoint}")

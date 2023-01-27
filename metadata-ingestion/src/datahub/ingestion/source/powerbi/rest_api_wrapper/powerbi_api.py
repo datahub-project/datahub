@@ -15,9 +15,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     User,
     Workspace,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_fetcher import (
-    AdminFetcher,
-    RegularFetcher,
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
+    AdminAPIResolver,
+    RegularAPIResolver,
 )
 
 # Logger instance
@@ -28,13 +28,13 @@ class PowerBiAPI:
     def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
         self.__config: PowerBiDashboardSourceConfig = config
 
-        self.__regular_fetcher = RegularFetcher(
+        self.__regular_api_resolver = RegularAPIResolver(
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
         )
 
-        self.__admin_fetcher = AdminFetcher(
+        self.__admin_api_resolver = AdminAPIResolver(
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
@@ -86,7 +86,7 @@ class PowerBiAPI:
             )
             return []
 
-        return self.__admin_fetcher.get_users(
+        return self.__admin_api_resolver.get_users(
             workspace_id=dashboard.workspace_id,
             entity="dashboards",
             entity_id=dashboard.id,
@@ -100,7 +100,7 @@ class PowerBiAPI:
             logger.info("workspace is None")
             return []
 
-        reports: List[Report] = self.__regular_fetcher.get_reports(workspace)
+        reports: List[Report] = self.__regular_api_resolver.get_reports(workspace)
 
         def fill_ownership() -> None:
             if self.__config.extract_ownership is False:
@@ -110,7 +110,7 @@ class PowerBiAPI:
                 return
 
             for report in reports:
-                report.users = self.__admin_fetcher.get_users(
+                report.users = self.__admin_api_resolver.get_users(
                     workspace_id=workspace.id,
                     entity="reports",
                     entity_id=report.id,
@@ -132,7 +132,7 @@ class PowerBiAPI:
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
-        groups = self.__regular_fetcher.get_groups()
+        groups = self.__regular_api_resolver.get_groups()
         workspaces = [
             Workspace(
                 id=workspace.get("id"),
@@ -149,10 +149,10 @@ class PowerBiAPI:
         return workspaces
 
     def _get_scan_result(self, workspace: Workspace) -> Any:
-        scan_id = self.__admin_fetcher.create_scan_job(workspace_id=workspace.id)
+        scan_id = self.__admin_api_resolver.create_scan_job(workspace_id=workspace.id)
         logger.info("Waiting for scan to complete")
         if (
-            self.__admin_fetcher.wait_for_scan_to_complete(
+            self.__admin_api_resolver.wait_for_scan_to_complete(
                 scan_id=scan_id, timeout=self.__config.scan_timeout
             )
             is False
@@ -162,7 +162,7 @@ class PowerBiAPI:
             )
 
         # Scan is complete lets take the result
-        scan_result = self.__admin_fetcher.get_scan_result(scan_id=scan_id)
+        scan_result = self.__admin_api_resolver.get_scan_result(scan_id=scan_id)
         logger.debug(f"scan result = %s", json.dumps(scan_result, indent=1))
 
         return scan_result
@@ -194,7 +194,7 @@ class PowerBiAPI:
             return dataset_map
 
         for dataset_dict in datasets:
-            dataset_instance: PowerBIDataset = self.__regular_fetcher.get_dataset(
+            dataset_instance: PowerBIDataset = self.__regular_api_resolver.get_dataset(
                 workspace_id=scan_result["id"],
                 dataset_id=dataset_dict["id"],
             )
@@ -253,10 +253,10 @@ class PowerBiAPI:
 
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = self.__regular_fetcher.get_dashboards(workspace)
+            workspace.dashboards = self.__regular_api_resolver.get_dashboards(workspace)
             # set tiles of Dashboard
             for dashboard in workspace.dashboards:
-                dashboard.tiles = self.__regular_fetcher.get_tiles(
+                dashboard.tiles = self.__regular_api_resolver.get_tiles(
                     workspace, dashboard=dashboard
                 )
 
