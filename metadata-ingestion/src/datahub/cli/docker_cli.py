@@ -870,12 +870,12 @@ def download_compose_files(
             f"{DOCKER_COMPOSE_BASE}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
         )
 
-        default_consumer_compose_file = (
-            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
+        default_kafka_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
         )
         with open(
-            default_consumer_compose_file, "wb"
-        ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
+                default_kafka_compose_file, "wb"
+        ) if default_kafka_compose_file else tempfile.NamedTemporaryFile(
             suffix=".yml", delete=False
         ) as tmp_file:
             path = pathlib.Path(tmp_file.name)

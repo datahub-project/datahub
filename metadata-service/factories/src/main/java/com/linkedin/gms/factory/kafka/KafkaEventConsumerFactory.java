@@ -24,7 +24,7 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
-@Import({ConfigurationProvider.class, KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class, InternalSchemaRegistryFactory.class})
+@Import({KafkaSchemaRegistryFactory.class, AwsGlueSchemaRegistryFactory.class, InternalSchemaRegistryFactory.class})
 public class KafkaEventConsumerFactory {
 
   @Bean(name = "kafkaEventConsumerConcurrency")

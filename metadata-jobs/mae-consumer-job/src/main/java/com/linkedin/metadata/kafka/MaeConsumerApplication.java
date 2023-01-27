@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.solr.SolrHealthContributorAutoConfiguration;
@@ -12,11 +13,13 @@ import org.springframework.context.annotation.FilterType;
 
 @SuppressWarnings("checkstyle:HideUtilityClassConstructor")
 @SpringBootApplication(exclude = {ElasticsearchRestClientAutoConfiguration.class, CassandraAutoConfiguration.class,
-    SolrHealthContributorAutoConfiguration.class})
-@ComponentScan(excludeFilters = {
-    @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = ScheduledAnalyticsFactory.class)})
+        SolrHealthContributorAutoConfiguration.class})
+@ComponentScan(basePackages = {"com.linkedin.metadata.kafka", "com.linkedin.gms.factory.config",
+    "com.linkedin.gms.factory.common"},
+    excludeFilters = {@ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = ScheduledAnalyticsFactory.class),
+        @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = SiblingGraphServiceFactory.class)}
+)
 public class MaeConsumerApplication {
-
   public static void main(String[] args) {
     Class<?>[] primarySources = {MaeConsumerApplication.class, MclConsumerConfig.class};
     SpringApplication.run(primarySources, args);
