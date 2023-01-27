@@ -45,7 +45,6 @@ class BigQueryV2Report(ProfilingSqlReport):
     include_table_lineage: Optional[bool] = None
     use_date_sharded_audit_log_tables: Optional[bool] = None
     log_page_size: Optional[pydantic.PositiveInt] = None
-    use_v2_audit_metadata: Optional[bool] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = None
     end_time: Optional[datetime] = None
     log_entry_start_time: Optional[str] = None

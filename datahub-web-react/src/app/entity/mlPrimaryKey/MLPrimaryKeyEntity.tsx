@@ -10,7 +10,7 @@ import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';

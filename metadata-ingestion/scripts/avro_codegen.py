@@ -2,16 +2,68 @@ import json
 import types
 import unittest.mock
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import avro.schema
 import click
+import pydantic
+import yaml
 from avrogen import write_schema_files
+
+ENTITY_CATEGORY_UNSET = "_unset_"
+
+
+class EntityType(pydantic.BaseModel):
+    name: str
+    doc: Optional[str] = None
+    category: str = ENTITY_CATEGORY_UNSET
+
+    keyAspect: str
+    aspects: List[str]
+
+
+def load_entity_registry(entity_registry_file: Path) -> List[EntityType]:
+    with entity_registry_file.open() as f:
+        raw_entity_registry = yaml.safe_load(f)
+
+    entities = pydantic.parse_obj_as(List[EntityType], raw_entity_registry["entities"])
+    return entities
 
 
 def load_schema_file(schema_file: Union[str, Path]) -> dict:
     raw_schema_text = Path(schema_file).read_text()
     return json.loads(raw_schema_text)
+
+
+def load_schemas(schemas_path: str) -> Dict[str, dict]:
+    required_schema_files = {
+        "mxe/MetadataChangeEvent.avsc",
+        "mxe/MetadataChangeProposal.avsc",
+        "usage/UsageAggregation.avsc",
+        "mxe/MetadataChangeLog.avsc",
+        "mxe/PlatformEvent.avsc",
+        "platform/event/v1/EntityChangeEvent.avsc",
+        "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
+    }
+
+    # Find all the aspect schemas / other important schemas.
+    schema_files: List[Path] = []
+    for schema_file in Path(schemas_path).glob("**/*.avsc"):
+        relative_path = schema_file.relative_to(schemas_path).as_posix()
+        if relative_path in required_schema_files:
+            schema_files.append(schema_file)
+            required_schema_files.remove(relative_path)
+        elif load_schema_file(schema_file).get("Aspect"):
+            schema_files.append(schema_file)
+
+    assert not required_schema_files, f"Schema files not found: {required_schema_files}"
+
+    schemas: Dict[str, dict] = {}
+    for schema_file in schema_files:
+        schema = load_schema_file(schema_file)
+        schemas[Path(schema_file).stem] = schema
+
+    return schemas
 
 
 def merge_schemas(schemas_obj: List[Any]) -> str:
@@ -127,6 +179,7 @@ def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
 class _Aspect(DictWrapper):
     ASPECT_NAME: str = None  # type: ignore
     ASPECT_TYPE: str = "default"
+    ASPECT_INFO: dict = None  # type: ignore
 
     def __init__(self):
         if type(self) is _Aspect:
@@ -140,6 +193,10 @@ class _Aspect(DictWrapper):
     @classmethod
     def get_aspect_type(cls) -> str:
         return cls.ASPECT_TYPE
+
+    @classmethod
+    def get_aspect_info(cls) -> dict:
+        return cls.ASPECT_INFO
 """
 
     for aspect in aspects:
@@ -168,6 +225,9 @@ class _Aspect(DictWrapper):
             schema_classes_lines[
                 empty_line
             ] += f"\n    ASPECT_TYPE = '{aspect['Aspect']['type']}'"
+        schema_classes_lines[empty_line] += f"\n    ASPECT_INFO = {aspect['Aspect']}"
+
+        schema_classes_lines[empty_line + 1] += "\n"
 
     # Finally, generate a big list of all available aspects.
     newline = "\n"
@@ -178,6 +238,10 @@ from typing import Type
 ASPECT_CLASSES: List[Type[_Aspect]] = [
     {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
+
+KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
+    {f',{newline}    '.join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect['Aspect'].get('keyForEntity'))}
+}}
 """
     )
 
@@ -186,48 +250,56 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
 
 @click.command()
 @click.argument(
+    "entity_registry", type=click.Path(exists=True, dir_okay=False), required=True
+)
+@click.argument(
     "schemas_path", type=click.Path(exists=True, file_okay=False), required=True
 )
 @click.argument("outdir", type=click.Path(), required=True)
-def generate(schemas_path: str, outdir: str) -> None:
-    required_schema_files = {
-        "mxe/MetadataChangeEvent.avsc",
-        "mxe/MetadataChangeProposal.avsc",
-        "usage/UsageAggregation.avsc",
-        "mxe/MetadataChangeLog.avsc",
-        "mxe/PlatformEvent.avsc",
-        "platform/event/v1/EntityChangeEvent.avsc",
-        "metadata/query/filter/Filter.avsc",  # temporarily added to test reserved keywords support
+def generate(entity_registry: str, schemas_path: str, outdir: str) -> None:
+    entities = load_entity_registry(Path(entity_registry))
+    schemas = load_schemas(schemas_path)
+
+    # Special handling for aspects.
+    aspects = {
+        schema["Aspect"]["name"]: schema
+        for schema in schemas.values()
+        if schema.get("Aspect")
     }
 
-    # Find all the aspect schemas / other important schemas.
-    aspect_file_stems: List[str] = []
-    schema_files: List[Path] = []
-    for schema_file in Path(schemas_path).glob("**/*.avsc"):
-        relative_path = schema_file.relative_to(schemas_path).as_posix()
-        if relative_path in required_schema_files:
-            schema_files.append(schema_file)
-            required_schema_files.remove(relative_path)
-        elif load_schema_file(schema_file).get("Aspect"):
-            aspect_file_stems.append(schema_file.stem)
-            schema_files.append(schema_file)
+    for entity in entities:
+        # This implicitly requires that all keyAspects are resolvable.
+        aspect = aspects[entity.keyAspect]
 
-    assert not required_schema_files, f"Schema files not found: {required_schema_files}"
+        # This requires that entities cannot share a keyAspect.
+        if (
+            "keyForEntity" in aspect["Aspect"]
+            and aspect["Aspect"]["keyForEntity"] != entity.name
+        ):
+            raise ValueError(
+                f'Entity key {entity.keyAspect} is used by {aspect["Aspect"]["keyForEntity"]} and {entity.name}'
+            )
 
-    schemas: Dict[str, dict] = {}
-    for schema_file in schema_files:
-        schema = load_schema_file(schema_file)
-        schemas[Path(schema_file).stem] = schema
+        aspect["Aspect"]["keyForEntity"] = entity.name
+        aspect["Aspect"]["entityCategory"] = entity.category
+        aspect["Aspect"]["entityAspects"] = entity.aspects
+        if entity.doc is not None:
+            aspect["Aspect"]["entityDoc"] = entity.doc
+
+    # Check for unused aspects. We currently have quite a few.
+    # unused_aspects = set(aspects.keys()) - set().union(
+    #    {entity.keyAspect for entity in entities},
+    #    *(set(entity.aspects) for entity in entities),
+    # )
 
     merged_schema = merge_schemas(list(schemas.values()))
-
     write_schema_files(merged_schema, outdir)
 
     # Schema files post-processing.
     (Path(outdir) / "__init__.py").write_text("# This file is intentionally empty.\n")
     add_avro_python3_warning(Path(outdir) / "schema_classes.py")
     annotate_aspects(
-        [schemas[aspect_file_stem] for aspect_file_stem in aspect_file_stems],
+        list(aspects.values()),
         Path(outdir) / "schema_classes.py",
     )
 

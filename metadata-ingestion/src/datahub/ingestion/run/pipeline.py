@@ -506,7 +506,7 @@ class Pipeline:
         click.echo(self.sink.get_report().as_string())
         click.echo()
         workunits_produced = self.source.get_report().events_produced
-        duration_message = f"in {Report.to_str(self.source.get_report().running_time)}."
+        duration_message = f"in {humanfriendly.format_timespan(self.source.get_report().running_time)}."
 
         if self.source.get_report().failures or self.sink.get_report().failures:
             num_failures_source = self._approx_all_vals(

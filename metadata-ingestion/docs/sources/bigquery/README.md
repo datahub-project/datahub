@@ -1,1 +1,1 @@
-Ingesting metadata from Bigquery requires either using the **bigquery** module with just one recipe (recommended) or the two separate modules **bigquery-legacy** and **bigquery-usage-legacy** (soon to be deprecated) with two separate recipes.
+Ingesting metadata from Bigquery requires using the **bigquery** module.

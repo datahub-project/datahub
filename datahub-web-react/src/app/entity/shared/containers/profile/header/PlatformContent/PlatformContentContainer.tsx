@@ -15,19 +15,18 @@ export function getDisplayedEntityType(
     entityRegistry: EntityRegistry,
     entityType: EntityType,
 ) {
-    const entityTypeCased =
-        (entityData?.subTypes?.typeNames?.length && capitalizeFirstLetterOnly(entityData?.subTypes.typeNames[0])) ||
-        entityRegistry.getEntityName(entityType);
-    return entityData?.entityTypeOverride || entityTypeCased || '';
+    return (
+        entityData?.entityTypeOverride ||
+        capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) ||
+        entityRegistry.getEntityName(entityType) ||
+        ''
+    );
 }
 
 function PlatformContentContainer() {
     const { entityType, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
-
-    const basePlatformName = getPlatformName(entityData);
-    const platformName = capitalizeFirstLetterOnly(basePlatformName);
-
+    const platformName = getPlatformName(entityData);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
@@ -41,7 +40,7 @@ function PlatformContentContainer() {
             platformName={platformName}
             platformLogoUrl={platformLogoUrl}
             platformNames={entityData?.siblingPlatforms?.map(
-                (platform) => platform.properties?.displayName || platform.name,
+                (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
             )}
             platformLogoUrls={entityData?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
             entityLogoComponent={entityLogoComponent}

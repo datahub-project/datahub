@@ -7254,9 +7254,9 @@ Input for updating the parent node of a resource. Currently only GlossaryNodes a
 """
 input UpdateParentNodeInput {
     """
-    The new parent node urn
+    The new parent node urn. If parentNode is null, this will remove the parent from this entity
     """
-    parentNode: String!
+    parentNode: String
 
     """
     The primary key of the resource to update the parent node for

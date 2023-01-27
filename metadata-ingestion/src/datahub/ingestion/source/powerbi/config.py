@@ -45,6 +45,7 @@ class Constant:
     CORP_USER_INFO = "corpUserInfo"
     CORP_USER_KEY = "corpUserKey"
     CHART_INFO = "chartInfo"
+    GLOBAL_TAGS = "globalTags"
     STATUS = "status"
     CHART_ID = "powerbi.linkedin.com/charts/{}"
     CHART_KEY = "chartKey"
@@ -138,6 +139,16 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
         default=True, description="Whether lineage should be ingested"
+    )
+    # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
+    # any existing tags defined to those entitiies
+    extract_endorsements_to_tags: bool = pydantic.Field(
+        default=False,
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags",
+    )
+    # Enable/Disable extracting workspace information to DataHub containers
+    extract_workspaces_to_containers: bool = pydantic.Field(
+        default=True, description="Extract workspaces to DataHub containers"
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
