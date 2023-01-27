@@ -1212,7 +1212,6 @@ export const dataJob1 = {
     jobId: 'jobId1',
     lastIngested: null,
     exists: true,
-    exists: true,
     ownership: {
         __typename: 'Ownership',
         owners: [
