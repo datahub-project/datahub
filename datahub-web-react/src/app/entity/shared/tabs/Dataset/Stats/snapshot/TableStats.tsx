@@ -1,5 +1,5 @@
 import { Tooltip, Typography } from 'antd';
-import React, { useMemo } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import { CorpUser, Maybe, UserUsageCounts } from '../../../../../../../types.generated';
 import { InfoItem } from '../../../../components/styled/InfoItem';
@@ -50,7 +50,7 @@ export default function TableStats({
     ) {
         return null;
     }
-    const sortedUsers = useMemo(() => users?.slice().sort((a, b) => (b?.count || 0) - (a?.count || 0)), [users]);
+    const sortedUsers = users?.slice().sort((a, b) => (b?.count || 0) - (a?.count || 0));
     return (
         <StatSection>
             <Typography.Title level={5}>Table Stats</Typography.Title>
