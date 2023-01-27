@@ -491,8 +491,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
         description, properties, location_urn = self.get_projection_properties(
             inspector, schema, projection
         )
@@ -718,8 +716,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("model", dataset_urn)
         description, properties, location = self.get_model_properties(
             inspector, schema, table
         )
@@ -904,8 +900,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("oauth", dataset_urn)
         description, properties, location_urn = self.get_oauth_properties(
             inspector, schema, oauth
         )

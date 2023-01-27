@@ -97,6 +97,10 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -943,6 +947,12 @@ class GlueSource(StatefulIngestionSourceBase):
                 yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         database_seen = set()
         databases, tables = self.get_all_tables_and_databases()
 
@@ -988,9 +998,6 @@ class GlueSource(StatefulIngestionSourceBase):
             yield from self.add_table_to_database_container(
                 dataset_urn=dataset_urn, db_name=database_name
             )
-
-            # Add table to the checkpoint state.
-            self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
 
             mcp = self.get_lineage_if_enabled(mce)
             if mcp:
