@@ -567,7 +567,7 @@ class Mapper:
             # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
             chart_info_instance = ChartInfoClass(
-                title=page.name or "",
+                title=page.displayName or "",
                 description=page.displayName or "",
                 lastModified=ChangeAuditStamps(),
                 inputs=ds_input,

@@ -66,7 +66,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       QueryContext context
   ) {
     final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
-    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
+    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
       try {
         GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
             targetUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, _entityService, null);
@@ -91,7 +91,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       QueryContext context
   ) {
     final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
-    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn)) {
+    if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
       try {
         GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
             targetUrn.toString(), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, _entityService, null);

@@ -10,7 +10,6 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useEntityData } from '../../EntityContext';
 import { getDescriptionFromType, getNameFromType } from '../../containers/profile/sidebar/Ownership/ownershipUtils';
-import { urlEncodeUrn } from '../../utils';
 
 type Props = {
     entityUrn?: string;
@@ -89,7 +88,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props)
 
     return (
         <OwnerTag onClose={onClose} closable={!!entityUrn}>
-            <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${urlEncodeUrn(owner.owner.urn)}`}>
+            <Link to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}`}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
                 {(hidePopOver && <>{name}</>) || (
                     <Popover

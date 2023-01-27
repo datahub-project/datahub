@@ -94,16 +94,15 @@ public class ReindexConfig {
                             },
                             (oldValue, newValue) -> newValue, TreeMap::new));
         }
-
-        public ReindexConfigBuilder version(String version) {
-            this.version = version;
-            return this;
-        }
     }
 
     /**
      * Implement calculated fields
      */
+    public String indexPattern() {
+        return name + "*";
+    }
+
     private static class CalculatedBuilder extends ReindexConfigBuilder {
         @Override
         public ReindexConfig build() {

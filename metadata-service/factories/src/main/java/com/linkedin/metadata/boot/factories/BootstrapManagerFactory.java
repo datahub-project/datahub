@@ -22,7 +22,7 @@ import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.UpgradeDefaultBrowsePathsStep;
-import com.linkedin.metadata.boot.steps.WaitForBuildIndicesStep;
+import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -70,8 +70,8 @@ public class BootstrapManagerFactory {
   private IngestRetentionPoliciesStep _ingestRetentionPoliciesStep;
 
   @Autowired
-  @Qualifier("buildIndicesKafkaListener")
-  private BootstrapDependency _buildIndicesKafkaListener;
+  @Qualifier("dataHubUpgradeKafkaListener")
+  private BootstrapDependency _dataHubUpgradeKafkaListener;
 
   @Autowired
   private ConfigurationProvider _configurationProvider;
@@ -99,10 +99,11 @@ public class BootstrapManagerFactory {
     final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices = new RestoreColumnLineageIndices(_entityService, _entityRegistry);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep = new IngestDefaultGlobalSettingsStep(_entityService);
-    final WaitForBuildIndicesStep waitForBuildIndicesStep = new WaitForBuildIndicesStep(_buildIndicesKafkaListener, _configurationProvider);
+    final WaitForSystemUpdateStep waitForSystemUpdateStep = new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener,
+        _configurationProvider);
 
     final List<BootstrapStep> finalSteps = new ArrayList<>(ImmutableList.of(
-            waitForBuildIndicesStep,
+            waitForSystemUpdateStep,
             ingestRootUserStep,
             ingestPoliciesStep,
             ingestRolesStep,

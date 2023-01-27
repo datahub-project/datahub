@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.buildindices;
+package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;

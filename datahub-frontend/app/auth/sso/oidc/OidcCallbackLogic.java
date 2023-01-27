@@ -154,7 +154,14 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
       final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.getId());
       return result
               .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
-              .withCookies(createActorCookie(corpUserUrn.toString(), oidcConfigs.getSessionTtlInHours()));
+              .withCookies(
+                  createActorCookie(
+                      corpUserUrn.toString(),
+                      oidcConfigs.getSessionTtlInHours(),
+                      oidcConfigs.getAuthCookieSameSite(),
+                      oidcConfigs.getAuthCookieSecure()
+                  )
+              );
     }
     return internalServerError(
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");

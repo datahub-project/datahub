@@ -46,7 +46,7 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
     final Urn parentNode = input.getParentNode() != null ? UrnUtils.getUrn(input.getParentNode()) : null;
 
     return CompletableFuture.supplyAsync(() -> {
-      if (GlossaryUtils.canManageChildrenEntities(context, parentNode)) {
+      if (GlossaryUtils.canManageChildrenEntities(context, parentNode, _entityClient)) {
         try {
           final GlossaryTermKey key = new GlossaryTermKey();
 

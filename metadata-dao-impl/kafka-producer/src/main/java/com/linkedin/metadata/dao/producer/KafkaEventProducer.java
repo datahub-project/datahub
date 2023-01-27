@@ -7,7 +7,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.mxe.BuildIndicesHistoryEvent;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -159,17 +159,17 @@ public class KafkaEventProducer implements EventProducer {
   }
 
   @Override
-  public void produceBuildIndicesHistoryEvent(@Nonnull BuildIndicesHistoryEvent event) {
+  public void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event) {
     GenericRecord record;
     try {
       log.debug(String.format("Converting Pegasus Event to Avro Event\nEvent: %s", event));
-      record = EventUtils.pegasusToAvroBIHE(event);
+      record = EventUtils.pegasusToAvroDUHE(event);
     } catch (IOException e) {
-      log.error(String.format("Failed to convert Pegasus Build Indices History Event to Avro: %s", event), e);
+      log.error(String.format("Failed to convert Pegasus DataHub Upgrade History Event to Avro: %s", event), e);
       throw new ModelConversionException("Failed to convert Pegasus Platform Event to Avro", e);
     }
 
-    final String topic = _topicConvention.getBuildIndicesHistoryTopicName();
+    final String topic = _topicConvention.getDataHubUpgradeHistoryTopicName();
     _producer.send(new ProducerRecord(topic, event.getVersion(), record), _kafkaHealthChecker
             .getKafkaCallBack("History Event", "Event Version: " + event.getVersion()));
   }

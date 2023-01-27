@@ -97,10 +97,6 @@ send() {
 }
 
 ## Produce the jobs to run.
-
-# Create build indices topic with infinite retention
-send "$BUILD_INDICES_HISTORY_TOPIC" "--config retention.ms=-1 --topic $BUILD_INDICES_HISTORY_TOPIC"
-
 send "$METADATA_AUDIT_EVENT_NAME" "--topic $METADATA_AUDIT_EVENT_NAME"
 send "$METADATA_CHANGE_EVENT_NAME" "--topic $METADATA_CHANGE_EVENT_NAME"
 send "$FAILED_METADATA_CHANGE_EVENT_NAME" "--topic $FAILED_METADATA_CHANGE_EVENT_NAME"
@@ -112,6 +108,8 @@ send "$METADATA_CHANGE_PROPOSAL_TOPIC" "--topic $METADATA_CHANGE_PROPOSAL_TOPIC"
 send "$FAILED_METADATA_CHANGE_PROPOSAL_TOPIC" "--topic $FAILED_METADATA_CHANGE_PROPOSAL_TOPIC"
 send "$PLATFORM_EVENT_TOPIC_NAME" "--topic $PLATFORM_EVENT_TOPIC_NAME"
 
+# Infinite retention upgrade topic
+send "$DATAHUB_UPGRADE_HISTORY_TOPIC" "config retention.ms=-1 --topic $DATAHUB_UPGRADE_HISTORY_TOPIC"
 # Create topic for datahub usage event
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
   send "$DATAHUB_USAGE_EVENT_NAME" "--topic $DATAHUB_USAGE_EVENT_NAME"

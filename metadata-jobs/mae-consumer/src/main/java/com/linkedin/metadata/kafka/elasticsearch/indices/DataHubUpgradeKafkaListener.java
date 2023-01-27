@@ -5,7 +5,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.mxe.BuildIndicesHistoryEvent;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.Topics;
 
 import java.util.Map;
@@ -28,21 +28,24 @@ import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Component;
 
-// We don't disable this on GMS since we want GMS to also wait until the indices are ready to read in case of
-// backwards incompatible query logic dependent on index updates.
-@Component("buildIndicesKafkaListener")
+// We don't disable this on GMS since we want GMS to also wait until the system is ready to read in case of
+// backwards incompatible query logic dependent on system updates.
+@Component("dataHubUpgradeKafkaListener")
 @RequiredArgsConstructor
 @Slf4j
 @EnableKafka
-public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDependency {
+public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, BootstrapDependency {
   @Autowired
   private KafkaListenerEndpointRegistry registry;
 
-  private static final String CONSUMER_GROUP = "${BUILD_INDICES_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-bihe-consumer-job-client}";
+  private static final String CONSUMER_GROUP = "${DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-duhe-consumer-job-client}";
   private static final String SUFFIX = "temp";
-  private static final String TOPIC_NAME = "${BUILD_INDICES_HISTORY_TOPIC_NAME:" + Topics.BUILD_INDICES_HISTORY_TOPIC_NAME + "}";
+  private static final String TOPIC_NAME = "${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME  + "}";
 
   private final DefaultKafkaConsumerFactory<String, GenericRecord> _defaultKafkaConsumerFactory;
+
+  @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")
+  private String revision;
   private final GitVersion _gitVersion;
   private final ConfigurationProvider _configurationProvider;
 
@@ -69,17 +72,18 @@ public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDe
   }
 
   @KafkaListener(id = CONSUMER_GROUP, topics = {TOPIC_NAME}, containerFactory = "kafkaEventConsumer")
-  public void checkIndexVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+  public void checkSystemVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
+    final String expectedVersion = String.format("%s-%s", _gitVersion.getVersion(), revision);
 
-    BuildIndicesHistoryEvent event;
+    DataHubUpgradeHistoryEvent event;
     try {
-      event = EventUtils.avroToPegasusBIHE(record);
-      log.info("Latest index update version: {}", event.getVersion());
-      if (_gitVersion.getVersion().equals(event.getVersion())) {
+      event = EventUtils.avroToPegasusDUHE(record);
+      log.info("Latest system update version: {}", event.getVersion());
+      if (expectedVersion.equals(event.getVersion())) {
         isUpdated.getAndSet(true);
       } else {
-        log.debug("Index version is not up to date: {}", _gitVersion.getVersion());
+        log.debug("System version is not up to date: {}", expectedVersion);
       }
 
     } catch (Exception e) {
@@ -91,9 +95,9 @@ public class BuildIndicesKafkaListener implements ConsumerSeekAware, BootstrapDe
   }
 
   public void waitForUpdate() {
-    int maxBackOffs = Integer.parseInt(_configurationProvider.getElasticSearch().getBuildIndices().getMaxBackOffs());
-    long initialBackOffMs = Long.parseLong(_configurationProvider.getElasticSearch().getBuildIndices().getInitialBackOffMs());
-    int backOffFactor = Integer.parseInt(_configurationProvider.getElasticSearch().getBuildIndices().getBackOffFactor());
+    int maxBackOffs = Integer.parseInt(_configurationProvider.getSystemUpdate().getMaxBackOffs());
+    long initialBackOffMs = Long.parseLong(_configurationProvider.getSystemUpdate().getInitialBackOffMs());
+    int backOffFactor = Integer.parseInt(_configurationProvider.getSystemUpdate().getBackOffFactor());
 
     long backOffMs = initialBackOffMs;
     for (int i = 0; i < maxBackOffs; i++) {

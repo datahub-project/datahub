@@ -170,6 +170,7 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
                         ProtobufField fieldVertex = ProtobufField.builder()
                                 .protobufMessage(messageVertex)
                                 .fieldProto(fieldProto)
+                                .isNestedType(false)
                                 .build();
 
                         // Add field vertex
@@ -210,6 +211,10 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
     }
 
     private void addNestedMessage(DescriptorProtos.FileDescriptorProto fileProto, DescriptorProtos.DescriptorProto messageProto) {
+        if (messageProto.getNestedTypeCount() < 1) {
+            return;
+        }
+
         messageProto.getNestedTypeList().forEach(nestedMessageProto -> {
             ProtobufMessage nestedMessageVertex = ProtobufMessage.builder()
                     .fileProto(fileProto)
@@ -222,6 +227,7 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
                 ProtobufField field = ProtobufField.builder()
                         .protobufMessage(nestedMessageVertex)
                         .fieldProto(nestedFieldProto)
+                        .isNestedType(true)
                         .build();
 
                 // Add field vertex
@@ -236,6 +242,8 @@ public class ProtobufGraph extends DefaultDirectedGraph<ProtobufElement, FieldTy
                             .build().inGraph(this);
                 }
             });
+
+            addNestedMessage(fileProto, nestedMessageProto);
         });
     }
 

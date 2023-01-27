@@ -41,8 +41,8 @@ public class TopicConventionFactory {
   @Value("${PLATFORM_EVENT_TOPIC_NAME:" + Topics.PLATFORM_EVENT + "}")
   private String platformEventTopicName;
 
-  @Value("${BUILD_INDICES_HISTORY_TOPIC_NAME:" + Topics.BUILD_INDICES_HISTORY_TOPIC_NAME + "}")
-  private String buildIndicesHistoryTopicName;
+  @Value("${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME + "}")
+  private String dataHubUpgradeHistoryTopicName;
 
   @Bean(name = TOPIC_CONVENTION_BEAN)
   protected TopicConvention createInstance() {
@@ -50,6 +50,6 @@ public class TopicConventionFactory {
         metadataChangeProposalName, metadataChangeLogVersionedTopicName, metadataChangeLogTimeseriesTopicName,
         failedMetadataChangeProposalName, platformEventTopicName,
         // TODO once we start rolling out v5 add support for changing the new event names.
-        TopicConventionImpl.DEFAULT_EVENT_PATTERN, buildIndicesHistoryTopicName);
+        TopicConventionImpl.DEFAULT_EVENT_PATTERN, dataHubUpgradeHistoryTopicName);
   }
 }

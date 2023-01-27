@@ -68,7 +68,7 @@ function TermItem(props: Props) {
         <TermWrapper>
             {!isSelecting && (
                 <TermLink
-                    to={`/${entityRegistry.getPathName(term.type)}/${term.urn}`}
+                    to={`${entityRegistry.getEntityUrl(term.type, term.urn)}`}
                     isSelected={entityData?.urn === term.urn}
                 >
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}

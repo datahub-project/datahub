@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
-import com.linkedin.datahub.upgrade.buildindices.BuildIndices;
+import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import org.springframework.beans.factory.annotation.Autowired;

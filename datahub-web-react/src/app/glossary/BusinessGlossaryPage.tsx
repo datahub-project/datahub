@@ -15,6 +15,7 @@ import { Message } from '../shared/Message';
 import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import {
     BUSINESS_GLOSSARY_INTRO_ID,
     BUSINESS_GLOSSARY_CREATE_TERM_ID,
@@ -76,6 +77,9 @@ function BusinessGlossaryPage() {
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
 
+    const user = useGetAuthenticatedUser();
+    const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
+
     return (
         <>
             <OnboardingTour
@@ -109,6 +113,7 @@ function BusinessGlossaryPage() {
                         <div>
                             <Button
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
+                                disabled={!canManageGlossaries}
                                 type="text"
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
@@ -116,6 +121,7 @@ function BusinessGlossaryPage() {
                             </Button>
                             <Button
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
+                                disabled={!canManageGlossaries}
                                 type="text"
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >

@@ -9,7 +9,7 @@ extend-exclude = '''
 ^/tmp
 '''
 include = '\.pyi?$'
-target-version = ['py36', 'py37', 'py38']
+target-version = ['py37', 'py38', 'py39', 'py310']
 
 [tool.isort]
 combine_as_imports = true
@@ -24,7 +24,7 @@ extraPaths = ['tests']
 
 [tool.vulture]
 exclude = ["src/datahub/metadata/"]
-ignore_decorators = ["@click.*", "@validator", "@root_validator", "@pydantic.validator", "@pydantic.root_validator"]
+ignore_decorators = ["@click.*", "@validator", "@root_validator", "@pydantic.validator", "@pydantic.root_validator", "@pytest.fixture"]
 ignore_names = ["*Source", "*Sink", "*Report"]
 # min_confidence = 80
 paths = ["src"]

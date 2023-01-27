@@ -1,8 +1,9 @@
 package com.linkedin.metadata.kafka.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
-import com.linkedin.metadata.kafka.elasticsearch.indices.BuildIndicesKafkaListener;
+import com.linkedin.metadata.kafka.elasticsearch.indices.DataHubUpgradeKafkaListener;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,21 +24,24 @@ public class ApplicationStartupListener implements ApplicationListener<ContextRe
 
   private static final String ROOT_WEB_APPLICATION_CONTEXT_ID = String.format("%s:", WebApplicationContext.class.getName());
 
-  private final BuildIndicesKafkaListener _buildIndicesKafkaListener;
+  private final DataHubUpgradeKafkaListener _dataHubUpgradeKafkaListener;
   private final ConfigurationProvider _configurationProvider;
+  private final BootstrapManager _mclBootstrapManager;
 
   public ApplicationStartupListener(
-      @Qualifier("buildIndicesKafkaListener") BuildIndicesKafkaListener buildIndicesKafkaListener,
-      ConfigurationProvider configurationProvider) {
-    _buildIndicesKafkaListener = buildIndicesKafkaListener;
+      @Qualifier("dataHubUpgradeKafkaListener") DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener,
+      ConfigurationProvider configurationProvider,
+      @Qualifier("mclBootstrapManager") BootstrapManager bootstrapManager) {
+    _dataHubUpgradeKafkaListener = dataHubUpgradeKafkaListener;
     _configurationProvider = configurationProvider;
+    _mclBootstrapManager = bootstrapManager;
   }
 
   @Override
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())
-        && _configurationProvider.getElasticSearch().getBuildIndices().isWaitForBuildIndices()) {
-      _buildIndicesKafkaListener.waitForBootstrap();
+        && _configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+      _mclBootstrapManager.start();
     }
   }
 }

@@ -43,7 +43,7 @@ function GlossaryEntitiesPath() {
                     breadcrumbs.map((node) => {
                         return (
                             <BreadcrumbItem key={node.urn}>
-                                <Link to={`/${entityRegistry.getPathName(node.type)}/${node.urn}`}>
+                                <Link to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}>
                                     {entityRegistry.getDisplayName(node.type, node)}
                                 </Link>
                             </BreadcrumbItem>

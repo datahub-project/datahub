@@ -19,7 +19,7 @@ public class ProtobufOneOfField extends ProtobufField {
     @Builder(builderMethodName = "oneOfBuilder")
     public ProtobufOneOfField(ProtobufMessage protobufMessage,
                               FieldDescriptorProto fieldProto) {
-        super(protobufMessage, fieldProto, null, null, null, null);
+        super(protobufMessage, fieldProto, null, null, null, null, null);
     }
 
     @Override

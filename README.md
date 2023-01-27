@@ -3,9 +3,8 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export const Logo = (props) => {
   return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
+    <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
       <img
-        height="150"
         alt="DataHub Logo"
         src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
         {...props}
