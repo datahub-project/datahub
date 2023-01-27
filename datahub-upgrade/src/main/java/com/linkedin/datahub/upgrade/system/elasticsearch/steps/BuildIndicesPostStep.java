@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.buildindices;
+package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -6,11 +6,8 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
-import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -21,26 +18,24 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.client.RequestOptions;
 
-import static com.linkedin.datahub.upgrade.buildindices.IndexUtils.*;
+import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.*;
 
 
 @RequiredArgsConstructor
 @Slf4j
-public class PostBuildIndicesStep implements UpgradeStep {
+public class BuildIndicesPostStep implements UpgradeStep {
 
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents _esComponents;
   private final List<ElasticSearchIndexed> _services;
-  private final KafkaEventProducer _kafkaEventProducer;
-  private final GitVersion _gitVersion;
 
   @Override
   public String id() {
-    return "PostBuildIndicesStep";
+    return "BuildIndicesPostStep";
   }
 
   @Override
   public int retryCount() {
-    return 0;
+    return 3;
   }
 
   @Override
@@ -68,12 +63,8 @@ public class PostBuildIndicesStep implements UpgradeStep {
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
         }
-
-        DataHubUpgradeHistoryEvent dataHubUpgradeHistoryEvent = new DataHubUpgradeHistoryEvent()
-            .setVersion(_gitVersion.getVersion());
-        _kafkaEventProducer.produceDataHubUpgradeHistoryEvent(dataHubUpgradeHistoryEvent);
       } catch (Exception e) {
-        log.error("PostBuildIndicesStep failed.", e);
+        log.error("BuildIndicesPostStep failed.", e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);

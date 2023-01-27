@@ -6,10 +6,10 @@ import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class WaitForBuildIndicesStep implements BootstrapStep {
+public class WaitForSystemUpdateStep implements BootstrapStep {
 
   private final BootstrapDependency _dataHubUpgradeKafkaListener;
-  private final ConfigurationProvider _enableWaitForBuildIndices;
+  private final ConfigurationProvider _enableWaitForSystemUpdate;
 
   @Override
   public String name() {

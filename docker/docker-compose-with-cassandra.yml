@@ -160,7 +160,7 @@ services:
     env_file: datahub-upgrade/env/docker-without-neo4j.env
     hostname: datahub-upgrade
     container_name: datahub-upgrade
-    command: [ "-u", "BuildIndices" ]
+    command: [ "-u", "SystemUpdate" ]
 
 networks:
   default:

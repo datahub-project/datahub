@@ -1,27 +1,21 @@
-package com.linkedin.datahub.upgrade.buildindices;
+package com.linkedin.datahub.upgrade.system.elasticsearch;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
-import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
+import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPostStep;
+import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPreStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.dao.producer.KafkaEventProducer;
-import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.version.GitVersion;
-import com.linkedin.mxe.TopicConvention;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import org.apache.avro.generic.IndexedRecord;
-import org.apache.kafka.clients.producer.Producer;
 
 
 public class BuildIndices implements Upgrade {
@@ -31,10 +25,9 @@ public class BuildIndices implements Upgrade {
     public BuildIndices(final SystemMetadataService systemMetadataService, final TimeseriesAspectService timeseriesAspectService,
                         final EntitySearchService entitySearchService, final GraphService graphService,
                         final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents,
-                        final Producer<String, ? extends IndexedRecord> producer,
-                        final TopicConvention convention, final GitVersion gitVersion, final KafkaHealthChecker kafkaHealthChecker,
+
                         final ConfigurationProvider configurationProvider) {
-        final KafkaEventProducer kafkaEventProducer = new KafkaEventProducer(producer, convention, kafkaHealthChecker);
+
 
         List<ElasticSearchIndexed> indexedServices = Stream.of(
                         graphService, entitySearchService, systemMetadataService, timeseriesAspectService)
@@ -42,7 +35,7 @@ public class BuildIndices implements Upgrade {
                 .map(service -> (ElasticSearchIndexed) service)
                 .collect(Collectors.toList());
 
-        _steps = buildSteps(indexedServices, baseElasticSearchComponents, kafkaEventProducer, gitVersion, configurationProvider);
+        _steps = buildSteps(indexedServices, baseElasticSearchComponents, configurationProvider);
     }
 
     @Override
@@ -57,21 +50,16 @@ public class BuildIndices implements Upgrade {
 
     private List<UpgradeStep> buildSteps(final List<ElasticSearchIndexed> indexedServices,
         final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents baseElasticSearchComponents,
-        final KafkaEventProducer eventProducer, final GitVersion gitVersion, final ConfigurationProvider configurationProvider) {
+        final ConfigurationProvider configurationProvider) {
 
       final List<UpgradeStep> steps = new ArrayList<>();
       // Disable ES write mode/change refresh rate and clone indices
-      steps.add(new PreConfigureESStep(baseElasticSearchComponents, indexedServices, configurationProvider));
+      steps.add(new BuildIndicesPreStep(baseElasticSearchComponents, indexedServices, configurationProvider));
       // Configure graphService, entitySearchService, systemMetadataService, timeseriesAspectService
       steps.add(new BuildIndicesStep(indexedServices));
       // Reset configuration (and delete clones? Or just do this regularly? Or delete clone in pre-configure step if it already exists?
-      steps.add(new PostBuildIndicesStep(baseElasticSearchComponents, indexedServices, eventProducer, gitVersion));
+      steps.add(new BuildIndicesPostStep(baseElasticSearchComponents, indexedServices));
       return steps;
-    }
-
-    @Override
-    public List<UpgradeCleanupStep> cleanupSteps() {
-      return ImmutableList.of();
     }
 
 }

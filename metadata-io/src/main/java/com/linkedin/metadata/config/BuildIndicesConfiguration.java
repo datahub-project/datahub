@@ -6,11 +6,8 @@ import lombok.Data;
 @Data
 public class BuildIndicesConfiguration {
 
-  private String initialBackOffMs;
-  private String maxBackOffs;
-  private String backOffFactor;
-  private boolean waitForBuildIndices;
   private boolean cloneIndices;
   private boolean allowDocCountMismatch;
-
+  private String retentionUnit;
+  private Long retentionValue;
 }

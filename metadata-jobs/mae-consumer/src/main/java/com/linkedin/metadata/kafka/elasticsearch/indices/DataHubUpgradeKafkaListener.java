@@ -28,8 +28,8 @@ import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Component;
 
-// We don't disable this on GMS since we want GMS to also wait until the indices are ready to read in case of
-// backwards incompatible query logic dependent on index updates.
+// We don't disable this on GMS since we want GMS to also wait until the system is ready to read in case of
+// backwards incompatible query logic dependent on system updates.
 @Component("dataHubUpgradeKafkaListener")
 @RequiredArgsConstructor
 @Slf4j
@@ -43,6 +43,9 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
   private static final String TOPIC_NAME = "${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME  + "}";
 
   private final DefaultKafkaConsumerFactory<String, GenericRecord> _defaultKafkaConsumerFactory;
+
+  @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}")
+  private String revision;
   private final GitVersion _gitVersion;
   private final ConfigurationProvider _configurationProvider;
 
@@ -69,17 +72,18 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
   }
 
   @KafkaListener(id = CONSUMER_GROUP, topics = {TOPIC_NAME}, containerFactory = "kafkaEventConsumer")
-  public void checkIndexVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
+  public void checkSystemVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
+    final String expectedVersion = String.format("%s-%s", _gitVersion.getVersion(), revision);
 
     DataHubUpgradeHistoryEvent event;
     try {
       event = EventUtils.avroToPegasusDUHE(record);
-      log.info("Latest index update version: {}", event.getVersion());
-      if (_gitVersion.getVersion().equals(event.getVersion())) {
+      log.info("Latest system update version: {}", event.getVersion());
+      if (expectedVersion.equals(event.getVersion())) {
         isUpdated.getAndSet(true);
       } else {
-        log.debug("Index version is not up to date: {}", _gitVersion.getVersion());
+        log.debug("System version is not up to date: {}", expectedVersion);
       }
 
     } catch (Exception e) {
@@ -91,9 +95,9 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
   }
 
   public void waitForUpdate() {
-    int maxBackOffs = Integer.parseInt(_configurationProvider.getElasticSearch().getBuildIndices().getMaxBackOffs());
-    long initialBackOffMs = Long.parseLong(_configurationProvider.getElasticSearch().getBuildIndices().getInitialBackOffMs());
-    int backOffFactor = Integer.parseInt(_configurationProvider.getElasticSearch().getBuildIndices().getBackOffFactor());
+    int maxBackOffs = Integer.parseInt(_configurationProvider.getSystemUpdate().getMaxBackOffs());
+    long initialBackOffMs = Long.parseLong(_configurationProvider.getSystemUpdate().getInitialBackOffMs());
+    int backOffFactor = Integer.parseInt(_configurationProvider.getSystemUpdate().getBackOffFactor());
 
     long backOffMs = initialBackOffMs;
     for (int i = 0; i < maxBackOffs; i++) {

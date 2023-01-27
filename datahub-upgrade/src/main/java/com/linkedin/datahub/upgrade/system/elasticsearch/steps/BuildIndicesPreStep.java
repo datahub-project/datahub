@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.buildindices;
+package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -27,12 +27,12 @@ import org.elasticsearch.client.GetAliasesResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.indices.ResizeRequest;
 
-import static com.linkedin.datahub.upgrade.buildindices.IndexUtils.getAllReindexConfigs;
+import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 
 
 @RequiredArgsConstructor
 @Slf4j
-public class PreConfigureESStep implements UpgradeStep {
+public class BuildIndicesPreStep implements UpgradeStep {
 
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents _esComponents;
   private final List<ElasticSearchIndexed> _services;
@@ -40,7 +40,7 @@ public class PreConfigureESStep implements UpgradeStep {
 
   @Override
   public String id() {
-    return "PreConfigureESStep";
+    return "BuildIndicesPreStep";
   }
 
   @Override
@@ -113,7 +113,7 @@ public class PreConfigureESStep implements UpgradeStep {
           }
         }
       } catch (Exception e) {
-        log.error("PreConfigureESStep failed.", e);
+        log.error("BuildIndicesPreStep failed.", e);
         return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
       }
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
