@@ -5,7 +5,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
-import com.linkedin.metadata.boot.steps.WaitForBuildIndicesStep;
+import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -36,10 +36,10 @@ public class MCLBootstrapManagerFactory {
   @Scope("singleton")
   @Nonnull
   protected BootstrapManager createInstance() {
-    final WaitForBuildIndicesStep waitForBuildIndicesStep = new WaitForBuildIndicesStep(_dataHubUpgradeKafkaListener,
+    final WaitForSystemUpdateStep waitForSystemUpdateStep = new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener,
         _configurationProvider);
 
-    final List<BootstrapStep> finalSteps = ImmutableList.of(waitForBuildIndicesStep);
+    final List<BootstrapStep> finalSteps = ImmutableList.of(waitForSystemUpdateStep);
 
     return new BootstrapManager(finalSteps);
   }

@@ -6,6 +6,8 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.version.GitVersion;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -301,10 +303,9 @@ public class ESIndexBuilder {
     }
 
     log.info("Reindex from {} to {} succeeded", indexState.name(), tempIndexName);
-    String indexNamePattern = indexState.name() + "*";
     // Check if the original index is aliased or not
     GetAliasesResponse aliasesResponse = searchClient.indices().getAlias(
-            new GetAliasesRequest(indexState.name()).indices(indexNamePattern), RequestOptions.DEFAULT);
+            new GetAliasesRequest(indexState.name()).indices(indexState.indexPattern()), RequestOptions.DEFAULT);
     // If not aliased, delete the original index
     if (aliasesResponse.getAliases().isEmpty()) {
       searchClient.indices().delete(new DeleteIndexRequest().indices(indexState.name()), RequestOptions.DEFAULT);
@@ -315,7 +316,7 @@ public class ESIndexBuilder {
     }
 
     // Add alias for the new index
-    AliasActions removeAction = AliasActions.remove().alias(indexState.name()).index(indexNamePattern);
+    AliasActions removeAction = AliasActions.remove().alias(indexState.name()).index(indexState.indexPattern());
     AliasActions addAction = AliasActions.add().alias(indexState.name()).index(tempIndexName);
     searchClient.indices()
         .updateAliases(new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction),
@@ -415,10 +416,31 @@ public class ESIndexBuilder {
     log.info("Created index {}", indexName);
   }
 
-  private List<String> getOrphanedIndices(String indexNamePattern, Date retentionDate) {
+  public static void cleanIndex(RestHighLevelClient searchClient, ElasticSearchConfiguration esConfig, ReindexConfig indexState) {
+    log.info("Checking for orphan index pattern {} older than {} {}", indexState.indexPattern(),
+            esConfig.getBuildIndices().getRetentionValue(),
+            esConfig.getBuildIndices().getRetentionUnit());
+
+    getOrphanedIndices(searchClient, esConfig, indexState).forEach(orphanIndex -> {
+      log.warn("Deleting orphan index {}.", orphanIndex);
+      try {
+        searchClient.indices().delete(new DeleteIndexRequest().indices(orphanIndex), RequestOptions.DEFAULT);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    });
+  }
+
+  private static List<String> getOrphanedIndices(RestHighLevelClient searchClient, ElasticSearchConfiguration esConfig,
+                                                 ReindexConfig indexState) {
     List<String> orphanedIndices = new ArrayList<>();
     try {
-      GetIndexResponse response = searchClient.indices().get(new GetIndexRequest(indexNamePattern), RequestOptions.DEFAULT);
+      Date retentionDate = Date.from(Instant.now()
+              .minus(Duration.of(esConfig.getBuildIndices().getRetentionValue(),
+                      ChronoUnit.valueOf(esConfig.getBuildIndices().getRetentionUnit()))));
+
+      GetIndexResponse response = searchClient.indices().get(new GetIndexRequest(indexState.indexPattern()), RequestOptions.DEFAULT);
+
       for (String index : response.getIndices()) {
         var creationDateStr = response.getSetting(index, "index.creation_date");
         var creationDateEpoch = Long.parseLong(creationDateStr);
@@ -434,7 +456,7 @@ public class ESIndexBuilder {
         }
       }
     } catch (Exception e) {
-      log.info("Failed to get orphaned indices with pattern {}: Exception {}", indexNamePattern, e.toString());
+      log.info("Failed to get orphaned indices with pattern {}: Exception {}", indexState.indexPattern(), e.toString());
     }
     return orphanedIndices;
   }

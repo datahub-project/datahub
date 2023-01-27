@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.buildindices;
+package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;

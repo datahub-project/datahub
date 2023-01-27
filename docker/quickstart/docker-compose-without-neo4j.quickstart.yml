@@ -107,7 +107,7 @@ services:
   datahub-upgrade:
     command:
     - -u
-    - BuildIndices
+    - SystemUpdate
     container_name: datahub-upgrade
     environment:
     - EBEAN_DATASOURCE_USERNAME=datahub

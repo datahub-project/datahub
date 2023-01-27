@@ -40,7 +40,7 @@ public class ApplicationStartupListener implements ApplicationListener<ContextRe
   @Override
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())
-        && _configurationProvider.getElasticSearch().getBuildIndices().isWaitForBuildIndices()) {
+        && _configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
       _mclBootstrapManager.start();
     }
   }
