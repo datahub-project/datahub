@@ -199,7 +199,9 @@ class RegularAPIResolver(DataResolverBase):
             logger.info(f"{Constant.DatasetId}={dataset_id}")
             return None
 
-        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.DATASET_GET]
+        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.DATASET_GET
+        ]
         # Replace place holders
         dataset_get_endpoint = dataset_get_endpoint.format(
             POWERBI_BASE_URL=DataResolverBase.BASE_URL,
@@ -370,7 +372,9 @@ class RegularAPIResolver(DataResolverBase):
 
     def get_reports(self, workspace: Workspace) -> List[Report]:
 
-        report_list_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.REPORT_LIST]
+        report_list_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.REPORT_LIST
+        ]
         # Replace place holders
         report_list_endpoint = report_list_endpoint.format(
             POWERBI_BASE_URL=DataResolverBase.BASE_URL,
@@ -514,7 +518,9 @@ class AdminAPIResolver(DataResolverBase):
         Get user for the given PowerBi entity
         """
 
-        user_list_endpoint: str = AdminAPIResolver.API_ENDPOINTS[Constant.ENTITY_USER_LIST]
+        user_list_endpoint: str = AdminAPIResolver.API_ENDPOINTS[
+            Constant.ENTITY_USER_LIST
+        ]
         # Replace place holders
         user_list_endpoint = user_list_endpoint.format(
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
@@ -560,7 +566,9 @@ class AdminAPIResolver(DataResolverBase):
     def get_scan_result(self, scan_id: str) -> dict:
         logger.info("Fetching scan result")
         logger.info(f"{Constant.SCAN_ID}={scan_id}")
-        scan_result_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_RESULT_GET]
+        scan_result_get_endpoint = AdminAPIResolver.API_ENDPOINTS[
+            Constant.SCAN_RESULT_GET
+        ]
         scan_result_get_endpoint = scan_result_get_endpoint.format(
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
         )
