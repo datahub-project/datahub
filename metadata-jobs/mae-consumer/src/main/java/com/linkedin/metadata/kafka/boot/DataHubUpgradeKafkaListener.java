@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.elasticsearch.indices;
+package com.linkedin.metadata.kafka.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.EventUtils;
