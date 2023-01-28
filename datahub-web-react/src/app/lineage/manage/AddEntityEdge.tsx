@@ -1,5 +1,5 @@
-import { SubnodeOutlined } from '@ant-design/icons';
-import { Select } from 'antd';
+import { LoadingOutlined, SubnodeOutlined } from '@ant-design/icons';
+import { AutoComplete, Empty } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -9,6 +9,7 @@ import { Direction } from '../types';
 import { getValidEntityTypes } from '../utils/manageLineageUtils';
 import LineageEntityView from './LineageEntityView';
 import EntityRegistry from '../../entity/EntityRegistry';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const AddEdgeWrapper = styled.div`
     padding: 15px 20px;
@@ -28,9 +29,21 @@ const AddIcon = styled(SubnodeOutlined)`
     font-size: 16px;
 `;
 
-const StyledSelect = styled(Select)`
+const StyledAutoComplete = styled(AutoComplete)`
     margin-left: 10px;
     flex: 1;
+`;
+
+const LoadingWrapper = styled.div`
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+
+    svg {
+        height: 15px;
+        width: 15px;
+        color: ${ANTD_GRAY[8]};
+    }
 `;
 
 function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: EntityRegistry) {
@@ -69,23 +82,25 @@ export default function AddEntityEdge({
     entityType,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const [queryText, setQueryText] = useState<string | undefined>(undefined);
-    const [search, { data: searchData }] = useGetSearchResultsForMultipleLazyQuery();
+    const [search, { data: searchData, loading }] = useGetSearchResultsForMultipleLazyQuery();
+    const [queryText, setQueryText] = useState<string>('');
 
     const validEntityTypes = getValidEntityTypes(lineageDirection, entityType);
 
     function handleSearch(text: string) {
         setQueryText(text);
-        search({
-            variables: {
-                input: {
-                    types: validEntityTypes,
-                    query: text,
-                    start: 0,
-                    count: 25,
+        if (text !== '') {
+            search({
+                variables: {
+                    input: {
+                        types: validEntityTypes,
+                        query: text,
+                        start: 0,
+                        count: 15,
+                    },
                 },
-            },
-        });
+            });
+        }
     }
 
     function selectEntity(urn: string) {
@@ -99,9 +114,9 @@ export default function AddEntityEdge({
 
     const renderSearchResult = (entity: Entity) => {
         return (
-            <Select.Option value={entity.urn} key={entity.urn}>
+            <AutoComplete.Option value={entity.urn} key={entity.urn}>
                 <LineageEntityView entity={entity} displaySearchResult />
-            </Select.Option>
+            </AutoComplete.Option>
         );
     };
 
@@ -117,15 +132,25 @@ export default function AddEntityEdge({
                 <AddIcon />
                 Add {lineageDirection}
             </AddLabel>
-            <StyledSelect
+            <StyledAutoComplete
+                autoFocus
                 showSearch
+                value={queryText}
                 placeholder={placeholderText}
                 onSearch={handleSearch}
-                value={queryText}
                 onSelect={(urn: any) => selectEntity(urn)}
+                filterOption={false}
+                notFoundContent={(queryText.length > 3 && <Empty description="No Assets Found" />) || undefined}
             >
+                {!searchData && loading && (
+                    <AutoComplete.Option value="loading">
+                        <LoadingWrapper>
+                            <LoadingOutlined />
+                        </LoadingWrapper>
+                    </AutoComplete.Option>
+                )}
                 {searchResults}
-            </StyledSelect>
+            </StyledAutoComplete>
         </AddEdgeWrapper>
     );
 }
