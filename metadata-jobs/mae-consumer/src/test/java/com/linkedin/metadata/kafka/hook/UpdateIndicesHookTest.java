@@ -23,7 +23,7 @@ import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.kafka.elasticsearch.indices.DataHubUpgradeKafkaListener;
+import com.linkedin.metadata.kafka.boot.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;

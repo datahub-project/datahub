@@ -40,6 +40,7 @@ services:
     - NEO4J_USERNAME=neo4j
     - NEO4J_PASSWORD=datahub
     - GRAPH_SERVICE_IMPL=neo4j
+    - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-mcp
     - MCE_CONSUMER_ENABLED=true
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub

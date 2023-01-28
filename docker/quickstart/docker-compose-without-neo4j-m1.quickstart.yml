@@ -64,30 +64,30 @@ services:
     depends_on:
     - mysql
     environment:
-    - EBEAN_DATASOURCE_HOST=mysql:3306
-    - EBEAN_DATASOURCE_PASSWORD=datahub
-    - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-gms
-    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
-    - EBEAN_DATASOURCE_USERNAME=datahub
-    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
-    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
-    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
-    - ENTITY_SERVICE_ENABLE_RETENTION=true
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
-    - GRAPH_SERVICE_IMPL=elasticsearch
-    - JAVA_OPTS=-Xms1g -Xmx1g
-    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - MAE_CONSUMER_ENABLED=true
     - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
-    - UI_INGESTION_ENABLED=true
+    - EBEAN_DATASOURCE_USERNAME=datahub
+    - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-gms
+    - EBEAN_DATASOURCE_PASSWORD=datahub
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - MCE_CONSUMER_ENABLED=true
-    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
-    - ELASTICSEARCH_HOST=elasticsearch
-    - ELASTICSEARCH_PORT=9200
-    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
+    - UI_INGESTION_ENABLED=true
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
     - PE_CONSUMER_ENABLED=true
+    - EBEAN_DATASOURCE_HOST=mysql:3306
+    - JAVA_OPTS=-Xms1g -Xmx1g
+    - ELASTICSEARCH_HOST=elasticsearch
+    - MAE_CONSUMER_ENABLED=true
+    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+    - GRAPH_SERVICE_IMPL=elasticsearch
+    - ELASTICSEARCH_PORT=9200
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
