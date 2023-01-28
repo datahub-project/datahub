@@ -1,6 +1,7 @@
 fragment dataFlowFields on DataFlow {
     urn
     type
+    exists
     lastIngested
     orchestrator
     flowId

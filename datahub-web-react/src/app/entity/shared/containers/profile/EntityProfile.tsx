@@ -36,6 +36,7 @@ import { ErrorSection } from '../../../../shared/error/ErrorSection';
 import { EntityHead } from '../../../../shared/EntityHead';
 import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
 import useGetDataForProfile from './useGetDataForProfile';
+import NonExistentEntityPage from '../../entity/NonExistentEntityPage';
 
 type Props<T, U> = {
     urn: string;
@@ -234,6 +235,10 @@ export const EntityProfile = <T, U>({
     );
 
     const routedTab = useRoutedTab(enabledAndVisibleTabs);
+
+    if (entityData?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
 
     if (isCompact) {
         return (
