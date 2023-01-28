@@ -77,7 +77,6 @@ services:
       - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     depends_on:
       - mysql
-      - datahub-upgrade
 
   datahub-frontend-react:
     build:
