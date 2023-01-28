@@ -154,7 +154,7 @@ elasticsearch:
   bulkProcessor:
     async: ${ES_BULK_ASYNC:true}
     requestsLimit: ${ES_BULK_REQUESTS_LIMIT:1000}
-    flushPeriod: ${ES_BULK_FLUSH_PERIOD:5}
+    flushPeriod: ${ES_BULK_FLUSH_PERIOD:1}
     numRetries: ${ES_BULK_NUM_RETRIES:3}
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
@@ -163,7 +163,7 @@ elasticsearch:
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
     numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
-    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:5} # increase to 30 if expected indexing rates to be greater than 100/s
+    refreshIntervalSeconds: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:1} # increase to 30 if expected indexing rates to be greater than 100/s
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
