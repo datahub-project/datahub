@@ -3,7 +3,6 @@ package com.datahub.authentication.token;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.SigningKeyResolverAdapter;
-import java.io.IOException;
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -20,7 +19,6 @@ import java.util.HashSet;
 import java.security.spec.RSAPublicKeySpec;
 import java.security.interfaces.RSAPublicKey;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 
