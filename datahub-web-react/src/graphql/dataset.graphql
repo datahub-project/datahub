@@ -24,6 +24,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
+        exists
         ...nonSiblingDatasetFields
         siblings {
             isPrimary
