@@ -42,7 +42,7 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
    * inspect the header or claims, lookup and return the signing key
    **/
   @Override
-  public Key resolveSigningKey(JwsHeader jwsHeader, Claims claims)  {
+  public Key resolveSigningKey(JwsHeader jwsHeader, Claims claims) {
 
     PublicKey key = null;
 
@@ -52,15 +52,14 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
         throw new Exception("Invalid issuer");
       }
 
-      if (publicKey != null ) {
+      if (publicKey != null) {
         // Use public key from configuration for signature verification.
         key = generatePublicKey(this.algorithm, this.publicKey);
       } else {
         // Get public key from issuer for signature verification
         String keyId = jwsHeader.getKeyId();
-        key =  loadPublicKey(claims.getIssuer(), keyId);
+        key = loadPublicKey(claims.getIssuer(), keyId);
       }
-
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -72,16 +71,13 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
    **/
   private PublicKey loadPublicKey(String issuer, String keyId) throws Exception {
     HttpClient client = HttpClient.newHttpClient();
-    HttpRequest request = HttpRequest.newBuilder()
-        .uri(URI.create(issuer+"/protocol/openid-connect/certs"))
-        .build();
-    HttpResponse<String> response =
-        client.send(request, HttpResponse.BodyHandlers.ofString());
+    HttpRequest request = HttpRequest.newBuilder().uri(URI.create(issuer + "/protocol/openid-connect/certs")).build();
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
     var body = new JSONObject(response.body());
-    JSONArray result = (JSONArray)body.get("keys");
+    JSONArray result = (JSONArray) body.get("keys");
 
-    for (int i=0; i < result.length(); i++) {
+    for (int i = 0; i < result.length(); i++) {
       var token = (JSONObject) result.get(i);
       if (keyId.equals(token.get("kid"))) {
         return getPublicKey(token);
@@ -128,7 +124,7 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
     switch (this.algorithm) {
       case "RSA":
         try {
-          key.replace(" ","");
+          key.replace(" ", "");
           byte[] decode = Base64.getDecoder().decode(key);
           X509EncodedKeySpec keySpecX509 = new X509EncodedKeySpec(decode);
           KeyFactory keyFactory = KeyFactory.getInstance("RSA");
@@ -142,5 +138,4 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
     }
     return publicKey;
   }
-
 }

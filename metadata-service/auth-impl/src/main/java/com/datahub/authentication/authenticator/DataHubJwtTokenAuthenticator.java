@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
 
+
 /**
  * This Authenticator verifies third party token and allows to pass claim for "id" part of resolved actor urn.
  * Supported algorithm at this moment RSA
@@ -56,7 +57,6 @@ public class DataHubJwtTokenAuthenticator implements Authenticator {
    * **/
   private String algorithm;
 
-
   @Override
   public void init(@Nonnull final Map<String, Object> config, @Nullable final AuthenticatorContext context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
@@ -69,7 +69,6 @@ public class DataHubJwtTokenAuthenticator implements Authenticator {
 
     this.publicKey = (String) config.get("publicKey");
     this.algorithm = config.get("algorithm") == null ? DEFAULT_SIGNING_ALG : (String) config.get("algorithm");
-
   }
 
   @Override
@@ -79,27 +78,24 @@ public class DataHubJwtTokenAuthenticator implements Authenticator {
     try {
       String jwtToken = context.getRequestHeaders().get(AUTHORIZATION_HEADER_NAME);
 
-      if (jwtToken == null || (!jwtToken.startsWith("Bearer ") && !jwtToken.startsWith("bearer ")) ) {
+      if (jwtToken == null || (!jwtToken.startsWith("Bearer ") && !jwtToken.startsWith("bearer "))) {
         throw new AuthenticationException("Invalid Authorization token");
       }
 
       String token = getToken(jwtToken);
 
-      Jws<Claims> claims = Jwts.parserBuilder().setSigningKeyResolver(
-              new DataHubJwtSigningKeyResolver(this.trustedIssuers, this.publicKey, this.algorithm))
+      Jws<Claims> claims = Jwts.parserBuilder()
+          .setSigningKeyResolver(new DataHubJwtSigningKeyResolver(this.trustedIssuers, this.publicKey, this.algorithm))
           .build()
           .parseClaimsJws(token);
 
       final String userClaim = claims.getBody().get(userIdClaim, String.class);
 
       if (userClaim == null) {
-        throw new AuthenticationException("Invalid or missing claim: "+ userIdClaim);
+        throw new AuthenticationException("Invalid or missing claim: " + userIdClaim);
       }
 
-      return new Authentication(
-          new Actor(ActorType.USER, userClaim), jwtToken
-      );
-
+      return new Authentication(new Actor(ActorType.USER, userClaim), jwtToken);
     } catch (Exception e) {
       throw new AuthenticationException(e.getMessage());
     }
@@ -109,6 +105,4 @@ public class DataHubJwtTokenAuthenticator implements Authenticator {
     var tokenArray = jwtToken.split(" ");
     return tokenArray.length == 1 ? tokenArray[0] : tokenArray[1];
   }
-
-
 }
