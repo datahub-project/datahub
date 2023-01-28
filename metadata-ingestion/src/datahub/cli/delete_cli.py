@@ -187,7 +187,7 @@ def delete(
         remove_references: bool = False
 
         if (not force) and references_count > 0:
-            print(
+            click.echo(
                 f"This urn was referenced in {references_count} other aspects across your metadata graph:"
             )
             click.echo(
