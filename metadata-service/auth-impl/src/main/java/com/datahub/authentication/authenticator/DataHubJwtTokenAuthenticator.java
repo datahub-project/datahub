@@ -51,7 +51,7 @@ public class DataHubJwtTokenAuthenticator implements Authenticator {
   private String publicKey;
 
   /**
-   *  Use this to specify alrithem used to sign your token.
+   *  Algorithm used to sign your token.
    *  This is optional and can be skiped if public key is available online.
    * **/
   private String algorithm;
@@ -61,7 +61,7 @@ public class DataHubJwtTokenAuthenticator implements Authenticator {
   public void init(@Nonnull final Map<String, Object> config, @Nullable final AuthenticatorContext context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
 
-    this.userIdClaim = config.get("idClaim") == null ? DEFAULT_USER_CLAIM : (String) config.get("userIdClaim");
+    this.userIdClaim = config.get("userIdClaim") == null ? DEFAULT_USER_CLAIM : (String) config.get("userIdClaim");
 
     Map<String, String> issuers = Objects.requireNonNull((Map<String, String>) config.get("trustedIssuers"),
         "Missing required config trusted issuers");
