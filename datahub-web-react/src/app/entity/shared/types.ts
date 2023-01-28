@@ -103,6 +103,7 @@ export type GenericEntityProperties = {
     fineGrainedLineages?: Maybe<FineGrainedLineage[]>;
     privileges?: Maybe<EntityPrivileges>;
     embed?: Maybe<Embed>;
+    exists?: boolean;
 };
 
 export type GenericEntityUpdate = {
