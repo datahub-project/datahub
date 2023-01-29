@@ -46,7 +46,6 @@ jobs:
             extraPythonRequirement: "sqlalchemy==1.3.24 apache-airflow~=2.2.0"
           - python-version: "3.10"
             extraPythonRequirement: "sqlalchemy~=1.4.0 apache-airflow>=2.4.0"
-      fail-fast: false
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
