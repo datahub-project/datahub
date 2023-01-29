@@ -22,7 +22,7 @@ pip install -r requirements.txt
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 # Commented as it will use images from linkedin repo
 # DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --standalone_consumers --dump-logs-on-failure
-DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --quickstart-compose-file ../docker/quickstart/docker-compose-without-neo4j.quickstart.yml --dump-logs-on-failure
+DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --quickstart-compose-file [../docker/quickstart/docker-compose-without-neo4j.quickstart.yml, ../docker/quickstart/docker-compose-without-neo4j.quickstart.ingestapi.yml] --dump-logs-on-failure
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 

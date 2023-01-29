@@ -1,0 +1,15 @@
+--
+version: '2.3'
+services:
+  ingest-api:
+    image: ${INGEST_API_IMAGE:-heruko/ingest-api}:${DATAHUB_VERSION:-head}
+    hostname: ingest-api
+    env_file: ../ingest-api/env/docker.smoke.env
+    hostname: ingest-api
+    container_name: ingest-api
+    ports:
+      - "8001:8001"
+    volumes:
+      - apidata:/var/log/ingest/
+volumes:
+  apidata: null
