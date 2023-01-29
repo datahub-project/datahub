@@ -516,7 +516,7 @@ class AzureADSource(Source):
             try:
                 yield from self._map_azure_ad_group(azure_ad_group)
             except Exception as e:
-                self.report.report_failure("azure_ad_group", e)
+                self.report.report_failure("azure_ad_group", str(e))
 
     def _map_azure_ad_group(self, azure_ad_group):
         corp_group_urn, error_str = self._map_identity_to_urn(
