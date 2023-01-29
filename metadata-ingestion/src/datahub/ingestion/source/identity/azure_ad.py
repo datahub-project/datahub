@@ -513,30 +513,36 @@ class AzureADSource(Source):
 
     def _map_azure_ad_groups(self, azure_ad_groups):
         for azure_ad_group in azure_ad_groups:
-            corp_group_urn, error_str = self._map_identity_to_urn(
-                self._map_azure_ad_group_to_urn,
-                azure_ad_group,
-                "azure_ad_group_mapping",
-                "group",
-            )
-            if error_str is not None:
-                continue
-            group_name = self._extract_regex_match_from_dict_value(
-                azure_ad_group,
-                self.config.azure_ad_response_to_groupname_attr,
-                self.config.azure_ad_response_to_groupname_regex,
-            )
-            if not self.config.groups_pattern.allowed(group_name):
-                self.report.report_filtered(f"{corp_group_urn}")
-                continue
-            self.selected_azure_ad_groups.append(azure_ad_group)
-            corp_group_snapshot = CorpGroupSnapshot(
-                urn=corp_group_urn,
-                aspects=[],
-            )
-            corp_group_info = self._map_azure_ad_group_to_corp_group(azure_ad_group)
-            corp_group_snapshot.aspects.append(corp_group_info)
-            yield corp_group_snapshot
+            try:
+                yield from self._map_azure_ad_group(azure_ad_group)
+            except Exception as e:
+                self.report.report_failure("azure_ad_group", e)
+
+    def _map_azure_ad_group(self, azure_ad_group):
+        corp_group_urn, error_str = self._map_identity_to_urn(
+            self._map_azure_ad_group_to_urn,
+            azure_ad_group,
+            "azure_ad_group_mapping",
+            "group",
+        )
+        if error_str is not None:
+            return
+        group_name = self._extract_regex_match_from_dict_value(
+            azure_ad_group,
+            self.config.azure_ad_response_to_groupname_attr,
+            self.config.azure_ad_response_to_groupname_regex,
+        )
+        if not self.config.groups_pattern.allowed(group_name):
+            self.report.report_filtered(f"{corp_group_urn}")
+            return
+        self.selected_azure_ad_groups.append(azure_ad_group)
+        corp_group_snapshot = CorpGroupSnapshot(
+            urn=corp_group_urn,
+            aspects=[],
+        )
+        corp_group_info = self._map_azure_ad_group_to_corp_group(azure_ad_group)
+        corp_group_snapshot.aspects.append(corp_group_info)
+        yield corp_group_snapshot
 
     # Converts Azure group profile into DataHub CorpGroupInfoClass Aspect
     def _map_azure_ad_group_to_corp_group(self, group):
