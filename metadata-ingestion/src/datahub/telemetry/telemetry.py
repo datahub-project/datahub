@@ -89,14 +89,27 @@ if any(var in os.environ for var in CI_ENV_VARS):
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
+SENTRY_DSN: Optional[str] = os.environ.get("SENTRY_DSN", None)
+SENTRY_ENVIRONMENT: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
 
 
 class Telemetry:
     client_id: str
     enabled: bool = True
     tracking_init: bool = False
+    sentry_enabled: bool = False
 
     def __init__(self):
+        if SENTRY_DSN:
+            self.sentry_enabled = True
+            import sentry_sdk
+
+            sentry_sdk.init(
+                dsn=SENTRY_DSN,
+                environment=SENTRY_ENVIRONMENT,
+                release=datahub_package.__version__,
+            )
+
         # try loading the config if it exists, update it if that fails
         if not CONFIG_FILE.exists() or not self.load_config():
             # set up defaults
@@ -203,6 +216,20 @@ class Telemetry:
         return False
 
     def init_tracking(self) -> None:
+        if self.sentry_enabled:
+            import sentry_sdk
+
+            sentry_sdk.set_user({"client_id": self.client_id})
+            sentry_sdk.set_context(
+                "environment",
+                {
+                    "environment": SENTRY_ENVIRONMENT,
+                    "datahub_version": datahub_package.nice_version_name(),
+                    "os": platform.system(),
+                    "python_version": platform.python_version(),
+                },
+            )
+
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
 
@@ -234,9 +261,6 @@ class Telemetry:
             properties: metadata for the event
         """
 
-        if not self.enabled or self.mp is None:
-            return
-
         if properties is None:
             properties = {}
 
@@ -244,6 +268,14 @@ class Telemetry:
         try:
             logger.debug(f"Sending telemetry for {event_name}")
             properties.update(self._server_props(server))
+            if self.sentry_enabled:
+                from sentry_sdk import set_tag
+
+                for key in properties:
+                    set_tag(key, properties[key])
+
+            if not self.enabled or self.mp is None:
+                return
             self.mp.track(self.client_id, event_name, properties)
 
         except Exception as e:

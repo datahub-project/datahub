@@ -354,6 +354,9 @@ class Pipeline:
                 except SystemExit:
                     raise
                 except Exception as e:
+                    if telemetry.telemetry_instance.sentry_enabled:
+                        import sentry_sdk
+                        sentry_sdk.capture_exception(e)
                     logger.error(
                         "Failed to process some records. Continuing.", exc_info=e
                     )
