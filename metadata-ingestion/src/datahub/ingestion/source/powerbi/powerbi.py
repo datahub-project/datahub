@@ -939,7 +939,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     self.reporter.report_workunit(workunit)
                     # Return workunit to Datahub Ingestion framework
                     yield workunit
-
             for dashboard in workspace.dashboards:
                 try:
                     # Fetch PowerBi users for dashboards

@@ -1,7 +1,11 @@
 import json
 import logging
+import requests
+
+from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
+
 from typing import Any, Dict, List, Optional
-from urllib.error import HTTPError
+
 
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
@@ -9,7 +13,6 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Dashboard,
-    Page,
     PowerBIDataset,
     Report,
     Table,
@@ -90,17 +93,28 @@ class PowerBiAPI:
         """
         Return list of dashboard users
         """
+        users: List[User] = []
         if self.__config.extract_ownership is False:
             logger.info(
                 "Extract ownership capabilities is disabled from configuration and hence returning empty users list"
             )
-            return []
+            return users
 
-        return self.__admin_api_resolver.get_users(
-            workspace_id=dashboard.workspace_id,
-            entity="dashboards",
-            entity_id=dashboard.id,
-        )
+        try:
+            users = self.__admin_api_resolver.get_users(
+                workspace_id=dashboard.workspace_id,
+                entity="dashboards",
+                entity_id=dashboard.id,
+            )
+        except requests.exceptions.HTTPError as e:
+            if data_resolver.is_permission_error(e):
+                logger.warning("Dashboard users would not get ingested as admin permission is not enabled on "
+                               "configured Azure AD Application")
+                return users
+            # if Other error then re-raise
+            raise e
+
+        return users
 
     def get_reports(self, workspace: Workspace) -> List[Report]:
         """
@@ -164,10 +178,11 @@ class PowerBiAPI:
             scan_id = self.__admin_api_resolver.create_scan_job(
                 workspace_id=workspace.id
             )
-        except HTTPError as e:
-            if e.code == 401 or e.code == 403:
+        except requests.exceptions.HTTPError as e:
+            if data_resolver.is_permission_error(e):
                 logger.warning(
-                    "Admin permission is not enabled on configured Azure AD application"
+                    "Lineage would not get ingested as admin permission is not enabled on configured Azure AD "
+                    "application "
                 )
                 return None
             # raise error if other than 401 or 403
@@ -257,13 +272,13 @@ class PowerBiAPI:
 
         return dataset_map
 
-    def _fill_admin_metadata_detail(self, workspace: Workspace) -> None:
+    def _fill_metadata_from_scan_result(self, workspace: Workspace) -> None:
         workspace.scan_result = self._get_scan_result(workspace)
         workspace.datasets = self._get_workspace_datasets(workspace.scan_result)
         # Fetch endorsements tag if it is enabled from configuration
         if self.__config.extract_endorsements_to_tags is False:
             logger.info(
-                "Admin API is enabled, However Skipping endorsements tag as extract_endorsements_to_tags is set to "
+                "Skipping endorsements tag as extract_endorsements_to_tags is set to "
                 "false "
             )
             return
@@ -310,7 +325,7 @@ class PowerBiAPI:
         self, workspace: Workspace, reporter: PowerBiDashboardSourceReport
     ) -> None:
 
-        self._fill_admin_metadata_detail(
+        self._fill_metadata_from_scan_result(
             workspace=workspace
         )  # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
 

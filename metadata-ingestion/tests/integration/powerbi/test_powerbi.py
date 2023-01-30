@@ -41,6 +41,7 @@ def register_mock_api(request_mock):
             "method": "GET",
             "status_code": 200,
             "json": {
+                "@odata.count": 3,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
@@ -521,7 +522,7 @@ def default_source_config():
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": False,
         "extract_reports": False,
-        "enable_admin_api": True,
+        "extract_ownership": True,
         "convert_lineage_urns_to_lowercase": False,
         "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
         "dataset_type_mapping": {

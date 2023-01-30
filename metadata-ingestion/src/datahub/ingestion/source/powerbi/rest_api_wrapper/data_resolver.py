@@ -1,4 +1,5 @@
 import logging
+import urllib
 from abc import ABC, abstractmethod
 from time import sleep
 from typing import Any, List, Optional
@@ -21,6 +22,10 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+
+def is_permission_error(e: requests.exceptions.HTTPError) -> bool:
+    return e.response.status_code == 401 or e.response.status_code == 403
 
 
 class DataResolverBase(ABC):
@@ -74,6 +79,10 @@ class DataResolverBase(ABC):
     def get_dataset(
         self, workspace_id: str, dataset_id: str
     ) -> Optional[PowerBIDataset]:
+        pass
+
+    @abstractmethod
+    def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
         pass
 
     def _get_authority_url(self):
@@ -164,6 +173,7 @@ class DataResolverBase(ABC):
         # Hit PowerBi
         logger.info("Request to groups endpoint URL=%s", group_endpoint)
         zeroth_page = fetch_page(0)
+        logger.debug("Page 0 = %s", zeroth_page)
         if zeroth_page.get("@odata.count") is None:
             raise ValueError(
                 "Required field @odata.count is missing. Not able to determine number of pages to fetch"
@@ -178,6 +188,9 @@ class DataResolverBase(ABC):
             page_response = fetch_page(page)
             if len(page_response["value"]) == 0:
                 break
+
+            logger.debug("Page %d = %s", page, zeroth_page)
+
             output.extend(page_response["value"])
 
         return output
@@ -367,7 +380,7 @@ class RegularAPIResolver(DataResolverBase):
         )
 
     def get_reports_endpoint(self, workspace: Workspace) -> str:
-        reports_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.REPORT_LIST]
+        reports_endpoint: str = self.API_ENDPOINTS[Constant.REPORT_LIST]
         return reports_endpoint.format(
             POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
         )
@@ -409,19 +422,22 @@ class RegularAPIResolver(DataResolverBase):
             for raw_instance in response_dict["value"]
         ]
 
+    def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
+        return []  # User list is not available in regular access
+
 
 class AdminAPIResolver(DataResolverBase):
 
     # Admin access endpoints
     API_ENDPOINTS = {
-        Constant.DASHBOARD_LIST: "{POWERBI_ADMIN_BASE_URL}/{WORKSPACE_ID}/dashboards",
+        Constant.DASHBOARD_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/dashboards",
         Constant.TILE_LIST: "{POWERBI_ADMIN_BASE_URL}/dashboards/{DASHBOARD_ID}/tiles",
-        Constant.REPORT_LIST: "{POWERBI_ADMIN_BASE_URL}/{WORKSPACE_ID}/reports",
+        Constant.REPORT_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/reports",
         Constant.SCAN_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanStatus/{SCAN_ID}",
         Constant.SCAN_RESULT_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanResult/{SCAN_ID}",
         Constant.SCAN_CREATE: "{POWERBI_ADMIN_BASE_URL}/workspaces/getInfo",
         Constant.ENTITY_USER_LIST: "{POWERBI_ADMIN_BASE_URL}/{ENTITY}/{ENTITY_ID}/users",
-        Constant.DATASET_LIST: "{POWERBI_ADMIN_BASE_URL}/{WORKSPACE_ID}/datasets",
+        Constant.DATASET_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/datasets",
     }
 
     def create_scan_job(self, workspace_id: str) -> str:
@@ -528,18 +544,7 @@ class AdminAPIResolver(DataResolverBase):
             headers={Constant.Authorization: self.get_access_token()},
         )
 
-        # Check if we got response from PowerBi
-        if response.status_code != 200:
-            logger.warning(
-                "Failed to fetch user list from power-bi. http_status=%s. message=%s",
-                response.status_code,
-                response.text,
-            )
-
-            logger.info(f"{Constant.WorkspaceId}={workspace_id}")
-            logger.info(f"{Constant.ENTITY}={entity}")
-            logger.info(f"{Constant.ID}={entity_id}")
-            raise ConnectionError("Failed to fetch the user list from the power-bi")
+        response.raise_for_status()
 
         users_dict: List[Any] = response.json()[Constant.VALUE]
 
@@ -586,7 +591,7 @@ class AdminAPIResolver(DataResolverBase):
         dashboard_list_endpoint: str = self.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         return dashboard_list_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.ADMIN_BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, WORKSPACE_ID=workspace.id
         )
 
     def get_reports_endpoint(self, workspace: Workspace) -> str:
@@ -600,17 +605,17 @@ class AdminAPIResolver(DataResolverBase):
         tiles_endpoint: str = self.API_ENDPOINTS[Constant.TILE_LIST]
         # Replace place holders
         return tiles_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
             DASHBOARD_ID=dashboard_id,
         )
-
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
-        return []  # Report pages are not available in Admin API
 
     def get_dataset(
         self, workspace_id: str, dataset_id: str
     ) -> Optional[PowerBIDataset]:
-        datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST]
+        datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST].format(
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            WORKSPACE_ID=workspace_id,
+        )
         # Hit PowerBi
         logger.info(f"Request to datasets URL={datasets_endpoint}")
         params: dict = {"$filter": f"id eq '{dataset_id}'"}
@@ -618,7 +623,7 @@ class AdminAPIResolver(DataResolverBase):
         response = requests.get(
             datasets_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
-            params=params,
+            params=params,  # urllib.parse.urlencode(params, doseq=True).replace('+', '%20'),
         )
         response.raise_for_status()
         response_dict = response.json()
@@ -632,3 +637,6 @@ class AdminAPIResolver(DataResolverBase):
 
         raw_instance: dict = response_dict["value"][0]
         return new_powerbi_dataset(workspace_id, raw_instance)
+
+    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+        return []  # Report pages are not available in Admin API
