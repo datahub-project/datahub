@@ -43,7 +43,7 @@ def scan_init_response(request, context):
     return w_id_vs_response[workspace_id]
 
 
-def register_mock_api(request_mock, override_data: dict = {}):
+def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/groups": {
             "method": "GET",

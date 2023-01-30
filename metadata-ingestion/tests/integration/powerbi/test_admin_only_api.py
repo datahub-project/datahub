@@ -48,7 +48,7 @@ def admin_datasets_response(request, context):
         }
 
 
-def register_mock_admin_api(request_mock, override_data: dict = {}):
+def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None:
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
             "method": "GET",
