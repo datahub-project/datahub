@@ -4,7 +4,19 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.*;
+import com.linkedin.common.Deprecation;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnershipType;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.InstitutionalMemoryMetadata;
+import com.linkedin.common.InstitutionalMemoryMetadataArray;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.Status;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
@@ -128,7 +140,8 @@ public class DataPlatformInstanceTest {
         QueryContext mockContext = Mockito.mock(QueryContext.class);
         Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
         Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
-        List<DataFetcherResult<DataPlatformInstance>> result = type.batchLoad(ImmutableList.of(TEST_DATAPLATFORMINSTANCE_1_URN, TEST_DATAPLATFORMINSTANCE_2_URN), mockContext);
+        List<DataFetcherResult<DataPlatformInstance>> result = type.batchLoad(
+                ImmutableList.of(TEST_DATAPLATFORMINSTANCE_1_URN, TEST_DATAPLATFORMINSTANCE_2_URN), mockContext);
 
         // Verify response
         Mockito.verify(client, Mockito.times(1)).batchGetV2(
