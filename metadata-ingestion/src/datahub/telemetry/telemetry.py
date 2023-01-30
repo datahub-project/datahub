@@ -91,6 +91,15 @@ MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
 
+def _default_telemetry_properties() -> Dict[str, Any]:
+    return {
+        "datahub_version": datahub_package.nice_version_name(),
+        "python_version": platform.python_version(),
+        "os": platform.system(),
+        "arch": platform.machine(),
+    }
+
+
 class Telemetry:
     client_id: str
     enabled: bool = True
@@ -210,11 +219,7 @@ class Telemetry:
         try:
             self.mp.people_set(
                 self.client_id,
-                {
-                    "datahub_version": datahub_package.nice_version_name(),
-                    "os": platform.system(),
-                    "python_version": platform.python_version(),
-                },
+                _default_telemetry_properties(),
             )
         except Exception as e:
             logger.debug(f"Error initializing telemetry: {e}")
@@ -237,13 +242,15 @@ class Telemetry:
         if not self.enabled or self.mp is None:
             return
 
-        if properties is None:
-            properties = {}
+        properties = {
+            **_default_telemetry_properties(),
+            **self._server_props(server),
+            **(properties or {}),
+        }
 
         # send event
         try:
             logger.debug(f"Sending telemetry for {event_name}")
-            properties.update(self._server_props(server))
             self.mp.track(self.client_id, event_name, properties)
 
         except Exception as e:
