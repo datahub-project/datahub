@@ -30,7 +30,6 @@ jobs:
       # TODO: Enable this once the test is fixed.
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
-      fail-fast: false
       matrix:
         python-version: ["3.7", "3.10"]
         command:
