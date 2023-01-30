@@ -874,7 +874,7 @@ def download_compose_files(
             Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
         )
         with open(
-                default_kafka_compose_file, "wb"
+            default_kafka_compose_file, "wb"
         ) if default_kafka_compose_file else tempfile.NamedTemporaryFile(
             suffix=".yml", delete=False
         ) as tmp_file:
