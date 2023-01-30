@@ -1,3 +1,5 @@
+import logging
+import sys
 from typing import Any, Dict
 from unittest import mock
 
@@ -33,6 +35,12 @@ def scan_init_response(request, context):
     }
 
     return w_id_vs_response[workspace_id]
+
+
+def enable_logging():
+    # set logging to console
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+    logging.getLogger().setLevel(logging.DEBUG)
 
 
 def register_mock_api(request_mock, override_data: dict = {}):
@@ -536,9 +544,11 @@ def default_source_config():
     }
 
 
+
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+    enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -702,6 +712,7 @@ def test_scan_all_workspaces(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+    enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -740,6 +751,7 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+    enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -828,6 +840,7 @@ def test_extract_endorsements(
 def test_admin_access_is_not_allowed(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
+    enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
@@ -884,6 +897,8 @@ def test_admin_access_is_not_allowed(
 def test_workspace_container(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
+    enable_logging()
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
