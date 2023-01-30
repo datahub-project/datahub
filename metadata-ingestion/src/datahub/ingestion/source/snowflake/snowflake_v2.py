@@ -17,6 +17,7 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
     make_tag_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -967,19 +968,22 @@ class SnowflakeV2Source(
         )
 
         status = Status(removed=False)
-        yield self.wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=status
+        ).as_workunit()
 
         schema_metadata = self.get_schema_metadata(table, dataset_name, dataset_urn)
-        yield self.wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "schemaMetadata", schema_metadata
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=schema_metadata
+        ).as_workunit()
 
         dataset_properties = self.get_dataset_properties(
             table, schema_name, db_name, dataset_name
         )
-        yield self.wrap_aspect_as_workunit(
-            "dataset", dataset_urn, "datasetProperties", dataset_properties
-        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=dataset_properties
+        ).as_workunit()
 
         schema_container_key = gen_schema_key(
             db_name=self.snowflake_identifier(db_name),
@@ -1005,7 +1009,10 @@ class SnowflakeV2Source(
         subTypes = SubTypes(
             typeNames=["view"] if isinstance(table, SnowflakeView) else ["table"]
         )
-        yield self.wrap_aspect_as_workunit("dataset", dataset_urn, "subTypes", subTypes)
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=subTypes
+        ).as_workunit()
 
         if self.domain_registry:
             yield from get_domain_wu(
@@ -1021,9 +1028,9 @@ class SnowflakeV2Source(
                 TagAssociation(tag=make_tag_urn(tag.identifier())) for tag in table.tags
             ]
             global_tags = GlobalTags(tag_associations)
-            yield self.wrap_aspect_as_workunit(
-                "dataset", dataset_urn, "globalTags", global_tags
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=global_tags
+            ).as_workunit()
 
         if (
             isinstance(table, SnowflakeView)
@@ -1035,12 +1042,10 @@ class SnowflakeV2Source(
                 viewLanguage="SQL",
                 viewLogic=view.view_definition,
             )
-            yield self.wrap_aspect_as_workunit(
-                "dataset",
-                dataset_urn,
-                "viewProperties",
-                view_properties_aspect,
-            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=view_properties_aspect
+            ).as_workunit()
 
     def get_dataset_properties(self, table, schema_name, db_name, dataset_name):
         return DatasetProperties(
@@ -1077,9 +1082,9 @@ class SnowflakeV2Source(
             description=f"Represents the Snowflake tag `{tag._id_prefix_as_str()}` with value `{tag.value}`.",
         )
 
-        yield self.wrap_aspect_as_workunit(
-            "tag", tag_urn, "tagProperties", tag_properties_aspect
-        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=tag_urn, aspect=tag_properties_aspect
+        ).as_workunit()
 
     def get_schema_metadata(
         self,

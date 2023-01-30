@@ -242,7 +242,7 @@ class Telemetry:
 
         # send event
         try:
-            logger.debug("Sending Telemetry")
+            logger.debug(f"Sending telemetry for {event_name}")
             properties.update(self._server_props(server))
             self.mp.track(self.client_id, event_name, properties)
 

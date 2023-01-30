@@ -1246,6 +1246,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type FineGrainedLineage {
@@ -1616,6 +1621,11 @@ type GlossaryTerm implements Entity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -1748,6 +1758,11 @@ type GlossaryNode implements Entity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -2143,6 +2158,11 @@ type Container implements Entity {
     Status metadata of the container
     """
     status: Status
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4301,6 +4321,11 @@ type Notebook implements Entity & BrowsableEntity {
     The browse paths corresponding to the Notebook. If no Browse Paths have been generated before, this will be null.
     """
     browsePaths: [BrowsePath!]
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4611,6 +4636,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4906,6 +4936,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5253,6 +5288,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the datflow is defined
     """
     platform: DataPlatform!
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5440,6 +5480,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -7340,9 +7385,9 @@ Input for updating the parent node of a resource. Currently only GlossaryNodes a
 """
 input UpdateParentNodeInput {
     """
-    The new parent node urn
+    The new parent node urn. If parentNode is null, this will remove the parent from this entity
     """
-    parentNode: String!
+    parentNode: String
 
     """
     The primary key of the resource to update the parent node for
@@ -8277,6 +8322,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     An additional set of of read write properties
     """
     editableProperties: MLModelEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -8378,6 +8428,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     An additional set of of read write properties
     """
     editableProperties: MLModelGroupEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLModelGroupProperties {
@@ -8492,6 +8547,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     An additional set of of read write properties
     """
     editableProperties: MLFeatureEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLHyperParam {
@@ -8656,6 +8716,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     An additional set of of read write properties
     """
     editableProperties: MLPrimaryKeyEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLPrimaryKeyProperties {
@@ -8773,6 +8838,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     An additional set of of read write properties
     """
     editableProperties: MLFeatureTableEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLFeatureTableEditableProperties {
