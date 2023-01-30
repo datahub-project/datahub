@@ -4,7 +4,7 @@ import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
-import { CheckCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { SourceBuilderState, StepProps } from './types';
 import { TimezoneSelect } from './TimezoneSelect';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
@@ -49,6 +49,15 @@ const StyledFormItem = styled(Form.Item)`
     .cron-builder-select {
         min-width: 100px;
     }
+`;
+
+const WarningContainer = styled.div`
+    color: ${ANTD_GRAY[7]};
+`;
+
+const StyledWarningOutlined = styled(WarningOutlined)`
+    margin-right: 4px;
+    margin-top: 12px;
 `;
 
 const ItemDescriptionText = styled(Typography.Paragraph)``;
@@ -101,7 +110,6 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             };
             updateState(newState);
         }
-        console.log(state);
 
         goTo(IngestionSourceBuilderStep.NAME_SOURCE);
     };
@@ -114,12 +122,19 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             <Form layout="vertical">
                 <Form.Item
                     tooltip="Enable to run ingestion on a schedule. Running ingestion on a schedule helps to keep the information inside of DataHub up to date."
-                    label={<Typography.Text strong>Enabled</Typography.Text>}
+                    label={
+                        <Typography.Text strong>
+                            Run on a schedule <Typography.Text type="secondary">(Recommended)</Typography.Text>
+                        </Typography.Text>
+                    }
                 >
-                    <ItemDescriptionText>
-                        Run ingestion on a schedule. <Typography.Text type="secondary">(Recommended)</Typography.Text>
-                    </ItemDescriptionText>
                     <Switch checked={scheduleEnabled} onChange={(v) => setScheduleEnabled(v)} />
+                    {!scheduleEnabled && (
+                        <WarningContainer>
+                            <StyledWarningOutlined />
+                            Running ingestion without a schedule may result in out-of-date information.
+                        </WarningContainer>
+                    )}
                 </Form.Item>
                 <StyledFormItem required label={<Typography.Text strong>Schedule</Typography.Text>}>
                     <Cron
