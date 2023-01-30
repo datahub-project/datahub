@@ -24,7 +24,7 @@ from datahub.cli.put_cli import put
 from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
-from datahub.configuration.common import SIMPLE_ERROR_TYPES
+from datahub.configuration.common import should_show_stack_trace
 from datahub.telemetry import telemetry
 from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
@@ -187,9 +187,7 @@ def main(**kwargs):
             # Unless --debug-vars is passed, we don't want to print the values of variables.
             show_vals = None
 
-        if isinstance(exc, SIMPLE_ERROR_TYPES) or isinstance(
-            exc.__cause__, SIMPLE_ERROR_TYPES
-        ):
+        if not should_show_stack_trace(exc):
             # Don't print the full stack trace for simple config errors.
             logger.debug("Error: %s", exc, exc_info=exc)
             click.secho(exc, fg="red")

@@ -161,19 +161,15 @@ class IgnorableError(MetaError):
     """An error that can be ignored."""
 
 
-class DockerNotRunningError(Exception):
-    pass
+def should_show_stack_trace(exc: Exception) -> bool:
+    if isinstance(exc, ValidationError) or isinstance(exc.__cause__, ValidationError):
+        return False
 
+    show_stack_trace = getattr(exc, "SHOW_STACK_TRACE", True)
+    if not show_stack_trace:
+        return False
 
-class DockerLowMemoryError(Exception):
-    pass
-
-
-SIMPLE_ERROR_TYPES = (
-    ValidationError,
-    DockerNotRunningError,
-    DockerLowMemoryError,
-)
+    return True
 
 
 class ConfigurationWarning(Warning):

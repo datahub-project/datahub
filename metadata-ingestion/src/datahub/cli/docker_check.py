@@ -5,8 +5,6 @@ from typing import Iterator, List
 import docker
 import docker.errors
 
-from datahub.configuration.common import DockerLowMemoryError, DockerNotRunningError
-
 REQUIRED_CONTAINERS = [
     "elasticsearch",
     "datahub-gms",
@@ -42,30 +40,38 @@ MIN_MEMORY_NEEDED = 3.8  # GB
 DATAHUB_COMPOSE_PROJECT_FILTER = {"label": "com.docker.compose.project=datahub"}
 
 
+class DockerNotRunningError(Exception):
+    SHOW_STACK_TRACE = False
+
+
+class DockerLowMemoryError(Exception):
+    SHOW_STACK_TRACE = False
+
+
 @contextmanager
 def get_docker_client() -> Iterator[docker.DockerClient]:
     # Get a reference to the Docker client.
-    docker_cli = None
+    client = None
     try:
-        docker_cli = docker.from_env()
+        client = docker.from_env()
     except docker.errors.DockerException as error:
         try:
             # Docker Desktop 4.13.0 broke the docker.sock symlink.
             # See https://github.com/docker/docker-py/issues/3059.
             maybe_sock_path = os.path.expanduser("~/.docker/run/docker.sock")
             if os.path.exists(maybe_sock_path):
-                docker_cli = docker.DockerClient(base_url=f"unix://{maybe_sock_path}")
+                client = docker.DockerClient(base_url=f"unix://{maybe_sock_path}")
             else:
                 raise error
         except docker.errors.DockerException as error:
             raise DockerNotRunningError(
                 "Docker doesn't seem to be running. Did you start it?"
             ) from error
-    assert docker_cli
+    assert client
 
     # Make sure that we can talk to Docker.
     try:
-        docker_cli.ping()
+        client.ping()
     except docker.errors.DockerException as error:
         raise DockerNotRunningError(
             "Unable to talk to Docker. Did you start it?"
@@ -73,9 +79,9 @@ def get_docker_client() -> Iterator[docker.DockerClient]:
 
     # Yield the client and make sure to close it.
     try:
-        yield docker_cli
+        yield client
     finally:
-        docker_cli.close()
+        client.close()
 
 
 def memory_in_gb(mem_bytes: int) -> float:
