@@ -1,5 +1,12 @@
 #!/bin/bash
 
+## Exit early if PRECREATION is not needed
+if [[ $DATAHUB_PRECREATE_TOPICS == "false" ]]; then
+  echo "DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS}"
+  echo "Pre-creation of topics has been turned off, exiting"
+  exit 0
+fi
+
 . kafka-config.sh
 
 echo "bootstrap.servers=$KAFKA_BOOTSTRAP_SERVER" > $CONNECTION_PROPERTIES_PATH
