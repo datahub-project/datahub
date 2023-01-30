@@ -242,17 +242,16 @@ class Telemetry:
         if not self.enabled or self.mp is None:
             return
 
-        properties = {
-            **_default_telemetry_properties(),
-            **self._server_props(server),
-            **(properties or {}),
-        }
-
         # send event
         try:
             logger.debug(f"Sending telemetry for {event_name}")
-            self.mp.track(self.client_id, event_name, properties)
 
+            properties = {
+                **_default_telemetry_properties(),
+                **self._server_props(server),
+                **(properties or {}),
+            }
+            self.mp.track(self.client_id, event_name, properties)
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
 
@@ -297,11 +296,12 @@ _P = ParamSpec("_P")
 
 
 def with_telemetry(func: Callable[_P, _T]) -> Callable[_P, _T]:
+    function = f"{func.__module__}.{func.__name__}"
+
     @wraps(func)
     def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
-        function = f"{func.__module__}.{func.__name__}"
-
         telemetry_instance.init_tracking()
+
         telemetry_instance.ping(
             "function-call", {"function": function, "status": "start"}
         )
@@ -345,7 +345,7 @@ def with_telemetry(func: Callable[_P, _T]) -> Callable[_P, _T]:
             raise e
 
         # Catch general exceptions
-        except Exception as e:
+        except BaseException as e:
             telemetry_instance.ping(
                 "function-call",
                 {

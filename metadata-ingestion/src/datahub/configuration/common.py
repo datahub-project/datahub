@@ -162,6 +162,9 @@ class IgnorableError(MetaError):
 
 
 def should_show_stack_trace(exc: Exception) -> bool:
+    # Unless the exception is a ValidationError or explicitly opts out of stack traces,
+    # we should show the stack trace.
+
     if isinstance(exc, ValidationError) or isinstance(exc.__cause__, ValidationError):
         return False
 
