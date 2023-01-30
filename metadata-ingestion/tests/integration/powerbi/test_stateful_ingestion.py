@@ -18,10 +18,18 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 def register_mock_api_state1(request_mock):
     api_vs_response = {
+        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
+            "method": "POST",
+            "status_code": 403,
+            "json": {
+
+            },
+        },
         "https://api.powerbi.com/v1.0/myorg/groups": {
             "method": "GET",
             "status_code": 200,
             "json": {
+                "@odata.count": 1,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
@@ -77,10 +85,18 @@ def register_mock_api_state1(request_mock):
 
 def register_mock_api_state2(request_mock):
     api_vs_response = {
+        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
+            "method": "POST",
+            "status_code": 403,
+            "json": {
+
+            },
+        },
         "https://api.powerbi.com/v1.0/myorg/groups": {
             "method": "GET",
             "status_code": 200,
             "json": {
+                "@odata.count": 1,
                 "value": [
                     {
                         "id": "64ED5CAD-7C10-4684-8180-826122881108",
@@ -130,7 +146,6 @@ def default_source_config():
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": False,
         "extract_reports": False,
-        "enable_admin_api": False,
         "extract_ownership": False,
         "stateful_ingestion": {
             "enabled": True,

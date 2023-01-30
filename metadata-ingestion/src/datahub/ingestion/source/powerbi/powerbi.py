@@ -760,8 +760,7 @@ class Mapper:
             aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
-
-        # Dashboard Ownership
+        # Report Ownership
         owners = [
             OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
             for user_urn in user_urn_list
@@ -779,7 +778,7 @@ class Mapper:
                 aspect=ownership,
             )
 
-        # Dashboard browsePaths
+        # Report browsePaths
         browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,

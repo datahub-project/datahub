@@ -89,7 +89,7 @@ class PowerBiAPI:
             return self.__admin_api_resolver
         return self.__regular_api_resolver
 
-    def get_dashboard_users(self, dashboard: Dashboard) -> List[User]:
+    def _get_entity_users(self, workspace_id: str, entity_name: str, entity_id: str) -> List[User]:
         """
         Return list of dashboard users
         """
@@ -102,19 +102,25 @@ class PowerBiAPI:
 
         try:
             users = self.__admin_api_resolver.get_users(
-                workspace_id=dashboard.workspace_id,
-                entity="dashboards",
-                entity_id=dashboard.id,
+                workspace_id=workspace_id,
+                entity=entity_name,
+                entity_id=entity_id,
             )
         except requests.exceptions.HTTPError as e:
             if data_resolver.is_permission_error(e):
-                logger.warning("Dashboard users would not get ingested as admin permission is not enabled on "
-                               "configured Azure AD Application")
+                logger.warning("%s users would not get ingested as admin permission is not enabled on "
+                               "configured Azure AD Application", entity_name)
                 return users
             # if Other error then re-raise
             raise e
 
         return users
+
+    def get_dashboard_users(self, dashboard: Dashboard) -> List[User]:
+        return self._get_entity_users(dashboard.workspace_id, "dashboards", dashboard.id)
+
+    def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
+        return self._get_entity_users(workspace_id, "reports", report_id)
 
     def get_reports(self, workspace: Workspace) -> List[Report]:
         """
@@ -124,7 +130,7 @@ class PowerBiAPI:
             logger.info("workspace is None")
             return []
 
-        reports: List[Report] = self.__regular_api_resolver.get_reports(workspace)
+        reports: List[Report] = self._get_resolver().get_reports(workspace)
 
         def fill_ownership() -> None:
             if self.__config.extract_ownership is False:
@@ -134,10 +140,9 @@ class PowerBiAPI:
                 return
 
             for report in reports:
-                report.users = self.__admin_api_resolver.get_users(
+                report.users = self.get_report_users(
                     workspace_id=workspace.id,
-                    entity="reports",
-                    entity_id=report.id,
+                    report_id=report.id
                 )
 
         def fill_tags() -> None:
@@ -305,7 +310,7 @@ class PowerBiAPI:
                     "Skipping report retrieval as extract_reports is set to false"
                 )
                 return
-            workspace.reports = self._get_resolver().get_reports(workspace)
+            workspace.reports = self.get_reports(workspace)
 
         def fill_dashboard_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:

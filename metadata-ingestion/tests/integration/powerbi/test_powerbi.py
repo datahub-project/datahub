@@ -35,7 +35,7 @@ def scan_init_response(request, context):
     return w_id_vs_response[workspace_id]
 
 
-def register_mock_api(request_mock):
+def register_mock_api(request_mock, override_data: dict = {}):
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/groups": {
             "method": "GET",
@@ -505,6 +505,8 @@ def register_mock_api(request_mock):
         },
     }
 
+    api_vs_response.update(override_data)
+
     for url in api_vs_response.keys():
         request_mock.register_uri(
             api_vs_response[url]["method"],
@@ -823,13 +825,21 @@ def test_extract_endorsements(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-def test_admin_api_disabled(
+def test_admin_access_is_not_allowed(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
-    register_mock_api(request_mock=requests_mock)
+    register_mock_api(request_mock=requests_mock, override_data={
+        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
+            "method": "POST",
+            "status_code": 403,
+            "json": {
+
+            },
+        },
+    })
 
     pipeline = Pipeline.create(
         {
@@ -839,7 +849,6 @@ def test_admin_api_disabled(
                 "config": {
                     **default_source_config(),
                     "extract_lineage": True,
-                    "enable_admin_api": False,
                     "dataset_type_mapping": {
                         "PostgreSql": {"platform_instance": "operational_instance"},
                         "Oracle": {
