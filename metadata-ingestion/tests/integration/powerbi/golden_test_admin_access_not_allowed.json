@@ -33,39 +33,6 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
     "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "datasetId": "",
-                "reportId": "",
-                "datasetWebUrl": "",
-                "createdFrom": "Dataset"
-            },
-            "title": "test_tile",
-            "description": "test_tile",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            },
-            "inputs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-admin-api-disabled-test"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
-    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -86,39 +53,6 @@
         "json": {
             "dashboardTool": "powerbi",
             "chartId": "powerbi.linkedin.com/charts/B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-admin-api-disabled-test"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "datasetId": "",
-                "reportId": "",
-                "datasetWebUrl": "",
-                "createdFrom": "Dataset"
-            },
-            "title": "yearly_sales",
-            "description": "yearly_sales",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            },
-            "inputs": []
         }
     },
     "systemMetadata": {

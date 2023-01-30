@@ -303,11 +303,11 @@ class Mapper:
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties = {
-                "datasetId": tile.dataset.id if tile.dataset else "",
-                "reportId": tile.report.id if tile.report else "",
+                "datasetId": tile.dataset.id if tile.dataset else None,
+                "reportId": tile.report.id if tile.report else None,
                 "datasetWebUrl": tile.dataset.webUrl
                 if tile.dataset is not None
-                else "",
+                else None,
                 "createdFrom": tile.createdFrom.value,
             }
 
@@ -316,8 +316,8 @@ class Mapper:
         # Create chartInfo mcp
         # Set chartUrl only if tile is created from Report
         chart_info_instance = ChartInfoClass(
-            title=tile.title or "",
-            description=tile.title or "",
+            title=tile.title,
+            description=tile.title,
             lastModified=ChangeAuditStamps(),
             inputs=ds_input,
             externalUrl=tile.report.webUrl if tile.report else None,
