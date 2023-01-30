@@ -48,6 +48,10 @@ class DockerLowMemoryError(Exception):
     SHOW_STACK_TRACE = False
 
 
+class DockerComposeVersionError(Exception):
+    SHOW_STACK_TRACE = False
+
+
 @contextmanager
 def get_docker_client() -> Iterator[docker.DockerClient]:
     # Get a reference to the Docker client.

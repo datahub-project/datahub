@@ -11,7 +11,7 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional, Union
+from typing import Dict, List, NoReturn, Optional
 
 import click
 import click_spinner
@@ -19,11 +19,11 @@ import pydantic
 import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
-from typing_extensions import Literal
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_PROJECT_FILTER,
+    DockerComposeVersionError,
     check_local_docker_containers,
     get_docker_client,
     run_quickstart_preflight_checks,
@@ -219,7 +219,7 @@ def _get_default_quickstart_compose_file() -> Optional[str]:
     return None
 
 
-def _docker_compose_v2() -> Union[List[str], Literal[False]]:
+def _docker_compose_v2() -> List[str]:
     try:
         # Check for the docker compose v2 plugin.
         compose_version = subprocess.check_output(
@@ -238,20 +238,16 @@ def _docker_compose_v2() -> Union[List[str], Literal[False]]:
                 # instead of as a plugin.
                 return ["docker-compose"]
 
-            click.secho(
+            raise DockerComposeVersionError(
                 f"You have docker-compose v1 ({compose_version}) installed, but we require Docker Compose v2. "
                 "Please upgrade to Docker Compose v2. "
-                "See https://docs.docker.com/compose/compose-v2/ for more information.",
-                fg="red",
+                "See https://docs.docker.com/compose/compose-v2/ for more information."
             )
-            return False
         except (OSError, subprocess.CalledProcessError):
             # docker-compose v1 is not installed either.
-            click.secho(
+            raise DockerComposeVersionError(
                 "You don't have Docker Compose installed. Please install Docker Compose. See https://docs.docker.com/compose/install/.",
-                fg="red",
             )
-            return False
 
 
 def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
@@ -266,8 +262,6 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     if compose_files_for_stopping:
         # docker-compose stop
         compose = _docker_compose_v2()
-        if not compose:
-            sys.exit(1)
         base_command: List[str] = [
             *compose,
             *itertools.chain.from_iterable(
@@ -689,8 +683,6 @@ def quickstart(
     )
 
     compose = _docker_compose_v2()
-    if not compose:
-        sys.exit(1)
     base_command: List[str] = [
         *compose,
         *itertools.chain.from_iterable(
