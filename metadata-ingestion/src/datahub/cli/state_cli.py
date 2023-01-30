@@ -31,7 +31,7 @@ def state() -> None:
 @click.option("--platform", required=True, type=str)
 @click.option("--platform-instance", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def inspect(
     pipeline_name: str, platform: str, platform_instance: Optional[str]
 ) -> None:

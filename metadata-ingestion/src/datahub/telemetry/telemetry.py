@@ -6,7 +6,7 @@ import platform
 import uuid
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from mixpanel import Consumer, Mixpanel
 from typing_extensions import ParamSpec
@@ -295,65 +295,74 @@ _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
 
-def with_telemetry(func: Callable[_P, _T]) -> Callable[_P, _T]:
-    function = f"{func.__module__}.{func.__name__}"
+def with_telemetry(
+    *, kwargs: Optional[List[str]] = None
+) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
+    kwargs_to_track = kwargs or []
 
-    @wraps(func)
-    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
-        telemetry_instance.init_tracking()
+    def with_telemetry_decorator(func: Callable[_P, _T]) -> Callable[_P, _T]:
+        function = f"{func.__module__}.{func.__name__}"
 
-        telemetry_instance.ping(
-            "function-call", {"function": function, "status": "start"}
-        )
-        try:
-            res = func(*args, **kwargs)
+        @wraps(func)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+            telemetry_instance.init_tracking()
+
+            call_props: Dict[str, Any] = {"function": function}
+            for kwarg in kwargs_to_track:
+                call_props[f"arg_{kwarg}"] = kwargs.get(kwarg)
+
             telemetry_instance.ping(
                 "function-call",
-                {"function": function, "status": "completed"},
+                {**call_props, "status": "start"},
             )
-            return res
-        # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
-        # so we need to catch them here.
-        except SystemExit as e:
-            # Forward successful exits
-            # 0 or None imply success
-            if not e.code:
+            try:
+                res = func(*args, **kwargs)
                 telemetry_instance.ping(
                     "function-call",
-                    {
-                        "function": function,
-                        "status": "completed",
-                    },
+                    {**call_props, "status": "completed"},
                 )
-            # Report failed exits
-            else:
+                return res
+            # System exits (used in ingestion and Docker commands) are not caught by the exception handler,
+            # so we need to catch them here.
+            except SystemExit as e:
+                # Forward successful exits
+                # 0 or None imply success
+                if not e.code:
+                    telemetry_instance.ping(
+                        "function-call",
+                        {**call_props, "status": "completed"},
+                    )
+                # Report failed exits
+                else:
+                    telemetry_instance.ping(
+                        "function-call",
+                        {
+                            **call_props,
+                            "status": "error",
+                            "error": get_full_class_name(e),
+                        },
+                    )
+                raise e
+            # Catch SIGINTs
+            except KeyboardInterrupt as e:
+                telemetry_instance.ping(
+                    "function-call",
+                    {**call_props, "status": "cancelled"},
+                )
+                raise e
+
+            # Catch general exceptions
+            except BaseException as e:
                 telemetry_instance.ping(
                     "function-call",
                     {
-                        "function": function,
+                        **call_props,
                         "status": "error",
                         "error": get_full_class_name(e),
                     },
                 )
-            raise e
-        # Catch SIGINTs
-        except KeyboardInterrupt as e:
-            telemetry_instance.ping(
-                "function-call",
-                {"function": function, "status": "cancelled"},
-            )
-            raise e
+                raise e
 
-        # Catch general exceptions
-        except BaseException as e:
-            telemetry_instance.ping(
-                "function-call",
-                {
-                    "function": function,
-                    "status": "error",
-                    "error": get_full_class_name(e),
-                },
-            )
-            raise e
+        return wrapper
 
-    return wrapper
+    return with_telemetry_decorator

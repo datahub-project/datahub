@@ -108,7 +108,7 @@ def datahub(
 
 
 @datahub.command()
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def version() -> None:
     """Print version number and exit."""
 
@@ -117,7 +117,7 @@ def version() -> None:
 
 
 @datahub.command()
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def init() -> None:
     """Configure which datahub instance to connect to"""
 

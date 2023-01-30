@@ -124,7 +124,7 @@ def docker_check_impl() -> None:
 
 @docker.command()
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def check() -> None:
     """Check that the Docker containers are healthy"""
     docker_check_impl()
@@ -594,9 +594,21 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry(
+    kwargs=[
+        "build_locally",
+        "pull_images",
+        "stop",
+        "backup",
+        "restore",
+        "restore_indices",
+        "standalone_consumers",
+        "kafka_setup",
+        "arch",
+    ]
+)
 def quickstart(
-    version: str,
+    version: Optional[str],
     build_locally: bool,
     pull_images: bool,
     quickstart_compose_file: List[pathlib.Path],
@@ -913,7 +925,7 @@ def valid_restore_options(
     default=None,
     help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
 )
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 
@@ -955,7 +967,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
 
 
 @docker.command()
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 @click.option(
     "--keep-data",
     type=bool,
