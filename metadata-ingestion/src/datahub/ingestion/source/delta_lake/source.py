@@ -303,11 +303,10 @@ class DeltaLakeSource(Source):
         if self.source_config.s3 is not None:
             yield from list_folders_path(path, self.source_config.s3.aws_config)
 
+    def local_folder_exists(self, path: str) -> bool:
+        return os.path.isdir(path)
+
     def local_get_folders(self, path: str) -> Iterable[str]:
-        if not os.path.isdir(path):
-            raise Exception(
-                f"{path} does not exist. Please check base_path configuration."
-            )
         for _, folders, _ in os.walk(path):
             for folder in folders:
                 yield folder
@@ -323,6 +322,14 @@ class DeltaLakeSource(Source):
         get_folders = (
             self.s3_get_folders if self.source_config.is_s3 else self.local_get_folders
         )
+
+        if not self.source_config.is_s3 and not self.local_folder_exists(
+            self.source_config.complete_path
+        ):
+            raise Exception(
+                f"{self.source_config.complete_path} does not exist. Please check base_path configuration."
+            )
+
         for wu in self.process_folder(self.source_config.complete_path, get_folders):
             yield wu
 
