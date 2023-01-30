@@ -866,8 +866,7 @@ def download_compose_files(
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
     if kafka_setup:
-        # Set the env variable for DATAHUB_PRECREATE_TOPICS
-        # TODO
+        os.environ["DATAHUB_PRECREATE_TOPICS"] = "true"
 
         default_consumer_compose_file = (
             Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
