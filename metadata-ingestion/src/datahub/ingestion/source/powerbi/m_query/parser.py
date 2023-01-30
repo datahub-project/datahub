@@ -48,7 +48,7 @@ def get_upstream_tables(
     native_query_enabled: bool = True,
 ) -> List[resolver.DataPlatformTable]:
     if table.expression is None:
-        logger.debug(table.full_name, "Expression is none")
+        logger.debug("Expression is none for table %s", table.full_name)
         return []
 
     try:

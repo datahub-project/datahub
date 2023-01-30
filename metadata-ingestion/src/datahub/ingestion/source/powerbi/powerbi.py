@@ -760,8 +760,7 @@ class Mapper:
             aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
-
-        # Dashboard Ownership
+        # Report Ownership
         owners = [
             OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
             for user_urn in user_urn_list
@@ -779,7 +778,7 @@ class Mapper:
                 aspect=ownership,
             )
 
-        # Dashboard browsePaths
+        # Report browsePaths
         browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
@@ -895,11 +894,17 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
 
     def get_allowed_workspaces(self) -> Iterable[powerbi_data_classes.Workspace]:
         all_workspaces = self.powerbi_client.get_workspaces()
-        return [
+        allowed_wrk = [
             workspace
             for workspace in all_workspaces
             if self.source_config.workspace_id_pattern.allowed(workspace.id)
         ]
+
+        logger.info("Number of workspaces = %s", len(all_workspaces))
+        logger.info("Number of allowed workspaces = %s", len(allowed_wrk))
+        logger.debug("Workspaces = %s", all_workspaces)
+
+        return allowed_wrk
 
     def validate_dataset_type_mapping(self):
         powerbi_data_platforms: List[str] = [
@@ -933,7 +938,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     self.reporter.report_workunit(workunit)
                     # Return workunit to Datahub Ingestion framework
                     yield workunit
-
             for dashboard in workspace.dashboards:
                 try:
                     # Fetch PowerBi users for dashboards

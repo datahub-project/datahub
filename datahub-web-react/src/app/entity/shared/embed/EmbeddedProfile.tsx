@@ -13,6 +13,7 @@ import { SidebarOwnerSection } from '../containers/profile/sidebar/Ownership/Sid
 import { SidebarTagsSection } from '../containers/profile/sidebar/SidebarTagsSection';
 import { SidebarDomainSection } from '../containers/profile/sidebar/Domain/SidebarDomainSection';
 import UpstreamHealth from './UpstreamHealth/UpstreamHealth';
+import NonExistentEntityPage from '../entity/NonExistentEntityPage';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -48,6 +49,10 @@ interface Props<T> {
 export default function EmbeddedProfile<T>({ urn, entityType, getOverrideProperties, useEntityQuery }: Props<T>) {
     const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, refetch } =
         useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
+
+    if (entityData?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
 
     return (
         <EntityContext.Provider
