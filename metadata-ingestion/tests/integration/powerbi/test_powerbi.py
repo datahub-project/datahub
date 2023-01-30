@@ -875,7 +875,7 @@ def test_admin_access_is_not_allowed(
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"{tmp_path}/powerbi_admin_api_disabled_mces.json",
+                    "filename": f"{tmp_path}/golden_test_admin_access_not_allowed_mces.json",
                 },
             },
         }
@@ -883,11 +883,11 @@ def test_admin_access_is_not_allowed(
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_admin_api_disabled.json"
+    golden_file = "golden_test_admin_access_not_allowed.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=f"{tmp_path}/powerbi_admin_api_disabled_mces.json",
+        output_path=f"{tmp_path}/golden_test_admin_access_not_allowed_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
 

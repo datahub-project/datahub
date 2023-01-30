@@ -37,10 +37,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "",
-                "reportId": "",
-                "datasetWebUrl": "",
-                "createdFrom": "Dataset"
+                "createdFrom": "Dataset",
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
             },
             "title": "test_tile",
             "description": "test_tile",
@@ -101,10 +99,8 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "",
-                "reportId": "",
-                "datasetWebUrl": "",
-                "createdFrom": "Dataset"
+                "createdFrom": "Dataset",
+                "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed"
             },
             "title": "yearly_sales",
             "description": "yearly_sales",

@@ -151,6 +151,7 @@ class Tile:
     title: str
     embedUrl: str
     dataset: Optional["PowerBIDataset"]
+    dataset_id: Optional[str]
     report: Optional[Any]
     createdFrom: CreatedFrom
 

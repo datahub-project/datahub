@@ -302,14 +302,18 @@ class Mapper:
         ds_input: List[str] = self.to_urn_set(ds_mcps)
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
-            custom_properties = {
-                "datasetId": tile.dataset.id if tile.dataset else "",
-                "reportId": tile.report.id if tile.report else "",
-                "datasetWebUrl": tile.dataset.webUrl
-                if tile.dataset is not None
-                else "",
+            custom_properties: dict = {
                 "createdFrom": tile.createdFrom.value,
             }
+
+            if tile.dataset_id is not None:
+                custom_properties["datasetId"] = tile.dataset_id
+
+            if tile.dataset is not None:
+                custom_properties["datasetWebUrl"] = tile.dataset.webUrl
+
+            if tile.report is not None:
+                custom_properties["reportId"] = tile.report.id
 
             return custom_properties
 
@@ -321,7 +325,7 @@ class Mapper:
             lastModified=ChangeAuditStamps(),
             inputs=ds_input,
             externalUrl=tile.report.webUrl if tile.report else None,
-            customProperties={**tile_custom_properties(tile)},
+            customProperties=tile_custom_properties(tile),
         )
 
         info_mcp = self.new_mcp(
