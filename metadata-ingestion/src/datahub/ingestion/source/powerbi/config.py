@@ -141,8 +141,9 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
-        default=True, description="Whether ownership should be ingested. Admin access should be given to configured "
-                                  "Azure AD Application "
+        default=True,
+        description="Whether ownership should be ingested. Admin access should be given to configured "
+        "Azure AD Application ",
     )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
@@ -152,7 +153,7 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     extract_lineage: bool = pydantic.Field(
         default=True,
         description="Whether lineage should be ingested. Admin access should be given to configured Azure AD "
-                    "Application "
+        "Application "
         "should be set to 'true' ",
     )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
@@ -160,7 +161,7 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
         description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin "
-                    "access should be given to configured Azure AD Application",
+        "access should be given to configured Azure AD Application",
     )
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(

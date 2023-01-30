@@ -1,5 +1,4 @@
 import logging
-import urllib
 from abc import ABC, abstractmethod
 from time import sleep
 from typing import Any, List, Optional
@@ -591,7 +590,8 @@ class AdminAPIResolver(DataResolverBase):
         dashboard_list_endpoint: str = self.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         return dashboard_list_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, WORKSPACE_ID=workspace.id
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            WORKSPACE_ID=workspace.id,
         )
 
     def get_reports_endpoint(self, workspace: Workspace) -> str:

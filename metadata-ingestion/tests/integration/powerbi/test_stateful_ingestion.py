@@ -21,9 +21,7 @@ def register_mock_api_state1(request_mock):
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
             "method": "POST",
             "status_code": 403,
-            "json": {
-
-            },
+            "json": {},
         },
         "https://api.powerbi.com/v1.0/myorg/groups": {
             "method": "GET",
@@ -37,7 +35,7 @@ def register_mock_api_state1(request_mock):
                         "name": "Workspace 1",
                         "type": "Workspace",
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
@@ -88,9 +86,7 @@ def register_mock_api_state2(request_mock):
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
             "method": "POST",
             "status_code": 403,
-            "json": {
-
-            },
+            "json": {},
         },
         "https://api.powerbi.com/v1.0/myorg/groups": {
             "method": "GET",
@@ -104,7 +100,7 @@ def register_mock_api_state2(request_mock):
                         "name": "Workspace 1",
                         "type": "Workspace",
                     },
-                ]
+                ],
             },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {

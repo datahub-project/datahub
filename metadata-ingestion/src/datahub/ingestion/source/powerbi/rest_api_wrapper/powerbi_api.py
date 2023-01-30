@@ -1,16 +1,14 @@
 import json
 import logging
-import requests
-
-from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
-
 from typing import Any, Dict, List, Optional
 
+import requests
 
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Dashboard,
     PowerBIDataset,
@@ -89,7 +87,9 @@ class PowerBiAPI:
             return self.__admin_api_resolver
         return self.__regular_api_resolver
 
-    def _get_entity_users(self, workspace_id: str, entity_name: str, entity_id: str) -> List[User]:
+    def _get_entity_users(
+        self, workspace_id: str, entity_name: str, entity_id: str
+    ) -> List[User]:
         """
         Return list of dashboard users
         """
@@ -108,8 +108,11 @@ class PowerBiAPI:
             )
         except requests.exceptions.HTTPError as e:
             if data_resolver.is_permission_error(e):
-                logger.warning("%s users would not get ingested as admin permission is not enabled on "
-                               "configured Azure AD Application", entity_name)
+                logger.warning(
+                    "%s users would not get ingested as admin permission is not enabled on "
+                    "configured Azure AD Application",
+                    entity_name,
+                )
                 return users
             # if Other error then re-raise
             raise e
@@ -117,7 +120,9 @@ class PowerBiAPI:
         return users
 
     def get_dashboard_users(self, dashboard: Dashboard) -> List[User]:
-        return self._get_entity_users(dashboard.workspace_id, "dashboards", dashboard.id)
+        return self._get_entity_users(
+            dashboard.workspace_id, "dashboards", dashboard.id
+        )
 
     def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
         return self._get_entity_users(workspace_id, "reports", report_id)
@@ -141,8 +146,7 @@ class PowerBiAPI:
 
             for report in reports:
                 report.users = self.get_report_users(
-                    workspace_id=workspace.id,
-                    report_id=report.id
+                    workspace_id=workspace.id, report_id=report.id
                 )
 
         def fill_tags() -> None:
