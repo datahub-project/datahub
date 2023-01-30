@@ -64,8 +64,8 @@ services:
   datahub-gms:
     container_name: datahub-gms
     depends_on:
-    - neo4j
     - mysql
+    - neo4j
     environment:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
@@ -139,8 +139,8 @@ services:
     - schema-registry
     environment:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-    - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:
