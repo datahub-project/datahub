@@ -213,7 +213,7 @@ def _set_environment_variables(
     if elastic_port is not None:
         os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
     if kafka_setup:
-        os.environ["DATAHUB_PRECREATE_TOPICS"] = 'true' 
+        os.environ["DATAHUB_PRECREATE_TOPICS"] = "true"
 
 
 def _get_default_quickstart_compose_file() -> Optional[str]:
@@ -804,6 +804,7 @@ def quickstart(
         "Need support? Get in touch on Slack: https://slack.datahubproject.io/",
         fg="magenta",
     )
+
 
 def download_compose_files(
     quickstart_compose_file_name,
