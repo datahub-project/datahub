@@ -48,9 +48,6 @@ jobs:
     name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest
     needs: setup
-    outputs:
-      image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.IMAGE }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
