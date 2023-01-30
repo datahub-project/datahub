@@ -354,7 +354,7 @@ def test_expression_is_none():
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     logging.getLogger().setLevel(logging.DEBUG)
 
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=None,  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",

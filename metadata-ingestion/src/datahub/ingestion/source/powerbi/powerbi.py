@@ -895,11 +895,17 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
 
     def get_allowed_workspaces(self) -> Iterable[powerbi_data_classes.Workspace]:
         all_workspaces = self.powerbi_client.get_workspaces()
-        return [
+        allowed_wrk = [
             workspace
             for workspace in all_workspaces
             if self.source_config.workspace_id_pattern.allowed(workspace.id)
         ]
+
+        logger.info("Number of workspaces = %s", len(all_workspaces))
+        logger.info("Number of allowed workspaces = %s", len(allowed_wrk))
+        logger.debug("Workspaces = %s", all_workspaces)
+
+        return allowed_wrk
 
     def validate_dataset_type_mapping(self):
         powerbi_data_platforms: List[str] = [

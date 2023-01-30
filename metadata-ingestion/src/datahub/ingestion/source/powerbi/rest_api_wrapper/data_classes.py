@@ -22,6 +22,7 @@ class Workspace:
     datasets: Dict[str, "PowerBIDataset"]
     report_endorsements: Dict[str, List[str]]
     dashboard_endorsements: Dict[str, List[str]]
+    scan_result: dict
 
     def get_urn_part(self):
         return self.name
@@ -67,7 +68,7 @@ class Table:
 @dataclass
 class PowerBIDataset:
     id: str
-    name: str
+    name: Optional[str]
     webUrl: Optional[str]
     workspace_id: str
     # Table in datasets
@@ -183,3 +184,16 @@ class Dashboard:
 
     def __hash__(self):
         return hash(self.__members())
+
+
+def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset:
+    return PowerBIDataset(
+        id=raw_instance["id"],
+        name=raw_instance.get("name"),
+        webUrl="{}/details".format(raw_instance.get("webUrl"))
+        if raw_instance.get("webUrl") is not None
+        else None,
+        workspace_id=workspace_id,
+        tables=[],
+        tags=[],
+    )

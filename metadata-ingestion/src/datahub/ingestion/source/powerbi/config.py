@@ -31,6 +31,7 @@ class Constant:
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
     DATASET_GET = "DATASET_GET"
+    DATASET_LIST = "DATASET_LIST"
     REPORT_GET = "REPORT_GET"
     DATASOURCE_GET = "DATASOURCE_GET"
     TILE_GET = "TILE_GET"
@@ -148,13 +149,16 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
-        default=True, description="Whether lineage should be ingested"
+        default=True,
+        description="Whether lineage should be ingested. If this set to 'true' then enable_admin_api "
+        "should be set to 'true' ",
     )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
     # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
-        description="Whether to extract endorsements to tags, note that this may overwrite existing tags",
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. If this set "
+        "to 'true' then enable_admin_api should 'true'.",
     )
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(
@@ -181,10 +185,18 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="PowerBI Stateful Ingestion Config."
     )
-    # Enable/Disable PowerBI Dataset metadata
+    #
     enable_admin_api: bool = pydantic.Field(
         default=True,
-        description="Flag to enable/disable PowerBI Admin API to fetch PowerBI dataset metadata",
+        description="Flag to enable/disable PowerBI Admin API to fetch PowerBI dataset's schema/endorsement tag "
+        "metadata",
+    )
+
+    # Retrieve PowerBI Metadata using Admin API
+    admin_only: bool = pydantic.Field(
+        default=False,
+        description="Retrieve metadata using Power BI Admin API. If this flag is 'true' then Report pages "
+        "and chart webUrl would not get ingested",
     )
 
     @validator("dataset_type_mapping")

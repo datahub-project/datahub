@@ -1,4 +1,5 @@
 import logging
+from abc import ABC, abstractmethod
 from time import sleep
 from typing import Any, List, Optional
 
@@ -15,17 +16,19 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Tile,
     User,
     Workspace,
+    new_powerbi_dataset,
 )
 
 # Logger instance
 logger = logging.getLogger(__name__)
 
 
-class DataResolverBase:
+class DataResolverBase(ABC):
     SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
     BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/groups"
     ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
     AUTHORITY: str = "https://login.microsoftonline.com/"
+    TOP: int = 1000
 
     def __init__(
         self,
@@ -43,9 +46,38 @@ class DataResolverBase:
         )
 
         # Test connection by generating access token
-        logger.info("Trying to connect to {}".format(self.__get_authority_url()))
+        logger.info("Trying to connect to {}".format(self._get_authority_url()))
         self.get_access_token()
-        logger.info("Connected to {}".format(self.__get_authority_url()))
+        logger.info("Connected to {}".format(self._get_authority_url()))
+
+    @abstractmethod
+    def get_groups_endpoint(self) -> str:
+        pass
+
+    @abstractmethod
+    def get_dashboards_endpoint(self, workspace: Workspace) -> str:
+        pass
+
+    @abstractmethod
+    def get_reports_endpoint(self, workspace: Workspace) -> str:
+        pass
+
+    @abstractmethod
+    def get_tiles_endpoint(self, workspace: Workspace, dashboard_id: str) -> str:
+        pass
+
+    @abstractmethod
+    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+        pass
+
+    @abstractmethod
+    def get_dataset(
+        self, workspace_id: str, dataset_id: str
+    ) -> Optional[PowerBIDataset]:
+        pass
+
+    def _get_authority_url(self):
+        return "{}{}".format(DataResolverBase.AUTHORITY, self.__tenant_id)
 
     def get_access_token(self):
         if self.__access_token != "":
@@ -74,70 +106,6 @@ class DataResolverBase:
 
         return self.__access_token
 
-    def __get_authority_url(self):
-        return "{}{}".format(DataResolverBase.AUTHORITY, self.__tenant_id)
-
-
-class RegularAPIResolver(DataResolverBase):
-    # Regular access endpoints
-    API_ENDPOINTS = {
-        Constant.DASHBOARD_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards",
-        Constant.TILE_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards/{DASHBOARD_ID}/tiles",
-        Constant.DATASET_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}",
-        Constant.DATASOURCE_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/datasources",
-        Constant.REPORT_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}",
-        Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
-        Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
-    }
-
-    def _get_report(self, workspace_id: str, report_id: str) -> Optional[Report]:
-        """
-        Fetch the report from PowerBi for the given report identifier
-        """
-        if workspace_id is None or report_id is None:
-            logger.info("Input values are None")
-            logger.info(f"{Constant.WorkspaceId}={workspace_id}")
-            logger.info(f"{Constant.ReportId}={report_id}")
-            return None
-
-        report_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.REPORT_GET]
-        # Replace place holders
-        report_get_endpoint = report_get_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
-            WORKSPACE_ID=workspace_id,
-            REPORT_ID=report_id,
-        )
-        # Hit PowerBi
-        logger.info(f"Request to report URL={report_get_endpoint}")
-        response = requests.get(
-            report_get_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
-        )
-
-        # Check if we got response from PowerBi
-        if response.status_code != 200:
-            message: str = "Failed to fetch report from power-bi for"
-            logger.warning(message)
-            logger.warning(f"{Constant.WorkspaceId}={workspace_id}")
-            logger.warning(f"{Constant.ReportId}={report_id}")
-            raise ConnectionError(message)
-
-        response_dict = response.json()
-
-        return Report(
-            id=response_dict.get("id"),
-            name=response_dict.get("name"),
-            webUrl=response_dict.get("webUrl"),
-            embedUrl=response_dict.get("embedUrl"),
-            description=response_dict.get("description"),
-            users=[],
-            pages=[],
-            tags=[],
-            dataset=self.get_dataset(
-                workspace_id=workspace_id, dataset_id=response_dict.get("datasetId")
-            ),
-        )
-
     def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
         """
         Get the list of dashboard from PowerBi for the given workspace identifier
@@ -145,13 +113,8 @@ class RegularAPIResolver(DataResolverBase):
         TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get
         -dashboards), there is no information available on pagination
         """
-        dashboard_list_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
-            Constant.DASHBOARD_LIST
-        ]
-        # Replace place holders
-        dashboard_list_endpoint = dashboard_list_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
-        )
+        dashboard_list_endpoint: str = self.get_dashboards_endpoint(workspace)
+
         # Hit PowerBi
         logger.info(f"Request to URL={dashboard_list_endpoint}")
         response = requests.get(
@@ -159,13 +122,7 @@ class RegularAPIResolver(DataResolverBase):
             headers={Constant.Authorization: self.get_access_token()},
         )
 
-        # Check if we got response from PowerBi
-        if response.status_code != 200:
-            logger.warning("Failed to fetch dashboard list from power-bi for")
-            logger.warning(f"{Constant.WorkspaceId}={workspace.id}")
-            raise ConnectionError(
-                "Failed to fetch the dashboard list from the power-bi"
-            )
+        response.raise_for_status()
 
         dashboards_dict: List[Any] = response.json()[Constant.VALUE]
 
@@ -189,7 +146,182 @@ class RegularAPIResolver(DataResolverBase):
 
         return dashboards
 
-    def get_dataset(self, workspace_id: str, dataset_id: str) -> Any:
+    def get_groups(self) -> List[dict]:
+        group_endpoint = self.get_groups_endpoint()
+        params: dict = {"$top": self.TOP, "$skip": 0, "$filter": "type eq 'Workspace'"}
+
+        def fetch_page(page_number: int) -> dict:
+            params["$skip"] = self.TOP * page_number
+            logger.debug("Query parameters = %s", params)
+            response = requests.get(
+                group_endpoint,
+                headers={Constant.Authorization: self.get_access_token()},
+                params=params,
+            )
+            response.raise_for_status()
+            return response.json()
+
+        # Hit PowerBi
+        logger.info("Request to groups endpoint URL=%s", group_endpoint)
+        zeroth_page = fetch_page(0)
+        if zeroth_page.get("@odata.count") is None:
+            raise ValueError(
+                "Required field @odata.count is missing. Not able to determine number of pages to fetch"
+            )
+
+        number_of_items = zeroth_page["@odata.count"]
+        number_of_pages = round(number_of_items / self.TOP)
+        output: List[dict] = zeroth_page["value"]
+        for page in range(
+            1, number_of_pages
+        ):  # start from 1 as 0th index already fetched
+            page_response = fetch_page(page)
+            if len(page_response["value"]) == 0:
+                break
+            output.extend(page_response["value"])
+
+        return output
+
+    def get_reports(
+        self, workspace: Workspace, _filter: Optional[str] = None
+    ) -> List[Report]:
+        reports_endpoint = self.get_reports_endpoint(workspace)
+        # Hit PowerBi
+        logger.info(f"Request to report URL={reports_endpoint}")
+        params: Optional[dict] = None
+        if _filter is not None:
+            params = {"$filter": _filter}
+
+        response = requests.get(
+            reports_endpoint,
+            headers={Constant.Authorization: self.get_access_token()},
+            params=params,
+        )
+        response.raise_for_status()
+        response_dict = response.json()
+        reports: List[Report] = [
+            Report(
+                id=raw_instance["id"],
+                name=raw_instance.get("name"),
+                webUrl=raw_instance.get("webUrl"),
+                embedUrl=raw_instance.get("embedUrl"),
+                description=raw_instance.get("description"),
+                pages=self._get_pages_by_report(
+                    workspace=workspace, report_id=raw_instance["id"]
+                ),
+                users=[],  # It will be fetched using Admin Fetcher based on condition
+                tags=[],  # It will be fetched using Admin Fetcher based on condition
+                dataset=workspace.datasets.get(raw_instance.get("datasetId")),
+            )
+            for raw_instance in response_dict["value"]
+        ]
+
+        return reports
+
+    def get_report(self, workspace: Workspace, report_id: str) -> Optional[Report]:
+        reports: List[Report] = self.get_reports(
+            workspace, _filter=f"id eq '{report_id}'"
+        )
+
+        if len(reports) == 0:
+            return None
+
+        return reports[0]
+
+    def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
+
+        """
+        Get the list of tiles from PowerBi for the given workspace identifier
+
+        TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get
+        -tiles), there is no information available on pagination
+
+        """
+
+        def new_dataset_or_report(tile_instance: Any) -> dict:
+            """
+            Find out which is the data source for tile. It is either REPORT or DATASET
+            """
+            report_fields = {
+                "dataset": (
+                    workspace.datasets.get(tile_instance.get("datasetId"))
+                    if tile_instance.get("datasetId") is not None
+                    else None
+                ),
+                "report": (
+                    self.get_report(
+                        workspace=workspace,
+                        report_id=tile_instance.get("reportId"),
+                    )
+                    if tile_instance.get("reportId") is not None
+                    else None
+                ),
+                "createdFrom": Tile.CreatedFrom.UNKNOWN,
+            }
+
+            # Tile is either created from report or dataset or from custom visualization
+            if report_fields["report"] is not None:
+                report_fields["createdFrom"] = Tile.CreatedFrom.REPORT
+            elif report_fields["dataset"] is not None or (
+                report_fields["dataset"] is None
+                and tile_instance.get("datasetId") is not None
+            ):  # Admin API is disabled and hence dataset instance is missing
+                report_fields["createdFrom"] = Tile.CreatedFrom.DATASET
+            else:
+                report_fields["createdFrom"] = Tile.CreatedFrom.VISUALIZATION
+
+            logger.info(
+                "Tile %s(%s) is created from %s",
+                tile_instance.get("title"),
+                tile_instance.get("id"),
+                report_fields["createdFrom"],
+            )
+
+            return report_fields
+
+        tile_list_endpoint: str = self.get_tiles_endpoint(
+            workspace, dashboard_id=dashboard.id
+        )
+        # Hit PowerBi
+        logger.info("Request to URL={}".format(tile_list_endpoint))
+        response = requests.get(
+            tile_list_endpoint,
+            headers={Constant.Authorization: self.get_access_token()},
+        )
+        response.raise_for_status()
+
+        # Iterate through response and create a list of PowerBiAPI.Dashboard
+        tile_dict: List[Any] = response.json()[Constant.VALUE]
+        logger.debug("Tile Dict = {}".format(tile_dict))
+        tiles: List[Tile] = [
+            Tile(
+                id=instance.get("id"),
+                title=instance.get("title"),
+                embedUrl=instance.get("embedUrl"),
+                **new_dataset_or_report(instance),
+            )
+            for instance in tile_dict
+            if instance is not None
+        ]
+
+        return tiles
+
+
+class RegularAPIResolver(DataResolverBase):
+    # Regular access endpoints
+    API_ENDPOINTS = {
+        Constant.DASHBOARD_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards",
+        Constant.TILE_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/dashboards/{DASHBOARD_ID}/tiles",
+        Constant.DATASET_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}",
+        Constant.DATASOURCE_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/datasources",
+        Constant.REPORT_GET: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}",
+        Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
+        Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
+    }
+
+    def get_dataset(
+        self, workspace_id: str, dataset_id: str
+    ) -> Optional[PowerBIDataset]:
         """
         Fetch the dataset from PowerBi for the given dataset identifier
         """
@@ -214,135 +346,47 @@ class RegularAPIResolver(DataResolverBase):
             dataset_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
-
         # Check if we got response from PowerBi
-        if response.status_code != 200:
-            message: str = "Failed to fetch dataset from power-bi for"
-            logger.warning(message)
-            logger.warning(f"{Constant.WorkspaceId}={workspace_id}")
-            logger.warning(f"{Constant.DatasetId}={dataset_id}")
-            raise ConnectionError(message)
-
+        response.raise_for_status()
         response_dict = response.json()
         logger.debug("datasets = {}".format(response_dict))
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of
         # None/details
-        return PowerBIDataset(
-            id=response_dict.get("id"),
-            name=response_dict.get("name"),
-            webUrl="{}/details".format(response_dict.get("webUrl"))
-            if response_dict.get("webUrl") is not None
-            else None,
-            workspace_id=workspace_id,
-            tables=[],
-            tags=[],
-        )
+        return new_powerbi_dataset(workspace_id, response_dict)
 
-    def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
+    def get_groups_endpoint(self) -> str:
+        return DataResolverBase.BASE_URL
 
-        """
-        Get the list of tiles from PowerBi for the given workspace identifier
-
-        TODO: Pagination. As per REST API doc (https://docs.microsoft.com/en-us/rest/api/power-bi/dashboards/get
-        -tiles), there is no information available on pagination
-
-        """
-
-        def new_dataset_or_report(tile_instance: Any) -> dict:
-            """
-            Find out which is the data source for tile. It is either REPORT or DATASET
-            """
-            report_fields = {
-                "dataset": (
-                    workspace.datasets.get(tile_instance.get("datasetId"))
-                    if tile_instance.get("datasetId") is not None
-                    else None
-                ),
-                "report": (
-                    self._get_report(
-                        workspace_id=workspace.id,
-                        report_id=tile_instance.get("reportId"),
-                    )
-                    if tile_instance.get("reportId") is not None
-                    else None
-                ),
-                "createdFrom": Tile.CreatedFrom.UNKNOWN,
-            }
-
-            # Tile is either created from report or dataset or from custom visualization
-            if report_fields["report"] is not None:
-                report_fields["createdFrom"] = Tile.CreatedFrom.REPORT
-            elif report_fields["dataset"] is not None or (
-                report_fields["dataset"] is None
-                and tile_instance.get("datasetId") is not None
-            ):  # Admin API is disabled and hence dataset instance is mising
-                report_fields["createdFrom"] = Tile.CreatedFrom.DATASET
-            else:
-                report_fields["createdFrom"] = Tile.CreatedFrom.VISUALIZATION
-
-            logger.info(
-                "Tile %s(%s) is created from %s",
-                tile_instance.get("title"),
-                tile_instance.get("id"),
-                report_fields["createdFrom"],
-            )
-
-            return report_fields
-
-        tile_list_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.TILE_LIST]
-        # Replace place holders
-        tile_list_endpoint = tile_list_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
-            WORKSPACE_ID=dashboard.workspace_id,
-            DASHBOARD_ID=dashboard.id,
-        )
-        # Hit PowerBi
-        logger.info("Request to URL={}".format(tile_list_endpoint))
-        response = requests.get(
-            tile_list_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
-        )
-
-        # Check if we got response from PowerBi
-        if response.status_code != 200:
-            logger.warning("Failed to fetch tiles list from power-bi for")
-            logger.warning("{}={}".format(Constant.WorkspaceId, workspace.id))
-            logger.warning("{}={}".format(Constant.DashboardId, dashboard.id))
-            raise ConnectionError("Failed to fetch the tile list from the power-bi")
-
-        # Iterate through response and create a list of PowerBiAPI.Dashboard
-        tile_dict: List[Any] = response.json()[Constant.VALUE]
-        logger.debug("Tile Dict = {}".format(tile_dict))
-        tiles: List[Tile] = [
-            Tile(
-                id=instance.get("id"),
-                title=instance.get("title"),
-                embedUrl=instance.get("embedUrl"),
-                **new_dataset_or_report(instance),
-            )
-            for instance in tile_dict
-            if instance is not None
+    def get_dashboards_endpoint(self, workspace: Workspace) -> str:
+        dashboards_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.DASHBOARD_LIST
         ]
-
-        return tiles
-
-    def get_groups(self):
-        group_endpoint = DataResolverBase.BASE_URL
-        # Hit PowerBi
-        logger.info(f"Request to get groups endpoint URL={group_endpoint}")
-        response = requests.get(
-            group_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
+        # Replace place holders
+        return dashboards_endpoint.format(
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
         )
-        response.raise_for_status()
-        return response.json()
 
-    def _get_pages_by_report(self, workspace_id: str, report_id: str) -> List[Page]:
+    def get_reports_endpoint(self, workspace: Workspace) -> str:
+        reports_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.REPORT_LIST]
+        return reports_endpoint.format(
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL, WORKSPACE_ID=workspace.id
+        )
+
+    def get_tiles_endpoint(self, workspace: Workspace, dashboard_id: str) -> str:
+        tiles_endpoint: str = self.API_ENDPOINTS[Constant.TILE_LIST]
+        # Replace place holders
+        return tiles_endpoint.format(
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            WORKSPACE_ID=workspace.id,
+            DASHBOARD_ID=dashboard_id,
+        )
+
+    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         pages_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
             POWERBI_BASE_URL=DataResolverBase.BASE_URL,
-            WORKSPACE_ID=workspace_id,
+            WORKSPACE_ID=workspace.id,
             REPORT_ID=report_id,
         )
         # Hit PowerBi
@@ -353,12 +397,7 @@ class RegularAPIResolver(DataResolverBase):
         )
 
         # Check if we got response from PowerBi
-        if response.status_code != 200:
-            message: str = "Failed to fetch reports from power-bi for"
-            logger.warning(message)
-            logger.warning(f"{Constant.WorkspaceId}={workspace_id}")
-            raise ConnectionError(message)
-
+        response.raise_for_status()
         response_dict = response.json()
         return [
             Page(
@@ -370,58 +409,19 @@ class RegularAPIResolver(DataResolverBase):
             for raw_instance in response_dict["value"]
         ]
 
-    def get_reports(self, workspace: Workspace) -> List[Report]:
-
-        report_list_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
-            Constant.REPORT_LIST
-        ]
-        # Replace place holders
-        report_list_endpoint = report_list_endpoint.format(
-            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
-            WORKSPACE_ID=workspace.id,
-        )
-        # Hit PowerBi
-        logger.info(f"Request to report URL={report_list_endpoint}")
-        response = requests.get(
-            report_list_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
-        )
-
-        # Check if we got response from PowerBi
-        if response.status_code != 200:
-            message: str = "Failed to fetch reports from power-bi for"
-            logger.warning(message)
-            logger.warning(f"{Constant.WorkspaceId}={workspace.id}")
-            raise ConnectionError(message)
-
-        response_dict = response.json()
-        reports: List[Report] = [
-            Report(
-                id=raw_instance["id"],
-                name=raw_instance.get("name"),
-                webUrl=raw_instance.get("webUrl"),
-                embedUrl=raw_instance.get("embedUrl"),
-                description=raw_instance.get("description"),
-                pages=self._get_pages_by_report(
-                    workspace_id=workspace.id, report_id=raw_instance["id"]
-                ),
-                users=[],  # It will be fetched using Admin Fetcher based on condition
-                tags=[],  # It will be fetched using Admin Fetcher based on condition
-                dataset=workspace.datasets.get(raw_instance.get("datasetId")),
-            )
-            for raw_instance in response_dict["value"]
-        ]
-
-        return reports
-
 
 class AdminAPIResolver(DataResolverBase):
+
     # Admin access endpoints
     API_ENDPOINTS = {
+        Constant.DASHBOARD_LIST: "{POWERBI_ADMIN_BASE_URL}/{WORKSPACE_ID}/dashboards",
+        Constant.TILE_LIST: "{POWERBI_ADMIN_BASE_URL}/dashboards/{DASHBOARD_ID}/tiles",
+        Constant.REPORT_LIST: "{POWERBI_ADMIN_BASE_URL}/{WORKSPACE_ID}/reports",
         Constant.SCAN_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanStatus/{SCAN_ID}",
         Constant.SCAN_RESULT_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanResult/{SCAN_ID}",
         Constant.SCAN_CREATE: "{POWERBI_ADMIN_BASE_URL}/workspaces/getInfo",
         Constant.ENTITY_USER_LIST: "{POWERBI_ADMIN_BASE_URL}/{ENTITY}/{ENTITY_ID}/users",
+        Constant.DATASET_LIST: "{POWERBI_ADMIN_BASE_URL}/{WORKSPACE_ID}/datasets",
     }
 
     def create_scan_job(self, workspace_id: str) -> str:
@@ -450,13 +450,7 @@ class AdminAPIResolver(DataResolverBase):
             headers={Constant.Authorization: self.get_access_token()},
         )
 
-        if res.status_code not in (200, 202):
-            message = f"API({scan_create_endpoint}) return error code {res.status_code} for workspace id({workspace_id})"
-
-            logger.warning(message)
-
-            raise ConnectionError(message)
-
+        res.raise_for_status()
         # Return scan_id of Scan created for the given workspace
         scan_id = res.json()["id"]
 
@@ -584,3 +578,57 @@ class AdminAPIResolver(DataResolverBase):
             raise ConnectionError(message)
 
         return res.json()["workspaces"][0]
+
+    def get_groups_endpoint(self) -> str:
+        return f"{AdminAPIResolver.ADMIN_BASE_URL}/groups"
+
+    def get_dashboards_endpoint(self, workspace: Workspace) -> str:
+        dashboard_list_endpoint: str = self.API_ENDPOINTS[Constant.DASHBOARD_LIST]
+        # Replace place holders
+        return dashboard_list_endpoint.format(
+            POWERBI_BASE_URL=DataResolverBase.ADMIN_BASE_URL, WORKSPACE_ID=workspace.id
+        )
+
+    def get_reports_endpoint(self, workspace: Workspace) -> str:
+        reports_endpoint: str = self.API_ENDPOINTS[Constant.REPORT_LIST]
+        return reports_endpoint.format(
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            WORKSPACE_ID=workspace.id,
+        )
+
+    def get_tiles_endpoint(self, workspace: Workspace, dashboard_id: str) -> str:
+        tiles_endpoint: str = self.API_ENDPOINTS[Constant.TILE_LIST]
+        # Replace place holders
+        return tiles_endpoint.format(
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            DASHBOARD_ID=dashboard_id,
+        )
+
+    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+        return []  # Report pages are not available in Admin API
+
+    def get_dataset(
+        self, workspace_id: str, dataset_id: str
+    ) -> Optional[PowerBIDataset]:
+        datasets_endpoint = self.API_ENDPOINTS[Constant.DATASET_LIST]
+        # Hit PowerBi
+        logger.info(f"Request to datasets URL={datasets_endpoint}")
+        params: dict = {"$filter": f"id eq '{dataset_id}'"}
+        logger.debug("params = %s", params)
+        response = requests.get(
+            datasets_endpoint,
+            headers={Constant.Authorization: self.get_access_token()},
+            params=params,
+        )
+        response.raise_for_status()
+        response_dict = response.json()
+        if len(response_dict["value"]) == 0:
+            logger.warning(
+                "Dataset not found. workspace_id = %s, dataset_id = %s",
+                workspace_id,
+                dataset_id,
+            )
+            return None
+
+        raw_instance: dict = response_dict["value"][0]
+        return new_powerbi_dataset(workspace_id, raw_instance)

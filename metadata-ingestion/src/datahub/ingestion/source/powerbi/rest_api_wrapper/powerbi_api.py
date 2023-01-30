@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Any, Dict, List, Optional
+from urllib.error import HTTPError
 
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
@@ -40,12 +41,14 @@ class PowerBiAPI:
             tenant_id=self.__config.tenant_id,
         )
 
-    def _get_dashboard_endorsements(self, scan_result: dict) -> Dict[str, List[str]]:
+    def _get_dashboard_endorsements(
+        self, scan_result: Optional[dict]
+    ) -> Dict[str, List[str]]:
         """
         Store saved dashboard endorsements into a dict with dashboard id as key and
         endorsements or tags as list of strings
         """
-        results = {}
+        results: Dict[str, List[str]] = {}
         if scan_result is None:
             return results
 
@@ -59,8 +62,10 @@ class PowerBiAPI:
 
         return results
 
-    def _get_report_endorsements(self, scan_result: dict) -> Dict[str, List[str]]:
-        results = {}
+    def _get_report_endorsements(
+        self, scan_result: Optional[dict]
+    ) -> Dict[str, List[str]]:
+        results: Dict[str, List[str]] = {}
 
         if scan_result is None:
             return results
@@ -75,6 +80,11 @@ class PowerBiAPI:
             results[report_id] = endorsements
 
         return results
+
+    def _get_resolver(self):
+        if self.__config.admin_only:
+            return self.__admin_api_resolver
+        return self.__regular_api_resolver
 
     def get_dashboard_users(self, dashboard: Dashboard) -> List[User]:
         """
@@ -132,24 +142,37 @@ class PowerBiAPI:
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
-        groups = self.__regular_api_resolver.get_groups()
+        groups: List[dict] = self._get_resolver().get_groups()
         workspaces = [
             Workspace(
-                id=workspace.get("id"),
-                name=workspace.get("name"),
+                id=workspace["id"],
+                name=workspace["name"],
                 datasets={},
                 dashboards=[],
                 reports=[],
                 report_endorsements={},
                 dashboard_endorsements={},
+                scan_result={},
             )
-            for workspace in groups.get("value", [])
-            if workspace.get("type", None) == "Workspace"
+            for workspace in groups
         ]
         return workspaces
 
     def _get_scan_result(self, workspace: Workspace) -> Any:
-        scan_id = self.__admin_api_resolver.create_scan_job(workspace_id=workspace.id)
+        scan_id: Optional[str] = None
+        try:
+            scan_id = self.__admin_api_resolver.create_scan_job(
+                workspace_id=workspace.id
+            )
+        except HTTPError as e:
+            if e.code == 401 or e.code == 403:
+                logger.warning(
+                    "Admin permission is not enabled on configured Azure AD application"
+                )
+                return None
+            # raise error if other than 401 or 403
+            raise e
+
         logger.info("Waiting for scan to complete")
         if (
             self.__admin_api_resolver.wait_for_scan_to_complete(
@@ -178,13 +201,16 @@ class PowerBiAPI:
 
         return [endorsement]
 
-    def _get_workspace_datasets(self, scan_result: dict) -> dict:
+    def _get_workspace_datasets(self, scan_result: Optional[dict]) -> dict:
         """
         Filter out "dataset" from scan_result and return Dataset instance set
         """
-        datasets: Optional[Any] = scan_result.get("datasets")
         dataset_map: dict = {}
 
+        if scan_result is None:
+            return dataset_map
+
+        datasets: Optional[Any] = scan_result.get("datasets")
         if datasets is None or len(datasets) == 0:
             logger.warning(
                 f'Workspace {scan_result["name"]}({scan_result["id"]}) does not have datasets'
@@ -194,7 +220,7 @@ class PowerBiAPI:
             return dataset_map
 
         for dataset_dict in datasets:
-            dataset_instance: PowerBIDataset = self.__regular_api_resolver.get_dataset(
+            dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
                 workspace_id=scan_result["id"],
                 dataset_id=dataset_dict["id"],
             )
@@ -232,31 +258,29 @@ class PowerBiAPI:
         return dataset_map
 
     def _fill_admin_metadata_detail(self, workspace: Workspace) -> None:
-        if self.__config.enable_admin_api is False:
-            logger.info(
-                "Admin API is disabled. Skipping metadata which require admin access"
-            )
-            return
-
-        scan_result = self._get_scan_result(workspace)
-
-        workspace.datasets = self._get_workspace_datasets(scan_result)
+        workspace.scan_result = self._get_scan_result(workspace)
+        workspace.datasets = self._get_workspace_datasets(workspace.scan_result)
         # Fetch endorsements tag if it is enabled from configuration
         if self.__config.extract_endorsements_to_tags is False:
             logger.info(
-                "Admin API is enabled, However Skipping endorsements tag as extract_endorsements_to_tags is set to false"
+                "Admin API is enabled, However Skipping endorsements tag as extract_endorsements_to_tags is set to "
+                "false "
             )
             return
 
-        workspace.dashboard_endorsements = self._get_dashboard_endorsements(scan_result)
-        workspace.report_endorsements = self._get_report_endorsements(scan_result)
+        workspace.dashboard_endorsements = self._get_dashboard_endorsements(
+            workspace.scan_result
+        )
+        workspace.report_endorsements = self._get_report_endorsements(
+            workspace.scan_result
+        )
 
     def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = self.__regular_api_resolver.get_dashboards(workspace)
+            workspace.dashboards = self._get_resolver().get_dashboards(workspace)
             # set tiles of Dashboard
             for dashboard in workspace.dashboards:
-                dashboard.tiles = self.__regular_api_resolver.get_tiles(
+                dashboard.tiles = self._get_resolver().get_tiles(
                     workspace, dashboard=dashboard
                 )
 
@@ -266,7 +290,7 @@ class PowerBiAPI:
                     "Skipping report retrieval as extract_reports is set to false"
                 )
                 return
-            workspace.reports = self.get_reports(workspace)
+            workspace.reports = self._get_resolver().get_reports(workspace)
 
         def fill_dashboard_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
