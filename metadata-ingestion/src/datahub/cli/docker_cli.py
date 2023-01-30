@@ -22,7 +22,12 @@ from requests_file import FileAdapter
 from typing_extensions import Literal
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
-from datahub.cli.docker_check import check_local_docker_containers, get_docker_client
+from datahub.cli.docker_check import (
+    DATAHUB_COMPOSE_PROJECT_FILTER,
+    check_local_docker_containers,
+    get_docker_client,
+    run_quickstart_preflight_checks,
+)
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -648,9 +653,8 @@ def quickstart(
     quickstart_arch = detect_quickstart_arch(arch)
 
     # Run pre-flight checks.
-    issues = check_local_docker_containers(preflight_only=True)
-    if issues:
-        _print_issue_list_and_exit(issues, "Unable to run quickstart:")
+    with get_docker_client() as client:
+        run_quickstart_preflight_checks(client)
 
     quickstart_compose_file = list(
         quickstart_compose_file
@@ -973,7 +977,7 @@ def nuke(keep_data: bool) -> None:
     with get_docker_client() as client:
         click.echo("Removing containers in the datahub project")
         for container in client.containers.list(
-            all=True, filters={"label": "com.docker.compose.project=datahub"}
+            all=True, filters=DATAHUB_COMPOSE_PROJECT_FILTER
         ):
             container.remove(v=True, force=True)
 
@@ -981,13 +985,9 @@ def nuke(keep_data: bool) -> None:
             click.echo("Skipping deleting data volumes in the datahub project")
         else:
             click.echo("Removing volumes in the datahub project")
-            for volume in client.volumes.list(
-                filters={"label": "com.docker.compose.project=datahub"}
-            ):
+            for volume in client.volumes.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
                 volume.remove(force=True)
 
         click.echo("Removing networks in the datahub project")
-        for network in client.networks.list(
-            filters={"label": "com.docker.compose.project=datahub"}
-        ):
+        for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
             network.remove()

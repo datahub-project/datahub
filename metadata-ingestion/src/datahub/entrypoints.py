@@ -224,5 +224,7 @@ def main(**kwargs):
         logger.debug(
             f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
         )
-        logger.debug(f"GMS config {get_gms_config()}")
+        gms_config = get_gms_config()
+        if gms_config:
+            logger.debug(f"GMS config {gms_config}")
         sys.exit(1)

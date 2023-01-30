@@ -165,9 +165,14 @@ class DockerNotRunningError(Exception):
     pass
 
 
+class DockerLowMemoryError(Exception):
+    pass
+
+
 SIMPLE_ERROR_TYPES = (
     ValidationError,
     DockerNotRunningError,
+    DockerLowMemoryError,
 )
 
 

@@ -5,7 +5,7 @@ from typing import Iterator, List
 import docker
 import docker.errors
 
-from datahub.configuration.common import DockerNotRunningError
+from datahub.configuration.common import DockerLowMemoryError, DockerNotRunningError
 
 REQUIRED_CONTAINERS = [
     "elasticsearch",
@@ -38,6 +38,8 @@ CONTAINERS_TO_CHECK_IF_PRESENT = [
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB
+
+DATAHUB_COMPOSE_PROJECT_FILTER = {"label": "com.docker.compose.project=datahub"}
 
 
 @contextmanager
@@ -80,24 +82,22 @@ def memory_in_gb(mem_bytes: int) -> float:
     return mem_bytes / (1024 * 1024 * 1000)
 
 
-def check_local_docker_containers(preflight_only: bool = False) -> List[str]:
+def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
+    # Check total memory.
+    # TODO: add option to skip this check.
+    total_mem_configured = int(client.info()["MemTotal"])
+    if memory_in_gb(total_mem_configured) < MIN_MEMORY_NEEDED:
+        raise DockerLowMemoryError(
+            f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB"
+        )
+
+
+def check_local_docker_containers() -> List[str]:
     issues: List[str] = []
     with get_docker_client() as client:
-        # Check total memory.
-        total_mem_configured = int(client.info()["MemTotal"])
-        if memory_in_gb(total_mem_configured) < MIN_MEMORY_NEEDED:
-            issues.append(
-                f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB"
-            )
-
-        if preflight_only:
-            return issues
-
         containers = client.containers.list(
             all=True,
-            filters={
-                "label": "com.docker.compose.project=datahub",
-            },
+            filters=DATAHUB_COMPOSE_PROJECT_FILTER,
         )
 
         # Check number of containers.
