@@ -110,7 +110,7 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     platform_name: str = pydantic.Field(default="powerbi", hidden_from_schema=True)
 
     platform_urn: str = pydantic.Field(
-        default=builder.make_data_platform_urn(platform=platform_name),
+        default=builder.make_data_platform_urn(platform=platform_name.default),
         hidden_from_schema=True,
     )
 
