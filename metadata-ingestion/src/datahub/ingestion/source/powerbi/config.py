@@ -107,9 +107,12 @@ class PlatformDetail:
 
 
 class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
-    platform_name: str = "powerbi"
+    platform_name: str = pydantic.Field(default="powerbi", hidden_from_schema=True)
 
-    platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
+    platform_urn: str = pydantic.Field(
+        default=builder.make_data_platform_urn(platform=platform_name),
+        hidden_from_schema=True,
+    )
 
     # Organisation Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")

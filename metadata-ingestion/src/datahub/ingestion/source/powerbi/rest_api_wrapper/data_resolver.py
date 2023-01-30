@@ -310,6 +310,7 @@ class DataResolverBase(ABC):
                 id=instance.get("id"),
                 title=instance.get("title"),
                 embedUrl=instance.get("embedUrl"),
+                dataset_id=instance.get("datasetId"),
                 **new_dataset_or_report(instance),
             )
             for instance in tile_dict
