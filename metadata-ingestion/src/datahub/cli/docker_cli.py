@@ -22,10 +22,7 @@ from requests_file import FileAdapter
 from typing_extensions import Literal
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
-from datahub.cli.docker_check import (
-    check_local_docker_containers,
-    get_client_with_error,
-)
+from datahub.cli.docker_check import check_local_docker_containers, get_docker_client
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -159,13 +156,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
                 fg="red",
             )
             raise ValueError(f"invalid graph service option: {graph_service_override}")
-    with get_client_with_error() as (client, error):
-        if error:
-            click.secho(
-                "Docker doesn't seem to be running. Did you start it?", fg="red"
-            )
-            raise error
-
+    with get_docker_client() as client:
         if len(client.volumes.list(filters={"name": "datahub_neo4jdata"})) > 0:
             click.echo(
                 "Datahub Neo4j volume found, starting with neo4j as graph service.\n"
@@ -979,13 +970,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
 def nuke(keep_data: bool) -> None:
     """Remove all Docker containers, networks, and volumes associated with DataHub."""
 
-    with get_client_with_error() as (client, error):
-        if error:
-            click.secho(
-                "Docker doesn't seem to be running. Did you start it?", fg="red"
-            )
-            return
-
+    with get_docker_client() as client:
         click.echo("Removing containers in the datahub project")
         for container in client.containers.list(
             all=True, filters={"label": "com.docker.compose.project=datahub"}

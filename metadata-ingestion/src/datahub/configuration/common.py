@@ -6,7 +6,7 @@ from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar
 
 import pydantic
 from cached_property import cached_property
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
 
 from datahub.configuration._config_enum import ConfigEnum
@@ -127,6 +127,9 @@ class DynamicTypedConfig(ConfigModel):
     )
 
 
+# TODO: Many of these exception types are fairly specialized any shouldn't live in a common module.
+
+
 class MetaError(Exception):
     """A base class for all meta exceptions."""
 
@@ -156,6 +159,16 @@ class ConfigurationError(MetaError):
 
 class IgnorableError(MetaError):
     """An error that can be ignored."""
+
+
+class DockerNotRunningError(Exception):
+    pass
+
+
+SIMPLE_ERROR_TYPES = (
+    ValidationError,
+    DockerNotRunningError,
+)
 
 
 class ConfigurationWarning(Warning):

@@ -1,40 +1,39 @@
 import os
 from contextlib import contextmanager
-from typing import Iterator, List, Optional, Tuple
+from typing import Iterator, List
 
 import docker
+import docker.errors
+
+from datahub.configuration.common import DockerNotRunningError
 
 REQUIRED_CONTAINERS = [
-    "elasticsearch-setup",
     "elasticsearch",
     "datahub-gms",
     "datahub-frontend-react",
-    "schema-registry",
     "broker",
-    "zookeeper",
-    # These two containers are not necessary - only helpful in debugging.
-    # "kafka-topics-ui",
-    # "schema-registry-ui",
-    # "kibana",
-    # "kafka-rest-proxy",
-    # "datahub-mce-consumer",
-    # "datahub-mae-consumer"
 ]
 
+# We expect these containers to exit 0, while all other containers
+# are expected to be running and healthy.
 ENSURE_EXIT_SUCCESS = [
     "kafka-setup",
     "elasticsearch-setup",
     "mysql-setup",
 ]
 
+# If present, we check that the container is running / exited properly.
 CONTAINERS_TO_CHECK_IF_PRESENT = [
-    # We only add this container in some cases, but if it's present, we
-    # definitely want to check that it exits properly.
     "mysql",
     "mysql-setup",
     "cassandra",
     "cassandra-setup",
     "neo4j",
+    "elasticsearch-setup",
+    "schema-registry",
+    "zookeeper",
+    # "datahub-mce-consumer",
+    # "datahub-mae-consumer",
 ]
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
@@ -42,12 +41,8 @@ MIN_MEMORY_NEEDED = 3.8  # GB
 
 
 @contextmanager
-def get_client_with_error() -> (
-    Iterator[Tuple[docker.DockerClient, Optional[Exception]]]
-):
-    # This method is structured somewhat strangely because we
-    # need to make sure that we only yield once.
-
+def get_docker_client() -> Iterator[docker.DockerClient]:
+    # Get a reference to the Docker client.
     docker_cli = None
     try:
         docker_cli = docker.from_env()
@@ -59,20 +54,26 @@ def get_client_with_error() -> (
             if os.path.exists(maybe_sock_path):
                 docker_cli = docker.DockerClient(base_url=f"unix://{maybe_sock_path}")
             else:
-                yield None, error
+                raise error
         except docker.errors.DockerException as error:
-            yield None, error
+            raise DockerNotRunningError(
+                "Docker doesn't seem to be running. Did you start it?"
+            ) from error
+    assert docker_cli
 
-    if docker_cli is not None:
-        try:
-            docker_cli.ping()
-        except docker.errors.DockerException as error:
-            yield None, error
-        else:
-            try:
-                yield docker_cli, None
-            finally:
-                docker_cli.close()
+    # Make sure that we can talk to Docker.
+    try:
+        docker_cli.ping()
+    except docker.errors.DockerException as error:
+        raise DockerNotRunningError(
+            "Unable to talk to Docker. Did you start it?"
+        ) from error
+
+    # Yield the client and make sure to close it.
+    try:
+        yield docker_cli
+    finally:
+        docker_cli.close()
 
 
 def memory_in_gb(mem_bytes: int) -> float:
@@ -81,11 +82,7 @@ def memory_in_gb(mem_bytes: int) -> float:
 
 def check_local_docker_containers(preflight_only: bool = False) -> List[str]:
     issues: List[str] = []
-    with get_client_with_error() as (client, error):
-        if error:
-            issues.append("Docker doesn't seem to be running. Did you start it?")
-            return issues
-
+    with get_docker_client() as client:
         # Check total memory.
         total_mem_configured = int(client.info()["MemTotal"])
         if memory_in_gb(total_mem_configured) < MIN_MEMORY_NEEDED:

@@ -6,7 +6,6 @@ from typing import Optional
 
 import click
 import stackprinter
-from pydantic import ValidationError
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
@@ -25,6 +24,7 @@ from datahub.cli.put_cli import put
 from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
+from datahub.configuration.common import SIMPLE_ERROR_TYPES
 from datahub.telemetry import telemetry
 from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
@@ -187,11 +187,12 @@ def main(**kwargs):
             # Unless --debug-vars is passed, we don't want to print the values of variables.
             show_vals = None
 
-        if isinstance(exc, ValidationError) or isinstance(
-            exc.__cause__, ValidationError
+        if isinstance(exc, SIMPLE_ERROR_TYPES) or isinstance(
+            exc.__cause__, SIMPLE_ERROR_TYPES
         ):
             # Don't print the full stack trace for simple config errors.
-            logger.error(exc)
+            logger.debug("Error: %s", exc, exc_info=exc)
+            click.secho(exc, fg="red")
         elif logger.isEnabledFor(logging.DEBUG):
             # We only print rich stacktraces during debug.
             logger.error(
