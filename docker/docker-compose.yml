@@ -114,6 +114,20 @@ services:
     depends_on:
       - datahub-gms
 
+  # This "container" is a workaround to pre-create topics.
+  # This is not required in most cases, kept here for backwards compatibility with older clients that
+  # explicitly wait for this container
+  kafka-setup:
+    build:
+      context: kafka-setup
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    env_file: kafka-setup/env/docker.env
+    hostname: kafka-setup
+    container_name: kafka-setup
+    depends_on:
+      - broker
+      - schema-registry
+
   datahub-upgrade:
     build:
       context: ../
@@ -123,7 +137,6 @@ services:
     hostname: datahub-upgrade
     container_name: datahub-upgrade
     command: ["-u", "SystemUpdate"]
-
 
 networks:
   default:

@@ -104,6 +104,10 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -710,10 +714,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     }
                 )
             )
-            self.stale_entity_removal_handler.add_entity_to_state(
-                type="assertion",
-                urn=assertion_urn,
-            )
 
             if self.config.entities_enabled.can_emit_node_type("test"):
                 wu = MetadataChangeProposalWrapper(
@@ -878,8 +878,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # return dbt nodes + global custom properties
         raise NotImplementedError()
 
-    # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:
             raise ConfigurationError(
                 "With PATCH semantics, dbt source requires a datahub_api to connect to. "
@@ -924,8 +929,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
-
     def filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = []
         for node in all_nodes:
@@ -967,6 +970,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
 
+            is_primary_source = mce_platform == DBT_PLATFORM
             node_datahub_urn = node.get_urn(
                 mce_platform,
                 self.config.env,
@@ -977,16 +981,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
                 continue
-            self.stale_entity_removal_handler.add_entity_to_state(
-                "dataset", node_datahub_urn
-            )
+            if not is_primary_source:
+                # We previously, erroneously added non-dbt nodes to the state object.
+                # This call ensures that we don't try to soft-delete them after an
+                # upgrade of acryl-datahub.
+                self.stale_entity_removal_handler.add_urn_to_skip(node_datahub_urn)
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
                 meta_aspects = action_processor.process(node.meta)
 
             if self.config.enable_query_tag_mapping and node.query_tag:
-                self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
+                self.extract_query_tag_aspects(
+                    action_processor_tag, meta_aspects, node
+                )  # mutates meta_aspects
 
             if mce_platform == DBT_PLATFORM:
                 aspects = self._generate_base_aspects(
@@ -1038,6 +1046,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             MetadataWorkUnit(
                                 id=f"upstreamLineage-for-{node_datahub_urn}",
                                 mcp_raw=mcp,
+                                is_primary_source=is_primary_source,
                             )
                             for mcp in patch_builder.build()
                         ]
@@ -1053,7 +1062,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             if self.config.write_semantics == "PATCH":
                 mce = self.get_patched_mce(mce)
-            wu = MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+            wu = MetadataWorkUnit(
+                id=dataset_snapshot.urn, mce=mce, is_primary_source=is_primary_source
+            )
             self.report.report_workunit(wu)
             yield wu
 

@@ -35,5 +35,10 @@ services:
     volumes:
       - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
       - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
+
+  kafka-setup:
+    environment:
+      - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
+
 volumes:
   mysqldata:
