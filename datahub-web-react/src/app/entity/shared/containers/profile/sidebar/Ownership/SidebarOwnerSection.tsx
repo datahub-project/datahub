@@ -1,14 +1,19 @@
 import { Typography, Button } from 'antd';
 import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
-import { ExpandedOwner } from '../../../../components/styled/ExpandedOwner';
+import { ExpandedOwner } from '../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { EditOwnersModal } from './EditOwnersModal';
 import { ENTITY_PROFILE_OWNERS_ID } from '../../../../../../onboarding/config/EntityProfileOnboardingConfig';
 
-export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
+interface Props {
+    properties?: any;
+    readOnly?: boolean;
+}
+
+export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     const { entityType, entityData } = useEntityData();
     const mutationUrn = useMutationUrn();
 
@@ -26,6 +31,7 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                         entityUrn={owner.associatedUrn || mutationUrn}
                         owner={owner}
                         refetch={refetch}
+                        readOnly={readOnly}
                     />
                 ))}
                 {ownersEmpty && (
@@ -33,10 +39,11 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                         {EMPTY_MESSAGES.owners.title}. {EMPTY_MESSAGES.owners.description}
                     </Typography.Paragraph>
                 )}
-
-                <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                    <PlusOutlined /> Add Owners
-                </Button>
+                {!readOnly && (
+                    <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
+                        <PlusOutlined /> Add Owners
+                    </Button>
+                )}
             </div>
             {showAddModal && (
                 <EditOwnersModal

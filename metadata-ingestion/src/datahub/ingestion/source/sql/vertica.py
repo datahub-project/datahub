@@ -163,12 +163,23 @@ class VerticaSource(SQLAlchemySource):
                 profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(database=db_name)
+            yield from self.gen_database_containers(
+                database=db_name,
+                extra_properties=self.get_database_properties(
+                    inspector=inspector, database=db_name
+                ),
+            )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(schema=schema, database=db_name)
+                yield from self.gen_schema_containers(
+                    schema=schema,
+                    database=db_name,
+                    extra_properties=self.get_schema_properties(
+                        inspector=inspector, schema=schema, database=db_name
+                    ),
+                )
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -193,9 +204,6 @@ class VerticaSource(SQLAlchemySource):
             oauth_schema = "Entities"
             if sql_config.include_oauth:
                 yield from self.loop_oauth(inspector, oauth_schema, sql_config)
-
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def get_database_properties(
         self, inspector: Inspector, database: str
@@ -491,8 +499,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
         description, properties, location_urn = self.get_projection_properties(
             inspector, schema, projection
         )
@@ -718,8 +724,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("model", dataset_urn)
         description, properties, location = self.get_model_properties(
             inspector, schema, table
         )
@@ -904,8 +908,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("oauth", dataset_urn)
         description, properties, location_urn = self.get_oauth_properties(
             inspector, schema, oauth
         )

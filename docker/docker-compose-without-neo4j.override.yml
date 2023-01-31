@@ -6,7 +6,7 @@ services:
     hostname: mysql
     image: mysql:5.7
     env_file: mysql/env/docker.env
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     ports:
       - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     volumes:
@@ -23,6 +23,10 @@ services:
     container_name: mysql-setup
     depends_on:
       - mysql
+
+  kafka-setup:
+    environment:
+      - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
 
   datahub-gms:
     env_file: datahub-gms/env/docker-without-neo4j.env

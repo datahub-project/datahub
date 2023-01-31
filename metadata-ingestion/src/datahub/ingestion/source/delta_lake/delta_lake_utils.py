@@ -1,3 +1,4 @@
+import pathlib
 from typing import Optional
 
 from deltalake import DeltaTable, PyDeltaTableError
@@ -29,6 +30,13 @@ def read_delta_table(
                     opts[
                         "AWS_ENDPOINT_URL"
                     ] = delta_lake_config.s3.aws_config.aws_endpoint_url
+        else:
+            # Local file system
+            if not pathlib.Path(path).exists():
+                # The DeltaTable() constructor will create the path if it doesn't exist.
+                # Hence we need an extra, manual check here.
+                return None
+
         delta_table = DeltaTable(
             path,
             storage_options=opts,
