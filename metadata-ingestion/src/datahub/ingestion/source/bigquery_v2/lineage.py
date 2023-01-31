@@ -226,12 +226,7 @@ timestamp < "{end_time}"
             lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
             bigquery_client: BigQueryClient = BigQueryClient()
             # Filtering datasets
-            datasets = list(
-                filter(
-                    lambda x: self.config.dataset_pattern.allowed(x.dataset_id),
-                    list(bigquery_client.list_datasets(project_id)),
-                )
-            )
+            datasets = list(bigquery_client.list_datasets(project_id))
             project_tables = []
             for dataset in datasets:
                 # Enables only tables where type is TABLE (removes VIEWS)
@@ -252,12 +247,6 @@ timestamp < "{end_time}"
                     project_tables,
                 )
             )
-
-            # Filtering tables
-            if self.config.table_pattern:
-                project_tables = list(
-                    filter(self.config.table_pattern.allowed, project_tables)
-                )
 
             lineage_map: Dict[str, Set[str]] = {}
             for table in project_tables:
@@ -288,22 +277,14 @@ timestamp < "{end_time}"
                         table_identifier=BigqueryTableIdentifier(*table.split("."))
                     )
                 )
-                # Filter tables (only enabled tables to avoid ghost entities in the lineage graph)
-                upstreams = list(
-                    filter(
-                        self.config.table_pattern.allowed,
-                        list(set(upstreams)),  # unique tables
-                    )
-                )
+
                 # Only builds lineage map when the table has upstreams
                 if upstreams:
                     lineage_map[destination_table_str] = set(
                         [
                             str(
                                 BigQueryTableRef(
-                                    table_identifier=BigqueryTableIdentifier(
-                                        *source_table.split(".")
-                                    )
+                                    table_identifier=BigqueryTableIdentifier.from_string_name(source_table)
                                 )
                             )
                             for source_table in upstreams
