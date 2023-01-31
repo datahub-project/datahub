@@ -26,7 +26,7 @@ public class DataPlatformInstanceType implements com.linkedin.datahub.graphql.ty
 
     static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
         Constants.DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME,
-        Constants.DATASET_PROPERTIES_ASPECT_NAME,
+        Constants.DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME,
         Constants.DEPRECATION_ASPECT_NAME,
         Constants.OWNERSHIP_ASPECT_NAME,
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
