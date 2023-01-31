@@ -64,29 +64,29 @@ services:
     depends_on:
     - mysql
     environment:
-    - ELASTICSEARCH_HOST=elasticsearch
-    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+    - PE_CONSUMER_ENABLED=true
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
-    - EBEAN_DATASOURCE_USERNAME=datahub
-    - MCE_CONSUMER_ENABLED=true
-    - EBEAN_DATASOURCE_PASSWORD=datahub
-    - JAVA_OPTS=-Xms1g -Xmx1g
-    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
-    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
-    - UI_INGESTION_ENABLED=true
-    - ENTITY_SERVICE_ENABLE_RETENTION=true
-    - MAE_CONSUMER_ENABLED=true
-    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
-    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - EBEAN_DATASOURCE_HOST=mysql:3306
     - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
     - GRAPH_SERVICE_IMPL=elasticsearch
-    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
-    - ELASTICSEARCH_PORT=9200
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
-    - EBEAN_DATASOURCE_HOST=mysql:3306
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - PE_CONSUMER_ENABLED=true
+    - ELASTICSEARCH_HOST=elasticsearch
+    - MCE_CONSUMER_ENABLED=true
+    - EBEAN_DATASOURCE_USERNAME=datahub
+    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+    - JAVA_OPTS=-Xms1g -Xmx1g
+    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+    - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+    - ELASTICSEARCH_PORT=9200
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - UI_INGESTION_ENABLED=true
+    - MAE_CONSUMER_ENABLED=true
+    - EBEAN_DATASOURCE_PASSWORD=datahub
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
@@ -123,6 +123,17 @@ services:
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+  kafka-setup:
+    container_name: kafka-setup
+    depends_on:
+    - broker
+    - schema-registry
+    environment:
+    - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
+    hostname: kafka-setup
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     container_name: mysql

@@ -194,9 +194,6 @@ class VerticaSource(SQLAlchemySource):
             if sql_config.include_oauth:
                 yield from self.loop_oauth(inspector, oauth_schema, sql_config)
 
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
-
     def get_database_properties(
         self, inspector: Inspector, database: str
     ) -> Optional[Dict[str, str]]:
@@ -491,8 +488,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
         description, properties, location_urn = self.get_projection_properties(
             inspector, schema, projection
         )
@@ -718,8 +713,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("model", dataset_urn)
         description, properties, location = self.get_model_properties(
             inspector, schema, table
         )
@@ -904,8 +897,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("oauth", dataset_urn)
         description, properties, location_urn = self.get_oauth_properties(
             inspector, schema, oauth
         )
