@@ -2,7 +2,7 @@ import enum
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 import docker
 import docker.errors
@@ -60,11 +60,11 @@ class DockerComposeVersionError(Exception):
 class QuickstartError(Exception, ExceptionWithProps):
     SHOW_STACK_TRACE = False
 
-    def __init__(self, message: str, container_statuses: Dict[str, str]):
+    def __init__(self, message: str, container_statuses: Dict[str, Any]):
         super().__init__(message)
         self.container_statuses = container_statuses
 
-    def get_telemetry_props(self) -> Dict[str, str]:
+    def get_telemetry_props(self) -> Dict[str, Any]:
         return self.container_statuses
 
 
@@ -167,8 +167,16 @@ class QuickstartStatus:
         return QuickstartError(
             message,
             {
-                f"container_{container.name}": container.status.name
-                for container in self.containers
+                "containers_all": [container.name for container in self.containers],
+                "containers_errors": [
+                    container.name
+                    for container in self.containers
+                    if container.status != ContainerStatus.OK
+                ],
+                **{
+                    f"container_{container.name}": container.status.name
+                    for container in self.containers
+                },
             },
         )
 
