@@ -71,7 +71,6 @@ if (snapshotVersion) {
   }
 }
 
-
 processResources {
   filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
   filter(ReplaceTokens, tokens:[cliMajorVersion: cliMajorVersion])
