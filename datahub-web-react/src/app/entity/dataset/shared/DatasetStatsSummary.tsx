@@ -9,10 +9,11 @@ import {
     QuestionCircleOutlined,
     HddOutlined,
 } from '@ant-design/icons';
-import { formatBytes, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
+import { FormattedBytesStat } from './FormattedBytesStat';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
@@ -32,15 +33,6 @@ type Props = {
     lastUpdatedMs?: number | null;
 };
 
-const formatBytesStat = (bytes: number) => {
-    const formattedBytes = formatBytes(bytes);
-    return (
-        <Tooltip title={`This dataset consumes ${formatNumberWithoutAbbreviation(bytes)} bytes of storage.`}>
-            <b>{formattedBytes.number}</b> {formattedBytes.unit}
-        </Tooltip>
-    );
-};
-
 export const DatasetStatsSummary = ({
     rowCount,
     columnCount,
@@ -50,41 +42,36 @@ export const DatasetStatsSummary = ({
     lastUpdatedMs,
 }: Props) => {
     const statsViews = [
-        (!!rowCount && (
+        !!rowCount && (
             <StatText>
                 <TableOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                 <b>{formatNumberWithoutAbbreviation(rowCount)}</b> rows
-                {(!!columnCount && (
+                {!!columnCount && (
                     <>
-                        , `<b>{formatNumberWithoutAbbreviation(rowCount)}</b> columns
+                        , `<b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
                     </>
-                )) ||
-                    undefined}
+                )}
             </StatText>
-        )) ||
-            undefined,
-        (!!sizeInBytes && (
+        ),
+        !!sizeInBytes && (
             <StatText>
                 <HddOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                {formatBytesStat(sizeInBytes)}
+                <FormattedBytesStat bytes={sizeInBytes} />
             </StatText>
-        )) ||
-            undefined,
-        (!!queryCountLast30Days && (
+        ),
+        !!queryCountLast30Days && (
             <StatText>
                 <ConsoleSqlOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                 <b>{formatNumberWithoutAbbreviation(queryCountLast30Days)}</b> queries last month
             </StatText>
-        )) ||
-            undefined,
-        (!!uniqueUserCountLast30Days && (
+        ),
+        !!uniqueUserCountLast30Days && (
             <StatText>
                 <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                 <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
             </StatText>
-        )) ||
-            undefined,
-        (!!lastUpdatedMs && (
+        ),
+        !!lastUpdatedMs && (
             <Popover
                 content={
                     <div>
@@ -100,9 +87,8 @@ export const DatasetStatsSummary = ({
                     Changed {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>
-        )) ||
-            undefined,
-    ].filter((stat) => stat !== undefined);
+        ),
+    ].filter((stat) => stat);
 
     return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} />}</>;
 };
