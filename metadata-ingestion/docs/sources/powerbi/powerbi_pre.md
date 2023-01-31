@@ -1,9 +1,9 @@
 ## Configuration Notes
 See the 
 1. [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) for the steps to create an app client ID and secret
-2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags 
+2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags. Refer section [Access Vs Data Ingestion](#access-vs-data-ingestion) for more detail 
 
-    Login to Power BI as Admin and from Tenant settings allow below permissions
+    Login to Power BI as Admin and from tenant setting allow below permissions
     - Allow service principals to use read-only Power BI admin APIs
     - Enhance admin APIs responses with detailed metadata
 
@@ -103,3 +103,47 @@ combine_result
 By default, extracting endorsement information to tags is disabled. The feature may be useful if organization uses [endorsements](https://learn.microsoft.com/en-us/power-bi/collaborate-share/service-endorse-content) to identify content quality.
 
 Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
+
+## Access Vs Data Ingestion
+### Service Principal As Member In Workspace 
+If you have added Service Principal as `member` in workspace then PowerBI Source would be able ingest below metadata of that particular workspace 
+
+  - Dashboards 
+  - Reports 
+  - Dashboard's Tiles
+  - Report's Pages
+
+### Service Principal As Admin in Tenant Setting and Added as Member In Workspace
+If you have added Service Principal as `member` in workspace and also allowed below permissions  
+
+  - Allow service principal to use read-only PowerBI Admin APIs
+  - Enhance admin APIs responses with detailed metadata
+
+PowerBI Source would be able to ingest below listed metadata of that particular workspace 
+
+  - Lineage 
+  - PowerBI Dataset 
+  - Endorsement as tag
+  - Dashboards 
+  - Reports 
+  - Dashboard's Tiles
+  - Report's Pages
+
+### Service Principal As Admin in Tenant Setting
+In this scenario Service Principal is only added in tenant setting and not added in individual workspaces.
+
+Service Principal is allowed below permissions
+
+  - Allow service principal to use read-only PowerBI Admin APIs
+  - Enhance admin APIs responses with detailed metadata
+
+In PowerBI Source recipe add flag `admin_only: true` to configure PowerBI Source to use PowerBI Admin APIs only to retrieve the meta-data. PowerBI Source would be able to ingest below listed metadata of all workspaces.
+
+  - Lineage 
+  - PowerBI Dataset 
+  - Endorsement as tag
+  - Dashboards 
+  - Reports 
+  - Dashboard's Tiles
+
+Report's Pages are not available in PowerBI Admin API.
