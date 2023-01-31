@@ -1102,6 +1102,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     database=table["DatabaseName"],
                     table=table["Name"],
                 ),
+                name=table["Name"],
             )
 
         def get_s3_tags() -> Optional[GlobalTagsClass]:
