@@ -284,7 +284,9 @@ timestamp < "{end_time}"
                         [
                             str(
                                 BigQueryTableRef(
-                                    table_identifier=BigqueryTableIdentifier.from_string_name(source_table)
+                                    table_identifier=BigqueryTableIdentifier.from_string_name(
+                                        source_table
+                                    )
                                 )
                             )
                             for source_table in upstreams
