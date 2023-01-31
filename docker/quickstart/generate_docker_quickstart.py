@@ -35,8 +35,10 @@ def dict_merge(dct, merge_dct):
             dct[k] = merge_dct[k]
 
 def modify_docker_config(base_path, docker_yaml_config):
+    if not docker_yaml_config["services"]:
+        docker_yaml_config["services"] = {}
     # 0. Filter out services to be omitted.
-    for key in list(docker_yaml_config["services"]):
+    for key in docker_yaml_config["services"]:
         if key in omitted_services:
             del docker_yaml_config["services"][key]
 
