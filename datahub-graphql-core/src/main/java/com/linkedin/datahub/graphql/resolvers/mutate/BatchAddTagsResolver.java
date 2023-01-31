@@ -7,15 +7,22 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAddTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.SiblingsUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
@@ -39,6 +46,15 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
 
       // First, validate the batch
       validateTags(tagUrns);
+
+      // if we're adding tags to one sub-resource (ie. schema field) attempt to add to siblings if it fails
+      if (resources.size() == 1 && resources.get(0).getSubResource() != null) {
+        final ResourceRefInput resource = resources.get(0);
+        final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+        final List<Urn> siblingUrns = SiblingsUtils.getSiblingUrns(resourceUrn, _entityService);
+        return attemptBatchAddTagsWithSiblings(tagUrns, resource, context, new HashSet<>(), siblingUrns);
+      }
+
       validateInputResources(resources, context);
 
       try {
@@ -50,6 +66,39 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
         throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
       }
     });
+  }
+
+  // If updating schema field tags fails, try again on a sibling until there are no more siblings to try. Then throw if necessary.
+  private Boolean attemptBatchAddTagsWithSiblings(
+      @Nonnull final List<Urn> tagUrns,
+      @Nonnull final ResourceRefInput resource,
+      @Nonnull final QueryContext context,
+      @Nonnull final HashSet<Urn> attemptedUrns,
+      @Nonnull final List<Urn> siblingUrns
+  ) {
+    attemptedUrns.add(UrnUtils.getUrn(resource.getResourceUrn()));
+    final List<ResourceRefInput> resources = new ArrayList<>();
+    resources.add(resource);
+
+    try {
+      validateInputResources(resources, context);
+      batchAddTags(tagUrns, resources, context);
+      return true;
+    } catch (Exception e) {
+      final Optional<Urn> siblingUrn = SiblingsUtils.getNextSiblingUrn(siblingUrns, attemptedUrns);
+
+      if (siblingUrn.isPresent()) {
+        log.warn(
+            "Failed to add tags for resourceUrn {} and subResource {}, trying sibling urn {} now.",
+            resource.getResourceUrn(), resource.getSubResource(), siblingUrn.get()
+        );
+        resource.setResourceUrn(siblingUrn.get().toString());
+        return attemptBatchAddTagsWithSiblings(tagUrns, resource, context, attemptedUrns, siblingUrns);
+      } else {
+        log.error("Failed to perform update against resource {}, {}", resource.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against resource %s", resource.toString()), e);
+      }
+    }
   }
 
   private void validateTags(List<Urn> tagUrns) {
