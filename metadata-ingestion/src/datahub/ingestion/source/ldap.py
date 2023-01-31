@@ -118,8 +118,8 @@ class LDAPSourceConfig(StatefulIngestionConfigBase):
     )
 
     custom_props_list: Optional[List[str]] = Field(
-        default=None, 
-        description="A list of custom attributes to extract from the LDAP provider."
+        default=None,
+        description="A list of custom attributes to extract from the LDAP provider.",
     )
 
     # If set to true, any users without first and last names will be dropped.
