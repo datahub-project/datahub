@@ -53,8 +53,28 @@ public class DatasetProfileMapperTest {
     expected.setSizeInBytes(15L);
     expected.setFieldProfiles(new ArrayList<>(
         ImmutableList.of(
-            new com.linkedin.datahub.graphql.generated.DatasetFieldProfile("/field1", 30L, 30.5f, 20L, 20.5f, "5", "1", "2", "4", "3", new ArrayList<>(ImmutableList.of("val1", "val2"))),
-            new com.linkedin.datahub.graphql.generated.DatasetFieldProfile("/field2", 40L, 40.5f, 30L, 30.5f, "6", "2", "3", "5", "4", new ArrayList<>(ImmutableList.of("val3", "val4")))
+            new com.linkedin.datahub.graphql.generated.DatasetFieldProfile("/field1",
+                30L,
+                30.5f,
+                20L,
+                20.5f,
+                "5",
+                "1",
+                "2",
+                "4",
+                "3",
+                new ArrayList<>(ImmutableList.of("val1", "val2"))),
+            new com.linkedin.datahub.graphql.generated.DatasetFieldProfile("/field2",
+                40L,
+                40.5f,
+                30L,
+                30.5f,
+                "6",
+                "2",
+                "3",
+                "5",
+                "4",
+                new ArrayList<>(ImmutableList.of("val3", "val4")))
         )
     ));
     Assert.assertEquals(actual.getTimestampMillis(), expected.getTimestampMillis());
@@ -113,8 +133,28 @@ public class DatasetProfileMapperTest {
     expected.setColumnCount(45L);
     expected.setFieldProfiles(new ArrayList<>(
         ImmutableList.of(
-            new com.linkedin.datahub.graphql.generated.DatasetFieldProfile("/field1", 30L, 30.5f, null, null, null, null, null, null, null, null),
-            new com.linkedin.datahub.graphql.generated.DatasetFieldProfile("/field2", 40L, 40.5f, null, null, "6", "2", "3", "5", "4", null)
+            new com.linkedin.datahub.graphql.generated.DatasetFieldProfile("/field1",
+                30L,
+                30.5f,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null),
+            new com.linkedin.datahub.graphql.generated.DatasetFieldProfile("/field2",
+                40L,
+                40.5f,
+                null,
+                null,
+                "6",
+                "2",
+                "3",
+                "5",
+                "4",
+                null)
         )
     ));
     Assert.assertEquals(actual.getTimestampMillis(), expected.getTimestampMillis());
