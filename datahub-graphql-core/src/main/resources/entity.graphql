@@ -241,11 +241,6 @@ type Mutation {
     updateDataJob(urn: String!, input: DataJobUpdateInput!): DataJob
 
     """
-    Update the metadata about a particular DataPlatformInstance
-    """
-    updateDataPlatformInstance(urn: String!, input: DataPlatformInstanceUpdateInput!): DataPlatformInstance
-
-    """
     Create a new tag. Requires the 'Manage Tags' or 'Create Tags' Platform Privilege. If a Tag with the provided ID already exists,
     it will be overwritten.
     """
@@ -4099,31 +4094,6 @@ input TagUpdateInput {
     Ownership metadata of the tag
     """
     ownership: OwnershipUpdate
-}
-
-"""
-Arguments provided to update a DataPlatformInstance Entity
-"""
-input DataPlatformInstanceUpdateInput {
-    """
-    Update to ownership
-    """
-    ownership: OwnershipUpdate
-
-    """
-    Update to deprecation status
-    """
-    deprecation: DatasetDeprecationUpdate
-
-    """
-    Update to institutional memory, ie documentation
-    """
-    institutionalMemory: InstitutionalMemoryUpdate
-
-    """
-    Update to tags
-    """
-    tags: GlobalTagsUpdate
 }
 
 """
