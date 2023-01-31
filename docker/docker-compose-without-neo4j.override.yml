@@ -24,6 +24,10 @@ services:
     depends_on:
       - mysql
 
+  kafka-setup:
+    environment:
+      - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
+
   datahub-gms:
     env_file: datahub-gms/env/docker-without-neo4j.env
     depends_on:

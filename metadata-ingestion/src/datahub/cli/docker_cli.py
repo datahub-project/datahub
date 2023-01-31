@@ -189,6 +189,7 @@ def _set_environment_variables(
     kafka_broker_port: Optional[pydantic.PositiveInt],
     schema_registry_port: Optional[pydantic.PositiveInt],
     elastic_port: Optional[pydantic.PositiveInt],
+    kafka_setup: Optional[bool],
 ) -> None:
     if version is not None:
         if not version.startswith("v") and "." in version:
@@ -211,6 +212,8 @@ def _set_environment_variables(
 
     if elastic_port is not None:
         os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
+    if kafka_setup:
+        os.environ["DATAHUB_PRECREATE_TOPICS"] = "true"
 
 
 def _get_default_quickstart_compose_file() -> Optional[str]:
@@ -691,6 +694,7 @@ def quickstart(
         kafka_broker_port=kafka_broker_port,
         schema_registry_port=schema_registry_port,
         elastic_port=elastic_port,
+        kafka_setup=kafka_setup,
     )
 
     compose = _docker_compose_v2()
@@ -862,29 +866,6 @@ def download_compose_files(
             )
             # Download the quickstart docker-compose file from GitHub.
             quickstart_download_response = request_session.get(consumer_github_file)
-            quickstart_download_response.raise_for_status()
-            tmp_file.write(quickstart_download_response.content)
-            logger.debug(f"Copied to {path}")
-    if kafka_setup:
-        kafka_setup_github_file = (
-            f"{DOCKER_COMPOSE_BASE}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
-        )
-
-        default_consumer_compose_file = (
-            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
-        )
-        with open(
-            default_consumer_compose_file, "wb"
-        ) if default_consumer_compose_file else tempfile.NamedTemporaryFile(
-            suffix=".yml", delete=False
-        ) as tmp_file:
-            path = pathlib.Path(tmp_file.name)
-            quickstart_compose_file_list.append(path)
-            click.echo(
-                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
-            )
-            # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = request_session.get(kafka_setup_github_file)
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")

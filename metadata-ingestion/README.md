@@ -20,7 +20,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 ### Sources
 
-Data systems that we are extracting metadata from are referred to as **Sources**. The `Sources` tab on the left in the sidebar shows you all the sources that are available for you to ingest metadata from. For example, we have sources for [BigQuery](../docs/generated/ingestion/sources/bigquery.md), [Looker](../docs/generated/ingestion/sources/looker.md), [Tableau](../docs/generated/ingestion/sources/tableau.md) and many others.
+Data systems that we are extracting metadata from are referred to as **Sources**. The `Sources` tab on the left in the sidebar shows you all the sources that are available for you to ingest metadata from. For example, we have sources for [BigQuery](https://datahubproject.io/docs/generated/ingestion/sources/bigquery), [Looker](https://datahubproject.io/docs/generated/ingestion/sources/looker), [Tableau](https://datahubproject.io/docs/generated/ingestion/sources/tableau) and many others.
 
 #### Metadata Ingestion Source Status
 
