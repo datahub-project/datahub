@@ -14,8 +14,11 @@ import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static com.linkedin.datahub.graphql.TestUtils.verifySingleIngestProposal;
+import static com.linkedin.datahub.graphql.TestUtils.verifyNoIngestProposal;
 import static org.testng.Assert.*;
 
 
@@ -27,7 +30,7 @@ public class AddRelatedTermsResolverTest {
   private static final String DATASET_URN = "urn:li:dataset:(test,test,test)";
 
   private EntityService setUpService() {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.getAspect(
             Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
             Mockito.eq(Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME),
@@ -56,7 +59,7 @@ public class AddRelatedTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    verifyIngestProposal(mockService, 1);
+    verifySingleIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_ENTITY_URN))
     );
@@ -88,7 +91,7 @@ public class AddRelatedTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    verifyIngestProposal(mockService, 1);
+    verifySingleIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_ENTITY_URN))
     );

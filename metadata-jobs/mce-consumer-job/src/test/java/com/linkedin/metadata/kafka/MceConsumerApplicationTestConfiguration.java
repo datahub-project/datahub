@@ -43,8 +43,11 @@ public class MceConsumerApplicationTestConfiguration {
         return new RestliEntityClient(restClient, new ExponentialBackoff(1), 1);
     }
 
-    @MockBean
+    @MockBean(name = "ebeanServer")
     public Database ebeanServer;
+
+    @MockBean(name = "ebeanPrimaryServer")
+    public Database ebeanPrimaryServer;
 
     @MockBean
     protected TimeseriesAspectService timeseriesAspectService;

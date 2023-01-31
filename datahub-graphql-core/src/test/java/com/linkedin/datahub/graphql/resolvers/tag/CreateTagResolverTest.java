@@ -32,7 +32,7 @@ public class CreateTagResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockClient.ingestProposal(Mockito.any(MetadataChangeProposal.class), Mockito.any(Authentication.class)))
         .thenReturn(String.format("urn:li:tag:%s", TEST_INPUT.getId()));
@@ -68,7 +68,7 @@ public class CreateTagResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     CreateTagResolver resolver = new CreateTagResolver(mockClient, mockService);
 
@@ -87,7 +87,7 @@ public class CreateTagResolverTest {
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RuntimeException.class).when(mockClient).ingestProposal(
         Mockito.any(),

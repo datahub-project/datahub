@@ -16,6 +16,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static org.mockito.Mockito.mock;
 
 
 public class UpdateUserSettingResolverTest {
@@ -23,14 +24,14 @@ public class UpdateUserSettingResolverTest {
   private static final String TEST_USER_URN = "urn:li:corpuser:test";
   @Test
   public void testWriteCorpUserSettings() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_USER_URN))).thenReturn(true);
 
     UpdateUserSettingResolver resolver = new UpdateUserSettingResolver(mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     UpdateUserSettingInput input = new UpdateUserSettingInput();
     input.setName(UserSetting.SHOW_SIMPLIFIED_HOMEPAGE);
     input.setValue(true);
@@ -46,6 +47,6 @@ public class UpdateUserSettingResolverTest {
     proposal.setAspect(GenericRecordUtils.serializeAspect(newSettings));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 }

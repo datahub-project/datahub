@@ -47,7 +47,7 @@ public class RetentionServiceFactory {
   @DependsOn({"ebeanPrimaryServer", "entityService"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected RetentionService createEbeanInstance(Database server, EntityRegistry entityRegistry) {
+  protected RetentionService createEbeanInstance(@Qualifier("ebeanPrimaryServer") Database server, EntityRegistry entityRegistry) {
     RetentionService retentionService = new EbeanRetentionService(_entityService, entityRegistry, server, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;

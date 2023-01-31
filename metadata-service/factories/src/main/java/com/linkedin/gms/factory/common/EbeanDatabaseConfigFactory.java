@@ -9,7 +9,6 @@ import java.sql.Connection;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -57,7 +56,7 @@ public class EbeanDatabaseConfigFactory {
   @Value("${ebean.primary.minConnections:2}")
   private Integer ebeanPrimaryMinConnections;
 
-  @Value("${ebean.primary.maxConnections:50}")
+  @Value("${ebean.primary.maxConnections:25}")
   private Integer ebeanPrimaryMaxConnections;
 
   @Value("${ebean.primary.maxInactiveTimeSeconds:120}")
@@ -87,8 +86,11 @@ public class EbeanDatabaseConfigFactory {
     };
   }
 
-  @Bean("ebeanDataSourceConfig")
-  public DataSourceConfig buildDataSourceConfig(@Value("${ebean.url}") String dataSourceUrl) {
+  @Value("${ebean.url}")
+  protected String dataSourceUrl;
+
+  @Bean("gmsEbeanServiceConfig")
+  protected DatabaseConfig gmsEbeanServiceConfig() {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
@@ -107,25 +109,34 @@ public class EbeanDatabaseConfigFactory {
       custom.put("wrapperPlugins", "iam");
       dataSourceConfig.setCustomProperties(custom);
     }
-    return dataSourceConfig;
-  }
 
-  @Bean(name = "gmsEbeanServiceConfig")
-  protected DatabaseConfig createInstance(@Qualifier("ebeanDataSourceConfig") DataSourceConfig config) {
     DatabaseConfig serverConfig = new DatabaseConfig();
     serverConfig.setName("gmsEbeanServiceConfig");
-    serverConfig.setDataSourceConfig(config);
+    serverConfig.setDataSourceConfig(dataSourceConfig);
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
     return serverConfig;
   }
 
-  @Bean("ebeanPrimaryDataSourceConfig")
-  public DataSourceConfig buildPrimaryDataSourceConfig(@Value("${ebean.primary.url}") String dataSourceUrl) {
+  @Value("${ebean.primary.url}")
+  protected String primaryDataSourceUrl;
+
+  @Bean("gmsEbeanPrimaryServiceConfig")
+  protected DatabaseConfig gmsEbeanPrimaryServiceConfig() {
+    final String writeDataSourceUrl;
+
+    if (primaryDataSourceUrl == null) {
+      log.info("EBEAN_PRIMARY_DATASOURCE_URL is not defined, defaulting to base ebean configuration for writes.");
+      writeDataSourceUrl = dataSourceUrl;
+    } else {
+      log.info("Write ebean data source is active.");
+      writeDataSourceUrl = primaryDataSourceUrl;
+    }
+
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
-    dataSourceConfig.setUrl(dataSourceUrl);
+    dataSourceConfig.setUrl(writeDataSourceUrl);
     dataSourceConfig.setDriver(ebeanDatasourceDriver);
     dataSourceConfig.setMinConnections(ebeanPrimaryMinConnections);
     dataSourceConfig.setMaxConnections(ebeanPrimaryMaxConnections);
@@ -140,14 +151,11 @@ public class EbeanDatabaseConfigFactory {
       custom.put("wrapperPlugins", "iam");
       dataSourceConfig.setCustomProperties(custom);
     }
-    return dataSourceConfig;
-  }
 
-  @Bean(name = "gmsEbeanPrimaryServiceConfig")
-  protected DatabaseConfig createPrimaryInstance(@Qualifier("ebeanPrimaryDataSourceConfig") DataSourceConfig config) {
     DatabaseConfig serverConfig = new DatabaseConfig();
     serverConfig.setName("gmsEbeanPrimaryServiceConfig");
-    serverConfig.setDataSourceConfig(config);
+    serverConfig.setDataSourceConfig(dataSourceConfig);
+    serverConfig.setDefaultServer(false);
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
     return serverConfig;

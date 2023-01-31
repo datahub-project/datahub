@@ -53,7 +53,7 @@ public class SetDomainResolverTest {
                 .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
     Mockito.when(mockService.exists(Urn.createFromString(TEST_NEW_DOMAIN_URN))).thenReturn(true);
 
@@ -112,7 +112,7 @@ public class SetDomainResolverTest {
                     new EnvelopedAspect().setValue(new Aspect(originalDomains.data()))
                 )))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
     Mockito.when(mockService.exists(Urn.createFromString(TEST_NEW_DOMAIN_URN))).thenReturn(true);
 
@@ -165,7 +165,7 @@ public class SetDomainResolverTest {
                 .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
     Mockito.when(mockService.exists(Urn.createFromString(TEST_NEW_DOMAIN_URN))).thenReturn(false);
 
@@ -201,7 +201,7 @@ public class SetDomainResolverTest {
                 .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(false);
     Mockito.when(mockService.exists(Urn.createFromString(TEST_NEW_DOMAIN_URN))).thenReturn(true);
 
@@ -224,7 +224,7 @@ public class SetDomainResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     SetDomainResolver resolver = new SetDomainResolver(mockClient, mockService);
 
     // Execute resolver

@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
+import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;
@@ -69,6 +70,7 @@ public class IngestDataPlatformInstancesStepTest {
   public void testExecuteChecksKeySpecForAllUrns() throws Exception {
     final EntityRegistry entityRegistry = getTestEntityRegistry();
     final EntityService entityService = mock(EntityService.class);
+    Mockito.when(entityService.getEntityRegistry()).thenReturn(entityRegistry);
     final AspectMigrationsDao migrationsDao = mock(AspectMigrationsDao.class);
     final int countOfCorpUserEntities = 2;
     final int countOfChartEntities = 4;
@@ -86,6 +88,7 @@ public class IngestDataPlatformInstancesStepTest {
   public void testExecuteWhenSomeEntitiesShouldReceiveDataPlatformInstance() throws Exception {
     final EntityRegistry entityRegistry = getTestEntityRegistry();
     final EntityService entityService = mock(EntityService.class);
+    Mockito.when(entityService.getEntityRegistry()).thenReturn(entityRegistry);
     final AspectMigrationsDao migrationsDao = mock(AspectMigrationsDao.class);
     final int countOfCorpUserEntities = 5;
     final int countOfChartEntities = 7;
@@ -95,7 +98,7 @@ public class IngestDataPlatformInstancesStepTest {
     final IngestDataPlatformInstancesStep step = new IngestDataPlatformInstancesStep(entityService, migrationsDao);
     step.execute();
 
-    verify(entityService, times(countOfChartEntities))
+    verify(entityService, times(1))
         .ingestAspects(
             argThat(arg ->
               arg.getItems().stream()
@@ -104,15 +107,15 @@ public class IngestDataPlatformInstancesStepTest {
                       && item.getAspect() instanceof DataPlatformInstance)
             ),
             any(),
-            any(),
-            any());
+            anyBoolean(),
+            anyBoolean());
     verify(entityService, times(0))
         .ingestAspects(argThat(arg ->
                 !arg.getItems().stream()
                         .allMatch(item -> item.getUrn().getEntityType().equals("chart")
                                 && item.getAspectName().equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
                                 && item.getAspect() instanceof DataPlatformInstance)
-        ), any(), any(), any());
+        ), any(), anyBoolean(), anyBoolean());
   }
 
   @NotNull

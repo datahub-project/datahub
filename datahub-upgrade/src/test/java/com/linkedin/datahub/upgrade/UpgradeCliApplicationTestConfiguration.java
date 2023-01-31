@@ -7,6 +7,8 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import io.ebean.Database;
+import io.ebean.config.DatabaseConfig;
+import io.ebean.datasource.DataSourceConfig;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
@@ -18,8 +20,23 @@ public class UpgradeCliApplicationTestConfiguration {
     @MockBean
     private UpgradeCli upgradeCli;
 
-    @MockBean
-    private Database ebeanServer;
+    @MockBean(name = "ebeanServer")
+    public Database ebeanServer;
+
+    @MockBean(name = "ebeanDatabaseConfig")
+    public DatabaseConfig ebeanDatabaseConfig;
+
+    @MockBean(name = "ebeanDataSourceConfig")
+    public DataSourceConfig ebeanDataSourceConfig;
+
+    @MockBean(name = "ebeanPrimaryServer")
+    public Database ebeanPrimaryServer;
+
+    @MockBean(name = "ebeanPrimaryDatabaseConfig")
+    public DatabaseConfig ebeanPrimaryDatabaseConfig;
+
+    @MockBean(name = "ebeanPrimaryDataSourceConfig")
+    public DataSourceConfig ebeanPrimaryDataSourceConfig;
 
     @MockBean
     private EntityService entityService;

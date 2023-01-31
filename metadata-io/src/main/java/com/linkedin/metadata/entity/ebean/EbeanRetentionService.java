@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -58,43 +59,48 @@ public class EbeanRetentionService extends RetentionService {
 
   @Override
   @WithSpan
-  public void applyRetention(List<RetentionContext> retentionContexts) {
-
-    ExpressionList<EbeanAspectV2> deleteQuery = _primary.find(EbeanAspectV2.class)
-            .where()
-            .ne(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
-            .or();
+  protected void applyRetention(List<RetentionContext> retentionContexts) {
 
     List<RetentionContext> nonEmptyContexts = retentionContexts.stream()
             .filter(context -> context.getRetentionPolicy().isPresent()
                     && !context.getRetentionPolicy().get().data().isEmpty()).collect(Collectors.toList());
 
-    nonEmptyContexts.forEach(context -> {
-      Optional<Retention> retentionPolicy = context.getRetentionPolicy();
-
-      if (retentionPolicy.map(Retention::hasVersion).orElse(false)) {
-        getVersionBasedRetentionQuery(context.getUrn(), context.getAspectName(),
-                retentionPolicy.get().getVersion(), context.getMaxVersion())
-                .map(expr ->
-                        deleteQuery.and()
-                                .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
-                                .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
-                                .add(expr)
-                                .endAnd());
-      }
-
-      if (retentionPolicy.map(Retention::hasTime).orElse(false)) {
-        deleteQuery.and()
-                .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
-                .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
-                .add(getTimeBasedRetentionQuery(retentionPolicy.get().getTime()))
-                .endAnd();
-      }
-    });
-
     // Only run delete if at least one of the retention policies are applicable
     if (!nonEmptyContexts.isEmpty()) {
-      deleteQuery.endOr().delete();
+      ExpressionList<EbeanAspectV2> deleteQuery = _primary.find(EbeanAspectV2.class)
+              .where()
+              .ne(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
+              .or();
+
+      boolean applied = false;
+      for (RetentionContext context : nonEmptyContexts) {
+        Retention retentionPolicy = context.getRetentionPolicy().get();
+
+        if (retentionPolicy.hasVersion()) {
+          applied = getVersionBasedRetentionQuery(context.getUrn(), context.getAspectName(),
+                  retentionPolicy.getVersion(), context.getMaxVersion())
+                  .map(expr ->
+                          deleteQuery.and()
+                                  .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
+                                  .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
+                                  .add(expr)
+                                  .endAnd()
+                  ).isPresent();
+        }
+
+        if (retentionPolicy.hasTime()) {
+          deleteQuery.and()
+                  .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
+                  .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
+                  .add(getTimeBasedRetentionQuery(retentionPolicy.getTime()))
+                  .endAnd();
+          applied = true;
+        }
+      }
+
+      if (applied) {
+        deleteQuery.endOr().delete();
+      }
     }
   }
 
@@ -172,7 +178,9 @@ public class EbeanRetentionService extends RetentionService {
               .collect(Collectors.toList());
 
       applyRetention(retentionContexts);
-      applyRetentionResult.rowsHandled += retentionContexts.size();
+      if (applyRetentionResult != null) {
+        applyRetentionResult.rowsHandled += retentionContexts.size();
+      }
 
       transaction.commit();
     }

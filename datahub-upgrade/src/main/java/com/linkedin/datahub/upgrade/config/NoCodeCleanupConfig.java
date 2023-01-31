@@ -25,7 +25,7 @@ public class NoCodeCleanupConfig {
   @DependsOn({"ebeanPrimaryServer", "graphService", "elasticSearchRestHighLevelClient", INDEX_CONVENTION_BEAN})
   @Nonnull
   public NoCodeCleanupUpgrade createInstance() {
-    final Database ebeanServer = applicationContext.getBean(Database.class);
+    final Database ebeanServer = applicationContext.getBean("ebeanPrimaryServer", Database.class);
     final GraphService graphClient = applicationContext.getBean(GraphService.class);
     final RestHighLevelClient searchClient = applicationContext.getBean(RestHighLevelClient.class);
     final IndexConvention indexConvention = applicationContext.getBean(IndexConvention.class);

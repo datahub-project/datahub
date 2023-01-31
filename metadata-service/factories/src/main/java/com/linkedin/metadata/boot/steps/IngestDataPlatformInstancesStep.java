@@ -70,7 +70,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
       for (String urnStr : _migrationsDao.listAllUrns(start, start + BATCH_SIZE)) {
         Urn urn = Urn.createFromString(urnStr);
         Optional<DataPlatformInstance> dataPlatformInstance = getDataPlatformInstance(urn);
-        if (!dataPlatformInstance.isPresent()) {
+        if (dataPlatformInstance.isPresent()) {
           items.add(AspectsBatchItem.builder()
                   .urn(urn)
                   .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)

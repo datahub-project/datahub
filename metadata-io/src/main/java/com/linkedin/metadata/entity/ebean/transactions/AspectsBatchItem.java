@@ -1,7 +1,10 @@
 package com.linkedin.metadata.entity.ebean.transactions;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -12,8 +15,12 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
+import java.sql.Timestamp;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
 @Getter
@@ -37,6 +44,17 @@ public class AspectsBatchItem {
         return lambda.apply(null);
     }
 
+    public EntityAspect toLatestEntityAspect(AuditStamp auditStamp) {
+        EntityAspect latest = new EntityAspect();
+        latest.setAspect(aspectName);
+        latest.setMetadata(EntityUtils.toJsonAspect(getAspect()));
+        latest.setUrn(urn.toString());
+        latest.setVersion(ASPECT_LATEST_VERSION);
+        latest.setCreatedOn(new Timestamp(auditStamp.getTime()));
+        latest.setCreatedBy(auditStamp.getActor().toString());
+        return latest;
+    }
+
     public static class AspectsBatchItemBuilder {
         public AspectsBatchItemBuilder value(final RecordTemplate recordTemplate) {
             this.lambda = ignored -> recordTemplate;
@@ -50,7 +68,7 @@ public class AspectsBatchItem {
             entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType()));
             log.debug("entity spec = {}", this.entitySpec);
 
-            aspectSpec(validateAspect(this.urn, this.aspectName, this.entitySpec));
+            aspectSpec(validateAspect(this.aspectName, this.entitySpec));
             log.debug("aspect spec = {}", this.aspectSpec);
 
             return new AspectsBatchItem(this.urn, this.aspectName, this.systemMetadata, this.lambda, this.mcp,
@@ -73,7 +91,7 @@ public class AspectsBatchItem {
             }
         }
 
-        private static AspectSpec validateAspect(Urn urn, String aspectName, EntitySpec entitySpec) {
+        private static AspectSpec validateAspect(String aspectName, EntitySpec entitySpec) {
             if (aspectName == null || aspectName.isEmpty()) {
                 throw new UnsupportedOperationException("Aspect name is required for create and update operations");
             }
@@ -82,10 +100,42 @@ public class AspectsBatchItem {
 
             if (aspectSpec == null) {
                 throw new RuntimeException(
-                        String.format("Unknown aspect %s for entity %s", aspectName, urn.getEntityType()));
+                        String.format("Unknown aspect %s for entity %s", aspectName, entitySpec.getName()));
             }
 
             return aspectSpec;
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        AspectsBatchItem that = (AspectsBatchItem) o;
+        return urn.equals(that.urn) && aspectName.equals(that.aspectName)
+                && Objects.equals(systemMetadata, that.systemMetadata)
+                && lambda.apply(null).equals(that.lambda.apply(null))
+                && Objects.equals(mcp, that.mcp);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(urn, aspectName, systemMetadata, lambda.apply(null), mcp);
+    }
+
+    @Override
+    public String toString() {
+        return "AspectsBatchItem{"
+                + "urn=" + urn
+                + ", aspectName='"
+                + aspectName + '\''
+                + ", systemMetadata=" + systemMetadata
+                + ", lambda=" + lambda
+                + ", mcp=" + mcp
+                + '}';
     }
 }

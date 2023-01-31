@@ -8,3 +8,10 @@ entities:
     keyAspect: chartKey
     aspects:
       - domains
+      - dataPlatformInstance
+  - name: globalSettings
+    doc: Global settings for an the platform
+    category: internal
+    keyAspect: globalSettingsKey
+    aspects:
+      - globalSettingsInfo

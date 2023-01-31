@@ -22,7 +22,12 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.CompletionException;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static com.linkedin.datahub.graphql.TestUtils.verifyNoIngestProposal;
+import static com.linkedin.datahub.graphql.TestUtils.verifySingleIngestProposal;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -48,13 +53,15 @@ public class UpdateNameResolverTest {
             Urn.createFromString(TERM_URN),
             Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
             0))
-        .thenReturn(new GlossaryTermInfo().setName(name));
+        .thenReturn(new GlossaryTermInfo().setName(name).setDefinition("definition").setTermSource("internal"));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(Urn.createFromString(TERM_URN));
     proposal.setEntityType(Constants.GLOSSARY_TERM_ENTITY_NAME);
     GlossaryTermInfo info = new GlossaryTermInfo();
     info.setName(NEW_NAME);
+    info.setDefinition("definition");
+    info.setTermSource("internal");
     proposal.setAspectName(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(info));
     proposal.setChangeType(ChangeType.UPSERT);
@@ -63,8 +70,11 @@ public class UpdateNameResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(mockService.getAspect(any(Urn.class), eq("glossaryTermInfo"), eq(0))).thenReturn(
+          new GlossaryTermInfo().setName("old name").setTermSource("internal").setDefinition("definition")
+    );
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
@@ -73,12 +83,12 @@ public class UpdateNameResolverTest {
     final MetadataChangeProposal proposal = setupTests(mockEnv, mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetSuccessForNode() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(NODE_URN))).thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -94,13 +104,14 @@ public class UpdateNameResolverTest {
             Urn.createFromString(NODE_URN),
             Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
             0))
-        .thenReturn(new GlossaryNodeInfo().setName(name));
+        .thenReturn(new GlossaryNodeInfo().setName(name).setDefinition("definition"));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(Urn.createFromString(NODE_URN));
     proposal.setEntityType(Constants.GLOSSARY_NODE_ENTITY_NAME);
     GlossaryNodeInfo info = new GlossaryNodeInfo();
     info.setName(NEW_NAME);
+    info.setDefinition("definition");
     proposal.setAspectName(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(info));
     proposal.setChangeType(ChangeType.UPSERT);
@@ -108,12 +119,12 @@ public class UpdateNameResolverTest {
     UpdateNameResolver resolver = new UpdateNameResolver(mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetSuccessForDomain() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(DOMAIN_URN))).thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -143,12 +154,12 @@ public class UpdateNameResolverTest {
     UpdateNameResolver resolver = new UpdateNameResolver(mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetFailureEntityDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(false);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

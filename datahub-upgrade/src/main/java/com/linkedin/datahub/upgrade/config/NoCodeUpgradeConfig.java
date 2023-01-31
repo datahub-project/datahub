@@ -24,7 +24,7 @@ public class NoCodeUpgradeConfig {
   @DependsOn({"ebeanPrimaryServer", "entityService", "systemAuthentication", "restliEntityClient", "entityRegistry"})
   @Nonnull
   public NoCodeUpgrade createInstance() {
-    final Database ebeanServer = applicationContext.getBean(Database.class);
+    final Database ebeanServer = applicationContext.getBean("ebeanPrimaryServer", Database.class);
     final EntityService entityService = applicationContext.getBean(EntityService.class);
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
     final RestliEntityClient entityClient = applicationContext.getBean(RestliEntityClient.class);

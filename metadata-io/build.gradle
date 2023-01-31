@@ -33,6 +33,7 @@ dependencies {
   runtimeOnly externalDependency.jna
   compile externalDependency.kafkaClients
   compile externalDependency.ebean
+  implementation externalDependency.ebeanDdl
   enhance externalDependency.ebeanAgent
   compile externalDependency.opentelemetryAnnotations
   compile externalDependency.resilience4j

@@ -161,6 +161,7 @@ public class StatefulTokenServiceTest {
     Mockito.when(mockService.exists(Mockito.any(Urn.class))).thenReturn(true);
     final RollbackRunResult result = new RollbackRunResult(ImmutableList.of(), 0);
     Mockito.when(mockService.deleteUrn(Mockito.any(Urn.class))).thenReturn(result);
+    Mockito.when(mockService.getEntityRegistry()).thenReturn(configEntityRegistry);
 
     StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     Actor datahub = new Actor(ActorType.USER, "datahub");

@@ -17,7 +17,6 @@ import javax.annotation.Nonnull;
 public class EntityAspectMigrationsDaoFactory {
 
   @Bean(name = "entityAspectMigrationsDao")
-  @DependsOn({"gmsEbeanPrimaryServiceConfig"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   protected AspectMigrationsDao createEbeanInstance(@Qualifier("ebeanPrimaryServer") Database server) {

@@ -111,8 +111,8 @@ ebean:
   password: ${EBEAN_DATASOURCE_PASSWORD:datahub}
   url: ${EBEAN_DATASOURCE_URL:jdbc:mysql://localhost:3306/datahub} # JDBC URL
   driver: ${EBEAN_DATASOURCE_DRIVER:com.mysql.jdbc.Driver} # JDBC Driver
-  minConnections: ${EBEAN_MIN_CONNECTIONS:2}
-  maxConnections: ${EBEAN_MAX_CONNECTIONS:50}
+  minConnections: ${EBEAN_MIN_CONNECTIONS:1}
+  maxConnections: ${EBEAN_MAX_CONNECTIONS:20}
   maxInactiveTimeSeconds: ${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
@@ -120,8 +120,8 @@ ebean:
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   primary:
-    url: ${EBEAN_DATASOURCE_URL:jdbc:mysql://localhost:3306/datahub} # JDBC URL
-    minConnections: ${EBEAN_MIN_CONNECTIONS:2}
+    url: ${EBEAN_PRIMARY_DATASOURCE_URL:#{null}} # JDBC URL, if null defaults to configuration above
+    minConnections: ${EBEAN_MIN_CONNECTIONS:1}
     maxConnections: ${EBEAN_MAX_CONNECTIONS:10}
     maxInactiveTimeSeconds: ${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}
     maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}

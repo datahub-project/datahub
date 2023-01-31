@@ -89,8 +89,11 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public Map<String, Map<String, EntityAspect>> getLatestAspects(Map<String, Set<String>> urnAspects) {
     return urnAspects.entrySet().stream()
             .map(entry -> Map.entry(entry.getKey(), entry.getValue().stream()
-                    .map(aspectName -> Map.entry(aspectName, getLatestAspect(entry.getKey(), aspectName)))
-                    .filter(aspectEntity -> Objects.nonNull(aspectEntity.getValue()))
+                    .map(aspectName -> {
+                      EntityAspect aspect = getLatestAspect(entry.getKey(), aspectName);
+                      return aspect != null ? Map.entry(aspectName, aspect) : null;
+                    })
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }

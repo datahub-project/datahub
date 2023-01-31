@@ -15,7 +15,6 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -25,8 +24,12 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static com.linkedin.datahub.graphql.TestUtils.verifyIngestProposal;
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 
 public class BatchRemoveTagsResolverTest {
@@ -38,7 +41,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTags() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -88,20 +91,12 @@ public class BatchRemoveTagsResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    AspectsBatch batch = AspectsBatch.builder()
-            .mcps(List.of(proposal1, proposal2), mockService.getEntityRegistry())
-            .build();
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-            Mockito.eq(batch),
-            Mockito.any(AuditStamp.class), Mockito.eq(false)
-    );
-
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
   public void testGetSuccessExistingTags() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     final GlobalTags oldTags1 = new GlobalTags().setTags(new TagAssociationArray(ImmutableList.of(
         new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_1_URN)),
@@ -161,20 +156,12 @@ public class BatchRemoveTagsResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    AspectsBatch batch = AspectsBatch.builder()
-            .mcps(List.of(proposal1, proposal2), mockService.getEntityRegistry())
-            .build();
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-            Mockito.eq(batch),
-            Mockito.any(AuditStamp.class), Mockito.eq(false)
-    );
-
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -213,7 +200,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 
@@ -237,7 +224,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),

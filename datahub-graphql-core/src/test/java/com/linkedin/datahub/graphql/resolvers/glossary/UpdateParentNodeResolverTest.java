@@ -21,7 +21,10 @@ import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
+import static com.linkedin.datahub.graphql.TestUtils.verifyNoIngestProposal;
+import static com.linkedin.datahub.graphql.TestUtils.verifySingleIngestProposal;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -47,13 +50,15 @@ public class UpdateParentNodeResolverTest {
             Urn.createFromString(TERM_URN),
             Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
             0))
-        .thenReturn(new GlossaryTermInfo().setName(name));
+        .thenReturn(new GlossaryTermInfo().setName(name).setDefinition("definition").setTermSource("internal"));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(Urn.createFromString(TERM_URN));
     proposal.setEntityType(Constants.GLOSSARY_TERM_ENTITY_NAME);
     GlossaryTermInfo info = new GlossaryTermInfo();
     info.setName(name);
+    info.setTermSource("internal");
+    info.setDefinition("definition");
     info.setParentNode(GlossaryNodeUrn.createFromString(PARENT_NODE_URN));
     proposal.setAspectName(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(info));
@@ -63,7 +68,7 @@ public class UpdateParentNodeResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(true);
@@ -74,12 +79,12 @@ public class UpdateParentNodeResolverTest {
     final MetadataChangeProposal proposal = setupTests(mockEnv, mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetSuccessForNode() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(NODE_URN))).thenReturn(true);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(true);
@@ -96,13 +101,14 @@ public class UpdateParentNodeResolverTest {
             Urn.createFromString(NODE_URN),
             Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,
             0))
-        .thenReturn(new GlossaryNodeInfo().setName(name));
+        .thenReturn(new GlossaryNodeInfo().setName(name).setDefinition("definition"));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(Urn.createFromString(NODE_URN));
     proposal.setEntityType(Constants.GLOSSARY_NODE_ENTITY_NAME);
     GlossaryNodeInfo info = new GlossaryNodeInfo();
     info.setName(name);
+    info.setDefinition("definition");
     info.setParentNode(GlossaryNodeUrn.createFromString(PARENT_NODE_URN));
     proposal.setAspectName(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(info));
@@ -111,12 +117,12 @@ public class UpdateParentNodeResolverTest {
     UpdateParentNodeResolver resolver = new UpdateParentNodeResolver(mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetFailureEntityDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(false);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(true);
@@ -132,7 +138,7 @@ public class UpdateParentNodeResolverTest {
 
   @Test
   public void testGetFailureNodeDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(false);
@@ -148,7 +154,7 @@ public class UpdateParentNodeResolverTest {
 
   @Test
   public void testGetFailureParentIsNotNode() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(true);

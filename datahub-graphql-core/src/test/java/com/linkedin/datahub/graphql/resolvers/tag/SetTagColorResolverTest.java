@@ -36,7 +36,7 @@ public class SetTagColorResolverTest {
   public void testGetSuccessExistingProperties() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     // Test setting the domain
     final TagProperties oldTagProperties = new TagProperties().setName("Test Tag");
@@ -80,7 +80,7 @@ public class SetTagColorResolverTest {
   public void testGetFailureNoExistingProperties() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     // Test setting the domain
     Mockito.when(mockService.getAspect(
@@ -129,7 +129,7 @@ public class SetTagColorResolverTest {
                     Constants.TAG_PROPERTIES_ASPECT_NAME,
                     oldTagPropertiesAspect)))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(false);
 
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
@@ -150,7 +150,7 @@ public class SetTagColorResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     SetTagColorResolver resolver = new SetTagColorResolver(mockClient, mockService);
 
     // Execute resolver

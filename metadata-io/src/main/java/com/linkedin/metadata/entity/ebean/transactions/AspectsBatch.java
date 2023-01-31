@@ -1,11 +1,13 @@
 package com.linkedin.metadata.entity.ebean.transactions;
 
 import com.datahub.util.exception.ModelConversionException;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.events.metadata.ChangeType;
@@ -15,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,6 +34,7 @@ public class AspectsBatch {
     }
 
     public static class AspectsBatchBuilder {
+
         /**
          * Just one aspect record template
          * @param data aspect data
@@ -58,8 +62,13 @@ public class AspectsBatch {
                         + " for aspect " + mcp.getAspectName());
             }
 
+            Urn urn = mcp.getEntityUrn();
+            if (urn == null) {
+                urn = EntityKeyUtils.getUrnFromProposal(mcp, aspectSpec);
+            }
+
             return AspectsBatchItem.builder()
-                    .urn(mcp.getEntityUrn())
+                    .urn(urn)
                     .aspectName(mcp.getAspectName())
                     .systemMetadata(mcp.getSystemMetadata())
                     .mcp(mcp)
@@ -112,5 +121,30 @@ public class AspectsBatch {
                 return (ChangeType.UPSERT.equals(changeType) || ChangeType.PATCH.equals(changeType));
             }
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        AspectsBatch that = (AspectsBatch) o;
+        return items.equals(that.items);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(items);
+    }
+
+    @Override
+    public String toString() {
+        return "AspectsBatch{"
+                + "items="
+                + items
+                + '}';
     }
 }

@@ -23,7 +23,7 @@ public class RestoreIndicesConfig {
   @DependsOn({"ebeanPrimaryServer", "entityService", "searchService", "graphService", "entityRegistry"})
   @Nonnull
   public RestoreIndices createInstance() {
-    final Database ebeanServer = applicationContext.getBean(Database.class);
+    final Database ebeanServer = applicationContext.getBean("ebeanPrimaryServer", Database.class);
     final EntityService entityService = applicationContext.getBean(EntityService.class);
     final EntitySearchService entitySearchService = applicationContext.getBean(EntitySearchService.class);
     final GraphService graphService = applicationContext.getBean(GraphService.class);

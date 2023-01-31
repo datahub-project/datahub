@@ -62,11 +62,12 @@ public class CassandraRetentionService extends RetentionService {
 
   @Override
   @WithSpan
-  public void applyRetention(List<RetentionContext> retentionContexts) {
+  protected void applyRetention(List<RetentionContext> retentionContexts) {
 
     List<RetentionContext> nonEmptyContexts = retentionContexts.stream()
             .filter(context -> context.getRetentionPolicy().isPresent()
-                    && !context.getRetentionPolicy().get().data().isEmpty()).collect(Collectors.toList());
+                    && !context.getRetentionPolicy().get().data().isEmpty())
+            .collect(Collectors.toList());
 
     nonEmptyContexts.forEach(context -> {
       if (context.getRetentionPolicy().map(Retention::hasVersion).orElse(false)) {

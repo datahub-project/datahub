@@ -570,7 +570,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     if (emitMae) {
       Streams.zip(aspectsBatch.getItems().stream(), ingestResults.stream(), (aspect, result) ->
               sendEventForUpdateAspectResult(aspect.getUrn(), aspect.getAspectName(), result)
-      );
+      ).collect(Collectors.toList());
     }
 
     return ingestResults;
@@ -604,16 +604,21 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       List<Pair<AspectsBatchItem, UpdateAspectResult>> upsertResults = aspectsBatch.getItems().stream()
               .map(item -> {
                 final String urnStr = item.getUrn().toString();
-                final EntityAspect latest = latestAspects.get(urnStr).get(item.getAspectName());
-                final long nextVersion = nextVersions.get(urnStr).get(item.getAspectName());
+                final EntityAspect latest = latestAspects.getOrDefault(urnStr, Map.of()).get(item.getAspectName());
+                final long nextVersion = nextVersions.getOrDefault(urnStr, Map.of()).getOrDefault(item.getAspectName(), 0L);
 
                 final UpdateAspectResult result;
                 if (overwrite || latest == null) {
                   SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(item.getSystemMetadata());
                   result = ingestAspectToLocalDBNoTransaction(item.getUrn(), item.getAspectName(), item.getLambda(),
                           auditStamp, systemMetadata, latest, nextVersion);
+
+                  // support inner-batch upserts
+                  latestAspects.computeIfAbsent(urnStr, key -> new HashMap<>()).put(item.getAspectName(), item.toLatestEntityAspect(auditStamp));
+                  nextVersions.computeIfAbsent(urnStr, key -> new HashMap<>()).put(item.getAspectName(), nextVersion + 1);
                 } else {
-                  RecordTemplate oldValue = EntityUtils.toAspectRecord(urnStr, item.getAspectName(), latest.getMetadata(), getEntityRegistry());
+                  RecordTemplate oldValue = EntityUtils.toAspectRecord(item.getUrn().getEntityType(), item.getAspectName(),
+                          latest.getMetadata(), getEntityRegistry());
                   SystemMetadata oldMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
                   result = new UpdateAspectResult(item.getUrn(), oldValue, oldValue, oldMetadata, oldMetadata, MetadataAuditOperation.UPDATE, auditStamp,
                           latest.getVersion());
@@ -622,8 +627,10 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
                 return Pair.of(item, result);
               }).collect(Collectors.toList());
 
-      // commit upserts prior to retention
-      tx.commitAndContinue();
+      // commit upserts prior to retention, if supported by impl
+      if (tx != null) {
+        tx.commitAndContinue();
+      }
 
       // Retention optimization and tx
       if (_retentionService != null) {
@@ -643,7 +650,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
                         .maxVersion(Optional.of(resultPair.getValue().getMaxVersion()))
                         .build())
                 .collect(Collectors.toList());
-        _retentionService.applyRetention(retentionBatch);
+        _retentionService.applyRetentionWithPolicyDefaults(retentionBatch);
       } else {
         log.warn("Retention service is missing!");
       }
@@ -745,7 +752,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
             result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
         produceMAETimer.stop();
       } catch (Exception e) {
-        log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema.", e);
+        log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema. Aspect: " + aspectName, e);
       }
     } else {
       log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.",
@@ -780,10 +787,11 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
      * @return an {@link IngestProposalResult} containing the results
      */
   public Set<Pair<AspectsBatchItem, IngestProposalResult>> ingestProposal(AspectsBatch aspectsBatch,
-                                                                          AuditStamp auditStamp, final boolean async) {
+                                                                          AuditStamp auditStamp,
+                                                                          final boolean async) {
 
     Stream<Pair<AspectsBatchItem, IngestProposalResult>> timeseriesIngestResults = ingestTimeseriesProposal(aspectsBatch, auditStamp);
-    Stream<Pair<AspectsBatchItem, IngestProposalResult>> nonTimeseriesIngestResults = async ? ingestProposalAsync(aspectsBatch, auditStamp)
+    Stream<Pair<AspectsBatchItem, IngestProposalResult>> nonTimeseriesIngestResults = async ? ingestProposalAsync(aspectsBatch)
             : ingestProposalSync(aspectsBatch, auditStamp);
 
     return Stream.concat(timeseriesIngestResults, nonTimeseriesIngestResults).collect(Collectors.toSet());
@@ -801,7 +809,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     });
   }
 
-  private Stream<Pair<AspectsBatchItem, IngestProposalResult>> ingestProposalAsync(AspectsBatch aspectsBatch, AuditStamp auditStamp) {
+  private Stream<Pair<AspectsBatchItem, IngestProposalResult>> ingestProposalAsync(AspectsBatch aspectsBatch) {
     List<AspectsBatchItem> nonTimeseries = aspectsBatch.getItems().stream()
             .filter(item -> !item.getAspectSpec().isTimeseries())
             .collect(Collectors.toList());
@@ -832,7 +840,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
             .stream().filter(item -> item.getMcp().getChangeType() == ChangeType.UPSERT)
             .collect(Collectors.toList());
     List<UpdateAspectResult> upsertResults = ingestAspects(AspectsBatch.builder().items(upsertItems).build(),
-            auditStamp, true, true);
+            auditStamp, false, true);
     Stream<Pair<AspectsBatchItem, UpdateAspectResult>> upserts = Streams.zip(upsertItems.stream(), upsertResults.stream(), Pair::of);
 
     return Stream.concat(patches, upserts).map(resultPair ->  {
@@ -884,7 +892,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     RecordTemplate newAspect = result.getNewValue();
     // Apply retention policies asynchronously if there was an update to existing aspect value
     if (oldAspect != newAspect && oldAspect != null && _retentionService != null) {
-      _retentionService.applyRetention(List.of(RetentionService.RetentionContext.builder()
+      _retentionService.applyRetentionWithPolicyDefaults(List.of(RetentionService.RetentionContext.builder()
               .urn(entityUrn)
               .aspectName(aspectSpec.getName())
               .maxVersion(Optional.of(result.maxVersion))
@@ -1320,7 +1328,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
+    log.debug("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
     aspectRecordsToIngest.addAll(generateDefaultAspectsIfMissing(urn,
         aspectRecordsToIngest.stream().map(Pair::getFirst).collect(Collectors.toSet())));
 

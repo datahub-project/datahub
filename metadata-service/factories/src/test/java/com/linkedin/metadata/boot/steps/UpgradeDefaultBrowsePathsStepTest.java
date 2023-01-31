@@ -14,7 +14,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
@@ -33,6 +32,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import com.linkedin.mxe.MetadataChangeProposal;
 import org.jetbrains.annotations.NotNull;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -87,8 +88,8 @@ public class UpgradeDefaultBrowsePathsStepTest {
         Mockito.eq(5000)
     );
     // Verify that 4 aspects are ingested, 2 for the upgrade request / result, but none for ingesting
-    Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(AspectsBatch.class),
+    Mockito.verify(mockService, Mockito.times(2)).ingestSingleProposal(
+        Mockito.any(MetadataChangeProposal.class),
         Mockito.any(),
         Mockito.eq(false)
     );
@@ -154,9 +155,9 @@ public class UpgradeDefaultBrowsePathsStepTest {
         Mockito.eq(0),
         Mockito.eq(5000)
     );
-    // Verify that 4 aspects are ingested, 2 for the upgrade request / result and 2 for the browse pahts
-    Mockito.verify(mockService, Mockito.times(4)).ingestProposal(
-        Mockito.any(AspectsBatch.class),
+    // Verify that 4 aspects are ingested, 2 for the upgrade request / result and 2 for the browse paths
+    Mockito.verify(mockService, Mockito.times(4)).ingestSingleProposal(
+        Mockito.any(MetadataChangeProposal.class),
         Mockito.any(),
         Mockito.eq(false)
     );
@@ -222,9 +223,9 @@ public class UpgradeDefaultBrowsePathsStepTest {
         Mockito.eq(0),
         Mockito.eq(5000)
     );
-    // Verify that 2 aspects are ingested, only those for the upgrade step
-    Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(AspectsBatch.class),
+    // Verify that 1 batch of aspects are ingested, only those for the upgrade step
+    Mockito.verify(mockService, Mockito.times(2)).ingestSingleProposal(
+        Mockito.any(MetadataChangeProposal.class),
         Mockito.any(),
         Mockito.eq(false)
     );
@@ -249,8 +250,8 @@ public class UpgradeDefaultBrowsePathsStepTest {
     UpgradeDefaultBrowsePathsStep step = new UpgradeDefaultBrowsePathsStep(mockService);
     step.execute();
 
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(AspectsBatch.class),
+    Mockito.verify(mockService, Mockito.times(0)).ingestSingleProposal(
+        Mockito.any(MetadataChangeProposal.class),
         Mockito.any(AuditStamp.class),
         Mockito.anyBoolean()
     );

@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 @RestController

@@ -15,6 +15,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -30,7 +32,7 @@ public class BatchUpdateDeprecationResolverTest {
 
   @Test
   public void testGetSuccessNoExistingDeprecation() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -73,8 +75,6 @@ public class BatchUpdateDeprecationResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    verifyIngestProposal(mockService, 1, proposal1);
-
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
     proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
@@ -82,7 +82,7 @@ public class BatchUpdateDeprecationResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
@@ -92,7 +92,7 @@ public class BatchUpdateDeprecationResolverTest {
         .setNote("")
         .setActor(UrnUtils.getUrn("urn:li:corpuser:test"));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -134,8 +134,6 @@ public class BatchUpdateDeprecationResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    verifyIngestProposal(mockService, 1, proposal1);
-
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
     proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
@@ -143,12 +141,12 @@ public class BatchUpdateDeprecationResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -181,7 +179,7 @@ public class BatchUpdateDeprecationResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     BatchUpdateDeprecationResolver resolver = new BatchUpdateDeprecationResolver(mockService);
 
@@ -200,7 +198,7 @@ public class BatchUpdateDeprecationResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),

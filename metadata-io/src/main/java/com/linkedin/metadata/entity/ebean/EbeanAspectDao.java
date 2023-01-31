@@ -28,7 +28,13 @@ import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -73,7 +79,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   public Database getServer() {
     return _server;
   }
-  public Database getPrimaryServer() { return _primary; }
+  public Database getPrimaryServer() {
+    return _primary;
+  }
 
   public void setConnectionValidated(boolean validated) {
     _connectionValidated = validated;
@@ -532,9 +540,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     ExpressionList<EbeanAspectV2> exp = null;
     for (Map.Entry<String, Set<String>> entry: urnAspects.entrySet()) {
       if (exp == null) {
-        exp = queryJunction.allEq(Map.of("urn", entry.getKey(), "aspect", entry.getValue()));
+        exp = queryJunction.and()
+                .eq("urn", entry.getKey())
+                .in("aspect", entry.getValue())
+                .endAnd();
       } else {
-        exp = exp.allEq(Map.of("urn", entry.getKey(), "aspect", entry.getValue()));
+        exp = exp.and()
+                .eq("urn", entry.getKey())
+                .in("aspect", entry.getValue())
+                .endAnd();
       }
     }
 

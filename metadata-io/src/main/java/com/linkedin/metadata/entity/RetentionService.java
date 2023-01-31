@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
@@ -23,7 +22,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,16 +51,21 @@ public abstract class RetentionService {
   protected static final String DATAHUB_RETENTION_ASPECT = "dataHubRetentionConfig";
   protected static final String DATAHUB_RETENTION_KEY_ASPECT = "dataHubRetentionKey";
 
-  protected final LoadingCache<Pair<String, String>, Map<Urn, List<RecordTemplate>>> POLICY_CACHE = CacheBuilder.newBuilder()
+  protected final LoadingCache<Pair<String, String>, Map<Urn, List<DataHubRetentionConfig>>> policyCache = CacheBuilder.newBuilder()
           .maximumSize(200)
           .expireAfterWrite(10, TimeUnit.MINUTES)
           .build(new CacheLoader<>() {
             @Override
-            public Map<Urn, List<RecordTemplate>> load(Pair<String, String> key) {
+            public Map<Urn, List<DataHubRetentionConfig>> load(@Nonnull Pair<String, String> key) {
+              Map<Urn, List<DataHubRetentionConfig>> result = new HashMap<>();
               // Prioritized list of retention keys to fetch
-              List<Urn> retentionUrns = getRetentionKeys(key.getFirst(), key.getSecond());
-              return getEntityService().getLatestAspects(new HashSet<>(retentionUrns), ImmutableSet.of(DATAHUB_RETENTION_ASPECT));
-            }});
+              getRetentionKeys(key.getFirst(), key.getSecond()).forEach(retentionUrn ->
+                        result.put(retentionUrn, getEntityService().getLatestAspectsForUrn(retentionUrn,
+                                        ImmutableSet.of(DATAHUB_RETENTION_ASPECT)).values().stream()
+                                .map(recordTemplate -> (DataHubRetentionConfig) recordTemplate).collect(Collectors.toList())));
+              return result;
+            }
+          });
 
   protected abstract EntityRegistry getEntityRegistry();
 
@@ -79,13 +83,11 @@ public abstract class RetentionService {
     // Prioritized list of retention keys to fetch
     List<Urn> retentionUrns = getRetentionKeys(entityName, aspectName);
     try {
-      Map<Urn, List<RecordTemplate>> fetchedAspects = POLICY_CACHE.get(Pair.of(entityName, aspectName));
+      Map<Urn, List<DataHubRetentionConfig>> fetchedAspects = policyCache.get(Pair.of(entityName, aspectName));
       // Find the first retention info that is set among the prioritized list of retention keys above
       Optional<DataHubRetentionConfig> retentionInfo = retentionUrns.stream()
-              .flatMap(urn -> fetchedAspects.getOrDefault(urn, Collections.emptyList())
-                      .stream()
-                      .filter(aspect -> aspect instanceof DataHubRetentionConfig))
-              .map(retention -> (DataHubRetentionConfig) retention)
+              .flatMap(urn ->
+                      fetchedAspects.getOrDefault(urn, Collections.emptyList()).stream())
               .findFirst();
       return retentionInfo.map(DataHubRetentionConfig::getRetention).orElse(new Retention());
     } catch (ExecutionException e) {
@@ -94,7 +96,7 @@ public abstract class RetentionService {
   }
 
   // Get list of datahub retention keys that match the input entity name and aspect name
-  protected List<Urn> getRetentionKeys(@Nonnull String entityName, @Nonnull String aspectName) {
+  protected static List<Urn> getRetentionKeys(@Nonnull String entityName, @Nonnull String aspectName) {
     return ImmutableList.of(
             new DataHubRetentionKey().setEntityName(entityName).setAspectName(aspectName),
             new DataHubRetentionKey().setEntityName(entityName).setAspectName(ALL),
@@ -141,8 +143,16 @@ public abstract class RetentionService {
     AspectsBatch batch = AspectsBatch.builder()
             .mcps(List.of(keyProposal, aspectProposal), getEntityRegistry())
             .build();
-    return getEntityService().ingestProposal(batch, auditStamp, false).stream()
+    boolean result = getEntityService().ingestProposal(batch, auditStamp, false).stream()
             .anyMatch(resultPair -> resultPair.getSecond().isDidUpdate());
+
+    // Invalidate cache if updated
+    if (result) {
+      Pair<String, String> cacheKey = Pair.of(retentionKey.getEntityName(), retentionKey.getAspectName());
+      invalidatePolicyCache(cacheKey);
+    }
+
+    return result;
   }
 
   /**
@@ -159,6 +169,10 @@ public abstract class RetentionService {
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
     Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, DATAHUB_RETENTION_ENTITY);
     getEntityService().deleteUrn(retentionUrn);
+
+    // Invalidate cache if deleted
+    Pair<String, String> cacheKey = Pair.of(retentionKey.getEntityName(), retentionKey.getAspectName());
+    invalidatePolicyCache(cacheKey);
   }
 
   private void validateRetention(Retention retention) {
@@ -199,10 +213,15 @@ public abstract class RetentionService {
   }
 
   /**
-   * Apply retention policies given the urn and aspect name and policies
+   * Apply retention policies given the urn and aspect name and policies. This protected
+   * method assumes that the policy is provided, however we likely need to fetch these
+   * from system configuration.
+   *
+   * Users of this should use {@link #applyRetentionWithPolicyDefaults(List<RetentionContext>)})
+   *
    * @param retentionContexts Additional context that could be used to apply retention
    */
-  public abstract void applyRetention(List<RetentionContext> retentionContexts);
+  protected abstract void applyRetention(List<RetentionContext> retentionContexts);
 
   /**
    * Batch apply retention to all records that match the input entityName and aspectName
@@ -224,7 +243,17 @@ public abstract class RetentionService {
     Urn urn;
     @Nonnull
     String aspectName;
-    Optional<Retention> retentionPolicy;
-    Optional<Long> maxVersion;
+    @Builder.Default
+    Optional<Retention> retentionPolicy = Optional.empty();
+    @Builder.Default
+    Optional<Long> maxVersion = Optional.empty();
+  }
+
+  private void invalidatePolicyCache(Pair<String, String> key) {
+    if (ALL.equals(key.getFirst()) || ALL.equals(key.getSecond())) {
+      policyCache.invalidateAll();
+    } else {
+      policyCache.invalidate(key);
+    }
   }
 }
