@@ -43,7 +43,6 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.ingestion.source.redshift.state import RedshiftCheckpointState
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes, SqlWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_postgres_modified_type
@@ -60,6 +59,9 @@ from datahub.ingestion.source.sql.sql_utils import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
+)
+from datahub.ingestion.source.state.sql_common_state import (
+    BaseSQLAlchemyCheckpointState,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -297,7 +299,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
             config=self.config,
-            state_type_class=RedshiftCheckpointState,
+            state_type_class=BaseSQLAlchemyCheckpointState,
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
