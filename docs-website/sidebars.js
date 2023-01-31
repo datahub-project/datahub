@@ -463,6 +463,7 @@ module.exports = {
 
     "Release History": ["releases"],
     "Managed DataHub Release History": [
+      "docs/managed-datahub/release-notes/v_0_1_73",
       "docs/managed-datahub/release-notes/v_0_1_72",
       "docs/managed-datahub/release-notes/v_0_1_70",
       "docs/managed-datahub/release-notes/v_0_1_69",
