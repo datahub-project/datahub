@@ -122,6 +122,8 @@ sql_common = {
     "greenlet",
 }
 
+sqllineage_lib = "sqllineage==1.3.6"
+
 aws_common = {
     # AWS Python SDK
     "boto3",
@@ -143,7 +145,7 @@ looker_common = {
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.0b5",
     "sql-metadata==2.2.2",
-    "sqllineage==1.3.6",
+    sqllineage_lib,
     "GitPython>2",
 }
 
@@ -165,7 +167,7 @@ redshift_common = {
     "sqlalchemy-redshift",
     "psycopg2-binary",
     "GeoAlchemy2",
-    "sqllineage==1.3.6",
+    sqllineage_lib,
     *path_spec_common,
 }
 
@@ -255,18 +257,18 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.6"},
+    "great-expectations": sql_common | {sqllineage_lib},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1", "google-cloud-datacatalog-lineage==0.2.0"},
+    | {sqllineage_lib, "sql_metadata", "sqlalchemy-bigquery>=1.4.1", "google-cloud-datacatalog-lineage==0.2.0"},
     "bigquery-beta": sql_common
     | bigquery_common
     | {
-        "sqllineage==1.3.6",
+        sqllineage_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility
@@ -310,8 +312,8 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common,
-    "metabase": {"requests", "sqllineage==1.3.6"},
-    "mode": {"requests", "sqllineage==1.3.6", "tenacity>=8.0.1"},
+    "metabase": {"requests", sqllineage_lib},
+    "mode": {"requests", sqllineage_lib, "tenacity>=8.0.1"},
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -325,7 +327,7 @@ plugins: Dict[str, Set[str]] = {
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.6"},
+    "redash": {"redash-toolbelt", "sql-metadata", sqllineage_lib},
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},

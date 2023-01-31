@@ -41,20 +41,25 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       throw new IllegalArgumentException(String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
     }
 
-    GlossaryNodeUrn parentNodeUrn = GlossaryNodeUrn.createFromString(input.getParentNode());
-    if (!_entityService.exists(parentNodeUrn) || !parentNodeUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
-      throw new IllegalArgumentException(String.format("Failed to update %s. %s either does not exist or is not a glossaryNode.", targetUrn, parentNodeUrn));
+    GlossaryNodeUrn parentNodeUrn = null;
+    if (input.getParentNode() != null) {
+      parentNodeUrn = GlossaryNodeUrn.createFromString(input.getParentNode());
+      if (!_entityService.exists(parentNodeUrn) || !parentNodeUrn.getEntityType().equals(Constants.GLOSSARY_NODE_ENTITY_NAME)) {
+        throw new IllegalArgumentException(String.format("Failed to update %s. %s either does not exist or is not a glossaryNode.", targetUrn, parentNodeUrn));
+      }
     }
+
+    GlossaryNodeUrn finalParentNodeUrn = parentNodeUrn;
     return CompletableFuture.supplyAsync(() -> {
       Urn currentParentUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
       // need to be able to manage current parent node and new parent node
       if (GlossaryUtils.canManageChildrenEntities(context, currentParentUrn, _entityClient)
-        && GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
+        && GlossaryUtils.canManageChildrenEntities(context, finalParentNodeUrn, _entityClient)) {
         switch (targetUrn.getEntityType()) {
           case Constants.GLOSSARY_TERM_ENTITY_NAME:
-            return updateGlossaryTermParentNode(targetUrn, parentNodeUrn, input, environment.getContext());
+            return updateGlossaryTermParentNode(targetUrn, finalParentNodeUrn, input, environment.getContext());
           case Constants.GLOSSARY_NODE_ENTITY_NAME:
-            return updateGlossaryNodeParentNode(targetUrn, parentNodeUrn, input, environment.getContext());
+            return updateGlossaryNodeParentNode(targetUrn, finalParentNodeUrn, input, environment.getContext());
           default:
             throw new RuntimeException(
                 String.format("Failed to update parentNode. Unsupported resource type %s provided.", targetUrn));
@@ -77,7 +82,12 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
         // If there is no info aspect for the term already, then we should throw since the model also requires a name.
         throw new IllegalArgumentException("Info for this Glossary Term does not yet exist!");
       }
-      glossaryTermInfo.setParentNode(parentNodeUrn);
+
+      if (parentNodeUrn != null) {
+        glossaryTermInfo.setParentNode(parentNodeUrn);
+      } else {
+        glossaryTermInfo.removeParentNode();
+      }
       Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
       persistAspect(targetUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, _entityService);
 
@@ -100,7 +110,12 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       if (glossaryNodeInfo == null) {
         throw new IllegalArgumentException("Info for this Glossary Node does not yet exist!");
       }
-      glossaryNodeInfo.setParentNode(parentNodeUrn);
+
+      if (parentNodeUrn != null) {
+        glossaryNodeInfo.setParentNode(parentNodeUrn);
+      } else {
+        glossaryNodeInfo.removeParentNode();
+      }
       Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
       persistAspect(targetUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, _entityService);
 

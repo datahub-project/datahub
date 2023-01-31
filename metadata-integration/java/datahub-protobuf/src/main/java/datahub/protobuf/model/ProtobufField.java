@@ -4,6 +4,7 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.OneofDescriptorProto;
+import com.google.protobuf.DescriptorProtos.SourceCodeInfo;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.schema.ArrayType;
 import com.linkedin.schema.BooleanType;
@@ -206,6 +207,14 @@ public class ProtobufField implements ProtobufElement {
 
             return new SchemaFieldDataType().setType(fieldType);
         });
+    }
+
+    @Override
+    public Stream<SourceCodeInfo.Location> messageLocations() {
+        List<SourceCodeInfo.Location> fileLocations = fileProto().getSourceCodeInfo().getLocationList();
+        return fileLocations.stream()
+                .filter(loc -> loc.getPathCount() > 1
+                        && loc.getPath(0) == FileDescriptorProto.MESSAGE_TYPE_FIELD_NUMBER);
     }
 
     @Override
