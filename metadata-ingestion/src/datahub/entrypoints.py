@@ -190,7 +190,7 @@ def main(**kwargs):
         if not should_show_stack_trace(exc):
             # Don't print the full stack trace for simple config errors.
             logger.debug("Error: %s", exc, exc_info=exc)
-            click.secho(exc, fg="red")
+            click.secho(f"{exc}", fg="red")
         elif logger.isEnabledFor(logging.DEBUG):
             # We only print rich stacktraces during debug.
             logger.error(
