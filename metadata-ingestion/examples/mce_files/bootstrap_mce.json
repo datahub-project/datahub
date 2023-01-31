@@ -3112,7 +3112,7 @@
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
-      "value":"{\"timestampMillis\": 1629097200000, \"rowCount\": 4500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
+      "value":"{\"timestampMillis\": 1629097200000, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
       "contentType":"application/json"
     },
     "systemMetadata":null

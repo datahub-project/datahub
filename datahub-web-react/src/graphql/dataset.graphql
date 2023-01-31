@@ -4,6 +4,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
         datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             rowCount
             columnCount
+            sizeInBytes
             timestampMillis
             fieldProfiles {
                 fieldPath
@@ -117,6 +118,7 @@ fragment nonSiblingDatasetFields on Dataset {
     datasetProfiles(limit: 1) {
         rowCount
         columnCount
+        sizeInBytes
         timestampMillis
         fieldProfiles {
             fieldPath

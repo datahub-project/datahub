@@ -6040,6 +6040,11 @@ type DatasetProfile implements TimeSeriesAspect {
   columnCount: Long
 
   """
+  The storage size in bytes
+  """
+  sizeInBytes: Long
+
+  """
   An optional set of per field statistics obtained in the profile
   """
   fieldProfiles: [DatasetFieldProfile!]

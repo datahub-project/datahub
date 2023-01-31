@@ -7,8 +7,9 @@ import {
     TableOutlined,
     TeamOutlined,
     QuestionCircleOutlined,
+    HddOutlined,
 } from '@ant-design/icons';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
+import { formatBytes, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
@@ -24,13 +25,26 @@ const HelpIcon = styled(QuestionCircleOutlined)`
 
 type Props = {
     rowCount?: number | null;
+    columnCount?: number | null;
+    sizeInBytes?: number | null;
     queryCountLast30Days?: number | null;
     uniqueUserCountLast30Days?: number | null;
     lastUpdatedMs?: number | null;
 };
 
+const formatBytesStat = (bytes: number) => {
+    const formattedBytes = formatBytes(bytes);
+    return (
+        <Tooltip title={`This dataset consumes ${formatNumberWithoutAbbreviation(bytes)} bytes of storage.`}>
+            <b>{formattedBytes.number}</b> {formattedBytes.unit}
+        </Tooltip>
+    );
+};
+
 export const DatasetStatsSummary = ({
     rowCount,
+    columnCount,
+    sizeInBytes,
     queryCountLast30Days,
     uniqueUserCountLast30Days,
     lastUpdatedMs,
@@ -40,6 +54,19 @@ export const DatasetStatsSummary = ({
             <StatText>
                 <TableOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                 <b>{formatNumberWithoutAbbreviation(rowCount)}</b> rows
+                {(!!columnCount && (
+                    <>
+                        , `<b>{formatNumberWithoutAbbreviation(rowCount)}</b> columns
+                    </>
+                )) ||
+                    undefined}
+            </StatText>
+        )) ||
+            undefined,
+        (!!sizeInBytes && (
+            <StatText>
+                <HddOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                {formatBytesStat(sizeInBytes)}
             </StatText>
         )) ||
             undefined,
