@@ -18,13 +18,25 @@ class MetadataWorkUnit(WorkUnit):
     # A workunit creator can determine if this workunit is allowed to fail
     treat_errors_as_warnings: bool = False
 
+    # When this is set to false, this MWU will be ignored by automatic helpers
+    # like auto_status_aspect and auto_stale_entity_removal.
+    is_primary_source: bool = True
+
     @overload
-    def __init__(self, id: str, mce: MetadataChangeEvent):
+    def __init__(
+        self, id: str, mce: MetadataChangeEvent, *, is_primary_source: bool = True
+    ):
         # TODO: Force `mce` to be a keyword-only argument.
         ...
 
     @overload
-    def __init__(self, id: str, *, mcp_raw: MetadataChangeProposal):
+    def __init__(
+        self,
+        id: str,
+        *,
+        mcp_raw: MetadataChangeProposal,
+        is_primary_source: bool = True,
+    ):
         # We force `mcp_raw` to be a keyword-only argument.
         ...
 
@@ -35,6 +47,7 @@ class MetadataWorkUnit(WorkUnit):
         *,
         mcp: MetadataChangeProposalWrapper,
         treat_errors_as_warnings: bool = False,
+        is_primary_source: bool = True,
     ):
         # We force `mcp` to be a keyword-only argument.
         ...
@@ -46,9 +59,11 @@ class MetadataWorkUnit(WorkUnit):
         mcp: Optional[MetadataChangeProposalWrapper] = None,
         mcp_raw: Optional[MetadataChangeProposal] = None,
         treat_errors_as_warnings: bool = False,
+        is_primary_source: bool = True,
     ):
         super().__init__(id)
         self.treat_errors_as_warnings = treat_errors_as_warnings
+        self.is_primary_source = is_primary_source
 
         if sum(1 if v else 0 for v in [mce, mcp, mcp_raw]) != 1:
             raise ValueError("exactly one of mce, mcp, or mcp_raw must be provided")
