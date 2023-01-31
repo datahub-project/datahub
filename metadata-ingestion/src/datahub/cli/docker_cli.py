@@ -672,7 +672,7 @@ def quickstart(
         _attempt_stop(quickstart_compose_file)
         return
     elif not quickstart_compose_file:
-        logger.info("compose file name", quickstart_compose_file_name)
+        logger.info(f"compose file name {quickstart_compose_file_name}")
         download_compose_files(
             quickstart_compose_file_name,
             quickstart_compose_file,
@@ -741,7 +741,7 @@ def quickstart(
     up_interval = datetime.timedelta(seconds=30)
     up_attempts = 0
     while (datetime.datetime.now() - start_time) < max_wait_time:
-        # Attempt to run docker compose up every minute.
+        # Attempt to run docker compose up every `up_interval`.
         if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
             click.echo()
             subprocess.run(

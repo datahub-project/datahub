@@ -8,6 +8,7 @@ import pydantic
 from cached_property import cached_property
 from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
+from typing_extensions import Protocol, runtime_checkable
 
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.utilities.dedup_list import deduplicate_list
@@ -159,6 +160,12 @@ class ConfigurationError(MetaError):
 
 class IgnorableError(MetaError):
     """An error that can be ignored."""
+
+
+@runtime_checkable
+class ExceptionWithProps(Protocol):
+    def get_telemetry_props(self) -> Dict[str, Any]:
+        ...
 
 
 def should_show_stack_trace(exc: Exception) -> bool:

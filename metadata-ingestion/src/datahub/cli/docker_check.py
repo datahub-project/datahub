@@ -8,6 +8,8 @@ import docker
 import docker.errors
 import docker.models.containers
 
+from datahub.configuration.common import ExceptionWithProps
+
 REQUIRED_CONTAINERS = [
     "elasticsearch",
     "datahub-gms",
@@ -55,12 +57,15 @@ class DockerComposeVersionError(Exception):
     SHOW_STACK_TRACE = False
 
 
-class QuickstartError(Exception):
+class QuickstartError(Exception, ExceptionWithProps):
     SHOW_STACK_TRACE = False
 
-    def __init__(self, message: str, props: Dict[str, str]):
+    def __init__(self, message: str, container_statuses: Dict[str, str]):
         super().__init__(message)
-        self.props = props
+        self.container_statuses = container_statuses
+
+    def get_telemetry_props(self) -> Dict[str, str]:
+        return self.container_statuses
 
 
 @contextmanager
@@ -157,7 +162,7 @@ class QuickstartStatus:
         for error in self.errors():
             message += f"- {error}\n"
         if footer:
-            message += f"\n{footer}\n"
+            message += f"\n{footer}"
 
         return QuickstartError(
             message,

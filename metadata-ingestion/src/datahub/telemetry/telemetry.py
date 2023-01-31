@@ -13,6 +13,7 @@ from typing_extensions import ParamSpec
 
 import datahub as datahub_package
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
+from datahub.configuration.common import ExceptionWithProps
 from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
@@ -291,6 +292,20 @@ def get_full_class_name(obj):
     return f"{module}.{obj.__class__.__name__}"
 
 
+def _error_props(error: BaseException) -> Dict[str, Any]:
+    props = {
+        "error": get_full_class_name(error),
+    }
+
+    if isinstance(error, ExceptionWithProps):
+        try:
+            props.update(error.get_telemetry_props())
+        except Exception as e:
+            logger.debug(f"Error getting telemetry props for {error}: {e}")
+
+    return props
+
+
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
 
@@ -339,7 +354,7 @@ def with_telemetry(
                         {
                             **call_props,
                             "status": "error",
-                            "error": get_full_class_name(e),
+                            **_error_props(e),
                         },
                     )
                 raise e
@@ -358,7 +373,7 @@ def with_telemetry(
                     {
                         **call_props,
                         "status": "error",
-                        "error": get_full_class_name(e),
+                        **_error_props(e),
                     },
                 )
                 raise e
