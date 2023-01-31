@@ -1,9 +1,12 @@
+import enum
 import os
 from contextlib import contextmanager
-from typing import Iterator, List
+from dataclasses import dataclass
+from typing import Dict, Iterator, List, Optional
 
 import docker
 import docker.errors
+import docker.models.containers
 
 REQUIRED_CONTAINERS = [
     "elasticsearch",
@@ -50,6 +53,14 @@ class DockerLowMemoryError(Exception):
 
 class DockerComposeVersionError(Exception):
     SHOW_STACK_TRACE = False
+
+
+class QuickstartError(Exception):
+    SHOW_STACK_TRACE = False
+
+    def __init__(self, message: str, props: Dict[str, str]):
+        super().__init__(message)
+        self.props = props
 
 
 @contextmanager
@@ -102,26 +113,76 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
         )
 
 
-def check_local_docker_containers() -> List[str]:
-    issues: List[str] = []
+class ContainerStatus(enum.Enum):
+    OK = "is ok"
+
+    # For containers that are expected to exit 0.
+    STILL_RUNNING = "is still running"
+    EXIT_FAILURE = "did not exit cleanly"
+
+    # For containers that are expected to be running.
+    DIED = "is not running"
+    MISSING = "is not present"
+    STARTING = "is still starting"
+    UNHEALTHY = "is running by not yet healthy"
+
+
+@dataclass
+class DockerContainerStatus:
+    name: str
+    status: ContainerStatus
+
+
+@dataclass
+class QuickstartStatus:
+    containers: List[DockerContainerStatus]
+
+    def errors(self) -> List[str]:
+        if not self.containers:
+            return ["quickstart.sh or dev.sh is not running"]
+
+        return [
+            f"{container.name} {container.status.value}"
+            for container in self.containers
+            if container.status != ContainerStatus.OK
+        ]
+
+    def is_ok(self) -> bool:
+        return not self.errors()
+
+    def to_exception(
+        self, header: str, footer: Optional[str] = None
+    ) -> QuickstartError:
+        message = f"{header}\n"
+        for error in self.errors():
+            message += f"- {error}\n"
+        if footer:
+            message += f"\n{footer}\n"
+
+        return QuickstartError(
+            message,
+            {
+                f"container_{container.name}": container.status.name
+                for container in self.containers
+            },
+        )
+
+
+def check_docker_quickstart() -> QuickstartStatus:
+    container_statuses: List[DockerContainerStatus] = []
+
     with get_docker_client() as client:
         containers = client.containers.list(
             all=True,
             filters=DATAHUB_COMPOSE_PROJECT_FILTER,
         )
 
-        # Check number of containers.
-        if len(containers) == 0:
-            issues.append("quickstart.sh or dev.sh is not running")
-        else:
-            existing_containers = {container.name for container in containers}
-            missing_containers = set(REQUIRED_CONTAINERS) - existing_containers
-            issues.extend(
-                f"{missing} container is not present" for missing in missing_containers
-            )
-
         # Check that the containers are running and healthy.
+        container: docker.models.containers.Container
         for container in containers:
+            name = container.name
+            status = ContainerStatus.OK
+
             if container.name not in (
                 REQUIRED_CONTAINERS + CONTAINERS_TO_CHECK_IF_PRESENT
             ):
@@ -132,16 +193,26 @@ def check_local_docker_containers() -> List[str]:
 
             if container.name in ENSURE_EXIT_SUCCESS:
                 if container.status != "exited":
-                    issues.append(f"{container.name} is still running")
+                    status = ContainerStatus.STILL_RUNNING
                 elif container.attrs["State"]["ExitCode"] != 0:
-                    issues.append(f"{container.name} did not exit cleanly")
+                    status = ContainerStatus.EXIT_FAILURE
 
             elif container.status != "running":
-                issues.append(f"{container.name} is not running")
+                status = ContainerStatus.DIED
             elif "Health" in container.attrs["State"]:
                 if container.attrs["State"]["Health"]["Status"] == "starting":
-                    issues.append(f"{container.name} is still starting")
+                    status = ContainerStatus.STARTING
                 elif container.attrs["State"]["Health"]["Status"] != "healthy":
-                    issues.append(f"{container.name} is running but not healthy")
+                    status = ContainerStatus.UNHEALTHY
 
-    return issues
+            container_statuses.append(DockerContainerStatus(name, status))
+
+        # Check for missing containers.
+        existing_containers = {container.name for container in containers}
+        missing_containers = set(REQUIRED_CONTAINERS) - existing_containers
+        for missing in missing_containers:
+            container_statuses.append(
+                DockerContainerStatus(missing, ContainerStatus.MISSING)
+            )
+
+    return QuickstartStatus(container_statuses)

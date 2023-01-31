@@ -24,7 +24,7 @@ from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_PROJECT_FILTER,
     DockerComposeVersionError,
-    check_local_docker_containers,
+    check_docker_quickstart,
     get_docker_client,
     run_quickstart_preflight_checks,
 )
@@ -114,20 +114,17 @@ def _print_issue_list_and_exit(
     sys.exit(1)
 
 
-def docker_check_impl() -> None:
-    issues = check_local_docker_containers()
-    if not issues:
-        click.secho("✔ No issues detected", fg="green")
-    else:
-        _print_issue_list_and_exit(issues, "The following issues were detected:")
-
-
 @docker.command()
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
 def check() -> None:
     """Check that the Docker containers are healthy"""
-    docker_check_impl()
+
+    status = check_docker_quickstart()
+    if status.is_ok():
+        click.secho("✔ No issues detected", fg="green")
+    else:
+        raise status.to_exception("The following issues were detected:")
 
 
 def is_m1() -> bool:
@@ -596,6 +593,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 @upgrade.check_upgrade
 @telemetry.with_telemetry(
     kwargs=[
+        "version",
         "build_locally",
         "pull_images",
         "stop",
@@ -674,7 +672,7 @@ def quickstart(
         _attempt_stop(quickstart_compose_file)
         return
     elif not quickstart_compose_file:
-        print("compose file name", quickstart_compose_file_name)
+        logger.info("compose file name", quickstart_compose_file_name)
         download_compose_files(
             quickstart_compose_file_name,
             quickstart_compose_file,
@@ -723,7 +721,7 @@ def quickstart(
         )
 
     if build_locally:
-        click.echo("Building docker images locally...")
+        logger.info("Building docker images locally...")
         subprocess.run(
             [
                 *base_command,
@@ -734,7 +732,7 @@ def quickstart(
             check=True,
             env=_docker_subprocess_env(),
         )
-        click.secho("Finished building docker images!")
+        logger.info("Finished building docker images!")
 
     # Start it up! (with retries)
     max_wait_time = datetime.timedelta(minutes=6)
@@ -753,8 +751,8 @@ def quickstart(
             up_attempts += 1
 
         # Check docker health every few seconds.
-        issues = check_local_docker_containers()
-        if not issues:
+        status = check_docker_quickstart()
+        if status.is_ok():
             break
 
         # Wait until next iteration.
@@ -774,13 +772,11 @@ def quickstart(
             log_file.write(ret.stdout)
 
         if dump_logs_on_failure:
-            with open(log_file.name, "r") as logs:
-                click.echo("Dumping docker compose logs:")
-                click.echo(logs.read())
-                click.echo()
+            click.echo("Dumping docker compose logs:")
+            click.echo(pathlib.Path(log_file.name).read_text())
+            click.echo()
 
-        _print_issue_list_and_exit(
-            issues,
+        raise status.to_exception(
             header="Unable to run quickstart - the following issues were detected:",
             footer="If you think something went wrong, please file an issue at https://github.com/datahub-project/datahub/issues\n"
             "or send a message in our Slack https://slack.datahubproject.io/\n"
@@ -934,12 +930,11 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
         path = str(download_sample_data())
 
     # Verify that docker is up.
-    issues = check_local_docker_containers()
-    if issues:
-        _print_issue_list_and_exit(
-            issues,
+    status = check_docker_quickstart()
+    if not status.is_ok():
+        raise status.to_exception(
             header="Docker is not ready:",
-            footer="Try running `datahub docker quickstart` first",
+            footer="Try running `datahub docker quickstart` first.",
         )
 
     # Run ingestion.
