@@ -203,7 +203,8 @@ class TableauConnectionConfig(ConfigModel):
                 # Docs on token expiry in Tableau:
                 # https://help.tableau.com/current/server/en-us/security_personal_access_tokens.htm#token-expiry
                 logger.info(
-                    "Note that tableau access tokens expire if not used for 15 days or if over 1 year old"
+                    "Error authenticating with Tableau. Note that Tableau personal access tokens "
+                    "expire if not used for 15 days or if over 1 year old"
                 )
             raise ValueError(
                 f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
