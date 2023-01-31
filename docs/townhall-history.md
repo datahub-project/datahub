@@ -2,6 +2,28 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 01/26/2023
+[Full YouTube video](https://youtu.be/A3mSiGHZ6Rc)
+
+### Agenda
+
+- What’s to Come - Q1 2023 Roadmap: Data Products, Data Contracts and more
+- Community Case Study - Notion: Automating annotations and metadata propagation
+- Community Contribution - Grab: Improvements to documentation editing
+- Simplifying DataHub - Removing Schema Registry requirement and introducing DataHub Lite
+
+## 01/05/2023
+[Full YouTube video](https://youtu.be/ECxIMbKwuOY)
+
+### Agenda
+
+- DataHub Community: 2022 in Review - Our Community of Data Practitioners is one of a kind. We’ll take the time to celebrate who we are, what we’ve built, and how we’ve collaborated in the past 12 months.
+- Search Improvements - Learn how we’re making the Search experience smarter and faster to connect you with the most relevant resources during data discovery.
+- Removing Schema Registry Requirement - Hear all about ongoing work to simplify the DataHub deployment process.
+- Smart Data Profiling - We’re making big improvements to data profiling! Smart data profiling will reduce processing time by only scanning datasets that have recently changed.
+- Sneak Peek: Time-based Lineage - Get a preview of how you’ll soon be able to trace lineage between datasets across different points in time to understand how interdependencies have evolved.
+- Sneak Peek: Chrome Extension - Soon, you’ll be able to quickly access rich metadata from DataHub while exploring resources in Looker via our upcoming Chrome Extension.
+
 ## 12/01/2022
 [Full YouTube video](https://youtu.be/BlCLhG8lGoY)
 

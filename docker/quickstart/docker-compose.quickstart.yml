@@ -64,12 +64,12 @@ services:
   datahub-gms:
     container_name: datahub-gms
     depends_on:
-    - mysql
     - neo4j
+    - mysql
     environment:
+    - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-gms
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-gms
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
     - EBEAN_DATASOURCE_HOST=mysql:3306
@@ -105,8 +105,8 @@ services:
     - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
   datahub-upgrade:
     command:
-    - -u
-    - SystemUpdate
+      - -u
+      - SystemUpdate
     container_name: datahub-upgrade
     environment:
     - EBEAN_DATASOURCE_USERNAME=datahub
@@ -157,6 +157,17 @@ services:
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+  kafka-setup:
+    container_name: kafka-setup
+    depends_on:
+    - broker
+    - schema-registry
+    environment:
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+    - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
+    hostname: kafka-setup
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     container_name: mysql

@@ -101,6 +101,17 @@ services:
     depends_on:
       - datahub-gms
 
+  kafka-setup:
+    build:
+      context: kafka-setup
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    env_file: kafka-setup/env/docker.env
+    hostname: kafka-setup
+    container_name: kafka-setup
+    depends_on:
+      - broker
+      - schema-registry
+
   datahub-upgrade:
     build:
       context: ../

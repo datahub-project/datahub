@@ -305,8 +305,8 @@ class DeltaLakeSource(Source):
 
     def local_get_folders(self, path: str) -> Iterable[str]:
         if not os.path.isdir(path):
-            raise Exception(
-                f"{path} does not exist. Please check base_path configuration."
+            raise FileNotFoundError(
+                f"{path} does not exist or is not a directory. Please check base_path configuration."
             )
         for _, folders, _ in os.walk(path):
             for folder in folders:
