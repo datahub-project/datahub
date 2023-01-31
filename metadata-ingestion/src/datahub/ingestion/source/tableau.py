@@ -199,8 +199,15 @@ class TableauConnectionConfig(ConfigModel):
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
+            if isinstance(authentication, PersonalAccessTokenAuth):
+                # Docs on token expiry in Tableau:
+                # https://help.tableau.com/current/server/en-us/security_personal_access_tokens.htm#token-expiry
+                logger.info(
+                    "Error authenticating with Tableau. Note that Tableau personal access tokens "
+                    "expire if not used for 15 days or if over 1 year old"
+                )
             raise ValueError(
-                f"Unable to login (invalid credentials or missing permissions): {str(e)}"
+                f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
             ) from e
         except Exception as e:
             raise ValueError(
