@@ -10,7 +10,7 @@ import com.linkedin.datahub.upgrade.common.steps.GMSQualificationStep;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -27,7 +27,7 @@ public class NoCodeUpgrade implements Upgrade {
 
   // Upgrade requires the EbeanServer.
   public NoCodeUpgrade(
-      final EbeanServer server,
+      final Database server,
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,
@@ -61,7 +61,7 @@ public class NoCodeUpgrade implements Upgrade {
   }
 
   private List<UpgradeStep> buildUpgradeSteps(
-      final EbeanServer server,
+      final Database server,
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,

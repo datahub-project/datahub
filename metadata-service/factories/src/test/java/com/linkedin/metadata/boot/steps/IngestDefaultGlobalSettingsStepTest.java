@@ -4,6 +4,8 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -12,8 +14,14 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.mockito.Mockito.*;
+import java.util.List;
+
+import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyZeroInteractions;
 
 
 /**
@@ -23,6 +31,8 @@ import static org.mockito.Mockito.*;
  * is malformed or does not match the PDL model for GlobalSettings.pdl.
  */
 public class IngestDefaultGlobalSettingsStepTest {
+
+  public EntityRegistry mockEntityRegistry = mock(EntityRegistry.class);
 
   @Test
   public void testExecuteValidSettingsNoExistingSettings() throws Exception {
@@ -110,13 +120,13 @@ public class IngestDefaultGlobalSettingsStepTest {
     )).thenReturn(settingsInfo);
   }
 
-  private static MetadataChangeProposal buildUpdateSettingsProposal(final GlobalSettingsInfo settings) {
+  private AspectsBatch buildUpdateSettingsProposal(final GlobalSettingsInfo settings) {
     final MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(GLOBAL_SETTINGS_URN);
     mcp.setEntityType(GLOBAL_SETTINGS_ENTITY_NAME);
     mcp.setAspectName(GLOBAL_SETTINGS_INFO_ASPECT_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
     mcp.setAspect(GenericRecordUtils.serializeAspect(settings));
-    return mcp;
+    return AspectsBatch.builder().mcps(List.of(mcp), mockEntityRegistry).build();
   }
 }

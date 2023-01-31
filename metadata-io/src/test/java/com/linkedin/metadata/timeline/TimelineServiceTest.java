@@ -9,6 +9,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.TestEntityRegistry;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -24,12 +26,10 @@ import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
-import com.linkedin.util.Pair;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -78,8 +78,13 @@ abstract public class TimelineServiceTest<T_AD extends AspectDao> {
       SchemaMetadata schemaMetadata = getSchemaMetadata("This is the new description for day " + i);
       AuditStamp daysAgo = createTestAuditStamp(i);
       timestamps.add(daysAgo);
-      _entityService.ingestAspects(entityUrn, Collections.singletonList(new Pair<>(aspectName, schemaMetadata)),
-          daysAgo, getSystemMetadata(daysAgo, "run-" + i));
+      AspectsBatchItem item = AspectsBatchItem.builder()
+              .urn(entityUrn)
+              .aspectName(aspectName)
+              .value(schemaMetadata)
+              .systemMetadata(getSystemMetadata(daysAgo, "run-" + i))
+              .build(_entityService.getEntityRegistry());
+      _entityService.ingestAspects(AspectsBatch.builder().items(List.of(item)).build(), daysAgo, true, true);
     }
 
     Map<String, RecordTemplate> latestAspects =

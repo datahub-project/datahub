@@ -12,10 +12,13 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -65,7 +68,7 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
         proposal.setAspectName(Constants.EMBED_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(embed));
         proposal.setChangeType(ChangeType.UPSERT);
-        _entityService.ingestProposal(
+        _entityService.ingestSingleProposal(
             proposal,
             new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()),
             false

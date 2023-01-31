@@ -17,7 +17,7 @@ import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.List;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -38,8 +38,8 @@ public class AspectUtilsTest {
 
   @Test
   public void testAdditionalChanges() {
-    EbeanServer server = EbeanTestUtils.createTestServer();
-    EbeanAspectDao aspectDao = new EbeanAspectDao(server);
+    Database server = EbeanTestUtils.createTestServer();
+    EbeanAspectDao aspectDao = new EbeanAspectDao(server, server);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
     EntityService entityService = new EntityService(aspectDao, mockProducer, _testEntityRegistry);

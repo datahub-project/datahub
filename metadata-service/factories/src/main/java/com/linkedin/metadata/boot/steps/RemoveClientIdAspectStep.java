@@ -70,7 +70,7 @@ public class RemoveClientIdAspectStep implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    _entityService.ingestSingleProposal(upgradeProposal, auditStamp, false);
   }
 
 }

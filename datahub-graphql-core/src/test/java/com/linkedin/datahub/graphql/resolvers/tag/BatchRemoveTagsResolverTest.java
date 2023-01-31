@@ -15,10 +15,12 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -79,17 +81,20 @@ public class BatchRemoveTagsResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class), Mockito.eq(false)
-    );
-
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
     proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
     proposal2.setAspectName(Constants.GLOBAL_TAGS_ASPECT_NAME);
     proposal2.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
     proposal2.setChangeType(ChangeType.UPSERT);
+
+    AspectsBatch batch = AspectsBatch.builder()
+            .mcps(List.of(proposal1, proposal2), mockService.getEntityRegistry())
+            .build();
+    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
+            Mockito.eq(batch),
+            Mockito.any(AuditStamp.class), Mockito.eq(false)
+    );
 
     verifyIngestProposal(mockService, 1, proposal2);
   }
@@ -149,17 +154,20 @@ public class BatchRemoveTagsResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class), Mockito.eq(false)
-    );
-
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
     proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
     proposal2.setAspectName(Constants.GLOBAL_TAGS_ASPECT_NAME);
     proposal2.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
     proposal2.setChangeType(ChangeType.UPSERT);
+
+    AspectsBatch batch = AspectsBatch.builder()
+            .mcps(List.of(proposal1, proposal2), mockService.getEntityRegistry())
+            .build();
+    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
+            Mockito.eq(batch),
+            Mockito.any(AuditStamp.class), Mockito.eq(false)
+    );
 
     verifyIngestProposal(mockService, 1, proposal2);
   }

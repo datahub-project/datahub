@@ -12,6 +12,7 @@ import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.mxe.MetadataChangeProposal;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -103,7 +103,7 @@ public class RestoreGlossaryIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME);
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME);
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
         );
@@ -164,7 +164,7 @@ public class RestoreGlossaryIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.GLOSSARY_TERM_ENTITY_NAME);
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.GLOSSARY_NODE_ENTITY_NAME);
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
         );
@@ -221,7 +221,7 @@ public class RestoreGlossaryIndicesTest {
     Mockito.verify(mockSearchService, Mockito.times(0)).search(Constants.GLOSSARY_TERM_ENTITY_NAME, "", null, null, 0, 1000);
     Mockito.verify(mockSearchService, Mockito.times(0)).search(Constants.GLOSSARY_NODE_ENTITY_NAME, "", null, null, 0, 1000);
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class),
         Mockito.anyBoolean()
     );

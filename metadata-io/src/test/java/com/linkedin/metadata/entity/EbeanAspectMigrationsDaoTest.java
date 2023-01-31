@@ -5,12 +5,12 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
 
 
 public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanAspectDao> {
@@ -20,12 +20,12 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
 
   @BeforeMethod
   public void setupTest() {
-    EbeanServer server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer();
     _mockProducer = mock(EventProducer.class);
-    EbeanAspectDao dao = new EbeanAspectDao(server);
+    EbeanAspectDao dao = new EbeanAspectDao(server, server);
     dao.setConnectionValidated(true);
     _entityService = new EntityService(dao, _mockProducer, _testEntityRegistry);
-    _retentionService = new EbeanRetentionService(_entityService, server, 1000);
+    _retentionService = new EbeanRetentionService(_entityService, _testEntityRegistry, server, 1000);
     _entityService.setRetentionService(_retentionService);
 
     _migrationsDao = dao;

@@ -8,8 +8,11 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.mxe.MetadataChangeProposal;
 import org.mockito.Mockito;
+
+import java.util.List;
 
 
 public class TestUtils {
@@ -55,8 +58,11 @@ public class TestUtils {
   }
 
   public static void verifyIngestProposal(EntityService mockService, int numberOfInvocations, MetadataChangeProposal proposal) {
+    AspectsBatch batch = AspectsBatch.builder()
+            .mcps(List.of(proposal), mockService.getEntityRegistry())
+            .build();
     Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestProposal(
-        Mockito.eq(proposal),
+        Mockito.eq(batch),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );
@@ -64,7 +70,7 @@ public class TestUtils {
 
   public static void verifyIngestProposal(EntityService mockService, int numberOfInvocations) {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );

@@ -15,12 +15,14 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -67,9 +69,12 @@ public class UpdateEmbedResolverTest {
     proposal.setAspectName(Constants.EMBED_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(newEmbed));
     proposal.setChangeType(ChangeType.UPSERT);
+    AspectsBatch batch = AspectsBatch.builder()
+            .mcps(List.of(proposal), mockService.getEntityRegistry())
+            .build();
 
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
+        Mockito.eq(batch),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );
@@ -110,9 +115,12 @@ public class UpdateEmbedResolverTest {
     proposal.setAspectName(Constants.EMBED_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(newEmbed));
     proposal.setChangeType(ChangeType.UPSERT);
+    AspectsBatch batch = AspectsBatch.builder()
+            .mcps(List.of(proposal), mockService.getEntityRegistry())
+            .build();
 
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal),
+        Mockito.eq(batch),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );

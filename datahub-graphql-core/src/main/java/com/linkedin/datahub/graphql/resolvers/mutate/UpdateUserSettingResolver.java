@@ -9,9 +9,12 @@ import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsS
 import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,7 +59,7 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
         MetadataChangeProposal proposal =
             buildMetadataChangeProposal(actor, CORP_USER_SETTINGS_ASPECT_NAME, newSettings, actor, _entityService);
 
-        _entityService.ingestProposal(proposal, getAuditStamp(actor), false);
+        _entityService.ingestSingleProposal(proposal, getAuditStamp(actor), false);
 
         return true;
       } catch (Exception e) {

@@ -9,19 +9,23 @@ import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
@@ -42,12 +46,12 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
   @BeforeMethod
   public void setupTest() {
-    EbeanServer server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer();
     _mockProducer = mock(EventProducer.class);
-    _aspectDao = new EbeanAspectDao(server);
+    _aspectDao = new EbeanAspectDao(server, server);
     _aspectDao.setConnectionValidated(true);
     _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry);
-    _retentionService = new EbeanRetentionService(_entityService, server, 1000);
+    _retentionService = new EbeanRetentionService(_entityService, _testEntityRegistry, server, 1000);
     _entityService.setRetentionService(_retentionService);
   }
 
@@ -80,15 +84,34 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
     // Ingest CorpUserInfo Aspect #1
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #2
     CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
-    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #3
     CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
-    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    List<AspectsBatchItem> items = List.of(
+            AspectsBatchItem.builder()
+                    .urn(entityUrn1)
+                    .aspectName(aspectName)
+                    .value(writeAspect1)
+                    .systemMetadata(metadata1)
+                    .build(_testEntityRegistry),
+            AspectsBatchItem.builder()
+                    .urn(entityUrn2)
+                    .aspectName(aspectName)
+                    .value(writeAspect2)
+                    .systemMetadata(metadata1)
+                    .build(_testEntityRegistry),
+            AspectsBatchItem.builder()
+                    .urn(entityUrn3)
+                    .aspectName(aspectName)
+                    .value(writeAspect3)
+                    .systemMetadata(metadata1)
+                    .build(_testEntityRegistry)
+    );
+    _entityService.ingestAspects(AspectsBatch.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
     // List aspects
     ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
@@ -125,15 +148,34 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
     // Ingest CorpUserInfo Aspect #1
     RecordTemplate writeAspect1 = AspectGenerationUtils.createCorpUserKey(entityUrn1);
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #2
     RecordTemplate writeAspect2 = AspectGenerationUtils.createCorpUserKey(entityUrn2);
-    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #3
     RecordTemplate writeAspect3 = AspectGenerationUtils.createCorpUserKey(entityUrn3);
-    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+
+    List<AspectsBatchItem> items = List.of(
+            AspectsBatchItem.builder()
+                    .urn(entityUrn1)
+                    .aspectName(aspectName)
+                    .value(writeAspect1)
+                    .systemMetadata(metadata1)
+                    .build(_testEntityRegistry),
+            AspectsBatchItem.builder()
+                    .urn(entityUrn2)
+                    .aspectName(aspectName)
+                    .value(writeAspect2)
+                    .systemMetadata(metadata1)
+                    .build(_testEntityRegistry),
+            AspectsBatchItem.builder()
+                    .urn(entityUrn3)
+                    .aspectName(aspectName)
+                    .value(writeAspect3)
+                    .systemMetadata(metadata1)
+                    .build(_testEntityRegistry)
+    );
+    _entityService.ingestAspects(AspectsBatch.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
     // List aspects urns
     ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(), 0, 2);
@@ -157,7 +199,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
   @Override
   @Test
   public void testNestedTransactions() throws AssertionError {
-    EbeanServer server = _aspectDao.getServer();
+    Database server = _aspectDao.getServer();
 
     try (Transaction transaction = server.beginTransaction(TxScope.requiresNew()
         .setIsolation(TxIsolation.REPEATABLE_READ))) {

@@ -13,6 +13,8 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
@@ -31,17 +33,21 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.linkedin.util.Pair;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
 
 @Slf4j
@@ -241,21 +247,14 @@ public class DeleteEntityService {
      * @param prevAspect the old value for the aspect
      */
     private void deleteAspect(Urn urn, String aspectName, RecordTemplate prevAspect) {
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityUrn(urn);
-        proposal.setChangeType(ChangeType.DELETE);
-        proposal.setEntityType(urn.getEntityType());
-        proposal.setAspectName(aspectName);
+        final RollbackResult result = _entityService.deleteAspect(urn.toString(), aspectName, Map.of(), true);
 
-        final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp, false);
-
-        if (!ingestProposalResult.isDidUpdate()) {
+        if (result != null && !result.getKeyAffected()) {
             log.error("Failed to ingest aspect with references removed. Before {}, after: null, please check MCP processor"
                 + " logs for more information", prevAspect);
-            handleError(new DeleteEntityServiceError("Failed to ingest new aspect",
+            handleError(new DeleteEntityServiceError("Failed to delete aspect",
                 DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
-                ImmutableMap.of("proposal", proposal)));
+                ImmutableMap.of("Urn", urn, "AspectName", aspectName, "Aspect", prevAspect)));
         }
     }
 
@@ -276,9 +275,9 @@ public class DeleteEntityService {
         proposal.setAspect(GenericRecordUtils.serializeAspect(newAspect));
 
         final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp, false);
+        final EntityService.IngestProposalResult result = _entityService.ingestSingleProposal(proposal, auditStamp, false);
 
-        if (!ingestProposalResult.isDidUpdate()) {
+        if (!result.isDidUpdate()) {
             log.error("Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"
                 + " logs for more information", prevAspect, newAspect);
             handleError(new DeleteEntityServiceError("Failed to ingest new aspect",

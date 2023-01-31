@@ -12,6 +12,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.key.DataHubAccessTokenKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -24,6 +25,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -124,11 +127,12 @@ public class StatefulTokenService extends StatelessTokenService {
     log.info("About to ingest access token metadata {}", proposal);
     final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp().setActor(UrnUtils.getUrn(actorUrn));
 
-    // Need this to write key aspect
-    final List<MetadataChangeProposal> additionalChanges = AspectUtils.getAdditionalChanges(proposal, _entityService);
+    Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(proposal),
+            AspectUtils.getAdditionalChanges(proposal, _entityService).stream());
 
-    _entityService.ingestProposal(proposal, auditStamp, false);
-    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp, false));
+    _entityService.ingestProposal(AspectsBatch.builder()
+            .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+            .build(), auditStamp, false);
 
     return accessToken;
   }

@@ -14,6 +14,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
@@ -25,7 +26,6 @@ import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -88,7 +88,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
     );
     // Verify that 4 aspects are ingested, 2 for the upgrade request / result, but none for ingesting
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(),
         Mockito.eq(false)
     );
@@ -156,7 +156,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
     );
     // Verify that 4 aspects are ingested, 2 for the upgrade request / result and 2 for the browse pahts
     Mockito.verify(mockService, Mockito.times(4)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(),
         Mockito.eq(false)
     );
@@ -224,7 +224,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
     );
     // Verify that 2 aspects are ingested, only those for the upgrade step
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(),
         Mockito.eq(false)
     );
@@ -250,7 +250,7 @@ public class UpgradeDefaultBrowsePathsStepTest {
     step.execute();
 
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class),
         Mockito.anyBoolean()
     );

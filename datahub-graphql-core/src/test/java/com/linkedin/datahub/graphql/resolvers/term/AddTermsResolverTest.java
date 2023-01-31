@@ -13,8 +13,9 @@ import com.linkedin.datahub.graphql.generated.AddTermsInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import graphql.schema.DataFetchingEnvironment;
+
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -58,7 +59,7 @@ public class AddTermsResolverTest {
 
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class), Mockito.eq(false)
     );
 
@@ -104,7 +105,7 @@ public class AddTermsResolverTest {
 
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class), Mockito.eq(false)
     );
 

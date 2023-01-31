@@ -10,6 +10,8 @@ import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
@@ -29,11 +31,15 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -158,13 +164,24 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        EntityService.IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
-        Urn urn = result.getUrn();
+        Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
+                AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService).stream());
 
-        AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
-                .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
+        AspectsBatch batch = AspectsBatch.builder()
+                .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+                .build();
 
-        if (!result.isQueued()) {
+        Set<Pair<AspectsBatchItem, EntityService.IngestProposalResult>> results =
+                _entityService.ingestProposal(batch, auditStamp, asyncBool);
+
+        EntityService.IngestProposalResult one = results.stream()
+                .map(Pair::getSecond)
+                .findFirst()
+                .get();
+
+        Urn urn = one.getUrn();
+        // Update runIds
+        if (!one.isQueued()) {
           tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
         return urn.toString();

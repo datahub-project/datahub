@@ -14,13 +14,13 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
-import com.linkedin.mxe.MetadataChangeProposal;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -60,7 +60,7 @@ public class RestoreColumnLineageIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.DASHBOARD_ENTITY_NAME);
     // creates upgradeRequest and upgradeResult aspects
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );
@@ -122,7 +122,7 @@ public class RestoreColumnLineageIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.DASHBOARD_ENTITY_NAME);
     // creates upgradeRequest and upgradeResult aspects
     Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );
@@ -184,7 +184,7 @@ public class RestoreColumnLineageIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(0)).getEntitySpec(Constants.DASHBOARD_ENTITY_NAME);
     // creates upgradeRequest and upgradeResult aspects
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AspectsBatch.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );

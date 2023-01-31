@@ -23,6 +23,7 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -149,7 +150,7 @@ public class MockEntityService extends EntityService {
     return null;
   }
 
-  @Nonnull
+/*  @Nonnull
   @Override
   protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull Urn urn, @Nonnull String aspectName,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
@@ -164,7 +165,7 @@ public class MockEntityService extends EntityService {
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest, @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata providedSystemMetadata) {
     return Collections.emptyList();
-  }
+  }*/
 
   @Nullable
   @Override

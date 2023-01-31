@@ -6,7 +6,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
-import io.ebean.EbeanServer;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import io.ebean.Database;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,19 +36,19 @@ public class RetentionServiceFactory {
   @DependsOn({"cassandraSession", "entityService"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
-  protected RetentionService createCassandraInstance(CqlSession session) {
-    RetentionService retentionService = new CassandraRetentionService(_entityService, session, _batchSize);
+  protected RetentionService createCassandraInstance(CqlSession session, EntityRegistry entityRegistry) {
+    RetentionService retentionService = new CassandraRetentionService(_entityService, entityRegistry, session, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }
 
 
   @Bean(name = "retentionService")
-  @DependsOn({"ebeanServer", "entityService"})
+  @DependsOn({"ebeanPrimaryServer", "entityService"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected RetentionService createEbeanInstance(EbeanServer server) {
-    RetentionService retentionService = new EbeanRetentionService(_entityService, server, _batchSize);
+  protected RetentionService createEbeanInstance(Database server, EntityRegistry entityRegistry) {
+    RetentionService retentionService = new EbeanRetentionService(_entityService, entityRegistry, server, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;
   }

@@ -9,12 +9,15 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.entity.EntityService;
 
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,8 +66,23 @@ public class IngestRootUserStep implements BootstrapStep {
     final CorpUserKey key = (CorpUserKey) EntityKeyUtils.convertUrnToEntityKey(urn, getUserKeyAspectSpec());
     final AuditStamp aspectAuditStamp =
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    _entityService.ingestAspect(urn, CORP_USER_KEY_ASPECT_NAME, key, aspectAuditStamp, null);
-    _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp, null);
+
+    List<AspectsBatchItem> aspects = List.of(
+            AspectsBatchItem.builder()
+                    .urn(urn)
+                    .aspectName(CORP_USER_KEY_ASPECT_NAME)
+                    .value(key)
+                    .build(_entityService.getEntityRegistry()),
+            AspectsBatchItem.builder()
+                    .urn(urn)
+                    .aspectName(USER_INFO_ASPECT_NAME)
+                    .value(info)
+                    .build(_entityService.getEntityRegistry())
+    );
+    _entityService.ingestAspects(
+            AspectsBatch.builder().items(aspects).build(),
+            aspectAuditStamp, true, true
+    );
   }
 
   private AspectSpec getUserKeyAspectSpec() {

@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import io.ebean.PagedList;
+import io.ebean.Transaction;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -11,6 +12,7 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -42,7 +44,13 @@ public interface AspectDao {
     List<EntityAspect> getAspectsInRange(@Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
 
     @Nullable
-    EntityAspect getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName);
+    default EntityAspect getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName) {
+        return getLatestAspects(Map.of(urn, Set.of(aspectName))).getOrDefault(urn, Map.of())
+                .getOrDefault(aspectName, null);
+    }
+
+    @Nonnull
+    Map<String, Map<String, EntityAspect>> getLatestAspects(Map<String, Set<String>> urnAspects);
 
     void saveAspect(
         @Nonnull final String urn,
@@ -106,14 +114,20 @@ public interface AspectDao {
         final int start,
         final int pageSize);
 
-    long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName);
+    Map<String, Map<String, Long>> getNextVersions(@Nonnull Map<String, Set<String>> urnAspectMap);
 
-    Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames);
+    default long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+        return getNextVersions(urn, Set.of(aspectName)).get(aspectName);
+    }
+
+    default Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
+        return getNextVersions(Map.of(urn, aspectNames)).get(urn);
+    }
 
     long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName);
 
     void setWritable(boolean canWrite);
 
     @Nonnull
-    <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry);
+    <T> T runInTransactionWithRetry(@Nonnull final Function<Transaction, T> block, final int maxTransactionRetry);
 }

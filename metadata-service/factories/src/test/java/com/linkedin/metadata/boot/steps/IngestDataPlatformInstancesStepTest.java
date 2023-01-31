@@ -96,14 +96,23 @@ public class IngestDataPlatformInstancesStepTest {
     step.execute();
 
     verify(entityService, times(countOfChartEntities))
-        .ingestAspect(
-            argThat(arg -> arg.getEntityType().equals("chart")),
-            eq(DATA_PLATFORM_INSTANCE_ASPECT_NAME),
-            any(DataPlatformInstance.class),
+        .ingestAspects(
+            argThat(arg ->
+              arg.getItems().stream()
+                      .allMatch(item -> item.getUrn().getEntityType().equals("chart")
+                              && item.getAspectName().equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
+                      && item.getAspect() instanceof DataPlatformInstance)
+            ),
+            any(),
             any(),
             any());
     verify(entityService, times(0))
-        .ingestAspect(argThat(arg -> !arg.getEntityType().equals("chart")), anyString(), any(), any(), any());
+        .ingestAspects(argThat(arg ->
+                !arg.getItems().stream()
+                        .allMatch(item -> item.getUrn().getEntityType().equals("chart")
+                                && item.getAspectName().equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
+                                && item.getAspect() instanceof DataPlatformInstance)
+        ), any(), any(), any());
   }
 
   @NotNull

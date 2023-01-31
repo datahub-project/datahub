@@ -38,12 +38,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import io.ebean.PagedList;
+import io.ebean.Transaction;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
@@ -82,6 +83,16 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public EntityAspect getLatestAspect(@Nonnull String urn, @Nonnull String aspectName) {
     validateConnection();
     return getAspect(urn, aspectName, ASPECT_LATEST_VERSION);
+  }
+
+  @Override
+  public Map<String, Map<String, EntityAspect>> getLatestAspects(Map<String, Set<String>> urnAspects) {
+    return urnAspects.entrySet().stream()
+            .map(entry -> Map.entry(entry.getKey(), entry.getValue().stream()
+                    .map(aspectName -> Map.entry(aspectName, getLatestAspect(entry.getKey(), aspectName)))
+                    .filter(aspectEntity -> Objects.nonNull(aspectEntity.getValue()))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Override
@@ -240,7 +251,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   @Nonnull
-  public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
+  public <T> T runInTransactionWithRetry(@Nonnull final Function<Transaction, T> block, final int maxTransactionRetry) {
     validateConnection();
     int retryCount = 0;
     Exception lastException;
@@ -248,7 +259,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     do {
       try {
         // TODO: Try to bend this code to make use of Cassandra batches. This method is called from single-urn operations, so perf should not suffer much
-        return block.get();
+        return block.apply(null);
       } catch (DriverException exception) {
         lastException = exception;
       }
@@ -452,25 +463,24 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+  public Map<String, Map<String, Long>> getNextVersions(Map<String, Set<String>> urnAspectMap) {
     validateConnection();
-    Map<String, Long> versions = getNextVersions(urn, ImmutableSet.of(aspectName));
-    return versions.get(aspectName);
-  }
+    Map<String, Map<String, Long>> result = new HashMap<>();
 
-  @Override
-  public Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
-    validateConnection();
-    Map<String, Long> maxVersions = getMaxVersions(urn, aspectNames);
-    Map<String, Long> nextVersions = new HashMap<>();
+    for (Map.Entry<String, Set<String>> aspectNames : urnAspectMap.entrySet()) {
+      Map<String, Long> maxVersions = getMaxVersions(aspectNames.getKey(), aspectNames.getValue());
+      Map<String, Long> nextVersions = new HashMap<>();
 
-    for (String aspectName: aspectNames) {
-      long latestVersion = maxVersions.get(aspectName);
-      long nextVal = latestVersion < 0 ? ASPECT_LATEST_VERSION : latestVersion + 1L;
-      nextVersions.put(aspectName, nextVal);
+      for (String aspectName : aspectNames.getValue()) {
+        long latestVersion = maxVersions.get(aspectName);
+        long nextVal = latestVersion < 0 ? ASPECT_LATEST_VERSION : latestVersion + 1L;
+        nextVersions.put(aspectName, nextVal);
+      }
+
+      result.put(aspectNames.getKey(), nextVersions);
     }
 
-    return nextVersions;
+    return result;
   }
 
   @Override

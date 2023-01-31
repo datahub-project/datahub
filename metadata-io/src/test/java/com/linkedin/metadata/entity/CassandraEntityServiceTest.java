@@ -65,7 +65,7 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
     _aspectDao.setConnectionValidated(true);
     _mockProducer = mock(EventProducer.class);
     _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry);
-    _retentionService = new CassandraRetentionService(_entityService, session, 1000);
+    _retentionService = new CassandraRetentionService(_entityService, _testEntityRegistry, session, 1000);
     _entityService.setRetentionService(_retentionService);
   }
 

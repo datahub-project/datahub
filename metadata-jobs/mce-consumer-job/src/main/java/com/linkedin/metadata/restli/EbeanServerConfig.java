@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Primary;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.linkedin.gms.factory.common.LocalEbeanServerConfigFactory.getListenerToTrackCounts;
+import static com.linkedin.gms.factory.common.EbeanDatabaseConfigFactory.getListenerToTrackCounts;
 
 @Configuration
 public class EbeanServerConfig {

@@ -4,21 +4,21 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.validator.Validator;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
+import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -115,5 +115,20 @@ public class AspectUtils {
     auditStamp.setTime(DateTimeUtils.currentTimeMillis());
     auditStamp.setActor(actor);
     return auditStamp;
+  }
+
+  // Validates urn subfields using EntityRegistryUrnValidator and does basic field validation for type alignment
+  // due to validator logic which inherently does coercion
+  public static void validateAspect(Urn urn, RecordTemplate aspect, EntityRegistry entityRegistry) {
+    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
+    validator.setCurrentEntitySpec(entityRegistry.getEntitySpec(urn.getEntityType()));
+    validateAspect(urn, aspect, validator);
+  }
+
+  public static void validateAspect(Urn urn, RecordTemplate aspect, Validator validator) {
+    RecordTemplateValidator.validate(aspect, validationResult -> {
+      throw new IllegalArgumentException("Invalid urn format for aspect: " + aspect + " for entity: " + urn + "\n Cause: "
+              + validationResult.getMessages());
+    }, validator);
   }
 }
