@@ -65,7 +65,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
   }
 
   /**
-   * When adding a tag to a schema field in the UI, there's a chance the parent entity has siblings.
+   * When adding tags to a schema field in the UI, there's a chance the parent entity has siblings.
    * If the given urn doesn't have a schema or doesn't have the given column, we should try to add the
    * tag to one of its siblings. If that fails, keep trying all siblings until one passes or all fail.
    * Then we throw if none succeed.
@@ -82,7 +82,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
   }
 
   /**
-   * Attempts to add a tag to a schema field, and if it fails, try adding to one of its siblings.
+   * Attempts to add tags to a schema field, and if it fails, try adding to one of its siblings.
    * Try adding until we attempt all siblings or one passes. Throw if none pass.
    */
   private Boolean attemptBatchAddTagsWithSiblings(
