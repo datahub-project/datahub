@@ -5,6 +5,7 @@ import com.google.common.io.Resources;
 import com.linkedin.data.avro.DataTranslator;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.FailedMetadataChangeEvent;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -42,6 +43,8 @@ public class EventUtils {
 
   private static final RecordDataSchema PE_PEGASUS_SCHEMA = new PlatformEvent().schema();
 
+  private static final RecordDataSchema DUHE_PEGASUS_SCHEMA = new DataHubUpgradeHistoryEvent().schema();
+
   private static final Schema ORIGINAL_MCE_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeEvent.avsc");
 
@@ -63,6 +66,9 @@ public class EventUtils {
   private static final Schema ORIGINAL_PE_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/PlatformEvent.avsc");
 
+  private static final Schema ORIGINAL_DUHE_AVRO_SCHEMA =
+      getAvroSchemaFromResource("avro/com/linkedin/mxe/DataHubUpgradeHistoryEvent.avsc");
+
   private static final Schema RENAMED_MCE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.MetadataChangeEvent.SCHEMA$;
 
   private static final Schema RENAMED_MAE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.MetadataAuditEvent.SCHEMA$;
@@ -80,6 +86,9 @@ public class EventUtils {
 
   private static final Schema RENAMED_FMCP_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal.SCHEMA$;
+
+  private static final Schema RENAMED_DUHE_AVRO_SCHEMA =
+      com.linkedin.pegasus2avro.mxe.DataHubUpgradeHistoryEvent.SCHEMA$;
 
   private EventUtils() {
     // Util class
@@ -161,10 +170,23 @@ public class EventUtils {
   }
 
   /**
+   * Converts a {@link GenericRecord} PE into the equivalent Pegasus model.
+   *
+   * @param record the {@link GenericRecord} that contains the PE in com.linkedin.pegasus2avro namespace
+   * @return the Pegasus {@link PlatformEvent} model
+   */
+  @Nonnull
+  public static DataHubUpgradeHistoryEvent avroToPegasusDUHE(@Nonnull GenericRecord record) throws IOException {
+    return new DataHubUpgradeHistoryEvent(DataTranslator.genericRecordToDataMap(
+        renameSchemaNamespace(record, RENAMED_DUHE_AVRO_SCHEMA, ORIGINAL_DUHE_AVRO_SCHEMA),
+        DUHE_PEGASUS_SCHEMA, ORIGINAL_DUHE_AVRO_SCHEMA));
+  }
+
+  /**
    * Converts a Pegasus MAE into the equivalent Avro model as a {@link GenericRecord}.
    *
    * @param event the Pegasus {@link MetadataAuditEvent} model
-   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namespace
    * @throws IOException if the conversion fails
    */
   @Nonnull
@@ -178,7 +200,7 @@ public class EventUtils {
    * Converts a Pegasus MAE into the equivalent Avro model as a {@link GenericRecord}.
    *
    * @param event the Pegasus {@link MetadataChangeLog} model
-   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namespace
    * @throws IOException if the conversion fails
    */
   @Nonnull
@@ -192,7 +214,7 @@ public class EventUtils {
    * Converts a Pegasus MAE into the equivalent Avro model as a {@link GenericRecord}.
    *
    * @param event the Pegasus {@link MetadataChangeProposal} model
-   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namespace
    * @throws IOException if the conversion fails
    */
   @Nonnull
@@ -220,7 +242,7 @@ public class EventUtils {
    * Converts a Pegasus aspect specific MXE into the equivalent Avro model as a {@link GenericRecord}.
    *
    * @param event the Pegasus aspect specific MXE model
-   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namespace
    * @throws IOException if the conversion fails
    */
   @Nonnull
@@ -237,7 +259,7 @@ public class EventUtils {
    * Converts a Pegasus Failed MCE into the equivalent Avro model as a {@link GenericRecord}.
    *
    * @param failedMetadataChangeEvent the Pegasus {@link FailedMetadataChangeEvent} model
-   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namespace
    * @throws IOException if the conversion fails
    */
   @Nonnull
@@ -253,7 +275,7 @@ public class EventUtils {
    * Converts a Pegasus Failed MCE into the equivalent Avro model as a {@link GenericRecord}.
    *
    * @param failedMetadataChangeProposal the Pegasus {@link FailedMetadataChangeProposal} model
-   * @return the Avro model with com.linkedin.pegasus2avro.mxe namesapce
+   * @return the Avro model with com.linkedin.pegasus2avro.mxe namespace
    * @throws IOException if the conversion fails
    */
   @Nonnull
@@ -269,7 +291,7 @@ public class EventUtils {
    * Converts a Pegasus Platform Event into the equivalent Avro model as a {@link GenericRecord}.
    *
    * @param event the Pegasus {@link PlatformEvent} model
-   * @return the Avro model with com.linkedin.pegasus2avro.event namesapce
+   * @return the Avro model with com.linkedin.pegasus2avro.event namespace
    * @throws IOException if the conversion fails
    */
   @Nonnull
@@ -277,6 +299,20 @@ public class EventUtils {
     GenericRecord original =
         DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_PE_AVRO_SCHEMA);
     return renameSchemaNamespace(original, RENAMED_PE_AVRO_SCHEMA);
+  }
+
+  /**
+   * Converts a Pegasus DataHub Upgrade History Event into the equivalent Avro model as a {@link GenericRecord}.
+   *
+   * @param event the Pegasus {@link com.linkedin.mxe.DataHubUpgradeHistoryEvent} model
+   * @return the Avro model with com.linkedin.pegasus2avro.event namespace
+   * @throws IOException if the conversion fails
+   */
+  @Nonnull
+  public static GenericRecord pegasusToAvroDUHE(@Nonnull DataHubUpgradeHistoryEvent event) throws IOException {
+    GenericRecord original =
+        DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_DUHE_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, RENAMED_DUHE_AVRO_SCHEMA);
   }
 
   /**

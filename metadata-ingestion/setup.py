@@ -59,6 +59,7 @@ framework_common = {
 
 rest_common = {
     "requests",
+    "requests_file"
 }
 
 kafka_common = {
@@ -264,7 +265,7 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {sqllineage_lib, "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
+    | {sqllineage_lib, "sql_metadata", "sqlalchemy-bigquery>=1.4.1", "google-cloud-datacatalog-lineage==0.2.0"},
     "bigquery-beta": sql_common
     | bigquery_common
     | {

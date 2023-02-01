@@ -2,7 +2,6 @@
 
 set -e
 # Script assumptions:
-#   - The gradle build has already been run.
 #   - Python 3.6+ is installed and in the PATH.
 #   - pytest is installed
 #   - requests is installed

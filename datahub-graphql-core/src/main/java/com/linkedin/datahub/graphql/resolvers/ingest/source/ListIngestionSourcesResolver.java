@@ -60,7 +60,8 @@ public class ListIngestionSourcesResolver implements DataFetcher<CompletableFutu
               Collections.emptyMap(),
               start,
               count,
-              context.getAuthentication());
+              context.getAuthentication(),
+                  true);
 
           // Then, resolve all ingestion sources
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(

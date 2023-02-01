@@ -448,6 +448,7 @@ module.exports = {
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",
       "docs/sync-status",
+      "docs/architecture/stemming_and_synonyms",
       "docs/lineage/lineage-feature-guide",
     ],
 
@@ -463,6 +464,7 @@ module.exports = {
 
     "Release History": ["releases"],
     "Managed DataHub Release History": [
+      "docs/managed-datahub/release-notes/v_0_1_73",
       "docs/managed-datahub/release-notes/v_0_1_72",
       "docs/managed-datahub/release-notes/v_0_1_70",
       "docs/managed-datahub/release-notes/v_0_1_69",
