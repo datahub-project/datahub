@@ -133,7 +133,8 @@ public interface EntityClient {
    */
   @Nonnull
   public SearchResult search(@Nonnull String entity, @Nonnull String input,
-      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull Authentication authentication)
+      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull Authentication authentication,
+                             @Nullable Boolean fulltext)
       throws RemoteInvocationException;
 
   /**
@@ -162,7 +163,8 @@ public interface EntityClient {
    */
   @Nonnull
   public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
-      SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication) throws RemoteInvocationException;
+      SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication,
+                             @Nullable Boolean fulltext) throws RemoteInvocationException;
 
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
