@@ -23,6 +23,7 @@ ENSURE_EXIT_SUCCESS = [
     "kafka-setup",
     "elasticsearch-setup",
     "mysql-setup",
+    "datahub-upgrade",
 ]
 
 # If present, we check that the container is running / exited properly.
@@ -35,6 +36,7 @@ CONTAINERS_TO_CHECK_IF_PRESENT = [
     "elasticsearch-setup",
     "schema-registry",
     "zookeeper",
+    "datahub-upgrade",
     # "datahub-mce-consumer",
     # "datahub-mae-consumer",
 ]
