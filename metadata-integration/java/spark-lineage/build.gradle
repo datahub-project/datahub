@@ -144,7 +144,7 @@ assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec ) {
+task integrationTest(type: Exec, dependsOn: build ) {
   commandLine "spark-smoke-test/smoke.sh"
 }
 
