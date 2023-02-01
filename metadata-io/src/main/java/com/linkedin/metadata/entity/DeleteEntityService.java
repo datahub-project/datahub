@@ -28,6 +28,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -247,11 +248,10 @@ public class DeleteEntityService {
         proposal.setEntityType(urn.getEntityType());
         proposal.setAspectName(aspectName);
 
-        final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp, false);
-
-        if (!ingestProposalResult.isDidUpdate()) {
-            log.error("Failed to ingest aspect with references removed. Before {}, after: null, please check MCP processor"
+        RollbackResult rollbackResult = _entityService.deleteAspect(urn.toString(), aspectName, new HashMap<>(), true);
+        assert rollbackResult != null;
+        if (rollbackResult.getNewValue() != null) {
+            log.error("Failed to delete aspect with references. Before {}, after: null, please check MCP processor"
                 + " logs for more information", prevAspect);
             handleError(new DeleteEntityServiceError("Failed to ingest new aspect",
                 DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
