@@ -48,7 +48,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
       validateTags(tagUrns);
 
       if (resources.size() == 1 && resources.get(0).getSubResource() != null) {
-        return handleAddSingleTagToSchemaField(context, resources, tagUrns);
+        return handleAddTagsToSingleSchemaField(context, resources, tagUrns);
       }
 
       validateInputResources(resources, context);
@@ -70,7 +70,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
    * tag to one of its siblings. If that fails, keep trying all siblings until one passes or all fail.
    * Then we throw if none succeed.
    */
-  private Boolean handleAddSingleTagToSchemaField(
+  private Boolean handleAddTagsToSingleSchemaField(
       @Nonnull final QueryContext context,
       @Nonnull final List<ResourceRefInput> resources,
       @Nonnull final List<Urn> tagUrns

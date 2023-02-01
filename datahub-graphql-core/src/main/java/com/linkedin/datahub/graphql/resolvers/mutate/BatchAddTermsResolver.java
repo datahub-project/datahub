@@ -48,7 +48,7 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
       validateTerms(termUrns);
 
       if (resources.size() == 1 && resources.get(0).getSubResource() != null) {
-        return handleAddSingleTermToSchemaField(context, resources, termUrns);
+        return handleAddTermsToSingleSchemaField(context, resources, termUrns);
       }
 
       validateInputResources(resources, context);
@@ -70,7 +70,7 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
    * term to one of its siblings. If that fails, keep trying all siblings until one passes or all fail.
    * Then we throw if none succeed.
    */
-  private Boolean handleAddSingleTermToSchemaField(
+  private Boolean handleAddTermsToSingleSchemaField(
       @Nonnull final QueryContext context,
       @Nonnull final List<ResourceRefInput> resources,
       @Nonnull final List<Urn> termUrns
