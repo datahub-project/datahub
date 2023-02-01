@@ -69,6 +69,7 @@ services:
     environment:
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-gms
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
     - EBEAN_DATASOURCE_HOST=mysql:3306
@@ -102,12 +103,36 @@ services:
     volumes:
     - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
     - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
+  datahub-upgrade:
+    command:
+    - -u
+    - SystemUpdate
+    container_name: datahub-upgrade
+    environment:
+    - EBEAN_DATASOURCE_USERNAME=datahub
+    - EBEAN_DATASOURCE_PASSWORD=datahub
+    - EBEAN_DATASOURCE_HOST=mysql:3306
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+    - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+    - ELASTICSEARCH_HOST=elasticsearch
+    - ELASTICSEARCH_PORT=9200
+    - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+    - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+    - ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES=false
+    - GRAPH_SERVICE_IMPL=elasticsearch
+    - DATAHUB_GMS_HOST=datahub-gms
+    - DATAHUB_GMS_PORT=8080
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    hostname: datahub-upgrade
+    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
   elasticsearch:
     container_name: elasticsearch
     environment:
     - discovery.type=single-node
     - xpack.security.enabled=false
-    - ES_JAVA_OPTS=-Xms256m -Xmx256m -Dlog4j2.formatMsgNoLookups=true
+    - ES_JAVA_OPTS=-Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
     healthcheck:
       retries: 4
       start_period: 2m
@@ -116,7 +141,7 @@ services:
       - curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s'
         || exit 1
     hostname: elasticsearch
-    image: elasticsearch:7.9.3
+    image: elasticsearch:7.10.1
     mem_limit: 1g
     ports:
     - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
