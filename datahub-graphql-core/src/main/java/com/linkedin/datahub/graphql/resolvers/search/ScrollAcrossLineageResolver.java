@@ -1,16 +1,17 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
-import com.linkedin.datahub.graphql.generated.SearchAcrossLineageInput;
-import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
+import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageInput;
+import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
+import com.linkedin.datahub.graphql.types.mappers.UrnScrollAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,7 +24,7 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 
@@ -32,20 +33,20 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
  */
 @Slf4j
 @RequiredArgsConstructor
-public class SearchAcrossLineageResolver
-    implements DataFetcher<CompletableFuture<SearchAcrossLineageResults>> {
+public class ScrollAcrossLineageResolver
+    implements DataFetcher<CompletableFuture<ScrollAcrossLineageResults>> {
 
-  private static final int DEFAULT_START = 0;
   private static final int DEFAULT_COUNT = 10;
 
   private final EntityClient _entityClient;
 
   @Override
-  public CompletableFuture<SearchAcrossLineageResults> get(DataFetchingEnvironment environment)
+  public CompletableFuture<ScrollAcrossLineageResults> get(DataFetchingEnvironment environment)
       throws URISyntaxException {
-    final SearchAcrossLineageInput input =
-        bindArgument(environment.getArgument("input"), SearchAcrossLineageInput.class);
+    final ScrollAcrossLineageInput input =
+        bindArgument(environment.getArgument("input"), ScrollAcrossLineageInput.class);
 
+    final QueryContext context = environment.getContext();
     final Urn urn = Urn.createFromString(input.getUrn());
 
     final LineageDirection lineageDirection = input.getDirection();
@@ -57,10 +58,15 @@ public class SearchAcrossLineageResolver
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = input.getQuery() != null ? ResolverUtils.escapeForwardSlash(input.getQuery()) : null;
 
-    final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
+    final String scrollId = input.getScrollId() != null ? input.getScrollId() : null;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
-    final List<FacetFilterInput> filters = input.getFilters() != null ? input.getFilters() : new ArrayList<>();
-    final Integer maxHops = getMaxHops(filters);
+    final List<AndFilterInput> filters = input.getOrFilters() != null ? input.getOrFilters() : new ArrayList<>();
+    final List<FacetFilterInput> facetFilters = filters.stream()
+        .map(AndFilterInput::getAnd)
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+    final Integer maxHops = getMaxHops(facetFilters);
+    String keepAlive = input.getKeepAlive() != null ? input.getKeepAlive() : "5m";
 
     @Nullable
     final Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
@@ -73,39 +79,18 @@ public class SearchAcrossLineageResolver
       try {
         log.debug(
             "Executing search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
-            urn,
-            resolvedDirection,
-            input.getTypes(),
-            input.getQuery(),
-            filters,
-            start,
-            count);
-
-        final Filter filter =
-            ResolverUtils.buildFilter(
-                filters,
-                input.getOrFilters());
-        return UrnSearchAcrossLineageResultsMapper.map(
-            _entityClient.searchAcrossLineage(
-                urn,
-                resolvedDirection,
-                entityNames,
-                sanitizedQuery,
-                maxHops,
-                filter,
-                null,
-                start,
-                count,
-                startTimeMillis,
-                endTimeMillis,
-                ResolverUtils.getAuthentication(environment)));
+            urn, resolvedDirection, input.getTypes(), input.getQuery(), filters, scrollId, count);
+        return UrnScrollAcrossLineageResultsMapper.map(
+            _entityClient.scrollAcrossLineage(urn, resolvedDirection, entityNames, sanitizedQuery,
+                maxHops, ResolverUtils.buildFilter(facetFilters, input.getOrFilters()), null, scrollId,
+                keepAlive, count, startTimeMillis, endTimeMillis, ResolverUtils.getAuthentication(environment)));
       } catch (RemoteInvocationException e) {
         log.error(
-            "Failed to execute search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
-            urn, resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count);
-        throw new RuntimeException("Failed to execute search across relationships: " + String.format(
+            "Failed to execute scroll across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
+            urn, resolvedDirection, input.getTypes(), input.getQuery(), filters, scrollId, count);
+        throw new RuntimeException("Failed to execute scroll across relationships: " + String.format(
             "source urn %s, direction %s, entity types %s, query %s, filters: %s, start: %s, count: %s", urn,
-            resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count), e);
+            resolvedDirection, input.getTypes(), input.getQuery(), filters, scrollId, count), e);
       }
     });
   }

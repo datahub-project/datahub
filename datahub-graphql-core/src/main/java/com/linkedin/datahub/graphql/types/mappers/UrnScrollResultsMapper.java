@@ -2,25 +2,25 @@ package com.linkedin.datahub.graphql.types.mappers;
 
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.stream.Collectors;
 
 
-public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> {
-  public static <T extends RecordTemplate, E extends Entity> SearchResults map(
-      com.linkedin.metadata.search.SearchResult searchResult) {
-    return new UrnSearchResultsMapper<T, E>().apply(searchResult);
+public class UrnScrollResultsMapper<T extends RecordTemplate, E extends Entity> {
+  public static <T extends RecordTemplate, E extends Entity> ScrollResults map(
+      com.linkedin.metadata.search.ScrollResult scrollResult) {
+    return new UrnScrollResultsMapper<T, E>().apply(scrollResult);
   }
 
-  public SearchResults apply(com.linkedin.metadata.search.SearchResult input) {
-    final SearchResults result = new SearchResults();
+  public ScrollResults apply(com.linkedin.metadata.search.ScrollResult input) {
+    final ScrollResults result = new ScrollResults();
 
-    if (!input.hasFrom() || !input.hasPageSize() || !input.hasNumEntities()) {
+    if (!input.hasScrollId() && (!input.hasPageSize() || !input.hasNumEntities())) {
       return result;
     }
 
-    result.setStart(input.getFrom());
+    result.setNextScrollId(input.getScrollId());
     result.setCount(input.getPageSize());
     result.setTotal(input.getNumEntities());
 

@@ -33,8 +33,10 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
@@ -344,6 +346,16 @@ public class JavaEntityClient implements EntityClient {
 
     @Nonnull
     @Override
+    public ScrollResult scrollAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+        @Nullable Filter filter, @Nullable String scrollId, @Nonnull String keepAlive, int count, @Nonnull Authentication authentication)
+        throws RemoteInvocationException {
+        return ValidationUtils.validateScrollResult(
+            _searchService.scrollAcrossEntities(entities, input, filter, null, scrollId, keepAlive, count,
+                null), _entityService);
+    }
+
+    @Nonnull
+    @Override
     public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
         @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
         @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
@@ -365,6 +377,18 @@ public class JavaEntityClient implements EntityClient {
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
                         sortCriterion, start, count, startTimeMillis, endTimeMillis),
                 _entityService);
+    }
+
+    @Nonnull
+    @Override
+    public LineageScrollResult scrollAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+        @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
+        @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int count,
+        @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+        return ValidationUtils.validateLineageScrollResult(
+            _lineageSearchService.scrollAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
+                sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis), _entityService);
     }
 
     /**
