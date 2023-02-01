@@ -101,10 +101,6 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
-    _graphService.configure();
-    _entitySearchService.configure();
-    _systemMetadataService.configure();
-    _timeseriesAspectService.configure();
   }
 
   @Override
