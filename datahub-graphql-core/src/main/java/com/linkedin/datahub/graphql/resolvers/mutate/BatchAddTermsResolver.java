@@ -47,12 +47,8 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
       // First, validate the batch
       validateTerms(termUrns);
 
-      // if we're adding terms to one sub-resource (ie. schema field) attempt to add to siblings if it fails
       if (resources.size() == 1 && resources.get(0).getSubResource() != null) {
-        final ResourceRefInput resource = resources.get(0);
-        final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-        final List<Urn> siblingUrns = SiblingsUtils.getSiblingUrns(resourceUrn, _entityService);
-        return attemptBatchAddTermsWithSiblings(termUrns, resource, context, new HashSet<>(), siblingUrns);
+        return handleAddSingleTermToSchemaField(context, resources, termUrns);
       }
 
       validateInputResources(resources, context);
@@ -68,7 +64,27 @@ public class BatchAddTermsResolver implements DataFetcher<CompletableFuture<Bool
     });
   }
 
-  // If updating schema field terms fails, try again on a sibling until there are no more siblings to try. Then throw if necessary.
+  /**
+   * When adding a term to a schema field in the UI, there's a chance the parent entity has siblings.
+   * If the given urn doesn't have a schema or doesn't have the given column, we should try to add the
+   * term to one of its siblings. If that fails, keep trying all siblings until one passes or all fail.
+   * Then we throw if none succeed.
+   */
+  private Boolean handleAddSingleTermToSchemaField(
+      @Nonnull final QueryContext context,
+      @Nonnull final List<ResourceRefInput> resources,
+      @Nonnull final List<Urn> termUrns
+  ) {
+    final ResourceRefInput resource = resources.get(0);
+    final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
+    final List<Urn> siblingUrns = SiblingsUtils.getSiblingUrns(resourceUrn, _entityService);
+    return attemptBatchAddTermsWithSiblings(termUrns, resource, context, new HashSet<>(), siblingUrns);
+  }
+
+  /**
+   * Attempts to add a term to a schema field, and if it fails, try adding to one of its siblings.
+   * Try adding until we attempt all siblings or one passes. Throw if none pass.
+   */
   private Boolean attemptBatchAddTermsWithSiblings(
       @Nonnull final List<Urn> termUrns,
       @Nonnull final ResourceRefInput resource,

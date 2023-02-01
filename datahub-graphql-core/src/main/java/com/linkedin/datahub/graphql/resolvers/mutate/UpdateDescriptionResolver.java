@@ -35,7 +35,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
     log.info("Updating description. input: {}", input.toString());
     switch (targetUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
-        return updateDatasetDescription(targetUrn, input, environment.getContext());
+        return updateDatasetSchemaFieldDescription(targetUrn, input, environment.getContext());
       case Constants.CONTAINER_ENTITY_NAME:
         return updateContainerDescription(targetUrn, input, environment.getContext());
       case Constants.DOMAIN_ENTITY_NAME:
@@ -116,7 +116,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
   }
 
   // If updating schema field description fails, try again on a sibling until there are no more siblings to try. Then throw if necessary.
-  private Boolean attemptUpdateDatasetDescription(
+  private Boolean attemptUpdateDatasetSchemaFieldDescription(
       @Nonnull final Urn targetUrn,
       @Nonnull final DescriptionUpdateInput input,
       @Nonnull final QueryContext context,
@@ -137,7 +137,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
       if (siblingUrn.isPresent()) {
         log.warn("Failed to update description for input {}, trying sibling urn {} now.", input.toString(), siblingUrn.get());
-        return attemptUpdateDatasetDescription(siblingUrn.get(), input, context, attemptedUrns, siblingUrns);
+        return attemptUpdateDatasetSchemaFieldDescription(siblingUrn.get(), input, context, attemptedUrns, siblingUrns);
       } else {
         log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
         throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
@@ -145,7 +145,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
     }
   }
 
-  private CompletableFuture<Boolean> updateDatasetDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+  private CompletableFuture<Boolean> updateDatasetSchemaFieldDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
 
     return CompletableFuture.supplyAsync(() -> {
 
@@ -160,7 +160,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
 
       List<Urn> siblingUrns = SiblingsUtils.getSiblingUrns(targetUrn, _entityService);
 
-      return attemptUpdateDatasetDescription(targetUrn, input, context, new HashSet<>(), siblingUrns);
+      return attemptUpdateDatasetSchemaFieldDescription(targetUrn, input, context, new HashSet<>(), siblingUrns);
     });
   }
 
