@@ -325,6 +325,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def gen_database_containers(
         self,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = gen_database_key(
             database,
@@ -340,12 +341,14 @@ class PrestoOnHiveSource(SQLAlchemySource):
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
+            extra_properties=extra_properties,
         )
 
     def gen_schema_containers(
         self,
         schema: str,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         assert isinstance(self.config, PrestoOnHiveConfig)
         where_clause_suffix: str = ""
@@ -394,6 +397,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
                 report=self.report,
+                extra_properties=extra_properties,
             )
 
     def get_default_ingestion_job_id(self) -> JobId:

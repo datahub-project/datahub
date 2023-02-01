@@ -417,6 +417,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def gen_database_containers(
         self,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = gen_database_key(
             database,
@@ -432,12 +433,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
+            extra_properties=extra_properties,
         )
 
     def gen_schema_containers(
         self,
         schema: str,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
 
         database_container_key = gen_database_key(
@@ -464,6 +467,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
+            extra_properties=extra_properties,
         )
 
     def add_table_to_schema_container(
@@ -517,6 +521,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield from self.gen_schema_containers(
                     database=db_name,
                     schema=schema,
+                    extra_properties=self.get_schema_properties(
+                        inspector=inspector, schema=schema, database=db_name
+                    ),
                 )
 
                 if sql_config.include_tables:

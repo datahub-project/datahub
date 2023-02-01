@@ -9,6 +9,7 @@ ext {
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
             ':docker:kafka-setup',
+            ':datahub-upgrade',
             ':metadata-jobs:mce-consumer-job',
             ':metadata-jobs:mae-consumer-job',
             ':metadata-service:war',
@@ -17,7 +18,7 @@ ext {
 }
 
 task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
-    dependsOn(quickstart_modules.collect { it + ':dockerTag-version' })
+    dependsOn(quickstart_modules.collect { it + ':dockerTag' })
     shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
 
     environment "DATAHUB_TELEMETRY_ENABLED", "false"

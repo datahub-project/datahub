@@ -862,7 +862,14 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity"
+      "doc" : "Tags associated with a given entity",
+      "Searchable" : {
+        "/*/tag" : {
+          "boostScore" : 0.5,
+          "fieldType" : "URN",
+          "queryByDefault" : true
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "globalTags"
@@ -957,7 +964,15 @@
         "type" : "array",
         "items" : "GlossaryTermAssociation"
       },
-      "doc" : "The related business terms"
+      "doc" : "The related business terms",
+      "Searchable" : {
+        "/*/urn" : {
+          "boostScore" : 0.5,
+          "fieldName" : "glossaryTerms",
+          "fieldType" : "URN",
+          "queryByDefault" : true
+        }
+      }
     }, {
       "name" : "auditStamp",
       "type" : "AuditStamp",
@@ -2892,7 +2907,11 @@
                   "fields" : [ {
                     "name" : "platform",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "Data platform urn associated with the dataset"
+                    "doc" : "Data platform urn associated with the dataset",
+                    "Searchable" : {
+                      "enableAutocomplete" : true,
+                      "fieldType" : "URN"
+                    }
                   }, {
                     "name" : "name",
                     "type" : "string",
@@ -6252,6 +6271,11 @@
         }, {
           "name" : "count",
           "type" : "int"
+        }, {
+          "name" : "fulltext",
+          "type" : "boolean",
+          "default" : "true",
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
