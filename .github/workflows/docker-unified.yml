@@ -434,6 +434,7 @@ jobs:
         elasticsearch_setup_build,
         mae_consumer_build,
         mce_consumer_build,
+        datahub_upgrade_build,
       ]
     steps:
       - name: Check out the repo
