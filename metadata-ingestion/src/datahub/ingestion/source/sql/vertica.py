@@ -163,12 +163,23 @@ class VerticaSource(SQLAlchemySource):
                 profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(database=db_name)
+            yield from self.gen_database_containers(
+                database=db_name,
+                extra_properties=self.get_database_properties(
+                    inspector=inspector, database=db_name
+                ),
+            )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(schema=schema, database=db_name)
+                yield from self.gen_schema_containers(
+                    schema=schema,
+                    database=db_name,
+                    extra_properties=self.get_schema_properties(
+                        inspector=inspector, schema=schema, database=db_name
+                    ),
+                )
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)

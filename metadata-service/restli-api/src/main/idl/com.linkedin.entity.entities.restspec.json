@@ -262,6 +262,11 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "fulltext",
+        "type" : "boolean",
+        "default" : "true",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
@@ -287,6 +292,11 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "fulltext",
+        "type" : "boolean",
+        "default" : "true",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
@@ -323,6 +333,11 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "fulltext",
+        "type" : "boolean",
+        "default" : "true",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.LineageSearchResult"
     }, {
