@@ -311,9 +311,9 @@ _P = ParamSpec("_P")
 
 
 def with_telemetry(
-    *, kwargs: Optional[List[str]] = None
+    *, capture_kwargs: Optional[List[str]] = None
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
-    kwargs_to_track = kwargs or []
+    kwargs_to_track = capture_kwargs or []
 
     def with_telemetry_decorator(func: Callable[_P, _T]) -> Callable[_P, _T]:
         function = f"{func.__module__}.{func.__name__}"

@@ -595,7 +595,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 )
 @upgrade.check_upgrade
 @telemetry.with_telemetry(
-    kwargs=[
+    capture_kwargs=[
         "version",
         "build_locally",
         "pull_images",
