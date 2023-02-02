@@ -52,7 +52,7 @@ public class ESSearchDAO {
   @Nonnull
   @WithSpan
   private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest,
-                                         @Nullable Filter filter, int from, int size) {
+      @Nullable Filter filter, int from, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_search").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
