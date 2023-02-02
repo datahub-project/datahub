@@ -5,6 +5,7 @@ import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
@@ -41,7 +42,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
 
     final com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry registry =
-        new com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry();
+            new com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry();
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
     registry.register(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataChangeEventGenerator());
     registry.register(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsChangeEventGenerator());
@@ -49,6 +50,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(OWNERSHIP_ASPECT_NAME, new OwnershipChangeEventGenerator());
     registry.register(INSTITUTIONAL_MEMORY_ASPECT_NAME, new InstitutionalMemoryChangeEventGenerator());
     registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesChangeEventGenerator());
+    registry.register(GLOSSARY_TERM_INFO_ASPECT_NAME, new GlossaryTermInfoChangeEventGenerator());
     registry.register(DOMAINS_ASPECT_NAME, new SingleDomainChangeEventGenerator());
     registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesChangeEventGenerator());
     registry.register(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new EditableDatasetPropertiesChangeEventGenerator());
@@ -72,7 +74,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
 
     // Data Process Instance differs
     registry.register(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-        new DataProcessInstanceRunEventChangeEventGenerator(entityClient, systemAuthentication));
+            new DataProcessInstanceRunEventChangeEventGenerator(entityClient, systemAuthentication));
 
     // TODO: Add ML models.
 
