@@ -162,8 +162,8 @@ public class Neo4jGraphService implements GraphService {
   }
 
   private String generateLineageStatement(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, GraphFilters graphFilters, int maxHops) {
-    final String multiHopTemplateDirect = "MATCH (a {urn: '%s'})-[r:%s*1..%d]->(b) WHERE b:%s RETURN a,r,b";
-    final String multiHopTemplateIndirect = "MATCH (a {urn: '%s'})<-[r:%s*1..%d]-(b) WHERE b:%s RETURN a,r,b";
+    final String multiHopTemplateDirect = "MATCH shortestPath((a {urn: '%s'})-[r:%s*1..%d]->(b)) WHERE (b:%s) AND b.urn <> %s RETURN a,r,b";
+    final String multiHopTemplateIndirect = "MATCH shortestPath((a {urn: '%s'})<-[r:%s*1..%d]-(b)) WHERE (b:%s) AND b.urn <> %s RETURN a,r,b";
 
     List<LineageRegistry.EdgeInfo> edgesToFetch =
             getLineageRegistry().getLineageRelationships(entityUrn.getEntityType(), direction);
@@ -179,8 +179,8 @@ public class Neo4jGraphService implements GraphService {
 
     final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
 
-    final String statementDirect = String.format(multiHopTemplateDirect, entityUrn, upstreamRel, maxHops, allowedEntityTypes);
-    final String statementIndirect = String.format(multiHopTemplateIndirect, entityUrn, dowStreamRel, maxHops, allowedEntityTypes);
+    final String statementDirect = String.format(multiHopTemplateDirect, entityUrn, upstreamRel, maxHops, allowedEntityTypes, entityUrn);
+    final String statementIndirect = String.format(multiHopTemplateIndirect, entityUrn, dowStreamRel, maxHops, allowedEntityTypes, entityUrn);
 
     String statement = null;
     if (upstreamRel.length() > 0 && dowStreamRel.length() > 0) {
