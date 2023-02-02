@@ -22,7 +22,7 @@ public class SearchQueryBuilderTest {
   @Test
   public void testQueryBuilderFulltext() {
     FunctionScoreQueryBuilder result =
-        (FunctionScoreQueryBuilder) SearchQueryBuilder.buildQuery(TestEntitySpecBuilder.getSpec(), "testQuery",
+        (FunctionScoreQueryBuilder) SearchQueryBuilder.buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery",
                 true);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();

@@ -374,7 +374,7 @@ public class SearchRequestHandler {
 
   @WithSpan
   public ScrollResult extractScrollResult(@Nonnull SearchResponse searchResponse, Filter filter, @Nullable String scrollId,
-      @Nonnull String keepAlive, int size) {
+      @Nonnull String keepAlive, int size, boolean supportsPointInTime) {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     List<SearchEntity> resultList = getResults(searchResponse);
     SearchResultMetadata searchResultMetadata = extractSearchResultMetadata(searchResponse, filter);
@@ -383,7 +383,10 @@ public class SearchRequestHandler {
     String nextScrollId = null;
     if (searchHits.length == size) {
       Object[] sort = searchHits[searchHits.length - 1].getSortValues();
-      long expirationTimeMs = TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis() + System.currentTimeMillis();
+      long expirationTimeMs = 0L;
+      if (supportsPointInTime) {
+        expirationTimeMs = TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis() + System.currentTimeMillis();
+      }
       nextScrollId = new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs).toScrollId();
     }
 

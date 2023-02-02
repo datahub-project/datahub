@@ -83,7 +83,7 @@ public class ESSearchDAO {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "executeAndExtract_scroll").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      return SearchRequestHandler.getBuilder(entitySpecs).extractScrollResult(searchResponse, filter, scrollId, keepAlive, size);
+      return SearchRequestHandler.getBuilder(entitySpecs).extractScrollResult(searchResponse, filter, scrollId, keepAlive, size, supportsPointInTime());
     } catch (Exception e) {
       if (e instanceof ElasticsearchStatusException) {
         final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
@@ -257,7 +257,7 @@ public class ESSearchDAO {
   }
 
   private boolean supportsPointInTime() {
-    return pointInTimeCreationEnabled && ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equals(elasticSearchImplementation);
+    return pointInTimeCreationEnabled && ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImplementation);
   }
 
   private String createPointInTime(String[] indexArray, String keepAlive) {
