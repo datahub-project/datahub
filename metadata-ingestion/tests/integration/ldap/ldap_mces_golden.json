@@ -30,6 +30,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Bart"
+                        },
                         "active": true,
                         "displayName": "Bart Simpson",
                         "email": "bsimpson",
@@ -54,6 +57,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Homer"
+                        },
                         "active": true,
                         "displayName": "Homer Simpson",
                         "email": "hsimpson",
@@ -81,6 +87,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Lisa"
+                        },
                         "active": true,
                         "displayName": "Lisa Simpson",
                         "email": "lsimpson",
@@ -104,6 +113,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Maggie"
+                        },
                         "active": true,
                         "displayName": "Maggie Simpson",
                         "email": "msimpson",
@@ -127,6 +139,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Hester"
+                        },
                         "active": true,
                         "displayName": "Hester Bevan",
                         "email": "hbevan",
@@ -150,6 +165,9 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {
+                            "givenName": "Evalyn"
+                        },
                         "active": true,
                         "displayName": "Evalyn Haas",
                         "email": "ehaas",

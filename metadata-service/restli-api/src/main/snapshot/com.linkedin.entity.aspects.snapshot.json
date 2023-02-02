@@ -2302,6 +2302,7 @@
     "name" : "CorpUserInfo",
     "namespace" : "com.linkedin.identity",
     "doc" : "Linkedin corp user information",
+    "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
       "name" : "active",
       "type" : "boolean",
