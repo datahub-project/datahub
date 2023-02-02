@@ -1099,6 +1099,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 },
                 uri=table.get("Location"),
                 tags=[],
+                name=table["Name"],
                 qualifiedName=self.get_glue_arn(
                     account_id=table["CatalogId"],
                     database=table["DatabaseName"],
