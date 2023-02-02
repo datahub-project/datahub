@@ -882,7 +882,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         newSystemMetadata = result != null ? result.getNewSystemMetadata() : null;
       } else {
         // When async is turned on, we write to proposal log and return without waiting
-        _producer.produceMetadataChangeProposal(mcp);
+        _producer.produceMetadataChangeProposal(entityUrn, mcp);
         return new IngestProposalResult(mcp.getEntityUrn(), false, true);
       }
     } else {
