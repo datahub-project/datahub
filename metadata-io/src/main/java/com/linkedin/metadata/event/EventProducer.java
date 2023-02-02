@@ -63,7 +63,8 @@ public interface EventProducer {
    * @param metadataChangeProposal metadata change proposal to push into MCP kafka topic
    */
   @WithSpan
-  void produceMetadataChangeProposal(@Nonnull MetadataChangeProposal metadataChangeProposal);
+  void produceMetadataChangeProposal(@Nonnull final Urn urn, @Nonnull final MetadataChangeProposal
+      metadataChangeProposal);
 
   /**
    * Produces a generic platform "event".
