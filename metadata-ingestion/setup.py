@@ -57,10 +57,7 @@ framework_common = {
     "requests_file",
 }
 
-rest_common = {
-    "requests",
-    "requests_file"
-}
+rest_common = {"requests", "requests_file"}
 
 kafka_common = {
     # The confluent_kafka package provides a number of pre-built wheels for
@@ -265,7 +262,12 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {sqllineage_lib, "sql_metadata", "sqlalchemy-bigquery>=1.4.1", "google-cloud-datacatalog-lineage==0.2.0"},
+    | {
+        sqllineage_lib,
+        "sql_metadata",
+        "sqlalchemy-bigquery>=1.4.1",
+        "google-cloud-datacatalog-lineage==0.2.0",
+    },
     "bigquery-beta": sql_common
     | bigquery_common
     | {
@@ -286,7 +288,7 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
-    "feast": {"feast~=0.26.0", "flask-openid>=1.3.0"},
+    "feast": {"feast~=0.29.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -633,7 +635,6 @@ setuptools.setup(
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
-        "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
         "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
     },
     entry_points=entry_points,
