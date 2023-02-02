@@ -458,6 +458,21 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 
     return quickstart_arch
 
+def get_versions_tags_from_github() -> List[str]:
+    datahub_releases_api = "https://api.github.com/repos/datahub-project/datahub/releases"
+    page = 1
+    releases = []
+    while True:
+        result = requests.get(datahub_releases_api, params={"per_page": 100, "page": 1})
+        if len(result.json()) == 0:
+            break # empty page
+        releases += [release['tag_name'] for release in result.json()]
+    return releases
+
+def get_stable_version():
+    versions = get_versions_tags_from_github()
+    cli_version = datahub.__version__
+    return versions[0] 
 
 @docker.command()
 @click.option(
@@ -602,6 +617,13 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="Launches Kafka setup job as part of the compose deployment",
 )
 @click.option(
+    "--stable",
+    required=False,
+    is_flag=True,
+    default=True,
+    help="Use this flag to use the latest stable version of DataHub matching the CLI version. --version takes precedence over this flag.",
+)
+@click.option(
     "--arch",
     required=False,
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
@@ -629,6 +651,7 @@ def quickstart(
     no_restore_indices: bool,
     standalone_consumers: bool,
     kafka_setup: bool,
+    stable: bool,
     arch: Optional[str],
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
@@ -685,7 +708,8 @@ def quickstart(
             quickstart_arch,
             standalone_consumers,
         )
-
+    if version is None and stable:
+        version = get_stable_version()
     # set version
     _set_environment_variables(
         version=version,
