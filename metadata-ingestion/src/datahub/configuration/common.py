@@ -175,11 +175,7 @@ def should_show_stack_trace(exc: Exception) -> bool:
     if isinstance(exc, ValidationError) or isinstance(exc.__cause__, ValidationError):
         return False
 
-    show_stack_trace = getattr(exc, "SHOW_STACK_TRACE", True)
-    if not show_stack_trace:
-        return False
-
-    return True
+    return getattr(exc, "SHOW_STACK_TRACE", True)
 
 
 class ConfigurationWarning(Warning):
