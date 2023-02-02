@@ -1,16 +1,12 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
-import com.linkedin.data.template.DoubleMap;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
-import com.linkedin.datahub.graphql.generated.SearchInsight;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.datahub.graphql.util.SearchInsightsUtil;
 import com.linkedin.metadata.search.SearchEntity;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
