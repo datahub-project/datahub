@@ -36,9 +36,9 @@ jobs:
           [
             "lint",
             "testQuick",
-            "testIntegration",
+            "testIntegrationBatch0",
             "testIntegrationBatch1",
-            "testSlowIntegration",
+            "testIntegrationBatch2",
           ]
         include:
           - python-version: "3.7"

@@ -470,6 +470,7 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "bigquery",
             "clickhouse",
             "clickhouse-usage",
@@ -492,6 +493,7 @@ base_dev_requirements = {
             "kafka",
             "datahub-rest",
             "datahub-lite",
+            "great-expectations",
             "presto",
             "redash",
             "redshift",
@@ -530,6 +532,7 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
+            "feast" if sys.version_info >= (3, 8) else None,
             "hana",
             "hive",
             "iceberg" if sys.version_info >= (3, 8) else None,
