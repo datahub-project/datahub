@@ -3176,6 +3176,11 @@ type CorpUserInfo {
     two uppercase letters country code
     """
     countryCode: String
+
+    """
+    Custom properties of the ldap
+    """
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -3236,6 +3241,11 @@ type CorpUserProperties {
     two uppercase letters country code
     """
     countryCode: String
+
+    """
+    Custom properties of the ldap
+    """
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -6038,6 +6048,11 @@ type DatasetProfile implements TimeSeriesAspect {
   An optional column count of the Dataset
   """
   columnCount: Long
+
+  """
+  The storage size in bytes
+  """
+  sizeInBytes: Long
 
   """
   An optional set of per field statistics obtained in the profile

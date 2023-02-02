@@ -41,6 +41,8 @@ export const Preview = ({
     container,
     parentContainers,
     rowCount,
+    columnCount,
+    sizeInBytes,
     statsSummary,
     lastUpdatedMs,
 }: {
@@ -65,6 +67,8 @@ export const Preview = ({
     container?: Container | null;
     parentContainers?: ParentContainersResult | null;
     rowCount?: number | null;
+    columnCount?: number | null;
+    sizeInBytes?: number | null;
     statsSummary?: DatasetStatsSummary | null;
     lastUpdatedMs?: number | null;
 }): JSX.Element => {
@@ -97,6 +101,8 @@ export const Preview = ({
             subHeader={
                 <DatasetStatsSummaryView
                     rowCount={rowCount}
+                    columnCount={columnCount}
+                    sizeInBytes={sizeInBytes}
                     queryCountLast30Days={statsSummary?.queryCountLast30Days}
                     uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
                     lastUpdatedMs={lastUpdatedMs}
