@@ -21,5 +21,10 @@ record Downstream {
   /**
    * The type of the lineage
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Lineage Type"
+  }
   type: DatasetLineageType
 }
