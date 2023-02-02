@@ -6,6 +6,7 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
                         "active": true,
                         "displayName": "Bart Simpson",
                         "email": "bsimpson",
