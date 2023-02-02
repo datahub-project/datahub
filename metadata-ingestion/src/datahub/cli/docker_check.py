@@ -26,7 +26,9 @@ ENSURE_EXIT_SUCCESS = [
     "datahub-upgrade",
 ]
 
-# If present, we check that the container is running / exited properly.
+# If present, we check that the container is ok. If it exists
+# in ENSURE_EXIT_SUCCESS, we check that it exited 0. Otherwise,
+# we check that it is running and healthy.
 CONTAINERS_TO_CHECK_IF_PRESENT = [
     "mysql",
     "mysql-setup",
@@ -37,6 +39,7 @@ CONTAINERS_TO_CHECK_IF_PRESENT = [
     "schema-registry",
     "zookeeper",
     "datahub-upgrade",
+    "kafka-setup",
     # "datahub-mce-consumer",
     # "datahub-mae-consumer",
 ]
@@ -116,7 +119,8 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
     total_mem_configured = int(client.info()["MemTotal"])
     if memory_in_gb(total_mem_configured) < MIN_MEMORY_NEEDED:
         raise DockerLowMemoryError(
-            f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB"
+            f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB. "
+            "You can increase the memory allocated to Docker in the Docker settings."
         )
 
 
@@ -125,7 +129,7 @@ class ContainerStatus(enum.Enum):
 
     # For containers that are expected to exit 0.
     STILL_RUNNING = "is still running"
-    EXIT_FAILURE = "did not exit cleanly"
+    EXITED_WITH_FAILURE = "exited with an error"
 
     # For containers that are expected to be running.
     DIED = "is not running"
@@ -210,7 +214,7 @@ def check_docker_quickstart() -> QuickstartStatus:
                 if container.status != "exited":
                     status = ContainerStatus.STILL_RUNNING
                 elif container.attrs["State"]["ExitCode"] != 0:
-                    status = ContainerStatus.EXIT_FAILURE
+                    status = ContainerStatus.EXITED_WITH_FAILURE
 
             elif container.status != "running":
                 status = ContainerStatus.DIED

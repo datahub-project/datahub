@@ -739,7 +739,7 @@ def quickstart(
         logger.info("Finished building docker images!")
 
     # Start it up! (with retries)
-    max_wait_time = datetime.timedelta(minutes=6)
+    max_wait_time = datetime.timedelta(minutes=8)
     start_time = datetime.datetime.now()
     sleep_interval = datetime.timedelta(seconds=2)
     up_interval = datetime.timedelta(seconds=30)

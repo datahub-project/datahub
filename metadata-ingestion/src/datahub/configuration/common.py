@@ -128,7 +128,7 @@ class DynamicTypedConfig(ConfigModel):
     )
 
 
-# TODO: Many of these exception types are fairly specialized any shouldn't live in a common module.
+# TODO: Many of these exception types are fairly specialized and shouldn't live in a common module.
 
 
 class MetaError(Exception):
