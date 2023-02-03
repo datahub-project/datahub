@@ -319,7 +319,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         urnStr, direction, entityList, input);
     return RestliUtil.toTask(() -> validateLineageSearchResult(
         _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
-            filter, sortCriterion, start, count), _entityService), "searchAcrossRelationships");
+            filter, sortCriterion, start, count, null, null), _entityService), "searchAcrossRelationships");
   }
 
   @Action(name = ACTION_LIST)
