@@ -1,6 +1,6 @@
 import { Affix } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useGetBrowsePathsQuery } from '../../../../../../graphql/browse.generated';
 import { EntityType } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';

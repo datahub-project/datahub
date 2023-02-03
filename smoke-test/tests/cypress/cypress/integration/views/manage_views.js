@@ -6,7 +6,7 @@ describe("manage views", () => {
         cy.goToViewsSettings();
 
         cy.clickOptionWithText("Create new View");
-        cy.get(".ant-form-item-control-input-content > input[type='text']").first().type(viewName);
+        cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(viewName);
         cy.clickOptionWithTestId("view-builder-save");
 
         // Confirm that the test has been created.
@@ -15,7 +15,7 @@ describe("manage views", () => {
         // Now edit the View
         cy.clickFirstOptionWithTestId("views-table-dropdown");
         cy.get('[data-testid="view-dropdown-edit"]').click({ force: true });
-        cy.get(".ant-form-item-control-input-content > input[type='text']").first().clear().type("New View Name");
+        cy.get(".ant-input-affix-wrapper > input[type='text']").first().clear().type("New View Name");
         cy.clickOptionWithTestId("view-builder-save");
         cy.waitTextVisible("New View Name");
 

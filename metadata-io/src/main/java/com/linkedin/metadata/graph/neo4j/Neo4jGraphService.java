@@ -6,7 +6,6 @@ import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -24,7 +23,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,7 +40,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
-
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
@@ -108,6 +105,11 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Override
+  public void upsertEdge(final Edge edge) {
+    throw new UnsupportedOperationException("Upsert edge not supported by Neo4JGraphService at this time.");
+  }
+
+  @Override
   public void removeEdge(final Edge edge) {
     throw new UnsupportedOperationException("Remove edge not supported by Neo4JGraphService at this time.");
   }
@@ -115,7 +117,7 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   @Override
   public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
-                                        GraphFilters graphFilters, int offset, int count, int maxHops) {
+      GraphFilters graphFilters, int offset, int count, int maxHops) {
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
 
     final String statement = generateLineageStatement(entityUrn, direction, graphFilters, maxHops);

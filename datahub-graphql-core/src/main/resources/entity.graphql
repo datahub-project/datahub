@@ -803,6 +803,14 @@ input LineageInput {
     Optional flag to not merge siblings in the response. They are merged by default.
     """
     separateSiblings: Boolean
+    """
+    An optional starting time to filter on
+    """
+    startTimeMillis: Long
+    """
+    An optional ending time to filter on
+    """
+    endTimeMillis: Long
 }
 
 """
@@ -934,6 +942,22 @@ type LineageRelationship {
     The actor who created this lineage relationship. Could be null.
     """
     createdActor: Entity
+
+    """
+    Timestamp for when this lineage relationship was last updated. Could be null.
+    """
+    updatedOn: Long
+
+    """
+    The actor who last updated this lineage relationship. Could be null.
+    """
+    updatedActor: Entity
+
+    """
+    Whether this edge is a manual edge. Could be null.
+    """
+    isManual: Boolean
+
 }
 
 """
@@ -6048,6 +6072,11 @@ type DatasetProfile implements TimeSeriesAspect {
   An optional column count of the Dataset
   """
   columnCount: Long
+
+  """
+  The storage size in bytes
+  """
+  sizeInBytes: Long
 
   """
   An optional set of per field statistics obtained in the profile

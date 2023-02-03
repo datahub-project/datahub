@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Badge, Breadcrumb, Row } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { InfoCircleOutlined, PartitionOutlined } from '@ant-design/icons';
 import { grey, blue } from '@ant-design/colors';
 import { EntityType } from '../../../../../../types.generated';

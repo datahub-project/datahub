@@ -61,8 +61,12 @@ const CliBadge = styled.span`
         margin-right: 5px;
     }
 `;
+interface TypeColumnProps {
+    type: string;
+    record: any;
+}
 
-export function TypeColumn(type: string, record: any) {
+export function TypeColumn({ type, record }: TypeColumnProps) {
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
 

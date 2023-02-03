@@ -419,18 +419,14 @@ class AzureADSource(Source):
         for user_count, datahub_corp_user_snapshot in enumerate(
             datahub_corp_user_snapshots
         ):
-            # Add GroupMembership if applicable
-            if (
-                datahub_corp_user_snapshot.urn
-                in datahub_corp_user_urn_to_group_membership.keys()
-            ):
-                datahub_group_membership = (
-                    datahub_corp_user_urn_to_group_membership.get(
-                        datahub_corp_user_snapshot.urn
-                    )
-                )
-                assert datahub_group_membership
-                datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
+            # TODO: Refactor common code between this and Okta to a common base class or utils
+            # Add group membership aspect
+            datahub_group_membership: GroupMembershipClass = (
+                datahub_corp_user_urn_to_group_membership[
+                    datahub_corp_user_snapshot.urn
+                ]
+            )
+            datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
             mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
             wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
             wu = MetadataWorkUnit(id=wu_id, mce=mce)
