@@ -42,7 +42,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
 
     final com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry registry =
-            new com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry();
+        new com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry();
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
     registry.register(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataChangeEventGenerator());
     registry.register(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsChangeEventGenerator());
@@ -74,7 +74,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
 
     // Data Process Instance differs
     registry.register(DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
-            new DataProcessInstanceRunEventChangeEventGenerator(entityClient, systemAuthentication));
+        new DataProcessInstanceRunEventChangeEventGenerator(entityClient, systemAuthentication));
 
     // TODO: Add ML models.
 

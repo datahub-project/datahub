@@ -17,9 +17,9 @@ For the visually inclined, here is a conceptual diagram that illustrates how to 
 ![../imgs/timeline/timeline-conceptually.png](../imgs/timeline/timeline-conceptually.png)
 
 ## Change Event
-Each modification is modeled as a
+Each modification is modeled as a 
 [ChangeEvent](../../metadata-io/src/main/java/com/linkedin/metadata/timeline/data/ChangeEvent.java)
-which are grouped under [ChangeTransactions](../../metadata-io/src/main/java/com/linkedin/metadata/timeline/data/ChangeTransaction.java)
+which are grouped under [ChangeTransactions](../../metadata-io/src/main/java/com/linkedin/metadata/timeline/data/ChangeTransaction.java) 
 based on timestamp. A `ChangeEvent` consists of:
 
 - `changeType`: An operational type for the change, either `ADD`, `MODIFY`, or `REMOVE`
@@ -34,7 +34,7 @@ based on timestamp. A `ChangeEvent` consists of:
 - A tag was applied to a *field* of a dataset through the UI:
   - `changeType`: `ADD`
   - `target`: `urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:<platform>,<name>,<fabric_type>),<fieldPath>)` -> The field the tag is being added to
-  - `category`: `TAG`
+  - `category`: `TAG` 
   - `elementId`: `urn:li:tag:<tagName>` -> The ID of the tag being added
   - `semVerChange`: `MINOR`
 - A tag was added directly at the top-level to a dataset through the UI:
@@ -48,8 +48,8 @@ Note the `target` and `elementId` fields in the examples above to familiarize yo
 
 ## Change Transaction
 Each `ChangeTransaction` is assigned a computed semantic version based on the `ChangeEvents` that occurred within it,
-starting at `0.0.0` and updating based on whether the most significant change in the transaction is a `MAJOR`, `MINOR`, or
-`PATCH` change. The logic for what changes constitute a Major, Minor or Patch change are encoded in the category specific `Differ` implementation.
+starting at `0.0.0` and updating based on whether the most significant change in the transaction is a `MAJOR`, `MINOR`, or 
+`PATCH` change. The logic for what changes constitute a Major, Minor or Patch change are encoded in the category specific `Differ` implementation. 
 For example, the [SchemaMetadataDiffer](../../metadata-io/src/main/java/com/linkedin/metadata/timeline/eventgenerator/SchemaMetadataChangeEventGenerator.java) has baked-in logic for determining what level of semantic change an event is based on backwards and forwards incompatibility. Read on to learn about the different categories of changes, and how semantic changes are interpreted in each.
 
 # Categories
@@ -59,8 +59,8 @@ The Dataset entity currently supports the following categories:
 
 ## Technical Schema
 
-- Any structural changes in the technical schema of the dataset, such as adding, dropping, renaming columns.
-- Driven by the `schemaMetadata` aspect.
+- Any structural changes in the technical schema of the dataset, such as adding, dropping, renaming columns. 
+- Driven by the `schemaMetadata` aspect. 
 - Changes are marked with the appropriate semantic version marker based on well-understood rules for backwards and forwards compatibility.
 
 **_NOTE_**: Changes in field descriptions are not communicated via this category, use the Documentation category for that.
@@ -95,8 +95,8 @@ http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3Adat
 
 ## Ownership
 
-- Any changes in ownership of the dataset, adding an owner, or changing the type of the owner.
-- Driven by the `ownership` aspect.
+- Any changes in ownership of the dataset, adding an owner, or changing the type of the owner. 
+- Driven by the `ownership` aspect. 
 - All changes are currently marked as `MINOR`.
 
 ### Example Usage
@@ -141,7 +141,7 @@ http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3Adat
 
 ## Tags
 
-- Any changes in tags applied to the dataset or to fields of the dataset.
+- Any changes in tags applied to the dataset or to fields of the dataset. 
 - Driven by the `schemaMetadata`, `editableSchemaMetadata` and `globalTags` aspects.
 - All changes are currently marked as `MINOR`.
 
@@ -169,7 +169,7 @@ http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3Adat
 
 ## Documentation
 
-- Any changes to documentation at the dataset level or at the field level.
+- Any changes to documentation at the dataset level or at the field level. 
 - Driven by the `datasetProperties`, `institutionalMemory`, `schemaMetadata` and `editableSchemaMetadata`.
 - Addition or removal of documentation or links is marked as `MINOR` while edits to existing documentation are marked as `PATCH` changes.
 
@@ -198,7 +198,7 @@ http://localhost:8080/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3Adat
 
 ## Glossary Terms
 
-- Any changes to applied glossary terms to the dataset or to fields in the dataset.
+- Any changes to applied glossary terms to the dataset or to fields in the dataset. 
 - Driven by the `schemaMetadata`, `editableSchemaMetadata`, `glossaryTerms` aspects.
 - All changes are currently marked as `MINOR`.
 
