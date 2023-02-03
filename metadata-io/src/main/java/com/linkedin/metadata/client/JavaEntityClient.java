@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
@@ -31,7 +32,6 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -55,7 +55,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -351,7 +350,21 @@ public class JavaEntityClient implements EntityClient {
         throws RemoteInvocationException {
         return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-                sortCriterion, start, count), _entityService);
+                sortCriterion, start, count, null, null), _entityService);
+    }
+
+    @Nonnull
+    @Override
+    public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+        @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
+            @Nullable SortCriterion sortCriterion, int start, int count, @Nullable Long startTimeMillis,
+            @Nullable Long endTimeMillis,
+        @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+        return ValidationUtils.validateLineageSearchResult(
+            _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
+                        sortCriterion, start, count, startTimeMillis, endTimeMillis),
+                _entityService);
     }
 
     /**
@@ -362,7 +375,8 @@ public class JavaEntityClient implements EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
       return new StringArray(_entitySearchService.getBrowsePaths(urn.getEntityType(), urn));
     }
 

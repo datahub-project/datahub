@@ -455,6 +455,32 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
+  @Nonnull
+  @Override
+  public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
+      @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Long startTimeMillis,
+      @Nonnull final Long endTimeMillis, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+
+    final EntitiesDoSearchAcrossLineageRequestBuilder requestBuilder =
+        ENTITIES_REQUEST_BUILDERS.actionSearchAcrossLineage()
+            .urnParam(sourceUrn.toString())
+            .directionParam(direction.name())
+            .inputParam(input)
+            .startParam(start)
+            .countParam(count);
+
+    if (entities != null) {
+      requestBuilder.entitiesParam(new StringArray(entities));
+    }
+    if (filter != null) {
+      requestBuilder.filterParam(filter);
+    }
+
+    return sendClientRequest(requestBuilder, authentication).getEntity();
+  }
+
   /**
    * Gets browse path(s) given dataset urn
    *

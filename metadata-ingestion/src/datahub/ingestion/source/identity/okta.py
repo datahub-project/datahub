@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 import urllib
+from collections import defaultdict
 from dataclasses import dataclass, field
 from time import sleep
 from typing import Dict, Iterable, List, Optional, Union
@@ -31,7 +32,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     CorpUserSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (  # GroupMembershipClass,
+from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
@@ -316,7 +317,9 @@ class OktaSource(Source):
                 yield group_status_wu
 
         # Step 2: Populate GroupMembership Aspects for CorpUsers
-        datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = {}
+        datahub_corp_user_urn_to_group_membership: Dict[
+            str, GroupMembershipClass
+        ] = defaultdict(lambda: GroupMembershipClass(groups=[]))
         if self.config.ingest_group_membership and okta_groups is not None:
             # Fetch membership for each group.
             for okta_group in okta_groups:
@@ -341,20 +344,10 @@ class OktaSource(Source):
                         self.report.report_failure("okta_user_mapping", error_str)
                         continue
 
-                    # Either update or create the GroupMembership aspect for this group member.
-                    # TODO: Production of the GroupMembership aspect will overwrite the existing
-                    # group membership for the DataHub user.
-                    if (
+                    # Update the GroupMembership aspect for this group member.
+                    datahub_corp_user_urn_to_group_membership[
                         datahub_corp_user_urn
-                        in datahub_corp_user_urn_to_group_membership
-                    ):
-                        datahub_corp_user_urn_to_group_membership[
-                            datahub_corp_user_urn
-                        ].groups.append(datahub_corp_group_urn)
-                    else:
-                        datahub_corp_user_urn_to_group_membership[
-                            datahub_corp_user_urn
-                        ] = GroupMembershipClass(groups=[datahub_corp_group_urn])
+                    ].groups.append(datahub_corp_group_urn)
 
         # Step 3: Produce MetadataWorkUnits for CorpUsers.
         if self.config.ingest_users:
@@ -364,18 +357,15 @@ class OktaSource(Source):
             for user_count, datahub_corp_user_snapshot in enumerate(
                 datahub_corp_user_snapshots
             ):
-                # Add GroupMembership aspect populated in Step 2 if applicable.
-                if (
-                    datahub_corp_user_snapshot.urn
-                    in datahub_corp_user_urn_to_group_membership
-                ):
-                    datahub_group_membership = (
-                        datahub_corp_user_urn_to_group_membership.get(
-                            datahub_corp_user_snapshot.urn
-                        )
-                    )
-                    assert datahub_group_membership is not None
-                    datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
+                # TODO: Refactor common code between this and Okta to a common base class or utils
+                # Add GroupMembership aspect populated in Step 2.
+                datahub_group_membership: GroupMembershipClass = (
+                    datahub_corp_user_urn_to_group_membership[
+                        datahub_corp_user_snapshot.urn
+                    ]
+                )
+                assert datahub_group_membership is not None
+                datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
                 wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
                 wu = MetadataWorkUnit(id=wu_id, mce=mce)
