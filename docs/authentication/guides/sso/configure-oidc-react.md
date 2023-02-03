@@ -137,6 +137,9 @@ AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
   is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id
   as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4)
 
+Additional OIDC Options:
+
+- `AUTH_OIDC_PREFERRED_JWS_ALGORITHM` - Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`.
 
 ##### User & Group Provisioning (JIT Provisioning)
 

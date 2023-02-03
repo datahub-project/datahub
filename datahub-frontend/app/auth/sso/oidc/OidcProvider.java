@@ -65,6 +65,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     _oidcConfigs.getUseNonce().ifPresent(oidcConfiguration::setUseNonce);
     _oidcConfigs.getCustomParamResource()
         .ifPresent(value -> oidcConfiguration.setCustomParams(ImmutableMap.of("resource", value)));
+    _oidcConfigs.getPreferredJwsAlgorithm().ifPresent(oidcConfiguration::setPreferredJwsAlgorithm);
 
     final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration);
     oidcClient.setName(OIDC_CLIENT_NAME);
