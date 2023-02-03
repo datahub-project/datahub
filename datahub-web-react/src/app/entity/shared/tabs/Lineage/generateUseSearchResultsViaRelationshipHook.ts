@@ -5,9 +5,13 @@ import { GetSearchResultsParams } from '../../components/styled/search/types';
 export default function generateUseSearchResultsViaRelationshipHook({
     urn,
     direction,
+    startTimeMillis,
+    endTimeMillis,
 }: {
     urn: string;
     direction: LineageDirection;
+    startTimeMillis?: number;
+    endTimeMillis?: number;
 }) {
     return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
         const {
@@ -27,6 +31,8 @@ export default function generateUseSearchResultsViaRelationshipHook({
                     count,
                     filters,
                     orFilters,
+                    startTimeMillis: startTimeMillis || undefined,
+                    endTimeMillis: endTimeMillis || undefined,
                 },
             },
         });

@@ -181,26 +181,31 @@ def delete(
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
-        references_count, related_aspects = delete_references(
-            urn, dry_run=True, cached_session_host=(session, host)
-        )
-        remove_references: bool = False
-
-        if (not force) and references_count > 0:
-            click.echo(
-                f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+        if not aspect_name:
+            references_count, related_aspects = delete_references(
+                urn, dry_run=True, cached_session_host=(session, host)
             )
-            click.echo(
-                tabulate(
-                    [x.values() for x in related_aspects],
-                    ["relationship", "entity", "aspect"],
-                    tablefmt="grid",
+            remove_references: bool = False
+
+            if (not force) and references_count > 0:
+                click.echo(
+                    f"This urn was referenced in {references_count} other aspects across your metadata graph:"
                 )
-            )
-            remove_references = click.confirm("Do you want to delete these references?")
+                click.echo(
+                    tabulate(
+                        [x.values() for x in related_aspects],
+                        ["relationship", "entity", "aspect"],
+                        tablefmt="grid",
+                    )
+                )
+                remove_references = click.confirm(
+                    "Do you want to delete these references?"
+                )
 
-        if force or remove_references:
-            delete_references(urn, dry_run=False, cached_session_host=(session, host))
+            if force or remove_references:
+                delete_references(
+                    urn, dry_run=False, cached_session_host=(session, host)
+                )
 
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
