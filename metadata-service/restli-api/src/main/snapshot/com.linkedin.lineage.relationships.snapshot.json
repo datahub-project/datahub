@@ -140,12 +140,27 @@
           }, {
             "name" : "createdOn",
             "type" : "long",
-            "doc" : "Timestamp for when this lineage relationship wa created. Could be null.",
+            "doc" : "Timestamp for when this lineage relationship was created. Could be null.",
             "optional" : true
           }, {
             "name" : "createdActor",
             "type" : "com.linkedin.common.Urn",
             "doc" : "Urn of the actor that created this lineage relationship. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "updatedOn",
+            "type" : "long",
+            "doc" : "Timestamp for when this lineage relationship was last updated. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "updatedActor",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "Urn of the actor that last updated this lineage relationship. Could be null.",
+            "optional" : true
+          }, {
+            "name" : "isManual",
+            "type" : "boolean",
+            "doc" : "Whether this lineage edge is a manual edge.",
             "optional" : true
           } ]
         }

@@ -9,6 +9,7 @@ REQUIRED_CONTAINERS = [
     "elasticsearch",
     "datahub-gms",
     "datahub-frontend-react",
+    "datahub-upgrade",
     "schema-registry",
     "broker",
     "zookeeper",
@@ -25,6 +26,7 @@ ENSURE_EXIT_SUCCESS = [
     "kafka-setup",
     "elasticsearch-setup",
     "mysql-setup",
+    "datahub-upgrade",
 ]
 
 CONTAINERS_TO_CHECK_IF_PRESENT = [
