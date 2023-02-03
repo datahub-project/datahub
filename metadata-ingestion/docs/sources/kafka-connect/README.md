@@ -12,9 +12,9 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 | Source Concept              | DataHub Concept                                               | Notes                                                                       |
 | --------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `"kafka-connect"`                 | [Data Platform](../../metamodel/entities/dataPlatform.md)     |                                                                             |
-| [Connector](https://kafka.apache.org/documentation/#connect_connectorsandtasks)         | [DataFlow](../../metamodel/entities/dataflow.md)                | |
-| Kafka Topic         | [Dataset](../../metamodel/entities/dataset.md)                | |
+| `"kafka-connect"`                 | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataPlatform/)     |                                                                             |
+| [Connector](https://kafka.apache.org/documentation/#connect_connectorsandtasks)         | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/)                | |
+| Kafka Topic         | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                | |
 
 ## Current limitations
 
