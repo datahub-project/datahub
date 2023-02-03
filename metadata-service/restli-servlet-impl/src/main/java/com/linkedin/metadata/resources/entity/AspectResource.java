@@ -97,7 +97,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       final VersionedAspect aspect = _entityService.getVersionedAspect(urn, aspectName, version);
       if (aspect == null) {
-        throw RestliUtil.resourceNotFoundException();
+        throw RestliUtil.resourceNotFoundException(String.format("Did not find urn: %s aspect: %s version: %s", urn, aspectName, version));
       }
       return new AnyRecord(aspect.data());
     }, MetricRegistry.name(this.getClass(), "get"));
