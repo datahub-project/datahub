@@ -456,7 +456,11 @@ public class ESIndexBuilder {
         }
       }
     } catch (Exception e) {
-      log.info("Failed to get orphaned indices with pattern {}: Exception {}", indexState.indexCleanPattern(), e.toString());
+      if (e.getMessage().contains("index_not_found_exception")) {
+        log.info("No orphaned indices found with pattern {}", indexState.indexCleanPattern());
+      } else {
+        log.error("An error occurred when trying to identify orphaned indices. Exception: {}", e.getMessage());
+      }
     }
     return orphanedIndices;
   }
