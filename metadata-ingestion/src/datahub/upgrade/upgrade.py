@@ -235,7 +235,7 @@ def valid_server_version(version: Version) -> bool:
 
 def is_client_server_compatible(client: VersionStats, server: VersionStats) -> int:
     """
-    -ve implies client is behind server
+    -ve implies server is behind client
     0 implies client and server are aligned
     +ve implies server is ahead of client
     """
@@ -244,7 +244,12 @@ def is_client_server_compatible(client: VersionStats, server: VersionStats) -> i
     ):
         # we cannot evaluate compatibility, choose True as default
         return 0
-    return server.version.micro - client.version.micro
+    if server.version.major != client.version.major:
+        return server.version.major - client.version.major
+    elif server.version.minor != client.version.minor:
+        return server.version.minor - client.version.minor
+    else:
+        return server.version.micro - client.version.micro
 
 
 def maybe_print_upgrade_message(  # noqa: C901
