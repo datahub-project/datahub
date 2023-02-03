@@ -162,7 +162,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           aspectNames == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(aspectNames));
       final Entity entity = _entityService.getEntity(urn, projectedAspects);
       if (entity == null) {
-        throw RestliUtil.resourceNotFoundException();
+        throw RestliUtil.resourceNotFoundException(String.format("Did not find %s", urnStr));
       }
       return new AnyRecord(entity.data());
     }, MetricRegistry.name(this.getClass(), "get"));
