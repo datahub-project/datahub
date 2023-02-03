@@ -78,9 +78,15 @@ class BigQueryV2Config(
     )
 
     number_of_datasets_process_in_batch: int = Field(
+        default=2000,
+        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+    )
+
+    number_of_partitioned_datasets_process_in_batch: int = Field(
         default=80,
         description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
+
     column_limit: int = Field(
         default=300,
         description="Maximum number of columns to process in a table. This is a low level config property which should be touched with care. This restriction is needed because excessively wide tables can result in failure to ingest the schema.",

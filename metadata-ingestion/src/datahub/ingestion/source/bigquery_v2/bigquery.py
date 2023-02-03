@@ -1043,7 +1043,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not bigquery_tables:
             with PerfTimer() as timer:
                 bigquery_tables = []
-                table_count: int = 0
+                partitioned_table_count_in_this_batch: int = 0
+                table_count_in_this_batch: int = 0
                 table_items: Dict[str, TableListItem] = {}
                 # Dict to store sharded table and the last seen max shard id
                 sharded_tables: Dict[str, TableListItem] = defaultdict()
@@ -1097,7 +1098,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                                 sharded_tables[table_name] = table
                             continue
                     else:
-                        table_count = table_count + 1
+                        if (
+                            table.time_partitioning
+                            or "range_partitioning" in table._properties
+                        ):
+                            partitioned_table_count_in_this_batch = (
+                                partitioned_table_count_in_this_batch + 1
+                            )
                         table_items[table.table_id] = table
 
                     if str(table_identifier).startswith(
@@ -1109,9 +1116,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         self.report.report_dropped(table_identifier.raw_table_name())
                         continue
 
+                    table_count_in_this_batch += 1
+
                     if (
-                        table_count % self.config.number_of_datasets_process_in_batch
-                        == 0
+                        table_count_in_this_batch
+                        % self.config.number_of_datasets_process_in_batch
+                        or (
+                            partitioned_table_count_in_this_batch > 0
+                            and partitioned_table_count_in_this_batch
+                            % self.config.number_of_partitioned_datasets_process_in_batch
+                            == 0
+                        )
                     ):
                         bigquery_tables.extend(
                             BigQueryDataDictionary.get_tables_for_dataset(
@@ -1122,6 +1137,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                                 with_data_read_permission=self.config.profiling.enabled,
                             )
                         )
+                        partitioned_table_count_in_this_batch = 0
                         table_items.clear()
 
                 # Sharded tables don't have partition keys, so it is safe to add to the list as
