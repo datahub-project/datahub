@@ -11,14 +11,9 @@ import com.linkedin.data.schema.annotation.DataSchemaRichContextTraverser;
 import com.linkedin.data.schema.annotation.PegasusSchemaAnnotationHandlerImpl;
 import com.linkedin.data.schema.annotation.SchemaAnnotationHandler;
 import com.linkedin.data.schema.annotation.SchemaAnnotationProcessor;
+import com.linkedin.data.schema.annotation.SearchableAnnotationHandlerImpl;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.models.annotation.AspectAnnotation;
-import com.linkedin.metadata.models.annotation.EntityAnnotation;
-import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
-import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
-import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -26,6 +21,14 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import com.linkedin.metadata.models.annotation.AspectAnnotation;
+import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
+import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldAnnotation;
+import com.linkedin.metadata.models.annotation.TimeseriesFieldCollectionAnnotation;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -37,9 +40,9 @@ public class EntitySpecBuilder {
   private static final String TIMESTAMP_FIELD_NAME = "timestampMillis";
 
   public static SchemaAnnotationHandler _searchHandler =
-      new PegasusSchemaAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
+      new SearchableAnnotationHandlerImpl(SearchableAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _searchScoreHandler =
-      new PegasusSchemaAnnotationHandlerImpl(SearchScoreAnnotation.ANNOTATION_NAME);
+      new SearchableAnnotationHandlerImpl(SearchScoreAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _relationshipHandler =
       new PegasusSchemaAnnotationHandlerImpl(RelationshipAnnotation.ANNOTATION_NAME);
   public static SchemaAnnotationHandler _timeseriesFiledAnnotationHandler =

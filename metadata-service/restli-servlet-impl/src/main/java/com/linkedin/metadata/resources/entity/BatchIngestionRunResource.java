@@ -9,10 +9,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
@@ -40,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -271,12 +268,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         proposal.setAspect(GenericRecordUtils.serializeAspect(requestResult));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(proposal),
-                AspectUtils.getAdditionalChanges(proposal, _entityService).stream());
-
-        _entityService.ingestProposal(AspectsBatch.builder()
-                        .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
-                        .build(),
+        _entityService.ingestSingleProposal(proposal,
                 new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
                 false);
       }

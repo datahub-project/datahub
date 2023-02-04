@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -77,7 +76,7 @@ public class EbeanRetentionService extends RetentionService {
         Retention retentionPolicy = context.getRetentionPolicy().get();
 
         if (retentionPolicy.hasVersion()) {
-          applied = getVersionBasedRetentionQuery(context.getUrn(), context.getAspectName(),
+          boolean appliedVersion = getVersionBasedRetentionQuery(context.getUrn(), context.getAspectName(),
                   retentionPolicy.getVersion(), context.getMaxVersion())
                   .map(expr ->
                           deleteQuery.and()
@@ -86,6 +85,8 @@ public class EbeanRetentionService extends RetentionService {
                                   .add(expr)
                                   .endAnd()
                   ).isPresent();
+
+          applied = appliedVersion || applied;
         }
 
         if (retentionPolicy.hasTime()) {

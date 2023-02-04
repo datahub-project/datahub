@@ -84,6 +84,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.EntityNotFoundException;
+
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -374,8 +375,7 @@ public class EntityService {
         .map(UrnUtils::getUrn).collect(Collectors.toSet()));
   }
 
-  private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspectIdentifier> dbKeys, Set<Urn> urns)
-      throws URISyntaxException {
+  private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspectIdentifier> dbKeys, Set<Urn> urns) {
 
     final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
 
@@ -729,33 +729,27 @@ public class EntityService {
     final SystemMetadata oldSystemMetadata = result.getOldSystemMetadata();
     final SystemMetadata updatedSystemMetadata = result.getNewSystemMetadata();
 
-    // Produce MCL after a successful update
-    if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
-      log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
-      String entityName = urnToEntityName(urn);
-      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
-      AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-      if (aspectSpec == null) {
-        throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
-      }
+    log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
+    String entityName = urnToEntityName(urn);
+    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    if (aspectSpec == null) {
+      throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
+    }
 
     Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
     produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
         updatedSystemMetadata, result.getAuditStamp(), ChangeType.UPSERT);
     produceMCLTimer.stop();
 
-      // For legacy reasons, keep producing to the MAE event stream without blocking ingest
-      try {
-        Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
-        produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
-            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
-        produceMAETimer.stop();
-      } catch (Exception e) {
-        log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema. Aspect: " + aspectName, e);
-      }
-    } else {
-      log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.",
-        aspectName, urn);
+    // For legacy reasons, keep producing to the MAE event stream without blocking ingest
+    try {
+      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
+      produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
+          result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+      produceMAETimer.stop();
+    } catch (Exception e) {
+      log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema.", e);
     }
     return updatedValue;
   }
@@ -815,7 +809,7 @@ public class EntityService {
 
     return nonTimeseries.stream().map(item -> {
       // When async is turned on, we write to proposal log and return without waiting
-      _producer.produceMetadataChangeProposal(item.getMcp());
+      _producer.produceMetadataChangeProposal(item.getUrn(), item.getMcp());
       return Pair.of(item, new IngestProposalResult(item.getUrn(), false, true));
     });
   }
@@ -832,7 +826,7 @@ public class EntityService {
 
     Stream<Pair<AspectsBatchItem, UpdateAspectResult>> patches = aspectsBatch.getItems().stream()
             .filter(item -> item.getMcp().getChangeType() == ChangeType.PATCH)
-            .map(item -> Pair.of(item, performPatch(item.getMcp(), item.getAspectSpec(), item.getSystemMetadata(),
+            .map(item -> Pair.of(item, performPatch(item.getMcp(), item.getAspectSpec(), item.getSystemMetadata(), 
                     item.getUrn(), auditStamp)));
 
     List<AspectsBatchItem> upsertItems = aspectsBatch.getItems()
@@ -870,7 +864,7 @@ public class EntityService {
     // Limit initial support to defined templates
     return AspectTemplateEngine.SUPPORTED_TEMPLATES.contains(aspectSpec.getName());
   }
-
+  
 
   private Patch convertToJsonPatch(MetadataChangeProposal mcp) {
     JsonNode json;
@@ -901,7 +895,7 @@ public class EntityService {
   }
 
   public String batchApplyRetention(Integer start, Integer count, Integer attemptWithVersion, String aspectName,
-                                    String urn) {
+      String urn) {
     BulkApplyRetentionArgs args = new BulkApplyRetentionArgs();
     if (start == null) {
       start = 0;
@@ -925,9 +919,7 @@ public class EntityService {
       RecordTemplate newAspect, SystemMetadata newSystemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn,
       AuditStamp auditStamp, AspectSpec aspectSpec) {
-
-    if (oldAspect != newAspect || _alwaysEmitAuditEvent) {
-      log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
+    log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
     final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
     metadataChangeLog.setEntityUrn(entityUrn);
