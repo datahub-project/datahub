@@ -19,14 +19,11 @@ import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataPlatformInstanceKey;
 
 import javax.annotation.Nonnull;
-
-import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME;
 
 public class DataPlatformInstanceMapper {
 
@@ -39,47 +36,37 @@ public class DataPlatformInstanceMapper {
   public DataPlatformInstance apply(@Nonnull final EntityResponse entityResponse) {
     final DataPlatformInstance result = new DataPlatformInstance();
     final Urn entityUrn = entityResponse.getUrn();
-    final EnvelopedAspectMap aspects = entityResponse.getAspects();
-
     result.setUrn(entityUrn.toString());
     result.setType(EntityType.DATA_PLATFORM_INSTANCE);
 
+    final EnvelopedAspectMap aspects = entityResponse.getAspects();
     MappingHelper<DataPlatformInstance> mappingHelper = new MappingHelper<>(aspects, result);
-    mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME, this::mapDataPlatformInstanceKey);
-
-    final EnvelopedAspect envelopedDataPlatformInstanceProperties = aspects.get(Constants.DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME);
-    if (envelopedDataPlatformInstanceProperties != null) {
-      result.setProperties(mapDataPlatformInstanceProperties(
-              new DataPlatformInstanceProperties(envelopedDataPlatformInstanceProperties.getValue().data()), entityUrn)
-      );
-    }
-
-    final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
-    if (envelopedOwnership != null) {
-      result.setOwnership(OwnershipMapper.map(new Ownership(envelopedOwnership.getValue().data()), entityUrn));
-    }
-
-    final EnvelopedAspect envelopedTags = aspects.get(Constants.GLOBAL_TAGS_ASPECT_NAME);
-    if (envelopedTags != null) {
-      com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(envelopedTags.getValue().data()), entityUrn);
-      result.setTags(globalTags);
-    }
-
-    final EnvelopedAspect envelopedInstitutionalMemory = aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
-    if (envelopedInstitutionalMemory != null) {
-      result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data())));
-    }
-
-    final EnvelopedAspect statusAspect = aspects.get(Constants.STATUS_ASPECT_NAME);
-    if (statusAspect != null) {
-      result.setStatus(StatusMapper.map(new Status(statusAspect.getValue().data())));
-    }
-
-    final EnvelopedAspect envelopedDeprecation = aspects.get(Constants.DEPRECATION_ASPECT_NAME);
-    if (envelopedDeprecation != null) {
-      result.setDeprecation(DeprecationMapper.map(new Deprecation(envelopedDeprecation.getValue().data())));
-    }
-
+    mappingHelper.mapToResult(Constants.DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME,
+            this::mapDataPlatformInstanceKey
+    );
+    mappingHelper.mapToResult(Constants.DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME,
+            (dataPlatformInstance, dataMap) ->
+                    this.mapDataPlatformInstanceProperties(dataPlatformInstance, dataMap, entityUrn)
+    );
+    mappingHelper.mapToResult(Constants.OWNERSHIP_ASPECT_NAME,
+            (dataPlatformInstance, dataMap) ->
+                    dataPlatformInstance.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn))
+    );
+    mappingHelper.mapToResult(Constants.GLOBAL_TAGS_ASPECT_NAME,
+            (dataPlatformInstance, dataMap) -> this.mapGlobalTags(dataPlatformInstance, dataMap, entityUrn)
+    );
+    mappingHelper.mapToResult(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+            (dataPlatformInstance, dataMap) ->
+                    dataPlatformInstance.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap)))
+    );
+    mappingHelper.mapToResult(Constants.STATUS_ASPECT_NAME,
+            (dataPlatformInstance, dataMap) ->
+                    dataPlatformInstance.setStatus(StatusMapper.map(new Status(dataMap)))
+    );
+    mappingHelper.mapToResult(Constants.DEPRECATION_ASPECT_NAME,
+            (dataPlatformInstance, dataMap) ->
+                    dataPlatformInstance.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap)))
+    );
     return mappingHelper.getResult();
   }
 
@@ -92,21 +79,27 @@ public class DataPlatformInstanceMapper {
     dataPlatformInstance.setInstanceId(gmsKey.getInstance());
   }
 
-  private com.linkedin.datahub.graphql.generated.DataPlatformInstanceProperties mapDataPlatformInstanceProperties(
-          final DataPlatformInstanceProperties gmsProperties, Urn entityUrn
+  private void mapDataPlatformInstanceProperties(
+          @Nonnull DataPlatformInstance dataPlatformInstance, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn
   ) {
-    final com.linkedin.datahub.graphql.generated.DataPlatformInstanceProperties propertiesResult =
+    final DataPlatformInstanceProperties gmsProperties = new DataPlatformInstanceProperties(dataMap);
+    final com.linkedin.datahub.graphql.generated.DataPlatformInstanceProperties properties =
             new com.linkedin.datahub.graphql.generated.DataPlatformInstanceProperties();
-    propertiesResult.setName(gmsProperties.getName());
-    propertiesResult.setDescription(gmsProperties.getDescription());
+    properties.setName(gmsProperties.getName());
+    properties.setDescription(gmsProperties.getDescription());
     if (gmsProperties.hasExternalUrl()) {
-      propertiesResult.setExternalUrl(gmsProperties.getExternalUrl().toString());
+      properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
     }
     if (gmsProperties.hasCustomProperties()) {
-      propertiesResult.setCustomProperties(CustomPropertiesMapper.map(gmsProperties.getCustomProperties(), entityUrn));
+      properties.setCustomProperties(CustomPropertiesMapper.map(gmsProperties.getCustomProperties(), entityUrn));
     }
 
-    return propertiesResult;
+    dataPlatformInstance.setProperties(properties);
+  }
+
+  private void mapGlobalTags(@Nonnull DataPlatformInstance dataPlatformInstance, @Nonnull DataMap dataMap, @Nonnull final Urn entityUrn) {
+    com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
+    dataPlatformInstance.setTags(globalTags);
   }
 
 }
