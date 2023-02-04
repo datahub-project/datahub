@@ -7,7 +7,7 @@ describe("deprecation", () => {
         cy.goToDataset(urn, datasetName);
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Mark as deprecated");
-        cy.addViaModel("test deprecation", "Add Deprecation Details");
+        cy.addViaFormModal("test deprecation", "Add Deprecation Details");
 
         cy.goToDataset(urn, datasetName);
         cy.contains("Deprecated");

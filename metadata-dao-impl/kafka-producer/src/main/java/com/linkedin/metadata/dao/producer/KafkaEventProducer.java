@@ -7,6 +7,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -117,13 +118,10 @@ public class KafkaEventProducer implements EventProducer {
 
   @Override
   @WithSpan
-  public void produceMetadataChangeProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal) {
+  public void produceMetadataChangeProposal(@Nonnull final Urn urn, @Nonnull final MetadataChangeProposal
+      metadataChangeProposal) {
     GenericRecord record;
 
-    Urn urn = metadataChangeProposal.getEntityUrn();
-    if (urn == null) {
-      throw new IllegalArgumentException("Urn for proposal cannot be null.");
-    }
     try {
       log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeProposal: %s",
           urn,
@@ -155,6 +153,22 @@ public class KafkaEventProducer implements EventProducer {
     final String topic = _topicConvention.getPlatformEventTopicName();
     _producer.send(new ProducerRecord(topic, key == null ? name : key, record),
             _kafkaHealthChecker.getKafkaCallBack("Platform Event", name));
+  }
+
+  @Override
+  public void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event) {
+    GenericRecord record;
+    try {
+      log.debug(String.format("Converting Pegasus Event to Avro Event\nEvent: %s", event));
+      record = EventUtils.pegasusToAvroDUHE(event);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus DataHub Upgrade History Event to Avro: %s", event), e);
+      throw new ModelConversionException("Failed to convert Pegasus Platform Event to Avro", e);
+    }
+
+    final String topic = _topicConvention.getDataHubUpgradeHistoryTopicName();
+    _producer.send(new ProducerRecord(topic, event.getVersion(), record), _kafkaHealthChecker
+            .getKafkaCallBack("History Event", "Event Version: " + event.getVersion()));
   }
 
   @VisibleForTesting

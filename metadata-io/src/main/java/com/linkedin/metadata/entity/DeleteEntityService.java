@@ -28,6 +28,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -243,14 +244,14 @@ public class DeleteEntityService {
      * @param prevAspect the old value for the aspect
      */
     private void deleteAspect(Urn urn, String aspectName, RecordTemplate prevAspect) {
-        final RollbackResult result = _entityService.deleteAspect(urn.toString(), aspectName, Map.of(), true);
-
-        if (result != null && !result.getKeyAffected()) {
-            log.error("Failed to ingest aspect with references removed. Before {}, after: null, please check MCP processor"
+        final RollbackResult rollbackResult = _entityService.deleteAspect(urn.toString(), aspectName,
+            new HashMap<>(), true);
+        if (rollbackResult == null || rollbackResult.getNewValue() != null) {
+            log.error("Failed to delete aspect with references. Before {}, after: null, please check GMS logs"
                 + " logs for more information", prevAspect);
-            handleError(new DeleteEntityServiceError("Failed to delete aspect",
-                DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
-                ImmutableMap.of("Urn", urn, "AspectName", aspectName, "Aspect", prevAspect)));
+            handleError(new DeleteEntityServiceError("Failed to ingest new aspect",
+                DeleteEntityServiceErrorReason.ASPECT_DELETE_FAILED,
+                ImmutableMap.of("urn", urn, "aspectName", aspectName)));
         }
     }
 
@@ -375,7 +376,6 @@ public class DeleteEntityService {
         return spec.getRelationshipFieldSpecs().stream()
                 .filter(relationship -> relationship.getRelationshipName().equals(relationshipType)
                         && relationship.getValidDestinationTypes().contains(entityType));
-        //.collect(Collectors.toList());
     }
 
     /**
@@ -398,6 +398,7 @@ public class DeleteEntityService {
         ENTITY_SERVICE_ASPECT_NOT_FOUND,
         ENTITY_REGISTRY_SPEC_NOT_FOUND,
         MCP_PROCESSOR_FAILED,
+        ASPECT_DELETE_FAILED,
         CLONE_FAILED,
     }
 

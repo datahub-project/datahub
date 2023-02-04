@@ -12,7 +12,7 @@ node {
   if (project.hasProperty('useSystemNode')) {
     download = ! project.getProperty('useSystemNode').toBoolean()
   } else {
-    download = false
+    download = true
   }
 
   // Version of node to use.

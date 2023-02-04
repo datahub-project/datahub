@@ -23,7 +23,7 @@ def get() -> None:
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def urn(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
     """
     Get metadata for an entity with an optional list of aspects to project.

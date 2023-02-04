@@ -9,6 +9,7 @@ buildscript {
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.0'
   ext.testContainersVersion = '1.17.4'
+  ext.elasticsearchVersion = '7.10.2'
   ext.jacksonVersion = '2.13.4'
   ext.jettyVersion = '9.4.46.v20220331'
   ext.playVersion = '2.8.18'
@@ -87,8 +88,8 @@ project.ext.externalDependency = [
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
     'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
     'ebeanDdl': 'io.ebean:ebean-ddl-generator:' + ebeanVersion,
-    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.9.3',
-    'elasticSearchTransport': 'org.elasticsearch.client:transport:7.9.3',
+    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:' + elasticsearchVersion,
+    'elasticSearchTransport': 'org.elasticsearch.client:transport:' + elasticsearchVersion,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:' + graphQLJavaVersion,
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:' + graphQLJavaVersion,
@@ -247,7 +248,7 @@ subprojects {
     dependencies {
       testCompile externalDependency.testng
       constraints {
-        implementation('io.netty:netty-all:4.1.85.Final')
+        implementation('io.netty:netty-all:4.1.86.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')

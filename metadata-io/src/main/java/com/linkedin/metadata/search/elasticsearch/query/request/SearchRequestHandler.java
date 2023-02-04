@@ -38,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
@@ -120,12 +121,13 @@ public class SearchRequestHandler {
   }
 
   private Set<String> getDefaultQueryFieldNames() {
-    return _entitySpec.getSearchableFieldSpecs()
+    return Stream.concat(_entitySpec.getSearchableFieldSpecs()
         .stream()
         .map(SearchableFieldSpec::getSearchableAnnotation)
         .filter(SearchableAnnotation::isQueryByDefault)
-        .map(SearchableAnnotation::getFieldName)
-        .collect(Collectors.toSet());
+        .map(SearchableAnnotation::getFieldName),
+            Stream.of("urn"))
+            .collect(Collectors.toSet());
   }
 
   public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
@@ -154,12 +156,13 @@ public class SearchRequestHandler {
    * @param filter the search filter
    * @param from index to start the search from
    * @param size the number of search hits to return
+   * @param fulltext Structured or full text search modes
    * @return a valid search request
    */
   @Nonnull
   @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nullable SortCriterion sortCriterion, int from, int size, boolean fulltext) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
@@ -168,7 +171,9 @@ public class SearchRequestHandler {
     searchSourceBuilder.fetchSource("urn", null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
-    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input)).must(filterQuery));
+    searchSourceBuilder.query(QueryBuilders.boolQuery()
+            .must(getQuery(input, fulltext))
+            .must(filterQuery));
     getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
@@ -225,8 +230,8 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query) {
-    return SearchQueryBuilder.buildQuery(_entitySpec, query);
+  private QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
+    return SearchQueryBuilder.buildQuery(_entitySpec, query, fulltext);
   }
 
   private List<AggregationBuilder> getAggregations() {
@@ -246,7 +251,10 @@ public class SearchRequestHandler {
     highlightBuilder.preTags("");
     highlightBuilder.postTags("");
     // Check for each field name and any subfields
-    _defaultQueryFieldNames.forEach(fieldName -> highlightBuilder.field(fieldName).field(fieldName + ".*"));
+    _defaultQueryFieldNames.forEach(fieldName -> highlightBuilder
+            .field(fieldName)
+            .field(fieldName + ".*"));
+    highlightBuilder.field("urn.delimited");
     return highlightBuilder;
   }
 

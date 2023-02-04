@@ -6,7 +6,7 @@ describe("add remove domain", () => {
         cy.login();
         cy.goToDomainList();
         cy.clickOptionWithText("New Domain");
-        cy.addViaModel(test_domain, "Create new Domain")
+        cy.addViaModal(test_domain, "Create new Domain")
         cy.waitTextVisible("Created domain!")
         cy.waitTextVisible(test_domain)
             .parents("[data-testid^='urn:li:domain:']")

@@ -16,8 +16,15 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 16);
-    assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword"));
+    assertEquals(properties.size(), 19);
+    assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword",
+            "fields",
+            ImmutableMap.of("delimited",
+                    ImmutableMap.of("type", "text", "analyzer", "urn_component", "search_analyzer", "query_urn_component",
+                            "search_quote_analyzer", "quote_analyzer"),
+                    "ngram",
+                    ImmutableMap.of("type", "search_as_you_type", "max_shingle_size", "4", "doc_values", "false",
+                            "analyzer", "partial_urn_component"))));
     assertEquals(properties.get("runId"), ImmutableMap.of("type", "keyword"));
     assertTrue(properties.containsKey("browsePaths"));
     // KEYWORD
