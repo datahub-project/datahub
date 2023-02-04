@@ -48,7 +48,7 @@ function IngestionSourceTable({
             title: 'Type',
             dataIndex: 'type',
             key: 'type',
-            render: TypeColumn,
+            render: (type: string, record: any) => <TypeColumn type={type} record={record} />,
             sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
         },
         {

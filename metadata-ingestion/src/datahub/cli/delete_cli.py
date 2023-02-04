@@ -55,7 +55,7 @@ class DeletionResult:
             self.sample_records.extend(another_result.sample_records)
 
 
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def delete_for_registry(
     registry_id: str,
     soft: bool,
@@ -133,7 +133,7 @@ def delete_for_registry(
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def delete(
     urn: str,
     aspect_name: Optional[str],
@@ -181,26 +181,31 @@ def delete(
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
-        references_count, related_aspects = delete_references(
-            urn, dry_run=True, cached_session_host=(session, host)
-        )
-        remove_references: bool = False
-
-        if (not force) and references_count > 0:
-            click.echo(
-                f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+        if not aspect_name:
+            references_count, related_aspects = delete_references(
+                urn, dry_run=True, cached_session_host=(session, host)
             )
-            click.echo(
-                tabulate(
-                    [x.values() for x in related_aspects],
-                    ["relationship", "entity", "aspect"],
-                    tablefmt="grid",
+            remove_references: bool = False
+
+            if (not force) and references_count > 0:
+                click.echo(
+                    f"This urn was referenced in {references_count} other aspects across your metadata graph:"
                 )
-            )
-            remove_references = click.confirm("Do you want to delete these references?")
+                click.echo(
+                    tabulate(
+                        [x.values() for x in related_aspects],
+                        ["relationship", "entity", "aspect"],
+                        tablefmt="grid",
+                    )
+                )
+                remove_references = click.confirm(
+                    "Do you want to delete these references?"
+                )
 
-        if force or remove_references:
-            delete_references(urn, dry_run=False, cached_session_host=(session, host))
+            if force or remove_references:
+                delete_references(
+                    urn, dry_run=False, cached_session_host=(session, host)
+                )
 
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
@@ -266,7 +271,7 @@ def _get_current_time() -> int:
     return int(time.time() * 1000.0)
 
 
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def delete_with_filters(
     dry_run: bool,
     soft: bool,
@@ -436,7 +441,7 @@ def _delete_one_urn(
     return deletion_result
 
 
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def delete_one_urn_cmd(
     urn: str,
     aspect_name: Optional[str] = None,

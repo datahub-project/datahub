@@ -1,5 +1,12 @@
 #!/bin/bash
 
+## Exit early if PRECREATION is not needed
+if [[ $DATAHUB_PRECREATE_TOPICS == "false" ]]; then
+  echo "DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS}"
+  echo "Pre-creation of topics has been turned off, exiting"
+  exit 0
+fi
+
 . kafka-config.sh
 
 echo "bootstrap.servers=$KAFKA_BOOTSTRAP_SERVER" > $CONNECTION_PROPERTIES_PATH
@@ -108,6 +115,8 @@ send "$METADATA_CHANGE_PROPOSAL_TOPIC_NAME" "--topic $METADATA_CHANGE_PROPOSAL_T
 send "$FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME" "--topic $FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME"
 send "$PLATFORM_EVENT_TOPIC_NAME" "--topic $PLATFORM_EVENT_TOPIC_NAME"
 
+# Infinite retention upgrade topic
+send "$DATAHUB_UPGRADE_HISTORY_TOPIC_NAME" "config retention.ms=-1 --topic $DATAHUB_UPGRADE_HISTORY_TOPIC_NAME"
 # Create topic for datahub usage event
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
   send "$DATAHUB_USAGE_EVENT_NAME" "--topic $DATAHUB_USAGE_EVENT_NAME"

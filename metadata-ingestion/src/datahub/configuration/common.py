@@ -6,8 +6,9 @@ from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar
 
 import pydantic
 from cached_property import cached_property
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
+from typing_extensions import Protocol, runtime_checkable
 
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.utilities.dedup_list import deduplicate_list
@@ -127,6 +128,9 @@ class DynamicTypedConfig(ConfigModel):
     )
 
 
+# TODO: Many of these exception types are fairly specialized and shouldn't live in a common module.
+
+
 class MetaError(Exception):
     """A base class for all meta exceptions."""
 
@@ -156,6 +160,22 @@ class ConfigurationError(MetaError):
 
 class IgnorableError(MetaError):
     """An error that can be ignored."""
+
+
+@runtime_checkable
+class ExceptionWithProps(Protocol):
+    def get_telemetry_props(self) -> Dict[str, Any]:
+        ...
+
+
+def should_show_stack_trace(exc: Exception) -> bool:
+    # Unless the exception is a ValidationError or explicitly opts out of stack traces,
+    # we should show the stack trace.
+
+    if isinstance(exc, ValidationError) or isinstance(exc.__cause__, ValidationError):
+        return False
+
+    return getattr(exc, "SHOW_STACK_TRACE", True)
 
 
 class ConfigurationWarning(Warning):
