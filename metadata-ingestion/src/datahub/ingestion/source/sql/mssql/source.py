@@ -92,11 +92,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         description="database (catalog). If set to Null, all databases will be considered for ingestion.",
     )
 
-    database_alias: Optional[str] = Field(
-        default=None,
-        description="Alias to apply to database when ingesting. Ignored when `database` is not set.",
-    )
-
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
         if values["use_odbc"] and "driver" not in v:
