@@ -46,7 +46,7 @@ class MSSQLJob:
 
     @property
     def formatted_name(self) -> str:
-        return self.name.replace(",", "-")
+        return f"{self.formatted_platform_instance}.{self.name.replace(',', '-')}"
 
     @property
     def full_type(self) -> str:
@@ -76,7 +76,7 @@ class MSSQLProceduresContainer:
 
     @property
     def formatted_name(self) -> str:
-        return self.name.replace(",", "-")
+        return f"{self.formatted_platform_instance}.{self.name.replace(',', '-')}"
 
     @property
     def orchestrator(self) -> str:
