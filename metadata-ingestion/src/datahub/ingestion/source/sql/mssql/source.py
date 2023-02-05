@@ -277,7 +277,13 @@ class SQLServerSource(SQLAlchemySource):
             database=database,
         )
         if sql_config.include_jobs:
-            yield from self.loop_jobs(inspector, sql_config)
+            try:
+                yield from self.loop_jobs(inspector, sql_config)
+            except Exception as e:
+                self.report.report_failure(
+                    "jobs",
+                    f"Failed to list jobs due to error {e}",
+                )
 
     def get_schema_level_workunits(
             self,
@@ -293,9 +299,15 @@ class SQLServerSource(SQLAlchemySource):
             database=database,
         )
         if sql_config.include_stored_procedures:
-            yield from self.loop_stored_procedures(
-                inspector, schema, sql_config
-            )
+            try:
+                yield from self.loop_stored_procedures(
+                    inspector, schema, sql_config
+                )
+            except Exception as e:
+                self.report.report_failure(
+                    "jobs",
+                    f"Failed to list jobs due to error {e}",
+                )
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
         jobs_data = conn.execute(
