@@ -62,7 +62,7 @@ class MSSQLJob:
 
     @property
     def cluster(self):
-        return f"{self.env}/{self.formatted_platform_instance}"
+        return f"{self.env}"
 
 
 @dataclass
@@ -88,7 +88,7 @@ class MSSQLProceduresContainer:
 
     @property
     def cluster(self) -> str:
-        return f"{self.env}/{self.formatted_platform_instance}/{self.db}"
+        return f"{self.env}"
 
     @property
     def full_type(self) -> str:
@@ -174,7 +174,7 @@ class MSSQLDataJob:
         return make_data_job_urn(
             orchestrator=self.entity.flow.orchestrator,
             flow_id=self.entity.flow.formatted_name,
-            job_id=self.entity.full_name,
+            job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
         )
 
