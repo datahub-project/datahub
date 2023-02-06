@@ -10,7 +10,7 @@ def telemetry() -> None:
 
 
 @telemetry.command()
-@telemetry_lib.with_telemetry
+@telemetry_lib.with_telemetry()
 def enable() -> None:
     """Enable telemetry for the current DataHub instance."""
     telemetry_lib.telemetry_instance.enable()

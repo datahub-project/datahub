@@ -1,5 +1,5 @@
 import typing
-from typing import Iterable, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
@@ -116,6 +116,7 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
         self,
         schema: str,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         return []
 

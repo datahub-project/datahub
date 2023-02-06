@@ -53,6 +53,7 @@ public class SearchUtils {
           EntityType.DATASET,
           EntityType.DASHBOARD,
           EntityType.CHART,
+          EntityType.CONTAINER,
           EntityType.MLMODEL,
           EntityType.MLMODEL_GROUP,
           EntityType.MLFEATURE_TABLE,

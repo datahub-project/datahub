@@ -461,7 +461,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, true);
         verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.any());
-        verify(_mockProducer, times(1)).produceMetadataChangeProposal(Mockito.eq(gmce));
+        verify(_mockProducer, times(1)).produceMetadataChangeProposal(Mockito.eq(entityUrn),
+            Mockito.eq(gmce));
     }
 
 
@@ -486,7 +487,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, true);
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.any());
-        verify(_mockProducer, times(0)).produceMetadataChangeProposal(Mockito.eq(gmce));
+        verify(_mockProducer, times(0)).produceMetadataChangeProposal(Mockito.eq(entityUrn),
+            Mockito.eq(gmce));
     }
 
     @Test
@@ -848,9 +850,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
 
-        verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
 
-        verify(_mockProducer, times(0)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
+        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
             Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
         verifyNoMoreInteractions(_mockProducer);

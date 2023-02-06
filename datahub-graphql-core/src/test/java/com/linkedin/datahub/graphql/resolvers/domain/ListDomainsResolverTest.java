@@ -43,7 +43,8 @@ public class ListDomainsResolverTest {
         Mockito.eq(new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING)),
         Mockito.eq(0),
         Mockito.eq(20),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(Boolean.TRUE)
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -88,7 +89,8 @@ public class ListDomainsResolverTest {
         Mockito.anyMap(),
         Mockito.anyInt(),
         Mockito.anyInt(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.eq(Boolean.TRUE));
   }
 
   @Test
@@ -101,7 +103,8 @@ public class ListDomainsResolverTest {
         Mockito.anyMap(),
         Mockito.anyInt(),
         Mockito.anyInt(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.eq(Boolean.TRUE));
     ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
 
     // Execute resolver

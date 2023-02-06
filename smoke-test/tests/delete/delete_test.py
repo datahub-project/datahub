@@ -6,6 +6,7 @@ from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.cli.ingest_cli import get_session_and_host
 from datahub.cli.delete_cli import delete_references
 from tests.utils import ingest_file_via_rest, wait_for_healthcheck_util
+from requests_wrapper import ELASTICSEARCH_REFRESH_INTERVAL_SECONDS
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -46,7 +47,7 @@ def test_setup():
     rollback_url = f"{gms_host}/runs?action=rollback"
     session.post(rollback_url, data=json.dumps({"runId": ingested_dataset_run_id, "dryRun": False, "hardDelete": True, "safe": False}))
 
-    sleep(3)
+    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
     assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
     assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
@@ -73,7 +74,7 @@ def test_delete_reference(test_setup, depends=["test_healthchecks"]):
     # Delete references to the tag
     delete_references(tag_urn, dry_run=False, cached_session_host=(session, gms_host))
 
-    sleep(3)
+    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
     # Validate that references no longer exist
     references_count, related_aspects = delete_references(tag_urn, dry_run=True, cached_session_host=(session, gms_host))
