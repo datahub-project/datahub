@@ -10239,6 +10239,11 @@ type QueryProperties {
   statement: QueryStatement!
 
   """
+  The source of the Query
+  """
+  source: QuerySource!
+
+  """
   The name of the Query
   """
   name: String
