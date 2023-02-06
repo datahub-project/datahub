@@ -25,6 +25,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.utilities.config_clean import (
+    remove_protocol,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
@@ -36,6 +39,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
+    CorpUserEditableInfoClass,
     GroupMembershipClass,
     OriginClass,
     OriginTypeClass,
@@ -260,6 +264,7 @@ class OktaSource(Source):
     def __init__(self, config: OktaConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
+        self.config.okta_domain = remove_protocol(self.config.okta_domain)
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
 
