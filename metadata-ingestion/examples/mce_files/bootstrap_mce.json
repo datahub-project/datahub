@@ -30,9 +30,14 @@
             "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
               "status": "ACTIVE",
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:__datahub_system"
               }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -66,6 +71,11 @@
               },
               "countryCode": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
           }
         ]
       }
@@ -86,6 +96,11 @@
               "groups": [],
               "slack":  "bfoo-squad"
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
           }
         ]
       }
@@ -105,6 +120,11 @@
               "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
               "groups": ["urn:li:corpGroup:jdoe"],
               "description": "This group is full of bfoos!"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
             }
           }
         ]
@@ -149,7 +169,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -162,7 +182,7 @@
                   "url": "https://www.linkedin.com",
                   "description": "Sample doc",
                   "createStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
@@ -176,12 +196,12 @@
               "platform": "urn:li:dataPlatform:kafka",
               "version": 0,
               "created": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
@@ -247,6 +267,11 @@
               "primaryKeys": null,
               "foreignKeysSpecs": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
           }
         ]
       }
@@ -259,6 +284,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": ["/prod/hdfs/SampleHdfsDataset"]
@@ -279,7 +309,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -290,7 +320,7 @@
               "upstreams": [
                 {
                   "auditStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   },
@@ -307,7 +337,7 @@
                   "url": "https://www.linkedin.com",
                   "description": "Sample doc",
                   "createStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
@@ -318,12 +348,12 @@
           {
             "com.linkedin.pegasus2avro.schema.EditableSchemaMetadata": {
               "created": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
@@ -342,12 +372,12 @@
               "platform": "urn:li:dataPlatform:hdfs",
               "version": 0,
               "created": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
@@ -483,6 +513,11 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
                 {
@@ -497,7 +532,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -508,7 +543,7 @@
               "upstreams": [
                 {
                   "auditStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   },
@@ -525,7 +560,7 @@
                   "url": "https://www.linkedin.com",
                   "description": "Sample doc",
                   "createStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
@@ -539,12 +574,12 @@
               "platform": "urn:li:dataPlatform:hive",
               "version": 0,
               "created": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
@@ -611,6 +646,11 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "description": "table where each row represents a single log event",
               "uri": null,
@@ -635,7 +675,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -646,7 +686,7 @@
               "upstreams": [
                 {
                   "auditStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   },
@@ -663,7 +703,7 @@
                   "url": "https://www.linkedin.com",
                   "description": "Sample doc",
                   "createStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
@@ -677,12 +717,12 @@
               "platform": "urn:li:dataPlatform:hive",
               "version": 0,
               "created": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
@@ -770,6 +810,11 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "description": "table containing all the users created on a single day",
               "uri": null,
@@ -794,7 +839,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -805,7 +850,7 @@
               "upstreams": [
                 {
                   "auditStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   },
@@ -829,7 +874,7 @@
                   "url": "https://www.linkedin.com",
                   "description": "Sample doc",
                   "createStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
@@ -843,12 +888,12 @@
               "platform": "urn:li:dataPlatform:hive",
               "version": 0,
               "created": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
@@ -919,6 +964,11 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "description": "table containing all the users deleted on a single day",
               "uri": null,
@@ -943,7 +993,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -954,7 +1004,7 @@
               "upstreams": [
                 {
                   "auditStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   },
@@ -963,7 +1013,7 @@
                 },
                 {
                   "auditStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   },
@@ -980,7 +1030,7 @@
                   "url": "https://www.linkedin.com",
                   "description": "Sample doc",
                   "createStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
@@ -994,12 +1044,12 @@
               "platform": "urn:li:dataPlatform:hive",
               "version": 0,
               "created": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               },
@@ -1130,6 +1180,11 @@
         "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
                 {
@@ -1139,7 +1194,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:datahub",
                 "impersonator": null
               }
@@ -1175,6 +1230,11 @@
         "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
                 {
@@ -1184,7 +1244,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:datahub",
                 "impersonator": null
               }
@@ -1223,6 +1283,11 @@
         "urn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
                 {
@@ -1232,7 +1297,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:datahub",
                 "impersonator": null
               }
@@ -1256,6 +1321,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
         "urn": "urn:li:chart:(looker,baz1)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.chart.ChartInfo": {
               "title": "Baz Chart 1",
@@ -1299,6 +1369,11 @@
         "urn": "urn:li:chart:(looker,baz2)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.chart.ChartInfo": {
               "title": "Baz Chart 2",
               "description": "Baz Chart 2",
@@ -1340,6 +1415,11 @@
         "urn": "urn:li:dashboard:(looker,baz)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
                 {
@@ -1349,7 +1429,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -1450,7 +1530,7 @@
                   "url": "https://www.linkedin.com",
                   "description": "Sample doc",
                   "createStamp": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe",
                     "impersonator": null
                   }
@@ -1512,6 +1592,11 @@
         "urn": "urn:li:tag:Legacy",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.tag.TagProperties": {
               "name": "Legacy",
               "description": "Indicates the dataset is no longer supported"
@@ -1527,7 +1612,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -1545,6 +1630,11 @@
         "urn": "urn:li:tag:NeedsDocumentation",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.tag.TagProperties": {
               "name": "NeedsDocumentation",
               "description": "Indicates the data element needs documentation"
@@ -1560,7 +1650,7 @@
                 }
               ],
               "lastModified": {
-                "time": 1581407189000,
+                "time": 1674291843000,
                 "actor": "urn:li:corpuser:jdoe",
                 "impersonator": null
               }
@@ -2115,6 +2205,11 @@
         "urn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
               "description": "Dummy entity 1",
               "dataType": "TEXT",
@@ -2135,6 +2230,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
         "urn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_2)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
               "description": "Dummy entity 2",
@@ -2157,6 +2257,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "SEQUENCE",
@@ -2177,6 +2282,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_feature)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
@@ -2199,6 +2309,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BYTES_LIST_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "SEQUENCE",
@@ -2219,6 +2334,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BYTES_feature)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
@@ -2241,6 +2361,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_DOUBLE_LIST_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "SEQUENCE",
@@ -2261,6 +2386,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_DOUBLE_feature)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
@@ -2283,6 +2413,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_FLOAT_LIST_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "SEQUENCE",
@@ -2303,6 +2438,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_FLOAT_feature)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
@@ -2325,6 +2465,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT32_LIST_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "SEQUENCE",
@@ -2345,6 +2490,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT32_feature)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
@@ -2367,6 +2517,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT64_LIST_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "SEQUENCE",
@@ -2387,6 +2542,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_INT64_feature)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
@@ -2409,6 +2569,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_STRING_LIST_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "SEQUENCE",
@@ -2430,6 +2595,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_STRING_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "TEXT",
@@ -2450,6 +2620,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
         "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": ["/feast/test_feature_table_all_feature_dtypes"]
@@ -2493,6 +2668,11 @@
         "urn": "urn:li:mlPrimaryKey:(test_feature_table_no_labels,dummy_entity_2)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
               "description": "Dummy entity 2",
               "dataType": "ORDINAL",
@@ -2514,6 +2694,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_no_labels,test_BYTES_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "BYTE",
@@ -2534,6 +2719,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
         "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_no_labels)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": ["/feast/test_feature_table_no_labels"]
@@ -2563,6 +2753,11 @@
         "urn": "urn:li:mlPrimaryKey:(test_feature_table_single_feature,dummy_entity_1)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
               "description": "Dummy entity 1",
               "dataType": "TEXT",
@@ -2584,6 +2779,11 @@
         "urn": "urn:li:mlFeature:(test_feature_table_single_feature,test_BYTES_feature)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "BYTE",
@@ -2604,6 +2804,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
         "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_single_feature)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": ["/feast/test_feature_table_single_feature"]
@@ -2633,6 +2838,11 @@
         "urn": "urn:li:mlPrimaryKey:(user_features,user_name)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
               "description": "User's user_name",
               "dataType": "TEXT",
@@ -2653,6 +2863,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
         "urn": "urn:li:mlPrimaryKey:(user_features,user_id)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
               "description": "User's internal ID",
@@ -2675,6 +2890,11 @@
         "urn": "urn:li:mlFeature:(user_features,regions)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "SEQUENCE",
@@ -2695,6 +2915,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
         "urn": "urn:li:mlFeature:(user_features,is_premium_user)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
@@ -2717,6 +2942,11 @@
         "urn": "urn:li:mlFeature:(user_features,number_of_visits)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "ORDINAL",
@@ -2737,6 +2967,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
         "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_features)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": ["/feast/user_features"]
@@ -2769,6 +3004,11 @@
         "urn": "urn:li:mlPrimaryKey:(user_analytics,user_name)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
               "description": "User's username",
               "dataType": "TEXT",
@@ -2790,6 +3030,11 @@
         "urn": "urn:li:mlFeature:(user_analytics,date_joined)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
               "description": null,
               "dataType": "BYTE",
@@ -2810,6 +3055,11 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
         "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_analytics)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": ["/feast/user_analytics"]
@@ -2837,6 +3087,11 @@
             "urn": "urn:li:glossaryTerm:CustomerAccount",
             "aspects": [
               {
+                "com.linkedin.pegasus2avro.common.Status": {
+                  "removed": false
+                }
+              },
+              {
                 "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                   "definition": "account that represents an identified, named collection of balances and cumulative totals used to summarize customer transaction-related activity over a designated period of time",
                   "parentNode": "urn:li:glossaryNode:ClientsAndAccounts",
@@ -2855,7 +3110,7 @@
                     "type": "DATAOWNER"
                   }],
                   "lastModified": {
-                    "time": 1581407189000,
+                    "time": 1674291843000,
                     "actor": "urn:li:corpuser:jdoe"
                   }
                 }
@@ -2871,6 +3126,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
           "urn": "urn:li:glossaryTerm:SavingAccount",
           "aspects": [
+            {
+              "com.linkedin.pegasus2avro.common.Status": {
+                "removed": false
+              }
+            },
             {
               "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                 "definition": "a product provided to consumers and businesses by a bank or similar depository institution such as a checking account, savings account, certificate of deposit, debit or pre-paid card, or credit card",
@@ -2890,7 +3150,7 @@
                   "type": "DATAOWNER"
                 }],
                 "lastModified": {
-                  "time": 1581407189000,
+                  "time": 1674291843000,
                   "actor": "urn:li:corpuser:jdoe"
                 }
               }
@@ -2924,9 +3184,14 @@
                   "type": "DATAOWNER"
                 }],
                 "lastModified": {
-                  "time": 1581407189000,
+                  "time": 1674291843000,
                   "actor": "urn:li:corpuser:jdoe"
                 }
+              }
+            },
+            {
+              "com.linkedin.pegasus2avro.common.Status": {
+                "removed": false
               }
             }
           ]
@@ -2951,9 +3216,14 @@
                   "type": "DATAOWNER"
                 }],
                 "lastModified": {
-                  "time": 1581407189000,
+                  "time": 1674291843000,
                   "actor": "urn:li:corpuser:jdoe"
                 }
+              }
+            },
+            {
+              "com.linkedin.pegasus2avro.common.Status": {
+                "removed": false
               }
             }
           ]
@@ -2967,6 +3237,11 @@
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
           "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,project/root/events/logging_events_bckp,PROD)",
           "aspects": [
+            {
+              "com.linkedin.pegasus2avro.common.Status": {
+                "removed": false
+              }
+            },
             {
               "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                 "description": "s3 backup of logging events",
@@ -2992,7 +3267,7 @@
                   }
                 ],
                 "lastModified": {
-                  "time": 1581407189000,
+                  "time": 1674291843000,
                   "actor": "urn:li:corpuser:jdoe",
                   "impersonator": null
                 }
@@ -3003,7 +3278,7 @@
                 "upstreams": [
                   {
                     "auditStamp": {
-                      "time": 1581407189000,
+                      "time": 1674291843000,
                       "actor": "urn:li:corpuser:jdoe",
                       "impersonator": null
                     },
@@ -3019,12 +3294,12 @@
                 "platform": "urn:li:dataPlatform:hive",
                 "version": 0,
                 "created": {
-                  "time": 1581407189000,
+                  "time": 1674291843000,
                   "actor": "urn:li:corpuser:jdoe",
                   "impersonator": null
                 },
                 "lastModified": {
-                  "time": 1581407189000,
+                  "time": 1674291843000,
                   "actor": "urn:li:corpuser:jdoe",
                   "impersonator": null
                 },
@@ -3112,7 +3387,7 @@
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
-      "value":"{\"timestampMillis\": 1629097200000, \"rowCount\": 4500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
+      "value":"{\"timestampMillis\": 1629097200000, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3124,7 +3399,7 @@
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
-      "value":"{\"timestampMillis\": 1629010800000, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
+      "value":"{\"timestampMillis\": 1664265843000, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3137,11 +3412,11 @@
     "changeType": "UPSERT",
     "aspectName": "datasetUsageStatistics",
     "aspect": {
-      "value": "{\"timestampMillis\": 1642233600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"uniqueUserCount\": 1, \"totalSqlQueries\": 2, \"topSqlQueries\": [\"select * from `SampleHiveDataset`\", \"select field_foo, field_bar from `SampleHiveDataset`\"], \"userCounts\": [{\"user\": \"urn:li:corpuser:unknown\", \"count\": 2, \"userEmail\": \"test_user@datahubproject.io\"}], \"fieldCounts\": [{\"fieldPath\": \"field_foo\", \"count\": 45}, {\"fieldPath\": \"field_bar\", \"count\": 10}]}",
+      "value": "{\"timestampMillis\": 1674291843000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"uniqueUserCount\": 1, \"totalSqlQueries\": 2, \"topSqlQueries\": [\"select * from `SampleHiveDataset`\", \"select field_foo, field_bar from `SampleHiveDataset`\"], \"userCounts\": [{\"user\": \"urn:li:corpuser:unknown\", \"count\": 2, \"userEmail\": \"test_user@datahubproject.io\"}], \"fieldCounts\": [{\"fieldPath\": \"field_foo\", \"count\": 45}, {\"fieldPath\": \"field_bar\", \"count\": 10}]}",
       "contentType": "application/json"
     },
     "systemMetadata": {
-      "lastObserved": 1642233600000,
+      "lastObserved": 1674291843000,
       "runId": "test-bigquery-usage",
       "registryName": null,
       "registryVersion": null,
@@ -3278,7 +3553,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-      "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+      "value": "{\"timestampMillis\": 1675155843000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
       "contentType": "application/json"
     },
     "systemMetadata": null

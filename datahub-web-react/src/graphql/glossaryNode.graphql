@@ -12,6 +12,7 @@ query getGlossaryNode($urn: String!) {
     glossaryNode(urn: $urn) {
         urn
         type
+        exists
         properties {
             name
             description

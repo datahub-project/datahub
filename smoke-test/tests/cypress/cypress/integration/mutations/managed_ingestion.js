@@ -22,8 +22,7 @@ describe("run managed ingestion", () => {
         // no space because the editor starts new line at same indentation
         readyToTypeEditor().type("config: {}");
         cy.clickOptionWithText("Next")
-
-        cy.clickOptionWithText("Skip")
+        cy.clickOptionWithText("Next")
 
         cy.enterTextInTestId('source-name-input', testName)
         cy.clickOptionWithText("Advanced")

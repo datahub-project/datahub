@@ -50,7 +50,7 @@ describe("view select", () => {
 
         cy.log("Now edit the view")
         openViewEditDropDownAndClickId('view-dropdown-edit');
-        cy.get(".ant-form-item-control-input-content > input[type='text']").first().clear().type(newViewName);
+        cy.get(".ant-input-affix-wrapper > input[type='text']").first().clear().type(newViewName);
         cy.log("Update the actual filters by adding another filter")
         cy.contains("Add Filter").click();
         cy.clickOptionWithTestId('adv-search-add-filter-description');

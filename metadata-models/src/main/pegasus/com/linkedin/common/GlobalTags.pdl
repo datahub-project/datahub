@@ -11,5 +11,14 @@ record GlobalTags {
   /**
    * Tags associated with a given entity
    */
+   @Searchable = {
+    "/*/tag": {
+      "fieldName": "tags",
+      "fieldType": "URN",
+      "boostScore": 0.5,
+      "queryByDefault": true,
+      "addToFilters": true
+    }
+  }
   tags: array[TagAssociation]
 }

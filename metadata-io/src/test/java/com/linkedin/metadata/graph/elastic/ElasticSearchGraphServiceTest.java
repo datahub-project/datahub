@@ -5,7 +5,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.ElasticSearchTestConfiguration;
+import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
@@ -38,7 +38,7 @@ import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDE
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.testng.Assert.assertEquals;
 
-@Import(ElasticSearchTestConfiguration.class)
+@Import(ESTestConfiguration.class)
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Autowired
@@ -83,7 +83,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected void syncAfterWrite() throws Exception {
-    com.linkedin.metadata.ElasticSearchTestConfiguration.syncAfterWrite();
+    ESTestConfiguration.syncAfterWrite(_bulkProcessor);
   }
 
   @Override

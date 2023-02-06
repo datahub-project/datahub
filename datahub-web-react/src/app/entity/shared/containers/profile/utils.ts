@@ -153,8 +153,8 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
             return [
                 ENTITY_PROFILE_SCHEMA_ID,
                 ENTITY_PROFILE_DOCUMENTATION_ID,
-                ENTITY_PROFILE_PROPERTIES_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
+                ENTITY_PROFILE_PROPERTIES_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,

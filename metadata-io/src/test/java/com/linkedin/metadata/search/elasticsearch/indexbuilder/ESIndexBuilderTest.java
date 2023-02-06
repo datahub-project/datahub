@@ -1,8 +1,11 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.metadata.ElasticSearchTestConfiguration;
+import com.linkedin.metadata.ESTestConfiguration;
+import com.linkedin.metadata.config.ElasticSearchConfiguration;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
+import com.linkedin.metadata.version.GitVersion;
+import java.util.Optional;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
@@ -30,7 +33,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
-@Import(ElasticSearchTestConfiguration.class)
+@Import(ESTestConfiguration.class)
 public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
 
     @Autowired
@@ -43,7 +46,10 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
     @BeforeClass
     public void setup() {
         _indexClient = _searchClient.indices();
-        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0, 0, Map.of(), false);
+        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+        testDefaultBuilder = new ESIndexBuilder(_searchClient, 1, 0, 0,
+                0, Map.of(), false, false,
+                new ElasticSearchConfiguration(), gitVersion);
     }
 
     @BeforeMethod
@@ -72,7 +78,10 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void testESIndexBuilderCreation() throws Exception {
-        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1, 0, Map.of(), false);
+        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+        ESIndexBuilder customIndexBuilder = new ESIndexBuilder(_searchClient, 2, 0, 1,
+                0, Map.of(), false, false,
+                new ElasticSearchConfiguration(), gitVersion);
         customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
         GetIndexResponse resp = getTestIndex();
 
@@ -83,12 +92,17 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void testMappingReindex() throws Exception {
+        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+        ESIndexBuilder enabledMappingReindex = new ESIndexBuilder(_searchClient, 1, 0, 0,
+                0, Map.of(), false, true,
+                new ElasticSearchConfiguration(), gitVersion);
+
         // No mappings
-        testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+        enabledMappingReindex.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
         String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
         // add new mappings
-        testDefaultBuilder.buildIndex(TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+        enabledMappingReindex.buildIndex(TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
 
         String afterAddedMappingCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
         assertEquals(beforeCreationDate, afterAddedMappingCreationDate, "Expected no reindex on *adding* mappings");
@@ -99,7 +113,7 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
                 .map(m -> !m.getKey().equals("urn") ? m
                         : Map.entry("urn", ImmutableMap.<String, Object>builder().put("type", "wildcard").build()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of("properties", newProps), Map.of());
+        enabledMappingReindex.buildIndex(TEST_INDEX_NAME, Map.of("properties", newProps), Map.of());
 
         assertTrue(Arrays.stream(getTestIndex().getIndices()).noneMatch(name -> name.equals(TEST_INDEX_NAME)),
                 "Expected original index to be replaced with alias");
@@ -119,13 +133,15 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
         String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
 
         String expectedShards = "5";
+        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
         ESIndexBuilder changedShardBuilder = new ESIndexBuilder(_searchClient,
                 Integer.parseInt(expectedShards),
                 testDefaultBuilder.getNumReplicas(),
                 testDefaultBuilder.getNumRetries(),
                 testDefaultBuilder.getRefreshIntervalSeconds(),
                 Map.of(),
-                true);
+                true, false,
+                new ElasticSearchConfiguration(), gitVersion);
 
         // add new shard setting
         changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -144,6 +160,7 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
 
     @Test
     public void testSettingsNoReindex() throws Exception {
+        GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
         List<ESIndexBuilder> noReindexBuilders = List.of(
                 new ESIndexBuilder(_searchClient,
                         testDefaultBuilder.getNumShards(),
@@ -151,28 +168,32 @@ public class ESIndexBuilderTest extends AbstractTestNGSpringContextTests {
                         testDefaultBuilder.getNumRetries(),
                         testDefaultBuilder.getRefreshIntervalSeconds(),
                         Map.of(),
-                        true),
+                        true, false,
+                        new ElasticSearchConfiguration(), gitVersion),
                 new ESIndexBuilder(_searchClient,
                         testDefaultBuilder.getNumShards(),
                         testDefaultBuilder.getNumReplicas(),
                         testDefaultBuilder.getNumRetries(),
                         testDefaultBuilder.getRefreshIntervalSeconds() + 10,
                         Map.of(),
-                        true),
+                        true, false,
+                        new ElasticSearchConfiguration(), gitVersion),
                new ESIndexBuilder(_searchClient,
                                 testDefaultBuilder.getNumShards() + 1,
                                 testDefaultBuilder.getNumReplicas(),
                                 testDefaultBuilder.getNumRetries(),
                                 testDefaultBuilder.getRefreshIntervalSeconds(),
                                 Map.of(),
-                                false),
+                                false, false,
+                       new ElasticSearchConfiguration(), gitVersion),
                 new ESIndexBuilder(_searchClient,
                         testDefaultBuilder.getNumShards(),
                         testDefaultBuilder.getNumReplicas() + 1,
                         testDefaultBuilder.getNumRetries(),
                         testDefaultBuilder.getRefreshIntervalSeconds(),
                         Map.of(),
-                        false)
+                        false, false,
+                        new ElasticSearchConfiguration(), gitVersion)
         );
 
         for (ESIndexBuilder builder : noReindexBuilders) {
