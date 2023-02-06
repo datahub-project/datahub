@@ -34,5 +34,6 @@ dependencies {
         because("previous versions are vulnerable to CVE-2021-45105")
     }
   }
+  implementation externalDependency.logbackClassic
 
 }
