@@ -898,17 +898,6 @@ def transform_connector_config(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class KafkaConnectSource(Source):
-    """
-    This plugin extracts the following:
-    - Kafka Connect connector as individual `DataFlowSnapshotClass` entity
-    - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
-    - Lineage information between source database to Kafka topic
-    Current limitations:
-    - works only for
-        - JDBC, Debezium, and Mongo source connectors
-        - Generic connectors with user-defined lineage graph
-        - BigQuery sink connector
-    """
 
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
