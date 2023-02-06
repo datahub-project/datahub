@@ -34,6 +34,13 @@ public class CachingEntitySearchService {
   private final boolean enableCache;
 
   /**
+   * Clears all caches associated with the CacheManager
+   */
+  public void clearCache() {
+    cacheManager.getCacheNames().forEach(name -> cacheManager.getCache(name).clear());
+  }
+
+  /**
    * Retrieves cached search results. If the query has been cached, this will return quickly. If not, a full
    * search request will be made.
    *
@@ -207,22 +214,24 @@ public class CachingEntitySearchService {
       final int start,
       final int count,
       final boolean fulltext) {
-    if (fulltext) {
-      return entitySearchService.fullTextSearch(
-              entityName,
-              input,
-              filters,
-              sortCriterion,
-              start,
-              count);
-    } else {
-      return entitySearchService.structuredSearch(
-              entityName,
-              input,
-              filters,
-              sortCriterion,
-              start,
-              count);
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawSearchResults").time()) {
+      if (fulltext) {
+        return entitySearchService.fullTextSearch(
+                entityName,
+                input,
+                filters,
+                sortCriterion,
+                start,
+                count);
+      } else {
+        return entitySearchService.structuredSearch(
+                entityName,
+                input,
+                filters,
+                sortCriterion,
+                start,
+                count);
+      }
     }
   }
 
@@ -235,12 +244,14 @@ public class CachingEntitySearchService {
       final String field,
       final Filter filters,
       final int limit) {
-    return entitySearchService.autoComplete(
-        entityName,
-        input,
-        field,
-        filters,
-        limit);
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawAutoCompleteResults").time()) {
+      return entitySearchService.autoComplete(
+              entityName,
+              input,
+              field,
+              filters,
+              limit);
+    }
   }
 
   /**
@@ -252,12 +263,14 @@ public class CachingEntitySearchService {
       final Filter filters,
       final int start,
       final int count) {
-    return entitySearchService.browse(
-        entityName,
-        input,
-        filters,
-        start,
-        count);
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawBrowseResults").time()) {
+      return entitySearchService.browse(
+              entityName,
+              input,
+              filters,
+              start,
+              count);
+    }
   }
 
   /**
