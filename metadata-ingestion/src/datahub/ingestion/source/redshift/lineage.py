@@ -45,7 +45,7 @@ class LineageCollectorType(Enum):
     QUERY_SCAN = "query_scan"
     QUERY_SQL_PARSER = "query_sql_parser"
     VIEW = "view"
-    NON_BINDING_VIEW = "non-binding-view"
+    VIEW_DDL_SQL_PARSING = "view-ddl-sql-parsing"
     COPY = "copy"
     UNLOAD = "unload"
 
@@ -68,7 +68,7 @@ class LineageItem:
             self.dataset_lineage_type = DatasetLineageTypeClass.COPY
         elif self.collector_type in [
             LineageCollectorType.VIEW,
-            LineageCollectorType.NON_BINDING_VIEW,
+            LineageCollectorType.VIEW_DDL_SQL_PARSING,
         ]:
             self.dataset_lineage_type = DatasetLineageTypeClass.VIEW
         else:
@@ -195,7 +195,7 @@ class LineageExtractor:
                     # Source
                     if lineage_type in {
                         lineage_type.QUERY_SQL_PARSER,
-                        lineage_type.NON_BINDING_VIEW,
+                        lineage_type.VIEW_DDL_SQL_PARSING,
                     }:
                         try:
                             sources = self._get_sources_from_query(
@@ -390,7 +390,7 @@ class LineageExtractor:
                     order by target_schema, target_table asc
             """
 
-        list_late_binding_views_query = """
+        list_late_view_ddls_query = """
             SELECT
                 n.nspname AS target_schema
                 ,c.relname AS target_table
@@ -401,7 +401,6 @@ class LineageExtractor:
                 pg_catalog.pg_namespace AS n
                 ON c.relnamespace = n.oid
             WHERE relkind = 'v'
---            and ddl like '%%with no schema binding%%'
             and
             n.nspname not in ('pg_catalog', 'information_schema')
             """
@@ -547,8 +546,8 @@ class LineageExtractor:
 
             # Populate table level lineage for late binding views
             self._populate_lineage_map(
-                query=list_late_binding_views_query,
-                lineage_type=LineageCollectorType.NON_BINDING_VIEW,
+                query=list_late_view_ddls_query,
+                lineage_type=LineageCollectorType.VIEW_DDL_SQL_PARSING,
                 connection=connection,
                 all_tables=all_tables,
             )
