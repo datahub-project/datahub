@@ -43,7 +43,8 @@ public class SearchUtils {
           EntityType.CORP_GROUP,
           EntityType.CONTAINER,
           EntityType.DOMAIN,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.DATA_PLATFORM_INSTANCE);
 
   /**
    * Entities that are part of autocomplete by default in Auto Complete Across Entities
@@ -63,7 +64,8 @@ public class SearchUtils {
           EntityType.TAG,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.DATA_PLATFORM_INSTANCE);
 
 
   /**
