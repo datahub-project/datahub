@@ -1,33 +1,93 @@
 import os
+import re
 from contextlib import contextmanager
 from typing import Iterator, List, Optional, Tuple
 
 import docker
 
-REQUIRED_CONTAINERS = [
-    "elasticsearch-setup",
-    "elasticsearch",
-    "datahub-gms",
-    "datahub-frontend-react",
-    "datahub-upgrade",
-    "schema-registry",
-    "broker",
-    "zookeeper",
-    # These two containers are not necessary - only helpful in debugging.
-    # "kafka-topics-ui",
-    # "schema-registry-ui",
-    # "kibana",
-    # "kafka-rest-proxy",
-    # "datahub-mce-consumer",
-    # "datahub-mae-consumer"
-]
+from datahub import __version__
 
-ENSURE_EXIT_SUCCESS = [
-    "kafka-setup",
-    "elasticsearch-setup",
-    "mysql-setup",
-    "datahub-upgrade",
-]
+
+def version_tuple(version: Optional[str] = None) -> Tuple[int, ...]:
+    """
+    TODO: Probably need semantic version library here
+    """
+    if version not in ("master", "head"):
+        match = re.match(
+            "^v?([0-9]+[.][0-9]+([.][0-9]+){1,2})",
+            os.getenv("DATAHUB_VERSION", version if version else __version__),
+        )
+        if match and match.group(1) != "0.0.0":
+            tuple_version = tuple(map(int, (match.group(1).split("."))))
+            if len(tuple_version) == 3:
+                tuple_version = tuple_version + (0,)
+
+            return tuple_version
+
+    return 0, 0, 0, 0
+
+
+def required_containers(version: Optional[str] = None) -> List[str]:
+
+    comparable_version = version_tuple(version)
+
+    if comparable_version >= (0, 10, 0, 0) or comparable_version == (0, 0, 0, 0):
+        return [
+            "elasticsearch-setup",
+            "elasticsearch",
+            "datahub-gms",
+            "datahub-frontend-react",
+            "datahub-upgrade",
+            "schema-registry",
+            "broker",
+            "zookeeper",
+        ]
+    elif comparable_version <= (0, 9, 6, 1):
+        return [
+            "elasticsearch-setup",
+            "elasticsearch",
+            "datahub-gms",
+            "datahub-frontend-react",
+            "kafka-setup",
+            "schema-registry",
+            "broker",
+            "zookeeper",
+        ]
+    else:
+        return [
+            "elasticsearch-setup",
+            "elasticsearch",
+            "datahub-gms",
+            "datahub-frontend-react",
+            "schema-registry",
+            "broker",
+            "zookeeper",
+            # These two containers are not necessary - only helpful in debugging.
+            # "kafka-topics-ui",
+            # "schema-registry-ui",
+            # "kibana",
+            # "kafka-rest-proxy",
+            # "datahub-mce-consumer",
+            # "datahub-mae-consumer"
+        ]
+
+
+def ensure_exist_success(version: Optional[str] = None) -> List[str]:
+    comparable_version = version_tuple(version)
+
+    if comparable_version >= (0, 10, 0, 0) or comparable_version == (0, 0, 0, 0):
+        return [
+            "elasticsearch-setup",
+            "mysql-setup",
+            "datahub-upgrade",
+        ]
+    else:
+        return [
+            "kafka-setup",
+            "elasticsearch-setup",
+            "mysql-setup",
+        ]
+
 
 CONTAINERS_TO_CHECK_IF_PRESENT = [
     # We only add this container in some cases, but if it's present, we
@@ -81,7 +141,9 @@ def memory_in_gb(mem_bytes: int) -> float:
     return mem_bytes / (1024 * 1024 * 1000)
 
 
-def check_local_docker_containers(preflight_only: bool = False) -> List[str]:
+def check_local_docker_containers(
+    version: Optional[str] = None, preflight_only: bool = False
+) -> List[str]:
     issues: List[str] = []
     with get_client_with_error() as (client, error):
         if error:
@@ -110,7 +172,7 @@ def check_local_docker_containers(preflight_only: bool = False) -> List[str]:
             issues.append("quickstart.sh or dev.sh is not running")
         else:
             existing_containers = {container.name for container in containers}
-            missing_containers = set(REQUIRED_CONTAINERS) - existing_containers
+            missing_containers = set(required_containers(version)) - existing_containers
             issues.extend(
                 f"{missing} container is not present" for missing in missing_containers
             )
@@ -118,14 +180,14 @@ def check_local_docker_containers(preflight_only: bool = False) -> List[str]:
         # Check that the containers are running and healthy.
         for container in containers:
             if container.name not in (
-                REQUIRED_CONTAINERS + CONTAINERS_TO_CHECK_IF_PRESENT
+                required_containers(version) + CONTAINERS_TO_CHECK_IF_PRESENT
             ):
                 # Ignores things like "datahub-frontend" which are no longer used.
                 # This way, we only check required containers like "datahub-frontend-react"
                 # even if there are some old containers lying around.
                 continue
 
-            if container.name in ENSURE_EXIT_SUCCESS:
+            if container.name in ensure_exist_success(version):
                 if container.status != "exited":
                     issues.append(f"{container.name} is still running")
                 elif container.attrs["State"]["ExitCode"] != 0:

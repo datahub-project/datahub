@@ -21,6 +21,7 @@ from expandvars import expandvars
 from requests_file import FileAdapter
 from typing_extensions import Literal
 
+from datahub import docker_tag
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     check_local_docker_containers,
@@ -31,7 +32,7 @@ from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.sample_data import (
     BOOTSTRAP_MCES_FILE,
-    DOCKER_COMPOSE_BASE,
+    docker_compose_base,
     download_sample_data,
 )
 
@@ -58,18 +59,24 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
 KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.kafka-setup.quickstart.yml"
 )
-NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-)
-ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-)
+
+
+def neo4j_and_elastic_quickstart_compose_url(version: Optional[str] = None) -> str:
+    return f"{docker_compose_base(version)}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
+
+
+def elastic_quickstart_compose_url(version: Optional[str] = None) -> str:
+    return f"{docker_compose_base(version)}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
+
+
+def neo4j_and_elastic_m1_quickstart_compose_url(version: Optional[str] = None) -> str:
+    return (
+        f"{docker_compose_base(version)}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+    )
+
+
+def elastic_m1_quickstart_compose_url(version: Optional[str] = None) -> str:
+    return f"{docker_compose_base(version)}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
 
 
 class Architectures(Enum):
@@ -112,8 +119,8 @@ def _print_issue_list_and_exit(
     sys.exit(1)
 
 
-def docker_check_impl() -> None:
-    issues = check_local_docker_containers()
+def docker_check_impl(version: Optional[str] = None) -> None:
+    issues = check_local_docker_containers(version)
     if not issues:
         click.secho("✔ No issues detected", fg="green")
     else:
@@ -123,9 +130,9 @@ def docker_check_impl() -> None:
 @docker.command()
 @upgrade.check_upgrade
 @telemetry.with_telemetry
-def check() -> None:
+def check(version: str) -> None:
     """Check that the Docker containers are healthy"""
-    docker_check_impl()
+    docker_check_impl(version)
 
 
 def is_m1() -> bool:
@@ -467,13 +474,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
 )
 @click.option(
-    "--build-locally",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Attempt to build the containers locally before starting",
-)
-@click.option(
     "--pull-images/--no-pull-images",
     type=bool,
     is_flag=True,
@@ -610,7 +610,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 @telemetry.with_telemetry
 def quickstart(
     version: str,
-    build_locally: bool,
     pull_images: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
@@ -635,8 +634,8 @@ def quickstart(
 
     This command will automatically download the latest docker-compose configuration
     from GitHub, pull the latest images, and bring up the DataHub system.
-    There are options to override the docker-compose config file, build the containers
-    locally, and dump logs to the console or to a file if something goes wrong.
+    There are options to override the docker-compose config file and dump logs to the
+    console or to a file if something goes wrong.
     """
     if backup:
         _backup(backup_file)
@@ -660,7 +659,7 @@ def quickstart(
     quickstart_arch = detect_quickstart_arch(arch)
 
     # Run pre-flight checks.
-    issues = check_local_docker_containers(preflight_only=True)
+    issues = check_local_docker_containers(version, preflight_only=True)
     if issues:
         _print_issue_list_and_exit(issues, "Unable to run quickstart:")
 
@@ -678,6 +677,7 @@ def quickstart(
     elif not quickstart_compose_file:
         print("compose file name", quickstart_compose_file_name)
         download_compose_files(
+            version,
             quickstart_compose_file_name,
             quickstart_compose_file,
             graph_service_impl,
@@ -688,7 +688,7 @@ def quickstart(
 
     # set version
     _set_environment_variables(
-        version=version,
+        version=docker_tag(version),
         mysql_port=mysql_port,
         zk_port=zk_port,
         kafka_broker_port=kafka_broker_port,
@@ -727,20 +727,6 @@ def quickstart(
             fg="red",
         )
 
-    if build_locally:
-        click.echo("Building docker images locally...")
-        subprocess.run(
-            [
-                *base_command,
-                "build",
-                "--pull",
-                "-q",
-            ],
-            check=True,
-            env=_docker_subprocess_env(),
-        )
-        click.secho("Finished building docker images!")
-
     # Start it up! (with retries)
     max_wait_time = datetime.timedelta(minutes=6)
     start_time = datetime.datetime.now()
@@ -758,7 +744,7 @@ def quickstart(
             up_attempts += 1
 
         # Check docker health every few seconds.
-        issues = check_local_docker_containers()
+        issues = check_local_docker_containers(version)
         if not issues:
             break
 
@@ -807,6 +793,7 @@ def quickstart(
 
 
 def download_compose_files(
+    version,
     quickstart_compose_file_name,
     quickstart_compose_file_list,
     graph_service_impl,
@@ -818,15 +805,15 @@ def download_compose_files(
     should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
     if should_use_neo4j:
         github_file = (
-            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
+            neo4j_and_elastic_quickstart_compose_url(version)
             if not is_arch_m1(quickstart_arch)
-            else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
+            else neo4j_and_elastic_m1_quickstart_compose_url(version)
         )
     else:
         github_file = (
-            ELASTIC_QUICKSTART_COMPOSE_URL
+            elastic_quickstart_compose_url(version)
             if not is_arch_m1(quickstart_arch)
-            else ELASTIC_M1_QUICKSTART_COMPOSE_URL
+            else elastic_m1_quickstart_compose_url(version)
         )
     # also allow local files
     request_session = requests.Session()
@@ -846,9 +833,9 @@ def download_compose_files(
         logger.debug(f"Copied to {path}")
     if standalone_consumers:
         consumer_github_file = (
-            f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            f"{docker_compose_base(version)}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
             if should_use_neo4j
-            else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            else f"{docker_compose_base(version)}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
         )
 
         default_consumer_compose_file = (
@@ -907,8 +894,16 @@ def valid_restore_options(
     default=None,
     help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
 )
+@click.option(
+    "--version",
+    type=str,
+    default=None,
+    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
+)
 @telemetry.with_telemetry
-def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
+def ingest_sample_data(
+    path: Optional[str], token: Optional[str], version: Optional[str] = None
+) -> None:
     """Ingest sample data into a running DataHub instance."""
 
     if path is None:
@@ -916,7 +911,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
         path = str(download_sample_data())
 
     # Verify that docker is up.
-    issues = check_local_docker_containers()
+    issues = check_local_docker_containers(version)
     if issues:
         _print_issue_list_and_exit(
             issues,
