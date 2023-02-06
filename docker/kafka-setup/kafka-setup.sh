@@ -116,7 +116,7 @@ send "$FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME" "--topic $FAILED_METADATA_CHA
 send "$PLATFORM_EVENT_TOPIC_NAME" "--topic $PLATFORM_EVENT_TOPIC_NAME"
 
 # Infinite retention upgrade topic
-send "$DATAHUB_UPGRADE_HISTORY_TOPIC" "config retention.ms=-1 --topic $DATAHUB_UPGRADE_HISTORY_TOPIC"
+send "$DATAHUB_UPGRADE_HISTORY_TOPIC_NAME" "config retention.ms=-1 --topic $DATAHUB_UPGRADE_HISTORY_TOPIC_NAME"
 # Create topic for datahub usage event
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
   send "$DATAHUB_USAGE_EVENT_NAME" "--topic $DATAHUB_USAGE_EVENT_NAME"
