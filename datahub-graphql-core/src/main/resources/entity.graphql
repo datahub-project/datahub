@@ -198,6 +198,13 @@ type Query {
     List Global DataHub Views
     """
     listGlobalViews(input: ListGlobalViewsInput!): ListViewsResult
+
+    """
+    List Dataset Queries
+    """
+    listQueries(
+      "Input required for listing queries"
+      input: ListQueriesInput!): ListQueriesResult
 }
 
 """
@@ -581,6 +588,20 @@ type Mutation {
     Update the Embed information for a Dataset, Dashboard, or Chart.
     """
     updateEmbed(input: UpdateEmbedInput!): Boolean
+
+    """
+    Create a new Query
+    """
+    createQuery(
+      "Inputs required to create a new Query."
+      input: CreateQueryInput!): Query
+
+    """
+    Delete a Query by urn. This requires the 'Edit Queries' Metadata Privilege.
+    """
+    deleteQuery(
+      "Urn of the query to remove."
+      urn: String!): Boolean
 }
 
 """
@@ -10171,4 +10192,194 @@ input UpdateEmbedInput {
   Set or clear a URL used to render an embedded asset.
   """
   renderUrl: String
+}
+
+"""
+A query language / dialect.
+"""
+enum QueryLanguage {
+  """
+  Standard ANSI SQL
+  """
+  SQL
+}
+
+"""
+An individual Query Statement
+"""
+type QueryStatement {
+  """
+  The query statement value
+  """
+  value: String!
+
+  """
+  The language for the Query Statement
+  """
+  language: QueryLanguage!
+}
+
+"""
+Properties about an individual Query
+"""
+type QueryProperties {
+  """
+  The Query statement itself
+  """
+  statement: QueryStatement!
+
+  """
+  The name of the Query
+  """
+  name: String
+
+  """
+  The description of the Query
+  """
+  description: String
+
+  """
+  An Audit Stamp corresponding to the creation of this resource
+  """
+  created: AuditStamp!
+
+  """
+  An Audit Stamp corresponding to the update of this resource
+  """
+  lastModified: AuditStamp!
+}
+
+"""
+The subject for a Query
+"""
+type QuerySubject {
+  """
+  The dataset which is the subject of the Query
+  """
+  dataset: Dataset!
+}
+
+"""
+An individual Query
+"""
+type QueryEntity {
+  """
+  Properties about the Query
+  """
+  properties: QueryProperties
+
+  """
+  Subjects for the query
+  """
+  subjects: [QuerySubject!]
+}
+
+"""
+Input required for creating a Query Statement
+"""
+input QueryStatementInput {
+  """
+  The query text
+  """
+  value: String!
+
+  """
+  The query language
+  """
+  language: QueryLanguage!
+}
+
+"""
+Input properties required for creating a Query
+"""
+input QueryPropertiesInput {
+  """
+  An optional display name for the Query
+  """
+  name: String
+
+  """
+  An optional description for the Query
+  """
+  description: String
+
+  """
+  The Query contents
+  """
+  statement: QueryStatementInput!
+}
+
+"""
+Input required for creating a Query. For now, only datasets are supported.
+"""
+input QuerySubjectInput {
+  """
+  The urn of the dataset that is the subject of the query
+  """
+  datasetUrn: String!
+}
+
+"""
+Input required for creating a Query. Requires the 'Edit Queries' privilege for all query subjects.
+"""
+input CreateQueryInput {
+  """
+  Properties about the Query
+  """
+  properties: QueryPropertiesInput!
+
+  """
+  Subjects for the query
+  """
+  subjects: [QuerySubjectInput!]!
+}
+
+"""
+Input required for listing query entities
+"""
+input ListQueriesInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Queries to be returned in the result set
+  """
+  count: Int
+
+  """
+  An optional Urn for the parent dataset that the query is associated with.
+  """
+  datasetUrn: String
+
+  """
+  The maximum number of Queries to be returned in the result set
+  """
+  count: Int
+}
+
+"""
+Results when listing entity queries
+"""
+type ListQueriesResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of results to be returned
+  """
+  count: Int!
+
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The Queries themselves
+  """
+  queries: [QueryEntity!]!
 }
