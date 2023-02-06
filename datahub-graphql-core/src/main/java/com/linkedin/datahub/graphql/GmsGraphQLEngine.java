@@ -568,6 +568,7 @@ public class GmsGraphQLEngine {
         configureSchemaFieldResolvers(builder);
         configureEntityPathResolvers(builder);
         configureViewResolvers(builder);
+        configureQueryEntityResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -723,6 +724,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listMyViews", new ListMyViewsResolver(this.entityClient))
             .dataFetcher("listGlobalViews", new ListGlobalViewsResolver(this.entityClient))
             .dataFetcher("globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
+            .dataFetcher("listQueries", new ListQueriesResolver(this.entityClient))
         );
     }
 
@@ -855,6 +857,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateCorpUserViewsSettings", new UpdateCorpUserViewsSettingsResolver(this.settingsService))
             .dataFetcher("updateLineage", new UpdateLineageResolver(this.entityService, this.lineageService))
             .dataFetcher("updateEmbed", new UpdateEmbedResolver(this.entityService))
+            .dataFetcher("createQuery", new CreateQueryResolver(this.entityService))
+            .dataFetcher("deleteQuery", new DeleteQueryResolver(this.viewService))
         );
     }
 
@@ -1577,6 +1581,19 @@ public class GmsGraphQLEngine {
                         }
                     )
                 ));
+    }
+
+    private void configureQueryEntityResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("QueryEntity",
+                typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
+            .type("ListQueriesResult", typeWiring -> typeWiring
+                .dataFetcher("queries", new LoadableTypeBatchResolver<>(
+                    queryType,
+                    (env) -> ((ListQueriesResult) env.getSource()).getQueries().stream()
+                        .map(QueryEntity::getUrn)
+                        .collect(Collectors.toList())))
+            );
     }
 
     private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {

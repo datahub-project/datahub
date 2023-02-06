@@ -792,6 +792,11 @@ enum EntityType {
     A DataHub View
     """
     DATAHUB_VIEW
+
+    """
+    A dataset query
+    """
+    QUERY
 }
 
 """
@@ -10277,7 +10282,17 @@ type QuerySubject {
 """
 An individual Query
 """
-type QueryEntity {
+type QueryEntity implements Entity {
+  """
+  A primary key associated with the Query
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
   """
   Properties about the Query
   """
@@ -10287,6 +10302,11 @@ type QueryEntity {
   Subjects for the query
   """
   subjects: [QuerySubject!]
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
