@@ -80,7 +80,7 @@ class MigrationReport:
 
 
 @click.group()
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def migrate() -> None:
     """Helper commands for migrating metadata within DataHub."""
     pass
@@ -110,7 +110,7 @@ def _get_type_from_urn(urn: str) -> str:
     default=False,
     help="When enabled, will not delete (hard/soft) the previous entities.",
 )
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def dataplatform2instance(
     instance: str,
     platform: str,

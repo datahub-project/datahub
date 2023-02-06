@@ -110,7 +110,9 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   @Relationship = {
     "/*": {
       "name": "UsedBy",
-      "entityTypes": [ "dataJob" ]
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true,
+      "isUpstream": false
     }
   }
   downstreamJobs: optional array[Urn]

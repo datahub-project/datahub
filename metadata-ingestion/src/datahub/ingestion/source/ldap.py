@@ -117,6 +117,11 @@ class LDAPSourceConfig(StatefulIngestionConfigBase):
         default=None, description="Retrieved attributes list"
     )
 
+    custom_props_list: Optional[List[str]] = Field(
+        default=None,
+        description="A list of custom attributes to extract from the LDAP provider.",
+    )
+
     # If set to true, any users without first and last names will be dropped.
     drop_missing_first_last_name: bool = Field(
         default=True,
@@ -379,6 +384,12 @@ class LDAPSource(StatefulIngestionSourceBase):
             if self.config.user_attrs_map["title"] in attrs
             else None
         )
+        custom_props_map = {}
+        if self.config.custom_props_list:
+            for prop in self.config.custom_props_list:
+                if prop in attrs:
+                    custom_props_map[prop] = (attrs[prop][0]).decode()
+
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
         user_snapshot = CorpUserSnapshotClass(
@@ -396,12 +407,12 @@ class LDAPSource(StatefulIngestionSourceBase):
                     countryCode=country_code,
                     title=title,
                     managerUrn=manager_urn,
+                    customProperties=custom_props_map,
                 ),
             ],
         )
 
-        if groups:
-            user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
+        user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
 
         return MetadataChangeEvent(proposedSnapshot=user_snapshot)
 

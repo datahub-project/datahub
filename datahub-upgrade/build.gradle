@@ -4,7 +4,10 @@ plugins {
   id 'com.palantir.docker'
 }
 
+apply from: "../gradle/versioning/versioning.gradle"
+
 ext {
+  docker_registry = 'acryldata'
   docker_repo = 'datahub-upgrade'
 }
 
@@ -57,15 +60,14 @@ bootJar {
 }
 
 docker {
-  name "${docker_registry}/${docker_repo}:${version}"
+  name "${docker_registry}/${docker_repo}:v${version}"
+  version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }
-  tag("-${version}", "${docker_registry}/${docker_repo}:v${version}")
-  tag("-version", "${docker_registry}/${docker_repo}:v${version}")
 
   // platform('linux/arm64', 'linux/amd64')
   buildx(true)

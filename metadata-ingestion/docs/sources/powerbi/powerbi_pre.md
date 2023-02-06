@@ -1,11 +1,10 @@
 ## Configuration Notes
-See the 
-1. [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) for the steps to create an app client ID and secret
-2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags. Refer section [Access Vs Data Ingestion](#access-vs-data-ingestion) for more detail 
+1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application and allow service principal to use Power BI APIs
+2. Login to Power BI as Admin and from `Admin API settings` allow below permissions
 
-    Login to Power BI as Admin and from tenant setting allow below permissions
-    - Allow service principals to use read-only Power BI admin APIs
+    - Allow service principals to use read-only admin APIs
     - Enhance admin APIs responses with detailed metadata
+    - Enhance admin APIs responses with DAX and mashup expressions
 
 ## Concept mapping 
 
