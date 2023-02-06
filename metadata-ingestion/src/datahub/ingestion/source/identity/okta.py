@@ -25,9 +25,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.utilities.config_clean import (
-    remove_protocol,
-)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
@@ -39,12 +36,12 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
-    CorpUserEditableInfoClass,
     GroupMembershipClass,
     OriginClass,
     OriginTypeClass,
     StatusClass,
 )
+from datahub.utilities.config_clean import remove_protocol
 
 logger = logging.getLogger(__name__)
 
