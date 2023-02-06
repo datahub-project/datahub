@@ -1,0 +1,57 @@
+namespace com.linkedin.query
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about a Query against one or more data assets (e.g. Tables or Views).
+ */
+@Aspect = {
+  "name": "queryProperties"
+}
+record QueryProperties {
+  /**
+   * The Query Statement.
+   */
+  statement: QueryStatement
+
+  /**
+   * Optional display name to identify the query.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: optional string
+
+  /**
+   * The Query Statement itself.
+   */
+  description: optional string
+
+  /**
+   * Audit stamp capturing the time and actor who created the Query.
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "createdAt"
+    },
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "createdBy"
+    }
+  }
+  created: AuditStamp
+
+  /**
+   * Audit stamp capturing the time and actor who last modified the Query.
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "lastModifiedAt"
+    }
+  }
+  lastModified: AuditStamp
+}
