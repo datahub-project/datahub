@@ -58,8 +58,6 @@ public class AuthenticationManager {
         } else if (callback instanceof PasswordCallback) {
           pc = (PasswordCallback) callback;
           pc.setPassword(this.password.toCharArray());
-        } else {
-          Logger.warn("The submitted callback is unsupported! type: " + callback.getClass(), callback);
         }
       }
     }
