@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Tuple
 import redshift_connector
 
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -440,6 +442,17 @@ class RedshiftDataDictionary:
         return tables, views
 
     @staticmethod
+    def get_schema_fields_for_column(
+        column: RedshiftColumn,
+    ) -> List[SchemaField]:
+        return get_schema_fields_for_hive_column(
+            column.name,
+            column.data_type.lower(),
+            description=column.comment,
+            default_nullable=True,
+        )
+
+    @staticmethod
     def get_columns_for_schema(
         conn: redshift_connector.Connection, schema: RedshiftSchema
     ) -> Dict[str, List[RedshiftColumn]]:
@@ -470,7 +483,6 @@ class RedshiftDataDictionary:
                     sort_key=column[field_names.index("sortkey")],
                     encode=column[field_names.index("encode")],
                 )
-
                 table_columns[table].append(column)
             columns = cursor.fetchmany()
 

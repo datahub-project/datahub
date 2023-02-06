@@ -574,16 +574,20 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 # attempt Postgres modified type
                 data_type = resolve_postgres_modified_type(col.data_type.lower())
 
-            field = SchemaField(
-                fieldPath=col.name,
-                type=SchemaFieldDataType(data_type() if data_type else NullType()),
-                # NOTE: nativeDataType will not be in sync with older connector
-                nativeDataType=col.data_type,
-                description=col.comment,
-                nullable=col.is_nullable,
-                globalTags=GlobalTagsClass(tags=tags),
-            )
-            schema_fields.append(field)
+            if any(type in col.data_type.lower() for type in ["struct", "array"]):
+                fields = RedshiftDataDictionary.get_schema_fields_for_column(col)
+                schema_fields.extend(fields)
+            else:
+                field = SchemaField(
+                    fieldPath=col.name,
+                    type=SchemaFieldDataType(data_type() if data_type else NullType()),
+                    # NOTE: nativeDataType will not be in sync with older connector
+                    nativeDataType=col.data_type,
+                    description=col.comment,
+                    nullable=col.is_nullable,
+                    globalTags=GlobalTagsClass(tags=tags),
+                )
+                schema_fields.append(field)
         return schema_fields
 
     # TODO: Move to common?
