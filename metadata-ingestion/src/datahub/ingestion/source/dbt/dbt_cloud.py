@@ -218,6 +218,7 @@ class DBTCloudSource(DBTSourceBase):
             },
             headers={
                 "Authorization": f"Bearer {self.config.token}",
+                "X-dbt-partner-source": "acryldatahub",
             },
         )
 

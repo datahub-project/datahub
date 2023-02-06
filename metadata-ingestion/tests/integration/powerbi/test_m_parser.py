@@ -1,3 +1,5 @@
+import logging
+import sys
 from typing import List
 
 from lark import Tree
@@ -359,3 +361,27 @@ def test_table_combine():
         data_platform_tables[1].data_platform_pair.powerbi_data_platform_name
         == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
     )
+
+
+def test_expression_is_none():
+    """
+    This test verifies the logging.debug should work if expression is None
+    :return:
+    """
+    # set logging to console
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+    logging.getLogger().setLevel(logging.DEBUG)
+
+    table: PowerBiAPI.Table = PowerBiAPI.Table(
+        expression=None,  # 1st index has the native query
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table, reporter
+    )
+
+    assert len(data_platform_tables) == 0

@@ -4,6 +4,8 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -12,6 +14,7 @@ import com.linkedin.metadata.search.SearchResult;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 public class ValidationUtils {
@@ -100,6 +103,27 @@ public class ValidationUtils {
     validatedLineageSearchResult.setEntities(validatedEntities);
 
     return validatedLineageSearchResult;
+  }
+
+  public static EntityLineageResult validateEntityLineageResult(@Nullable final EntityLineageResult entityLineageResult,
+      @Nonnull final EntityService entityService) {
+    if (entityLineageResult == null) {
+      return null;
+    }
+    Objects.requireNonNull(entityService, "entityService must not be null");
+
+    final EntityLineageResult validatedEntityLineageResult = new EntityLineageResult()
+        .setStart(entityLineageResult.getStart())
+        .setCount(entityLineageResult.getCount())
+        .setTotal(entityLineageResult.getTotal());
+
+    final LineageRelationshipArray validatedRelationships = entityLineageResult.getRelationships().stream()
+        .filter(relationship -> entityService.exists(relationship.getEntity()))
+        .collect(Collectors.toCollection(LineageRelationshipArray::new));
+
+    validatedEntityLineageResult.setRelationships(validatedRelationships);
+
+    return validatedEntityLineageResult;
   }
 
   private ValidationUtils() {

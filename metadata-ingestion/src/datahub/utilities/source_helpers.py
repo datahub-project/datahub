@@ -36,7 +36,12 @@ def auto_status_aspect(
     for wu in stream:
         urn = wu.get_urn()
         all_urns.add(urn)
-        if isinstance(wu.metadata, MetadataChangeEventClass):
+
+        if not wu.is_primary_source:
+            # If this is a non-primary source, we pretend like we've seen the status
+            # aspect so that we don't try to emit a removal for it.
+            status_urns.add(urn)
+        elif isinstance(wu.metadata, MetadataChangeEventClass):
             if any(
                 isinstance(aspect, StatusClass)
                 for aspect in wu.metadata.proposedSnapshot.aspects
@@ -80,9 +85,12 @@ def auto_stale_entity_removal(
     for wu in stream:
         urn = wu.get_urn()
 
-        entity_type = entity_type_fn(wu)
-        if entity_type is not None:
-            stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
+        if wu.is_primary_source:
+            entity_type = entity_type_fn(wu)
+            if entity_type is not None:
+                stale_entity_removal_handler.add_entity_to_state(entity_type, urn)
+        else:
+            stale_entity_removal_handler.add_urn_to_skip(urn)
 
         yield wu
 

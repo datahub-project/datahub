@@ -18,6 +18,7 @@ import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
 import { ErrorSection } from '../shared/error/ErrorSection';
 import usePrevious from '../shared/usePrevious';
+import { useGetTimeParams } from './utils/useGetTimeParams';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -63,9 +64,16 @@ export default function LineageExplorer({ urn, type }: Props) {
     const entityRegistry = useEntityRegistry();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const showColumns = useIsShowColumnsMode();
+    const { startTimeMillis, endTimeMillis } = useGetTimeParams();
 
     const { loading, error, data, refetch } = useGetEntityLineageQuery({
-        variables: { urn, separateSiblings: isHideSiblingMode, showColumns },
+        variables: {
+            urn,
+            separateSiblings: isHideSiblingMode,
+            showColumns,
+            startTimeMillis,
+            endTimeMillis,
+        },
     });
 
     const entityData: EntityAndType | null | undefined = useMemo(() => getEntityAndType(data), [data]);
@@ -74,10 +82,11 @@ export default function LineageExplorer({ urn, type }: Props) {
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>({});
 
-    // in the case that sibling mode changes, we want to clear out our cache of entities
+    // In the case that any URL params change, we want to reset asyncEntities. If new parameters are added,
+    // they should be added to the dependency array below.
     useEffect(() => {
         setAsyncEntities({});
-    }, [isHideSiblingMode]);
+    }, [isHideSiblingMode, startTimeMillis, endTimeMillis]);
 
     useEffect(() => {
         if (showColumns) {

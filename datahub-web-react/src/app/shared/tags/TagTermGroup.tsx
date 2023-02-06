@@ -1,27 +1,16 @@
-import { Modal, Tag, Typography, Button, message } from 'antd';
+import { Typography, Button } from 'antd';
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { BookOutlined, PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
 import Highlight from 'react-highlighter';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
-import {
-    Domain,
-    EntityType,
-    GlobalTags,
-    GlossaryTermAssociation,
-    GlossaryTerms,
-    SubResourceType,
-    TagAssociation,
-} from '../../../types.generated';
-import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
+import { Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
 import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
-import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 import { DomainLink } from './DomainLink';
-import { TagProfileDrawer } from './TagProfileDrawer';
 import EditTagTermsModal from './AddTagsTermsModal';
-import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
+import StyledTerm from './term/StyledTerm';
+import Tag from './tag/Tag';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -41,17 +30,8 @@ type Props = {
     entitySubresource?: string;
     highlightText?: string;
     refetch?: () => Promise<any>;
+    readOnly?: boolean;
 };
-
-const TermLink = styled(Link)`
-    display: inline-block;
-    margin-bottom: 8px;
-`;
-
-const TagLink = styled.span`
-    display: inline-block;
-    margin-bottom: 8px;
-`;
 
 const NoElementButton = styled(Button)`
     :not(:last-child) {
@@ -84,104 +64,15 @@ export default function TagTermGroup({
     entitySubresource,
     highlightText,
     refetch,
+    readOnly,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
-    const tagsEmpty =
-        !editableTags?.tags?.length &&
-        !uneditableTags?.tags?.length &&
-        !editableGlossaryTerms?.terms?.length &&
-        !uneditableGlossaryTerms?.terms?.length;
-    const [removeTagMutation] = useRemoveTagMutation();
-    const [removeTermMutation] = useRemoveTermMutation();
-    const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
-    const [addTagUrn, setAddTagUrn] = useState('');
-
-    const removeTag = (tagAssociationToRemove: TagAssociation) => {
-        const tagToRemove = tagAssociationToRemove.tag;
-        onOpenModal?.();
-        Modal.confirm({
-            title: `Do you want to remove ${tagToRemove?.name} tag?`,
-            content: `Are you sure you want to remove the ${tagToRemove?.name} tag?`,
-            onOk() {
-                if (tagAssociationToRemove.associatedUrn || entityUrn) {
-                    removeTagMutation({
-                        variables: {
-                            input: {
-                                tagUrn: tagToRemove.urn,
-                                resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
-                                subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                            },
-                        },
-                    })
-                        .then(({ errors }) => {
-                            if (!errors) {
-                                message.success({ content: 'Removed Tag!', duration: 2 });
-                            }
-                        })
-                        .then(refetch)
-                        .catch((e) => {
-                            message.destroy();
-                            message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
-                        });
-                }
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
-    const removeTerm = (termToRemove: GlossaryTermAssociation) => {
-        onOpenModal?.();
-        const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
-        Modal.confirm({
-            title: `Do you want to remove ${termName} term?`,
-            content: `Are you sure you want to remove the ${termName} term?`,
-            onOk() {
-                if (termToRemove.associatedUrn || entityUrn) {
-                    removeTermMutation({
-                        variables: {
-                            input: {
-                                termUrn: termToRemove.term.urn,
-                                resourceUrn: termToRemove.associatedUrn || entityUrn || '',
-                                subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                            },
-                        },
-                    })
-                        .then(({ errors }) => {
-                            if (!errors) {
-                                message.success({ content: 'Removed Term!', duration: 2 });
-                            }
-                        })
-                        .then(refetch)
-                        .catch((e) => {
-                            message.destroy();
-                            message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
-                        });
-                }
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
+    const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length;
+    const termsEmpty = !editableGlossaryTerms?.terms?.length && !uneditableGlossaryTerms?.terms?.length;
 
     let renderedTags = 0;
-
-    const showTagProfileDrawer = (urn: string) => {
-        setTagProfileDrawerVisible(true);
-        setAddTagUrn(urn);
-    };
-
-    const closeTagProfileDrawer = () => {
-        setTagProfileDrawerVisible(false);
-    };
 
     return (
         <>
@@ -203,50 +94,29 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <HoverEntityTooltip entity={term.term}>
-                        <TermLink
-                            to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
-                            key={term.term.urn}
-                        >
-                            <Tag closable={false} style={{ cursor: 'pointer' }}>
-                                <BookOutlined style={{ marginRight: '3%' }} />
-                                <Highlight
-                                    style={{ marginLeft: 0 }}
-                                    matchStyle={highlightMatchStyle}
-                                    search={highlightText}
-                                >
-                                    {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                                </Highlight>
-                            </Tag>
-                        </TermLink>
-                    </HoverEntityTooltip>
+                    <StyledTerm
+                        term={term}
+                        entityUrn={entityUrn}
+                        entitySubresource={entitySubresource}
+                        canRemove={false}
+                        readOnly={readOnly}
+                        highlightText={highlightText}
+                        onOpenModal={onOpenModal}
+                        refetch={refetch}
+                    />
                 );
             })}
             {editableGlossaryTerms?.terms?.map((term) => (
-                <HoverEntityTooltip entity={term.term}>
-                    <TermLink
-                        to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
-                        key={term.term.urn}
-                    >
-                        <Tag
-                            style={{ cursor: 'pointer' }}
-                            closable={canRemove}
-                            onClose={(e) => {
-                                e.preventDefault();
-                                removeTerm(term);
-                            }}
-                        >
-                            <BookOutlined style={{ marginRight: '3%' }} />
-                            <Highlight
-                                style={{ marginLeft: 0 }}
-                                matchStyle={highlightMatchStyle}
-                                search={highlightText}
-                            >
-                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                            </Highlight>
-                        </Tag>
-                    </TermLink>
-                </HoverEntityTooltip>
+                <StyledTerm
+                    term={term}
+                    entityUrn={entityUrn}
+                    entitySubresource={entitySubresource}
+                    canRemove={canRemove}
+                    readOnly={readOnly}
+                    highlightText={highlightText}
+                    onOpenModal={onOpenModal}
+                    refetch={refetch}
+                />
             ))}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
@@ -257,27 +127,17 @@ export default function TagTermGroup({
                     );
                 if (maxShow && renderedTags > maxShow) return null;
 
-                const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
                 return (
-                    <HoverEntityTooltip entity={tag?.tag}>
-                        <TagLink key={tag?.tag?.urn} data-testid={`tag-${displayName}`}>
-                            <StyledTag
-                                style={{ cursor: 'pointer' }}
-                                onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
-                                $colorHash={tag?.tag?.urn}
-                                $color={tag?.tag?.properties?.colorHex}
-                                closable={false}
-                            >
-                                <Highlight
-                                    style={{ marginLeft: 0 }}
-                                    matchStyle={highlightMatchStyle}
-                                    search={highlightText}
-                                >
-                                    {displayName}
-                                </Highlight>
-                            </StyledTag>
-                        </TagLink>
-                    </HoverEntityTooltip>
+                    <Tag
+                        tag={tag}
+                        entityUrn={entityUrn}
+                        entitySubresource={entitySubresource}
+                        canRemove={false}
+                        readOnly={readOnly}
+                        highlightText={highlightText}
+                        onOpenModal={onOpenModal}
+                        refetch={refetch}
+                    />
                 );
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
@@ -285,51 +145,30 @@ export default function TagTermGroup({
                 renderedTags += 1;
                 if (maxShow && renderedTags > maxShow) return null;
 
-                const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
                 return (
-                    <HoverEntityTooltip entity={tag?.tag}>
-                        <TagLink data-testid={`tag-${displayName}`}>
-                            <StyledTag
-                                style={{ cursor: 'pointer' }}
-                                onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
-                                $colorHash={tag?.tag?.urn}
-                                $color={tag?.tag?.properties?.colorHex}
-                                closable={canRemove}
-                                onClose={(e) => {
-                                    e.preventDefault();
-                                    removeTag(tag);
-                                }}
-                            >
-                                <Highlight
-                                    style={{ marginLeft: 0 }}
-                                    matchStyle={highlightMatchStyle}
-                                    search={highlightText}
-                                >
-                                    {displayName}
-                                </Highlight>
-                            </StyledTag>
-                        </TagLink>
-                    </HoverEntityTooltip>
+                    <Tag
+                        tag={tag}
+                        entityUrn={entityUrn}
+                        entitySubresource={entitySubresource}
+                        canRemove={canRemove}
+                        readOnly={readOnly}
+                        highlightText={highlightText}
+                        onOpenModal={onOpenModal}
+                        refetch={refetch}
+                    />
                 );
             })}
-            {tagProfileDrawerVisible && (
-                <TagProfileDrawer
-                    closeTagProfileDrawer={closeTagProfileDrawer}
-                    tagProfileDrawerVisible={tagProfileDrawerVisible}
-                    urn={addTagUrn}
-                />
-            )}
             {showEmptyMessage && canAddTag && tagsEmpty && (
                 <Typography.Paragraph type="secondary">
                     {EMPTY_MESSAGES.tags.title}. {EMPTY_MESSAGES.tags.description}
                 </Typography.Paragraph>
             )}
-            {showEmptyMessage && canAddTerm && tagsEmpty && (
+            {showEmptyMessage && canAddTerm && termsEmpty && (
                 <Typography.Paragraph type="secondary">
                     {EMPTY_MESSAGES.terms.title}. {EMPTY_MESSAGES.terms.description}
                 </Typography.Paragraph>
             )}
-            {canAddTag && (
+            {canAddTag && !readOnly && (
                 <NoElementButton
                     type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
                     onClick={() => {
@@ -342,9 +181,9 @@ export default function TagTermGroup({
                     <span>Add Tags</span>
                 </NoElementButton>
             )}
-            {canAddTerm && (
+            {canAddTerm && !readOnly && (
                 <NoElementButton
-                    type={showEmptyMessage && tagsEmpty ? 'default' : 'text'}
+                    type={showEmptyMessage && termsEmpty ? 'default' : 'text'}
                     onClick={() => {
                         setAddModalType(EntityType.GlossaryTerm);
                         setShowAddModal(true);

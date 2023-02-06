@@ -298,26 +298,26 @@ export const SearchBar = ({
                 style={autoCompleteStyle}
                 options={options}
                 filterOption={false}
-                onSelect={(value: string, option) => {
+                onSelect={(value, option) => {
                     // If the autocomplete option type is NOT an entity, then render as a normal search query.
                     if (
                         option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
                         option.type === RECOMMENDED_QUERY_OPTION_TYPE
                     ) {
                         onSearch(
-                            `${filterSearchQuery(value)}`,
+                            `${filterSearchQuery(value as string)}`,
                             searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
                         );
                     } else {
                         // Navigate directly to the entity profile.
-                        history.push(getEntityPath(option.type, value, entityRegistry, false, false));
+                        history.push(getEntityPath(option.type, value as string, entityRegistry, false, false));
                         setSelected('');
                     }
                 }}
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery || undefined}
                 value={selected}
-                onChange={(v) => setSelected(filterSearchQuery(v))}
+                onChange={(v) => setSelected(filterSearchQuery(v as string))}
                 dropdownStyle={{
                     maxHeight: 1000,
                     overflowY: 'visible',

@@ -1,7 +1,7 @@
 import json
 import logging
 import typing
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 import pydantic
 from pyathena.common import BaseCursor
@@ -186,6 +186,7 @@ class AthenaSource(SQLAlchemySource):
     def gen_database_containers(
         self,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         # In Athena the schema is the database and database is not existing
         return []
@@ -194,6 +195,7 @@ class AthenaSource(SQLAlchemySource):
         self,
         schema: str,
         database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         database_container_key = gen_database_key(
             database,
@@ -209,6 +211,7 @@ class AthenaSource(SQLAlchemySource):
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
+            extra_properties=extra_properties,
         )
 
     def get_database_container_key(self, db_name: str, schema: str) -> PlatformKey:

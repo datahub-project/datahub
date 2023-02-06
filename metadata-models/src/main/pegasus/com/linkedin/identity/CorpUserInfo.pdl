@@ -1,6 +1,7 @@
 namespace com.linkedin.identity
 
 import com.linkedin.common.CorpuserUrn
+import com.linkedin.common.CustomProperties
 import com.linkedin.common.EmailAddress
 
 /**
@@ -10,7 +11,7 @@ import com.linkedin.common.EmailAddress
   "name": "corpUserInfo"
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
-record CorpUserInfo {
+record CorpUserInfo includes CustomProperties {
 
   /**
    * Deprecated! Use CorpUserStatus instead. Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools
@@ -24,6 +25,11 @@ record CorpUserInfo {
   /**
    * displayName of this user ,  e.g.  Hang Zhang(DataHQ)
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "queryByDefault": true,
+    "boostScore": 10.0
+  }
   displayName: optional string
 
   /**

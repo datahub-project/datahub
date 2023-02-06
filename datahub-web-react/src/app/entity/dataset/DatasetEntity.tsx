@@ -10,7 +10,7 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
@@ -28,6 +28,7 @@ import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/Sid
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 import { DatasetSearchSnippet } from './DatasetSearchSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
+import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -219,10 +220,10 @@ export class DatasetEntity implements Entity<Dataset> {
         const subTypes = dataset?.subTypes;
         const extendedProperties: DatasetProperties | undefined | null = dataset?.properties && {
             ...dataset?.properties,
-            qualifiedName: dataset?.properties?.qualifiedName || dataset?.name,
+            qualifiedName: dataset?.properties?.qualifiedName || this.displayName(dataset),
         };
         return {
-            name: dataset?.properties?.name || dataset?.name,
+            name: dataset && this.displayName(dataset),
             externalUrl: dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
             properties: extendedProperties,
@@ -284,6 +285,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
+                columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
+                sizeInBytes={(data as any).lastProfile?.length && (data as any).lastProfile[0].sizeInBytes}
                 lastUpdatedMs={
                     (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
                 }
@@ -329,4 +332,13 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.SOFT_DELETE,
         ]);
     };
+
+    renderEmbeddedProfile = (urn: string) => (
+        <EmbeddedProfile
+            urn={urn}
+            entityType={EntityType.Dataset}
+            useEntityQuery={useGetDatasetQuery}
+            getOverrideProperties={this.getOverridePropertiesFromEntity}
+        />
+    );
 }

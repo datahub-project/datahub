@@ -43,7 +43,6 @@ module.exports = {
       // By the end of this section, readers should understand the core use cases that DataHub addresses,
       // target end-users, high-level architecture, & hosting options
 
-      // "docs/wip/what-is-datahub",
       "docs/features",
       {
         Architecture: [
@@ -68,29 +67,13 @@ module.exports = {
       {
         "Self-Hosted DataHub": [
           "docs/quickstart",
-          // "docs/wip/configure-sso",
           "docs/authentication/guides/add-users",
-          // "docs/wip/invite-with-email-link",
-          // "docs/wip/create-policies",
-          // "docs/wip/guide-ingest-your-first-metadata-source",
-          // "docs/wip/guide-enrich-your-metadata", // remove this; add in enrichment detail in ingest-your-first-source
         ],
       },
       {
         "Managed DataHub": [
-          // {
-          //   type: "doc",
-          //   id: "docs/wip/managed-datahub-setup",
-          //   className: "saasOnly",
-          // },
-          // {
-          //   type: "doc",
-          //   id: "docs/wip/configure-sso",
-          //   className: "saasOnly",
-          // },
           "docs/authentication/guides/add-users",
-          // "docs/wip/invite-with-email-link",
-          // "docs/wip/create-policies",
+
           {
             type: "doc",
             id: "docs/managed-datahub/saas-slack-setup",
@@ -101,8 +84,6 @@ module.exports = {
             id: "docs/managed-datahub/approval-workflows",
             className: "saasOnly",
           },
-          // "docs/wip/guide-ingest-your-first-metadata-source",
-          // "docs/wip/guide-enrich-your-metadata",
         ],
       },
       {
@@ -129,18 +110,9 @@ module.exports = {
       // Readers should be able to find details for ingesting from all systems, apply transformers, understand sinks,
       // and understand key concepts of the Ingestion Framework (Sources, Sinks, Transformers, and Recipes)
       {
-        Overview: [
-          "metadata-ingestion/README",
-          // "docs/wip/ingestion-overview",
-          "docs/ui-ingestion",
-        ],
+        Overview: ["metadata-ingestion/README", "docs/ui-ingestion"],
       },
 
-      // {
-      //   "Shift Left": [
-      //     // "docs/wip/importance-of-shift-left",
-      //   ],
-      // },
       {
         Sources: [
           // collapse these; add push-based at top
@@ -176,11 +148,7 @@ module.exports = {
               "metadata-ingestion/schedule_docs/kubernetes",
             ],
           },
-          // {
-          //   type: "doc",
-          //   id: "docs/wip/remote-ingestion-executor-on-AWS",
-          //   className: "saasOnly",
-          // },
+
           "docs/platform-instances",
           "metadata-ingestion/docs/dev_guides/stateful",
           "metadata-ingestion/docs/dev_guides/classification",
@@ -191,8 +159,7 @@ module.exports = {
     ],
     "Enrich Metadata": [
       // The purpose of this section is to provide direction on how to enrich metadata when shift-left isn’t an option
-      // "docs/wip/csv-enrichment",
-      // "docs/wip/ui-based-enrichment",
+
       "docs/enrich-metadata",
       "docs/domains",
       "docs/glossary/business-glossary",
@@ -246,23 +213,7 @@ module.exports = {
         id: "docs/tests/metadata-tests",
         className: "saasOnly",
       },
-      //  "docs/wip/metadata-analytics",
       "docs/act-on-metadata/impact-analysis",
-      // {
-      //    type: "doc",
-      //    id: "docs/wip/events-bridge",
-      //    className: "saasOnly",
-      //  },
-      //  {
-      //    type: "doc",
-      //    id: "docs/wip/datahub-incidents", // rename this to "Incidents"
-      //    className: "saasOnly",
-      //  },
-      //  {
-      //    type: "doc",
-      //    id: "docs/wip/approval-workflows",
-      //    className: "saasOnly",
-      //  },
     ],
 
     "Deploy DataHub": [
@@ -317,12 +268,9 @@ module.exports = {
       },
       "docs/how/updating-datahub",
     ],
-    "Developer Guides": [
-      // The purpose of this section is to provide developers & technical users with
-      // concrete tutorials for how to work with the DataHub CLI & APIs
-      // "docs/wip/developer-guides",
-      "docs/cli",
-      "docs/datahub_lite",
+
+    "DataHub API": [
+      "docs/api/datahub-apis",
       {
         "GraphQL API": [
           {
@@ -396,6 +344,25 @@ module.exports = {
         ],
       },
       {
+        "Rest.li": [
+          {
+            type: "doc",
+            label: "Rest.li API",
+            id: "docs/api/restli/restli-overview",
+          },
+          {
+            type: "doc",
+            label: "Restore Indices",
+            id: "docs/api/restli/restore-indices",
+          },
+          {
+            type: "doc",
+            label: "Aspect Versioning and Rest.li Modeling",
+            id: "docs/advanced/aspect-versioning",
+          },
+        ],
+      },
+      {
         OpenAPI: [
           {
             label: "Usage Guide",
@@ -405,12 +372,22 @@ module.exports = {
           "docs/dev-guides/timeline",
         ],
       },
+    ],
+
+    Tools: [
+      "docs/cli",
       {
         SDKs: [
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
         ],
       },
+      "docs/datahub_lite",
+    ],
+
+    "Developer Guides": [
+      // The purpose of this section is to provide developers & technical users with
+      // concrete tutorials for how to work with the DataHub CLI & APIs
       {
         "DataHub Metadata Model": [
           "docs/modeling/metadata-model",
@@ -453,7 +430,6 @@ module.exports = {
           "docker/datahub-upgrade/README",
           "docs/advanced/no-code-modeling",
           "datahub-web-react/src/app/analytics/README",
-          "docs/advanced/aspect-versioning",
           "docs/advanced/es-7-upgrade",
           "docs/how/migrating-graph-service-implementation",
           "docs/advanced/field-path-spec-v2",
@@ -464,8 +440,8 @@ module.exports = {
         ],
       },
     ],
+
     "Feature Guides": [
-      // "docs/wip/tutorials",
       "docs/how/search",
       "docs/schema-history",
       // "docs/how/ui-tabs-guide",
@@ -477,16 +453,8 @@ module.exports = {
       "docs/features/dataset-usage-and-query-history",
       "docs/posts",
       "docs/sync-status",
+      "docs/architecture/stemming_and_synonyms",
       "docs/lineage/lineage-feature-guide",
-      // "docs/wip/ui-ingestion-guide", -- not needed
-      // "docs/wip/personal-access-tokens-guide", -- not needed
-
-      // {
-      //   "Advanced Tutorials": [
-      //     // "docs/wip/advanced-guides",
-      //     // "docs/wip/search-ranking",
-      //   ],
-      // },
     ],
 
     "Join the Community": [
@@ -501,6 +469,7 @@ module.exports = {
 
     "Release History": ["releases"],
     "Managed DataHub Release History": [
+      "docs/managed-datahub/release-notes/v_0_1_73",
       "docs/managed-datahub/release-notes/v_0_1_72",
       "docs/managed-datahub/release-notes/v_0_1_70",
       "docs/managed-datahub/release-notes/v_0_1_69",

@@ -1,11 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
+import dayjs from 'dayjs';
+
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
-import { getDataForEntityType, getEntityPath, getOnboardingStepIdsForEntityType, useRoutedTab } from './utils';
+import { getEntityPath, getOnboardingStepIdsForEntityType, useRoutedTab } from './utils';
 import {
     EntitySidebarSection,
     EntitySubHeaderSection,
@@ -30,11 +32,17 @@ import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
+import { useIsSeparateSiblingsMode } from '../../siblingUtils';
 import { EntityActionItem } from '../../entity/EntityActions';
 import { ErrorSection } from '../../../../shared/error/ErrorSection';
 import { EntityHead } from '../../../../shared/EntityHead';
 import { OnboardingTour } from '../../../../onboarding/OnboardingTour';
+import useGetDataForProfile from './useGetDataForProfile';
+import NonExistentEntityPage from '../../entity/NonExistentEntityPage';
+import {
+    LINEAGE_GRAPH_INTRO_ID,
+    LINEAGE_GRAPH_TIME_FILTER_ID,
+} from '../../../../onboarding/config/LineageGraphOnboardingConfig';
 
 type Props<T, U> = {
     urn: string;
@@ -165,7 +173,9 @@ export const EntityProfile = <T, U>({
     const [sidebarWidth, setSidebarWidth] = useState(window.innerWidth * 0.25);
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
     const [shouldUpdateBrowser, setShouldUpdateBrowser] = useState(false);
-    const stepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
+    const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
+    const lineageGraphStepIds: string[] = [LINEAGE_GRAPH_INTRO_ID, LINEAGE_GRAPH_TIME_FILTER_ID];
+    const stepIds = isLineageMode ? lineageGraphStepIds : entityStepIds;
 
     function refreshBrowser() {
         setShouldUpdateBrowser(true);
@@ -182,6 +192,14 @@ export const EntityProfile = <T, U>({
             tabParams?: Record<string, any>;
             method?: 'push' | 'replace';
         }) => {
+            let modifiedTabParams = tabParams;
+            if (tabName === 'Lineage') {
+                modifiedTabParams = {
+                    ...tabParams,
+                    start_time_millis: dayjs().subtract(14, 'day').valueOf(),
+                    end_time_millis: dayjs().valueOf(),
+                };
+            }
             analytics.event({
                 type: EventType.EntitySectionViewEvent,
                 entityType,
@@ -189,24 +207,14 @@ export const EntityProfile = <T, U>({
                 section: tabName.toLowerCase(),
             });
             history[method](
-                getEntityPath(entityType, urn, entityRegistry, false, isHideSiblingMode, tabName, tabParams),
+                getEntityPath(entityType, urn, entityRegistry, false, isHideSiblingMode, tabName, modifiedTabParams),
             );
         },
         [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
-    const {
-        loading,
-        error,
-        data: dataNotCombinedWithSiblings,
-        refetch,
-    } = useEntityQuery({
-        variables: { urn },
-    });
-
-    const dataPossiblyCombinedWithSiblings = isHideSiblingMode
-        ? dataNotCombinedWithSiblings
-        : combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
+    const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
+        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties });
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -215,17 +223,6 @@ export const EntityProfile = <T, U>({
     if (maybeUpdateEntity) {
         [updateEntity] = maybeUpdateEntity;
     }
-
-    const entityData =
-        (dataPossiblyCombinedWithSiblings &&
-            Object.keys(dataPossiblyCombinedWithSiblings).length > 0 &&
-            getDataForEntityType({
-                data: dataPossiblyCombinedWithSiblings[Object.keys(dataPossiblyCombinedWithSiblings)[0]],
-                entityType,
-                getOverrideProperties,
-                isHideSiblingMode,
-            })) ||
-        null;
 
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
@@ -254,6 +251,10 @@ export const EntityProfile = <T, U>({
     );
 
     const routedTab = useRoutedTab(enabledAndVisibleTabs);
+
+    if (entityData?.exists === false) {
+        return <NonExistentEntityPage />;
+    }
 
     if (isCompact) {
         return (

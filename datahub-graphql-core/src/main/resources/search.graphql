@@ -161,6 +161,14 @@ input SearchAcrossLineageInput {
   A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
   orFilters: [AndFilterInput!]
+  """
+  An optional starting time to filter on
+  """
+  startTimeMillis: Long
+  """
+  An optional ending time to filter on
+  """
+  endTimeMillis: Long
 }
 
 """

@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
@@ -28,9 +29,9 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -54,7 +55,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -240,16 +240,24 @@ public class JavaEntityClient implements EntityClient {
      */
     @Nonnull
     @WithSpan
+    @Override
     public SearchResult search(
         @Nonnull String entity,
         @Nonnull String input,
         @Nullable Map<String, String> requestFilters,
         int start,
         int count,
-        @Nonnull final Authentication authentication)
+        @Nonnull Authentication authentication,
+        @Nullable Boolean fulltext)
         throws RemoteInvocationException {
-        return ValidationUtils.validateSearchResult(
-            _entitySearchService.search(entity, input, newFilter(requestFilters), null, start, count), _entityService);
+
+        if (Optional.ofNullable(fulltext).orElse(false)) {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.fullTextSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
+        } else {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.structuredSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
+        }
     }
 
     /**
@@ -288,6 +296,7 @@ public class JavaEntityClient implements EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
+    @Override
     public SearchResult search(
         @Nonnull String entity,
         @Nonnull String input,
@@ -295,10 +304,18 @@ public class JavaEntityClient implements EntityClient {
         @Nullable SortCriterion sortCriterion,
         int start,
         int count,
-        @Nonnull final Authentication authentication)
+        @Nonnull Authentication authentication,
+        @Nullable Boolean fulltext)
         throws RemoteInvocationException {
-        return ValidationUtils.validateSearchResult(_entitySearchService.search(entity, input, filter, sortCriterion, start, count),
-            _entityService);
+        if (Optional.ofNullable(fulltext).orElse(false)) {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count),
+                    _entityService);
+        } else {
+            return ValidationUtils.validateSearchResult(
+                    _entitySearchService.structuredSearch(entity, input, filter, sortCriterion, start, count),
+                    _entityService);
+        }
     }
 
     /**
@@ -321,7 +338,8 @@ public class JavaEntityClient implements EntityClient {
         int count,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, null), _entityService);
+            _searchService.searchAcrossEntities(entities, input, filter, null, start, count,
+                    new SearchFlags().setFulltext(true)), _entityService);
     }
 
     @Nonnull
@@ -332,7 +350,21 @@ public class JavaEntityClient implements EntityClient {
         throws RemoteInvocationException {
         return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-                sortCriterion, start, count), _entityService);
+                sortCriterion, start, count, null, null), _entityService);
+    }
+
+    @Nonnull
+    @Override
+    public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+        @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
+            @Nullable SortCriterion sortCriterion, int start, int count, @Nullable Long startTimeMillis,
+            @Nullable Long endTimeMillis,
+        @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+        return ValidationUtils.validateLineageSearchResult(
+            _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
+                        sortCriterion, start, count, startTimeMillis, endTimeMillis),
+                _entityService);
     }
 
     /**
@@ -343,7 +375,8 @@ public class JavaEntityClient implements EntityClient {
      * @throws RemoteInvocationException
      */
     @Nonnull
-    public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    public StringArray getBrowsePaths(@Nonnull Urn urn, @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
       return new StringArray(_entitySearchService.getBrowsePaths(urn.getEntityType(), urn));
     }
 

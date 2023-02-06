@@ -324,14 +324,10 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             # part of the second state
             state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
             state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
-            difference_urns = list(
+            difference_urns = set(
                 state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
             )
-
-            assert len(difference_urns) == 1
-
-            urn1 = (
-                "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)"
-            )
-
-            assert urn1 in difference_urns
+            assert difference_urns == {
+                "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+                "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+            }

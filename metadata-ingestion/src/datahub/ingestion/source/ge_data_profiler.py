@@ -119,15 +119,22 @@ def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() in {"bigquery", "snowflake"}:
+    elif self.engine.dialect.name.lower() == "bigquery":
         element_values = self.engine.execute(
             sa.select(
                 [
                     sa.text(  # type:ignore
-                        f'APPROX_COUNT_DISTINCT("{sa.column(column)}")'
+                        f"APPROX_COUNT_DISTINCT(`{sa.column(column)}`)"
                     )
                 ]
             ).select_from(self._table)
+        )
+        return convert_to_json_serializable(element_values.fetchone()[0])
+    elif self.engine.dialect.name.lower() == "snowflake":
+        element_values = self.engine.execute(
+            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     return convert_to_json_serializable(

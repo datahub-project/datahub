@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
 import { useEntityData, useRefetch } from '../EntityContext';
@@ -8,6 +8,10 @@ import NodeParentSelect from './NodeParentSelect';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
+`;
+
+const OptionalWrapper = styled.span`
+    font-weight: normal;
 `;
 
 interface Props {
@@ -21,25 +25,16 @@ function MoveGlossaryEntityModal(props: Props) {
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
-    const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const refetch = useRefetch();
 
     const [updateParentNode] = useUpdateParentNodeMutation();
-
-    useEffect(() => {
-        if (selectedParentUrn) {
-            setCreateButtonEnabled(true);
-        } else {
-            setCreateButtonEnabled(false);
-        }
-    }, [selectedParentUrn]);
 
     function moveGlossaryEntity() {
         updateParentNode({
             variables: {
                 input: {
                     resourceUrn: entityDataUrn,
-                    parentNode: selectedParentUrn,
+                    parentNode: selectedParentUrn || null,
                 },
             },
         })
@@ -73,14 +68,18 @@ function MoveGlossaryEntityModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={moveGlossaryEntity} disabled={!createButtonEnabled}>
-                        Move
-                    </Button>
+                    <Button onClick={moveGlossaryEntity}>Move</Button>
                 </>
             }
         >
             <Form form={form} initialValues={{}} layout="vertical">
-                <Form.Item label={<Typography.Text strong>Move To</Typography.Text>}>
+                <Form.Item
+                    label={
+                        <Typography.Text strong>
+                            Move To <OptionalWrapper>(optional)</OptionalWrapper>
+                        </Typography.Text>
+                    }
+                >
                     <StyledItem name="parent">
                         <NodeParentSelect
                             selectedParentUrn={selectedParentUrn}
