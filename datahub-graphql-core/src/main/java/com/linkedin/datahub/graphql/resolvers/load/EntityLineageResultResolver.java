@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
 /**
@@ -45,13 +45,17 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     final Integer count = input.getCount(); // Optional!
     @Nullable
     final Boolean separateSiblings = input.getSeparateSiblings(); // Optional!
+    @Nullable
+    final Long startTimeMillis = input.getStartTimeMillis(); // Optional!
+    @Nullable
+    final Long endTimeMillis = input.getEndTimeMillis(); // Optional!
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
 
     return CompletableFuture.supplyAsync(() -> {
       try {
-        return mapEntityRelationships(lineageDirection,
+        return mapEntityRelationships(
             _siblingGraphService.getLineage(
                 Urn.createFromString(urn),
                 resolvedDirection,
@@ -59,8 +63,9 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
                 count != null ? count : 100,
                 1,
                 separateSiblings != null ? input.getSeparateSiblings() : false,
-                new HashSet<>()
-            ));
+                new HashSet<>(),
+                startTimeMillis,
+                endTimeMillis));
       } catch (URISyntaxException e) {
         log.error("Failed to fetch lineage for {}", urn);
         throw new RuntimeException(String.format("Failed to fetch lineage for {}", urn), e);
@@ -68,7 +73,7 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     });
   }
 
-  private EntityLineageResult mapEntityRelationships(final LineageDirection lineageDirection,
+  private EntityLineageResult mapEntityRelationships(
       final com.linkedin.metadata.graph.EntityLineageResult entityLineageResult) {
     final EntityLineageResult result = new EntityLineageResult();
     result.setStart(entityLineageResult.getStart());
@@ -76,12 +81,12 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     result.setTotal(entityLineageResult.getTotal());
     result.setRelationships(entityLineageResult.getRelationships()
         .stream()
-        .map(entityRelationship -> mapEntityRelationship(lineageDirection, entityRelationship))
+        .map(this::mapEntityRelationship)
         .collect(Collectors.toList()));
     return result;
   }
 
-  private LineageRelationship mapEntityRelationship(final LineageDirection direction,
+  private LineageRelationship mapEntityRelationship(
       final com.linkedin.metadata.graph.LineageRelationship lineageRelationship) {
     final LineageRelationship result = new LineageRelationship();
     final Entity partialEntity = UrnToEntityMapper.map(lineageRelationship.getEntity());
@@ -94,8 +99,18 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
       result.setCreatedOn(lineageRelationship.getCreatedOn());
     }
     if (lineageRelationship.hasCreatedActor()) {
-      result.setCreatedActor(UrnToEntityMapper.map(lineageRelationship.getCreatedActor()));
+      final Urn createdActor = lineageRelationship.getCreatedActor();
+      result.setCreatedActor(UrnToEntityMapper.map(createdActor));
     }
+    if (lineageRelationship.hasUpdatedOn()) {
+      result.setUpdatedOn(lineageRelationship.getUpdatedOn());
+    }
+    if (lineageRelationship.hasUpdatedActor()) {
+      final Urn updatedActor = lineageRelationship.getUpdatedActor();
+      result.setUpdatedActor(UrnToEntityMapper.map(updatedActor));
+    }
+    result.setIsManual(lineageRelationship.hasIsManual() && lineageRelationship.isIsManual());
+
     return result;
   }
 }

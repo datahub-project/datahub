@@ -1,11 +1,12 @@
 ## Configuration Notes
-See the 
-1. [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) for the steps to create an app client ID and secret
-2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags. Refer section [Access Vs Data Ingestion](#access-vs-data-ingestion) for more detail 
+1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application and allow service principal to use Power BI APIs
+2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags. Refer section [Admin Access Vs Data Ingestion](#admin-access-vs-data-ingestion) for more detail. 
 
-    Login to Power BI as Admin and from tenant setting allow below permissions
-    - Allow service principals to use read-only Power BI admin APIs
+    Login to Power BI as Admin and from `Admin API settings` allow below permissions
+
+    - Allow service principals to use read-only admin APIs
     - Enhance admin APIs responses with detailed metadata
+    - Enhance admin APIs responses with DAX and mashup expressions
 
 ## Concept mapping 
 
@@ -104,7 +105,7 @@ By default, extracting endorsement information to tags is disabled. The feature 
 
 Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
 
-## Access Vs Data Ingestion
+## Admin Access vs Data Ingestion
 ### Service Principal As Member In Workspace 
 If you have added Service Principal as `member` in workspace then PowerBI Source would be able ingest below metadata of that particular workspace 
 
@@ -137,7 +138,7 @@ Service Principal is allowed below permissions
   - Allow service principal to use read-only PowerBI Admin APIs
   - Enhance admin APIs responses with detailed metadata
 
-In PowerBI Source recipe add flag `admin_only: true` to configure PowerBI Source to use PowerBI Admin APIs only to retrieve the meta-data. PowerBI Source would be able to ingest below listed metadata of all workspaces.
+In PowerBI Source recipe add flag `admin_apis_only: true` to configure PowerBI Source to use PowerBI Admin APIs only to retrieve the meta-data. PowerBI Source would be able to ingest below listed metadata of all workspaces.
 
   - Lineage 
   - PowerBI Dataset 

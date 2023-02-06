@@ -441,7 +441,7 @@ def default_source_config():
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": True,
         "extract_reports": True,
-        "admin_only": True,
+        "admin_apis_only": True,
         "extract_ownership": True,
         "convert_lineage_urns_to_lowercase": False,
         "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
@@ -458,7 +458,7 @@ def default_source_config():
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-def test_admin_only(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"

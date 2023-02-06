@@ -1,10 +1,13 @@
 import logging
+import math
 from abc import ABC, abstractmethod
 from time import sleep
 from typing import Any, List, Optional
 
 import msal
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.powerbi.config import Constant
@@ -53,6 +56,19 @@ class DataResolverBase(ABC):
         logger.info("Trying to connect to {}".format(self._get_authority_url()))
         self.get_access_token()
         logger.info("Connected to {}".format(self._get_authority_url()))
+        self._request_session = requests.Session()
+        # set re-try parameter for request_session
+        self._request_session.mount(
+            "https://",
+            HTTPAdapter(
+                max_retries=Retry(
+                    total=3,
+                    backoff_factor=1,
+                    allowed_methods=None,
+                    status_forcelist=[429, 500, 502, 503, 504],
+                )
+            ),
+        )
 
     @abstractmethod
     def get_groups_endpoint(self) -> str:
@@ -125,7 +141,7 @@ class DataResolverBase(ABC):
 
         # Hit PowerBi
         logger.info(f"Request to URL={dashboard_list_endpoint}")
-        response = requests.get(
+        response = self._request_session.get(
             dashboard_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
@@ -160,8 +176,8 @@ class DataResolverBase(ABC):
 
         def fetch_page(page_number: int) -> dict:
             params["$skip"] = self.TOP * page_number
-            logger.debug("Query parameters = %s", params)
-            response = requests.get(
+            logger.debug(f"Query parameters = {params}")
+            response = self._request_session.get(
                 group_endpoint,
                 headers={Constant.Authorization: self.get_access_token()},
                 params=params,
@@ -170,16 +186,16 @@ class DataResolverBase(ABC):
             return response.json()
 
         # Hit PowerBi
-        logger.info("Request to groups endpoint URL=%s", group_endpoint)
+        logger.info(f"Request to groups endpoint URL={group_endpoint}")
         zeroth_page = fetch_page(0)
-        logger.debug("Page 0 = %s", zeroth_page)
+        logger.debug(f"Page 0 = {zeroth_page}")
         if zeroth_page.get("@odata.count") is None:
             raise ValueError(
                 "Required field @odata.count is missing. Not able to determine number of pages to fetch"
             )
 
         number_of_items = zeroth_page["@odata.count"]
-        number_of_pages = round(number_of_items / self.TOP)
+        number_of_pages = math.ceil(number_of_items / self.TOP)
         output: List[dict] = zeroth_page["value"]
         for page in range(
             1, number_of_pages
@@ -188,7 +204,7 @@ class DataResolverBase(ABC):
             if len(page_response["value"]) == 0:
                 break
 
-            logger.debug("Page %d = %s", page, zeroth_page)
+            logger.debug(f"Page {page} = {zeroth_page}")
 
             output.extend(page_response["value"])
 
@@ -204,7 +220,7 @@ class DataResolverBase(ABC):
         if _filter is not None:
             params = {"$filter": _filter}
 
-        response = requests.get(
+        response = self._request_session.get(
             reports_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
             params=params,
@@ -282,12 +298,10 @@ class DataResolverBase(ABC):
             else:
                 report_fields["createdFrom"] = Tile.CreatedFrom.VISUALIZATION
 
-            logger.info(
-                "Tile %s(%s) is created from %s",
-                tile_instance.get("title"),
-                tile_instance.get("id"),
-                report_fields["createdFrom"],
-            )
+            title: Optional[str] = tile_instance.get("title")
+            _id: Optional[str] = tile_instance.get("id")
+            created_from: Any = report_fields["createdFrom"]
+            logger.info(f"Tile {title}({_id}) is created from {created_from}")
 
             return report_fields
 
@@ -295,8 +309,8 @@ class DataResolverBase(ABC):
             workspace, dashboard_id=dashboard.id
         )
         # Hit PowerBi
-        logger.info("Request to URL={}".format(tile_list_endpoint))
-        response = requests.get(
+        logger.info(f"Request to URL={tile_list_endpoint}")
+        response = self._request_session.get(
             tile_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
@@ -304,7 +318,7 @@ class DataResolverBase(ABC):
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         tile_dict: List[Any] = response.json()[Constant.VALUE]
-        logger.debug("Tile Dict = {}".format(tile_dict))
+        logger.debug(f"Tile Dict = {tile_dict}")
         tiles: List[Tile] = [
             Tile(
                 id=instance.get("id"),
@@ -355,14 +369,14 @@ class RegularAPIResolver(DataResolverBase):
         )
         # Hit PowerBi
         logger.info(f"Request to dataset URL={dataset_get_endpoint}")
-        response = requests.get(
+        response = self._request_session.get(
             dataset_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
         # Check if we got response from PowerBi
         response.raise_for_status()
         response_dict = response.json()
-        logger.debug("datasets = {}".format(response_dict))
+        logger.debug(f"datasets = {response_dict}")
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of
         # None/details
         return new_powerbi_dataset(workspace_id, response_dict)
@@ -404,7 +418,7 @@ class RegularAPIResolver(DataResolverBase):
         )
         # Hit PowerBi
         logger.info(f"Request to pages URL={pages_endpoint}")
-        response = requests.get(
+        response = self._request_session.get(
             pages_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
@@ -451,9 +465,11 @@ class AdminAPIResolver(DataResolverBase):
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL
         )
 
-        logger.debug("Creating metadata scan job, request body (%s)", request_body)
+        logger.debug(
+            f"Creating metadata scan job, request body {request_body}",
+        )
 
-        res = requests.post(
+        res = self._request_session.post(
             scan_create_endpoint,
             data=request_body,
             params={
@@ -470,12 +486,12 @@ class AdminAPIResolver(DataResolverBase):
         # Return scan_id of Scan created for the given workspace
         scan_id = res.json()["id"]
 
-        logger.info("Scan id({})".format(scan_id))
+        logger.info(f"Scan id({scan_id})")
 
         return scan_id
 
     @staticmethod
-    def _calculate_max_trial(minimum_sleep: int, timeout: int) -> int:
+    def _calculate_max_retry(minimum_sleep: int, timeout: int) -> int:
         if timeout < minimum_sleep:
             logger.info(
                 f"Setting timeout to minimum_sleep time {minimum_sleep} seconds"
@@ -489,18 +505,18 @@ class AdminAPIResolver(DataResolverBase):
         Poll the PowerBi service for workspace scan to complete
         """
         minimum_sleep = 3
-        max_trial: int = AdminAPIResolver._calculate_max_trial(minimum_sleep, timeout)
-        logger.info(f"Max trial {max_trial}")
+        max_retry: int = AdminAPIResolver._calculate_max_retry(minimum_sleep, timeout)
+        logger.info(f"Max trial {max_retry}")
 
         scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
         scan_get_endpoint = scan_get_endpoint.format(
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
         )
         logger.debug(f"Hitting URL={scan_get_endpoint}")
-        trail = 1
+        retry = 1
         while True:
-            logger.info(f"Trial = {trail}")
-            res = requests.get(
+            logger.info(f"retry = {retry}")
+            res = self._request_session.get(
                 scan_get_endpoint,
                 headers={Constant.Authorization: self.get_access_token()},
             )
@@ -509,16 +525,17 @@ class AdminAPIResolver(DataResolverBase):
                 logger.warning(message)
                 raise ConnectionError(message)
 
-            if res.json()["status"].upper() == "Succeeded".upper():
+            if res.json()["status"].upper() == "SUCCEEDED":
                 logger.info(f"Scan result is available for scan id({scan_id})")
                 return True
 
-            if trail == max_trial:
+            if retry == max_retry:
+                logger.warning("Max retry reached. Scan job result is not available")
                 break
 
             logger.info(f"Sleeping for {minimum_sleep} seconds")
             sleep(minimum_sleep)
-            trail += 1
+            retry += 1
 
         # Result is not available
         return False
@@ -539,7 +556,7 @@ class AdminAPIResolver(DataResolverBase):
         )
         # Hit PowerBi
         logger.info(f"Request to URL={user_list_endpoint}")
-        response = requests.get(
+        response = self._request_session.get(
             user_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
@@ -573,7 +590,7 @@ class AdminAPIResolver(DataResolverBase):
         )
 
         logger.debug(f"Hitting URL={scan_result_get_endpoint}")
-        res = requests.get(
+        res = self._request_session.get(
             scan_result_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
@@ -621,7 +638,7 @@ class AdminAPIResolver(DataResolverBase):
         logger.info(f"Request to datasets URL={datasets_endpoint}")
         params: dict = {"$filter": f"id eq '{dataset_id}'"}
         logger.debug("params = %s", params)
-        response = requests.get(
+        response = self._request_session.get(
             datasets_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
             params=params,  # urllib.parse.urlencode(params, doseq=True).replace('+', '%20'),

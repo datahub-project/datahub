@@ -66,6 +66,7 @@ from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 
 # Logger instance
@@ -159,9 +160,7 @@ class Mapper:
                 not in self.__config.dataset_type_mapping.keys()
             ):
                 logger.debug(
-                    "Skipping upstream table for %s. The platform (%s) is not part of dataset_type_mapping",
-                    ds_urn,
-                    upstream_table.data_platform_pair.powerbi_data_platform_name,
+                    f"Skipping upstream table for {ds_urn}. The platform {upstream_table.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
                 )
                 continue
 
@@ -291,13 +290,13 @@ class Mapper:
         """
         Map PowerBi tile to datahub chart
         """
-        logger.info("Converting tile {}(id={}) to chart".format(tile.title, tile.id))
+        logger.info(f"Converting tile {tile.title}(id={tile.id}) to chart")
         # Create a URN for chart
         chart_urn = builder.make_chart_urn(
             self.__config.platform_name, tile.get_urn_part()
         )
 
-        logger.info("{}={}".format(Constant.CHART_URN, chart_urn))
+        logger.info(f"{Constant.CHART_URN}={chart_urn}")
 
         ds_input: List[str] = self.to_urn_set(ds_mcps)
 
@@ -656,13 +655,13 @@ class Mapper:
             page: powerbi_data_classes.Page,
             ds_mcps: List[MetadataChangeProposalWrapper],
         ) -> List[MetadataChangeProposalWrapper]:
-            logger.debug("Converting page {} to chart".format(page.displayName))
+            logger.debug(f"Converting page {page.displayName} to chart")
             # Create a URN for chart
             chart_urn = builder.make_chart_urn(
                 self.__config.platform_name, page.get_urn_part()
             )
 
-            logger.debug("{}={}".format(Constant.CHART_URN, chart_urn))
+            logger.debug(f"{Constant.CHART_URN}={chart_urn}")
 
             ds_input: List[str] = self.to_urn_set(ds_mcps)
 
@@ -690,6 +689,7 @@ class Mapper:
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
+
             list_of_mcps = [info_mcp, status_mcp]
 
             self.append_container_mcp(
@@ -773,7 +773,7 @@ class Mapper:
 
         owner_mcp = None
         if len(owners) > 0:
-            # Dashboard owner MCP
+            # Report owner MCP
             ownership = OwnershipClass(owners=owners)
             owner_mcp = self.new_mcp(
                 entity_type=Constant.DASHBOARD,
@@ -904,9 +904,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             if self.source_config.workspace_id_pattern.allowed(workspace.id)
         ]
 
-        logger.info("Number of workspaces = %s", len(all_workspaces))
-        logger.info("Number of allowed workspaces = %s", len(allowed_wrk))
-        logger.debug("Workspaces = %s", all_workspaces)
+        logger.info(f"Number of workspaces = {len(all_workspaces)}")
+        self.reporter.report_number_of_workspaces(len(all_workspaces))
+        logger.info(f"Number of allowed workspaces = {len(allowed_wrk)}")
+        logger.debug(f"Workspaces = {all_workspaces}")
 
         return allowed_wrk
 
@@ -938,8 +939,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 )
 
                 for workunit in workspace_workunits:
-                    # Add workunit to report
-                    self.reporter.report_workunit(workunit)
                     # Return workunit to Datahub Ingestion framework
                     yield workunit
             for dashboard in workspace.dashboards:
@@ -957,8 +956,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
                 workunits = self.mapper.to_datahub_work_units(dashboard, workspace)
                 for workunit in workunits:
-                    # Add workunit to report
-                    self.reporter.report_workunit(workunit)
                     # Return workunit to Datahub Ingestion framework
                     yield workunit
 
@@ -966,13 +963,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 for work_unit in self.mapper.report_to_datahub_work_units(
                     report, workspace
                 ):
-                    self.reporter.report_workunit(work_unit)
                     yield work_unit
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.reporter, auto_status_aspect(self.get_workunits_internal())
+            ),
         )
 
     def get_report(self) -> SourceReport:
