@@ -8,7 +8,7 @@
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
-        <filter class="com.linkedinin.metadata.utils.log.LogMessageFilter">
+        <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
         </filter>
     </appender>
@@ -30,7 +30,7 @@
         <encoder>
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
-        <filter class="com.linkedinin.metadata.utils.log.LogMessageFilter">
+        <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
         </filter>
     </appender>
