@@ -83,7 +83,7 @@ class PowerBiAPI:
         return results
 
     def _get_resolver(self):
-        if self.__config.admin_only:
+        if self.__config.admin_apis_only:
             return self.__admin_api_resolver
         return self.__regular_api_resolver
 
@@ -109,9 +109,8 @@ class PowerBiAPI:
         except requests.exceptions.HTTPError as e:
             if data_resolver.is_permission_error(e):
                 logger.warning(
-                    "%s users would not get ingested as admin permission is not enabled on "
+                    f"{entity_name} users would not get ingested as admin permission is not enabled on "
                     "configured Azure AD Application",
-                    entity_name,
                 )
                 return users
             # if Other error then re-raise
@@ -190,8 +189,8 @@ class PowerBiAPI:
         except requests.exceptions.HTTPError as e:
             if data_resolver.is_permission_error(e):
                 logger.warning(
-                    "Lineage would not get ingested as admin permission is not enabled on configured Azure AD "
-                    "application "
+                    "Dataset lineage can not be ingestion because this user does not have access to the PowerBI Admin "
+                    "API. "
                 )
                 return None
             # raise error if other than 401 or 403
@@ -210,7 +209,8 @@ class PowerBiAPI:
 
         # Scan is complete lets take the result
         scan_result = self.__admin_api_resolver.get_scan_result(scan_id=scan_id)
-        logger.debug(f"scan result = %s", json.dumps(scan_result, indent=1))
+        pretty_json: str = json.dumps(scan_result, indent=1)
+        logger.debug(f"scan result = {pretty_json}")
 
         return scan_result
 

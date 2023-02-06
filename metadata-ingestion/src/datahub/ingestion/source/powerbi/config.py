@@ -80,6 +80,7 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     charts_scanned: int = 0
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
     filtered_charts: List[str] = dataclass_field(default_factory=list)
+    number_of_workspaces: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -92,6 +93,9 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
+
+    def report_number_of_workspaces(self, number_of_workspaces: int) -> None:
+        self.number_of_workspaces = number_of_workspaces
 
 
 @dataclass
@@ -192,7 +196,7 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
         default=None, description="PowerBI Stateful Ingestion Config."
     )
     # Retrieve PowerBI Metadata using Admin API only
-    admin_only: bool = pydantic.Field(
+    admin_apis_only: bool = pydantic.Field(
         default=False,
         description="Retrieve metadata using PowerBI Admin API only. If this flag is 'true' then Report's pages "
         "would not get ingested. Admin access should be given to the configured Azure AD Application",
