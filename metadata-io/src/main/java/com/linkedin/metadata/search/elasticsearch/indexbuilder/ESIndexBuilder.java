@@ -439,7 +439,7 @@ public class ESIndexBuilder {
               .minus(Duration.of(esConfig.getBuildIndices().getRetentionValue(),
                       ChronoUnit.valueOf(esConfig.getBuildIndices().getRetentionUnit()))));
 
-      GetIndexResponse response = searchClient.indices().get(new GetIndexRequest(indexState.indexPattern()), RequestOptions.DEFAULT);
+      GetIndexResponse response = searchClient.indices().get(new GetIndexRequest(indexState.indexCleanPattern()), RequestOptions.DEFAULT);
 
       for (String index : response.getIndices()) {
         var creationDateStr = response.getSetting(index, "index.creation_date");
@@ -456,7 +456,11 @@ public class ESIndexBuilder {
         }
       }
     } catch (Exception e) {
-      log.info("Failed to get orphaned indices with pattern {}: Exception {}", indexState.indexPattern(), e.toString());
+      if (e.getMessage().contains("index_not_found_exception")) {
+        log.info("No orphaned indices found with pattern {}", indexState.indexCleanPattern());
+      } else {
+        log.error("An error occurred when trying to identify orphaned indices. Exception: {}", e.getMessage());
+      }
     }
     return orphanedIndices;
   }
