@@ -54,6 +54,7 @@ framework_common = {
     "ijson",
     "click-spinner",
     "requests_file",
+    "jsonref",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -309,6 +310,7 @@ plugins: Dict[str, Set[str]] = {
         "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
+    "json-schema": set(),
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
@@ -428,6 +430,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
             "iceberg",
+            "json-schema",
             "ldap",
             "looker",
             "lookml",
@@ -515,6 +518,7 @@ entry_points = {
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
+        "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",

@@ -1,9 +1,11 @@
 import json
 import logging
+from dataclasses import dataclass
 from hashlib import md5
-from typing import List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 import confluent_kafka
+import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
@@ -11,6 +13,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 
 from datahub.ingestion.extractor import protobuf_util, schema_util
+from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kafka import KafkaSourceConfig, KafkaSourceReport
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
@@ -21,6 +24,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class JsonSchemaWrapper:
+    name: str
+    subject: str
+    content: str
+    references: List[Any]
 
 
 class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
@@ -102,7 +113,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 )
 
             reference_schema = self.schema_registry_client.get_latest_version(
-                subject_name=ref_subject
+                subject_name=ref_subject,
             )
             schema_seen.add(ref_subject)
             logger.debug(
@@ -157,6 +168,47 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         return all_schemas
 
+    def get_schemas_from_confluent_ref_json(
+        self,
+        schema: Schema,
+        name: str,
+        subject: str,
+        schema_seen: Optional[Set[str]] = None,
+    ) -> List[JsonSchemaWrapper]:
+        """Recursively get all the referenced schemas and their references starting from this schema"""
+        all_schemas: List[JsonSchemaWrapper] = []
+        if schema_seen is None:
+            schema_seen = set()
+
+        schema_ref: SchemaReference
+        for schema_ref in schema.references:
+            ref_subject: str = schema_ref["subject"]
+            if ref_subject in schema_seen:
+                continue
+            reference_schema: RegisteredSchema = (
+                self.schema_registry_client.get_version(
+                    subject_name=ref_subject, version=schema_ref["version"]
+                )
+            )
+            schema_seen.add(ref_subject)
+            all_schemas.extend(
+                self.get_schemas_from_confluent_ref_json(
+                    reference_schema.schema,
+                    name=schema_ref["name"],
+                    subject=ref_subject,
+                    schema_seen=schema_seen,
+                )
+            )
+        all_schemas.append(
+            JsonSchemaWrapper(
+                name=name,
+                subject=subject,
+                content=schema.schema_str,
+                references=schema.references,
+            )
+        )
+        return all_schemas
+
     def _get_schema_and_fields(
         self, topic: str, is_key_schema: bool
     ) -> Tuple[Optional[Schema], List[SchemaField]]:
@@ -202,6 +254,27 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         return (schema, fields)
 
+    def _load_json_schema_with_resolved_references(
+        self, schema: Schema, name: str, subject: str
+    ) -> dict:
+
+        imported_json_schemas: List[
+            JsonSchemaWrapper
+        ] = self.get_schemas_from_confluent_ref_json(schema, name=name, subject=subject)
+        schema_dict = json.loads(schema.schema_str)
+        reference_map = {}
+        for imported_schema in imported_json_schemas:
+
+            reference_schema = json.loads(imported_schema.content)
+            if "title" not in reference_schema:
+                reference_schema["title"] = imported_schema.subject
+            reference_map[imported_schema.name] = reference_schema
+
+        jsonref_schema = jsonref.loads(
+            json.dumps(schema_dict), loader=lambda x: reference_map.get(x)
+        )
+        return jsonref_schema
+
     def _get_schema_fields(
         self, topic: str, schema: Schema, is_key_schema: bool
     ) -> List[SchemaField]:
@@ -227,6 +300,21 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 ),
                 imported_schemas,
                 is_key_schema=is_key_schema,
+            )
+        elif schema.schema_type == "JSON":
+            base_name = topic.replace(".", "_")
+            canonical_name = (
+                f"{base_name}-key" if is_key_schema else f"{base_name}-value"
+            )
+            jsonref_schema = self._load_json_schema_with_resolved_references(
+                schema=schema,
+                name=canonical_name,
+                subject=f"{topic}-key" if is_key_schema else f"{topic}-value",
+            )
+            fields = list(
+                JsonSchemaTranslator.get_fields_from_schema(
+                    jsonref_schema, is_key_schema=is_key_schema
+                )
             )
         elif not self.source_config.ignore_warnings_on_schema_type:
             self.report.report_warning(
