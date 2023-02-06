@@ -10205,6 +10205,16 @@ enum QueryLanguage {
 }
 
 """
+The source of the query
+"""
+enum QuerySource {
+  """
+  The query was provided manually, e.g. from the UI.
+  """
+  MANUAL
+}
+
+"""
 An individual Query Statement
 """
 type QueryStatement {
@@ -10349,14 +10359,14 @@ input ListQueriesInput {
   count: Int
 
   """
+  An optional source for the query
+  """
+  source: QuerySource
+
+  """
   An optional Urn for the parent dataset that the query is associated with.
   """
   datasetUrn: String
-
-  """
-  The maximum number of Queries to be returned in the result set
-  """
-  count: Int
 }
 
 """
