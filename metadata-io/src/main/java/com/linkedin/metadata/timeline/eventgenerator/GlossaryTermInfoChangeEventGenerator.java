@@ -78,7 +78,7 @@ public class GlossaryTermInfoChangeEventGenerator extends EntityChangeEventGener
         }
         List<ChangeEvent> changeEvents = new ArrayList<>();
         if (element == ChangeCategory.DOCUMENTATION) {
-            GlossaryTermInfo baseGlossaryTermInfo= getGlossaryTermInfoFromAspect(previousValue);
+            GlossaryTermInfo baseGlossaryTermInfo = getGlossaryTermInfoFromAspect(previousValue);
             GlossaryTermInfo targetGlossaryTermInfo = getGlossaryTermInfoFromAspect(currentValue);
             changeEvents.addAll(computeDiffs(baseGlossaryTermInfo, targetGlossaryTermInfo, currentValue.getUrn(), null));
         }
