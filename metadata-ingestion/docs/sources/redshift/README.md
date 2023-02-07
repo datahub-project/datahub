@@ -1,1 +1,0 @@
-To get all metadata from Redshift you need to use two plugins `redshift` and `redshift-usage`. Both of them are described in this page. These will require 2 separate recipes. We understand this is not ideal and we plan to make this easier in the future.

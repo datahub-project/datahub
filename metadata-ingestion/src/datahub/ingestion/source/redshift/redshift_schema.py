@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 
 import redshift_connector
 
+from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
@@ -73,202 +74,6 @@ class RedshiftExtraTableMeta:
     last_accessed: Optional[datetime] = None
 
 
-class RedshiftMetadatQueries:
-    list_databases: str = """SELECT datname FROM pg_database
-        WHERE (datname <> ('padb_harvest')::name)
-        AND (datname <> ('template0')::name)
-        AND (datname <> ('template1')::name)
-        """
-
-    list_schemas: str = """SELECT database_name,
-        schema_name,
-        schema_type,
-        usename as schema_owner_name,
-        schema_option,
-        NULL::varchar(255) as external_database
-        FROM SVV_REDSHIFT_SCHEMAS as s
-        inner join pg_catalog.pg_user_info as i on i.usesysid = s.schema_owner
-        where schema_name !~ '^pg_'
-        AND   schema_name != 'information_schema'
-UNION ALL
-SELECT null as database_name,
-        schemaname as schema_name,
-        CASE s.eskind
-            WHEN '1' THEN 'GLUE'
-            WHEN '2' THEN 'HIVE'
-            WHEN '3' THEN 'POSTGRES'
-            WHEN '4' THEN 'REDSHIFT'
-            ELSE 'OTHER'
-        END as schema_type,
-        usename as schema_owner_name,
-        esoptions as schema_option,
-        databasename as external_database
-        FROM SVV_EXTERNAL_SCHEMAS as s
-        inner join pg_catalog.pg_user_info as i on i.usesysid = s.esowner
-        ORDER BY database_name,
-            SCHEMA_NAME;
-        """
-
-    list_tables: str = """
- SELECT  CASE c.relkind
-                WHEN 'r' THEN 'TABLE'
-                WHEN 'v' THEN 'VIEW'
-                WHEN 'm' THEN 'MATERIALIZED VIEW'
-                WHEN 'f' THEN 'FOREIGN TABLE'
-            END AS tabletype,
-            n.oid AS "schema_oid",
-            n.nspname AS "schema",
-            c.oid AS "rel_oid",
-            c.relname,
-            ci.relcreationtime as creation_time,
-            CASE c.reldiststyle
-                WHEN 0 THEN 'EVEN'
-                WHEN 1 THEN 'KEY'
-                WHEN 8 THEN 'ALL'
-            END AS "diststyle",
-            c.relowner AS "owner_id",
-            u.usename AS "owner_name",
-            TRIM(TRAILING ';' FROM pg_catalog.pg_get_viewdef (c.oid,TRUE)) AS "view_definition",
-            pg_catalog.array_to_string(c.relacl,'\n') AS "privileges",
-            NULL as "location",
-            NULL as parameters,
-            NULL as input_format,
-            NULL As output_format,
-            NULL as serde_parameters,
-            pgd.description as table_description
-        FROM pg_catalog.pg_class c
-        LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-        LEFT JOIN pg_class_info as ci on c.oid = ci.reloid
-        LEFT JOIN pg_catalog.pg_description pgd ON pgd.objsubid = 0 AND pgd.objoid = c.oid
-        JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner
-        WHERE c.relkind IN ('r','v','m','S','f')
-        AND   n.nspname !~ '^pg_'
-        AND   n.nspname != 'information_schema'
-        UNION
-        SELECT 'EXTERNAL_TABLE' as tabletype,
-            NULL AS "schema_oid",
-            schemaname AS "schema",
-            NULL AS "rel_oid",
-            tablename AS "relname",
-            NULL as "creation_time",
-            NULL AS "diststyle",
-            NULL AS "owner_id",
-            NULL AS "owner_name",
-            NULL AS "view_definition",
-            NULL AS "privileges",
-            "location",
-            parameters,
-            input_format,
-            output_format,
-            serde_parameters,
-            NULL as table_description
-        FROM pg_catalog.svv_external_tables
-        ORDER BY "schema",
-                "relname";
-"""
-    list_columns: str = """
-            SELECT
-              n.nspname as "schema",
-              c.relname as "table_name",
-              att.attname as "name",
-              format_encoding(att.attencodingtype::integer) as "encode",
-              format_type(att.atttypid, att.atttypmod) as "type",
-              att.attisdistkey as "distkey",
-              att.attsortkeyord as "sortkey",
-              att.attnotnull as "notnull",
-              pg_catalog.col_description(att.attrelid, att.attnum)
-                as "comment",
-              adsrc,
-              attnum,
-              pg_catalog.format_type(att.atttypid, att.atttypmod),
-              pg_catalog.pg_get_expr(ad.adbin, ad.adrelid) as default,
-              n.oid as "schema_oid",
-              c.oid as "table_oid"
-            FROM pg_catalog.pg_class c
-            LEFT JOIN pg_catalog.pg_namespace n
-              ON n.oid = c.relnamespace
-            JOIN pg_catalog.pg_attribute att
-              ON att.attrelid = c.oid
-            LEFT JOIN pg_catalog.pg_attrdef ad
-              ON (att.attrelid, att.attnum) = (ad.adrelid, ad.adnum)
-            WHERE n.nspname !~ '^pg_'
-              AND   n.nspname != 'information_schema'
-              AND att.attnum > 0
-              AND NOT att.attisdropped
-              and schema = '{schema_name}'
-            UNION
-            SELECT
-              view_schema as "schema",
-              view_name as "table_name",
-              col_name as "name",
-              null as "encode",
-              col_type as "type",
-              null as "distkey",
-              0 as "sortkey",
-              null as "notnull",
-              null as "comment",
-              null as "adsrc",
-              null as "attnum",
-              col_type as "format_type",
-              null as "default",
-              null as "schema_oid",
-              null as "table_oid"
-            FROM pg_get_late_binding_view_cols() cols(
-              view_schema name,
-              view_name name,
-              col_name name,
-              col_type varchar,
-              col_num int)
-            WHERE 1 and schema = '{schema_name}'
-            UNION
-            SELECT
-              schemaname as "schema",
-              tablename as "table_name",
-              columnname as "name",
-              null as "encode",
-              -- Spectrum represents data types differently.
-              -- Standardize, so we can infer types.
-              external_type AS "type",
-              null as "distkey",
-              0 as "sortkey",
-              null as "notnull",
-              null as "comment",
-              null as "adsrc",
-              null as "attnum",
-              external_type AS "format_type",
-              null as "default",
-              null as "schema_oid",
-              null as "table_oid"
-            FROM SVV_EXTERNAL_COLUMNS
-            WHERE 1 and schema = '{schema_name}'
-            ORDER BY "schema", "table_name", "attnum"
-"""
-
-    additional_table_metadata: str = """
-        select
-            database,
-            schema,
-            "table",
-            size,
-            tbl_rows,
-            estimated_visible_rows,
-            skew_rows,
-            last_accessed
-        from
-            pg_catalog.svv_table_info as ti
-        left join (
-            select
-                tbl,
-                max(endtime) as last_accessed
-            from
-                pg_catalog.stl_insert
-            group by
-                tbl) as la on
-            (la.tbl = ti.table_id)
-       ;
-    """
-
-
 class RedshiftDataDictionary:
     @staticmethod
     def get_query_result(
@@ -285,7 +90,7 @@ class RedshiftDataDictionary:
 
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftMetadatQueries.list_databases,
+            RedshiftQuery.list_databases,
         )
 
         dbs = cursor.fetchall()
@@ -299,7 +104,7 @@ class RedshiftDataDictionary:
 
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftMetadatQueries.list_schemas.format(database_name=database),
+            RedshiftQuery.list_schemas.format(database_name=database),
         )
 
         schemas = cursor.fetchall()
@@ -323,7 +128,7 @@ class RedshiftDataDictionary:
     ) -> (Dict[str, Dict[str, RedshiftExtraTableMeta]]):
 
         cur = RedshiftDataDictionary.get_query_result(
-            conn, RedshiftMetadatQueries.additional_table_metadata
+            conn, RedshiftQuery.additional_table_metadata
         )
         field_names = [i[0] for i in cur.description]
         db_table_metadata = cur.fetchall()
@@ -360,9 +165,7 @@ class RedshiftDataDictionary:
         # driver only functions.
         enrich_metada = RedshiftDataDictionary.enrich_tables(conn)
 
-        cur = RedshiftDataDictionary.get_query_result(
-            conn, RedshiftMetadatQueries.list_tables
-        )
+        cur = RedshiftDataDictionary.get_query_result(conn, RedshiftQuery.list_tables)
         field_names = [i[0] for i in cur.description]
         db_tables = cur.fetchall()
 
@@ -459,7 +262,7 @@ class RedshiftDataDictionary:
 
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
-            RedshiftMetadatQueries.list_columns.format(schema_name=schema.name),
+            RedshiftQuery.list_columns.format(schema_name=schema.name),
         )
 
         table_columns: Dict[str, List[RedshiftColumn]] = {}

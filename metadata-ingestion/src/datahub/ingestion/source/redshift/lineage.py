@@ -13,11 +13,9 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
-from datahub.ingestion.source.redshift.common import (
-    get_db_name,
-    redshift_datetime_format,
-)
+from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
+from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
     RedshiftTable,
@@ -286,227 +284,15 @@ class LineageExtractor:
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> None:
 
-        stl_scan_based_lineage_query: str = """
-                select
-                    distinct cluster,
-                    target_schema,
-                    target_table,
-                    username,
-                    source_schema,
-                    source_table
-                from
-                        (
-                    select
-                        distinct tbl as target_table_id,
-                        sti.schema as target_schema,
-                        sti.table as target_table,
-                        sti.database as cluster,
-                        query,
-                        starttime
-                    from
-                        stl_insert
-                    join SVV_TABLE_INFO sti on
-                        sti.table_id = tbl
-                    where starttime >= '{start_time}'
-                    and starttime < '{end_time}'
-                    and cluster = '{db_name}'
-                        ) as target_tables
-                join ( (
-                    select
-                        pu.usename::varchar(40) as username,
-                        ss.tbl as source_table_id,
-                        sti.schema as source_schema,
-                        sti.table as source_table,
-                        scan_type,
-                        sq.query as query
-                    from
-                        (
-                        select
-                            distinct userid,
-                            query,
-                            tbl,
-                            type as scan_type
-                        from
-                            stl_scan
-                    ) ss
-                    join SVV_TABLE_INFO sti on
-                        sti.table_id = ss.tbl
-                    left join pg_user pu on
-                        pu.usesysid = ss.userid
-                    left join stl_query sq on
-                        ss.query = sq.query
-                    where
-                        pu.usename <> 'rdsdb')
-                ) as source_tables
-                        using (query)
-                where
-                    scan_type in (1, 2, 3)
-                order by cluster, target_schema, target_table, starttime asc
-            """.format(
-            # We need the original database name for filtering
-            db_name=self.config.database,
-            start_time=self.config.start_time.strftime(redshift_datetime_format),
-            end_time=self.config.end_time.strftime(redshift_datetime_format),
-        )
-        view_lineage_query = """
-                select
-                    distinct
-                    srcnsp.nspname as source_schema
-                    ,
-                    srcobj.relname as source_table
-                    ,
-                    tgtnsp.nspname as target_schema
-                    ,
-                    tgtobj.relname as target_table
-                from
-                    pg_catalog.pg_class as srcobj
-                inner join
-                    pg_catalog.pg_depend as srcdep
-                        on
-                    srcobj.oid = srcdep.refobjid
-                inner join
-                    pg_catalog.pg_depend as tgtdep
-                        on
-                    srcdep.objid = tgtdep.objid
-                join
-                    pg_catalog.pg_class as tgtobj
-                        on
-                    tgtdep.refobjid = tgtobj.oid
-                    and srcobj.oid <> tgtobj.oid
-                left outer join
-                    pg_catalog.pg_namespace as srcnsp
-                        on
-                    srcobj.relnamespace = srcnsp.oid
-                left outer join
-                    pg_catalog.pg_namespace tgtnsp
-                        on
-                    tgtobj.relnamespace = tgtnsp.oid
-                where
-                    tgtdep.deptype = 'i'
-                    --dependency_internal
-                    and tgtobj.relkind = 'v'
-                    --i=index, v=view, s=sequence
-                    and tgtnsp.nspname not in ('pg_catalog', 'information_schema')
-                    order by target_schema, target_table asc
-            """
-
-        list_late_view_ddls_query = """
-            SELECT
-                n.nspname AS target_schema
-                ,c.relname AS target_table
-                , COALESCE(pg_get_viewdef(c.oid, TRUE), '') AS ddl
-            FROM
-                pg_catalog.pg_class AS c
-            INNER JOIN
-                pg_catalog.pg_namespace AS n
-                ON c.relnamespace = n.oid
-            WHERE relkind = 'v'
-            and
-            n.nspname not in ('pg_catalog', 'information_schema')
-            """
-
-        list_unload_commands_sql = """
-        select
-            distinct
-                sti.database as cluster,
-                sti.schema as source_schema,
-                sti."table" as source_table,
-                unl.path as filename
-        from
-            stl_unload_log unl
-        join stl_scan sc on
-            sc.query = unl.query and
-            sc.starttime >= '{start_time}' and
-            sc.endtime < '{end_time}'
-        join SVV_TABLE_INFO sti on
-            sti.table_id = sc.tbl
-        where
-            unl.start_time >= '{start_time}' and
-            unl.end_time < '{end_time}' and
-            sti.database = '{db_name}'
-          and sc.type in (1, 2, 3)
-        order by cluster, source_schema, source_table, filename, unl.start_time asc
-        """.format(
-            # We need the original database name for filtering
-            db_name=self.config.database,
-            start_time=self.config.start_time.strftime(redshift_datetime_format),
-            end_time=self.config.end_time.strftime(redshift_datetime_format),
-        )
-
-        list_insert_create_queries_sql = """
-            select
-                distinct cluster,
-                target_schema,
-                target_table,
-                username,
-                querytxt as ddl
-            from
-                    (
-                select
-                    distinct tbl as target_table_id,
-                    sti.schema as target_schema,
-                    sti.table as target_table,
-                    sti.database as cluster,
-                    usename as username,
-                    querytxt,
-                    si.starttime as starttime
-                from
-                    stl_insert as si
-                join SVV_TABLE_INFO sti on
-                    sti.table_id = tbl
-                left join pg_user pu on
-                    pu.usesysid = si.userid
-                left join stl_query sq on
-                    si.query = sq.query
-                left join stl_load_commits slc on
-                    slc.query = si.query
-                where
-                    pu.usename <> 'rdsdb'
-                    and sq.aborted = 0
-                    and slc.query IS NULL
-                    and cluster = '{db_name}'
-                    and si.starttime >= '{start_time}'
-                    and si.starttime < '{end_time}'
-                ) as target_tables
-                order by cluster, target_schema, target_table, starttime asc
-            """.format(
-            # We need the original database name for filtering
-            db_name=self.config.database,
-            start_time=self.config.start_time.strftime(redshift_datetime_format),
-            end_time=self.config.end_time.strftime(redshift_datetime_format),
-        )
-
-        list_copy_commands_sql = """
-            select
-                distinct
-                    "schema" as target_schema,
-                    "table" as target_table,
-                    filename
-            from
-                stl_insert as si
-            join stl_load_commits as c on
-                si.query = c.query
-            join SVV_TABLE_INFO sti on
-                sti.table_id = tbl
-            where
-                database = '{db_name}'
-                and si.starttime >= '{start_time}'
-                and si.starttime < '{end_time}'
-            order by target_schema, target_table, starttime asc
-            """.format(
-            # We need the original database name for filtering
-            db_name=self.config.database,
-            start_time=self.config.start_time.strftime(redshift_datetime_format),
-            end_time=self.config.end_time.strftime(redshift_datetime_format),
-        )
-
         if not self._lineage_map:
             self._lineage_map = defaultdict()
 
         if self.config.table_lineage_mode == LineageMode.STL_SCAN_BASED:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             self._populate_lineage_map(
-                query=stl_scan_based_lineage_query,
+                query=RedshiftQuery.stl_scan_based_lineage_query(
+                    self.config.database, self.config.start_time, self.config.end_time
+                ),
                 lineage_type=LineageCollectorType.QUERY_SCAN,
                 connection=connection,
                 all_tables=all_tables,
@@ -514,7 +300,11 @@ class LineageExtractor:
         elif self.config.table_lineage_mode == LineageMode.SQL_BASED:
             # Populate table level lineage by parsing table creating sqls
             self._populate_lineage_map(
-                query=list_insert_create_queries_sql,
+                query=RedshiftQuery.list_insert_create_queries_sql(
+                    db_name=self.config.database,
+                    start_time=self.config.start_time,
+                    end_time=self.config.end_time,
+                ),
                 lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
                 connection=connection,
                 all_tables=all_tables,
@@ -522,14 +312,22 @@ class LineageExtractor:
         elif self.config.table_lineage_mode == LineageMode.MIXED:
             # Populate table level lineage by parsing table creating sqls
             self._populate_lineage_map(
-                query=list_insert_create_queries_sql,
+                query=RedshiftQuery.list_insert_create_queries_sql(
+                    db_name=self.config.database,
+                    start_time=self.config.start_time,
+                    end_time=self.config.end_time,
+                ),
                 lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
                 connection=connection,
                 all_tables=all_tables,
             )
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             self._populate_lineage_map(
-                query=stl_scan_based_lineage_query,
+                query=RedshiftQuery.stl_scan_based_lineage_query(
+                    db_name=self.config.database,
+                    start_time=self.config.start_time,
+                    end_time=self.config.end_time,
+                ),
                 lineage_type=LineageCollectorType.QUERY_SCAN,
                 connection=connection,
                 all_tables=all_tables,
@@ -538,7 +336,7 @@ class LineageExtractor:
         if self.config.include_views:
             # Populate table level lineage for views
             self._populate_lineage_map(
-                query=view_lineage_query,
+                query=RedshiftQuery.view_lineage_query(),
                 lineage_type=LineageCollectorType.VIEW,
                 connection=connection,
                 all_tables=all_tables,
@@ -546,21 +344,29 @@ class LineageExtractor:
 
             # Populate table level lineage for late binding views
             self._populate_lineage_map(
-                query=list_late_view_ddls_query,
+                query=RedshiftQuery.list_late_view_ddls_query(),
                 lineage_type=LineageCollectorType.VIEW_DDL_SQL_PARSING,
                 connection=connection,
                 all_tables=all_tables,
             )
         if self.config.include_copy_lineage:
             self._populate_lineage_map(
-                query=list_copy_commands_sql,
+                query=RedshiftQuery.list_copy_commands_sql(
+                    db_name=self.config.database,
+                    start_time=self.config.start_time,
+                    end_time=self.config.end_time,
+                ),
                 lineage_type=LineageCollectorType.COPY,
                 connection=connection,
                 all_tables=all_tables,
             )
         if self.config.include_unload_lineage:
             self._populate_lineage_map(
-                query=list_unload_commands_sql,
+                query=RedshiftQuery.list_unload_commands_sql(
+                    db_name=self.config.database,
+                    start_time=self.config.start_time,
+                    end_time=self.config.end_time,
+                ),
                 lineage_type=LineageCollectorType.UNLOAD,
                 connection=connection,
                 all_tables=all_tables,
