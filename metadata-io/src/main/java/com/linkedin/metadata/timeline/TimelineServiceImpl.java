@@ -55,7 +55,6 @@ public class TimelineServiceImpl implements TimelineService {
 
   private final AspectDao _aspectDao;
   private final EntityChangeEventGeneratorFactory _entityChangeEventGeneratorFactory;
-  private final EntityChangeEventGeneratorFactory _entityChangeEventGeneratorFactoryGlossaryTerm;
   private final EntityRegistry _entityRegistry;
   private final HashMap<String, HashMap<ChangeCategory, Set<String>>> entityTypeElementAspectRegistry = new HashMap<>();
 
@@ -129,23 +128,21 @@ public class TimelineServiceImpl implements TimelineService {
       datasetElementAspectRegistry.put(elementName, aspects);
     }
 
-
-    // support for GlossaryTerm history openAPI
+    // GlossaryTerm registry
     HashMap<ChangeCategory, Set<String>> glossaryTermElementAspectRegistry = new HashMap<>();
-    _entityChangeEventGeneratorFactoryGlossaryTerm = new EntityChangeEventGeneratorFactory();
     String entityTypeGlossaryTerm = GLOSSARY_TERM_ENTITY_NAME;
     for (ChangeCategory elementName : ChangeCategory.values()) {
       Set<String> aspects = new HashSet<>();
       switch (elementName) {
         case OWNER: {
           aspects.add(OWNERSHIP_ASPECT_NAME);
-          _entityChangeEventGeneratorFactoryGlossaryTerm.addGenerator(entityTypeGlossaryTerm, elementName, OWNERSHIP_ASPECT_NAME,
+          _entityChangeEventGeneratorFactory.addGenerator(entityTypeGlossaryTerm, elementName, OWNERSHIP_ASPECT_NAME,
               new OwnershipChangeEventGenerator());
         }
         break;
         case DOCUMENTATION: {
           aspects.add(GLOSSARY_TERM_INFO_ASPECT_NAME);
-          _entityChangeEventGeneratorFactoryGlossaryTerm.addGenerator(entityTypeGlossaryTerm, elementName, GLOSSARY_TERM_INFO_ASPECT_NAME,
+          _entityChangeEventGeneratorFactory.addGenerator(entityTypeGlossaryTerm, elementName, GLOSSARY_TERM_INFO_ASPECT_NAME,
               new GlossaryTermInfoChangeEventGenerator());
         }
         break;
@@ -364,11 +361,7 @@ public class TimelineServiceImpl implements TimelineService {
     JsonPatch rawDiff = getRawDiff(previousValue, currentValue);
     for (ChangeCategory element : elementNames) {
       EntityChangeEventGenerator entityChangeEventGenerator;
-      if (entityType.equalsIgnoreCase(GLOSSARY_TERM_ENTITY_NAME)) {
-        entityChangeEventGenerator = _entityChangeEventGeneratorFactoryGlossaryTerm.getGenerator(entityType, element, aspectName);
-      } else {
-        entityChangeEventGenerator = _entityChangeEventGeneratorFactory.getGenerator(entityType, element, aspectName);
-      }
+      entityChangeEventGenerator = _entityChangeEventGeneratorFactory.getGenerator(entityType, element, aspectName);
       if (entityChangeEventGenerator != null) {
         try {
           ChangeTransaction changeTransaction =

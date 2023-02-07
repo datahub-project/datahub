@@ -4,7 +4,6 @@ import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-//import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -63,7 +62,7 @@ public class GlossaryTermInfoChangeEventGenerator extends EntityChangeEventGener
     }
 
     @Nullable
-    private static GlossaryTermInfo getDatasetPropertiesFromAspect(EntityAspect entityAspect) {
+    private static GlossaryTermInfo getGlossaryTermInfoFromAspect(EntityAspect entityAspect) {
         if (entityAspect != null && entityAspect.getMetadata() != null) {
             return RecordUtils.toRecordTemplate(GlossaryTermInfo.class, entityAspect.getMetadata());
         }
@@ -79,9 +78,9 @@ public class GlossaryTermInfoChangeEventGenerator extends EntityChangeEventGener
         }
         List<ChangeEvent> changeEvents = new ArrayList<>();
         if (element == ChangeCategory.DOCUMENTATION) {
-            GlossaryTermInfo baseDatasetProperties = getDatasetPropertiesFromAspect(previousValue);
-            GlossaryTermInfo targetDatasetProperties = getDatasetPropertiesFromAspect(currentValue);
-            changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn(), null));
+            GlossaryTermInfo baseGlossaryTermInfo= getGlossaryTermInfoFromAspect(previousValue);
+            GlossaryTermInfo targetGlossaryTermInfo = getGlossaryTermInfoFromAspect(currentValue);
+            changeEvents.addAll(computeDiffs(baseGlossaryTermInfo, targetGlossaryTermInfo, currentValue.getUrn(), null));
         }
 
         // Assess the highest change at the transaction(schema) level.
