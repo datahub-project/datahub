@@ -41,7 +41,6 @@ from datahub.metadata.schema_classes import (
     OriginTypeClass,
     StatusClass,
 )
-from datahub.utilities.config_clean import remove_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +260,6 @@ class OktaSource(Source):
     def __init__(self, config: OktaConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
-        self.config.okta_domain = remove_protocol(self.config.okta_domain)
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
 
