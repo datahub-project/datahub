@@ -17,6 +17,7 @@ record QueryProperties {
   /**
    * The source of the Query
    */
+  @Searchable = {}
   source: enum QuerySource {
     /**
      * The query was entered manually by a user (via the UI).
