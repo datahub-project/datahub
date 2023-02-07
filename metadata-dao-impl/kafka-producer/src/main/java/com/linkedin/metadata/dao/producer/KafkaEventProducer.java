@@ -118,13 +118,10 @@ public class KafkaEventProducer implements EventProducer {
 
   @Override
   @WithSpan
-  public void produceMetadataChangeProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal) {
+  public void produceMetadataChangeProposal(@Nonnull final Urn urn, @Nonnull final MetadataChangeProposal
+      metadataChangeProposal) {
     GenericRecord record;
 
-    Urn urn = metadataChangeProposal.getEntityUrn();
-    if (urn == null) {
-      throw new IllegalArgumentException("Urn for proposal cannot be null.");
-    }
     try {
       log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeProposal: %s",
           urn,

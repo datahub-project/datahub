@@ -412,8 +412,7 @@ class LDAPSource(StatefulIngestionSourceBase):
             ],
         )
 
-        if groups:
-            user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
+        user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
 
         return MetadataChangeEvent(proposedSnapshot=user_snapshot)
 

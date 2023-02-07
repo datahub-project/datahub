@@ -754,6 +754,9 @@ class S3Source(Source):
                         ):
                             table_dict[
                                 table_data.table_path
+                            ].full_path = table_data.full_path
+                            table_dict[
+                                table_data.table_path
                             ].timestamp = table_data.timestamp
 
                 for guid, table_data in table_dict.items():

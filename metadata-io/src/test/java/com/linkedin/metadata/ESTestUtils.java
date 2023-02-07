@@ -16,6 +16,11 @@ import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -27,15 +32,8 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.DockerTestUtils.*;
 
 public class ESTestUtils {
     private ESTestUtils() {
@@ -88,8 +86,8 @@ public class ESTestUtils {
                 .build());
 
         return lineageSearchService.searchAcrossLineage(root, LineageDirection.DOWNSTREAM,
-                SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList()),
-                "*", hops, ResolverUtils.buildFilter(filters, List.of()), null, 0, 100);
+            SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList()),
+            "*", hops, ResolverUtils.buildFilter(filters, List.of()), null, 0, 100, null, null);
     }
 
     public static AutoCompleteResults autocomplete(SearchableEntityType<?, String> searchableEntityType, String query) throws Exception {

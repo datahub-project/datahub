@@ -961,7 +961,7 @@ class RedshiftSource(SQLAlchemySource):
             pg_catalog.pg_namespace AS n
             ON c.relnamespace = n.oid
         WHERE relkind = 'v'
-        and ddl like '%%with no schema binding%%'
+        and ddl ilike '%%with no schema binding%%'
         and
         n.nspname not in ('pg_catalog', 'information_schema')
         """

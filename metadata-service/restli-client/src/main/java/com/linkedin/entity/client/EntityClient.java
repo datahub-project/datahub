@@ -203,6 +203,35 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Gets a list of documents that match given search request that is related to
+   * the input entity
+   *
+   * @param sourceUrn       Urn of the source entity
+   * @param direction       Direction of the relationship
+   * @param entities        list of entities to search (If empty, searches
+   *                        across all entities)
+   * @param input           the search input text
+   * @param maxHops         the max number of hops away to search for. If null,
+   *                        searches all hops.
+   * @param filter          the request map with fields and values as filters
+   *                        to be applied to search hits
+   * @param sortCriterion   {@link SortCriterion} to be applied to search
+   *                        results
+   * @param start           index to start the search from
+   * @param count           the number of search hits to return
+   * @param endTimeMillis   end time to filter to
+   * @param startTimeMillis start time to filter from
+   * @return a {@link SearchResult} that contains a list of matched documents and
+   *         related search result metadata
+   */
+  @Nonnull
+  public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
+          @Nullable SortCriterion sortCriterion, int start, int count, @Nullable final Long startTimeMillis,
+          @Nullable final Long endTimeMillis, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
    * Gets browse path(s) given dataset urn
    *
    * @param urn urn for the entity

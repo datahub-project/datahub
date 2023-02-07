@@ -259,6 +259,8 @@ fragment searchResultFields on Entity {
         }
         lastProfile: datasetProfiles(limit: 1) {
             rowCount
+            columnCount
+            sizeInBytes
             timestampMillis
         }
         lastOperation: operations(limit: 1) {
