@@ -2204,7 +2204,12 @@
     }, {
       "name" : "type",
       "type" : "DatasetLineageType",
-      "doc" : "The type of the lineage"
+      "doc" : "The type of the lineage",
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Lineage Type"
+      }
     }, {
       "name" : "properties",
       "type" : {
