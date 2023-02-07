@@ -36,7 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class GraphQLController {
 
   public GraphQLController() {
-
+    MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error"));
+    MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call"));
   }
 
   @Inject
@@ -148,6 +149,7 @@ public class GraphQLController {
   private void submitMetrics(ExecutionResult executionResult) {
     try {
       observeErrors(executionResult);
+      MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call")).inc();
       Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
       if (tracingInstrumentation instanceof Map) {
         Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
