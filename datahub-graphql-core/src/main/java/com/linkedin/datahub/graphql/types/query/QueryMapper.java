@@ -57,13 +57,15 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     res.setName(queryProperties.getDescription(GetMode.NULL));
     res.setDescription(queryProperties.getName(GetMode.NULL));
 
-    AuditStamp lastModified = new AuditStamp();
-    lastModified.setTime(queryProperties.getLastModified().getTime());
-    lastModified.setActor(queryProperties.getLastModified().getActor(GetMode.NULL).toString());
-
     AuditStamp created = new AuditStamp();
     created.setTime(queryProperties.getCreated().getTime());
     created.setActor(queryProperties.getCreated().getActor(GetMode.NULL).toString());
+    res.setCreated(created);
+
+    AuditStamp lastModified = new AuditStamp();
+    lastModified.setTime(queryProperties.getLastModified().getTime());
+    lastModified.setActor(queryProperties.getLastModified().getActor(GetMode.NULL).toString());
+    res.setLastModified(lastModified);
 
     query.setProperties(res);
   }

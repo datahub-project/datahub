@@ -1600,13 +1600,6 @@ public class GmsGraphQLEngine {
         builder
             .type("QueryEntity",
                 typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
-            .type("ListQueriesResult", typeWiring -> typeWiring
-                .dataFetcher("queries", new LoadableTypeBatchResolver<>(
-                    queryType,
-                    (env) -> ((ListQueriesResult) env.getSource()).getQueries().stream()
-                        .map(QueryEntity::getUrn)
-                        .collect(Collectors.toList())))
-            )
             .type("QuerySubject", typeWiring -> typeWiring
                 .dataFetcher("dataset", new LoadableTypeResolver<>(
                     datasetType,
