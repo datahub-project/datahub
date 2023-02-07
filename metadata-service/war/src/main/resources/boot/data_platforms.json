@@ -82,7 +82,7 @@
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "hana",
-      "displayName": "SAP HANA",
+      "displayName": "HANA",
       "type": "RELATIONAL_DB",
       "logoUrl": "/assets/platforms/hanalogo.png"
     }
