@@ -180,12 +180,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
             )
             return True
 
-        click.echo(
-            "No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
-            "To use neo4j as a graph backend, run \n"
-            "`datahub docker quickstart --graph-service-impl neo4j`"
-            "\nfrom the root of the datahub repo\n"
-        )
+        click.echo("Starting with elasticsearch as graph service.\n")
         return False
 
 
