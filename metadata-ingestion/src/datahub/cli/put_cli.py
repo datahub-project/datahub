@@ -38,7 +38,7 @@ def put() -> None:
 @click.option("-d", "--aspect-data", required=True, type=str)
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def aspect(ctx: Any, urn: str, aspect: str, aspect_data: str) -> None:
     """Update a single aspect of an entity"""
 
@@ -57,7 +57,7 @@ def aspect(ctx: Any, urn: str, aspect: str, aspect_data: str) -> None:
 @put.command()
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 @click.option(
     "--name",
     type=str,

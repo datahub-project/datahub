@@ -103,6 +103,10 @@ public class ReindexConfig {
         return name + "*";
     }
 
+    public String indexCleanPattern() {
+        return name + "_*";
+    }
+
     private static class CalculatedBuilder extends ReindexConfigBuilder {
         @Override
         public ReindexConfig build() {
