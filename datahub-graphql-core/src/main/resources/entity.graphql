@@ -594,7 +594,7 @@ type Mutation {
     """
     createQuery(
       "Inputs required to create a new Query."
-      input: CreateQueryInput!): Query
+      input: CreateQueryInput!): QueryEntity
 
     """
     Delete a Query by urn. This requires the 'Edit Queries' Metadata Privilege.
@@ -10382,6 +10382,11 @@ input ListQueriesInput {
   The maximum number of Queries to be returned in the result set
   """
   count: Int
+
+  """
+  A raw search query
+  """
+  query: String
 
   """
   An optional source for the query

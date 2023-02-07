@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
@@ -110,6 +111,18 @@ public class AuthorizationUtils {
 
   public static boolean canManageGlobalViews(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
+  }
+
+  public static boolean canCreateQuery(@Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    return subjectUrns.stream().allMatch(subjectUrn ->
+        isAuthorized(context, Optional.of(new ResourceSpec(subjectUrn.getEntityType(), subjectUrn.toString())), PoliciesConfig.EDIT_QUERIES_PRIVILEGE)
+    );
+  }
+
+  public static boolean canDeleteQuery(@Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    return canDeleteEntity(entityUrn, context) || subjectUrns.stream().allMatch(subjectUrn ->
+        isAuthorized(context, Optional.of(new ResourceSpec(subjectUrn.getEntityType(), subjectUrn.toString())), PoliciesConfig.EDIT_QUERIES_PRIVILEGE)
+    );
   }
 
   public static boolean isAuthorized(
