@@ -299,8 +299,8 @@ public class Constants {
   public static final String DATA_JOB_URN_KEY = "dataJobUrn";
 
   // Config
-  public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH= "opensearch";
-  public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH= "elasticsearch";
+  public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
+  public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
 
   private Constants() {
   }
