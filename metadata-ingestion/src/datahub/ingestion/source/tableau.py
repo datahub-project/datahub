@@ -920,7 +920,7 @@ class TableauSource(StatefulIngestionSourceBase):
             view_properties = ViewPropertiesClass(
                 materialized=False,
                 viewLanguage="SQL",
-                viewLogic=clean_query(csql.get("query", "")),
+                viewLogic=clean_query(csql.get("query") or ""),
             )
             dataset_snapshot.aspects.append(view_properties)
 

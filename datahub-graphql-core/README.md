@@ -8,7 +8,7 @@ permitting reads and writes against the entities and aspects on the Metadata Gra
 
 Contained within this module are 
 
-1. **GMS Schema**: A GQL schema that based on GMS models, located under `resources/gms.graphql`. 
+1. **GMS Schema**: A GQL schema based on GMS models, located under [resources](https://github.com/datahub-project/datahub/tree/master/datahub-graphql-core/src/main/resources) folder.
 2. **GMS Data Fetchers** (Resolvers): Components used by the GraphQL engine to resolve individual fields in the GQL schema.
 3. **GMS Data Loaders**: Components used by the GraphQL engine to fetch data from downstream sources efficiently (by batching). 
 4. **GraphQLEngine**: A wrapper on top of the default `GraphQL` object provided by `graphql-java`. Provides a way to configure all of the important stuff using a simple `Builder API`. 
