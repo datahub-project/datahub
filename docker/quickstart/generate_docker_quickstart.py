@@ -30,7 +30,7 @@ def dict_merge(dct, merge_dct):
             a = set(dct[k])
             b = set(merge_dct[k])
             if a != b:
-                dct[k] = list(a.union(b))
+                dct[k] = sorted(list(a.union(b)))
         else:
             dct[k] = merge_dct[k]
 
@@ -142,17 +142,18 @@ def dedup_env_vars(merged_docker_config):
             if lst is not None:
                 # use a set to cache duplicates
                 caches = set()
-                results = []
+                results = {}
                 for item in lst:
                     partitions = item.rpartition('=')
                     prefix = partitions[0]
                     suffix = partitions[1]
                     # check whether prefix already exists
                     if prefix not in caches and suffix != "":
-                        results.append(item)
+                        results[prefix] = item
                         caches.add(prefix)
-                if set(lst) != set(results):
-                    merged_docker_config['services'][service]['environment'] = results
+                if set(lst) != set([v for k,v in results.items()]):
+                    sorted_vars = sorted([k for k in results])
+                    merged_docker_config['services'][service]['environment'] = [results[var] for var in sorted_vars]
 
 
 if __name__ == "__main__":
