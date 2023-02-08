@@ -354,6 +354,10 @@ class BigQueryUsageExtractor:
                     logger.info(
                         f"Starting log load from GCP Logging for {client.project}"
                     )
+                if i % 1000 == 0:
+                    logger.info(
+                        f"Loaded {i} log entries from GCP Log for {client.project}"
+                    )
                 self.report.total_query_log_entries += 1
                 yield entry
 
