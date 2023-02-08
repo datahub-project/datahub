@@ -223,11 +223,11 @@ def valid_client_version(version: Version) -> bool:
 
 
 def valid_server_version(version: Version) -> bool:
-    """Only version strings like 0.8.x or 0.9.x are valid. 0.1.x is not"""
+    """Only version strings like 0.8.x, 0.9.x or 0.10.x are valid. 0.1.x is not"""
     if version.is_prerelease or version.is_postrelease or version.is_devrelease:
         return False
 
-    if version.major == 0 and version.minor in [8, 9]:
+    if version.major == 0 and version.minor in [8, 9, 10]:
         return True
 
     return False
