@@ -5,7 +5,7 @@ from time import sleep
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.cli.ingest_cli import get_session_and_host
 from datahub.cli.delete_cli import delete_references
-from tests.utils import ingest_file_via_rest, wait_for_healthcheck_util
+from tests.utils import ingest_file_via_rest, wait_for_healthcheck_util, delete_urns_from_file
 from requests_wrapper import ELASTICSEARCH_REFRESH_INTERVAL_SECONDS
 
 # Disable telemetry
@@ -36,8 +36,12 @@ def test_setup():
 
     session, gms_host = get_session_and_host()
 
-    assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
-    assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
+    try:
+        assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
+        assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
+    except Exception as e:
+        delete_urns_from_file("tests/delete/cli_test_data.json")
+        raise e
 
     ingested_dataset_run_id = ingest_file_via_rest("tests/delete/cli_test_data.json").config.run_id
 
@@ -45,7 +49,7 @@ def test_setup():
 
     yield
     rollback_url = f"{gms_host}/runs?action=rollback"
-    session.post(rollback_url, data=json.dumps({"runId": ingested_dataset_run_id, "dryRun": False, "hardDelete": True, "safe": False}))
+    session.post(rollback_url, data=json.dumps({"runId": ingested_dataset_run_id, "dryRun": False, "hardDelete": True}))
 
     sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
 
