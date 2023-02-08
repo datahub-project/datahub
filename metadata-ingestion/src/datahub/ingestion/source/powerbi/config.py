@@ -58,12 +58,14 @@ class Constant:
     CHART_KEY = "chartKey"
     DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
     DASHBOARD = "dashboard"
+    DASHBOARDS = "dashboards"
     DASHBOARD_KEY = "dashboardKey"
     OWNERSHIP = "ownership"
     BROWSERPATH = "browsePaths"
     DASHBOARD_INFO = "dashboardInfo"
     DATAPLATFORM_INSTANCE = "dataPlatformInstance"
     DATASET = "dataset"
+    DATASETS = "datasets"
     DATASET_ID = "powerbi.linkedin.com/datasets/{}"
     DATASET_KEY = "datasetKey"
     DATASET_PROPERTIES = "datasetProperties"
@@ -72,6 +74,37 @@ class Constant:
     ID = "ID"
     HTTP_RESPONSE_TEXT = "HttpResponseText"
     HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
+    NAME = "name"
+    DISPLAY_NAME = "displayName"
+    ORDER = "order"
+    IDENTIFIER = "identifier"
+    EMAIL_ADDRESS = "emailAddress"
+    PRINCIPAL_TYPE = "principalType"
+    GRAPH_ID = "graphId"
+    WORKSPACES = "workspaces"
+    TITLE = "title"
+    REPORT_ID = "reportId"
+    EMBED_URL = "embedUrl"
+    ACCESS_TOKEN = "access_token"
+    IS_READ_ONLY = "isReadOnly"
+    WEB_URL = "webUrl"
+    ODATA_COUNT = "@odata.count"
+    DESCRIPTION = "description"
+    REPORT = "report"
+    REPORTS = "reports"
+    CREATED_FROM = "createdFrom"
+    SUCCEEDED = "SUCCEEDED"
+    ENDORSEMENT = "endorsement"
+    ENDORSEMENT_DETAIL = "endorsementDetails"
+    TABLES = "tables"
+    EXPRESSION = "expression"
+    SOURCE = "source"
+    PLATFORM_NAME = "powerbi"
+    REPORT_TYPE_NAME = "Report"
+    CHART_COUNT = "chartCount"
+    WORKSPACE_NAME = "workspaceName"
+    WORKSPACE_ID = "workspaceId"
+    DATASET_WEB_URL = "datasetWebUrl"
 
 
 @dataclass
@@ -111,10 +144,12 @@ class PlatformDetail:
 
 
 class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
-    platform_name: str = pydantic.Field(default="powerbi", hidden_from_schema=True)
+    platform_name: str = pydantic.Field(
+        default=Constant.PLATFORM_NAME, hidden_from_schema=True
+    )
 
     platform_urn: str = pydantic.Field(
-        default=builder.make_data_platform_urn(platform="powerbi"),
+        default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
         hidden_from_schema=True,
     )
 

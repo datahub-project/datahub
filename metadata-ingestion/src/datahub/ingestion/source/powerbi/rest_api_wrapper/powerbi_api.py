@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import requests
 
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -53,11 +54,11 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        for scanned_dashboard in scan_result["dashboards"]:
+        for scanned_dashboard in scan_result[Constant.DASHBOARDS]:
             # Iterate through response and create a list of PowerBiAPI.Dashboard
             dashboard_id = scanned_dashboard.get("id")
             tags = self._parse_endorsement(
-                scanned_dashboard.get("endorsementDetails", None)
+                scanned_dashboard.get(Constant.ENDORSEMENT_DETAIL, None)
             )
             results[dashboard_id] = tags
 
@@ -71,12 +72,17 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        reports: List[dict] = scan_result.get("reports", [])
+        reports: List[dict] = scan_result.get(Constant.REPORTS, [])
 
         for report in reports:
-            report_id = report.get("id", "")
+            report_id = report.get(Constant.ID, None)
+            if report_id is None:
+                logger.warning(
+                    f"Report id is none. Skipping endorsement tag for report instance {report}"
+                )
+                continue
             endorsements = self._parse_endorsement(
-                report.get("endorsementDetails", None)
+                report.get(Constant.ENDORSEMENT_DETAIL, None)
             )
             results[report_id] = endorsements
 
@@ -120,11 +126,11 @@ class PowerBiAPI:
 
     def get_dashboard_users(self, dashboard: Dashboard) -> List[User]:
         return self._get_entity_users(
-            dashboard.workspace_id, "dashboards", dashboard.id
+            dashboard.workspace_id, Constant.DASHBOARDS, dashboard.id
         )
 
     def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
-        return self._get_entity_users(workspace_id, "reports", report_id)
+        return self._get_entity_users(workspace_id, Constant.REPORTS, report_id)
 
     def get_reports(self, workspace: Workspace) -> List[Report]:
         """
@@ -167,8 +173,8 @@ class PowerBiAPI:
         groups: List[dict] = self._get_resolver().get_groups()
         workspaces = [
             Workspace(
-                id=workspace["id"],
-                name=workspace["name"],
+                id=workspace[Constant.ID],
+                name=workspace[Constant.NAME],
                 datasets={},
                 dashboards=[],
                 reports=[],
@@ -219,7 +225,7 @@ class PowerBiAPI:
         if not endorsements:
             return []
 
-        endorsement = endorsements.get("endorsement", None)
+        endorsement = endorsements.get(Constant.ENDORSEMENT, None)
         if not endorsement:
             return []
 
@@ -234,10 +240,10 @@ class PowerBiAPI:
         if scan_result is None:
             return dataset_map
 
-        datasets: Optional[Any] = scan_result.get("datasets")
+        datasets: Optional[Any] = scan_result.get(Constant.DATASETS)
         if datasets is None or len(datasets) == 0:
             logger.warning(
-                f'Workspace {scan_result["name"]}({scan_result["id"]}) does not have datasets'
+                f"Workspace {scan_result[Constant.NAME]}({scan_result[Constant.ID]}) does not have datasets"
             )
 
             logger.info("Returning empty datasets")
@@ -245,13 +251,13 @@ class PowerBiAPI:
 
         for dataset_dict in datasets:
             dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
-                workspace_id=scan_result["id"],
-                dataset_id=dataset_dict["id"],
+                workspace_id=scan_result[Constant.ID],
+                dataset_id=dataset_dict[Constant.ID],
             )
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
-                    dataset_dict.get("endorsementDetails", None)
+                    dataset_dict.get(Constant.ENDORSEMENT_DETAIL, None)
                 )
 
             dataset_map[dataset_instance.id] = dataset_instance
@@ -262,18 +268,19 @@ class PowerBiAPI:
                 else dataset_instance.id
             )
 
-            for table in dataset_dict["tables"]:
+            for table in dataset_dict[Constant.TABLES]:
                 expression: str = (
-                    table["source"][0]["expression"]
-                    if table.get("source") is not None and len(table["source"]) > 0
+                    table[Constant.SOURCE][0][Constant.EXPRESSION]
+                    if table.get(Constant.SOURCE) is not None
+                    and len(table[Constant.SOURCE]) > 0
                     else None
                 )
                 dataset_instance.tables.append(
                     Table(
-                        name=table["name"],
+                        name=table[Constant.NAME],
                         full_name="{}.{}".format(
                             dataset_name.replace(" ", "_"),
-                            table["name"].replace(" ", "_"),
+                            table[Constant.NAME].replace(" ", "_"),
                         ),
                         expression=expression,
                     )
