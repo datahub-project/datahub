@@ -477,7 +477,7 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"/tmp/powerbi_admin_only_mces.json",
+                    "filename": f"{tmp_path}/powerbi_admin_only_mces.json",
                 },
             },
         }
