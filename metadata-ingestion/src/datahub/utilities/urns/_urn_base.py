@@ -11,8 +11,6 @@ URN_TYPES: Dict[str, Type["SpecificUrn"]] = {}
 
 
 def _split_entity_id(entity_id: str) -> List[str]:
-    # TODO undo encoding?
-
     if not (entity_id.startswith("(") and entity_id.endswith(")")):
         return [entity_id]
 
@@ -70,6 +68,8 @@ class Urn:
         :raises InvalidUrnError if the string representation is in invalid format
         """
 
+        # TODO: Add handling for url encoded urns e.g. urn%3A ...
+
         if not urn_str.startswith("urn:li:"):
             raise InvalidUrnError(
                 f"Invalid urn string: {urn_str}. Urns should start with 'urn:li:'"
@@ -87,6 +87,8 @@ class Urn:
 
         _urn, _li, entity_type, entity_ids_str = parts
         entity_ids = _split_entity_id(entity_ids_str)
+
+        # TODO undo encoding?
 
         UrnCls: Optional[Type["SpecificUrn"]] = URN_TYPES.get(entity_type)
         if UrnCls:
