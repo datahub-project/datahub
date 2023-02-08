@@ -1,0 +1,3 @@
+urn
+"urn:li:dataset:(urn:li:dataPlatform:kafka,test-delete,PROD)"
+"urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)"
