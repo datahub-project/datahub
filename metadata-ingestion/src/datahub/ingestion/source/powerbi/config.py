@@ -71,7 +71,7 @@ class Constant:
     DATASET_PROPERTIES = "datasetProperties"
     VALUE = "value"
     ENTITY = "ENTITY"
-    ID = "ID"
+    ID = "id"
     HTTP_RESPONSE_TEXT = "HttpResponseText"
     HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
     NAME = "name"

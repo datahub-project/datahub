@@ -155,7 +155,7 @@ class DataResolverBase(ABC):
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         dashboards: List[Dashboard] = [
             Dashboard(
-                id=instance.get(Constant.ACCESS_TOKEN),
+                id=instance.get(Constant.ID),
                 isReadOnly=instance.get(Constant.IS_READ_ONLY),
                 displayName=instance.get(Constant.DISPLAY_NAME),
                 embedUrl=instance.get(Constant.EMBED_URL),
