@@ -145,14 +145,15 @@ class Urn:
 
 class SpecificUrn(Urn):
     ENTITY_TYPE: str = ""
+    UNDERLYING_KEY_ASPECT: Type = None  # type: ignore
 
-    def __init_subclass__(cls, entity_type: str) -> None:
+    def __init_subclass__(cls) -> None:
         # Validate the subclass.
-        assert cls.ENTITY_TYPE == ""
-        cls.ENTITY_TYPE = entity_type
+        entity_type = cls.ENTITY_TYPE
+        assert entity_type, 'SpecificUrn subclasses must define "ENTITY_TYPE"'
 
         # Register the urn type.
-        assert entity_type not in URN_TYPES, "duplicate urn type registered"
+        assert entity_type in URN_TYPES, "duplicate urn type registered"
         URN_TYPES[entity_type] = cls
 
         return super().__init_subclass__()
@@ -172,7 +173,7 @@ class SpecificUrn(Urn):
         raise NotImplementedError()
 
 
-class DatasetUrn(SpecificUrn, entity_type="dataset"):
+class DatasetUrn(SpecificUrn):
     def __init__(self, platform: str, name: str, env: str = "PROD"):
         # TODO: where to do extra validation on platform?
         super().__init__(self.ENTITY_TYPE, [platform, name, env])
