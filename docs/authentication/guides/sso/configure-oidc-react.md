@@ -139,7 +139,8 @@ AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 
 Additional OIDC Options:
 
-- `AUTH_OIDC_PREFERRED_JWS_ALGORITHM` - Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`.
+- `AUTH_OIDC_PREFERRED_JWS_ALGORITHM` - Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`. If
+your IdP includes `none` as the first signing algorithm, then this value **MUST** be set.
 
 ##### User & Group Provisioning (JIT Provisioning)
 
