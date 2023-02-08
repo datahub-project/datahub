@@ -1,6 +1,7 @@
 import collections
 import json
 import re
+import textwrap
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
@@ -392,8 +393,18 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
         f"{field_name(field)}=key_aspect.{field['name']}" for field in fields
     )
 
-    # TODO add basic validation (e.g. not empty)
-    # TODO add custom validation e.g. trim urn:li:dataPlatform prefix if present
+    init_validation = ""
+    for field in fields:
+        init_validation += f'if not {field_name(field)}:\n    raise ValueError("{field_name(field)} cannot be empty")\n'
+
+        if field_name(field) == "platform":
+            # TODO: Generalize this logic to all contained urns.
+            init_validation += f"{field_name(field)} = str({field_name(field)})\n"
+            init_validation += (
+                f"assert DataPlatformUrn.from_string({field_name(field)})\n"
+            )
+
+    # TODO add custom coercion e.g. trim urn:li:dataPlatform prefix if present
     # TODO add defaults for some fields
     # TODO add "strict" option that doesn't perform any coercion (used by _parse_ids)
     # TODO add docs
@@ -407,13 +418,20 @@ class {class_name}(SpecificUrn):
     ENTITY_TYPE = "{entity_type}"
     UNDERLYING_KEY_ASPECT = {key_aspect_class}
 
-    def __init__(self, {init_args}) -> None:
+    def __init__(self, {init_args}, _coerce: bool = True) -> None:
+        if _coerce:
+            # TODO add coercion logic
+            pass
+
+        # Validation logic.
+{textwrap.indent(init_validation.strip(), prefix=" "*4*2)}
+
         super().__init__(self.ENTITY_TYPE, [{super_args}])
 
     @classmethod
     def _parse_ids(cls, entity_ids: List[str]) -> "{class_name}":
         assert len(entity_ids) == {arg_count}
-        return cls({parse_ids_mapping})
+        return cls({parse_ids_mapping}, _coerce=False)
 
     def to_key_aspect(self) -> {key_aspect_class}:
         return {key_aspect_class}({to_key_aspect_args})
