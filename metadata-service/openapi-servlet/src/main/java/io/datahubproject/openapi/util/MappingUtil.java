@@ -3,7 +3,7 @@ package io.datahubproject.openapi.util;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.ResourceSpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
