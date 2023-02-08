@@ -1,7 +1,8 @@
 import json
 import re
 import warnings
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from gc import freeze
+from typing import Any, Dict, Generator, List, Tuple, Iterable, Optional, Type, Union, ValuesView
 
 import requests
 import yaml
@@ -10,9 +11,25 @@ from requests.auth import HTTPBasicAuth
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchemaClass,
     SchemaField,
-    SchemaMetadata,
+    SchemaMetadata, SchemaFieldDataType,
 )
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass, NullTypeClass, BooleanTypeClass, \
+    ArrayTypeClass, NumberTypeClass, RecordTypeClass, UnionTypeClass, EnumTypeClass
+
+_field_type_mapping: Dict[str, Type] = {
+    list: ArrayTypeClass,
+    bool: BooleanTypeClass,
+    type(None): NullTypeClass,
+    int: NumberTypeClass,
+    float: NumberTypeClass,
+    str: StringTypeClass,
+    dict: RecordTypeClass,
+    "enum": EnumTypeClass,
+    "string": StringTypeClass,
+    "String": StringTypeClass,
+    "record": RecordTypeClass,
+    "integer": NumberTypeClass,
+}
 
 
 def flatten(d: dict, prefix: str = "") -> Generator:
@@ -107,9 +124,9 @@ def check_sw_version(sw_dict: dict) -> None:
         )
 
 
-def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
+def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C901
     """
-    Get all the URLs accepting the "GET" method, together with their description and the tags
+    Get all the URLs accepting the "GET", "POST", "PUT" and "PATCH" methods, together with their description and the tags
     """
     url_details = {}
 
@@ -139,7 +156,14 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
             except KeyError:
                 tags = []
 
-            url_details[p_k] = {"description": desc, "tags": tags}
+            tags.append("get")
+
+            try:
+                operation_id = p_o["get"]["operationId"]
+            except KeyError:
+                operation_id = []
+
+            url_details[p_k] = {"description": desc, "tags": tags, "operationId": operation_id}
 
             # trying if dataset is defined in swagger...
             if "content" in base_res.keys():
@@ -150,6 +174,8 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
                         ex_field = "example"
                     elif "examples" in res_cont["application/json"]:
                         ex_field = "examples"
+                    elif "schema" in res_cont["application/json"]:
+                        ex_field = "schema"
 
                     if ex_field:
                         if isinstance(res_cont["application/json"][ex_field], dict):
@@ -174,7 +200,370 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
             if "parameters" in p_o["get"].keys():
                 url_details[p_k]["parameters"] = p_o["get"]["parameters"]
 
+        # will track only the "post" methods
+        elif "post" in p_o.keys():
+            if get_operations_only:
+                continue
+
+            if "200" in p_o["post"]["responses"].keys():
+                base_res = p_o["post"]["responses"]["200"]
+            elif 200 in p_o["post"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
+                base_res = p_o["post"]["responses"][200]
+            else:
+                # the endpoint does not have a 200 response
+                continue
+
+            if "description" in p_o["post"].keys():
+                desc = p_o["post"]["description"]
+            elif "summary" in p_o["post"].keys():
+                desc = p_o["post"]["summary"]
+            else:  # still testing
+                desc = ""
+
+            try:
+                tags = p_o["post"]["tags"]
+            except KeyError:
+                tags = []
+
+            tags.append("post")
+
+            try:
+                operation_id = p_o["post"]["operationId"]
+            except KeyError:
+                operation_id = []
+
+            url_details[p_k + "__post_request"] = {"description": desc, "tags": tags, "operationId": operation_id}
+
+            # trying if dataset is defined in swagger...
+            if "content" in base_res.keys():
+                res_cont = base_res["content"]
+                if "application/json" in res_cont.keys():
+                    ex_field = None
+                    if "example" in res_cont["application/json"]:
+                        ex_field = "example"
+                    elif "examples" in res_cont["application/json"]:
+                        ex_field = "examples"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/json"][ex_field], dict):
+                            url_details[p_k + "__post_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__post_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+                elif "text/csv" in res_cont.keys():
+                    url_details[p_k + "__post_request"]["data"] = res_cont["text/csv"]["schema"]
+            elif "examples" in base_res.keys():
+                url_details[p_k + "__post_request"]["data"] = base_res["examples"]["application/json"]
+
+            # checking whether there are defined parameters to execute the call...
+            if "parameters" in p_o["post"].keys():
+                url_details[p_k + "__post_request"]["parameters"] = p_o["post"]["parameters"]
+
+            if "requestBody" in p_o["post"].keys():
+                res_cont = p_o["post"]["requestBody"]["content"]
+                if "application/cloudevents+json" in res_cont.keys():
+                    ex_field = None
+                    if "schema" in res_cont["application/cloudevents+json"]:
+                        ex_field = "schema"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/cloudevents+json"][ex_field], dict):
+                            url_details[p_k + "__post_request"]["data"] = res_cont["application/cloudevents+json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/cloudevents+json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__post_request"]["data"] = res_cont["application/cloudevents+json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+                elif "application/json" in res_cont.keys():
+                    ex_field = None
+                    if "schema" in res_cont["application/json"]:
+                        ex_field = "schema"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/json"][ex_field], dict):
+                            url_details[p_k + "__post_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__post_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+
+        # will track only the "put" methods
+        elif "put" in p_o.keys():
+            if get_operations_only:
+                continue
+
+            if "200" in p_o["put"]["responses"].keys():
+                base_res = p_o["put"]["responses"]["200"]
+            elif 200 in p_o["put"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
+                base_res = p_o["put"]["responses"][200]
+            else:
+                # the endpoint does not have a 200 response
+                continue
+
+            if "description" in p_o["put"].keys():
+                desc = p_o["put"]["description"]
+            elif "summary" in p_o["put"].keys():
+                desc = p_o["put"]["summary"]
+            else:  # still testing
+                desc = ""
+
+            try:
+                tags = p_o["put"]["tags"]
+            except KeyError:
+                tags = []
+
+            tags.append("put")
+
+            try:
+                operation_id = p_o["put"]["operationId"]
+            except KeyError:
+                operation_id = []
+
+            url_details[p_k + "__put_response"] = {"description": desc, "tags": tags, "operationId": operation_id}
+            url_details[p_k + "__put_request"] = {"description": desc, "tags": tags, "operationId": operation_id}
+
+            # trying if dataset is defined in swagger...
+            if "content" in base_res.keys():
+                res_cont = base_res["content"]
+                if "application/json" in res_cont.keys():
+                    ex_field = None
+                    if "example" in res_cont["application/json"]:
+                        ex_field = "example"
+                    elif "examples" in res_cont["application/json"]:
+                        ex_field = "examples"
+                    elif "schema" in res_cont["application/json"]:
+                        ex_field = "schema"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/json"][ex_field], dict):
+                            url_details[p_k + "__put_response"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__put_response"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+                elif "text/csv" in res_cont.keys():
+                    url_details[p_k + "__put_response"]["data"] = res_cont["text/csv"]["schema"]
+            elif "examples" in base_res.keys():
+                url_details[p_k + "__put_response"]["data"] = base_res["examples"]["application/json"]
+
+            # checking whether there are defined parameters to execute the call...
+            if "parameters" in p_o["put"].keys():
+                url_details[p_k + "__put_response"]["parameters"] = p_o["put"]["parameters"]
+                url_details[p_k + "__put_request"]["parameters"] = p_o["put"]["parameters"]
+
+            if "requestBody" in p_o["put"].keys():
+                res_cont = p_o["put"]["requestBody"]["content"]
+                if "application/cloudevents+json" in res_cont.keys():
+                datahub-upgrade    ex_field = None
+                    if "schema" in res_cont["application/cloudevents+json"]:
+                        ex_field = "schema"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/cloudevents+json"][ex_field], dict):
+                            url_details[p_k + "__put_request"]["data"] = res_cont["application/cloudevents+json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/cloudevents+json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__put_request"]["data"] = res_cont["application/cloudevents+json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+                elif "application/json" in res_cont.keys():
+                    ex_field = None
+                    if "schema" in res_cont["application/json"]:
+                        ex_field = "schema"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/json"][ex_field], dict):
+                            url_details[p_k + "__put_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__put_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+
+        # will track only the "patch" methods
+        elif "patch" in p_o.keys():
+            if get_operations_only:
+                continue
+
+            if "200" in p_o["patch"]["responses"].keys():
+                base_res = p_o["patch"]["responses"]["200"]
+            elif 200 in p_o["patch"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
+                base_res = p_o["patch"]["responses"][200]
+            else:
+                # the endpoint does not have a 200 response
+                continue
+
+            if "description" in p_o["patch"].keys():
+                desc = p_o["patch"]["description"]
+            elif "summary" in p_o["patch"].keys():
+                desc = p_o["patch"]["summary"]
+            else:  # still testing
+                desc = ""
+
+            try:
+                tags = p_o["patch"]["tags"]
+            except KeyError:
+                tags = []
+
+            tags.append("patch")
+
+            try:
+                operation_id = p_o["patch"]["operationId"]
+            except KeyError:
+                operation_id = []
+
+            url_details[p_k + "__patch_request"] = {"description": desc, "tags": tags, "operationId": operation_id}
+
+            # trying if dataset is defined in swagger...
+            if "content" in base_res.keys():
+                res_cont = base_res["content"]
+                if "application/json" in res_cont.keys():
+                    ex_field = None
+                    if "example" in res_cont["application/json"]:
+                        ex_field = "example"
+                    elif "examples" in res_cont["application/json"]:
+                        ex_field = "examples"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/json"][ex_field], dict):
+                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+                elif "text/csv" in res_cont.keys():
+                    url_details[p_k + "__patch_request"]["data"] = res_cont["text/csv"]["schema"]
+            elif "examples" in base_res.keys():
+                url_details[p_k + "__patch_request"]["data"] = base_res["examples"]["application/json"]
+
+            # checking whether there are defined parameters to execute the call...
+            if "parameters" in p_o["patch"].keys():
+                url_details[p_k + "__patch_request"]["parameters"] = p_o["patch"]["parameters"]
+
+            if "requestBody" in p_o["patch"].keys():
+                res_cont = p_o["patch"]["requestBody"]["content"]
+                if "application/cloudevents+json" in res_cont.keys():
+                    ex_field = None
+                    if "schema" in res_cont["application/cloudevents+json"]:
+                        ex_field = "schema"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/cloudevents+json"][ex_field], dict):
+                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/cloudevents+json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/cloudevents+json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/cloudevents+json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+                elif "application/json" in res_cont.keys():
+                    ex_field = None
+                    if "schema" in res_cont["application/json"]:
+                        ex_field = "schema"
+
+                    if ex_field:
+                        if isinstance(res_cont["application/json"][ex_field], dict):
+                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ]
+                        elif isinstance(res_cont["application/json"][ex_field], list):
+                            # taking the first example
+                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/json"][
+                                ex_field
+                            ][0]
+                    else:
+                        warnings.warn(
+                            f"Field in swagger file does not give consistent data --- {p_k}"
+                        )
+
     return dict(sorted(url_details.items()))
+
+
+def get_schemas(sc_dict: dict) -> dict:
+    schema_details = {}
+
+    for p_k, p_o in sc_dict["components"]["schemas"].items():
+        schema_details[p_k] = {}
+
+        try:
+            required_fields = p_o["required"]
+        except KeyError:
+            required_fields = []
+
+        try:
+            schema_fields = p_o["properties"]
+        except KeyError:
+            schema_fields = []
+
+        try:
+            enum_fields = p_o["enum"]
+        except KeyError:
+            enum_fields = []
+
+        try:
+            description_fields = p_o["description"]
+        except KeyError:
+            description_fields = []
+
+        schema_details[p_k]["detail"] = {"required": required_fields, "properties": schema_fields,
+                                             "enum": enum_fields, "description": description_fields}
+
+    return dict(schema_details.items())
 
 
 def guessing_url_name(url: str, examples: dict) -> str:
@@ -368,20 +757,123 @@ def get_tok(
         raise Exception(f"Unable to get a valid token: {response.text}")
 
 
+def get_field_type(
+        field_type: Union[Type, str]
+) -> SchemaFieldDataType:
+
+    TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
+
+    if TypeClass is None:
+        TypeClass = NullTypeClass
+
+    return SchemaFieldDataType(type=TypeClass())
+
+
 def set_metadata(
-    dataset_name: str, fields: List, platform: str = "api"
+    dataset_name: str, fields: List, operation_id: str, schemas_details: dict, platform: str = "api"
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
 
     for column in fields:
-        field = SchemaField(
-            fieldPath=column,
-            nativeDataType="str",
-            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-            description="",
-            recursive=False,
-        )
-        canonical_schema.append(field)
+        if column == "type":
+            continue
+
+        elif column == "items":
+            json_str = fields["items"]
+            for key, value in json_str.items():
+                if key == "$ref":
+                    column_schema = value.rsplit('/', 1)[1]
+                    if column_schema in schemas_details:
+                        schema = schemas_details[column_schema]["detail"]["properties"]
+                        schema_enum = schemas_details[column_schema]["detail"]["enum"]
+                        schema_description = schemas_details[column_schema]["detail"]["description"]
+                        if len(schema_description) == 0:
+                            schema_description = ""
+                        if len(schema) == 0 and len(schema_enum) > 0:
+                            field = SchemaField(
+                                fieldPath=column_schema,
+                                nativeDataType=column_schema,
+                                type=SchemaFieldDataTypeClass(type=EnumTypeClass()),
+                                description=schema_description,
+                                recursive=False,
+                            )
+                            canonical_schema.append(field)
+                        elif len(schema) == 0 and len(schema_enum) == 0:
+                            field = SchemaField(
+                                fieldPath=column_schema,
+                                nativeDataType="String",
+                                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                                description=schema_description,
+                                recursive=False,
+                            )
+                            canonical_schema.append(field)
+                        else:
+                            for f_k, f_v in schema.items():
+                                field_name = f_k
+                                try:
+                                    description = f_v["description"]
+                                except KeyError:
+                                    description = ""
+
+                                try:
+                                    format = f_v["format"]
+                                except KeyError:
+                                    format = None
+
+                                try:
+                                    field_type = f_v["type"]
+                                except KeyError:
+                                    try:
+                                        field_type = f_v["$ref"]
+                                        ft_name = field_type.rsplit('/', 1)[1]
+                                        canonical_schema = add_subschema(ft_name, schemas_details, canonical_schema, False, None, field_name)
+                                        continue
+                                    except KeyError:
+                                        try:
+                                            field_type = f_v["oneOf"]
+                                            if len(field_type) > 0:
+                                                item = field_type[0]
+                                                ft = item["$ref"]
+                                                s_name = ft.rsplit('/', 1)[1]
+                                                canonical_schema = add_subschema(s_name, schemas_details, canonical_schema, False, None, field_name)
+                                                continue
+                                        except KeyError:
+                                            try:
+                                                field_type = f_v["allOf"]
+                                                if len(field_type) > 0:
+                                                    item = field_type[0]
+                                                    ft = item["$ref"]
+                                                    s_name = ft.rsplit('/', 1)[1]
+                                                    canonical_schema = add_subschema(s_name, schemas_details, canonical_schema, False, None, field_name)
+                                                    continue
+                                            except KeyError:
+                                                field_type = "String"
+                                if format is None:
+                                    format = field_type
+                                field = SchemaField(
+                                    fieldPath=field_name,
+                                    nativeDataType=format,
+                                    type=get_field_type(field_type),
+                                    description=description,
+                                    recursive=False,
+                                )
+                                canonical_schema.append(field)
+                            continue
+
+        elif column == "$ref":
+            json_str = fields["$ref"]
+            column_schema = json_str.rsplit('/', 1)[1]
+            canonical_schema = add_subschema(column_schema, schemas_details, canonical_schema, False, None, None)
+            continue
+        else:
+            field = SchemaField(
+                fieldPath=column,
+                nativeDataType="String",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                description="",
+                recursive=False,
+            )
+            canonical_schema.append(field)
 
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
@@ -392,3 +884,291 @@ def set_metadata(
         fields=canonical_schema,
     )
     return schema_metadata
+
+
+def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: List[SchemaField], use_expanded_name: bool,
+                  expanded_name: str, field_name: str):
+    if column_schema in schemas_details:
+        schema = schemas_details[column_schema]["detail"]["properties"]
+        schema_enum = schemas_details[column_schema]["detail"]["enum"]
+        schema_description = schemas_details[column_schema]["detail"]["description"]
+        if len(schema_description) == 0:
+            schema_description = ""
+        if len(schema) == 0 and len(schema_enum) > 0:
+            field = SchemaField(
+                fieldPath=field_name,
+                nativeDataType=column_schema,
+                type=SchemaFieldDataTypeClass(type=EnumTypeClass()),
+                description=schema_description,
+                recursive=False,
+            )
+            canonical_schema.append(field)
+        elif len(schema) == 0 and len(schema_enum) == 0:
+            field = SchemaField(
+                fieldPath=column_schema,
+                nativeDataType="String",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                description=schema_description,
+                recursive=False,
+            )
+            canonical_schema.append(field)
+        else:
+            if use_expanded_name and expanded_name is not None:
+                field = SchemaField(
+                    fieldPath=expanded_name,
+                    nativeDataType=column_schema,
+                    type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                    description=schema_description,
+                    recursive=False,
+                )
+                canonical_schema.append(field)
+            for f_k, f_v in schema.items():
+                field_name = f_k
+                try:
+                    description = f_v["description"]
+                except KeyError:
+                    description = ""
+
+                try:
+                    format = f_v["format"]
+                except KeyError:
+                    format = None
+
+                if use_expanded_name and expanded_name is not None:
+                    field_name = expanded_name + "." + field_name
+
+                try:
+                    field_type = f_v["type"]
+                except KeyError:
+                    try:
+                        field_type = f_v["$ref"]
+                        subcolumn_schema = field_type.rsplit('/', 1)[1]
+                        if subcolumn_schema in schemas_details:
+                            subschema = schemas_details[subcolumn_schema]["detail"]["properties"]
+                            subschema_enum = schemas_details[subcolumn_schema]["detail"]["enum"]
+                        else:
+                            subschema = subcolumn_schema
+                        if len(subschema_enum) == 0:
+                            field = SchemaField(
+                                fieldPath=field_name,
+                                nativeDataType=subcolumn_schema,
+                                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                                description=description,
+                                recursive=False,
+                            )
+                            canonical_schema.append(field)
+
+                        if len(subschema) == 0 and len(subschema_enum) > 0:
+                            field = SchemaField(
+                                # fieldPath=field_name + '.' + subcolumn_schema,
+                                # nativeDataType="Enum",
+                                fieldPath=field_name,
+                                nativeDataType=subcolumn_schema,
+                                type=SchemaFieldDataTypeClass(type=EnumTypeClass()),
+                                description=description,
+                                recursive=False,
+                            )
+                            canonical_schema.append(field)
+                        elif len(subschema) == 0 and len(subschema_enum) == 0:
+                            field = SchemaField(
+                                fieldPath=field_name + '.' + subcolumn_schema,
+                                nativeDataType="String",
+                                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                                description=description,
+                                recursive=False,
+                            )
+                            canonical_schema.append(field)
+                        else:
+                            for s_k, s_o in subschema.items():
+                                subschema_name = s_k
+                                try:
+                                    description = s_o["description"]
+                                except KeyError:
+                                    description = ""
+
+                                try:
+                                    subschema_format = s_o["format"]
+                                except KeyError:
+                                    subschema_format = None
+
+                                try:
+                                    subschema_type = s_o["type"]
+                                    subschema_type_control_ref = s_o["items"]["$ref"]
+                                    if len(subschema_type_control_ref) > 0:
+                                        ref_schema = subschema_type_control_ref.rsplit('/', 1)[1]
+                                        canonical_schema = add_next_subschema(ref_schema, schemas_details, canonical_schema, field_name, subschema_name)
+                                        continue
+                                except KeyError:
+                                    try:
+                                        subschema_type = s_o["$ref"]
+                                        sub_schema = subschema_type.rsplit('/', 1)[1]
+                                        canonical_schema = add_next_subschema(sub_schema, schemas_details, canonical_schema, field_name, subschema_name)
+                                        continue
+
+                                    except KeyError:
+                                        try:
+                                            subschema_type = s_o["oneOf"]
+                                            if len(subschema_type) > 0:
+                                                item = subschema_type[0]
+                                                ft = item["$ref"]
+                                                s_name = ft.rsplit('/', 1)[1]
+                                                canonical_schema = add_next_subschema(s_name, schemas_details, canonical_schema, field_name, subschema_name)
+                                            continue
+                                        except KeyError:
+                                            try:
+                                                subschema_type = s_o["allOf"]
+                                                if len(subschema_type) > 0:
+                                                    item = subschema_type[0]
+                                                    ft = item["$ref"]
+                                                    s_name = ft.rsplit('/', 1)[1]
+                                                    canonical_schema = add_next_subschema(s_name, schemas_details, canonical_schema, field_name, subschema_name)
+                                                continue
+                                            except KeyError:
+                                                subschema_type = "String"
+                                if subschema_format is None:
+                                    subschema_format = subschema_type
+                                field = SchemaField(
+                                    fieldPath=field_name + '.' + subschema_name,
+                                    nativeDataType=subschema_format,
+                                    type=get_field_type(subschema_type),
+                                    description=description,
+                                    recursive=False,
+                                )
+                                canonical_schema.append(field)
+
+                        continue
+                    except KeyError:
+                        try:
+                            field_type = f_v["oneOf"]
+                            if len(field_type) > 0:
+                                item = field_type[0]
+                                ft = item["$ref"]
+                                s_name = ft.rsplit('/', 1)[1]
+                                canonical_schema = add_subschema(s_name, schemas_details, canonical_schema, True, field_name, field_name)
+                            continue
+                        except KeyError:
+                            try:
+                                field_type = f_v["allOf"]
+                                if len(field_type) > 0:
+                                    item = field_type[0]
+                                    ft = item["$ref"]
+                                    s_name = ft.rsplit('/', 1)[1]
+                                    canonical_schema = add_subschema(s_name, schemas_details, canonical_schema, True, field_name, field_name)
+                                continue
+                            except KeyError:
+                                field_type = "String"
+                if format is None:
+                    format = field_type
+                field = SchemaField(
+                    fieldPath=field_name,
+                    nativeDataType=format,
+                    type=get_field_type(field_type),
+                    description=description,
+                    recursive=False,
+                )
+                canonical_schema.append(field)
+    return canonical_schema
+
+
+def add_next_subschema(sub_schema: str, schemas_details: dict, canonical_schema: List[SchemaField], field_name: str, subschema_name: str):
+    if sub_schema in schemas_details:
+        s_schema = schemas_details[sub_schema]["detail"]["properties"]
+        s_schema_enum = schemas_details[sub_schema]["detail"]["enum"]
+        schema_description = schemas_details[sub_schema]["detail"]["description"]
+        if len(schema_description) == 0:
+            schema_description = ""
+    else:
+        s_schema = sub_schema
+        schema_description = ""
+    if len(s_schema_enum) == 0:
+        field = SchemaField(
+            fieldPath=field_name + '.' + subschema_name,
+            nativeDataType=sub_schema,
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+            description=schema_description,
+            recursive=False,
+        )
+        canonical_schema.append(field)
+
+    if len(s_schema) == 0 and len(s_schema_enum) > 0:
+        field = SchemaField(
+            # fieldPath=field_name + '.' + subschema_name + '.' + sub_schema,
+            # nativeDataType="Enum",
+            fieldPath=field_name + '.' + subschema_name,
+            nativeDataType=sub_schema,
+            type=SchemaFieldDataTypeClass(type=EnumTypeClass()),
+            description=schema_description,
+            recursive=False,
+        )
+        canonical_schema.append(field)
+    elif len(s_schema) == 0 and len(s_schema_enum) == 0:
+        field = SchemaField(
+            fieldPath=field_name + '.' + subschema_name + '.' + sub_schema,
+            nativeDataType="String",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+            description=schema_description,
+            recursive=False,
+        )
+        canonical_schema.append(field)
+    else:
+        for k, v in s_schema.items():
+            name = k
+            try:
+                description = v["description"]
+            except KeyError:
+                description = ""
+
+            try:
+                format = v["format"]
+            except KeyError:
+                format = None
+
+            try:
+                type = v["type"]
+                type_control_items_ref = v["items"]["$ref"]
+                if len(type_control_items_ref) > 0:
+                    ref_schema = type_control_items_ref.rsplit('/', 1)[1]
+                    canonical_schema = add_next_subschema(ref_schema, schemas_details, canonical_schema, field_name + '.' + subschema_name,
+                                                          name)
+                    continue
+            except KeyError:
+                try:
+                    type = v["$ref"]
+                    schema_name = type.rsplit('/', 1)[1]
+                    canonical_schema = add_next_subschema(schema_name, schemas_details, canonical_schema, field_name + '.' + subschema_name,
+                                                          name)
+                    continue
+                except KeyError:
+                    try:
+                        type = v["oneOf"]
+                        if len(type) > 0:
+                            item = type[0]
+                            ft = item["$ref"]
+                            s_name = ft.rsplit('/', 1)[1]
+                            canonical_schema = add_next_subschema(s_name, schemas_details, canonical_schema, field_name + '.' + subschema_name,
+                                                                  name)
+                            continue
+                    except KeyError:
+                        try:
+                            type = v["allOf"]
+                            if len(type) > 0:
+                                item = type[0]
+                                ft = item["$ref"]
+                                s_name = ft.rsplit('/', 1)[1]
+                                canonical_schema = add_next_subschema(s_name, schemas_details, canonical_schema, field_name + '.' + subschema_name,
+                                                                      name)
+                                continue
+                        except KeyError:
+                            type = "String"
+            if format is None:
+                format = type
+            field = SchemaField(
+                fieldPath=field_name + '.' + subschema_name + '.' + name,
+                nativeDataType=format,
+                type=get_field_type(type),
+                description=description,
+                recursive=False,
+            )
+            canonical_schema.append(field)
+
+    return canonical_schema

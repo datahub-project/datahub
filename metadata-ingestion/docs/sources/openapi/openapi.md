@@ -1,13 +1,73 @@
-The dataset metadata should be defined directly in the Swagger file, section `["example"]`. If this is not true, the following procedures will take place.
+The dataset metadata should be defined in one of three possible ways:
+1. directly in the Swagger file, section `["example"]`
+2. directly in the Swagger file, section `["schema"]`
+3. if none from above, by calling endpoint
 
 ## Capabilities
 
 The plugin read the swagger file where the endopints are defined and searches for the ones which accept
-a `GET` call: those are the ones supposed to give back the datasets.
+a `GET`, `POST`, `PATCH` or `PUT` calls.
+
+Datasets are created based on output (response) of `GET`, request body of `POST` and `PATCH`, and both request body and response of `PUT` calls.
+
+In case of optional parameter `get_operations_only` being true, only `GET` calls are being processed. 
+
+### Dataset naming scheme
+Name of dataset is derived from OpenAPI title, endpoint path and in certain cases HTTP method concatenated with dots. Path to endpoint has all slashes changed to dots as well.
+
+`Open API title` . `endpoint path`(`optional method type`)
+
+#### GET method
+Uses no suffix. Example name might be `Example API.users`.
+
+#### POST method
+Uses *__post_request* suffix.
+Example name might be `Example API.create-user__post_request`.
+
+#### PATCH method
+Uses *__patch_request* suffix. Example name might be `Example API.update-user__patch_request`.
+
+#### PUT method
+Uses *__put_request* and *__put_response* suffixes. Example name might be `Example API.update-user__put_request` and/or `Example API.update-user__put_response`
+
+### Tags
+Datasets can have assigned tags within DataHub. Some of them are assigned automatically.
+
+#### HTTP method tags
+Each dataset will have assigned a tag based on HTTP call method.
+
+#### Tags defined in swagger file
+Tags defined in swagger file are always assigned to respective dataset. See the following example:
+
+```yaml
+/api/v1/external/google:
+put:
+  tags:
+    - account
+    - google
+  operationId: finishGoogleAccount
+  parameters: []
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/FinishGoogleAccountDTO'
+    required: true
+  responses:
+    "200":
+      description: finishGoogleAccount 200 response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LoggedAccountDTO'
+```
 
 For every selected endpoint defined in the `paths` section,
 the tool searches whether the medatada are already defined in there.
-As example, if in your swagger file there is the `/api/users/` defined as follows:
+
+### Deriving scheme from embedded example
+
+If in your swagger file there is the `/api/users/` defined as follows:
 
 ```yaml
 paths:
@@ -25,9 +85,56 @@ paths:
                 {"user": "username", "name": "Full Name", "job": "any", "is_active": True}
 ```
 
-then this plugin has all the information needed to create the dataset in DataHub.
+then dataset structure may be derived from the provided example.
 
-In case there is no example defined, the plugin will try to get the metadata directly from the endpoint.
+### Deriving scheme from embedded schema
+
+If there is schema definition included, the structure is retrieved from it:
+
+```yaml
+paths:
+  /api/users/:
+    get:
+      tags: [ "Users" ]
+      operationID: GetUsers
+      description: Retrieve users data
+      responses:
+        '200':
+          description: Return the list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users'
+```
+
+with schema defined within the swagger file as in the following example:
+
+```yaml
+components:
+  schemas:
+    Users:
+      required:
+        - user
+        - name
+        - job
+        - is_active
+      type: object
+      properties:
+        user:
+          type: string
+        email:
+          type: string
+        job:
+          type: string
+        is_active:
+          type: boolean
+```
+
+As you can see, in this case this plugin has all the information needed to create the dataset in DataHub. Embedded references to substructures are supported as well. If the documented structure contains a single array, items included in the array are directly described. If an array is included at a lower level of the structure, or there are additional attributes at the top level in addition to an array, the respective attribute of type array is displayed but not type of content of this array. This is due to the fact that [version 2 of fieldPath specification](https://datahubproject.io/docs/advanced/field-path-spec-v2/) is not used during the processing as of now. When possible, native data type is populated with names of embedded structures or format of the respective data type.
+
+### Automatically recorded examples
+
+In case there is no example or schema defined, the plugin will try to get the metadata directly from the endpoint.
 So, if in your swagger file you have
 
 ```yaml
@@ -44,8 +151,6 @@ paths:
 
 the tool will make a `GET` call to `https:///test_endpoint.com/colors`
 and parse the response obtained.
-
-### Automatically recorded examples
 
 Sometimes you can have an endpoint which wants a parameter to work, like
 `https://test_endpoint.com/colors/{color}`.

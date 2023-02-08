@@ -30,6 +30,7 @@ from datahub.ingestion.source.openapi_parser import (
     request_call,
     set_metadata,
     try_guessing,
+    get_schemas,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -55,6 +56,7 @@ class OpenApiConfig(ConfigModel):
     forced_examples: dict = Field(default={}, description="")
     token: Optional[str] = Field(default=None, description="")
     get_token: dict = Field(default={}, description="")
+    get_operations_only: bool = Field(default=False, description="")
 
     def get_swagger(self) -> Dict:
         if self.get_token or self.token is not None:
@@ -196,7 +198,7 @@ class APISource(Source, ABC):
         link_url = clean_url(config.url + self.url_basepath + endpoint_k)
         link_description = "Link to call for the dataset."
         creation = AuditStampClass(
-            time=int(time.time()), actor="urn:li:corpuser:etl", impersonator=None
+            time=int(time.time()), actor="urn:li:corpuser:datahub", impersonator=None
         )
         link_metadata = InstitutionalMemoryMetadataClass(
             url=link_url, description=link_description, createStamp=creation
@@ -223,7 +225,9 @@ class APISource(Source, ABC):
 
         # Getting all the URLs accepting the "GET" method
         with warnings.catch_warnings(record=True) as warn_c:
-            url_endpoints = get_endpoints(sw_dict)
+            url_endpoints = get_endpoints(sw_dict, config.get_operations_only)
+
+            schemas_details = get_schemas(sw_dict)
 
             for w in warn_c:
                 w_msg = w.message
@@ -245,7 +249,8 @@ class APISource(Source, ABC):
             # adding dataset fields
             if "data" in endpoint_dets.keys():
                 # we are lucky! data is defined in the swagger for this endpoint
-                schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
+                schema_metadata = set_metadata(dataset_name, endpoint_dets["data"], endpoint_dets["operationId"],
+                                               schemas_details)
                 dataset_snapshot.aspects.append(schema_metadata)
                 yield from self.build_wu(dataset_snapshot, dataset_name)
             elif (
