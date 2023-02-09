@@ -67,7 +67,7 @@ public class EntitiesController {
   private final AuthorizerChain _authorizerChain;
 
   @Value("${authorization.restApiAuthorization:false}")
-  private Boolean restApiAuthorizationEnabled;
+  private boolean restApiAuthorizationEnabled;
 
   @InitBinder
   public void initBinder(WebDataBinder binder) {
