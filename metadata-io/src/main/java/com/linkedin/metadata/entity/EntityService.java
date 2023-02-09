@@ -64,6 +64,7 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.ebean.PagedList;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -84,8 +85,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.EntityNotFoundException;
-
-import io.ebean.PagedList;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -318,20 +317,20 @@ public class EntityService {
    * @return a map of {@link Urn} to {@link EnvelopedAspect} object
    */
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
-    // TODO: entityName is unused, can we remove this as a param?
-    @Nonnull String entityName,
-    @Nonnull Set<Urn> urns,
-    @Nonnull Set<String> aspectNames) throws URISyntaxException {
+      // TODO: entityName is unused, can we remove this as a param?
+      @Nonnull String entityName,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames) throws URISyntaxException {
 
-  final Set<EntityAspectIdentifier> dbKeys = urns.stream()
-      .map(urn -> aspectNames.stream()
-          .map(aspectName -> new EntityAspectIdentifier(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
-          .collect(Collectors.toList()))
-      .flatMap(List::stream)
-      .collect(Collectors.toSet());
+    final Set<EntityAspectIdentifier> dbKeys = urns.stream()
+        .map(urn -> aspectNames.stream()
+            .map(aspectName -> new EntityAspectIdentifier(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet());
 
-  return getCorrespondingAspects(dbKeys, urns);
-}
+    return getCorrespondingAspects(dbKeys, urns);
+  }
 
   /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
@@ -341,62 +340,62 @@ public class EntityService {
    * @return a map of {@link Urn} to {@link EnvelopedAspect} object
    */
   public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
-    @Nonnull Set<VersionedUrn> versionedUrns,
-    @Nonnull Set<String> aspectNames) throws URISyntaxException {
+      @Nonnull Set<VersionedUrn> versionedUrns,
+      @Nonnull Set<String> aspectNames) throws URISyntaxException {
 
-  Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrns.stream()
-      .collect(Collectors.toMap(versionedUrn -> versionedUrn.getUrn().toString(),
-          versionedUrn -> VersionedUrnUtils.convertVersionStamp(versionedUrn.getVersionStamp())));
+    Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrns.stream()
+        .collect(Collectors.toMap(versionedUrn -> versionedUrn.getUrn().toString(),
+            versionedUrn -> VersionedUrnUtils.convertVersionStamp(versionedUrn.getVersionStamp())));
 
-  // Cover full/partial versionStamp
-  final Set<EntityAspectIdentifier> dbKeys = urnAspectVersionMap.entrySet().stream()
-      .filter(entry -> !entry.getValue().isEmpty())
-      .map(entry -> aspectNames.stream()
-          .filter(aspectName -> entry.getValue().containsKey(aspectName))
-          .map(aspectName -> new EntityAspectIdentifier(entry.getKey(), aspectName,
-              entry.getValue().get(aspectName)))
-          .collect(Collectors.toList()))
-      .flatMap(List::stream)
-      .collect(Collectors.toSet());
+    // Cover full/partial versionStamp
+    final Set<EntityAspectIdentifier> dbKeys = urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> !entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .filter(aspectName -> entry.getValue().containsKey(aspectName))
+            .map(aspectName -> new EntityAspectIdentifier(entry.getKey(), aspectName,
+                entry.getValue().get(aspectName)))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet());
 
-  // Cover empty versionStamp
-  dbKeys.addAll(urnAspectVersionMap.entrySet().stream()
-      .filter(entry -> entry.getValue().isEmpty())
-      .map(entry -> aspectNames.stream()
-          .map(aspectName -> new EntityAspectIdentifier(entry.getKey(), aspectName, 0L))
-          .collect(Collectors.toList()))
-      .flatMap(List::stream)
-      .collect(Collectors.toSet()));
+    // Cover empty versionStamp
+    dbKeys.addAll(urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .map(aspectName -> new EntityAspectIdentifier(entry.getKey(), aspectName, 0L))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet()));
 
-  return getCorrespondingAspects(dbKeys, versionedUrns.stream()
-      .map(versionedUrn -> versionedUrn.getUrn().toString())
-      .map(UrnUtils::getUrn).collect(Collectors.toSet()));
-}
-
-private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspectIdentifier> dbKeys, Set<Urn> urns)
-    throws URISyntaxException {
-
-  final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
-
-  // Group result by Urn
-  final Map<String, List<EnvelopedAspect>> urnToAspects = envelopedAspectMap.entrySet()
-      .stream()
-      .collect(Collectors.groupingBy(entry -> entry.getKey().getUrn(),
-          Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
-
-  final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
-  for (Urn urn : urns) {
-    List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
-    EnvelopedAspect keyAspect = getKeyEnvelopedAspect(urn);
-    // Add key aspect if it does not exist in the returned aspects
-    if (aspects.isEmpty() || aspects.stream().noneMatch(aspect -> keyAspect.getName().equals(aspect.getName()))) {
-      result.put(urn, ImmutableList.<EnvelopedAspect>builder().addAll(aspects).add(keyAspect).build());
-    } else {
-      result.put(urn, aspects);
-    }
+    return getCorrespondingAspects(dbKeys, versionedUrns.stream()
+        .map(versionedUrn -> versionedUrn.getUrn().toString())
+        .map(UrnUtils::getUrn).collect(Collectors.toSet()));
   }
-  return result;
-}
+
+  private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspectIdentifier> dbKeys, Set<Urn> urns)
+      throws URISyntaxException {
+
+    final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
+
+    // Group result by Urn
+    final Map<String, List<EnvelopedAspect>> urnToAspects = envelopedAspectMap.entrySet()
+        .stream()
+        .collect(Collectors.groupingBy(entry -> entry.getKey().getUrn(),
+            Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+
+    final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
+    for (Urn urn : urns) {
+      List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
+      EnvelopedAspect keyAspect = getKeyEnvelopedAspect(urn);
+      // Add key aspect if it does not exist in the returned aspects
+      if (aspects.isEmpty() || aspects.stream().noneMatch(aspect -> keyAspect.getName().equals(aspect.getName()))) {
+        result.put(urn, ImmutableList.<EnvelopedAspect>builder().addAll(aspects).add(keyAspect).build());
+      } else {
+        result.put(urn, aspects);
+      }
+    }
+    return result;
+  }
 
   /**
    * Retrieves the latest aspect for the given urn as a list of enveloped aspects
@@ -680,7 +679,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   public void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
-    @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
+      @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
 
     systemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
 
@@ -763,7 +762,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   protected RecordTemplate sendEventForUpdateAspectResult(@Nonnull final Urn urn, @Nonnull final String aspectName,
-    @Nonnull UpdateAspectResult result) {
+      @Nonnull UpdateAspectResult result) {
 
     final RecordTemplate oldValue = result.getOldValue();
     final RecordTemplate updatedValue = result.getNewValue();
@@ -776,33 +775,27 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
               Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
 
-    // Produce MCL after a successful update
-    if (oldValue != updatedValue || _alwaysEmitAuditEvent) {
-      log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
-      String entityName = urnToEntityName(urn);
-      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
-      AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-      if (aspectSpec == null) {
-        throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
-      }
+    log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
+    String entityName = urnToEntityName(urn);
+    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+    if (aspectSpec == null) {
+      throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
+    }
 
-      Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
-      produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
-          updatedSystemMetadata, result.getAuditStamp(), ChangeType.UPSERT);
-      produceMCLTimer.stop();
+    Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
+    produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
+        updatedSystemMetadata, result.getAuditStamp(), ChangeType.UPSERT);
+    produceMCLTimer.stop();
 
-      // For legacy reasons, keep producing to the MAE event stream without blocking ingest
-      try {
-        Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
-        produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
-            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
-        produceMAETimer.stop();
-      } catch (Exception e) {
-        log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema.", e);
-      }
-    } else {
-      log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.",
-        aspectName, urn);
+    // For legacy reasons, keep producing to the MAE event stream without blocking ingest
+    try {
+      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
+      produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
+          result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+      produceMAETimer.stop();
+    } catch (Exception e) {
+      log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema.", e);
     }
     return updatedValue;
   }
@@ -823,18 +816,18 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
 
-    /**
-     * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any additional aspects or do any
-     * enrichment, instead it changes only those which are provided inside the metadata change proposal.
-     *
-     * Do not use this method directly for creating new entities, as it DOES NOT create an Entity Key aspect in the DB. Instead,
-     * use an Entity Client.
-     *
-     * @param mcp the proposal to ingest
-     * @param auditStamp an audit stamp representing the time and actor proposing the change
-     * @param async a flag to control whether we commit to primary store or just write to proposal log before returning
-     * @return an {@link IngestProposalResult} containing the results
-     */
+  /**
+   * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any additional aspects or do any
+   * enrichment, instead it changes only those which are provided inside the metadata change proposal.
+   *
+   * Do not use this method directly for creating new entities, as it DOES NOT create an Entity Key aspect in the DB. Instead,
+   * use an Entity Client.
+   *
+   * @param mcp the proposal to ingest
+   * @param auditStamp an audit stamp representing the time and actor proposing the change
+   * @param async a flag to control whether we commit to primary store or just write to proposal log before returning
+   * @return an {@link IngestProposalResult} containing the results
+   */
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal mcp,
       AuditStamp auditStamp, final boolean async) {
 
@@ -849,7 +842,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     log.debug("aspect spec = {}", aspectSpec);
 
     if (!isValidChangeType(mcp.getChangeType(), aspectSpec)) {
-      throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType() + " for aspect " + mcp.getAspectName());
+      throw new UnsupportedOperationException(
+          "ChangeType not supported: " + mcp.getChangeType() + " for aspect " + mcp.getAspectName());
     }
 
     SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(mcp.getSystemMetadata());
@@ -858,13 +852,13 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     RecordTemplate oldAspect = null;
     SystemMetadata oldSystemMetadata = null;
-    RecordTemplate newAspect = null;
-    SystemMetadata newSystemMetadata = null;
+    RecordTemplate newAspect;
+    SystemMetadata newSystemMetadata;
 
     if (!aspectSpec.isTimeseries()) {
       if (!async) {
         // When async mode is turned off, we write to primary store for non timeseries aspects
-        UpdateAspectResult result = null;
+        UpdateAspectResult result;
         switch (mcp.getChangeType()) {
           case UPSERT:
             result = performUpsert(mcp, aspectSpec, systemMetadata, entityUrn, auditStamp);
@@ -882,8 +876,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         newSystemMetadata = result != null ? result.getNewSystemMetadata() : null;
       } else {
         // When async is turned on, we write to proposal log and return without waiting
-        _producer.produceMetadataChangeProposal(mcp);
-        return new IngestProposalResult(mcp.getEntityUrn(), false, true);
+        _producer.produceMetadataChangeProposal(entityUrn, mcp);
+        return new IngestProposalResult(entityUrn, false, true);
       }
     } else {
       // For timeseries aspects
@@ -999,7 +993,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   public String batchApplyRetention(Integer start, Integer count, Integer attemptWithVersion, String aspectName,
-                                    String urn) {
+      String urn) {
     BulkApplyRetentionArgs args = new BulkApplyRetentionArgs();
     if (start == null) {
       start = 0;
@@ -1023,40 +1017,32 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       RecordTemplate newAspect, SystemMetadata newSystemMetadata,
       MetadataChangeProposal mcp, Urn entityUrn,
       AuditStamp auditStamp, AspectSpec aspectSpec) {
+    log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
 
-    if (oldAspect != newAspect || _alwaysEmitAuditEvent) {
-      log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", mcp.getAspectName(), entityUrn);
+    final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
+    metadataChangeLog.setEntityUrn(entityUrn);
+    metadataChangeLog.setCreated(auditStamp);
+    // The change log produced by this method is always an upsert as it contains the entire RecordTemplate update
+    metadataChangeLog.setChangeType(ChangeType.UPSERT);
 
-      final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(mcp.data());
-      metadataChangeLog.setEntityUrn(entityUrn);
-      metadataChangeLog.setCreated(auditStamp);
-      // The change log produced by this method is always an upsert as it contains the entire RecordTemplate update
-      metadataChangeLog.setChangeType(ChangeType.UPSERT);
-
-      if (oldAspect != null) {
-        metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
-      }
-      if (oldSystemMetadata != null) {
-        metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
-      }
-      if (newAspect != null) {
-        metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspect));
-      }
-      if (newSystemMetadata != null) {
-        metadataChangeLog.setSystemMetadata(newSystemMetadata);
-      }
-
-      log.debug("Serialized MCL event: {}", metadataChangeLog);
-
-      produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
-
-      return true;
-    } else {
-      log.debug(
-          "Skipped producing MetadataChangeLog for ingested aspect {}, urn {}. Aspect has not changed.",
-          mcp.getAspectName(), entityUrn);
-      return false;
+    if (oldAspect != null) {
+      metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspect));
     }
+    if (oldSystemMetadata != null) {
+      metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
+    }
+    if (newAspect != null) {
+      metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspect));
+    }
+    if (newSystemMetadata != null) {
+      metadataChangeLog.setSystemMetadata(newSystemMetadata);
+    }
+
+    log.debug("Serialized MCL event: {}", metadataChangeLog);
+
+    produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog);
+
+    return true;
   }
 
   public Integer getCountAspect(@Nonnull String aspectName, @Nullable String urnLike) {
@@ -1070,13 +1056,13 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     int rowsMigrated = 0;
     logger.accept(String.format("Args are %s", args));
     logger.accept(String.format(
-            "Reading rows %s through %s from the aspects table started.", args.start, args.start + args.batchSize));
+        "Reading rows %s through %s from the aspects table started.", args.start, args.start + args.batchSize));
     long startTime = System.currentTimeMillis();
     PagedList<EbeanAspectV2> rows = _aspectDao.getPagedAspects(args);
     result.timeSqlQueryMs = System.currentTimeMillis() - startTime;
     startTime = System.currentTimeMillis();
     logger.accept(String.format(
-            "Reading rows %s through %s from the aspects table completed.", args.start, args.start + args.batchSize));
+        "Reading rows %s through %s from the aspects table completed.", args.start, args.start + args.batchSize));
 
     for (EbeanAspectV2 aspect : rows.getList()) {
       // 1. Extract an Entity type from the entity Urn
@@ -1087,7 +1073,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         urn = Urn.createFromString(aspect.getKey().getUrn());
       } catch (Exception e) {
         logger.accept(String.format("Failed to bind Urn with value %s into Urn object: %s. Ignoring row.",
-                aspect.getKey().getUrn(), e));
+            aspect.getKey().getUrn(), e));
         ignored = ignored + 1;
         continue;
       }
@@ -1101,7 +1087,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         entitySpec = _entityRegistry.getEntitySpec(entityName);
       } catch (Exception e) {
         logger.accept(String.format("Failed to find entity with name %s in Entity Registry: %s. Ignoring row.",
-                entityName, e));
+            entityName, e));
         ignored = ignored + 1;
         continue;
       }
@@ -1113,7 +1099,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
       if (aspectSpec == null) {
         logger.accept(String.format("Failed to find aspect with name %s associated with entity named %s", aspectName,
-                entityName));
+            entityName));
         ignored = ignored + 1;
         continue;
       }
@@ -1126,7 +1112,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
         aspectRecord = EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
       } catch (Exception e) {
         logger.accept(String.format("Failed to deserialize row %s for entity %s, aspect %s: %s. Ignoring row.",
-                aspect.getMetadata(), entityName, aspectName, e));
+            aspect.getMetadata(), entityName, aspectName, e));
         ignored = ignored + 1;
         continue;
       }
@@ -1137,9 +1123,9 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
       // 5. Produce MAE events for the aspect record
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
-              latestSystemMetadata,
-              new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
-              ChangeType.RESTATE);
+          latestSystemMetadata,
+          new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+          ChangeType.RESTATE);
       result.sendMessageMs += System.currentTimeMillis() - startTime;
 
       rowsMigrated++;
@@ -1365,8 +1351,8 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   /**
-    Returns true if entityType should have some aspect as per its definition
-    but aspects given does not have that aspect
+   Returns true if entityType should have some aspect as per its definition
+   but aspects given does not have that aspect
    */
   private boolean isAspectMissing(String entityType, String aspectName, Set<String> aspects) {
     return _entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(aspectName)
@@ -1736,11 +1722,11 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       try {
         final RecordTemplate latestValue = latest == null ? null
             : EntityUtils.toAspectRecord(Urn.createFromString(latest.getUrn()), latest.getAspect(),
-            latestMetadata, getEntityRegistry());
+                latestMetadata, getEntityRegistry());
 
         final RecordTemplate previousValue = survivingAspect == null ? null
             : EntityUtils.toAspectRecord(Urn.createFromString(survivingAspect.getUrn()),
-            survivingAspect.getAspect(), previousMetadata, getEntityRegistry());
+                survivingAspect.getAspect(), previousMetadata, getEntityRegistry());
 
         final Urn urnObj = Urn.createFromString(urn);
         // We are not deleting key aspect if hardDelete has not been set so do not return a rollback result
@@ -1878,7 +1864,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     //    since nowhere else is using it should be safe for now at least
     envelopedAspect.setType(AspectType.VERSIONED);
     envelopedAspect.setCreated(
-      new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
 
     return envelopedAspect;
   }

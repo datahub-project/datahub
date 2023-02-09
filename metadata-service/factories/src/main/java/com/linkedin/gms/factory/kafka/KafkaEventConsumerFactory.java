@@ -37,7 +37,6 @@ public class KafkaEventConsumerFactory {
       provider, SchemaRegistryConfig schemaRegistryConfig, KafkaProperties properties,
       @Qualifier("kafkaEventConsumerConcurrency") int concurrency) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
-
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
 
     // Specify (de)serializers for record keys and for record values.
@@ -62,8 +61,8 @@ public class KafkaEventConsumerFactory {
         .forEach(entry -> props.put(entry.getKey(), entry.getValue()));
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
-        new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props));
+            new ConcurrentKafkaListenerContainerFactory<>();
+    factory.setConsumerFactory(defaultKafkaConsumerFactory);
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(concurrency);
 

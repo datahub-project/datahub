@@ -1,5 +1,6 @@
 package com.linkedin.metadata.models;
 
+import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ComplexDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaTraverse;
@@ -25,6 +26,21 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
   private final Map<String, String> _searchFieldNamesToPatch = new HashMap<>();
 
   private static final String MAP = "map";
+
+  public static final Map<String, Object> PRIMARY_URN_SEARCH_PROPERTIES;
+  private static final Map<String, Object> SECONDARY_URN_SEARCH_PROPERTIES;
+  static {
+    PRIMARY_URN_SEARCH_PROPERTIES = new DataMap();
+    PRIMARY_URN_SEARCH_PROPERTIES.put("enableAutocomplete", "true");
+    PRIMARY_URN_SEARCH_PROPERTIES.put("fieldType", "URN");
+    PRIMARY_URN_SEARCH_PROPERTIES.put("boostScore", "10.0");
+
+    SECONDARY_URN_SEARCH_PROPERTIES = new DataMap();
+    SECONDARY_URN_SEARCH_PROPERTIES.put("enableAutocomplete", "false");
+    SECONDARY_URN_SEARCH_PROPERTIES.put("fieldType", "URN");
+    SECONDARY_URN_SEARCH_PROPERTIES.put("boostScore", "0.1");
+  }
+
 
   public List<SearchableFieldSpec> getSpecs() {
     return _specs;
@@ -80,23 +96,44 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
       return null;
     }
 
-    // Next, check resolved properties for annotations on primitives.
-    final Map<String, Object> resolvedProperties = FieldSpecUtils.getResolvedProperties(currentSchema);
-    return resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
+    final boolean isUrn = ((DataMap) context.getParentSchema().getProperties()
+            .getOrDefault("java", new DataMap()))
+            .getOrDefault("class", "").equals("com.linkedin.common.urn.Urn");
+
+    if (isUrn) {
+      return SECONDARY_URN_SEARCH_PROPERTIES;
+    } else {
+      // Next, check resolved properties for annotations on primitives.
+      final Map<String, Object> resolvedProperties = FieldSpecUtils.getResolvedProperties(currentSchema);
+      return resolvedProperties.get(SearchableAnnotation.ANNOTATION_NAME);
+    }
   }
 
   private void extractSearchableAnnotation(final Object annotationObj, final DataSchema currentSchema,
       final TraverserContext context) {
     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
     final Optional<PathSpec> fullPath = FieldSpecUtils.getPathSpecWithAspectName(context);
-    final SearchableAnnotation annotation =
+    SearchableAnnotation annotation =
         SearchableAnnotation.fromPegasusAnnotationObject(annotationObj, FieldSpecUtils.getSchemaFieldName(path),
             currentSchema.getDereferencedType(), path.toString());
+    String schemaPathSpec = context.getSchemaPathSpec().toString();
     if (_searchFieldNamesToPatch.containsKey(annotation.getFieldName()) && !_searchFieldNamesToPatch.get(
-        annotation.getFieldName()).equals(context.getSchemaPathSpec().toString())) {
-      throw new ModelValidationException(
-          String.format("Entity has multiple searchable fields with the same field name %s, path: %s",
-              annotation.getFieldName(), fullPath.orElse(path)));
+        annotation.getFieldName()).equals(schemaPathSpec)) {
+      // Try to use path
+      String pathName = path.toString().replace('/', '_').replace("*", "");
+      if (pathName.startsWith("_")) {
+        pathName = pathName.replaceFirst("_", "");
+      }
+
+      if (_searchFieldNamesToPatch.containsKey(pathName) && !_searchFieldNamesToPatch.get(pathName).equals(schemaPathSpec)) {
+        throw new ModelValidationException(
+            String.format("Entity has multiple searchable fields with the same field name %s, path: %s", annotation.getFieldName(), fullPath.orElse(path)));
+      } else {
+        annotation = new SearchableAnnotation(pathName, annotation.getFieldType(), annotation.isQueryByDefault(),
+            annotation.isEnableAutocomplete(), annotation.isAddToFilters(), annotation.getFilterNameOverride(),
+            annotation.getBoostScore(), annotation.getHasValuesFieldName(), annotation.getNumValuesFieldName(),
+            annotation.getWeightsPerFieldValue());
+      }
     }
     final SearchableFieldSpec fieldSpec = new SearchableFieldSpec(path, annotation, currentSchema);
     _specs.add(fieldSpec);

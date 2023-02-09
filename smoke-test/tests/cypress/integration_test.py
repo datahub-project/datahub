@@ -16,7 +16,7 @@ CYPRESS_TEST_DATA_DIR = "tests/cypress"
 
 TEST_DATA_FILENAME = "data.json"
 TEST_DBT_DATA_FILENAME = "cypress_dbt_data.json"
-TEST_SCHEMA_BLAME_DATA_FILENAME = "schema-blame-data.json"
+TEST_PATCH_DATA_FILENAME = "patch-data.json"
 TEST_ONBOARDING_DATA_FILENAME: str = "onboarding.json"
 
 HOME_PAGE_ONBOARDING_IDS: List[str] = [
@@ -82,6 +82,11 @@ POLICIES_ONBOARDING_IDS: List[str] = [
     "policies-create-policy",
 ]
 
+LINEAGE_GRAPH_ONBOARDING_IDS: List[str] = [
+    "lineage-graph-intro",
+    "lineage-graph-time-filter",
+]
+
 ONBOARDING_ID_LISTS: List[List[str]] = [
     HOME_PAGE_ONBOARDING_IDS,
     SEARCH_ONBOARDING_IDS,
@@ -93,6 +98,7 @@ ONBOARDING_ID_LISTS: List[List[str]] = [
     GROUPS_ONBOARDING_IDS,
     ROLES_ONBOARDING_IDS,
     POLICIES_ONBOARDING_IDS,
+    LINEAGE_GRAPH_ONBOARDING_IDS,
 ]
 
 ONBOARDING_IDS: List[str] = []
@@ -117,7 +123,7 @@ def ingest_data():
     print("ingesting test data")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_SCHEMA_BLAME_DATA_FILENAME}")
+    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
     print_now()
     print("completed ingesting test data")
@@ -131,7 +137,7 @@ def ingest_cleanup_data():
     print("removing test data")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_SCHEMA_BLAME_DATA_FILENAME}")
+    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
 
     print_now()
@@ -159,7 +165,7 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     else:
         record_arg = " "
 
-    rest_specs = set(os.listdir("tests/cypress/cypress/integration"))
+    rest_specs = set(os.listdir("tests/cypress/cypress/e2e"))
     cypress_suite1_specs = {"mutations", "search", "views"}
     rest_specs.difference_update(set(cypress_suite1_specs))
     strategy_spec_map = {

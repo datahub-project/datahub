@@ -3,7 +3,9 @@ package com.linkedin.metadata.event;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -80,5 +82,14 @@ public interface EventProducer {
       @Nonnull String name,
       @Nullable String key,
       @Nonnull PlatformEvent payload
+  );
+
+  /**
+   * Creates an entry on the history log of when the indices were last rebuilt with the latest configuration.
+   *
+   * @param event the history event to send to the DataHub Upgrade history topic
+   */
+  void produceDataHubUpgradeHistoryEvent(
+      @Nonnull DataHubUpgradeHistoryEvent event
   );
 }

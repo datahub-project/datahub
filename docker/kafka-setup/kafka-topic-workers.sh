@@ -63,3 +63,4 @@ for ((i=1;i<=$WORKERS;i++)); do
   echo will start $i
   work $i &
 done
+

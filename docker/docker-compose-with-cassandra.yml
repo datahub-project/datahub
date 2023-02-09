@@ -30,7 +30,7 @@ services:
       - broker:/var/lib/kafka/data/
 
   elasticsearch:
-    image: elasticsearch:7.9.3
+    image: elasticsearch:7.10.1
     env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
     hostname: elasticsearch
@@ -128,6 +128,16 @@ services:
     restart: on-failure:5
     depends_on:
       - datahub-gms
+
+  datahub-upgrade:
+    build:
+      context: ../
+      dockerfile: docker/datahub-upgrade/Dockerfile
+    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
+    env_file: datahub-upgrade/env/docker-without-neo4j.env
+    hostname: datahub-upgrade
+    container_name: datahub-upgrade
+    command: [ "-u", "SystemUpdate" ]
 
 networks:
   default:

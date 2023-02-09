@@ -62,7 +62,7 @@ public class SearchService {
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
     } catch (Exception e) {
-      log.error("Failed to rank: {}, execption - {}", result, e.toString());
+      log.error("Failed to rank: {}, exception - {}", result, e.toString());
       throw new RuntimeException("Failed to rank " + result.toString());
     }
   }

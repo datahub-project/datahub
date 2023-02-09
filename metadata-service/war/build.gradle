@@ -58,7 +58,8 @@ war {
 }
 
 docker {
-  name "${docker_registry}/${docker_repo}:${version}"
+  name "${docker_registry}/${docker_repo}:v${version}"
+  version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files war.outputs.files
   files fileTree(rootProject.projectDir) {
@@ -66,8 +67,6 @@ docker {
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }
-  tag("-${version}", "${docker_registry}/${docker_repo}:v${version}")
-  tag("-version", "${docker_registry}/${docker_repo}:v${version}")
 
   // platform('linux/arm64', 'linux/amd64')
   buildx(true)

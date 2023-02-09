@@ -56,6 +56,10 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +200,12 @@ class KafkaSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics(
             timeout=self.source_config.connection.client_timeout_seconds
         ).topics
@@ -205,20 +215,8 @@ class KafkaSource(StatefulIngestionSourceBase):
             self.report.report_topic_scanned(t)
             if self.source_config.topic_patterns.allowed(t):
                 yield from self._extract_record(t, t_detail, extra_topic_details.get(t))
-                # add topic to checkpoint
-                topic_urn = make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    name=t,
-                    platform_instance=self.source_config.platform_instance,
-                    env=self.source_config.env,
-                )
-                self.stale_entity_removal_handler.add_entity_to_state(
-                    type="topic", urn=topic_urn
-                )
             else:
                 self.report.report_dropped(t)
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _extract_record(
         self,
