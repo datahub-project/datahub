@@ -44,7 +44,7 @@ def test_key_aspect_info():
     assert TelemetryKeyClass.get_aspect_info() == expected
 
 
-def test_cannot_instantiated_codegen_aspect():
+def test_cannot_instantiate_codegen_aspect():
     with pytest.raises(TypeError, match="instantiate"):
         _Aspect()
 

@@ -1911,7 +1911,7 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                                 urn=builder.make_term_urn("pii")
                             )
                         ],
-                        auditStamp=models.AuditStampClass.construct_with_defaults(),
+                        auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
                     type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
                     nativeDataType="VARCHAR(100)",
@@ -1925,7 +1925,7 @@ def run_pattern_dataset_schema_terms_transformation_semantics(
                                 urn=builder.make_term_urn("pii")
                             )
                         ],
-                        auditStamp=models.AuditStampClass.construct_with_defaults(),
+                        auditStamp=models.AuditStampClass._construct_with_defaults(),
                     ),
                     type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
                     nativeDataType="VARCHAR(100)",

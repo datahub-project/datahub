@@ -356,8 +356,8 @@ def generate(
 
     # Check for unused aspects. We currently have quite a few.
     # unused_aspects = set(aspects.keys()) - set().union(
-    #    {entity.keyAspect for entity in entities},
-    #    *(set(entity.aspects) for entity in entities),
+    #     {entity.keyAspect for entity in entities},
+    #     *(set(entity.aspects) for entity in entities),
     # )
 
     merged_schema = merge_schemas(list(schemas.values()))
