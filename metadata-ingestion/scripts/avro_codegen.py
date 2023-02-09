@@ -147,11 +147,11 @@ load_schema_method = """
 import functools
 import pathlib
 
+@functools.lru_cache(maxsize=None)
 def _load_schema(schema_name: str) -> str:
     return (pathlib.Path(__file__).parent / f"{schema_name}.avsc").read_text()
 """
 individual_schema_method = """
-@functools.lru_cache(maxsize=None)
 def get{schema_name}Schema() -> str:
     return _load_schema("{schema_name}")
 """
@@ -186,9 +186,9 @@ def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
     ] += """
 
 class _Aspect(DictWrapper):
-    ASPECT_NAME: str = None  # type: ignore
-    ASPECT_TYPE: str = "default"
-    ASPECT_INFO: dict = None  # type: ignore
+    ASPECT_NAME: ClassVar[str] = None  # type: ignore
+    ASPECT_TYPE: ClassVar[str] = "default"
+    ASPECT_INFO: ClassVar[dict] = None  # type: ignore
 
     def __init__(self):
         if type(self) is _Aspect:
