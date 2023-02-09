@@ -130,8 +130,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: QueriesTab,
                     display: {
                         visible: (_, _1) => true,
-                        enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
+                        enabled: (_, _2) => true,
                     },
                 },
                 {
