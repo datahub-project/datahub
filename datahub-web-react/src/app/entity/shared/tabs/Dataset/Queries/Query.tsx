@@ -10,6 +10,7 @@ import CopyQuery from './CopyQuery';
 import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
 import { toLocalDateString } from '../../../../../shared/time/timeUtils';
 import QueryBuilderModal from './QueryBuilderModal';
+import NoMarkdownViewer from '../../../components/styled/StripMarkdownText';
 
 export type Props = {
     urn?: string;
@@ -47,9 +48,12 @@ const QueryTitle = styled(Typography.Title)`
     && {
         margin: 0px;
         padding: 0px;
-        padding-left: 20px;
         color: ${ANTD_GRAY[9]};
     }
+`;
+
+const QueryDetails = styled.div`
+    padding: 0px 20px 0px 20px;
 `;
 
 const QueryHeader = styled.div`
@@ -73,7 +77,7 @@ const EditQueryActionButton = styled(Button)`
     && {
         margin: 0px;
         padding: 0px;
-        margin-right: 8px;
+        margin-left: 4px;
         padding 2px;
     }
 `;
@@ -96,15 +100,17 @@ const QueryContainer = styled.div`
     }
 `;
 
+const QueryDescription = styled.div`
+    margin-bottom: 8px;
+`;
+
+const Date = styled.div``;
+
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
 // to the component, so there's no way around this
 const NestedSyntax = styled(SyntaxHighlighter)`
     background-color: transparent !important;
     border: none !important;
-`;
-
-const DescriptionText = styled(Typography.Text)`
-    padding-left: 20px;
 `;
 
 export default function Query({
@@ -177,38 +183,46 @@ export default function Query({
                         </NestedSyntax>
                     </QueryContainer>
                 </pre>
-                <QueryHeader>
-                    {(title && <QueryTitle level={5}>{title || 'No title'}</QueryTitle>) || <div> </div>}
-                    <div>
-                        {showEdit && (
-                            <EditQueryAction>
-                                <EditQueryActionButton type="text" onClick={onEditQuery}>
-                                    <EditOutlined />
-                                </EditQueryActionButton>
-                            </EditQueryAction>
+                <QueryDetails>
+                    <QueryHeader>
+                        {(title && <QueryTitle level={5}>{title || 'No title'}</QueryTitle>) || <div> </div>}
+                        <div>
+                            {showEdit && (
+                                <EditQueryAction>
+                                    <EditQueryActionButton type="text" onClick={onEditQuery}>
+                                        <EditOutlined />
+                                    </EditQueryActionButton>
+                                </EditQueryAction>
+                            )}
+                            {showDelete && (
+                                <EditQueryAction>
+                                    <EditQueryActionButton type="text" onClick={onDeleteQuery}>
+                                        <MoreOutlined />
+                                    </EditQueryActionButton>
+                                </EditQueryAction>
+                            )}
+                        </div>
+                    </QueryHeader>
+                    <QueryDescription>
+                        <NoMarkdownViewer shouldWrap limit={600}>
+                            {description || 'No description'}
+                        </NoMarkdownViewer>
+                    </QueryDescription>
+                    <Date>
+                        {executedAtMs && (
+                            <Typography.Text type="secondary">
+                                Executed on {toLocalDateString(executedAtMs)}
+                            </Typography.Text>
                         )}
-                        {showDelete && (
-                            <EditQueryAction>
-                                <EditQueryActionButton type="text" onClick={onDeleteQuery}>
-                                    <MoreOutlined />
-                                </EditQueryActionButton>
-                            </EditQueryAction>
+                    </Date>
+                    <Date>
+                        {createdAtMs && (
+                            <Typography.Text type="secondary">
+                                Created on {toLocalDateString(createdAtMs)}
+                            </Typography.Text>
                         )}
-                    </div>
-                </QueryHeader>
-                <DescriptionText>{description || 'No description'}</DescriptionText>
-                <div style={{ marginLeft: 20 }}>
-                    {executedAtMs && (
-                        <Typography.Text type="secondary">
-                            Executed on {toLocalDateString(executedAtMs)}
-                        </Typography.Text>
-                    )}
-                </div>
-                <div style={{ marginLeft: 20 }}>
-                    {createdAtMs && (
-                        <Typography.Text type="secondary">Created on {toLocalDateString(createdAtMs)}</Typography.Text>
-                    )}
-                </div>
+                    </Date>
+                </QueryDetails>
             </QueryCard>
             {showQueryModal && (
                 <QueryModal
