@@ -179,9 +179,9 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
-        default=True,
-        description="Whether ownership should be ingested. Admin access should be given to the configured "
-        "Azure AD Application ",
+        default=False,
+        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled. "
+        "Note that enabling this may overwrite owners that you've added inside DataHub's web application.",
     )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
@@ -190,16 +190,14 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
         default=True,
-        description="Whether lineage should be ingested. Admin access should be given to the configured Azure AD "
-        "Application "
-        "should be set to 'true' ",
+        description="Whether lineage should be ingested between X and Y. Admin API access is required if this setting is enabled",
     )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
     # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
-        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin "
-        "access should be given to the configured Azure AD Application",
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
+        "access is required is this setting is enabled",
     )
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(
@@ -229,8 +227,8 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     # Retrieve PowerBI Metadata using Admin API only
     admin_apis_only: bool = pydantic.Field(
         default=False,
-        description="Retrieve metadata using PowerBI Admin API only. If this flag is 'true' then Report's pages "
-        "would not get ingested. Admin access should be given to the configured Azure AD Application",
+        description="Retrieve metadata using PowerBI Admin API only. If this is enabled, then Report Pages will not "
+        "be extracted. Admin API access is required if this setting is enabled",
     )
 
     @validator("dataset_type_mapping")
