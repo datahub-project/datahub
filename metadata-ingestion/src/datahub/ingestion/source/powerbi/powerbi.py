@@ -197,7 +197,7 @@ class Mapper:
             if len(upstreams) > 0:
                 upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
+                    entityType=Constant.DATASET,
                     changeType=ChangeTypeClass.UPSERT,
                     entityUrn=ds_urn,
                     aspect=upstream_lineage,
@@ -302,17 +302,17 @@ class Mapper:
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties: dict = {
-                "createdFrom": tile.createdFrom.value,
+                Constant.CREATED_FROM: tile.createdFrom.value,
             }
 
             if tile.dataset_id is not None:
-                custom_properties["datasetId"] = tile.dataset_id
+                custom_properties[Constant.DATASET_ID] = tile.dataset_id
 
             if tile.dataset is not None:
-                custom_properties["datasetWebUrl"] = tile.dataset.webUrl
+                custom_properties[Constant.DATASET_WEB_URL] = tile.dataset.webUrl
 
             if tile.report is not None:
-                custom_properties["reportId"] = tile.report.id
+                custom_properties[Constant.REPORT_ID] = tile.report.id
 
             return custom_properties
 
@@ -348,14 +348,14 @@ class Mapper:
             chartId=Constant.CHART_ID.format(tile.id),
         )
 
-        chartkey_mcp = self.new_mcp(
+        chart_key_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
             aspect_name=Constant.CHART_KEY,
             aspect=chart_key_instance,
         )
 
-        result_mcps = [info_mcp, status_mcp, chartkey_mcp]
+        result_mcps = [info_mcp, status_mcp, chart_key_mcp]
 
         self.append_container_mcp(
             result_mcps,
@@ -395,9 +395,9 @@ class Mapper:
 
         def chart_custom_properties(dashboard: powerbi_data_classes.Dashboard) -> dict:
             return {
-                "chartCount": str(len(dashboard.tiles)),
-                "workspaceName": dashboard.workspace_name,
-                "workspaceId": dashboard.workspace_id,
+                Constant.CHART_COUNT: str(len(dashboard.tiles)),
+                Constant.WORKSPACE_NAME: dashboard.workspace_name,
+                Constant.WORKSPACE_ID: dashboard.workspace_id,
             }
 
         # DashboardInfo mcp
@@ -459,7 +459,7 @@ class Mapper:
 
         # Dashboard browsePaths
         browse_path = BrowsePathsClass(
-            paths=["/powerbi/{}".format(dashboard.workspace_name)]
+            paths=[f"/{Constant.PLATFORM_NAME}/{dashboard.workspace_name}"]
         )
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
@@ -672,7 +672,7 @@ class Mapper:
                 description=page.displayName or "",
                 lastModified=ChangeAuditStamps(),
                 inputs=ds_input,
-                customProperties={"order": str(page.order)},
+                customProperties={Constant.ORDER: str(page.order)},
             )
 
             info_mcp = self.new_mcp(
@@ -783,7 +783,9 @@ class Mapper:
             )
 
         # Report browsePaths
-        browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+        browse_path = BrowsePathsClass(
+            paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
+        )
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
@@ -795,7 +797,7 @@ class Mapper:
             entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
             aspect_name=SubTypesClass.ASPECT_NAME,
-            aspect=SubTypesClass(typeNames=["Report"]),
+            aspect=SubTypesClass(typeNames=[Constant.REPORT_TYPE_NAME]),
         )
 
         list_of_mcps = [
@@ -876,7 +878,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         super(PowerBiDashboardSource, self).__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
-        self.powerbi_client = PowerBiAPI(self.source_config)
+        try:
+            self.powerbi_client = PowerBiAPI(self.source_config)
+        except Exception as e:
+            logger.warning(e)
+            exit(
+                1
+            )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising unwanted stacktrace on console
+
         self.mapper = Mapper(config, self.reporter)
 
         # Create and register the stateful ingestion use-case handler.

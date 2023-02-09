@@ -1,5 +1,5 @@
 ## Configuration Notes
-1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application and allow service principal to use Power BI APIs
+1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.
 2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags. Refer section [Admin Access Vs Data Ingestion](#admin-access-vs-data-ingestion) for more detail. 
 
     Login to Power BI as Admin and from `Admin API settings` allow below permissions
@@ -138,7 +138,7 @@ Service Principal is allowed below permissions
   - Allow service principal to use read-only PowerBI Admin APIs
   - Enhance admin APIs responses with detailed metadata
 
-In PowerBI Source recipe add flag `admin_apis_only: true` to configure PowerBI Source to use PowerBI Admin APIs only to retrieve the meta-data. PowerBI Source would be able to ingest below listed metadata of all workspaces.
+In PowerBI Source recipe add flag `admin_apis_only: true` to configure PowerBI Source to use PowerBI Admin APIs only to extract metadata. PowerBI Source would be able to ingest below listed metadata of all workspaces.
 
   - Lineage 
   - PowerBI Dataset 

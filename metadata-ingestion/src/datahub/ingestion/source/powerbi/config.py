@@ -40,10 +40,10 @@ class Constant:
     SCAN_GET = "SCAN_GET"
     SCAN_RESULT_GET = "SCAN_RESULT_GET"
     Authorization = "Authorization"
-    WorkspaceId = "WorkspaceId"
-    DashboardId = "DashboardId"
-    DatasetId = "DatasetId"
-    ReportId = "ReportId"
+    WORKSPACE_ID = "workspaceId"
+    DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
+    DATASET_ID = "datasetId"
+    REPORT_ID = "reportId"
     SCAN_ID = "ScanId"
     Dataset_URN = "DatasetURN"
     CHART_URN = "ChartURN"
@@ -56,22 +56,51 @@ class Constant:
     STATUS = "status"
     CHART_ID = "powerbi.linkedin.com/charts/{}"
     CHART_KEY = "chartKey"
-    DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
     DASHBOARD = "dashboard"
+    DASHBOARDS = "dashboards"
     DASHBOARD_KEY = "dashboardKey"
     OWNERSHIP = "ownership"
     BROWSERPATH = "browsePaths"
     DASHBOARD_INFO = "dashboardInfo"
     DATAPLATFORM_INSTANCE = "dataPlatformInstance"
     DATASET = "dataset"
-    DATASET_ID = "powerbi.linkedin.com/datasets/{}"
+    DATASETS = "datasets"
     DATASET_KEY = "datasetKey"
     DATASET_PROPERTIES = "datasetProperties"
     VALUE = "value"
     ENTITY = "ENTITY"
-    ID = "ID"
+    ID = "id"
     HTTP_RESPONSE_TEXT = "HttpResponseText"
     HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
+    NAME = "name"
+    DISPLAY_NAME = "displayName"
+    ORDER = "order"
+    IDENTIFIER = "identifier"
+    EMAIL_ADDRESS = "emailAddress"
+    PRINCIPAL_TYPE = "principalType"
+    GRAPH_ID = "graphId"
+    WORKSPACES = "workspaces"
+    TITLE = "title"
+    EMBED_URL = "embedUrl"
+    ACCESS_TOKEN = "access_token"
+    IS_READ_ONLY = "isReadOnly"
+    WEB_URL = "webUrl"
+    ODATA_COUNT = "@odata.count"
+    DESCRIPTION = "description"
+    REPORT = "report"
+    REPORTS = "reports"
+    CREATED_FROM = "createdFrom"
+    SUCCEEDED = "SUCCEEDED"
+    ENDORSEMENT = "endorsement"
+    ENDORSEMENT_DETAIL = "endorsementDetails"
+    TABLES = "tables"
+    EXPRESSION = "expression"
+    SOURCE = "source"
+    PLATFORM_NAME = "powerbi"
+    REPORT_TYPE_NAME = "Report"
+    CHART_COUNT = "chartCount"
+    WORKSPACE_NAME = "workspaceName"
+    DATASET_WEB_URL = "datasetWebUrl"
 
 
 @dataclass
@@ -111,10 +140,12 @@ class PlatformDetail:
 
 
 class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
-    platform_name: str = pydantic.Field(default="powerbi", hidden_from_schema=True)
+    platform_name: str = pydantic.Field(
+        default=Constant.PLATFORM_NAME, hidden_from_schema=True
+    )
 
     platform_urn: str = pydantic.Field(
-        default=builder.make_data_platform_urn(platform="powerbi"),
+        default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
         hidden_from_schema=True,
     )
 
@@ -148,9 +179,9 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
-        default=True,
-        description="Whether ownership should be ingested. Admin access should be given to the configured "
-        "Azure AD Application ",
+        default=False,
+        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled. "
+        "Note that enabling this may overwrite owners that you've added inside DataHub's web application.",
     )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
@@ -159,16 +190,14 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
         default=True,
-        description="Whether lineage should be ingested. Admin access should be given to the configured Azure AD "
-        "Application "
-        "should be set to 'true' ",
+        description="Whether lineage should be ingested between X and Y. Admin API access is required if this setting is enabled",
     )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
     # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
-        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin "
-        "access should be given to the configured Azure AD Application",
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
+        "access is required is this setting is enabled",
     )
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(
@@ -198,8 +227,8 @@ class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     # Retrieve PowerBI Metadata using Admin API only
     admin_apis_only: bool = pydantic.Field(
         default=False,
-        description="Retrieve metadata using PowerBI Admin API only. If this flag is 'true' then Report's pages "
-        "would not get ingested. Admin access should be given to the configured Azure AD Application",
+        description="Retrieve metadata using PowerBI Admin API only. If this is enabled, then Report Pages will not "
+        "be extracted. Admin API access is required if this setting is enabled",
     )
 
     @validator("dataset_type_mapping")
