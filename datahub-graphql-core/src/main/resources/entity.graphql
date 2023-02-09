@@ -1540,6 +1540,32 @@ type DatasetProperties {
 
 
 """
+Additional read only properties about a DataPlatformInstance
+"""
+type DataPlatformInstanceProperties {
+
+    """
+    The name of the data platform instance used in display
+    """
+    name: String
+
+    """
+    Read only technical description for the data platform instance
+    """
+    description: String
+
+    """
+    Custom properties of the data platform instance
+    """
+    customProperties: [CustomPropertiesEntry!]
+
+    """
+    External URL associated with the data platform instance
+    """
+    externalUrl: String
+}
+
+"""
 A Glossary Term, or a node in a Business Glossary representing a standardized domain
 data type
 """
@@ -1863,6 +1889,36 @@ type DataPlatformInstance implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Additional read only properties associated with a data platform instance
+    """
+    properties: DataPlatformInstanceProperties
+
+    """
+    Ownership metadata of the data platform instance
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the data platform instance
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Tags used for searching the data platform instance
+    """
+    tags: GlobalTags
+
+    """
+    The deprecation status of the data platform instance
+    """
+    deprecation: Deprecation
+
+    """
+    Status metadata of the container
+    """
+    status: Status
 }
 
 """
