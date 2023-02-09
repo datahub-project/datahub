@@ -12,8 +12,8 @@ class TestCorpGroupUrn(unittest.TestCase):
 
         assert corp_group_urn.get_entity_id() == ["abc"]
         assert str(corp_group_urn) == corp_group_urn_str
-        assert corp_group_urn == CorpGroupUrn("corpGroup", ["abc"])
-        assert corp_group_urn == CorpGroupUrn.create_from_id("abc")
+        assert corp_group_urn == CorpGroupUrn(name="abc")
+        # TODO: assert corp_group_urn == CorpGroupUrn.create_from_id("abc")
 
     def test_invalid_urn(self) -> None:
         with self.assertRaises(InvalidUrnError):

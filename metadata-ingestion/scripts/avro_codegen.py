@@ -405,7 +405,7 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
 
     init_validation = ""
     for field in fields:
-        init_validation += f'if not {field_name(field)}:\n    raise ValueError("{field_name(field)} cannot be empty")\n'
+        init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{field_name(field)} cannot be empty")\n'
 
         if field_name(field) == "platform":
             # TODO: Generalize this logic to all contained urns. Specifically, we'll
@@ -450,7 +450,8 @@ class {class_name}(SpecificUrn):
 
     @classmethod
     def _parse_ids(cls, entity_ids: List[str]) -> "{class_name}":
-        assert len(entity_ids) == {arg_count}
+        if len(entity_ids) != {arg_count}:
+            raise InvalidUrnError(f"{class_name} should have {arg_count} parts, got {{len(entity_ids)}}: {{entity_ids}}")
         return cls({parse_ids_mapping}, _allow_coercion=False)
 
     def to_key_aspect(self) -> {key_aspect_class}:
@@ -482,6 +483,7 @@ def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
 from typing import List
 
 from datahub.utilities.urns._urn_base import SpecificUrn
+from datahub.utilities.urns.error import InvalidUrnError
 """
 
     for aspect in key_aspects:

@@ -110,8 +110,8 @@ class Urn:
     def urn_url_encoded(self) -> str:
         return Urn.url_encode(self.urn())
 
-    @deprecated(reason="prefer .from_string")
     @classmethod
+    @deprecated(reason="prefer .from_string")
     def create_from_string(cls, urn_str: str) -> "Urn":
         return cls.from_string(urn_str)
 
@@ -134,8 +134,8 @@ class Urn:
         assert urn.startswith(prefix)
         return urn[len(prefix) :]
 
-    @deprecated(reason="no longer needed")
     @classmethod
+    @deprecated(reason="no longer needed")
     def validate(cls, urn_str: str) -> None:
         Urn.create_from_string(urn_str)
 
@@ -152,10 +152,12 @@ class SpecificUrn(Urn):
     def __init_subclass__(cls) -> None:
         # Validate the subclass.
         entity_type = cls.ENTITY_TYPE
-        assert entity_type, 'SpecificUrn subclasses must define "ENTITY_TYPE"'
+        if not entity_type:
+            raise ValueError(f'SpecificUrn subclass {cls} must define "ENTITY_TYPE"')
 
         # Register the urn type.
-        assert entity_type in URN_TYPES, "duplicate urn type registered"
+        if entity_type in URN_TYPES:
+            raise ValueError(f"duplicate urn type registered: {entity_type}")
         URN_TYPES[entity_type] = cls
 
         return super().__init_subclass__()
@@ -169,32 +171,32 @@ class SpecificUrn(Urn):
             )
         return urn
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def _parse_ids(cls: Type[_UrnSelf], entity_ids: List[str]) -> _UrnSelf:
         raise NotImplementedError()
 
 
-class DatasetUrn(SpecificUrn):
-    def __init__(self, platform: str, name: str, env: str = "PROD"):
-        # TODO: where to do extra validation on platform?
-        super().__init__(self.ENTITY_TYPE, [platform, name, env])
+# class DatasetUrn(SpecificUrn):
+#     def __init__(self, platform: str, name: str, env: str = "PROD"):
+#         # TODO: where to do extra validation on platform?
+#         super().__init__(self.ENTITY_TYPE, [platform, name, env])
 
-    @classmethod
-    def _parse_ids(cls, entity_ids: List[str]) -> "DatasetUrn":
-        assert len(entity_ids) == 3
+#     @classmethod
+#     def _parse_ids(cls, entity_ids: List[str]) -> "DatasetUrn":
+#         assert len(entity_ids) == 3
 
-        platform, name, env = entity_ids
-        return cls(platform=platform, name=name, env=env)
+#         platform, name, env = entity_ids
+#         return cls(platform=platform, name=name, env=env)
 
-    @property
-    def platform(self) -> str:
-        return self.entity_ids[0]
+#     @property
+#     def platform(self) -> str:
+#         return self.entity_ids[0]
 
-    @property
-    def name(self) -> str:
-        return self.entity_ids[1]
+#     @property
+#     def name(self) -> str:
+#         return self.entity_ids[1]
 
-    @property
-    def env(self) -> str:
-        return self.entity_ids[2]
+#     @property
+#     def env(self) -> str:
+#         return self.entity_ids[2]
