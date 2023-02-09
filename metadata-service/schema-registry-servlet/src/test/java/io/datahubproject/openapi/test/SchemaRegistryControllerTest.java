@@ -106,7 +106,7 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     genericAspect.setContentType("application/json");
     gmce.setAspect(genericAspect);
 
-    _producer.produceMetadataChangeProposal(gmce).get(10, TimeUnit.SECONDS);
+    _producer.produceMetadataChangeProposal(entityUrn, gmce).get(10, TimeUnit.SECONDS);
     final boolean messageConsumed = mcpLatch.await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
     assertEquals(mcpLatch.getCount(), 0);

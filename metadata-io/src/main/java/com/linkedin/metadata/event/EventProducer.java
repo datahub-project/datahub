@@ -62,12 +62,14 @@ public interface EventProducer {
   /**
    * Produces a {@link com.linkedin.mxe.MetadataChangeProposal} as an async update to an entity
    *
+   * @param urn the urn associated with the change proposal.
    * @param metadataChangeProposal metadata change proposal to push into MCP kafka topic.
    *
    * @return A {@link Future} object that reports when the message has been produced.
    */
   @WithSpan
-  Future<?> produceMetadataChangeProposal(@Nonnull MetadataChangeProposal metadataChangeProposal);
+  Future<?> produceMetadataChangeProposal(@Nonnull final Urn urn,
+      @Nonnull MetadataChangeProposal metadataChangeProposal);
 
   /**
    * Produces a generic platform "event".

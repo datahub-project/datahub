@@ -13,8 +13,6 @@ import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
-import com.linkedin.metadata.telemetry.TelemetryConfiguration;
-import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
