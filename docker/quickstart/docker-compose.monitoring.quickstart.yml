@@ -1,47 +1,47 @@
 services:
   datahub-frontend-react:
     environment:
-    - ENABLE_PROMETHEUS=true
-    - ENABLE_OTEL=true
-    - OTEL_TRACES_EXPORTER=jaeger
-    - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
-    - OTEL_METRICS_EXPORTER=none
-    - OTEL_SERVICE_NAME=datahub-gms
+      - ENABLE_PROMETHEUS=true
+      - ENABLE_OTEL=true
+      - OTEL_TRACES_EXPORTER=jaeger
+      - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_SERVICE_NAME=datahub-gms
     ports:
-    - '4318'
+      - "4318"
   datahub-gms:
     environment:
-    - ENABLE_PROMETHEUS=true
-    - ENABLE_OTEL=true
-    - OTEL_TRACES_EXPORTER=jaeger
-    - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
-    - OTEL_METRICS_EXPORTER=none
-    - OTEL_SERVICE_NAME=datahub-gms
+      - ENABLE_PROMETHEUS=true
+      - ENABLE_OTEL=true
+      - OTEL_TRACES_EXPORTER=jaeger
+      - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_SERVICE_NAME=datahub-gms
     ports:
-    - '4318'
+      - "4318"
   grafana:
     depends_on:
-    - prometheus
+      - prometheus
     image: grafana/grafana:9.1.4
     ports:
-    - 3001:3000
+      - 3001:3000
     volumes:
-    - grafana-storage:/var/lib/grafana
-    - ../monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-    - ../monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana-storage:/var/lib/grafana
+      - ../monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ../monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
   jaeger-all-in-one:
     image: jaegertracing/all-in-one:latest
     ports:
-    - 16686:16686
-    - '14268'
-    - '14250'
+      - 16686:16686
+      - "14268"
+      - "14250"
   prometheus:
     container_name: prometheus
     image: prom/prometheus:latest
     ports:
-    - 9089:9090
+      - 9089:9090
     volumes:
-    - ../monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml
-version: '2.3'
+      - ../monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml
+version: "2.3"
 volumes:
   grafana-storage: null

@@ -6,25 +6,24 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.search.utils.ESUtils;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,7 +127,8 @@ public class ResolverUtils {
 
         // If or filters are not set, someone may be using the legacy and filters
         final List<Criterion> andCriterions = criterionListFromAndFilter(andFilters);
-        return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
+        return new Filter().setOr(
+            new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(andCriterions))));
     }
 
     public static Criterion criterionFromFilter(final FacetFilterInput filter) {

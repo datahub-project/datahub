@@ -352,6 +352,11 @@ module.exports = {
           },
           {
             type: "doc",
+            label: "Restore Indices",
+            id: "docs/api/restli/restore-indices",
+          },
+          {
+            type: "doc",
             label: "Aspect Versioning and Rest.li Modeling",
             id: "docs/advanced/aspect-versioning",
           },
