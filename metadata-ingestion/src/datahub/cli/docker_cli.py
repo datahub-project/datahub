@@ -62,7 +62,6 @@ KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
 )
 
 
-
 class Architectures(Enum):
     x86 = "x86"
     arm64 = "arm64"
@@ -434,22 +433,28 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 
     return quickstart_arch
 
+
 def get_version_tags_from_github() -> List[str]:
-    datahub_releases_api = "https://api.github.com/repos/datahub-project/datahub/releases"
+    datahub_releases_api = (
+        "https://api.github.com/repos/datahub-project/datahub/releases"
+    )
     page = 1
-    releases = [] 
+    releases = []
     while True:
-        result = requests.get(datahub_releases_api, params={"per_page": 100, "page": page})
+        result = requests.get(
+            datahub_releases_api, params={"per_page": 100, "page": page}
+        )
         if len(result.json()) == 0:
-            break # empty page
+            break  # empty page
         try:
-            releases += [release['tag_name'] for release in result.json()]
+            releases += [release["tag_name"] for release in result.json()]
             page += 1
         except Exception:
             click.echo(f"Failed to parse releases from github: {result.content}")
             break
     # release versions are ordered from latest to oldest
     return releases
+
 
 def get_stable_version(version: Optional[str]) -> Optional[str]:
     """
@@ -478,7 +483,8 @@ def get_stable_version(version: Optional[str]) -> Optional[str]:
     if len(matching_versions) == 0:
         return None
     click.echo(f"Latest stable version: {matching_versions[0]}")
-    return  matching_versions[0]
+    return matching_versions[0]
+
 
 @docker.command()
 @click.option(
@@ -851,6 +857,7 @@ def quickstart(
         fg="magenta",
     )
 
+
 def get_docker_compose_base_url(version_tag: Optional[str]) -> str:
     if os.environ.get("DOCKER_COMPOSE_BASE"):
         return os.environ["DOCKER_COMPOSE_BASE"]
@@ -875,6 +882,7 @@ def get_github_file_url(neo4j, is_m1, release_version_tag: Optional[str] = "mast
         )
     return github_file
 
+
 def download_compose_files(
     quickstart_compose_file_name,
     quickstart_compose_file_list,
@@ -882,7 +890,7 @@ def download_compose_files(
     kafka_setup,
     quickstart_arch,
     standalone_consumers,
-    release_version_tag: Optional[str]="master",
+    release_version_tag: Optional[str] = "master",
 ):
     # download appropriate quickstart file
     should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
