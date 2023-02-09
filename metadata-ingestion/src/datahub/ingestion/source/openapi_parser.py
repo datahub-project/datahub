@@ -384,7 +384,7 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             if "requestBody" in p_o["put"].keys():
                 res_cont = p_o["put"]["requestBody"]["content"]
                 if "application/cloudevents+json" in res_cont.keys():
-                datahub-upgrade    ex_field = None
+                    ex_field = None
                     if "schema" in res_cont["application/cloudevents+json"]:
                         ex_field = "schema"
 
