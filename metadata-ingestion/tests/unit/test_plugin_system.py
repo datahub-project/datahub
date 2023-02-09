@@ -17,6 +17,7 @@ from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
 )
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.lite.lite_registry import lite_registry
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 
@@ -52,6 +53,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
         ),
         (reporting_provider_registry, ["datahub", "file"]),
         (ingestion_checkpoint_provider_registry, ["datahub"]),
+        (lite_registry, ["duckdb"]),
     ],
 )
 def test_registry_defaults(registry: PluginRegistry, expected: List[str]) -> None:
