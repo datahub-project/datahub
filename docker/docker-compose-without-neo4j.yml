@@ -101,7 +101,6 @@ services:
     container_name: kafka-setup
     depends_on:
       - broker
-      - schema-registry
 
   datahub-upgrade:
     build:

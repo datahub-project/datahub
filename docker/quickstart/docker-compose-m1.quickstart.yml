@@ -27,10 +27,6 @@ services:
     environment:
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - SCHEMA_REGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
-    - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
-    - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
     - DATAHUB_GMS_PROTOCOL=http
     - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
     - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
@@ -38,7 +34,7 @@ services:
     - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
     - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
     - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
-    - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+    - SCHEMA_REGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
     hostname: actions
     image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
@@ -119,7 +115,7 @@ services:
     - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+    - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
     - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
@@ -165,11 +161,11 @@ services:
     container_name: kafka-setup
     depends_on:
     - broker
-    - schema-registry
     environment:
     - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+    - USE_CONFLUENT_SCHEMA_REGISTRY=FALSE
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:

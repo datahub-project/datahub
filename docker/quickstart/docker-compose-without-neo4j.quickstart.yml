@@ -25,10 +25,6 @@ services:
     environment:
       - DATAHUB_GMS_HOST=datahub-gms
       - DATAHUB_GMS_PORT=8080
-      - KAFKA_BOOTSTRAP_SERVER=broker:29092
-      - SCHEMA_REGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
-      - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
-      - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
       - DATAHUB_GMS_PROTOCOL=http
       - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
       - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
@@ -36,7 +32,7 @@ services:
       - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
       - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
       - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
-      - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+      - SCHEMA_REGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
     hostname: actions
     image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
@@ -66,30 +62,30 @@ services:
     depends_on:
       - mysql
     environment:
-      - ENTITY_SERVICE_ENABLE_RETENTION=true
-      - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
-      - PE_CONSUMER_ENABLED=true
-      - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
-      - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
-      - EBEAN_DATASOURCE_PASSWORD=datahub
-      - JAVA_OPTS=-Xms1g -Xmx1g
-      - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
-      - KAFKA_BOOTSTRAP_SERVER=broker:29092
-      - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
-      - GRAPH_SERVICE_IMPL=elasticsearch
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-      - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
-      - ELASTICSEARCH_HOST=elasticsearch
-      - MCE_CONSUMER_ENABLED=true
-      - EBEAN_DATASOURCE_HOST=mysql:3306
-      - ELASTICSEARCH_PORT=9200
-      - EBEAN_DATASOURCE_USERNAME=datahub
-      - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
-      - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
-      - UI_INGESTION_ENABLED=true
-      - MAE_CONSUMER_ENABLED=true
       - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-gms
+      - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+      - EBEAN_DATASOURCE_HOST=mysql:3306
+      - EBEAN_DATASOURCE_PASSWORD=datahub
+      - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+      - EBEAN_DATASOURCE_USERNAME=datahub
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+      - ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true
+      - ELASTICSEARCH_PORT=9200
+      - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+      - ENTITY_SERVICE_ENABLE_RETENTION=true
+      - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
+      - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
+      - GRAPH_SERVICE_IMPL=elasticsearch
+      - JAVA_OPTS=-Xms1g -Xmx1g
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
+      - MAE_CONSUMER_ENABLED=true
+      - MCE_CONSUMER_ENABLED=true
+      - PE_CONSUMER_ENABLED=true
+      - UI_INGESTION_ENABLED=true
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
@@ -108,7 +104,7 @@ services:
       - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
       - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
       - KAFKA_BOOTSTRAP_SERVER=broker:29092
-      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
       - ELASTICSEARCH_HOST=elasticsearch
       - ELASTICSEARCH_PORT=9200
       - ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
@@ -153,11 +149,11 @@ services:
     container_name: kafka-setup
     depends_on:
       - broker
-      - schema-registry
     environment:
       - DATAHUB_PRECREATE_TOPICS=${DATAHUB_PRECREATE_TOPICS:-false}
       - KAFKA_BOOTSTRAP_SERVER=broker:29092
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - USE_CONFLUENT_SCHEMA_REGISTRY=FALSE
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:
