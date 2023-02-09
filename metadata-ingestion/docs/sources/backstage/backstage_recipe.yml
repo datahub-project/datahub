@@ -1,0 +1,22 @@
+source:
+  type: backstage
+  config:
+    name: 'Backstage IO catalog'
+    url: 'https://demo.backstage.io/api/catalog/entities?filter=kind=api'
+    default_api_url: 'http://server_hosting_openapi_endpoints/'
+    default_ignore_endpoints:
+      - /ignore/this
+      - /ignore/that
+      - /also/that_other
+    # optional, the endpoints in discovered interfaces which are to be ignored
+    get_token:  # optional, if you need to get an authentication token beforehand
+      request_type: get
+      url: api/authentication/login?username={username}&password={password}
+    username: your_username  # optional
+    password: your_password  # optional
+
+
+sink:
+  type: datahub-rest
+  config:
+    server: 'http://localhost:8080'
