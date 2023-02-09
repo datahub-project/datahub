@@ -1,0 +1,39 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.Time
+
+/**
+ * The information about the execution details of a data process instance.
+ */
+@Aspect = {
+  "name": "dataProcessInstanceExecution"
+}
+
+record DataProcessInstanceExecution {
+
+  /**
+   * The logical date of the data process instance.
+   * Similar to Airflow, it points to the start of the data interval,
+   * not the moment when the task is actually executed.
+   */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  logicalDate: Time
+
+  /**
+   * The start date of the data process instance.
+   */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  startDate: optional Time
+
+  /**
+   * The end date of the data process instance.
+   */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  endDate: optional Time
+}

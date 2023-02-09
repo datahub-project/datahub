@@ -1249,7 +1249,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     History of datajob runs that either produced or consumed this dataset
     """
-    runs(start: Int, count: Int, direction: RelationshipDirection!): DataProcessInstanceResult
+    runs(input: DataProcessInstanceInput, direction: RelationshipDirection!): DataProcessInstanceResult
 
     """
     Metadata about the datasets siblings
@@ -1270,6 +1270,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    User-defined SLA info set on the corresponding Dataset
+    """
+    slaInfo: SLAInfo
 }
 
 type FineGrainedLineage {
@@ -5478,7 +5483,7 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     History of runs of this task
     """
-    runs(start: Int, count: Int): DataProcessInstanceResult
+    runs(input: DataProcessInstanceInput): DataProcessInstanceResult
 
     """
     Privileges given to a user relevant to this entity
@@ -5489,6 +5494,37 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+    User-defined SLA info set on the corresponding Data Job
+    """
+    slaInfo: SLAInfo
+}
+
+"""
+Input prodivded for querying Data Process Instance of an entity
+"""
+input DataProcessInstanceInput {
+    start: Int
+    count: Int
+    filters: [DataProcessInstanceFilterInput!]
+}
+
+"""
+Input prodivded for filtering Data Process Instance
+"""
+input DataProcessInstanceFilterInput {
+    type: DataProcessInstanceFilterInputType!
+    value: String!
+}
+
+"""
+Filter types currently supported for Data Process Instance
+"""
+enum DataProcessInstanceFilterInputType {
+    BEFORE_LOGICAL_DATE
+    ON_LOGICAL_DATE
+    AFTER_LOGICAL_DATE
 }
 
 """
@@ -5536,6 +5572,36 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     The link to view the task run in the source system
     """
     externalUrl: String
+
+    """
+    The information about the execution details of a data process instance.
+    """
+    execution: DataProcessInstanceExecution
+
+    """
+    User-defined SLA info set on the corresponding data process
+    """
+    slaInfo: SLAInfo
+}
+
+"""
+The information about the execution details of a data process instance.
+"""
+type DataProcessInstanceExecution {
+    """
+    The logical date of the data process instance.
+    Similar to Airflow, it points to the start of the data interval,
+    not the moment when the task is actually executed.
+    """
+    logicalDate: Long!
+    """
+    The start date of the data process instance.
+    """
+    startDate: Long
+    """
+    The end date of the data process instance.
+    """
+    endDate: Long
 }
 
 """
@@ -5618,6 +5684,23 @@ enum DataProcessInstanceRunResultType {
     UP_FOR_RETRY
 }
 
+"""
+User-defined SLAs set on DataJobs, Datasets and DataProcessInstances
+"""
+type SLAInfo {
+    """
+    Whether or not there is an SLA defined
+    """
+    slaDefined: String!
+
+    """
+    Different SLA types and levels
+    """
+    errorStartedBy: Float
+    errorFinishedBy: Float
+    warnStartedBy: Float
+    warnFinishedBy: Float
+}
 
 """
 Deprecated, use DataJobProperties instead

@@ -166,12 +166,12 @@ fragment nonSiblingDatasetFields on Dataset {
     status {
         removed
     }
-    readRuns: runs(start: 0, count: 20, direction: INCOMING) {
+    readRuns: runs(input: {start: 0, count: 20}, direction: INCOMING) {
         count
         start
         total
     }
-    writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
+    writeRuns: runs(input: {start: 0, count: 20}, direction: OUTGOING) {
         count
         start
         total
@@ -267,7 +267,7 @@ query getDatasetAssertions($urn: String!) {
 
 query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: RelationshipDirection!) {
     dataset(urn: $urn) {
-        runs(start: $start, count: $count, direction: $direction) {
+        runs(input: {start: $start, count: $count}, direction: $direction) {
             ...runResults
         }
     }

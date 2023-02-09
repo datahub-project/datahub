@@ -1,0 +1,51 @@
+fragment runResultsTimelinessTab on DataProcessInstanceResult {
+    runs {
+        name
+        execution {
+            logicalDate
+            startDate
+            endDate
+        }
+        state(limit: 1) {
+            status
+            result {
+                resultType
+            }
+        }
+        externalUrl
+        slaInfo {
+            slaDefined
+            errorStartedBy
+            errorFinishedBy
+            warnStartedBy
+            warnFinishedBy
+        }
+    }
+}
+
+query getDataRunsTimeliness($urn: String!, $input: DataProcessInstanceInput) {
+    dataJob(urn: $urn) {
+        slaInfo {
+            slaDefined
+            errorStartedBy
+            errorFinishedBy
+            warnStartedBy
+            warnFinishedBy
+        }
+        runs(input: $input) {
+            ...runResultsTimelinessTab
+        }
+    }
+    dataset(urn: $urn) {
+        slaInfo {
+            slaDefined
+            errorStartedBy
+            errorFinishedBy
+            warnStartedBy
+            warnFinishedBy
+        }
+        runs(input: $input, direction: OUTGOING) {
+            ...runResultsTimelinessTab
+        }
+    }
+}

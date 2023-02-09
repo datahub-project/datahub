@@ -516,7 +516,7 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-        lastRun: runs(start: 0, count: 1) {
+        lastRun: runs(input: {start: 0, count: 1}) {
             count
             start
             total

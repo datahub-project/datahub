@@ -4,6 +4,8 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
+import com.linkedin.datahub.graphql.generated.DataProcessInstanceFilterInput;
+import com.linkedin.datahub.graphql.generated.DataProcessInstanceInput;
 import com.linkedin.datahub.graphql.generated.DataProcessInstanceResult;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.RelationshipDirection;
@@ -33,6 +35,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nullable;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+
 
 /**
  * GraphQL Resolver used for fetching the list of task runs associated with a Dataset.
@@ -42,6 +47,11 @@ public class EntityRunsResolver implements DataFetcher<CompletableFuture<DataPro
   private static final String INPUT_FIELD_NAME = "inputs.keyword";
   private static final String OUTPUT_FIELD_NAME = "outputs.keyword";
   private static final String CREATED_TIME_SEARCH_INDEX_FIELD_NAME = "created";
+  private static final String LOGICAL_DATE_SEARCH_INDEX_FIELD_NAME = "logicalDate";
+  private static final Integer DEFAULT_START = 0;
+  private static final Integer DEFAULT_COUNT = 20;
+  private static final List<DataProcessInstanceFilterInput> DEFAULT_FILTER = null;
+  private static final DataProcessInstanceInput DEFAULT_DATA_PROCESS_INSTANCE_INPUT = new DataProcessInstanceInput();
 
   private final EntityClient _entityClient;
 
@@ -56,15 +66,21 @@ public class EntityRunsResolver implements DataFetcher<CompletableFuture<DataPro
       final QueryContext context = environment.getContext();
 
       final String entityUrn = ((Entity) environment.getSource()).getUrn();
-      final Integer start = environment.getArgumentOrDefault("start", 0);
-      final Integer count = environment.getArgumentOrDefault("count", 20);
       final RelationshipDirection direction = RelationshipDirection.valueOf(environment.getArgumentOrDefault("direction",
           RelationshipDirection.INCOMING.toString()));
+      final DataProcessInstanceInput input = bindArgument(
+          environment.getArgumentOrDefault("input", DEFAULT_DATA_PROCESS_INSTANCE_INPUT),
+          DataProcessInstanceInput.class);
+
+      final Integer start = input.getStart() != null ? input.getStart() : DEFAULT_START;
+      final Integer count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+      final List<DataProcessInstanceFilterInput> filters = input.getFilters() != null ? input.getFilters()
+          : DEFAULT_FILTER;
 
       try {
         // Step 1: Fetch set of task runs associated with the target entity from the Search Index!
         // We use the search index so that we can easily sort by the last updated time.
-        final Filter filter = buildTaskRunsEntityFilter(entityUrn, direction);
+        final Filter filter = buildTaskRunsEntityFilter(entityUrn, filters, direction);
         final SortCriterion sortCriterion = buildTaskRunsSortCriterion();
         final SearchResult gmsResult = _entityClient.filter(
             Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
@@ -108,14 +124,32 @@ public class EntityRunsResolver implements DataFetcher<CompletableFuture<DataPro
     });
   }
 
-  private Filter buildTaskRunsEntityFilter(final String entityUrn, final RelationshipDirection direction) {
-    CriterionArray array = new CriterionArray(
-        ImmutableList.of(
-            new Criterion()
-                .setField(direction.equals(RelationshipDirection.INCOMING) ? INPUT_FIELD_NAME : OUTPUT_FIELD_NAME)
-                .setCondition(Condition.EQUAL)
-                .setValue(entityUrn)
-        ));
+  private Filter buildTaskRunsEntityFilter(final String entityUrn, @Nullable final List<DataProcessInstanceFilterInput> filters, final RelationshipDirection direction) {
+    ImmutableList.Builder<Criterion> criterionBuilder = ImmutableList.builder();
+    Criterion directionCriterion = new Criterion()
+      .setField(direction.equals(RelationshipDirection.INCOMING) ? INPUT_FIELD_NAME : OUTPUT_FIELD_NAME)
+      .setCondition(Condition.EQUAL)
+      .setValue(entityUrn);
+    criterionBuilder.add(directionCriterion);
+    if (filters != null) {
+      List<Criterion> userDefinedFilters = filters.stream().map(f -> {
+        switch (f.getType()) {
+          case BEFORE_LOGICAL_DATE:
+            return new Criterion().setField(LOGICAL_DATE_SEARCH_INDEX_FIELD_NAME)
+                .setCondition(Condition.LESS_THAN_OR_EQUAL_TO).setValue(f.getValue());
+          case ON_LOGICAL_DATE:
+            return new Criterion().setField(LOGICAL_DATE_SEARCH_INDEX_FIELD_NAME).setCondition(Condition.EQUAL)
+                .setValue(f.getValue());
+          case AFTER_LOGICAL_DATE:
+            return new Criterion().setField(LOGICAL_DATE_SEARCH_INDEX_FIELD_NAME)
+                .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO).setValue(f.getValue());
+          default:
+            return null;
+        }
+      }).filter(Objects::nonNull).collect(Collectors.toList());
+      criterionBuilder.addAll(userDefinedFilters);
+    }
+    CriterionArray array = new CriterionArray(criterionBuilder.build());
     final Filter filter = new Filter();
     filter.setOr(new ConjunctiveCriterionArray(ImmutableList.of(
         new ConjunctiveCriterion()

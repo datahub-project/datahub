@@ -73,6 +73,7 @@ public class Constants {
   public static final String ORIGIN_ASPECT_NAME = "origin";
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
   public static final String EMBED_ASPECT_NAME = "embed";
+  public static final String SLA_INFO_ASPECT_NAME = "slaInfo";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -275,6 +276,7 @@ public class Constants {
   public static final String DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME = "dataProcessInstanceProperties";
   public static final String DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME = "dataProcessInstanceRunEvent";
   public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME = "dataProcessInstanceRelationships";
+  public static final String DATA_PROCESS_INSTANCE_EXECUTION_ASPECT_NAME = "dataProcessInstanceExecution";
 
   // Posts
   public static final String POST_INFO_ASPECT_NAME = "postInfo";

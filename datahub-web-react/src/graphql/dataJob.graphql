@@ -7,7 +7,7 @@ query getDataJob($urn: String!) {
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
             ...partialLineageResults
         }
-        runs(start: 0, count: 20) {
+        runs(input: {start: 0, count: 20}) {
             count
             start
             total
@@ -23,7 +23,7 @@ mutation updateDataJob($urn: String!, $input: DataJobUpdateInput!) {
 
 query getDataJobRuns($urn: String!, $start: Int!, $count: Int!) {
     dataJob(urn: $urn) {
-        runs(start: $start, count: $count) {
+        runs(input: {start: $start, count: $count}) {
             ...runResults
         }
     }
