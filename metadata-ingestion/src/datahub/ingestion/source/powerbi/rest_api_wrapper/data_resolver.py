@@ -26,7 +26,10 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 logger = logging.getLogger(__name__)
 
 
-def is_permission_error(e: requests.exceptions.HTTPError) -> bool:
+def is_permission_error(e: Exception) -> bool:
+    if not isinstance(e, requests.exceptions.HTTPError):
+        return False
+
     return e.response.status_code == 401 or e.response.status_code == 403
 
 
@@ -45,16 +48,16 @@ class DataResolverBase(ABC):
     ):
         self.__access_token: str = ""
         self.__tenant_id = tenant_id
+        # Test connection by generating access token
+        logger.info("Trying to connect to {}".format(self._get_authority_url()))
         # Power-Bi Auth (Service Principal Auth)
         self.__msal_client = msal.ConfidentialClientApplication(
             client_id,
             client_credential=client_secret,
             authority=DataResolverBase.AUTHORITY + tenant_id,
         )
-
-        # Test connection by generating access token
-        logger.info("Trying to connect to {}".format(self._get_authority_url()))
         self.get_access_token()
+
         logger.info("Connected to {}".format(self._get_authority_url()))
         self._request_session = requests.Session()
         # set re-try parameter for request_session
@@ -228,7 +231,11 @@ class DataResolverBase(ABC):
             params=params,
         )
         response.raise_for_status()
+
         response_dict = response.json()
+
+        logger.debug(f"Request response = {response_dict}")
+
         reports: List[Report] = [
             Report(
                 id=raw_instance.get(Constant.ID),
@@ -243,7 +250,7 @@ class DataResolverBase(ABC):
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
                 dataset=workspace.datasets.get(raw_instance.get(Constant.DATASET_ID)),
             )
-            for raw_instance in response_dict[Constant.VALUE]
+            for raw_instance in response_dict.get(Constant.VALUE, [])
         ]
 
         return reports
@@ -289,13 +296,13 @@ class DataResolverBase(ABC):
                 Constant.CREATED_FROM: Tile.CreatedFrom.UNKNOWN,
             }
 
-            # Tile is either created from report or dataset or from custom visualization
-            if report_fields[Constant.REPORT] is not None:
+            # reportId and datasetId are exclusive in tile_instance
+            # if datasetId is present that means tile is created from dataset
+            # if reportId is present that means tile is created from report
+            # if both i.e. reportId and datasetId are not present then tile is created from some visualization
+            if tile_instance.get(Constant.REPORT_ID) is not None:
                 report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.REPORT
-            elif report_fields[Constant.DATASET] is not None or (
-                report_fields[Constant.DATASET] is None
-                and tile_instance.get(Constant.DATASET_ID) is not None
-            ):  # Admin API is disabled and hence dataset instance is missing
+            elif tile_instance.get(Constant.DATASET_ID) is not None:
                 report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.DATASET
             else:
                 report_fields[Constant.CREATED_FROM] = Tile.CreatedFrom.VISUALIZATION
@@ -316,10 +323,11 @@ class DataResolverBase(ABC):
             tile_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
+        logger.debug(f"Request response = {response}")
         response.raise_for_status()
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
-        tile_dict: List[Any] = response.json()[Constant.VALUE]
+        tile_dict: List[Any] = response.json().get(Constant.VALUE, [])
         logger.debug(f"Tile Dict = {tile_dict}")
         tiles: List[Tile] = [
             Tile(
@@ -504,18 +512,13 @@ class AdminAPIResolver(DataResolverBase):
 
         return timeout // minimum_sleep
 
-    def wait_for_scan_to_complete(self, scan_id: str, timeout: int) -> Any:
-        """
-        Poll the PowerBi service for workspace scan to complete
-        """
-        minimum_sleep = 3
-        max_retry: int = AdminAPIResolver._calculate_max_retry(minimum_sleep, timeout)
-        logger.info(f"Max trial {max_retry}")
-
-        scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
-        scan_get_endpoint = scan_get_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
-        )
+    def _is_scan_result_ready(
+        self,
+        scan_get_endpoint: str,
+        max_retry: int,
+        minimum_sleep_seconds: int,
+        scan_id: str,
+    ) -> bool:
         logger.debug(f"Hitting URL={scan_get_endpoint}")
         retry = 1
         while True:
@@ -524,25 +527,51 @@ class AdminAPIResolver(DataResolverBase):
                 scan_get_endpoint,
                 headers={Constant.Authorization: self.get_access_token()},
             )
-            if res.status_code != 200:
-                message = f"API({scan_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
-                logger.warning(message)
-                raise ConnectionError(message)
+
+            logger.debug(f"Request response = {res}")
+
+            res.raise_for_status()
 
             if res.json()[Constant.STATUS].upper() == Constant.SUCCEEDED:
                 logger.info(f"Scan result is available for scan id({scan_id})")
                 return True
 
             if retry == max_retry:
-                logger.warning("Max retry reached. Scan job result is not available")
+                logger.warning(
+                    "Max retry reached when polling for scan job (lineage) result. Scan job is not "
+                    "available! Try increasing your max retry using config option scan_timeout"
+                )
                 break
 
-            logger.info(f"Sleeping for {minimum_sleep} seconds")
-            sleep(minimum_sleep)
+            logger.info(
+                f"Waiting to check for scan job completion for {minimum_sleep_seconds} seconds."
+            )
+            sleep(minimum_sleep_seconds)
             retry += 1
 
-        # Result is not available
         return False
+
+    def wait_for_scan_to_complete(self, scan_id: str, timeout: int) -> Any:
+        """
+        Poll the PowerBi service for workspace scan to complete
+        """
+        minimum_sleep_seconds = 3
+        max_retry: int = AdminAPIResolver._calculate_max_retry(
+            minimum_sleep_seconds, timeout
+        )
+        logger.info(f"Max trial {max_retry}")
+
+        scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
+        scan_get_endpoint = scan_get_endpoint.format(
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL, SCAN_ID=scan_id
+        )
+
+        return self._is_scan_result_ready(
+            scan_get_endpoint=scan_get_endpoint,
+            max_retry=max_retry,
+            minimum_sleep_seconds=minimum_sleep_seconds,
+            scan_id=scan_id,
+        )
 
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
         """
@@ -584,7 +613,7 @@ class AdminAPIResolver(DataResolverBase):
 
         return users
 
-    def get_scan_result(self, scan_id: str) -> dict:
+    def get_scan_result(self, scan_id: str) -> Optional[dict]:
         logger.info("Fetching scan result")
         logger.info(f"{Constant.SCAN_ID}={scan_id}")
         scan_result_get_endpoint = AdminAPIResolver.API_ENDPOINTS[
@@ -603,6 +632,15 @@ class AdminAPIResolver(DataResolverBase):
             message = f"API({scan_result_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
             logger.warning(message)
             raise ConnectionError(message)
+
+        if (
+            res.json().get("workspaces") is None
+            or len(res.json().get("workspaces")) == 0
+        ):
+            logger.warning(
+                f"Scan result is not available for scan identifier = {scan_id}"
+            )
+            return None
 
         return res.json()["workspaces"][0]
 

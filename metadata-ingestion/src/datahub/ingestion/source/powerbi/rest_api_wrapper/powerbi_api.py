@@ -43,6 +43,14 @@ class PowerBiAPI:
             tenant_id=self.__config.tenant_id,
         )
 
+    def log_http_error(self, message: str, e: Exception) -> None:
+        logger.warning(message)
+
+        if isinstance(e, requests.exceptions.HTTPError):
+            logger.warning(f"HTTP status-code = {e.response.status_code}")
+
+        logger.debug(msg=message, exc_info=e)
+
     def _get_dashboard_endorsements(
         self, scan_result: Optional[dict]
     ) -> Dict[str, List[str]]:
@@ -54,7 +62,7 @@ class PowerBiAPI:
         if scan_result is None:
             return results
 
-        for scanned_dashboard in scan_result[Constant.DASHBOARDS]:
+        for scanned_dashboard in scan_result.get(Constant.DASHBOARDS, []):
             # Iterate through response and create a list of PowerBiAPI.Dashboard
             dashboard_id = scanned_dashboard.get("id")
             tags = self._parse_endorsement(
@@ -112,15 +120,15 @@ class PowerBiAPI:
                 entity=entity_name,
                 entity_id=entity_id,
             )
-        except requests.exceptions.HTTPError as e:
+        except Exception as e:
+            self.log_http_error(
+                message=f"Unable to fetch users for {entity_name}({entity_id}).", e=e
+            )
             if data_resolver.is_permission_error(e):
                 logger.warning(
                     f"{entity_name} users would not get ingested as admin permission is not enabled on "
                     "configured Azure AD Application",
                 )
-                return users
-            # if Other error then re-raise
-            raise e
 
         return users
 
@@ -136,11 +144,13 @@ class PowerBiAPI:
         """
         Fetch the report from PowerBi for the given Workspace
         """
-        if workspace is None:
-            logger.info("workspace is None")
-            return []
-
-        reports: List[Report] = self._get_resolver().get_reports(workspace)
+        reports: List[Report] = []
+        try:
+            reports = self._get_resolver().get_reports(workspace)
+        except Exception as e:
+            self.log_http_error(
+                message=f"Unable to fetch reports for workspace {workspace.name}", e=e
+            )
 
         def fill_ownership() -> None:
             if self.__config.extract_ownership is False:
@@ -170,7 +180,12 @@ class PowerBiAPI:
         return reports
 
     def get_workspaces(self) -> List[Workspace]:
-        groups: List[dict] = self._get_resolver().get_groups()
+        groups: List[dict] = []
+        try:
+            groups = self._get_resolver().get_groups()
+        except Exception as e:
+            self.log_http_error(message="Unable to fetch list of workspaces", e=e)
+
         workspaces = [
             Workspace(
                 id=workspace[Constant.ID],
@@ -192,15 +207,17 @@ class PowerBiAPI:
             scan_id = self.__admin_api_resolver.create_scan_job(
                 workspace_id=workspace.id
             )
-        except requests.exceptions.HTTPError as e:
+        except Exception as e:
+            self.log_http_error(
+                message=f"Unable to fetch dataset lineage for {workspace.name}({workspace.id}).",
+                e=e,
+            )
             if data_resolver.is_permission_error(e):
                 logger.warning(
                     "Dataset lineage can not be ingestion because this user does not have access to the PowerBI Admin "
                     "API. "
                 )
-                return None
-            # raise error if other than 401 or 403
-            raise e
+            return None
 
         logger.info("Waiting for scan to complete")
         if (
@@ -210,7 +227,8 @@ class PowerBiAPI:
             is False
         ):
             raise ValueError(
-                "Workspace detail is not available. Please increase scan_timeout to wait."
+                "Workspace detail is not available. Please increase the scan_timeout configuration value to wait "
+                "longer for the scan job to complete."
             )
 
         # Scan is complete lets take the result
@@ -249,6 +267,8 @@ class PowerBiAPI:
             logger.info("Returning empty datasets")
             return dataset_map
 
+        logger.debug("Processing scan result for datasets")
+
         for dataset_dict in datasets:
             dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
                 workspace_id=scan_result[Constant.ID],
@@ -267,9 +287,9 @@ class PowerBiAPI:
                 if dataset_instance.name is not None
                 else dataset_instance.id
             )
-
-            for table in dataset_dict[Constant.TABLES]:
-                expression: str = (
+            logger.debug(f"dataset_dict = {dataset_dict}")
+            for table in dataset_dict.get(Constant.TABLES, []):
+                expression: Optional[str] = (
                     table[Constant.SOURCE][0][Constant.EXPRESSION]
                     if table.get(Constant.SOURCE) is not None
                     and len(table[Constant.SOURCE]) > 0

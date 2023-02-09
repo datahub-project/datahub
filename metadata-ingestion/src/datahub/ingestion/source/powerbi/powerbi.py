@@ -878,7 +878,14 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         super(PowerBiDashboardSource, self).__init__(config, ctx)
         self.source_config = config
         self.reporter = PowerBiDashboardSourceReport()
-        self.powerbi_client = PowerBiAPI(self.source_config)
+        try:
+            self.powerbi_client = PowerBiAPI(self.source_config)
+        except Exception as e:
+            logger.warning(e)
+            exit(
+                1
+            )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising unwanted stacktrace on console
+
         self.mapper = Mapper(config, self.reporter)
 
         # Create and register the stateful ingestion use-case handler.
