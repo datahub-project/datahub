@@ -193,6 +193,7 @@ import com.linkedin.datahub.graphql.resolvers.post.ListPostsResolver;
 import com.linkedin.datahub.graphql.resolvers.query.CreateQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.query.DeleteQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.query.ListQueriesResolver;
+import com.linkedin.datahub.graphql.resolvers.query.UpdateQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.AcceptRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
@@ -869,6 +870,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateLineage", new UpdateLineageResolver(this.entityService, this.lineageService))
             .dataFetcher("updateEmbed", new UpdateEmbedResolver(this.entityService))
             .dataFetcher("createQuery", new CreateQueryResolver(this.queryService))
+            .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
             .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
         );
     }
