@@ -52,10 +52,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
-        with:
-          spark-version: "3.0.3"
-          hadoop-version: "3.2"
+      # - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
+      #   with:
+      #     spark-version: "3.0.3"
+      #     hadoop-version: "3.2"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Calculate pip install plan
