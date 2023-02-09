@@ -163,6 +163,17 @@ def make_load_schema_methods(schemas: Iterable[str]) -> str:
     )
 
 
+def save_raw_schemas(schema_save_dir: Path, schemas: Dict[str, Any]) -> None:
+    # Save raw avsc files.
+    schema_save_dir.mkdir()
+    for name, schema in schemas.items():
+        (schema_save_dir / f"{name}.avsc").write_text(json.dumps(schema, indent=2))
+
+    # Add getXSchema methods.
+    with open(schema_save_dir / "__init__.py", "w") as schema_dir_init:
+        schema_dir_init.write(make_load_schema_methods(schemas.keys()))
+
+
 def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
     schema_classes_lines = schema_class_file.read_text().splitlines()
     line_lookup_table = {line: i for i, line in enumerate(schema_classes_lines)}
@@ -301,17 +312,17 @@ def generate(entity_registry: str, schemas_path: str, outdir: str) -> None:
         Path(outdir) / "schema_classes.py",
     )
 
-    # Save raw schema files in codegen as well.
+    # Keep a copy of a few raw avsc files.
+    required_avsc_schemas = {"MetadataChangeEvent", "MetadataChangeProposal"}
     schema_save_dir = Path(outdir) / "schemas"
-    schema_save_dir.mkdir()
-    for schema_out_file, schema in schemas.items():
-        (schema_save_dir / f"{schema_out_file}.avsc").write_text(
-            json.dumps(schema, indent=2)
-        )
-
-    # Add load_schema method.
-    with open(schema_save_dir / "__init__.py", "a") as schema_dir_init:
-        schema_dir_init.write(make_load_schema_methods(schemas.keys()))
+    save_raw_schemas(
+        schema_save_dir,
+        {
+            name: schema
+            for name, schema in schemas.items()
+            if name in required_avsc_schemas
+        },
+    )
 
     # Add headers for all generated files
     generated_files = Path(outdir).glob("**/*.py")
