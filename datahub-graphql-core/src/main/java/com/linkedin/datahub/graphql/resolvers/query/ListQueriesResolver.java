@@ -42,7 +42,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 100;
   private static final String DEFAULT_QUERY = "";
-  private static final String LAST_MODIFIED_AT_FIELD = "lastModifiedAt";
+  private static final String CREATED_AT_FIELD = "createdAt";
   private static final String QUERY_SOURCE_FIELD = "source";
   private static final String QUERY_ENTITIES_FIELD = "entities";
 
@@ -61,7 +61,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     return CompletableFuture.supplyAsync(() -> {
       try {
         final SortCriterion sortCriterion =
-            new SortCriterion().setField(LAST_MODIFIED_AT_FIELD).setOrder(SortOrder.DESCENDING);
+            new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
 
         // First, get all Query Urns.
         final SearchResult gmsResult = _entityClient.search(QUERY_ENTITY_NAME, query, buildFilters(input), sortCriterion, start, count,

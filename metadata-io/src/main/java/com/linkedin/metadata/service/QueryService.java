@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -18,6 +19,7 @@ import com.linkedin.query.QueryStatement;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
+import com.linkedin.view.DataHubViewInfo;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -99,6 +101,66 @@ public class QueryService extends BaseService {
           false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create Query", e);
+    }
+  }
+
+  /**
+   * Updates an existing Query. If a provided field is null, the previous value will be kept.
+   *
+   * Note that this method does not do authorization validation.
+   * It is assumed that users of this class have already authorized the operation.
+   *
+   * @param urn the urn of the query
+   * @param name optional name of the Query
+   * @param description optional description of the Query
+   * @param statement the query statement
+   * @param subjects the query subjects
+   * @param authentication the current authentication
+   */
+  public void updateQuery(
+      @Nonnull Urn urn,
+      @Nullable String name,
+      @Nullable String description,
+      @Nullable QueryStatement statement,
+      @Nullable List<QuerySubject> subjects,
+      @Nonnull Authentication authentication,
+      long currentTimeMs) {
+    Objects.requireNonNull(urn, "urn must not be null");
+    Objects.requireNonNull(statement, "statement must not be null");
+    Objects.requireNonNull(subjects, "subjects must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+
+    // 1. Check whether the Query exists
+    QueryProperties properties = getQueryProperties(urn, authentication);
+
+    if (properties == null) {
+      throw new IllegalArgumentException(String.format("Failed to update Query. Query with urn %s does not exist.", urn));
+    }
+
+    // 2. Apply changes to existing Query
+    if (name != null) {
+      properties.setName(name);
+    }
+    if (description != null) {
+      properties.setDescription(description);
+    }
+    if (statement != null) {
+      properties.setStatement(statement);
+    }
+
+    properties.setLastModified(new AuditStamp()
+        .setTime(currentTimeMs)
+        .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr())));
+
+    // 3. Write changes to GMS
+    try {
+      this.entityClient.batchIngestProposals(ImmutableList.of(
+          AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_PROPERTIES_ASPECT_NAME, properties),
+          AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_SUBJECTS_ASPECT_NAME, new QuerySubjects()
+            .setSubjects(new QuerySubjectArray(subjects)))
+        ), authentication,false);
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to update View with urn %s", urn), e);
     }
   }
 

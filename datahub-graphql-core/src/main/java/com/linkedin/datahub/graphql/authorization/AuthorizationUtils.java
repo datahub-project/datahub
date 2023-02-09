@@ -125,6 +125,12 @@ public class AuthorizationUtils {
     );
   }
 
+  public static boolean canUpdateQuery(@Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    return canDeleteEntity(entityUrn, context) || subjectUrns.stream().allMatch(subjectUrn ->
+        isAuthorized(context, Optional.of(new ResourceSpec(subjectUrn.getEntityType(), subjectUrn.toString())), PoliciesConfig.EDIT_QUERIES_PRIVILEGE)
+    );
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull Optional<ResourceSpec> resourceSpec,

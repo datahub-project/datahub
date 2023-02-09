@@ -54,8 +54,8 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     res.setStatement(new QueryStatement(
         queryProperties.getStatement().getValue(),
         QueryLanguage.valueOf(queryProperties.getStatement().getLanguage().toString())));
-    res.setName(queryProperties.getDescription(GetMode.NULL));
-    res.setDescription(queryProperties.getName(GetMode.NULL));
+    res.setName(queryProperties.getName(GetMode.NULL));
+    res.setDescription(queryProperties.getDescription(GetMode.NULL));
 
     AuditStamp created = new AuditStamp();
     created.setTime(queryProperties.getCreated().getTime());

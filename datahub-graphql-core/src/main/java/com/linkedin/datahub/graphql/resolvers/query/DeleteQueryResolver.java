@@ -32,8 +32,8 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
     final Authentication authentication = context.getAuthentication();
 
     final QuerySubjects existingSubjects = _queryService.getQuerySubjects(queryUrn, authentication);
-    final List<Urn> subjectUrns = existingSubjects != null ?
-        existingSubjects.getSubjects().stream().map(QuerySubject::getEntity).collect(Collectors.toList())
+    final List<Urn> subjectUrns = existingSubjects != null
+        ? existingSubjects.getSubjects().stream().map(QuerySubject::getEntity).collect(Collectors.toList())
         : Collections.emptyList();
 
     if (!AuthorizationUtils.canDeleteQuery(queryUrn, subjectUrns, context)) {

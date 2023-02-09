@@ -597,6 +597,15 @@ type Mutation {
       input: CreateQueryInput!): QueryEntity
 
     """
+    Update an existing Query
+    """
+    updateQuery(
+      "The urn identifier for the query to update."
+      urn: String!,
+      "Inputs required to update a Query."
+      input: UpdateQueryInput!): QueryEntity
+
+    """
     Delete a Query by urn. This requires the 'Edit Queries' Metadata Privilege.
     """
     deleteQuery(
@@ -10327,7 +10336,7 @@ input QueryStatementInput {
 """
 Input properties required for creating a Query
 """
-input QueryPropertiesInput {
+input CreateQueryPropertiesInput {
   """
   An optional display name for the Query
   """
@@ -10347,7 +10356,7 @@ input QueryPropertiesInput {
 """
 Input required for creating a Query. For now, only datasets are supported.
 """
-input QuerySubjectInput {
+input CreateQuerySubjectInput {
   """
   The urn of the dataset that is the subject of the query
   """
@@ -10361,12 +10370,57 @@ input CreateQueryInput {
   """
   Properties about the Query
   """
-  properties: QueryPropertiesInput!
+  properties: CreateQueryPropertiesInput!
 
   """
   Subjects for the query
   """
-  subjects: [QuerySubjectInput!]!
+  subjects: [CreateQuerySubjectInput!]!
+}
+
+"""
+Input properties required for creating a Query. Any non-null fields will be updated if provided.
+"""
+input UpdateQueryPropertiesInput {
+  """
+  An optional display name for the Query
+  """
+  name: String
+
+  """
+  An optional description for the Query
+  """
+  description: String
+
+  """
+  The Query contents
+  """
+  statement: QueryStatementInput
+}
+
+"""
+Input required for creating a Query. For now, only datasets are supported.
+"""
+input UpdateQuerySubjectInput {
+  """
+  The urn of the dataset that is the subject of the query
+  """
+  datasetUrn: String!
+}
+
+"""
+Input required for updating an existing Query. Requires the 'Edit Queries' privilege for all query subjects.
+"""
+input UpdateQueryInput {
+  """
+  Properties about the Query
+  """
+  properties: UpdateQueryPropertiesInput!
+
+  """
+  Subjects for the query
+  """
+  subjects: [UpdateQuerySubjectInput!]!
 }
 
 """
