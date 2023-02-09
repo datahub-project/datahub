@@ -11,7 +11,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 def request_call(
-        url: str, token: str = None, username: str = None, password: str = None
+    url: str, token: str = None, username: str = None, password: str = None
 ) -> requests.Response:
     headers = {"accept": "application/json"}
 
@@ -26,12 +26,13 @@ def request_call(
     else:
         return requests.get(url, headers=headers)
 
+
 def get_swag_json(
-        url: str,
-        token: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        swagger_file: str = "",
+    url: str,
+    token: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    swagger_file: str = "",
 ) -> Dict:
     tot_url = url + swagger_file
     if token is not None:
@@ -47,12 +48,13 @@ def get_swag_json(
         dict_data = yaml.safe_load(response.content)
     return dict_data
 
+
 def get_tok(
-        url: str,
-        username: Optional[str] = "",
-        password: Optional[str] = "",
-        tok_url: Optional[str] = "",
-        method: str = "post",
+    url: str,
+    username: Optional[str] = "",
+    password: Optional[str] = "",
+    tok_url: Optional[str] = "",
+    method: str = "post",
 ) -> str:
     """
     Trying to post username/password to get auth.
@@ -80,6 +82,7 @@ def get_tok(
     else:
         raise Exception(f"Unable to get a valid token: {response.text}")
 
+
 def get_swagger_list(sw_dict: dict) -> list:  # noqa: C901
     """
     Get all the interfaces from target JSON file
@@ -98,8 +101,8 @@ def get_swagger_list(sw_dict: dict) -> list:  # noqa: C901
                 if "apiProvidedBy" in relation["type"]:
                     isApiProvidedByPresent = True
 
-        # Check whether there's a key "kind" in that section and its value is "component"
-        # (i.e. information about the system is still missing).
+                # Check whether there's a key "kind" in that section and its value is "component"
+                # (i.e. information about the system is still missing).
                 if "kind" in jsonObject:
                     if "component" in relation["target"]["kind"]:
                         isTargetKindComponent = True
@@ -149,14 +152,10 @@ def get_swagger_list(sw_dict: dict) -> list:  # noqa: C901
                         )
                         continue
             else:
-                logger.info(
-                    "Section 'annotations' is missing!"
-                )
+                logger.info("Section 'annotations' is missing!")
                 continue
         else:
-            logger.info(
-                "Section 'metadata' is missing!"
-            )
+            logger.info("Section 'metadata' is missing!")
             continue
 
         # Check whether there's section "spec"
@@ -164,29 +163,21 @@ def get_swagger_list(sw_dict: dict) -> list:  # noqa: C901
             spec = jsonObject["spec"]
             # Check whether there's information about interface type
             if "type" not in spec:
-                logger.info(
-                    "Interface type is missing!"
-                )
+                logger.info("Interface type is missing!")
                 continue
             # Check whether "type == openapi" (only OpenAPI interfaces are supported)
             elif "openapi" not in spec["type"]:
-                logger.warning(
-                    "Unsupported interface type, skipping..."
-                )
+                logger.warning("Unsupported interface type, skipping...")
                 continue
 
             # Check availability of "definition"
             if "definition" in spec:
                 definitionSwagger = spec["definition"]
             else:
-                logger.info(
-                    "Interface definition missing!"
-                )
+                logger.info("Interface definition missing!")
                 continue
         else:
-            logger.info(
-                "Section 'spec' missing!"
-            )
+            logger.info("Section 'spec' missing!")
             continue
 
         if (isApiProvidedByPresent is True) and (isTargetKindComponent is True):

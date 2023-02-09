@@ -236,19 +236,28 @@ class APISource(Source, ABC):
                 print("API name ok")
             else:
                 ctx = self.__getattribute__("ctx")
-                source_config_name = ctx.pipeline_config.source.config['name']
+                source_config_name = ctx.pipeline_config.source.config["name"]
                 print(
-                    "API name " + source_config_name + " is not stated in swagger structure info - title")
+                    "API name "
+                    + source_config_name
+                    + " is not stated in swagger structure info - title"
+                )
                 logger.warning(
-                    "API name " + source_config_name + " is not stated in swagger structure info - title"
+                    "API name "
+                    + source_config_name
+                    + " is not stated in swagger structure info - title"
                 )
         else:
             ctx = self.__getattribute__("ctx")
-            source_config_name = ctx.pipeline_config.source.config['name']
+            source_config_name = ctx.pipeline_config.source.config["name"]
             print(
-                "API name " + source_config_name + " is not stated in swagger structure info - title, this is required parameter")
+                "API name "
+                + source_config_name
+                + " is not stated in swagger structure info - title, this is required parameter")
             logger.error(
-                "API name " + source_config_name + " is not stated in swagger structure info - title, this is required parameter"
+                "API name "
+                + source_config_name
+                + " is not stated in swagger structure info - title, this is required parameter"
             )
 
         self.url_basepath = get_url_basepath(sw_dict)
