@@ -520,10 +520,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_dropped(project_id.id)
                 continue
             logger.info(f"Processing project: {project_id.id}")
+            self.report.set_project_state(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
         if self.config.profiling.enabled:
             logger.info("Starting profiling...")
+            self.report.set_project_state(project_id.id, "Profiling")
             yield from self.profiler.get_workunits(self.db_tables)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -614,7 +616,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     start_time_millis=datetime_to_ts_millis(self.config.start_time),
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
-
+            self.report.set_project_state(project_id, "Lineage Extraction")
             yield from self.generate_lineage(project_id)
 
         if self.config.include_usage_statistics:
@@ -637,6 +639,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
 
+            self.report.set_project_state(project_id, "Usage Extraction")
             yield from self.generate_usage_statistics(project_id)
 
     def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
