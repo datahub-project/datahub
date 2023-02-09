@@ -17,6 +17,7 @@ import click
 import click_spinner
 import pydantic
 import requests
+import datahub
 from expandvars import expandvars
 from requests_file import FileAdapter
 
@@ -33,7 +34,6 @@ from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.sample_data import (
     BOOTSTRAP_MCES_FILE,
-    DOCKER_COMPOSE_BASE,
     download_sample_data,
 )
 
@@ -60,18 +60,7 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
 KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.kafka-setup.quickstart.yml"
 )
-NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-)
-ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-)
+
 
 
 class Architectures(Enum):
@@ -445,21 +434,51 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 
     return quickstart_arch
 
-def get_versions_tags_from_github() -> List[str]:
+def get_version_tags_from_github() -> List[str]:
     datahub_releases_api = "https://api.github.com/repos/datahub-project/datahub/releases"
     page = 1
-    releases = []
+    releases = [] 
     while True:
-        result = requests.get(datahub_releases_api, params={"per_page": 100, "page": 1})
+        result = requests.get(datahub_releases_api, params={"per_page": 100, "page": page})
         if len(result.json()) == 0:
             break # empty page
-        releases += [release['tag_name'] for release in result.json()]
+        try:
+            releases += [release['tag_name'] for release in result.json()]
+            page += 1
+        except Exception:
+            click.echo(f"Failed to parse releases from github: {result.content}")
+            break
+    # release versions are ordered from latest to oldest
     return releases
 
-def get_stable_version():
-    versions = get_versions_tags_from_github()
-    cli_version = datahub.__version__
-    return versions[0] 
+def get_stable_version(version: Optional[str]) -> Optional[str]:
+    """
+    Returns the latest stable version of datahub that is matching with the given version or the CLI version if not given.
+    If the current cli version is a dev version, returns None
+    """
+    if version is None:
+        version = datahub.__version__
+    if "dev" in version:
+        click.echo("Current cli version is a dev version, skipping version check")
+        return None
+    # use the first 3 digits of the cli version to find the latest stable version
+    version = ".".join(version.split(".")[:3])
+    versions = get_version_tags_from_github()
+
+    matching_versions = []
+    for v in versions:
+        if v.startswith(version):
+            if len(version) == len(v):
+                # exact match
+                return v
+            if v[len(version)] == ".":
+                # match with a patch version
+                # e.g. 0.9.1 matches 0.9.1, but not 0.9.10,
+                matching_versions.append(v)
+    if len(matching_versions) == 0:
+        return None
+    click.echo(f"Latest stable version: {matching_versions[0]}")
+    return  matching_versions[0]
 
 @docker.command()
 @click.option(
@@ -604,11 +623,11 @@ def get_stable_version():
     help="Launches Kafka setup job as part of the compose deployment",
 )
 @click.option(
-    "--stable",
+    "--unstable",
     required=False,
     is_flag=True,
-    default=True,
-    help="Use this flag to use the latest stable version of DataHub matching the CLI version. --version takes precedence over this flag.",
+    default=False,
+    help="Use this flag to use the latest version of DataHub. Things might be broken. --version takes precedence over this flag.",
 )
 @click.option(
     "--arch",
@@ -651,7 +670,7 @@ def quickstart(
     no_restore_indices: bool,
     standalone_consumers: bool,
     kafka_setup: bool,
-    stable: bool,
+    unstable: bool,
     arch: Optional[str],
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
@@ -693,6 +712,12 @@ def quickstart(
     auth_resources_folder = Path(DATAHUB_ROOT_FOLDER) / "plugins/auth/resources"
     os.makedirs(auth_resources_folder, exist_ok=True)
 
+    stable = not unstable
+    if stable:
+        version = get_stable_version(version)
+
+    click.echo(f"Going to use version: {version if version else 'HEAD'}")
+
     quickstart_compose_file_name = _get_default_quickstart_compose_file()
     if stop:
         _attempt_stop(quickstart_compose_file)
@@ -706,9 +731,9 @@ def quickstart(
             kafka_setup,
             quickstart_arch,
             standalone_consumers,
+            version,
         )
-    if version is None and stable:
-        version = get_stable_version()
+
     # set version
     _set_environment_variables(
         version=version,
@@ -826,6 +851,29 @@ def quickstart(
         fg="magenta",
     )
 
+def get_docker_compose_base_url(version_tag: Optional[str]) -> str:
+    if os.environ.get("DOCKER_COMPOSE_BASE"):
+        return os.environ["DOCKER_COMPOSE_BASE"]
+    if version_tag is None:
+        version_tag = "master"
+    return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
+
+
+def get_github_file_url(neo4j, is_m1, release_version_tag: Optional[str] = "master"):
+    base_url = get_docker_compose_base_url(release_version_tag)
+    if neo4j:
+        github_file = (
+            f"{base_url}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
+            if not is_m1
+            else f"{base_url}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+        )
+    else:
+        github_file = (
+            f"{base_url}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
+            if not is_m1
+            else f"{base_url}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+        )
+    return github_file
 
 def download_compose_files(
     quickstart_compose_file_name,
@@ -834,21 +882,12 @@ def download_compose_files(
     kafka_setup,
     quickstart_arch,
     standalone_consumers,
+    release_version_tag: Optional[str]="master",
 ):
     # download appropriate quickstart file
     should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
-    if should_use_neo4j:
-        github_file = (
-            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-            if not is_arch_m1(quickstart_arch)
-            else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
-        )
-    else:
-        github_file = (
-            ELASTIC_QUICKSTART_COMPOSE_URL
-            if not is_arch_m1(quickstart_arch)
-            else ELASTIC_M1_QUICKSTART_COMPOSE_URL
-        )
+    is_m1 = is_arch_m1(quickstart_arch)
+    github_file = get_github_file_url(should_use_neo4j, is_m1, release_version_tag)
     # also allow local files
     request_session = requests.Session()
     request_session.mount("file://", FileAdapter())
@@ -866,10 +905,11 @@ def download_compose_files(
         tmp_file.write(quickstart_download_response.content)
         logger.debug(f"Copied to {path}")
     if standalone_consumers:
+        base_url = get_docker_compose_base_url(release_version_tag)
         consumer_github_file = (
-            f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            f"{base_url}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
             if should_use_neo4j
-            else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            else f"{base_url}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
         )
 
         default_consumer_compose_file = (
