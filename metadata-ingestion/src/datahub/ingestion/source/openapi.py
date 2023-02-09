@@ -2,6 +2,7 @@ import logging
 import time
 import warnings
 import json
+import yaml
 from abc import ABC
 from typing import Dict, Generator, Iterable, Optional, Tuple
 
@@ -225,9 +226,7 @@ class APISource(Source, ABC):
             try:
                 sw_dict = json.loads(swagger_file)
             except json.JSONDecodeError:  # it's not a JSON!
-                logger.warning(
-                    "Unable to parse information from Embedded swagger"
-                )
+                sw_dict = yaml.safe_load(swagger_file)
         else:
             sw_dict = self.config.get_swagger()
         # log and command line info
