@@ -141,6 +141,7 @@ public class Constants {
 
   // DataPlatformInstance
   public static final String DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME = "dataPlatformInstanceKey";
+  public static final String DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME = "dataPlatformInstanceProperties";
 
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
