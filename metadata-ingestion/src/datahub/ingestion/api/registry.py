@@ -10,6 +10,11 @@ from datahub.configuration.common import ConfigurationError
 
 T = TypeVar("T")
 
+# TODO: The `entrypoints` library is in maintenance mode and is not actively developed.
+# We should switch to importlib.metadata once we drop support for Python 3.7.
+# See https://entrypoints.readthedocs.io/en/latest/ and
+# https://docs.python.org/3/library/importlib.metadata.html.
+
 
 def _is_importable(path: str) -> bool:
     return "." in path or ":" in path

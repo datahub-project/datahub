@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any, Callable, Optional, Tuple, TypeVar
 
-import aiohttp
 import humanfriendly
 from packaging.version import Version
 from pydantic import BaseModel
@@ -45,6 +44,8 @@ class DataHubVersionStats(BaseModel):
 
 
 async def get_client_version_stats():
+    import aiohttp
+
     current_version_string = __version__
     current_version = Version(current_version_string)
     client_version_stats: ClientVersionStats = ClientVersionStats(
@@ -88,6 +89,8 @@ async def get_client_version_stats():
 
 
 async def get_github_stats():
+    import aiohttp
+
     async with aiohttp.ClientSession(
         headers={"Accept": "application/vnd.github.v3+json"}
     ) as session:
@@ -100,6 +103,8 @@ async def get_github_stats():
 
 
 async def get_server_config(gms_url: str, token: str) -> dict:
+    import aiohttp
+
     async with aiohttp.ClientSession(
         headers={
             "X-RestLi-Protocol-Version": "2.0.0",
@@ -116,6 +121,8 @@ async def get_server_config(gms_url: str, token: str) -> dict:
 async def get_server_version_stats(
     server: Optional[DataHubGraph] = None,
 ) -> Tuple[Optional[str], Optional[Version], Optional[datetime]]:
+    import aiohttp
+
     server_config = None
     if not server:
         try:
