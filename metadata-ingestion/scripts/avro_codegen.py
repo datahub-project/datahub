@@ -1,6 +1,5 @@
 import json
 import types
-import unittest.mock
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -67,18 +66,17 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
 
 
 def merge_schemas(schemas_obj: List[Any]) -> str:
-    # Combine schemas.
+    # Combine schemas as a "union" of all of the types.
     merged = ["null"] + schemas_obj
 
-    # Patch add_name method to NOT complain about duplicate names
-    def add_name(self, name_attr, space_attr, new_schema):
-        to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
+    # Patch add_name method to NOT complain about duplicate names.
+    class PatchedNames(avro.schema.Names):
+        def add_name(self, name_attr, space_attr, new_schema):
+            to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
+            self.names[to_add.fullname] = new_schema
+            return to_add
 
-        self.names[to_add.fullname] = new_schema
-        return to_add
-
-    with unittest.mock.patch("avro.schema.Names.add_name", add_name):
-        cleaned_schema = avro.schema.make_avsc_object(merged)
+    cleaned_schema = avro.schema.make_avsc_object(merged, names=PatchedNames())
 
     # Convert back to an Avro schema JSON representation.
     class MappingProxyEncoder(json.JSONEncoder):
