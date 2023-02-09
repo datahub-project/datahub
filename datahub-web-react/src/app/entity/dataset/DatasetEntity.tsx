@@ -29,6 +29,7 @@ import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStats
 import { DatasetSearchSnippet } from './DatasetSearchSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
+import { TimelinessTab } from '../shared/tabs/Entity/TimelinessTab/TimelinessTab';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -170,6 +171,16 @@ export class DatasetEntity implements Entity<Dataset> {
                             return (
                                 (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
                             );
+                        },
+                    },
+                },
+                {
+                    name: 'Timeliness',
+                    component: TimelinessTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (dataset?.dataset?.writeRuns?.total || 0) > 0;
                         },
                     },
                 },

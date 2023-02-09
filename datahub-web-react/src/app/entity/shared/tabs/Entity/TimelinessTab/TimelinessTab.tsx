@@ -23,7 +23,7 @@ const LoadingContainer = styled.div`
     text-align: center;
 `;
 
-const TimelinessTab = () => {
+export const TimelinessTab = () => {
     const { urn, entityType } = useEntityData();
     const initialEndDate = moment.utc().startOf('day').toDate().getTime();
     const initialBeginningDate = moment.utc().startOf('day').subtract(7, 'day').toDate().getTime();
@@ -90,8 +90,4 @@ const TimelinessTab = () => {
             <TimelinessPlot runs={runs} />
         </>
     );
-};
-
-export const TimelinessTabErrorBounded = () => {
-    return <TimelinessTab />;
 };

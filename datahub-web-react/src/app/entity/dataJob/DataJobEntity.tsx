@@ -4,7 +4,12 @@ import { DataJob, EntityType, OwnershipType, SearchResult } from '../../../types
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
+import {
+    GetDataJobQuery,
+    GetDataJobRunsQuery,
+    useGetDataJobQuery,
+    useUpdateDataJobMutation,
+} from '../../../graphql/dataJob.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
@@ -19,6 +24,7 @@ import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import { TimelinessTab } from '../shared/tabs/Entity/TimelinessTab/TimelinessTab';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -98,6 +104,16 @@ export class DataJobEntity implements Entity<DataJob> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataJob: GetDataJobQuery) => (dataJob?.dataJob?.runs?.total || 0) !== 0,
+                    },
+                },
+                {
+                    name: 'Timeliness',
+                    component: TimelinessTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataJobRun: GetDataJobRunsQuery) => {
+                            return (dataJobRun?.dataJob?.runs?.total || 0) > 0;
+                        },
                     },
                 },
             ]}
