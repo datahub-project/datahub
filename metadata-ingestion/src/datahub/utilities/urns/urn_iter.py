@@ -11,6 +11,12 @@ def _field_java_class(field_schema: Field) -> Optional[str]:
     return field_schema.props.get("java", {}).get("class")
 
 
+def _is_urn_field(java_class: str) -> bool:
+    return java_class.startswith(
+        "com.linkedin.pegasus2avro.common.urn."
+    ) and java_class.endswith("Urn")
+
+
 def _is_urn_array_field(model: DictWrapper, field: str) -> bool:
     fullname = model.RECORD_SCHEMA.fullname
     if fullname == "com.linkedin.pegasus2avro.dataset.FineGrainedLineage":
@@ -32,7 +38,7 @@ def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
         field_schema: Field = schema.fields_dict[key]
         java_class = _field_java_class(field_schema)
 
-        is_urn_field = java_class and java_class.endswith("Urn")
+        is_urn_field = java_class and _is_urn_field(java_class)
         is_urn_array = _is_urn_array_field(model, key)
 
         if isinstance(value, DictWrapper):

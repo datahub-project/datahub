@@ -4,6 +4,7 @@ from datahub.metadata.schema_classes import (
     ASPECT_CLASSES,
     KEY_ASPECTS,
     OwnershipClass,
+    UpstreamClass,
     _Aspect,
 )
 
@@ -34,3 +35,11 @@ def test_codegen_aspects():
 def test_cannot_instantiated_codegen_aspect():
     with pytest.raises(TypeError, match="instantiate"):
         _Aspect()
+
+
+def test_urn_java_class_annotation():
+    # We rely on these annotations elsewhere, so we want to make sure they show up.
+    assert (
+        UpstreamClass.RECORD_SCHEMA.fields_dict["dataset"].props["java"]["class"]
+        == "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+    )

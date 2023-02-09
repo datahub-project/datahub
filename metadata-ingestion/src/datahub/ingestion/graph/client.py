@@ -145,9 +145,7 @@ class DataHubGraph(DatahubRestEmitter):
         response_json = response.json()
 
         # Figure out what field to look in.
-        record_schema: RecordSchema = aspect_type.__getattribute__(
-            aspect_type, "RECORD_SCHEMA"
-        )
+        record_schema: RecordSchema = aspect_type.RECORD_SCHEMA
         aspect_type_name = record_schema.fullname.replace(".pegasus2avro", "")
 
         # Deserialize the aspect json into the aspect type.
@@ -336,15 +334,9 @@ class DataHubGraph(DatahubRestEmitter):
 
         result: Dict[str, Optional[Aspect]] = {}
         for aspect_type in aspect_types:
-            record_schema: RecordSchema = aspect_type.__getattribute__(
-                aspect_type, "RECORD_SCHEMA"
-            )
-            if not record_schema:
-                logger.warning(
-                    f"Failed to infer type name of the aspect from the aspect type class {aspect_type}. Continuing, but this will fail."
-                )
-            else:
-                aspect_type_name = record_schema.props["Aspect"]["name"]
+            record_schema = aspect_type.RECORD_SCHEMA
+            aspect_type_name = record_schema.props["Aspect"]["name"]
+
             aspect_json = response_json.get("aspects", {}).get(aspect_type_name)
             if aspect_json:
                 # need to apply a transform to the response to match rest.li and avro serialization
