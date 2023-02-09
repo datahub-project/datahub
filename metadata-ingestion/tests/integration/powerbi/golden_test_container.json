@@ -566,6 +566,23 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
     "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/powerbi/demo-workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -652,6 +669,23 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
     "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/powerbi/demo-workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -721,6 +755,21 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -752,21 +801,6 @@
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
-    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -784,6 +818,21 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
         }
     },
     "systemMetadata": {
@@ -1177,6 +1226,23 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection)",
     "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/powerbi/demo-workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -1245,6 +1311,23 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.5b218778-e7a5-4d73-8187-f10824047715.ReportSection1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/powerbi/demo-workspace"
+            ]
         }
     },
     "systemMetadata": {
