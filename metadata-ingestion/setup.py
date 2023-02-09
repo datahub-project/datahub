@@ -538,6 +538,7 @@ entry_points = {
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
+        "backstage = datahub.ingestion.source.backstage.backstage.MyBackstageSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
