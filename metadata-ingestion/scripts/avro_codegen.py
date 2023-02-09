@@ -1,7 +1,7 @@
 import json
-import types
+import re
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import avro.schema
 import click
@@ -65,28 +65,77 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
     return schemas
 
 
-def merge_schemas(schemas_obj: List[Any]) -> str:
+def patch_schemas(schemas: Dict[str, dict], pdl_path: Path) -> Dict[str, dict]:
+    urn_arrays: Dict[
+        str, List[Tuple[str, str]]
+    ] = {}  # schema name -> list of (field name, type)
+
+    # First, we need to load the PDL files and find all urn arrays.
+    for pdl_file in Path(pdl_path).glob("**/*.pdl"):
+        pdl_text = pdl_file.read_text()
+        arrays = re.findall(
+            r"^\s*(\w+)\s*:\s*(?:optional\s+)?array\[(\w*Urn)\]",
+            pdl_text,
+            re.MULTILINE,
+        )
+        if arrays:
+            schema_name = pdl_file.stem
+            urn_arrays[schema_name] = [(item[0], item[1]) for item in arrays]
+
+    # Then, we can patch each schema.
+    patched_schemas = {}
+    for name, schema in schemas.items():
+        patched_schemas[name] = patch_schema(schema, urn_arrays)
+
+    return patched_schemas
+
+
+def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> dict:
+    # We're using Names() to generate a full list of embedded schemas.
+    all_schemas = avro.schema.Names()
+    patched = avro.schema.make_avsc_object(schema, names=all_schemas)
+
+    for nested in all_schemas.names.values():
+        if isinstance(nested, (avro.schema.EnumSchema, avro.schema.FixedSchema)):
+            continue
+        assert isinstance(nested, avro.schema.RecordSchema)
+
+        # Patch normal urn types.
+        field: avro.schema.Field
+        for field in nested.fields:
+            java_class = field.props.get("java", {}).get("class")
+            if java_class:
+                if java_class.startswith("com.linkedin.pegasus2avro.common.urn."):
+                    field.set_prop("Urn", java_class.split(".")[-1])
+
+        # Patch array urn types.
+        if nested.name in urn_arrays:
+            mapping = urn_arrays[nested.name]
+
+            for field_name, type in mapping:
+                field = nested.fields_dict[field_name]
+                field.set_prop("Urn", type)
+                field.set_prop("urn_is_array", True)
+
+    return patched.to_json()
+
+
+def merge_schemas(schemas_obj: List[dict]) -> str:
     # Combine schemas as a "union" of all of the types.
     merged = ["null"] + schemas_obj
 
     # Patch add_name method to NOT complain about duplicate names.
-    class PatchedNames(avro.schema.Names):
+    class NamesWithDups(avro.schema.Names):
         def add_name(self, name_attr, space_attr, new_schema):
             to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
             self.names[to_add.fullname] = new_schema
             return to_add
 
-    cleaned_schema = avro.schema.make_avsc_object(merged, names=PatchedNames())
+    cleaned_schema = avro.schema.make_avsc_object(merged, names=NamesWithDups())
 
     # Convert back to an Avro schema JSON representation.
-    class MappingProxyEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, types.MappingProxyType):
-                return dict(obj)
-            return json.JSONEncoder.default(self, obj)
-
     out_schema = cleaned_schema.to_json()
-    encoded = json.dumps(out_schema, cls=MappingProxyEncoder, indent=2)
+    encoded = json.dumps(out_schema, indent=2)
     return encoded
 
 
@@ -163,7 +212,7 @@ def make_load_schema_methods(schemas: Iterable[str]) -> str:
     )
 
 
-def save_raw_schemas(schema_save_dir: Path, schemas: Dict[str, Any]) -> None:
+def save_raw_schemas(schema_save_dir: Path, schemas: Dict[str, dict]) -> None:
     # Save raw avsc files.
     schema_save_dir.mkdir()
     for name, schema in schemas.items():
@@ -242,8 +291,6 @@ class _Aspect(DictWrapper):
     newline = "\n"
     schema_classes_lines.append(
         f"""
-from typing import Type
-
 ASPECT_CLASSES: List[Type[_Aspect]] = [
     {f',{newline}    '.join(f"{aspect['name']}Class" for aspect in aspects)}
 ]
@@ -262,12 +309,20 @@ KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     "entity_registry", type=click.Path(exists=True, dir_okay=False), required=True
 )
 @click.argument(
+    "pdl_path", type=click.Path(exists=True, file_okay=False), required=True
+)
+@click.argument(
     "schemas_path", type=click.Path(exists=True, file_okay=False), required=True
 )
 @click.argument("outdir", type=click.Path(), required=True)
-def generate(entity_registry: str, schemas_path: str, outdir: str) -> None:
+def generate(
+    entity_registry: str, pdl_path: str, schemas_path: str, outdir: str
+) -> None:
     entities = load_entity_registry(Path(entity_registry))
     schemas = load_schemas(schemas_path)
+
+    # Patch the avsc files.
+    schemas = patch_schemas(schemas, Path(pdl_path))
 
     # Special handling for aspects.
     aspects = {

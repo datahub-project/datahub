@@ -1,29 +1,10 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 from avro.schema import Field, RecordSchema
 
 from datahub.metadata.schema_classes import DictWrapper
 
 _Path = List[Union[str, int]]
-
-
-def _field_java_class(field_schema: Field) -> Optional[str]:
-    return field_schema.props.get("java", {}).get("class")
-
-
-def _is_urn_field(java_class: str) -> bool:
-    return java_class.startswith(
-        "com.linkedin.pegasus2avro.common.urn."
-    ) and java_class.endswith("Urn")
-
-
-def _is_urn_array_field(model: DictWrapper, field: str) -> bool:
-    fullname = model.RECORD_SCHEMA.fullname
-    if fullname == "com.linkedin.pegasus2avro.dataset.FineGrainedLineage":
-        if field in {"upstreams", "downstreams"}:
-            return True
-
-    return False
 
 
 def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
@@ -36,10 +17,7 @@ def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
             continue
 
         field_schema: Field = schema.fields_dict[key]
-        java_class = _field_java_class(field_schema)
-
-        is_urn_field = java_class and _is_urn_field(java_class)
-        is_urn_array = _is_urn_array_field(model, key)
+        is_urn = field_schema.get_prop("Urn") is not None
 
         if isinstance(value, DictWrapper):
             for urn, path in list_urns_with_path(value):
@@ -49,9 +27,9 @@ def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
                 if isinstance(item, DictWrapper):
                     for urn, path in list_urns_with_path(item):
                         urns.append((urn, [key, i, *path]))
-                elif is_urn_array:
+                elif is_urn:
                     urns.append((item, [key, i]))
-        elif is_urn_field:
+        elif is_urn:
             urns.append((value, [key]))
 
     return urns

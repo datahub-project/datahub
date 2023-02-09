@@ -3,6 +3,7 @@ import pytest
 from datahub.metadata.schema_classes import (
     ASPECT_CLASSES,
     KEY_ASPECTS,
+    FineGrainedLineageClass,
     OwnershipClass,
     UpstreamClass,
     _Aspect,
@@ -37,9 +38,21 @@ def test_cannot_instantiated_codegen_aspect():
         _Aspect()
 
 
-def test_urn_java_class_annotation():
+def test_urn_annotation():
     # We rely on these annotations elsewhere, so we want to make sure they show up.
+
     assert (
-        UpstreamClass.RECORD_SCHEMA.fields_dict["dataset"].props["java"]["class"]
-        == "com.linkedin.pegasus2avro.common.urn.DatasetUrn"
+        UpstreamClass.RECORD_SCHEMA.fields_dict["dataset"].get_prop("Urn")
+        == "DatasetUrn"
+    )
+    assert not UpstreamClass.RECORD_SCHEMA.fields_dict["dataset"].get_prop(
+        "urn_is_array"
+    )
+
+    assert (
+        FineGrainedLineageClass.RECORD_SCHEMA.fields_dict["upstreams"].get_prop("Urn")
+        == "Urn"
+    )
+    assert FineGrainedLineageClass.RECORD_SCHEMA.fields_dict["upstreams"].get_prop(
+        "urn_is_array"
     )
