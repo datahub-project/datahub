@@ -5,6 +5,7 @@ from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
     FineGrainedLineageClass,
     OwnershipClass,
+    TelemetryKeyClass,
     UpstreamClass,
     _Aspect,
 )
@@ -31,6 +32,16 @@ def test_codegen_aspects():
     # These bounds are extremely loose, and mainly verify that the lists aren't empty.
     assert len(ASPECT_CLASSES) > 30
     assert len(KEY_ASPECTS) > 10
+
+
+def test_key_aspect_info():
+    expected = {
+        "keyForEntity": "telemetry",
+        "entityCategory": "internal",
+        "entityAspects": ["telemetryClientId"],
+    }
+    assert TelemetryKeyClass.ASPECT_INFO == expected
+    assert TelemetryKeyClass.get_aspect_info() == expected
 
 
 def test_cannot_instantiated_codegen_aspect():

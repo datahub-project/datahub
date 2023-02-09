@@ -283,7 +283,11 @@ class _Aspect(DictWrapper):
             schema_classes_lines[
                 empty_line
             ] += f"\n    ASPECT_TYPE = '{aspect['Aspect']['type']}'"
-        schema_classes_lines[empty_line] += f"\n    ASPECT_INFO = {aspect['Aspect']}"
+
+        aspect_info = {
+            k: v for k, v in aspect["Aspect"].items() if k not in {"name", "type"}
+        }
+        schema_classes_lines[empty_line] += f"\n    ASPECT_INFO = {aspect_info}"
 
         schema_classes_lines[empty_line + 1] += "\n"
 
