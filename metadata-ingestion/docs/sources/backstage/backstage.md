@@ -12,7 +12,7 @@ Loading of Open API interfaces is performed in three steps:
 
 1. List of services is fetched from service catalog (see [Backstage.io API documentation](https://backstage.io/docs/features/software-catalog/descriptor-format)).
 2. Retrieved services are checked for Open API interfaces matching [defined criteria](#criteria).
-3. Ingestion performed using the **[Open API module](../openapi/openapi.md)** is triggered for every Open API interface conforming to the [criteria](#criteria).
+3. Ingestion performed using the **[Open API module](docs/generated/ingestion/sources/openapi/openapi.md)** is triggered for every Open API interface conforming to the [criteria](#criteria).
 
 Swagger file is taken from the service documentation and is provided to the Open API module by its direct embedding into the Open API recipe.
 
