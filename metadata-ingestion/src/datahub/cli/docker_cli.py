@@ -17,10 +17,10 @@ import click
 import click_spinner
 import pydantic
 import requests
-import datahub
 from expandvars import expandvars
 from requests_file import FileAdapter
 
+import datahub
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_PROJECT_FILTER,
@@ -32,10 +32,7 @@ from datahub.cli.docker_check import (
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities.sample_data import (
-    BOOTSTRAP_MCES_FILE,
-    download_sample_data,
-)
+from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
 
 logger = logging.getLogger(__name__)
 
