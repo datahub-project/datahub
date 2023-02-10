@@ -79,7 +79,7 @@ class BigQuerySQLParser(SQLParser):
         Note: ignore cases of having keyword FROM as part of datetime function EXTRACT
         """
         return re.sub(
-            r"(?<!day\s)(?<!(date|time|hour|week|year)\s)(?<!month\s)(?<!(second|minute)\s)(?<!quarter\s)(?<!\.)(from\s)([^`\s()]+)",
+            r"(?<!day\s)(?<!(date|time|hour|week|year)\s)(?<!month\s)(?<!(second|minute)\s)(?<!quarter\s)(?<!\.)(from\s)([^`\s();]+)",
             r"\3`\4`",
             sql_query,
             flags=re.IGNORECASE,

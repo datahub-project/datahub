@@ -41,7 +41,7 @@ pwd ../../../
 
 DATAHUB_TELEMETRY_ENABLED=false  \
 DOCKER_COMPOSE_BASE="file://$(cd "$(dirname "${DIR}/../../../../../")"; pwd)" \
-datahub docker quickstart --build-locally --dump-logs-on-failure
+datahub docker quickstart --dump-logs-on-failure
 is_healthy "datahub-gms" 60
 
 echo "--------------------------------------------------------------------"
