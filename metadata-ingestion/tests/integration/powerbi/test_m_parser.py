@@ -2,6 +2,7 @@ import logging
 import sys
 from typing import List
 
+import pytest
 from lark import Tree
 
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
@@ -33,84 +34,98 @@ M_QUERIES = [
 ]
 
 
+@pytest.mark.integration
 def test_parse_m_query1():
     expression: str = M_QUERIES[0]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == "TESTTABLE_Table"
 
 
+@pytest.mark.integration
 def test_parse_m_query2():
     expression: str = M_QUERIES[1]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom2"'
 
 
+@pytest.mark.integration
 def test_parse_m_query3():
     expression: str = M_QUERIES[2]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Conditional Column"'
 
 
+@pytest.mark.integration
 def test_parse_m_query4():
     expression: str = M_QUERIES[3]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Changed Type"'
 
 
+@pytest.mark.integration
 def test_parse_m_query5():
     expression: str = M_QUERIES[4]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Renamed Columns"'
 
 
+@pytest.mark.integration
 def test_parse_m_query6():
     expression: str = M_QUERIES[5]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom"'
 
 
+@pytest.mark.integration
 def test_parse_m_query7():
     expression: str = M_QUERIES[6]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == "Source"
 
 
+@pytest.mark.integration
 def test_parse_m_query8():
     expression: str = M_QUERIES[7]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom1"'
 
 
+@pytest.mark.integration
 def test_parse_m_query9():
     expression: str = M_QUERIES[8]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom1"'
 
 
+@pytest.mark.integration
 def test_parse_m_query10():
     expression: str = M_QUERIES[9]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Changed Type1"'
 
 
+@pytest.mark.integration
 def test_parse_m_query11():
     expression: str = M_QUERIES[10]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == "Source"
 
 
+@pytest.mark.integration
 def test_parse_m_query12():
     expression: str = M_QUERIES[11]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == '"Added Custom"'
 
 
+@pytest.mark.integration
 def test_parse_m_query13():
     expression: str = M_QUERIES[12]
     parse_tree: Tree = parser._parse_expression(expression)
     assert tree_function.get_output_variable(parse_tree) == "two_source_table"
 
 
+@pytest.mark.integration
 def test_snowflake_regular_case():
     q: str = M_QUERIES[0]
     table: PowerBiAPI.Table = PowerBiAPI.Table(
@@ -134,6 +149,7 @@ def test_snowflake_regular_case():
     )
 
 
+@pytest.mark.integration
 def test_postgres_regular_case():
     q: str = M_QUERIES[13]
     table: PowerBiAPI.Table = PowerBiAPI.Table(
@@ -156,6 +172,7 @@ def test_postgres_regular_case():
     )
 
 
+@pytest.mark.integration
 def test_oracle_regular_case():
     q: str = M_QUERIES[14]
     table: PowerBiAPI.Table = PowerBiAPI.Table(
@@ -178,6 +195,7 @@ def test_oracle_regular_case():
     )
 
 
+@pytest.mark.integration
 def test_mssql_regular_case():
     q: str = M_QUERIES[15]
     table: PowerBiAPI.Table = PowerBiAPI.Table(
@@ -201,6 +219,7 @@ def test_mssql_regular_case():
     )
 
 
+@pytest.mark.integration
 def test_mssql_with_query():
     mssql_queries: List[str] = [
         M_QUERIES[3],
@@ -240,6 +259,7 @@ def test_mssql_with_query():
         )
 
 
+@pytest.mark.integration
 def test_snowflake_native_query():
     snowflake_queries: List[str] = [
         M_QUERIES[1],
@@ -276,6 +296,7 @@ def test_snowflake_native_query():
         )
 
 
+@pytest.mark.integration
 def test_native_query_disabled():
     table: PowerBiAPI.Table = PowerBiAPI.Table(
         expression=M_QUERIES[1],  # 1st index has the native query
@@ -291,6 +312,7 @@ def test_native_query_disabled():
     assert len(data_platform_tables) == 0
 
 
+@pytest.mark.integration
 def test_multi_source_table():
 
     table: PowerBiAPI.Table = PowerBiAPI.Table(
@@ -318,6 +340,7 @@ def test_multi_source_table():
     )
 
 
+@pytest.mark.integration
 def test_table_combine():
     table: PowerBiAPI.Table = PowerBiAPI.Table(
         expression=M_QUERIES[16],  # 1st index has the native query
@@ -345,6 +368,7 @@ def test_table_combine():
     )
 
 
+@pytest.mark.integration
 def test_expression_is_none():
     """
     This test verifies the logging.debug should work if expression is None
