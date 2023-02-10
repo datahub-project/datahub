@@ -337,9 +337,7 @@ class Mapper:
             aspect_name=Constant.CHART_KEY,
             aspect=chart_key_instance,
         )
-        browse_path = BrowsePathsClass(
-            paths=["/powerbi/{}".format(workspace.name)]
-        )
+        browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.CHART,
             entity_urn=chart_urn,
@@ -680,9 +678,7 @@ class Mapper:
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
-            browse_path = BrowsePathsClass(
-                paths=["/powerbi/{}".format(workspace.name)]
-            )
+            browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
             browse_path_mcp = self.new_mcp(
                 entity_type=Constant.CHART,
                 entity_urn=chart_urn,
