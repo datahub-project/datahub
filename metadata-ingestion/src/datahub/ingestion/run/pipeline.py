@@ -458,10 +458,6 @@ class Pipeline:
                 raise PipelineExecutionError(
                     "Sink reported warnings", self.sink.get_report()
                 )
-            if len(get_global_warnings()) > 0:
-                raise PipelineExecutionError(
-                    "Global Warnings Found", get_global_warnings()
-                )
 
     def log_ingestion_stats(self) -> None:
         source_failures = self._approx_all_vals(self.source.get_report().failures)
