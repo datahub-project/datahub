@@ -149,6 +149,7 @@ class PluginRegistry(Generic[T]):
 
     @property
     def mapping(self) -> Dict[str, Union[str, Type[T], Exception]]:
+        self._materialize_entrypoints()
         return self._mapping
 
     def get(self, key: str) -> Type[T]:

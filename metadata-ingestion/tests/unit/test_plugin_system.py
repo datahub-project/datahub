@@ -57,7 +57,6 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
     ],
 )
 def test_registry_defaults(registry: PluginRegistry, expected: List[str]) -> None:
-    registry._materialize_entrypoints()
     assert len(registry.mapping) > 0
 
     for plugin in expected:
