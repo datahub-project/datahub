@@ -223,7 +223,7 @@ class APISource(Source, ABC):
 
         self.url_basepath = get_url_basepath(sw_dict)
 
-        # Getting all the URLs accepting the "GET" method
+        # Getting all the URLs accepting the "GET", "POST", "PUT" and "PATCH" methods
         with warnings.catch_warnings(record=True) as warn_c:
             url_endpoints = get_endpoints(sw_dict, config.get_operations_only)
 

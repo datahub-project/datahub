@@ -537,31 +537,36 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
 def get_schemas(sc_dict: dict) -> dict:
     schema_details = {}
 
-    for p_k, p_o in sc_dict["components"]["schemas"].items():
-        schema_details[p_k] = {}
+    if "components" in sc_dict:
+        for p_k, p_o in sc_dict["components"]["schemas"].items():
+            schema_details[p_k] = {}
 
-        try:
-            required_fields = p_o["required"]
-        except KeyError:
-            required_fields = []
+            try:
+                required_fields = p_o["required"]
+            except KeyError:
+                required_fields = []
 
-        try:
-            schema_fields = p_o["properties"]
-        except KeyError:
-            schema_fields = []
+            try:
+                schema_fields = p_o["properties"]
+            except KeyError:
+                schema_fields = []
 
-        try:
-            enum_fields = p_o["enum"]
-        except KeyError:
-            enum_fields = []
+            try:
+                enum_fields = p_o["enum"]
+            except KeyError:
+                enum_fields = []
 
-        try:
-            description_fields = p_o["description"]
-        except KeyError:
-            description_fields = []
+            try:
+                description_fields = p_o["description"]
+            except KeyError:
+                description_fields = []
 
-        schema_details[p_k]["detail"] = {"required": required_fields, "properties": schema_fields,
+            schema_details[p_k]["detail"] = {"required": required_fields, "properties": schema_fields,
                                              "enum": enum_fields, "description": description_fields}
+    else:
+        schema_details["empty_schema"] = {}
+        schema_details["empty_schema"]["detail"] = {"required": "", "properties": "",
+                                         "enum": "", "description": "Swagger file doesn't contains a components path"}
 
     return dict(schema_details.items())
 
