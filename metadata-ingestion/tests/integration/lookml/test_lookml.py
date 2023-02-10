@@ -337,7 +337,7 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
 
 
 @freeze_time(FROZEN_TIME)
-def test_lookml_github_info(pytestconfig, tmp_path, mock_time):
+def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
     """Add github info to config"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out = "lookml_mces_with_external_urls.json"

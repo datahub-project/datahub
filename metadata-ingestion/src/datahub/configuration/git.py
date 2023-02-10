@@ -13,7 +13,7 @@ _GITHUB_URL_TEMPLATE = "{repo_url}/blob/{branch}/{file_path}"
 _GITLAB_URL_TEMPLATE = "{repo_url}/-/blob/{branch}/{file_path}"
 
 
-class GitHubReference(ConfigModel):
+class GitReference(ConfigModel):
     """Reference to a hosted Git repository. Used to generate "view source" links."""
 
     repo: str = Field(
@@ -72,7 +72,7 @@ class GitHubReference(ConfigModel):
         )
 
 
-class GitHubInfo(GitHubReference):
+class GitInfo(GitReference):
     """A reference to a Git repository, including a deploy key that can be used to clone it."""
 
     deploy_key_file: Optional[FilePath] = Field(

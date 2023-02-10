@@ -9,7 +9,8 @@ import dateutil.parser
 import requests
 from pydantic import BaseModel, Field, validator
 
-from datahub.configuration.github import GitHubReference
+from datahub.configuration.git import GitReference
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -53,10 +54,12 @@ class DBTCoreConfig(DBTCommonConfig):
         description="When fetching manifest files from s3, configuration for aws connection details",
     )
 
-    github_info: Optional[GitHubReference] = Field(
+    git_info: Optional[GitReference] = Field(
         None,
-        description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
+        description="Reference to your git location to enable easy navigation from DataHub to your dbt files.",
     )
+
+    _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
     @property
     def s3_client(self):
@@ -476,8 +479,8 @@ class DBTCoreSource(DBTSourceBase):
         return all_nodes, additional_custom_props
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
-        if self.config.github_info and node.dbt_file_path:
-            return self.config.github_info.get_url_for_file_path(node.dbt_file_path)
+        if self.config.git_info and node.dbt_file_path:
+            return self.config.git_info.get_url_for_file_path(node.dbt_file_path)
         return None
 
     def get_platform_instance_id(self) -> str:
