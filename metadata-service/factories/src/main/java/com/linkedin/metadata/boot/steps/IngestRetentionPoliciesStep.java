@@ -3,8 +3,10 @@ package com.linkedin.metadata.boot.steps;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.datahub.util.RecordUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.retention.DataHubRetentionConfig;
@@ -25,11 +27,14 @@ import org.springframework.core.io.ClassPathResource;
 public class IngestRetentionPoliciesStep implements BootstrapStep {
 
   private final RetentionService _retentionService;
+  private final EntityService _entityService;
   private final boolean _enableRetention;
   private final boolean _applyOnBootstrap;
   private final String pluginPath;
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
+  private static final String UPGRADE_ID = "ingest-retention-policies";
+  private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
   @Nonnull
   @Override
@@ -45,6 +50,10 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
   @Override
   public void execute() throws IOException, URISyntaxException {
     // 0. Execute preflight check to see whether we need to ingest policies
+    if (_entityService.exists(UPGRADE_ID_URN)) {
+      log.info("Retention was applied. Skipping.");
+      return;
+    }
     log.info("Ingesting default retention...");
 
     // If retention is disabled, skip step
@@ -74,6 +83,8 @@ public class IngestRetentionPoliciesStep implements BootstrapStep {
       log.info("Applying policies to all records");
       _retentionService.batchApplyRetention(null, null);
     }
+
+    BootstrapStep.setUpgradeResult(UPGRADE_ID_URN, _entityService);
   }
 
   // Parse input yaml file or yaml files in the input directory to generate a retention policy map

@@ -21,7 +21,13 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Potential Downtime
 
-- #6894 Search improvements requires reindexing indices. A `system-update` job will run which will set indices to read-only and create a backup/clone of each index. During the reindexing new components will be prevented from start-up until the reindex completes. The logs of this job will indicate a % complete per index. Depending on index sizes and infrastructure this process can take 5 minutes to hours however as a rough estimate 1 hour for every 2.3 million entities. 
+- #6894 Search improvements requires reindexing indices. A `system-update` job will run which will set indices to read-only and create a backup/clone of each index. During the reindexing new components will be prevented from start-up until the reindex completes. The logs of this job will indicate a % complete per index. Depending on index sizes and infrastructure this process can take 5 minutes to hours however as a rough estimate 1 hour for every 2.3 million entities.
+
+#### Helm Notes
+
+Helm without `--atomic`: The default timeout for an upgrade command is 5 minutes. If the reindex takes longer (depending on data size) it will continue to run in the background even though helm will report a failure. Allow this job to finish and then re-run the helm upgrade command.
+
+Helm with `--atomic`: In general, it is recommended to not use the `--atomic` setting for this particular upgrade since the system update job will be terminated before completion. If `--atomic` is preferred, then increase the timeout using the `--timeout` flag to account for the reindexing time (see note above for estimating this value).
 
 ### Deprecations
 
