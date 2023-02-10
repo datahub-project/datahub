@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.boot;
+package com.linkedin.metadata.boot.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.EventUtils;
@@ -18,7 +18,6 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -35,8 +34,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @EnableKafka
 public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, BootstrapDependency {
-  @Autowired
-  private KafkaListenerEndpointRegistry registry;
+
+  private final KafkaListenerEndpointRegistry registry;
 
   private static final String CONSUMER_GROUP = "${DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-duhe-consumer-job-client}";
   private static final String SUFFIX = "temp";
@@ -55,7 +54,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
   @Value(TOPIC_NAME)
   private String topicName;
 
-  private AtomicBoolean isUpdated = new AtomicBoolean(false);
+  private final static AtomicBoolean IS_UPDATED = new AtomicBoolean(false);
 
 
   // Constructs a consumer to read determine final offset to assign, prevents re-reading whole topic to get the latest version
@@ -66,12 +65,15 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       final Map<TopicPartition, Long> offsetMap = kafkaConsumer.endOffsets(assignments.keySet());
       assignments.entrySet().stream()
           .filter(entry -> topicName.equals(entry.getKey().topic()))
-          .forEach(entry ->
-              callback.seek(entry.getKey().topic(), entry.getKey().partition(), offsetMap.get(entry.getKey()) - 1));
+          .forEach(entry -> {
+            log.info("Partition: {} Current Offset: {}", entry.getKey(), offsetMap.get(entry.getKey()));
+            long newOffset = offsetMap.get(entry.getKey()) - 1;
+            callback.seek(entry.getKey().topic(), entry.getKey().partition(), Math.max(0, newOffset));
+          });
     }
   }
 
-  @KafkaListener(id = CONSUMER_GROUP, topics = {TOPIC_NAME}, containerFactory = "kafkaEventConsumer")
+  @KafkaListener(id = CONSUMER_GROUP, topics = {TOPIC_NAME}, containerFactory = "kafkaEventConsumer", concurrency = "1")
   public void checkSystemVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     final String expectedVersion = String.format("%s-%s", _gitVersion.getVersion(), revision);
@@ -81,7 +83,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       event = EventUtils.avroToPegasusDUHE(record);
       log.info("Latest system update version: {}", event.getVersion());
       if (expectedVersion.equals(event.getVersion())) {
-        isUpdated.getAndSet(true);
+        IS_UPDATED.getAndSet(true);
       } else {
         log.debug("System version is not up to date: {}", expectedVersion);
       }
@@ -101,7 +103,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
 
     long backOffMs = initialBackOffMs;
     for (int i = 0; i < maxBackOffs; i++) {
-      if (isUpdated.get()) {
+      if (IS_UPDATED.get()) {
         log.debug("Finished waiting for updated indices.");
         try {
           log.info("Containers: {}", registry.getListenerContainers().stream()
@@ -123,7 +125,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       backOffMs = backOffMs * backOffFactor;
     }
 
-    if (!isUpdated.get()) {
+    if (!IS_UPDATED.get()) {
 
       throw new IllegalStateException("Indices are not updated after exponential backoff."
           + " Please try restarting and consider increasing back off settings.");
