@@ -376,6 +376,8 @@ def test_expression_is_none():
         expression=None,  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
+        columns=[],
+        measures=[],
     )
 
     reporter = PowerBiDashboardSourceReport()
