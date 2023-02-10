@@ -76,3 +76,5 @@ datahub-frontend/public/**
 .remote*
 # Ignore runtime generated authenticatior/authorizer jar files
 metadata-service/plugin/src/test/resources/sample-plugins/**
+
+smoke-test/rollback-reports
