@@ -249,8 +249,12 @@ class APISource(Source, ABC):
             # adding dataset fields
             if "data" in endpoint_dets.keys():
                 # we are lucky! data is defined in the swagger for this endpoint
-                schema_metadata = set_metadata(dataset_name, endpoint_dets["data"], endpoint_dets["operationId"],
-                                               schemas_details)
+                schema_metadata = set_metadata(
+                    dataset_name,
+                    endpoint_dets["data"],
+                    endpoint_dets["operationId"],
+                    schemas_details,
+                )
                 dataset_snapshot.aspects.append(schema_metadata)
                 yield from self.build_wu(dataset_snapshot, dataset_name)
             elif (

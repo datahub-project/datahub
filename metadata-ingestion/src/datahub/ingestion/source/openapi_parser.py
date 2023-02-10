@@ -2,7 +2,18 @@ import json
 import re
 import warnings
 from gc import freeze
-from typing import Any, Dict, Generator, List, Tuple, Iterable, Optional, Type, Union, ValuesView
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    List,
+    Tuple,
+    Iterable,
+    Optional,
+    Type,
+    Union,
+    ValuesView,
+)
 
 import requests
 import yaml
@@ -11,10 +22,20 @@ from requests.auth import HTTPBasicAuth
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchemaClass,
     SchemaField,
-    SchemaMetadata, SchemaFieldDataType,
+    SchemaMetadata,
+    SchemaFieldDataType,
 )
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass, NullTypeClass, BooleanTypeClass, \
-    ArrayTypeClass, NumberTypeClass, RecordTypeClass, UnionTypeClass, EnumTypeClass
+from datahub.metadata.schema_classes import (
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+    NullTypeClass,
+    BooleanTypeClass,
+    ArrayTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    UnionTypeClass,
+    EnumTypeClass,
+)
 
 _field_type_mapping: Dict[str, Type] = {
     list: ArrayTypeClass,
@@ -163,7 +184,11 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             except KeyError:
                 operation_id = []
 
-            url_details[p_k] = {"description": desc, "tags": tags, "operationId": operation_id}
+            url_details[p_k] = {
+                "description": desc,
+                "tags": tags,
+                "operationId": operation_id
+            }
 
             # trying if dataset is defined in swagger...
             if "content" in base_res.keys():
@@ -233,7 +258,11 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             except KeyError:
                 operation_id = []
 
-            url_details[p_k + "__post_request"] = {"description": desc, "tags": tags, "operationId": operation_id}
+            url_details[p_k + "__post_request"] = {
+                "description": desc,
+                "tags": tags,
+                "operationId": operation_id
+            }
 
             # trying if dataset is defined in swagger...
             if "content" in base_res.keys():
@@ -342,8 +371,16 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             except KeyError:
                 operation_id = []
 
-            url_details[p_k + "__put_response"] = {"description": desc, "tags": tags, "operationId": operation_id}
-            url_details[p_k + "__put_request"] = {"description": desc, "tags": tags, "operationId": operation_id}
+            url_details[p_k + "__put_response"] = {
+                "description": desc,
+                "tags": tags,
+                "operationId": operation_id
+            }
+            url_details[p_k + "__put_request"] = {
+                "description": desc,
+                "tags": tags,
+                "operationId": operation_id
+            }
 
             # trying if dataset is defined in swagger...
             if "content" in base_res.keys():
@@ -787,7 +824,7 @@ def set_metadata(
             json_str = fields["items"]
             for key, value in json_str.items():
                 if key == "$ref":
-                    column_schema = value.rsplit('/', 1)[1]
+                    column_schema = value.rsplit("/", 1)[1]
                     if column_schema in schemas_details:
                         schema = schemas_details[column_schema]["detail"]["properties"]
                         schema_enum = schemas_details[column_schema]["detail"]["enum"]
@@ -830,8 +867,15 @@ def set_metadata(
                                 except KeyError:
                                     try:
                                         field_type = f_v["$ref"]
-                                        ft_name = field_type.rsplit('/', 1)[1]
-                                        canonical_schema = add_subschema(ft_name, schemas_details, canonical_schema, False, None, field_name)
+                                        ft_name = field_type.rsplit("/", 1)[1]
+                                        canonical_schema = add_subschema(
+                                            ft_name,
+                                            schemas_details,
+                                            canonical_schema,
+                                            False,
+                                            None,
+                                            field_name,
+                                        )
                                         continue
                                     except KeyError:
                                         try:
@@ -839,8 +883,15 @@ def set_metadata(
                                             if len(field_type) > 0:
                                                 item = field_type[0]
                                                 ft = item["$ref"]
-                                                s_name = ft.rsplit('/', 1)[1]
-                                                canonical_schema = add_subschema(s_name, schemas_details, canonical_schema, False, None, field_name)
+                                                s_name = ft.rsplit("/", 1)[1]
+                                                canonical_schema = add_subschema(
+                                                    s_name,
+                                                    schemas_details,
+                                                    canonical_schema,
+                                                    False,
+                                                    None,
+                                                    field_name,
+                                                )
                                                 continue
                                         except KeyError:
                                             try:
@@ -848,8 +899,15 @@ def set_metadata(
                                                 if len(field_type) > 0:
                                                     item = field_type[0]
                                                     ft = item["$ref"]
-                                                    s_name = ft.rsplit('/', 1)[1]
-                                                    canonical_schema = add_subschema(s_name, schemas_details, canonical_schema, False, None, field_name)
+                                                    s_name = ft.rsplit("/", 1)[1]
+                                                    canonical_schema = add_subschema(
+                                                        s_name,
+                                                        schemas_details,
+                                                        canonical_schema,
+                                                        False,
+                                                        None,
+                                                        field_name,
+                                                    )
                                                     continue
                                             except KeyError:
                                                 field_type = "String"
@@ -867,7 +925,7 @@ def set_metadata(
 
         elif column == "$ref":
             json_str = fields["$ref"]
-            column_schema = json_str.rsplit('/', 1)[1]
+            column_schema = json_str.rsplit("/", 1)[1]
             canonical_schema = add_subschema(column_schema, schemas_details, canonical_schema, False, None, None)
             continue
         else:
@@ -947,7 +1005,7 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                 except KeyError:
                     try:
                         field_type = f_v["$ref"]
-                        subcolumn_schema = field_type.rsplit('/', 1)[1]
+                        subcolumn_schema = field_type.rsplit("/", 1)[1]
                         if subcolumn_schema in schemas_details:
                             subschema = schemas_details[subcolumn_schema]["detail"]["properties"]
                             subschema_enum = schemas_details[subcolumn_schema]["detail"]["enum"]
@@ -976,7 +1034,7 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                             canonical_schema.append(field)
                         elif len(subschema) == 0 and len(subschema_enum) == 0:
                             field = SchemaField(
-                                fieldPath=field_name + '.' + subcolumn_schema,
+                                fieldPath=field_name + "." + subcolumn_schema,
                                 nativeDataType="String",
                                 type=SchemaFieldDataTypeClass(type=StringTypeClass()),
                                 description=description,
@@ -1000,14 +1058,32 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                                     subschema_type = s_o["type"]
                                     subschema_type_control_ref = s_o["items"]["$ref"]
                                     if len(subschema_type_control_ref) > 0:
-                                        ref_schema = subschema_type_control_ref.rsplit('/', 1)[1]
-                                        canonical_schema = add_next_subschema(ref_schema, schemas_details, canonical_schema, field_name, subschema_name)
+                                        ref_schema = subschema_type_control_ref.rsplit(
+                                            "/", 1
+                                        )[1]
+                                        canonical_schema = (
+                                            add_next_subschema(
+                                                ref_schema,
+                                                schemas_details,
+                                                canonical_schema,
+                                                field_name,
+                                                subschema_name,
+                                            )
+                                        )
                                         continue
                                 except KeyError:
                                     try:
                                         subschema_type = s_o["$ref"]
-                                        sub_schema = subschema_type.rsplit('/', 1)[1]
-                                        canonical_schema = add_next_subschema(sub_schema, schemas_details, canonical_schema, field_name, subschema_name)
+                                        sub_schema = subschema_type.rsplit("/", 1)[1]
+                                        canonical_schema = (
+                                            add_next_subschema(
+                                                sub_schema,
+                                                schemas_details,
+                                                canonical_schema,
+                                                field_name,
+                                                subschema_name,
+                                            )
+                                        )
                                         continue
 
                                     except KeyError:
@@ -1016,8 +1092,14 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                                             if len(subschema_type) > 0:
                                                 item = subschema_type[0]
                                                 ft = item["$ref"]
-                                                s_name = ft.rsplit('/', 1)[1]
-                                                canonical_schema = add_next_subschema(s_name, schemas_details, canonical_schema, field_name, subschema_name)
+                                                s_name = ft.rsplit("/", 1)[1]
+                                                canonical_schema = add_next_subschema(
+                                                    s_name,
+                                                    schemas_details,
+                                                    canonical_schema,
+                                                    field_name,
+                                                    subschema_name,
+                                                )
                                             continue
                                         except KeyError:
                                             try:
@@ -1025,15 +1107,21 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                                                 if len(subschema_type) > 0:
                                                     item = subschema_type[0]
                                                     ft = item["$ref"]
-                                                    s_name = ft.rsplit('/', 1)[1]
-                                                    canonical_schema = add_next_subschema(s_name, schemas_details, canonical_schema, field_name, subschema_name)
+                                                    s_name = ft.rsplit("/", 1)[1]
+                                                    canonical_schema = add_next_subschema(
+                                                        s_name,
+                                                        schemas_details,
+                                                        canonical_schema,
+                                                        field_name,
+                                                        subschema_name,
+                                                    )
                                                 continue
                                             except KeyError:
                                                 subschema_type = "String"
                                 if subschema_format is None:
                                     subschema_format = subschema_type
                                 field = SchemaField(
-                                    fieldPath=field_name + '.' + subschema_name,
+                                    fieldPath=field_name + "." + subschema_name,
                                     nativeDataType=subschema_format,
                                     type=get_field_type(subschema_type),
                                     description=description,
@@ -1048,8 +1136,15 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                             if len(field_type) > 0:
                                 item = field_type[0]
                                 ft = item["$ref"]
-                                s_name = ft.rsplit('/', 1)[1]
-                                canonical_schema = add_subschema(s_name, schemas_details, canonical_schema, True, field_name, field_name)
+                                s_name = ft.rsplit("/", 1)[1]
+                                canonical_schema = add_subschema(
+                                    s_name,
+                                    schemas_details,
+                                    canonical_schema,
+                                    True,
+                                    field_name,
+                                    field_name,
+                                )
                             continue
                         except KeyError:
                             try:
@@ -1057,8 +1152,15 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                                 if len(field_type) > 0:
                                     item = field_type[0]
                                     ft = item["$ref"]
-                                    s_name = ft.rsplit('/', 1)[1]
-                                    canonical_schema = add_subschema(s_name, schemas_details, canonical_schema, True, field_name, field_name)
+                                    s_name = ft.rsplit("/", 1)[1]
+                                    canonical_schema = add_subschema(
+                                        s_name,
+                                        schemas_details,
+                                        canonical_schema,
+                                        True,
+                                        field_name,
+                                        field_name,
+                                    )
                                 continue
                             except KeyError:
                                 field_type = "String"
@@ -1075,7 +1177,13 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
     return canonical_schema
 
 
-def add_next_subschema(sub_schema: str, schemas_details: dict, canonical_schema: List[SchemaField], field_name: str, subschema_name: str):
+def add_next_subschema(
+    sub_schema: str,
+    schemas_details: dict,
+    canonical_schema: List[SchemaField],
+    field_name: str,
+    subschema_name: str,
+):
     if sub_schema in schemas_details:
         s_schema = schemas_details[sub_schema]["detail"]["properties"]
         s_schema_enum = schemas_details[sub_schema]["detail"]["enum"]
@@ -1087,7 +1195,7 @@ def add_next_subschema(sub_schema: str, schemas_details: dict, canonical_schema:
         schema_description = ""
     if len(s_schema_enum) == 0:
         field = SchemaField(
-            fieldPath=field_name + '.' + subschema_name,
+            fieldPath=field_name + "." + subschema_name,
             nativeDataType=sub_schema,
             type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
             description=schema_description,
@@ -1099,7 +1207,7 @@ def add_next_subschema(sub_schema: str, schemas_details: dict, canonical_schema:
         field = SchemaField(
             # fieldPath=field_name + '.' + subschema_name + '.' + sub_schema,
             # nativeDataType="Enum",
-            fieldPath=field_name + '.' + subschema_name,
+            fieldPath=field_name + "." + subschema_name,
             nativeDataType=sub_schema,
             type=SchemaFieldDataTypeClass(type=EnumTypeClass()),
             description=schema_description,
@@ -1108,7 +1216,7 @@ def add_next_subschema(sub_schema: str, schemas_details: dict, canonical_schema:
         canonical_schema.append(field)
     elif len(s_schema) == 0 and len(s_schema_enum) == 0:
         field = SchemaField(
-            fieldPath=field_name + '.' + subschema_name + '.' + sub_schema,
+            fieldPath=field_name + "." + subschema_name + "." + sub_schema,
             nativeDataType="String",
             type=SchemaFieldDataTypeClass(type=StringTypeClass()),
             description=schema_description,
@@ -1132,16 +1240,30 @@ def add_next_subschema(sub_schema: str, schemas_details: dict, canonical_schema:
                 type = v["type"]
                 type_control_items_ref = v["items"]["$ref"]
                 if len(type_control_items_ref) > 0:
-                    ref_schema = type_control_items_ref.rsplit('/', 1)[1]
-                    canonical_schema = add_next_subschema(ref_schema, schemas_details, canonical_schema, field_name + '.' + subschema_name,
-                                                          name)
+                    ref_schema = type_control_items_ref.rsplit("/", 1)[1]
+                    canonical_schema = (
+                        add_next_subschema(
+                            ref_schema,
+                            schemas_details,
+                            canonical_schema,
+                            field_name + "." + subschema_name,
+                            name,
+                        )
+                    )
                     continue
             except KeyError:
                 try:
                     type = v["$ref"]
-                    schema_name = type.rsplit('/', 1)[1]
-                    canonical_schema = add_next_subschema(schema_name, schemas_details, canonical_schema, field_name + '.' + subschema_name,
-                                                          name)
+                    schema_name = type.rsplit("/", 1)[1]
+                    canonical_schema = (
+                        add_next_subschema(
+                            schema_name,
+                            schemas_details,
+                            canonical_schema,
+                            field_name + "." + subschema_name,
+                            name,
+                        )
+                    )
                     continue
                 except KeyError:
                     try:
@@ -1149,9 +1271,16 @@ def add_next_subschema(sub_schema: str, schemas_details: dict, canonical_schema:
                         if len(type) > 0:
                             item = type[0]
                             ft = item["$ref"]
-                            s_name = ft.rsplit('/', 1)[1]
-                            canonical_schema = add_next_subschema(s_name, schemas_details, canonical_schema, field_name + '.' + subschema_name,
-                                                                  name)
+                            s_name = ft.rsplit("/", 1)[1]
+                            canonical_schema = (
+                                add_next_subschema(
+                                    s_name,
+                                    schemas_details,
+                                    canonical_schema,
+                                    field_name + "." + subschema_name,
+                                    name,
+                                )
+                            )
                             continue
                     except KeyError:
                         try:
@@ -1159,16 +1288,21 @@ def add_next_subschema(sub_schema: str, schemas_details: dict, canonical_schema:
                             if len(type) > 0:
                                 item = type[0]
                                 ft = item["$ref"]
-                                s_name = ft.rsplit('/', 1)[1]
-                                canonical_schema = add_next_subschema(s_name, schemas_details, canonical_schema, field_name + '.' + subschema_name,
-                                                                      name)
+                                s_name = ft.rsplit("/", 1)[1]
+                                canonical_schema = add_next_subschema(
+                                    s_name,
+                                    schemas_details,
+                                    canonical_schema,
+                                    field_name + "." + subschema_name,
+                                    name,
+                                )
                                 continue
                         except KeyError:
                             type = "String"
             if format is None:
                 format = type
             field = SchemaField(
-                fieldPath=field_name + '.' + subschema_name + '.' + name,
+                fieldPath=field_name + "." + subschema_name + "." + name,
                 nativeDataType=format,
                 type=get_field_type(type),
                 description=description,
