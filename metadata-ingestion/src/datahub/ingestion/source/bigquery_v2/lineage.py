@@ -28,6 +28,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
     _make_gcp_logging_client,
+    get_bigquery_client,
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -178,7 +179,7 @@ timestamp < "{end_time}"
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
             # For exported logs we want to submit queries with the credentials project_id.
-            _client: BigQueryClient = BigQueryClient()
+            _client: BigQueryClient = get_bigquery_client(self.config)
             exported_bigquery_audit_metadata: Iterable[
                 BigQueryAuditMetadata
             ] = self._get_exported_bigquery_audit_metadata(_client)
@@ -224,7 +225,7 @@ timestamp < "{end_time}"
 
         try:
             lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
-            bigquery_client: BigQueryClient = BigQueryClient()
+            bigquery_client: BigQueryClient = get_bigquery_client(self.config)
             # Filtering datasets
             datasets = list(bigquery_client.list_datasets(project_id))
             project_tables = []

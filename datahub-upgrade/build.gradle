@@ -7,7 +7,7 @@ plugins {
 apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
-  docker_registry = 'acryldata'
+  docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
   docker_repo = 'datahub-upgrade'
 }
 

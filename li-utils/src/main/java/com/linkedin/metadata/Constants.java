@@ -264,6 +264,12 @@ public class Constants {
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**
+   * Retention
+   */
+  public static final String DATAHUB_RETENTION_ENTITY = "dataHubRetention";
+  public static final String DATAHUB_RETENTION_ASPECT = "dataHubRetentionConfig";
+  public static final String DATAHUB_RETENTION_KEY_ASPECT = "dataHubRetentionKey";
+  /**
    * User Status
    */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
