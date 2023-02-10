@@ -1289,7 +1289,6 @@ class TableauSource(StatefulIngestionSourceBase):
             "sheetsConnection",
             sheets_filter,
         ):
-            logger.info(f"MOHD SHEET = {sheet}")
             yield from self.emit_sheets_as_charts(sheet, sheet.get("workbook"))
 
     def emit_sheets_as_charts(
