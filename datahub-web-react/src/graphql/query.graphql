@@ -41,7 +41,7 @@ mutation createQuery($input: CreateQueryInput!) {
     }
 }
 
-mutation updateQuery($urn String!, $input: UpdateQueryInput!) {
+mutation updateQuery($urn: String!, $input: UpdateQueryInput!) {
     updateQuery(urn: $urn, input: $input) {
         ...query
     }
