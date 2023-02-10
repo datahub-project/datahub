@@ -162,8 +162,8 @@ public class Neo4jGraphService implements GraphService {
   }
 
   private String generateLineageStatement(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, GraphFilters graphFilters, int maxHops) {
-    final String multiHopTemplateDirect = "MATCH shortestPath((a {urn: '%s'})-[r:%s*1..%d]->(b)) WHERE (b:%s) AND b.urn <> %s RETURN a,r,b";
-    final String multiHopTemplateIndirect = "MATCH shortestPath((a {urn: '%s'})<-[r:%s*1..%d]-(b)) WHERE (b:%s) AND b.urn <> %s RETURN a,r,b";
+    final String multiHopTemplateDirect = "MATCH shortestPath((a {urn: '%s'})-[r:%s*1..%d]->(b)) WHERE (b:%s) AND b.urn <> '%s' RETURN a,r,b";
+    final String multiHopTemplateIndirect = "MATCH shortestPath((a {urn: '%s'})<-[r:%s*1..%d]-(b)) WHERE (b:%s) AND b.urn <> '%s' RETURN a,r,b";
 
     List<LineageRegistry.EdgeInfo> edgesToFetch =
             getLineageRegistry().getLineageRelationships(entityUrn.getEntityType(), direction);
