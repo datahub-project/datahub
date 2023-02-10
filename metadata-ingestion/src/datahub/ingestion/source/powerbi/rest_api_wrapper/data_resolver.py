@@ -46,7 +46,7 @@ class DataResolverBase(ABC):
         client_secret: str,
         tenant_id: str,
     ):
-        self.__access_token: str = ""
+        self.__access_token: Optional[str] = None
         self.__tenant_id = tenant_id
         # Test connection by generating access token
         logger.info("Trying to connect to {}".format(self._get_authority_url()))
@@ -106,8 +106,13 @@ class DataResolverBase(ABC):
     def _get_authority_url(self):
         return "{}{}".format(DataResolverBase.AUTHORITY, self.__tenant_id)
 
+    def get_authorization_header(self):
+        return {
+            Constant.Authorization: self.get_access_token()
+        }
+
     def get_access_token(self):
-        if self.__access_token != "":
+        if self.__access_token is not None:
             logger.debug("Returning the cached access token")
             return self.__access_token
 
@@ -122,7 +127,7 @@ class DataResolverBase(ABC):
                 "Failed to generate the PowerBi access token. Please check input configuration"
             )
             raise ConfigurationError(
-                "Powerbi authorization failed . Please check your input configuration."
+                "Failed to retrieve access token for PowerBI principal. Please verify your configuration values"
             )
 
         logger.info("Generated PowerBi access token")
@@ -144,11 +149,10 @@ class DataResolverBase(ABC):
         """
         dashboard_list_endpoint: str = self.get_dashboards_endpoint(workspace)
 
-        # Hit PowerBi
-        logger.info(f"Request to URL={dashboard_list_endpoint}")
+        logger.debug(f"Request to URL={dashboard_list_endpoint}")
         response = self._request_session.get(
             dashboard_list_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
+            headers=self.get_authorization_header(),
         )
 
         response.raise_for_status()
@@ -184,20 +188,19 @@ class DataResolverBase(ABC):
             logger.debug(f"Query parameters = {params}")
             response = self._request_session.get(
                 group_endpoint,
-                headers={Constant.Authorization: self.get_access_token()},
+                headers=self.get_authorization_header(),
                 params=params,
             )
             response.raise_for_status()
             return response.json()
 
         # Hit PowerBi
-        logger.info(f"Request to groups endpoint URL={group_endpoint}")
+        logger.debug(f"Request to groups endpoint URL={group_endpoint}")
         zeroth_page = fetch_page(0)
         logger.debug(f"Page 0 = {zeroth_page}")
-        if zeroth_page.get("@odata.count") is None:
-            raise ValueError(
-                "Required field @odata.count is missing. Not able to determine number of pages to fetch"
-            )
+        if zeroth_page.get(Constant.ODATA_COUNT) is None:
+            logger.warning("Failed to extract @odata.count field from PowerBI response for fetching groups. Cannot determine the number of pages to fetch.")
+            return []
 
         number_of_items = zeroth_page[Constant.ODATA_COUNT]
         number_of_pages = math.ceil(number_of_items / self.TOP)
@@ -220,21 +223,21 @@ class DataResolverBase(ABC):
     ) -> List[Report]:
         reports_endpoint = self.get_reports_endpoint(workspace)
         # Hit PowerBi
-        logger.info(f"Request to report URL={reports_endpoint}")
+        logger.debug(f"Request to report URL={reports_endpoint}")
         params: Optional[dict] = None
         if _filter is not None:
             params = {"$filter": _filter}
 
-        response = self._request_session.get(
-            reports_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
-            params=params,
-        )
-        response.raise_for_status()
-
-        response_dict = response.json()
-
-        logger.debug(f"Request response = {response_dict}")
+        def fetch_reports():
+            response = self._request_session.get(
+                reports_endpoint,
+                headers=self.get_authorization_header(),
+                params=params,
+            )
+            response.raise_for_status()
+            response_dict = response.json()
+            logger.debug(f"Request response = {response_dict}")
+            return response_dict.get(Constant.VALUE, [])
 
         reports: List[Report] = [
             Report(
@@ -250,7 +253,7 @@ class DataResolverBase(ABC):
                 tags=[],  # It will be fetched using Admin Fetcher based on condition
                 dataset=workspace.datasets.get(raw_instance.get(Constant.DATASET_ID)),
             )
-            for raw_instance in response_dict.get(Constant.VALUE, [])
+            for raw_instance in fetch_reports()
         ]
 
         return reports
@@ -318,10 +321,10 @@ class DataResolverBase(ABC):
             workspace, dashboard_id=dashboard.id
         )
         # Hit PowerBi
-        logger.info(f"Request to URL={tile_list_endpoint}")
+        logger.debug(f"Request to URL={tile_list_endpoint}")
         response = self._request_session.get(
             tile_list_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
+            headers=self.get_authorization_header(),
         )
         logger.debug(f"Request response = {response}")
         response.raise_for_status()
@@ -363,9 +366,9 @@ class RegularAPIResolver(DataResolverBase):
         Fetch the dataset from PowerBi for the given dataset identifier
         """
         if workspace_id is None or dataset_id is None:
-            logger.info("Input values are None")
-            logger.info(f"{Constant.WorkspaceId}={workspace_id}")
-            logger.info(f"{Constant.DatasetId}={dataset_id}")
+            logger.debug("Input values are None")
+            logger.debug(f"{Constant.WorkspaceId}={workspace_id}")
+            logger.debug(f"{Constant.DatasetId}={dataset_id}")
             return None
 
         dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
@@ -378,10 +381,10 @@ class RegularAPIResolver(DataResolverBase):
             DATASET_ID=dataset_id,
         )
         # Hit PowerBi
-        logger.info(f"Request to dataset URL={dataset_get_endpoint}")
+        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
         response = self._request_session.get(
             dataset_get_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
+            headers=self.get_authorization_header(),
         )
         # Check if we got response from PowerBi
         response.raise_for_status()
@@ -427,10 +430,10 @@ class RegularAPIResolver(DataResolverBase):
             REPORT_ID=report_id,
         )
         # Hit PowerBi
-        logger.info(f"Request to pages URL={pages_endpoint}")
+        logger.debug(f"Request to pages URL={pages_endpoint}")
         response = self._request_session.get(
             pages_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
+            headers=self.get_authorization_header(),
         )
 
         # Check if we got response from PowerBi
@@ -491,14 +494,14 @@ class AdminAPIResolver(DataResolverBase):
                 "getArtifactUsers": True,
                 "lineage": True,
             },
-            headers={Constant.Authorization: self.get_access_token()},
+            headers=self.get_authorization_header(),
         )
 
         res.raise_for_status()
         # Return scan_id of Scan created for the given workspace
         scan_id = res.json()["id"]
 
-        logger.info(f"Scan id({scan_id})")
+        logger.debug(f"Scan id({scan_id})")
 
         return scan_id
 
@@ -525,7 +528,7 @@ class AdminAPIResolver(DataResolverBase):
             logger.info(f"retry = {retry}")
             res = self._request_session.get(
                 scan_get_endpoint,
-                headers={Constant.Authorization: self.get_access_token()},
+                headers=self.get_authorization_header(),
             )
 
             logger.debug(f"Request response = {res}")
@@ -588,10 +591,10 @@ class AdminAPIResolver(DataResolverBase):
             ENTITY_ID=entity_id,
         )
         # Hit PowerBi
-        logger.info(f"Request to URL={user_list_endpoint}")
+        logger.debug(f"Request to URL={user_list_endpoint}")
         response = self._request_session.get(
             user_list_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
+            headers=self.get_authorization_header(),
         )
         logger.debug(f"Response = {response}")
 
@@ -626,7 +629,7 @@ class AdminAPIResolver(DataResolverBase):
         logger.debug(f"Hitting URL={scan_result_get_endpoint}")
         res = self._request_session.get(
             scan_result_get_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
+            headers=self.get_authorization_header(),
         )
         if res.status_code != 200:
             message = f"API({scan_result_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
@@ -678,12 +681,12 @@ class AdminAPIResolver(DataResolverBase):
             WORKSPACE_ID=workspace_id,
         )
         # Hit PowerBi
-        logger.info(f"Request to datasets URL={datasets_endpoint}")
+        logger.debug(f"Request to datasets URL={datasets_endpoint}")
         params: dict = {"$filter": f"id eq '{dataset_id}'"}
         logger.debug("params = %s", params)
         response = self._request_session.get(
             datasets_endpoint,
-            headers={Constant.Authorization: self.get_access_token()},
+            headers=self.get_authorization_header(),
             params=params,
         )
         response.raise_for_status()

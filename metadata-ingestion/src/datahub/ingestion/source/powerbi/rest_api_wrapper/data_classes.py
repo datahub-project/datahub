@@ -11,10 +11,6 @@ class WorkspaceKey(PlatformKey):
 
 @dataclass
 class Workspace:
-    """
-    PowerBi Workspace
-    """
-
     id: str
     name: str
     dashboards: List["Dashboard"]
@@ -36,16 +32,12 @@ class Workspace:
 
 @dataclass
 class DataSource:
-    """
-    PowerBi
-    """
-
     id: str
     type: str
     raw_connection_detail: Dict
 
     def __members(self):
-        return (self.id,)
+        return self.id,
 
     def __eq__(self, instance):
         return (
@@ -64,7 +56,6 @@ class Table:
     expression: Optional[str]
 
 
-# dataclasses for PowerBi Dashboard
 @dataclass
 class PowerBIDataset:
     id: str
@@ -79,7 +70,7 @@ class PowerBIDataset:
         return f"datasets.{self.id}"
 
     def __members(self):
-        return (self.id,)
+        return self.id,
 
     def __eq__(self, instance):
         return (
@@ -114,7 +105,7 @@ class User:
         return f"users.{self.id}"
 
     def __members(self):
-        return (self.id,)
+        return self.id,
 
     def __eq__(self, instance):
         return isinstance(instance, User) and self.__members() == instance.__members()
@@ -127,7 +118,7 @@ class User:
 class Report:
     id: str
     name: str
-    webUrl: str
+    webUrl: Optional[str]
     embedUrl: str
     description: str
     dataset: Optional["PowerBIDataset"]
@@ -152,7 +143,7 @@ class Tile:
     embedUrl: str
     dataset: Optional["PowerBIDataset"]
     dataset_id: Optional[str]
-    report: Optional[Any]
+    report: Optional[Report]
     createdFrom: CreatedFrom
 
     def get_urn_part(self):
@@ -164,7 +155,7 @@ class Dashboard:
     id: str
     displayName: str
     embedUrl: str
-    webUrl: str
+    webUrl: Optional[str]
     isReadOnly: Any
     workspace_id: str
     workspace_name: str
@@ -176,7 +167,7 @@ class Dashboard:
         return f"dashboards.{self.id}"
 
     def __members(self):
-        return (self.id,)
+        return self.id,
 
     def __eq__(self, instance):
         return (
