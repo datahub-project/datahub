@@ -676,7 +676,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for table in self.db_tables[dataset]
             ]
         for dataset in self.db_views.keys():
-            tables[dataset].extend([table.name for table in self.db_views[dataset]])
+            tables[dataset].extend(
+                [
+                    BigqueryTableIdentifier(
+                        project_id, dataset, table.name
+                    ).get_table_name()
+                    for table in self.db_views[dataset]
+                ]
+            )
         yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
 
     def _process_schema(
