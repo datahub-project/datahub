@@ -73,7 +73,7 @@ logger = logging.getLogger(__name__)
 
 
 powerbi_type_mapping: Dict[
-    str, Type[TimeTypeClass | StringTypeClass | NumberTypeClass | BooleanTypeClass]
+    str, Type[Union[TimeTypeClass, StringTypeClass, NumberTypeClass, BooleanTypeClass]]
 ] = {
     "DateTime": TimeTypeClass,
     "Date": TimeTypeClass,
