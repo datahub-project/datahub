@@ -12,9 +12,7 @@ LOOKML_TEST_SSH_KEY = os.environ.get("DATAHUB_LOOKML_GIT_TEST_SSH_KEY")
 
 def test_base_url_guessing():
     # Basic GitHub repo.
-    config = GitInfo(
-        repo="https://github.com/datahub-project/datahub", branch="master"
-    )
+    config = GitInfo(repo="https://github.com/datahub-project/datahub", branch="master")
     assert config.repo_ssh_locator == "git@github.com:datahub-project/datahub.git"
 
     # Defaults to GitHub.

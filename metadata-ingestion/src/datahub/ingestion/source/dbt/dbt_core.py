@@ -10,6 +10,7 @@ import requests
 from pydantic import BaseModel, Field, validator
 
 from datahub.configuration.git import GitReference
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -28,7 +29,6 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTTest,
     DBTTestResult,
 )
-from datahub.configuration.validate_field_rename import pydantic_renamed_field
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +58,8 @@ class DBTCoreConfig(DBTCommonConfig):
         None,
         description="Reference to your git location to enable easy navigation from DataHub to your dbt files.",
     )
-   
-    _github_info_deprecated = pydantic_renamed_field(
-        "github_info", "git_info"
-    )
+
+    _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
     @property
     def s3_client(self):

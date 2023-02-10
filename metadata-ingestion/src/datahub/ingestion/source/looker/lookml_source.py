@@ -19,9 +19,9 @@ from pydantic.fields import Field
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -174,9 +174,7 @@ class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
         None,
         description="Reference to your git location. If present, supplies handy links to your lookml on the dataset entity page.",
     )
-    _github_info_deprecated = pydantic_renamed_field(
-        "github_info", "git_info"
-    )
+    _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
     base_folder: Optional[pydantic.DirectoryPath] = Field(
         None,
         description="Required if not providing github configuration and deploy keys. A pointer to a local directory (accessible to the ingestion system) where the root of the LookML repo has been checked out (typically via a git clone). This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`.",
@@ -1536,9 +1534,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                     remote_git_info.repo = (
                         ""  # set to empty because url already contains the full path
                     )
-                    self.remote_projects_git_info[
-                        remote_project.name
-                    ] = remote_git_info
+                    self.remote_projects_git_info[remote_project.name] = remote_git_info
 
                 except Exception as e:
                     logger.warning(
