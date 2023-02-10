@@ -234,7 +234,7 @@ export default function Query({
             )}
             {showEditQueryModal && (
                 <QueryBuilderModal
-                    initialState={{ title, description, query }}
+                    initialState={{ urn: urn as string, title, description, query }}
                     onSubmit={onEdited}
                     onClose={() => setShowEditQueryModal(false)}
                 />
