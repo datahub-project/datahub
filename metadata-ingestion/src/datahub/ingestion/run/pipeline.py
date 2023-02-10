@@ -541,7 +541,11 @@ class Pipeline:
                 bold=True,
             )
             return 1
-        elif self.source.get_report().warnings or self.sink.get_report().warnings or len(global_warnings) > 0:
+        elif (
+            self.source.get_report().warnings
+            or self.sink.get_report().warnings
+            or len(global_warnings) > 0
+        ):
             num_warn_source = self._approx_all_vals(self.source.get_report().warnings)
             num_warn_sink = len(self.sink.get_report().warnings)
             num_warn_global = len(global_warnings)
