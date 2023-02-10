@@ -237,8 +237,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final Urn urn = com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue());
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
         && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE),
-        new ResourceSpec(urn.getEntityType(), urn.toString())))
-    {
+        new ResourceSpec(urn.getEntityType(), urn.toString()))) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
           "User is unauthorized to edit entity " + urn);
     }

@@ -81,13 +81,14 @@ public class RestliUtils {
     return new RestLiServiceException(HttpStatus.S_412_PRECONDITION_FAILED, message);
   }
 
-  public static boolean isAuthorized(@Nonnull Authentication authentication, @Nonnull Authorizer authorizer, @Nonnull final List<PoliciesConfig.Privilege> privileges,
-      @Nonnull final List<java.util.Optional<ResourceSpec>> resources) {
+  public static boolean isAuthorized(@Nonnull Authentication authentication, @Nonnull Authorizer authorizer,
+      @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nonnull final List<java.util.Optional<ResourceSpec>> resources) {
     DisjunctivePrivilegeGroup orGroup = convertPrivilegeGroup(privileges);
     return AuthUtil.isAuthorizedForResources(authorizer, authentication.getActor().toUrnStr(), resources, orGroup);
   }
 
-  public static boolean isAuthorized(@Nonnull Authentication authentication, @Nonnull Authorizer authorizer, @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nullable final ResourceSpec resource) {
+  public static boolean isAuthorized(@Nonnull Authentication authentication, @Nonnull Authorizer authorizer,
+      @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nullable final ResourceSpec resource) {
     DisjunctivePrivilegeGroup orGroup = convertPrivilegeGroup(privileges);
     return AuthUtil.isAuthorized(authorizer, authentication.getActor().toUrnStr(), java.util.Optional.ofNullable(resource), orGroup);
   }
