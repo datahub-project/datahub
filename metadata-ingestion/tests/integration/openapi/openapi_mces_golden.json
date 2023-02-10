@@ -24,7 +24,7 @@
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
-                                    "actor": "urn:li:corpuser:etl"
+                                    "actor": "urn:li:corpuser:datahub"
                                 }
                             }
                         ]
@@ -99,7 +99,7 @@
                                 "description": "Link to call for the dataset.",
                                 "createStamp": {
                                     "time": 1586847600,
-                                    "actor": "urn:li:corpuser:etl"
+                                    "actor": "urn:li:corpuser:datahub"
                                 }
                             }
                         ]
