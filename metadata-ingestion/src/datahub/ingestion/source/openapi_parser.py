@@ -1,19 +1,7 @@
 import json
 import re
 import warnings
-from gc import freeze
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    List,
-    Tuple,
-    Iterable,
-    Optional,
-    Type,
-    Union,
-    ValuesView,
-)
+from typing import Any, Dict, Generator, List, Optional, Tuple, Type, Union
 
 import requests
 import yaml
@@ -22,19 +10,18 @@ from requests.auth import HTTPBasicAuth
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchemaClass,
     SchemaField,
-    SchemaMetadata,
     SchemaFieldDataType,
+    SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
-    NullTypeClass,
-    BooleanTypeClass,
     ArrayTypeClass,
+    BooleanTypeClass,
+    EnumTypeClass,
+    NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    UnionTypeClass,
-    EnumTypeClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
 )
 
 _field_type_mapping: Dict[str, Type] = {
@@ -187,7 +174,7 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             url_details[p_k] = {
                 "description": desc,
                 "tags": tags,
-                "operationId": operation_id
+                "operationId": operation_id,
             }
 
             # trying if dataset is defined in swagger...
@@ -261,7 +248,7 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             url_details[p_k + "__post_request"] = {
                 "description": desc,
                 "tags": tags,
-                "operationId": operation_id
+                "operationId": operation_id,
             }
 
             # trying if dataset is defined in swagger...
@@ -276,26 +263,32 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
 
                     if ex_field:
                         if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k + "__post_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
+                            url_details[p_k + "__post_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field]
                         elif isinstance(res_cont["application/json"][ex_field], list):
                             # taking the first example
-                            url_details[p_k + "__post_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__post_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
                         )
                 elif "text/csv" in res_cont.keys():
-                    url_details[p_k + "__post_request"]["data"] = res_cont["text/csv"]["schema"]
+                    url_details[p_k + "__post_request"]["data"] = res_cont["text/csv"][
+                        "schema"
+                    ]
             elif "examples" in base_res.keys():
-                url_details[p_k + "__post_request"]["data"] = base_res["examples"]["application/json"]
+                url_details[p_k + "__post_request"]["data"] = base_res["examples"][
+                    "application/json"
+                ]
 
             # checking whether there are defined parameters to execute the call...
             if "parameters" in p_o["post"].keys():
-                url_details[p_k + "__post_request"]["parameters"] = p_o["post"]["parameters"]
+                url_details[p_k + "__post_request"]["parameters"] = p_o["post"][
+                    "parameters"
+                ]
 
             if "requestBody" in p_o["post"].keys():
                 res_cont = p_o["post"]["requestBody"]["content"]
@@ -305,15 +298,19 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                         ex_field = "schema"
 
                     if ex_field:
-                        if isinstance(res_cont["application/cloudevents+json"][ex_field], dict):
-                            url_details[p_k + "__post_request"]["data"] = res_cont["application/cloudevents+json"][
-                                ex_field
-                            ]
-                        elif isinstance(res_cont["application/cloudevents+json"][ex_field], list):
+                        if isinstance(
+                            res_cont["application/cloudevents+json"][ex_field], dict
+                        ):
+                            url_details[p_k + "__post_request"]["data"] = res_cont[
+                                "application/cloudevents+json"
+                            ][ex_field]
+                        elif isinstance(
+                            res_cont["application/cloudevents+json"][ex_field], list
+                        ):
                             # taking the first example
-                            url_details[p_k + "__post_request"]["data"] = res_cont["application/cloudevents+json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__post_request"]["data"] = res_cont[
+                                "application/cloudevents+json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
@@ -325,14 +322,14 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
 
                     if ex_field:
                         if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k + "__post_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
+                            url_details[p_k + "__post_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field]
                         elif isinstance(res_cont["application/json"][ex_field], list):
                             # taking the first example
-                            url_details[p_k + "__post_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__post_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
@@ -374,12 +371,12 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             url_details[p_k + "__put_response"] = {
                 "description": desc,
                 "tags": tags,
-                "operationId": operation_id
+                "operationId": operation_id,
             }
             url_details[p_k + "__put_request"] = {
                 "description": desc,
                 "tags": tags,
-                "operationId": operation_id
+                "operationId": operation_id,
             }
 
             # trying if dataset is defined in swagger...
@@ -396,27 +393,35 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
 
                     if ex_field:
                         if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k + "__put_response"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
+                            url_details[p_k + "__put_response"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field]
                         elif isinstance(res_cont["application/json"][ex_field], list):
                             # taking the first example
-                            url_details[p_k + "__put_response"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__put_response"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
                         )
                 elif "text/csv" in res_cont.keys():
-                    url_details[p_k + "__put_response"]["data"] = res_cont["text/csv"]["schema"]
+                    url_details[p_k + "__put_response"]["data"] = res_cont["text/csv"][
+                        "schema"
+                    ]
             elif "examples" in base_res.keys():
-                url_details[p_k + "__put_response"]["data"] = base_res["examples"]["application/json"]
+                url_details[p_k + "__put_response"]["data"] = base_res["examples"][
+                    "application/json"
+                ]
 
             # checking whether there are defined parameters to execute the call...
             if "parameters" in p_o["put"].keys():
-                url_details[p_k + "__put_response"]["parameters"] = p_o["put"]["parameters"]
-                url_details[p_k + "__put_request"]["parameters"] = p_o["put"]["parameters"]
+                url_details[p_k + "__put_response"]["parameters"] = p_o["put"][
+                    "parameters"
+                ]
+                url_details[p_k + "__put_request"]["parameters"] = p_o["put"][
+                    "parameters"
+                ]
 
             if "requestBody" in p_o["put"].keys():
                 res_cont = p_o["put"]["requestBody"]["content"]
@@ -426,15 +431,19 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                         ex_field = "schema"
 
                     if ex_field:
-                        if isinstance(res_cont["application/cloudevents+json"][ex_field], dict):
-                            url_details[p_k + "__put_request"]["data"] = res_cont["application/cloudevents+json"][
-                                ex_field
-                            ]
-                        elif isinstance(res_cont["application/cloudevents+json"][ex_field], list):
+                        if isinstance(
+                            res_cont["application/cloudevents+json"][ex_field], dict
+                        ):
+                            url_details[p_k + "__put_request"]["data"] = res_cont[
+                                "application/cloudevents+json"
+                            ][ex_field]
+                        elif isinstance(
+                            res_cont["application/cloudevents+json"][ex_field], list
+                        ):
                             # taking the first example
-                            url_details[p_k + "__put_request"]["data"] = res_cont["application/cloudevents+json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__put_request"]["data"] = res_cont[
+                                "application/cloudevents+json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
@@ -446,14 +455,14 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
 
                     if ex_field:
                         if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k + "__put_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
+                            url_details[p_k + "__put_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field]
                         elif isinstance(res_cont["application/json"][ex_field], list):
                             # taking the first example
-                            url_details[p_k + "__put_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__put_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
@@ -492,7 +501,11 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             except KeyError:
                 operation_id = []
 
-            url_details[p_k + "__patch_request"] = {"description": desc, "tags": tags, "operationId": operation_id}
+            url_details[p_k + "__patch_request"] = {
+                "description": desc,
+                "tags": tags,
+                "operationId": operation_id,
+            }
 
             # trying if dataset is defined in swagger...
             if "content" in base_res.keys():
@@ -506,26 +519,32 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
 
                     if ex_field:
                         if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
+                            url_details[p_k + "__patch_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field]
                         elif isinstance(res_cont["application/json"][ex_field], list):
                             # taking the first example
-                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__patch_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
                         )
                 elif "text/csv" in res_cont.keys():
-                    url_details[p_k + "__patch_request"]["data"] = res_cont["text/csv"]["schema"]
+                    url_details[p_k + "__patch_request"]["data"] = res_cont["text/csv"][
+                        "schema"
+                    ]
             elif "examples" in base_res.keys():
-                url_details[p_k + "__patch_request"]["data"] = base_res["examples"]["application/json"]
+                url_details[p_k + "__patch_request"]["data"] = base_res["examples"][
+                    "application/json"
+                ]
 
             # checking whether there are defined parameters to execute the call...
             if "parameters" in p_o["patch"].keys():
-                url_details[p_k + "__patch_request"]["parameters"] = p_o["patch"]["parameters"]
+                url_details[p_k + "__patch_request"]["parameters"] = p_o["patch"][
+                    "parameters"
+                ]
 
             if "requestBody" in p_o["patch"].keys():
                 res_cont = p_o["patch"]["requestBody"]["content"]
@@ -535,15 +554,19 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                         ex_field = "schema"
 
                     if ex_field:
-                        if isinstance(res_cont["application/cloudevents+json"][ex_field], dict):
-                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/cloudevents+json"][
-                                ex_field
-                            ]
-                        elif isinstance(res_cont["application/cloudevents+json"][ex_field], list):
+                        if isinstance(
+                            res_cont["application/cloudevents+json"][ex_field], dict
+                        ):
+                            url_details[p_k + "__patch_request"]["data"] = res_cont[
+                                "application/cloudevents+json"
+                            ][ex_field]
+                        elif isinstance(
+                            res_cont["application/cloudevents+json"][ex_field], list
+                        ):
                             # taking the first example
-                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/cloudevents+json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__patch_request"]["data"] = res_cont[
+                                "application/cloudevents+json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
@@ -555,14 +578,14 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
 
                     if ex_field:
                         if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
+                            url_details[p_k + "__patch_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field]
                         elif isinstance(res_cont["application/json"][ex_field], list):
                             # taking the first example
-                            url_details[p_k + "__patch_request"]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
+                            url_details[p_k + "__patch_request"]["data"] = res_cont[
+                                "application/json"
+                            ][ex_field][0]
                     else:
                         warnings.warn(
                             f"Field in swagger file does not give consistent data --- {p_k}"
@@ -598,12 +621,20 @@ def get_schemas(sc_dict: dict) -> dict:
             except KeyError:
                 description_fields = []
 
-            schema_details[p_k]["detail"] = {"required": required_fields, "properties": schema_fields,
-                                             "enum": enum_fields, "description": description_fields}
+            schema_details[p_k]["detail"] = {
+                "required": required_fields,
+                "properties": schema_fields,
+                "enum": enum_fields,
+                "description": description_fields,
+            }
     else:
         schema_details["empty_schema"] = {}
-        schema_details["empty_schema"]["detail"] = {"required": "", "properties": "",
-                                         "enum": "", "description": "Swagger file doesn't contains a components path"}
+        schema_details["empty_schema"]["detail"] = {
+            "required": "",
+            "properties": "",
+            "enum": "",
+            "description": "Swagger file doesn't contains a components path",
+        }
 
     return dict(schema_details.items())
 
@@ -799,9 +830,7 @@ def get_tok(
         raise Exception(f"Unable to get a valid token: {response.text}")
 
 
-def get_field_type(
-        field_type: Union[Type, str]
-) -> SchemaFieldDataType:
+def get_field_type(field_type: Union[Type, str]) -> SchemaFieldDataType:
 
     TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
@@ -812,7 +841,11 @@ def get_field_type(
 
 
 def set_metadata(
-    dataset_name: str, fields: List, operation_id: str, schemas_details: dict, platform: str = "api"
+    dataset_name: str,
+    fields: List,
+    operation_id: str,
+    schemas_details: dict,
+    platform: str = "api",
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
 
@@ -828,7 +861,9 @@ def set_metadata(
                     if column_schema in schemas_details:
                         schema = schemas_details[column_schema]["detail"]["properties"]
                         schema_enum = schemas_details[column_schema]["detail"]["enum"]
-                        schema_description = schemas_details[column_schema]["detail"]["description"]
+                        schema_description = schemas_details[column_schema]["detail"][
+                            "description"
+                        ]
                         if len(schema_description) == 0:
                             schema_description = ""
                         if len(schema) == 0 and len(schema_enum) > 0:
@@ -926,7 +961,9 @@ def set_metadata(
         elif column == "$ref":
             json_str = fields["$ref"]
             column_schema = json_str.rsplit("/", 1)[1]
-            canonical_schema = add_subschema(column_schema, schemas_details, canonical_schema, False, None, None)
+            canonical_schema = add_subschema(
+                column_schema, schemas_details, canonical_schema, False, None, None
+            )
             continue
         else:
             field = SchemaField(
@@ -949,8 +986,14 @@ def set_metadata(
     return schema_metadata
 
 
-def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: List[SchemaField], use_expanded_name: bool,
-                  expanded_name: str, field_name: str):
+def add_subschema(
+    column_schema: str,
+    schemas_details: dict,
+    canonical_schema: List[SchemaField],
+    use_expanded_name: bool,
+    expanded_name: str,
+    field_name: str,
+):
     if column_schema in schemas_details:
         schema = schemas_details[column_schema]["detail"]["properties"]
         schema_enum = schemas_details[column_schema]["detail"]["enum"]
@@ -1007,8 +1050,12 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                         field_type = f_v["$ref"]
                         subcolumn_schema = field_type.rsplit("/", 1)[1]
                         if subcolumn_schema in schemas_details:
-                            subschema = schemas_details[subcolumn_schema]["detail"]["properties"]
-                            subschema_enum = schemas_details[subcolumn_schema]["detail"]["enum"]
+                            subschema = schemas_details[subcolumn_schema]["detail"][
+                                "properties"
+                            ]
+                            subschema_enum = schemas_details[subcolumn_schema][
+                                "detail"
+                            ]["enum"]
                         else:
                             subschema = subcolumn_schema
                         if len(subschema_enum) == 0:
@@ -1061,28 +1108,24 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                                         ref_schema = subschema_type_control_ref.rsplit(
                                             "/", 1
                                         )[1]
-                                        canonical_schema = (
-                                            add_next_subschema(
-                                                ref_schema,
-                                                schemas_details,
-                                                canonical_schema,
-                                                field_name,
-                                                subschema_name,
-                                            )
+                                        canonical_schema = add_next_subschema(
+                                            ref_schema,
+                                            schemas_details,
+                                            canonical_schema,
+                                            field_name,
+                                            subschema_name,
                                         )
                                         continue
                                 except KeyError:
                                     try:
                                         subschema_type = s_o["$ref"]
                                         sub_schema = subschema_type.rsplit("/", 1)[1]
-                                        canonical_schema = (
-                                            add_next_subschema(
-                                                sub_schema,
-                                                schemas_details,
-                                                canonical_schema,
-                                                field_name,
-                                                subschema_name,
-                                            )
+                                        canonical_schema = add_next_subschema(
+                                            sub_schema,
+                                            schemas_details,
+                                            canonical_schema,
+                                            field_name,
+                                            subschema_name,
                                         )
                                         continue
 
@@ -1108,12 +1151,14 @@ def add_subschema(column_schema: str, schemas_details: dict, canonical_schema: L
                                                     item = subschema_type[0]
                                                     ft = item["$ref"]
                                                     s_name = ft.rsplit("/", 1)[1]
-                                                    canonical_schema = add_next_subschema(
-                                                        s_name,
-                                                        schemas_details,
-                                                        canonical_schema,
-                                                        field_name,
-                                                        subschema_name,
+                                                    canonical_schema = (
+                                                        add_next_subschema(
+                                                            s_name,
+                                                            schemas_details,
+                                                            canonical_schema,
+                                                            field_name,
+                                                            subschema_name,
+                                                        )
                                                     )
                                                 continue
                                             except KeyError:
@@ -1241,28 +1286,24 @@ def add_next_subschema(
                 type_control_items_ref = v["items"]["$ref"]
                 if len(type_control_items_ref) > 0:
                     ref_schema = type_control_items_ref.rsplit("/", 1)[1]
-                    canonical_schema = (
-                        add_next_subschema(
-                            ref_schema,
-                            schemas_details,
-                            canonical_schema,
-                            field_name + "." + subschema_name,
-                            name,
-                        )
+                    canonical_schema = add_next_subschema(
+                        ref_schema,
+                        schemas_details,
+                        canonical_schema,
+                        field_name + "." + subschema_name,
+                        name,
                     )
                     continue
             except KeyError:
                 try:
                     type = v["$ref"]
                     schema_name = type.rsplit("/", 1)[1]
-                    canonical_schema = (
-                        add_next_subschema(
-                            schema_name,
-                            schemas_details,
-                            canonical_schema,
-                            field_name + "." + subschema_name,
-                            name,
-                        )
+                    canonical_schema = add_next_subschema(
+                        schema_name,
+                        schemas_details,
+                        canonical_schema,
+                        field_name + "." + subschema_name,
+                        name,
                     )
                     continue
                 except KeyError:
@@ -1272,14 +1313,12 @@ def add_next_subschema(
                             item = type[0]
                             ft = item["$ref"]
                             s_name = ft.rsplit("/", 1)[1]
-                            canonical_schema = (
-                                add_next_subschema(
-                                    s_name,
-                                    schemas_details,
-                                    canonical_schema,
-                                    field_name + "." + subschema_name,
-                                    name,
-                                )
+                            canonical_schema = add_next_subschema(
+                                s_name,
+                                schemas_details,
+                                canonical_schema,
+                                field_name + "." + subschema_name,
+                                name,
                             )
                             continue
                     except KeyError:

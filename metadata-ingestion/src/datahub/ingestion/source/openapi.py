@@ -24,13 +24,13 @@ from datahub.ingestion.source.openapi_parser import (
     compose_url_attr,
     extract_fields,
     get_endpoints,
+    get_schemas,
     get_swag_json,
     get_tok,
     get_url_basepath,
     request_call,
     set_metadata,
     try_guessing,
-    get_schemas,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
