@@ -1,7 +1,6 @@
 package com.linkedin.metadata.service;
 
 import com.datahub.authentication.Authentication;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -13,13 +12,14 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.QueryKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.query.QueryProperties;
 import com.linkedin.query.QuerySource;
 import com.linkedin.query.QueryStatement;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
-import com.linkedin.view.DataHubViewInfo;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -126,8 +126,6 @@ public class QueryService extends BaseService {
       @Nonnull Authentication authentication,
       long currentTimeMs) {
     Objects.requireNonNull(urn, "urn must not be null");
-    Objects.requireNonNull(statement, "statement must not be null");
-    Objects.requireNonNull(subjects, "subjects must not be null");
     Objects.requireNonNull(authentication, "authentication must not be null");
 
     // 1. Check whether the Query exists
@@ -154,11 +152,13 @@ public class QueryService extends BaseService {
 
     // 3. Write changes to GMS
     try {
-      this.entityClient.batchIngestProposals(ImmutableList.of(
-          AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_PROPERTIES_ASPECT_NAME, properties),
-          AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_SUBJECTS_ASPECT_NAME, new QuerySubjects()
-            .setSubjects(new QuerySubjectArray(subjects)))
-        ), authentication,false);
+      final List<MetadataChangeProposal> aspectsToIngest = new ArrayList<>();
+      aspectsToIngest.add(AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_PROPERTIES_ASPECT_NAME, properties));
+      if (subjects != null) {
+        AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_SUBJECTS_ASPECT_NAME, new QuerySubjects()
+            .setSubjects(new QuerySubjectArray(subjects)));
+      }
+      this.entityClient.batchIngestProposals(aspectsToIngest, authentication,false);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", urn), e);
     }

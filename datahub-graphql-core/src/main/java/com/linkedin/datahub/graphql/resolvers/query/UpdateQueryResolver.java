@@ -18,6 +18,8 @@ import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjects;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -49,8 +51,17 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
     }
 
     final List<Urn> subjectUrns = existingSubjects.getSubjects().stream().map(QuerySubject::getEntity).collect(Collectors.toList());
+    final List<Urn> newSubjectUrns = input.getSubjects() != null
+        ? input.getSubjects()
+          .stream()
+          .map(sub -> UrnUtils.getUrn(sub.getDatasetUrn()))
+          .collect(Collectors.toList())
+        : Collections.emptyList();
+    final List<Urn> impactedSubjectUrns = new ArrayList<>();
+    impactedSubjectUrns.addAll(subjectUrns);
+    impactedSubjectUrns.addAll(newSubjectUrns);
 
-    if (!AuthorizationUtils.canUpdateQuery(queryUrn, subjectUrns, context)) {
+    if (!AuthorizationUtils.canUpdateQuery(queryUrn, impactedSubjectUrns, context)) {
       throw new AuthorizationException(
           "Unauthorized to update Query. Please contact your DataHub administrator if this needs corrective action.");
     }
@@ -59,15 +70,19 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
       try {
         _queryService.updateQuery(
             queryUrn,
-            input.getProperties().getName(),
-            input.getProperties().getDescription(),
-            new QueryStatement()
-                .setValue(input.getProperties().getStatement().getValue())
-                .setLanguage(QueryLanguage.valueOf(input.getProperties().getStatement().getLanguage().toString())),
-            input.getSubjects()
-                .stream()
-                .map(sub -> new QuerySubject().setEntity(UrnUtils.getUrn(sub.getDatasetUrn())))
-                .collect(Collectors.toList()),
+            input.getProperties() != null ? input.getProperties().getName() : null,
+            input.getProperties() != null ? input.getProperties().getDescription() : null,
+            input.getProperties() != null && input.getProperties().getStatement() != null
+                ? new QueryStatement()
+                  .setValue(input.getProperties().getStatement().getValue())
+                  .setLanguage(QueryLanguage.valueOf(input.getProperties().getStatement().getLanguage().toString()))
+                : null,
+            input.getSubjects() != null
+                ? input.getSubjects()
+                  .stream()
+                  .map(sub -> new QuerySubject().setEntity(UrnUtils.getUrn(sub.getDatasetUrn())))
+                  .collect(Collectors.toList())
+                : null,
             authentication,
             System.currentTimeMillis());
         return QueryMapper.map(_queryService.getQueryEntityResponse(queryUrn, authentication));
