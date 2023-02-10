@@ -10415,12 +10415,12 @@ input UpdateQueryInput {
   """
   Properties about the Query
   """
-  properties: UpdateQueryPropertiesInput!
+  properties: UpdateQueryPropertiesInput
 
   """
   Subjects for the query
   """
-  subjects: [UpdateQuerySubjectInput!]!
+  subjects: [UpdateQuerySubjectInput!]
 }
 
 """
