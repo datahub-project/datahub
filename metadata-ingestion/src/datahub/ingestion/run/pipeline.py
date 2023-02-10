@@ -131,9 +131,7 @@ class CliReport(Report):
             self._peek_memory_usage = mem_usage
             self.peek_memory_usage = humanfriendly.format_size(self._peek_memory_usage)
 
-        self.mem_info = humanfriendly.format_size(
-            psutil.Process(os.getpid()).memory_info().rss
-        )
+        self.mem_info = humanfriendly.format_size(self._peek_memory_usage)
         return super().compute_stats()
 
 

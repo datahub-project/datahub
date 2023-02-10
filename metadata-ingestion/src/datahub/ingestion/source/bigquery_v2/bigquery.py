@@ -679,9 +679,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             tables[dataset].extend(
                 [
                     BigqueryTableIdentifier(
-                        project_id, dataset, table.name
+                        project_id, dataset, view.name
                     ).get_table_name()
-                    for table in self.db_views[dataset]
+                    for view in self.db_views[dataset]
                 ]
             )
         yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
@@ -723,7 +723,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     view, view_columns, project_id, dataset_name
                 )
 
-    # This methode is used to generate the ignore list for datatypes the profiler doesn't support we have to do it here
+    # This method is used to generate the ignore list for datatypes the profiler doesn't support we have to do it here
     # because the profiler doesn't have access to columns
     def generate_profile_ignore_list(self, columns: List[BigqueryColumn]) -> List[str]:
         ignore_list: List[str] = []
