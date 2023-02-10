@@ -117,18 +117,17 @@ In this step, we can select the actors who should be granted Privileges appearin
 
 To do so, simply search and select the Users or Groups that the Policy should apply to.
 
+**Assigning a Policy to a User**
+
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-users.png"/>
 </p>
 
-**Assigning a Policy to a User**
+**Assigning a Policy to a Group**
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-groups.png"/>
 </p>
-
-**Assigning a Policy to a Group**
-
 
 ### Creating a Metadata Policy
 

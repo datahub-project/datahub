@@ -616,7 +616,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
     return unique_custom_sql
 
 
-def clean_query(query):
+def clean_query(query: str) -> str:
     """
     Clean special chars in query
     """
