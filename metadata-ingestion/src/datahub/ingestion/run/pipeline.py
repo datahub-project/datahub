@@ -412,8 +412,7 @@ class Pipeline:
             else False
         )
         has_warnings: bool = bool(
-            self.source.get_report().warnings
-            or self.sink.get_report().warnings
+            self.source.get_report().warnings or self.sink.get_report().warnings
         )
 
         for name, committable in self.ctx.get_committables():
