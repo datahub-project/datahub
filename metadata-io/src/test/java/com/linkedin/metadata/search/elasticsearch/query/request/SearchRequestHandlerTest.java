@@ -59,7 +59,7 @@ public class SearchRequestHandlerTest {
 
     final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
 
-    final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler,false);
+    final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
     testFilterQuery(testQuery);
 
@@ -68,7 +68,7 @@ public class SearchRequestHandlerTest {
     testRemovedQuery(queryWithRemoved);
 
 
-    final BoolQueryBuilder testQueryScroll = constructFilterQuery(requestHandler,true);
+    final BoolQueryBuilder testQueryScroll = constructFilterQuery(requestHandler, true);
 
     testFilterQuery(testQueryScroll);
 
