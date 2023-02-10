@@ -19,11 +19,12 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.lite.duckdb_lite import DuckDBLiteConfig, SearchFlavor
+from datahub.lite.duckdb_lite_config import DuckDBLiteConfig
 from datahub.lite.lite_local import (
     AutoComplete,
     DataHubLiteLocal,
     PathNotFoundException,
+    SearchFlavor,
 )
 from datahub.lite.lite_util import LiteLocalConfig, get_datahub_lite
 from datahub.telemetry import telemetry

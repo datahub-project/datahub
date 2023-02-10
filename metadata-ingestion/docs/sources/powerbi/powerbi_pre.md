@@ -2,7 +2,7 @@
 1. Refer [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) to create a Microsoft AD Application. Once Microsoft AD Application is created you can configure client-credential i.e. client_id and client_secret in recipe for ingestion.
 2. Enable admin access only if you want to ingest dataset, lineage and endorsement tags. Refer section [Admin Ingestion vs. Basic Ingestion](#admin-ingestion-vs-basic-ingestion) for more detail. 
 
-    Login to Power BI as Admin and from `Admin API settings` allow below permissions
+    Login to PowerBI as Admin and from `Admin API settings` allow below permissions
 
     - Allow service principals to use read-only admin APIs
     - Enhance admin APIs responses with detailed metadata
@@ -10,7 +10,7 @@
 
 ## Concept mapping 
 
-| Power BI              | Datahub                 |                                                                                               
+| PowerBI              | Datahub                 |                                                                                               
 |-----------------------|---------------------|
 | `Dashboard`           | `Dashboard`         |
 | `Dataset's Table`     | `Dataset`           |
@@ -24,7 +24,7 @@ If Tile is created from report then Chart.externalUrl is set to Report.webUrl.
 
 ## Lineage
 
-This source extract table lineage for tables present in Power BI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset. 
+This source extract table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset. 
 
 Consider `SALES_REPORT` PowerBI Dataset has a table `SALES_ANALYSIS` which is backed by `SALES_ANALYSIS_VIEW` of PostgreSQL Database then in this case `SALES_ANALYSIS_VIEW` will appear as upstream dataset for `SALES_ANALYSIS` table.
 
@@ -106,20 +106,21 @@ By default, extracting endorsement information to tags is disabled. The feature 
 Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
 
 ## Admin Ingestion vs. Basic Ingestion
-Power BI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/). 
+PowerBI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/). 
 
-The Basic API returns metadata of Power BI resources where Service Principal has granted access explicitly on resources whereas Admin API returns metadata of all Power BI resources irrespective of whether Service Principal has granted or doesn't granted access explicitly  on resources.
+The Basic API returns metadata of PowerBI resources where service principal has granted access explicitly on resources whereas Admin API returns metadata of all PowerBI resources irrespective of whether service principal has granted or doesn't granted access explicitly  on resources.
 
-The Admin Ingestion (explain below) is the recommended way to execute Power BI ingestion as this ingestion can extract most of the metadata.
+The Admin Ingestion (explain below) is the recommended way to execute PowerBI ingestion as this ingestion can extract most of the metadata.
 
 
 ### Admin Ingestion: Service Principal As Admin in Tenant Setting and Added as Member In Workspace
-If you have added Service Principal as `member` in workspace and also allowed below permissions  
+To grant admin access to the service principal, visit your PowerBI tenant Settings.
+
+If you have added service principal as `member` in workspace and also allowed below permissions from PowerBI tenant Settings
 
   - Allow service principal to use read-only PowerBI Admin APIs
   - Enhance admin APIs responses with detailed metadata
   - Enhance admin APIs responses with DAX and mashup expressions
-
 
 PowerBI Source would be able to ingest below listed metadata of that particular workspace 
 
@@ -131,11 +132,11 @@ PowerBI Source would be able to ingest below listed metadata of that particular 
   - Dashboard's Tiles
   - Report's Pages
 
-Lets consider user don't want (or don't have access) to add Service Principal as member in workspace then you can enable the `admin_apis_only: true` in recipe to use Power BI Admin API only. if `admin_apis_only` is set to `true` then report's pages would not get ingested as page API is not available in Power BI Admin API.
+Lets consider user don't want (or doesn't have access) to add service principal as member in workspace then you can enable the `admin_apis_only: true` in recipe to use PowerBI Admin API only. if `admin_apis_only` is set to `true` then report's pages would not get ingested as page API is not available in PowerBI Admin API.
 
 
 ### Basic Ingestion: Service Principal As Member In Workspace 
-If you have added Service Principal as `member` in workspace then PowerBI Source would be able ingest below metadata of that particular workspace 
+If you have added service principal as `member` in workspace then PowerBI Source would be able ingest below metadata of that particular workspace 
 
   - Dashboards 
   - Reports 
