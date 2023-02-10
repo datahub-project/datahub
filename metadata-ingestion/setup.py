@@ -41,7 +41,6 @@ framework_common = {
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
-    "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
     "termcolor>=1.0.0",
