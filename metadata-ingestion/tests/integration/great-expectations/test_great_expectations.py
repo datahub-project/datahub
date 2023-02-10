@@ -59,7 +59,7 @@ def test_ge_ingest(
             test_resources_dir / "setup/great_expectations",
             tmp_path / "great_expectations",
         )
-        context = ge.get_context(filepath=tmp_path)
+        context = ge.get_context(tmp_path)
         context.run_checkpoint(checkpoint_name=checkpoint)
 
         emitter.write_to_file(tmp_path / "ge_mcps.json")

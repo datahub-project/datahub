@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="function")
 def ge_data_context(tmp_path: str) -> DataContext:
-    return ge.get_context(filepath=tmp_path)
+    return ge.get_context(tmp_path)
 
 
 @pytest.fixture(scope="function")
