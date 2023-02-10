@@ -199,7 +199,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
         self.platform: str = "bigquery"
-
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
@@ -214,8 +213,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # Currently caching using instance variables
         # TODO - rewrite cache for readability or use out of the box solution
-        self.db_tables: Dict[str, Dict[str, List[BigqueryTable]]] = {}
-        self.db_views: Dict[str, Dict[str, List[BigqueryView]]] = {}
+        self.db_tables: Dict[str, List[BigqueryTable]] = {}
+        self.db_views: Dict[str, List[BigqueryView]] = {}
 
         self.schema_columns: Dict[
             Tuple[str, str], Optional[Dict[str, List[BigqueryColumn]]]
@@ -523,11 +522,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.set_project_state(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
-        if self.config.profiling.enabled:
-            logger.info("Starting profiling...")
-            self.report.set_project_state(project_id.id, "Profiling")
-            yield from self.profiler.get_workunits(self.db_tables)
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
@@ -541,9 +535,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
     ) -> Iterable[MetadataWorkUnit]:
         project_id = bigquery_project.id
-
-        self.db_tables[project_id] = {}
-        self.db_views[project_id] = {}
 
         yield from self.gen_project_id_containers(project_id)
 
@@ -592,7 +583,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 logger.error(error_message)
                 self.report.report_failure(
                     "metadata-extraction",
-                    f"{project_id}.{bigquery_dataset.name} - {error_message}",
+                    f"{project_id}.{bigquery_dataset.name} - {error_message} - {trace}",
                 )
                 continue
 
@@ -642,10 +633,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.set_project_state(project_id, "Usage Extraction")
             yield from self.generate_usage_statistics(project_id)
 
+        if self.config.profiling.enabled:
+            logger.info(f"Starting profiling project {project_id}")
+            self.report.set_project_state(project_id, "Profiling")
+            yield from self.profiler.get_workunits(
+                project_id=project_id,
+                tables=self.db_tables,
+            )
+
     def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
-        for dataset in self.db_tables[project_id]:
-            for table in self.db_tables[project_id][dataset]:
+        for dataset in self.db_tables:
+            for table in self.db_tables[dataset]:
                 dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)
                 lineage_info = self.lineage_extractor.get_upstream_lineage_info(
                     project_id=project_id,
@@ -655,8 +654,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 if lineage_info:
                     yield from self.gen_lineage(dataset_urn, lineage_info)
-        for dataset in self.db_views[project_id]:
-            for view in self.db_views[project_id][dataset]:
+        for dataset in self.db_views:
+            for view in self.db_views[dataset]:
                 dataset_urn = self.gen_dataset_urn(dataset, project_id, view.name)
                 lineage_info = self.lineage_extractor.get_upstream_lineage_info(
                     project_id=project_id,
@@ -669,17 +668,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def generate_usage_statistics(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate usage for {project_id}")
         tables: Dict[str, List[str]] = defaultdict()
-        for dataset in self.db_tables[project_id]:
+        for dataset in self.db_tables.keys():
             tables[dataset] = [
                 BigqueryTableIdentifier(
                     project_id, dataset, table.name
                 ).get_table_name()
-                for table in self.db_tables[project_id][dataset]
+                for table in self.db_tables[dataset]
             ]
-        for dataset in self.db_views[project_id]:
-            tables[dataset].extend(
-                [table.name for table in self.db_views[project_id][dataset]]
-            )
+        for dataset in self.db_views.keys():
+            tables[dataset].extend([table.name for table in self.db_views[dataset]])
         yield from self.usage_extractor.generate_usage_for_project(project_id, tables)
 
     def _process_schema(
@@ -692,12 +689,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id,
         )
 
+        columns = BigQueryDataDictionary.get_columns_for_dataset(
+            conn,
+            project_id=project_id,
+            dataset_name=dataset_name,
+            column_limit=self.config.column_limit,
+        )
+
         if self.config.include_tables:
-            bigquery_dataset.tables = self.get_tables_for_dataset(
-                conn, project_id, dataset_name
-            )
-            for table in bigquery_dataset.tables:
-                yield from self._process_table(conn, table, project_id, dataset_name)
+            tables = self.get_tables_for_dataset(conn, project_id, dataset_name)
+            for table in tables:
+                table_columns = columns.get(table.name, []) if columns else []
+
+                yield from self._process_table(
+                    conn, table, table_columns, project_id, dataset_name
+                )
 
         if self.config.include_views:
             bigquery_dataset.views = self.get_views_for_dataset(
@@ -705,12 +711,28 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
             for view in bigquery_dataset.views:
-                yield from self._process_view(conn, view, project_id, dataset_name)
+                view_columns = columns.get(view.name, []) if columns else []
+                yield from self._process_view(
+                    view, view_columns, project_id, dataset_name
+                )
+
+    # This methode is used to generate the ignore list for datatypes the profiler doesn't support we have to do it here
+    # because the profiler doesn't have access to columns
+    def generate_profile_ignore_list(self, columns: List[BigqueryColumn]) -> List[str]:
+        ignore_list: List[str] = []
+        for column in columns:
+            if not column.data_type or any(
+                word in column.data_type.lower()
+                for word in ["array", "struct", "geography", "json"]
+            ):
+                ignore_list.append(column.field_path)
+        return ignore_list
 
     def _process_table(
         self,
         conn: bigquery.Client,
         table: BigqueryTable,
+        columns: List[BigqueryColumn],
         project_id: str,
         schema_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -722,20 +744,40 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        table.columns = self.get_columns_for_table(
-            conn, table_identifier, self.config.column_limit
-        )
-        if not table.columns:
+        table.column_count = len(columns)
+
+        # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
+        if (
+            self.config.profiling.enabled
+            and not self.config.profiling.profile_table_level_only
+        ):
+            table.columns_ignore_from_profiling = self.generate_profile_ignore_list(
+                columns
+            )
+
+        if not table.column_count:
             logger.warning(
                 f"Table doesn't have any column or unable to get columns for table: {table_identifier}"
             )
 
-        yield from self.gen_table_dataset_workunits(table, project_id, schema_name)
+        # If table has time partitioning, set the data type of the partitioning field
+        if table.time_partitioning:
+            table.time_partitioning.column = next(
+                (
+                    column
+                    for column in columns
+                    if column.name == table.time_partitioning.field
+                ),
+                None,
+            )
+        yield from self.gen_table_dataset_workunits(
+            table, columns, project_id, schema_name
+        )
 
     def _process_view(
         self,
-        conn: bigquery.Client,
         view: BigqueryView,
+        columns: List[BigqueryColumn],
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -747,20 +789,23 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        view.columns = self.get_columns_for_table(
-            conn, table_identifier, column_limit=self.config.column_limit
+        view.column_count = len(columns)
+        if not view.column_count:
+            logger.warning(
+                f"View doesn't have any column or unable to get columns for table: {table_identifier}"
+            )
+
+        yield from self.gen_view_dataset_workunits(
+            table=view,
+            columns=columns,
+            project_id=project_id,
+            dataset_name=dataset_name,
         )
-
-        if dataset_name not in self.db_views[project_id]:
-            self.db_views[project_id][dataset_name] = []
-
-        self.db_views[project_id][dataset_name].append(view)
-
-        yield from self.gen_view_dataset_workunits(view, project_id, dataset_name)
 
     def gen_table_dataset_workunits(
         self,
         table: BigqueryTable,
+        columns: List[BigqueryColumn],
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -804,6 +849,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         yield from self.gen_dataset_workunits(
             table=table,
+            columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
             sub_types=sub_types,
@@ -814,11 +860,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def gen_view_dataset_workunits(
         self,
         table: BigqueryView,
+        columns: List[BigqueryColumn],
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         yield from self.gen_dataset_workunits(
             table=table,
+            columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
             sub_types=["view"],
@@ -837,6 +885,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def gen_dataset_workunits(
         self,
         table: Union[BigqueryTable, BigqueryView],
+        columns: List[BigqueryColumn],
         project_id: str,
         dataset_name: str,
         sub_types: List[str],
@@ -854,7 +903,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id, dataset_name, table.name
         )
 
-        yield self.gen_schema_metadata(dataset_urn, table, str(datahub_dataset_name))
+        yield self.gen_schema_metadata(
+            dataset_urn, table, columns, str(datahub_dataset_name)
+        )
 
         dataset_properties = DatasetProperties(
             name=datahub_dataset_name.get_table_display_name(),
@@ -1013,6 +1064,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         table: Union[BigqueryTable, BigqueryView],
+        columns: List[BigqueryColumn],
         dataset_name: str,
     ) -> MetadataWorkUnit:
         schema_metadata = SchemaMetadata(
@@ -1021,7 +1073,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             version=0,
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
-            fields=self.gen_schema_fields(table.columns),
+            # fields=[],
+            fields=self.gen_schema_fields(columns),
         )
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=schema_metadata
@@ -1036,10 +1089,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> List[BigqueryTable]:
-        bigquery_tables: Optional[List[BigqueryTable]] = (
-            self.db_tables[project_id].get(dataset_name)
-            if project_id in self.db_tables
-            else []
+        bigquery_tables: Optional[List[BigqueryTable]] = self.db_tables.get(
+            dataset_name, []
         )
 
         # In bigquery there is no way to query all tables in a Project id
@@ -1148,7 +1199,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         )
                     )
 
-                self.db_tables[project_id][dataset_name] = bigquery_tables
+                self.db_tables[dataset_name] = bigquery_tables
 
                 self.report.metadata_extraction_sec[
                     f"{project_id}.{dataset_name}"
@@ -1157,11 +1208,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 return bigquery_tables
 
         # Some schema may not have any table
-        return (
-            self.db_tables[project_id].get(dataset_name, [])
-            if project_id in self.db_tables
-            else []
-        )
+        return self.db_tables.get(dataset_name, [])
 
     def get_views_for_dataset(
         self,
@@ -1169,50 +1216,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> List[BigqueryView]:
-        views = self.db_views.get(project_id, {}).get(dataset_name, [])
+        views = self.db_views.get(dataset_name, [])
 
         if not views:
-            return BigQueryDataDictionary.get_views_for_dataset(
+            views = BigQueryDataDictionary.get_views_for_dataset(
                 conn, project_id, dataset_name, self.config.profiling.enabled
             )
+            self.db_views[dataset_name] = views
         return views
-
-    def get_columns_for_table(
-        self,
-        conn: bigquery.Client,
-        table_identifier: BigqueryTableIdentifier,
-        column_limit: Optional[int] = None,
-    ) -> List[BigqueryColumn]:
-        if (
-            table_identifier.project_id,
-            table_identifier.dataset,
-        ) not in self.schema_columns.keys():
-            columns = BigQueryDataDictionary.get_columns_for_dataset(
-                conn,
-                project_id=table_identifier.project_id,
-                dataset_name=table_identifier.dataset,
-                column_limit=column_limit,
-            )
-            self.schema_columns[
-                (table_identifier.project_id, table_identifier.dataset)
-            ] = columns
-        else:
-            columns = self.schema_columns[
-                (table_identifier.project_id, table_identifier.dataset)
-            ]
-
-        # get all columns for schema failed,
-        # falling back to get columns for table
-        if not columns:
-            logger.warning(
-                f"Couldn't get columns on the dataset level for {table_identifier}. Trying to get on table level..."
-            )
-            return BigQueryDataDictionary.get_columns_for_table(
-                conn, table_identifier, self.config.column_limit
-            )
-
-        # Access to table but none of its columns - is this possible ?
-        return columns.get(table_identifier.table, [])
 
     def add_config_to_report(self):
         self.report.include_table_lineage = self.config.include_table_lineage

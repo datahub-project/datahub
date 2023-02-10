@@ -341,12 +341,14 @@ timestamp < "{end_time}"
             f"Start iterating over log entries from BigQuery for {client.project}"
         )
         for entry in entries:
-            self.report.num_total_log_entries[client.project] += 1
-            if self.report.num_total_log_entries[client.project] % 1000 == 0:
-                logger.info(
-                    f"{self.report.num_total_log_entries[client.project]} log entries loaded for project {client.project} so far..."
-                )
-            yield entry
+            # TODO: remove this for loop which only serves the purpose of stress testing
+            for i in range(100):
+                self.report.num_total_log_entries[client.project] += 1
+                if self.report.num_total_log_entries[client.project] % 1000 == 0:
+                    logger.info(
+                        f"{self.report.num_total_log_entries[client.project]} log entries loaded for project {client.project} so far..."
+                    )
+                yield entry
 
         logger.info(
             f"Finished loading {self.report.num_total_log_entries[client.project]} log entries from BigQuery project {client.project} so far"

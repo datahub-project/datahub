@@ -577,6 +577,7 @@ entry_points = {
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
         "console = datahub.ingestion.sink.console:ConsoleSink",
+        "blackhole = datahub.ingestion.sink.blackhole:BlackHoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
