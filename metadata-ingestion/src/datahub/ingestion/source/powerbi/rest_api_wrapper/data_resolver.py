@@ -107,9 +107,7 @@ class DataResolverBase(ABC):
         return "{}{}".format(DataResolverBase.AUTHORITY, self.__tenant_id)
 
     def get_authorization_header(self):
-        return {
-            Constant.Authorization: self.get_access_token()
-        }
+        return {Constant.Authorization: self.get_access_token()}
 
     def get_access_token(self):
         if self.__access_token is not None:
@@ -199,7 +197,9 @@ class DataResolverBase(ABC):
         zeroth_page = fetch_page(0)
         logger.debug(f"Page 0 = {zeroth_page}")
         if zeroth_page.get(Constant.ODATA_COUNT) is None:
-            logger.warning("Failed to extract @odata.count field from PowerBI response for fetching groups. Cannot determine the number of pages to fetch.")
+            logger.warning(
+                "Failed to extract @odata.count field from PowerBI response for fetching groups. Cannot determine the number of pages to fetch."
+            )
             return []
 
         number_of_items = zeroth_page[Constant.ODATA_COUNT]

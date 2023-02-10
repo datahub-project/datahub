@@ -37,7 +37,7 @@ class DataSource:
     raw_connection_detail: Dict
 
     def __members(self):
-        return self.id,
+        return (self.id,)
 
     def __eq__(self, instance):
         return (
@@ -70,7 +70,7 @@ class PowerBIDataset:
         return f"datasets.{self.id}"
 
     def __members(self):
-        return self.id,
+        return (self.id,)
 
     def __eq__(self, instance):
         return (
@@ -105,7 +105,7 @@ class User:
         return f"users.{self.id}"
 
     def __members(self):
-        return self.id,
+        return (self.id,)
 
     def __eq__(self, instance):
         return isinstance(instance, User) and self.__members() == instance.__members()
@@ -167,7 +167,7 @@ class Dashboard:
         return f"dashboards.{self.id}"
 
     def __members(self):
-        return self.id,
+        return (self.id,)
 
     def __eq__(self, instance):
         return (

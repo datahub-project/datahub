@@ -80,7 +80,7 @@ task lint(type: Exec, dependsOn: installDev) {
     "flake8 --count --statistics src/ tests/ examples/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
-task lintFix(type: Exec, dependsOn: installDev) {
+task lintFix(type: Exec/*, dependsOn: installDev*/) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "./scripts/install-sqlalchemy-stubs.sh && " +
