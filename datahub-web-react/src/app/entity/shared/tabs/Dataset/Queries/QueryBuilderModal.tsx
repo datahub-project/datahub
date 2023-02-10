@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Editor from '@monaco-editor/react';
 import styled from 'styled-components';
 import { Button, Form, Input, message, Modal, Typography } from 'antd';
-import { useCreateQueryMutation } from '../../../../../../graphql/query.generated';
+import { useCreateQueryMutation, useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
 import { QueryLanguage } from '../../../../../../types.generated';
 import analytics, { EventType } from '../../../../../analytics';
 import { ANTD_GRAY } from '../../../constants';
@@ -43,6 +43,8 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
     const isEditing = initialState !== undefined;
 
     const [createQueryMutation] = useCreateQueryMutation();
+    const [updateQueryMutation] = useUpdateQueryMutation();
+
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [query, setQuery] = useState<string | undefined>(initialState?.query || PLACEHOLDER_QUERY);
     const [form] = Form.useForm();
@@ -85,7 +87,40 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
     };
 
     const editQuery = () => {
-        // TODO
+        if (initialState) {
+            updateQueryMutation({
+                variables: {
+                    urn: initialState?.urn,
+                    input: {
+                        properties: {
+                            name: form.getFieldValue(TITLE_FIELD_NAME),
+                            description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                            statement: {
+                                value: query as string,
+                                language: QueryLanguage.Sql,
+                            },
+                        },
+                    },
+                },
+            })
+                .then(({ errors }) => {
+                    if (!errors) {
+                        analytics.event({
+                            type: EventType.CreateQueryEvent,
+                        });
+                        message.success({
+                            content: `Created Query!`,
+                            duration: 3,
+                        });
+                        onSubmit?.();
+                        form.resetFields();
+                    }
+                })
+                .catch(() => {
+                    message.destroy();
+                    message.error({ content: 'Failed to create Query! An unexpected error occurred' });
+                });
+        }
     };
 
     const confirmClose = () => {
