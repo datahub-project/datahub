@@ -1661,6 +1661,16 @@ def run_dataset_transformer_pipeline(
     return outputs
 
 
+def test_simple_add_dataset_domain_aspect_name(mock_datahub_graph):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    transformer = SimpleAddDatasetDomain.create({"domains": []}, pipeline_context)
+    assert transformer.aspect_name() == models.DomainsClass.ASPECT_NAME
+
+
 def test_simple_add_dataset_domain(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
     gslab_domain = builder.make_domain_urn("gslab.io")
@@ -1823,6 +1833,18 @@ def test_simple_add_dataset_domain_semantics_patch(
     assert gslab_domain in transformed_aspect.domains
     assert acryl_domain in transformed_aspect.domains
     assert server_domain in transformed_aspect.domains
+
+
+def test_pattern_add_dataset_domain_aspect_name(mock_datahub_graph):
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
+
+    transformer = PatternAddDatasetDomain.create(
+        {"domain_pattern": {"rules": {}}}, pipeline_context
+    )
+    assert transformer.aspect_name() == models.DomainsClass.ASPECT_NAME
 
 
 def test_pattern_add_dataset_domain_match(mock_datahub_graph):
