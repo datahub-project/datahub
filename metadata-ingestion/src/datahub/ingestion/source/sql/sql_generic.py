@@ -65,7 +65,7 @@ class SQLAlchemyGenericConfig(SQLAlchemyConfig):
         return self.connect_uri
 
 
-@platform_name("Other SQLAlchemy databases", id="sqlalchemy")
+@platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
