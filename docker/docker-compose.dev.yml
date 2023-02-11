@@ -55,7 +55,7 @@ services:
       - ../datahub-frontend/build/stage/playBinary:/datahub-frontend
 
   datahub-upgrade:
-    image: linkedin/datahub-upgrade:debug
+    image: acryldata/datahub-upgrade:debug
     build:
       context: datahub-upgrade
       dockerfile: Dockerfile
