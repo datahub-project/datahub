@@ -55,6 +55,7 @@ public class QueryService extends BaseService {
    * @param statement the query statement
    * @param subjects the query subjects
    * @param authentication the current authentication
+   * @param currentTimeMs the current time in millis
    *
    * @return the urn of the newly created View
    */
@@ -117,6 +118,7 @@ public class QueryService extends BaseService {
    * @param statement the query statement
    * @param subjects the query subjects
    * @param authentication the current authentication
+   * @param currentTimeMs the current time in millis
    */
   public void updateQuery(
       @Nonnull Urn urn,

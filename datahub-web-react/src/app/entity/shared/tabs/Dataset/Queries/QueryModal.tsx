@@ -7,8 +7,15 @@ import { ANTD_GRAY } from '../../../constants';
 import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
 
 const StyledModal = styled(Modal)`
-    top: 30px;
+    top: 5vh;
+    max-width: 1200px;
 `;
+
+const bodyStyle = {
+    maxHeight: '80vh',
+    padding: 0,
+    overflow: 'scroll',
+};
 
 const QueryActions = styled.div`
     display: flex;
@@ -24,7 +31,13 @@ const QueryAction = styled.div`
 `;
 
 const QueryDetails = styled.div`
-    padding: 20px 28px 28px 28px;
+    padding: 28px 28px 28px 28px;
+`;
+
+const QueryTitle = styled(Typography.Title)`
+    && {
+        margin-bottom: 16px;
+    }
 `;
 
 const StyledViewer = styled(MarkdownEditor)`
@@ -37,6 +50,7 @@ const QueryContainer = styled.div`
     height: 58vh;
     overflow-y: scroll;
     background-color: ${ANTD_GRAY[2]};
+    border-radius: 4px;
 `;
 
 const NestedSyntax = styled(SyntaxHighlighter)`
@@ -49,22 +63,18 @@ type Props = {
     title?: string;
     description?: string;
     onClose?: () => void;
+    showDetails?: boolean;
 };
 
-export default function QueryModal({ query, title, description, onClose }: Props) {
+export default function QueryModal({ query, title, description, showDetails = true, onClose }: Props) {
     return (
         <StyledModal
-            width="70vw"
-            title={
-                <Typography.Title level={4} style={{ padding: 0, margin: 0 }}>
-                    {title || 'Query Details'}
-                </Typography.Title>
-            }
+            width="80vw"
+            title={null}
             visible
+            closable={false}
             onCancel={onClose}
-            bodyStyle={{
-                padding: 0,
-            }}
+            bodyStyle={bodyStyle}
             footer={
                 <Button onClick={onClose} type="text">
                     Close
@@ -81,9 +91,12 @@ export default function QueryModal({ query, title, description, onClose }: Props
                     {query}
                 </NestedSyntax>
             </QueryContainer>
-            <QueryDetails>
-                <StyledViewer readOnly content={description || 'No description'} />
-            </QueryDetails>
+            {showDetails && (
+                <QueryDetails>
+                    <QueryTitle level={4}>{title || 'No title'}</QueryTitle>
+                    <StyledViewer readOnly content={description || 'No description'} />
+                </QueryDetails>
+            )}
         </StyledModal>
     );
 }

@@ -29,6 +29,7 @@ query listQueries($input: ListQueriesInput!) {
     listQueries(input: $input) {
         start
         total
+        count
         queries {
             ...query
         }

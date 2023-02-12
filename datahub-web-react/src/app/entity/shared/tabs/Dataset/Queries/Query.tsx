@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { EditOutlined, ExpandOutlined, MoreOutlined } from '@ant-design/icons';
-import { Button, message, Typography } from 'antd';
+import { DeleteOutlined, EditOutlined, ExpandOutlined, MoreOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Menu, message, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../constants';
 import { CorpUser } from '../../../../../../types.generated';
@@ -18,13 +18,13 @@ export type Props = {
     title?: string;
     description?: string;
     createdAtMs?: number;
-    executedAtMs?: number;
     createdBy?: CorpUser;
     showDelete?: boolean;
     showEdit?: boolean;
     filterText?: string;
-    onDeleted?: () => void;
-    onEdited?: () => void;
+    onDeleted?: (urn) => void;
+    onEdited?: (newQuery) => void;
+    showDetails?: boolean;
 };
 
 const QueryCard = styled.div`
@@ -36,6 +36,7 @@ const QueryCard = styled.div`
     margin-right: 6px;
     margin-left: 6px;
     margin-bottom: 20px;
+    overflow: hidden;
 `;
 
 const QueryCardHeader = styled.div`
@@ -60,6 +61,7 @@ const QueryHeader = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
+    white-space: nowrap;
 `;
 
 const QueryActions = styled.div<{ opacity?: number }>`
@@ -73,12 +75,12 @@ const QueryAction = styled.span`
     margin-right: 8px;
 `;
 
+const QueryDetailsActions = styled.div``;
+
 const EditQueryActionButton = styled(Button)`
     && {
         margin: 0px;
-        padding: 0px;
-        margin-left: 4px;
-        padding 2px;
+        padding: 0px 4px 0px 4px;
     }
 `;
 
@@ -86,14 +88,14 @@ const EditQueryAction = styled.span`
     && {
         margin: 0px;
         padding: 0px;
+        margin-left: 4px;
     }
 `;
 
-const QueryContainer = styled.div`
-    overflow-y: scroll;
+const QueryContainer = styled.div<{ fullHeight?: boolean }>`
     background-color: ${ANTD_GRAY[2]};
     margin: 0px 0px 4px 0px;
-    height: 240px;
+    height: ${(props) => (props.fullHeight && '380px') || '240px'};
     border-radius: 8px;
     :hover {
         cursor: pointer;
@@ -101,16 +103,35 @@ const QueryContainer = styled.div`
 `;
 
 const QueryDescription = styled.div`
-    margin-bottom: 8px;
+    margin-bottom: 16px;
 `;
 
-const Date = styled.div``;
+const MoreButton = styled.span`
+    :hover {
+        cursor: pointer;
+    }
+    font-weight: bold;
+`;
+
+const Date = styled.div`
+    display: flex;
+    justify-content: right;
+    align-items: center;
+`;
+
+const EmptyContentText = styled.div`
+    && {
+        color: ${ANTD_GRAY[6]};
+    }
+`;
 
 // NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
 // to the component, so there's no way around this
 const NestedSyntax = styled(SyntaxHighlighter)`
     background-color: transparent !important;
     border: none !important;
+    height: 100%;
+    margin: 0px;
 `;
 
 export default function Query({
@@ -119,12 +140,12 @@ export default function Query({
     title,
     description,
     createdAtMs,
-    executedAtMs,
     createdBy,
     onDeleted,
     onEdited,
     showDelete,
     showEdit,
+    showDetails = true,
 }: Props) {
     console.log(createdBy);
 
@@ -134,7 +155,7 @@ export default function Query({
 
     const [deleteQueryMutation] = useDeleteQueryMutation();
 
-    const onDeleteQuery = () => {
+    const deleteQuery = () => {
         if (urn) {
             deleteQueryMutation({ variables: { urn } })
                 .then(({ errors }) => {
@@ -143,7 +164,7 @@ export default function Query({
                             content: `Deleted Query!`,
                             duration: 3,
                         });
-                        onDeleted?.();
+                        onDeleted?.(urn);
                     }
                 })
                 .catch(() => {
@@ -153,8 +174,27 @@ export default function Query({
         }
     };
 
+    const confirmDeleteQuery = () => {
+        Modal.confirm({
+            title: `Delete Query`,
+            content: `Are you sure you want to delete this query?`,
+            onOk() {
+                deleteQuery();
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
     const onEditQuery = () => {
         setShowEditQueryModal(true);
+    };
+
+    const onEditSubmitted = (newQuery) => {
+        setShowEditQueryModal(false);
+        onEdited?.(newQuery);
     };
 
     if (!query) {
@@ -176,53 +216,78 @@ export default function Query({
                         </QueryAction>
                     </QueryActions>
                 </QueryCardHeader>
-                <pre>
-                    <QueryContainer onClick={() => setShowQueryModal(true)}>
+                <QueryContainer fullHeight={!showDetails} onClick={() => setShowQueryModal(true)}>
+                    <pre>
                         <NestedSyntax showLineNumbers language="sql">
                             {query}
                         </NestedSyntax>
-                    </QueryContainer>
-                </pre>
-                <QueryDetails>
-                    <QueryHeader>
-                        {(title && <QueryTitle level={5}>{title || 'No title'}</QueryTitle>) || <div> </div>}
-                        <div>
-                            {showEdit && (
-                                <EditQueryAction>
-                                    <EditQueryActionButton type="text" onClick={onEditQuery}>
-                                        <EditOutlined />
-                                    </EditQueryActionButton>
-                                </EditQueryAction>
+                    </pre>
+                </QueryContainer>
+                {showDetails && (
+                    <QueryDetails>
+                        <QueryHeader>
+                            <QueryTitle
+                                style={{
+                                    maxHeight: 40,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                }}
+                                level={5}
+                            >
+                                {title || <EmptyContentText>No title</EmptyContentText>}
+                            </QueryTitle>
+                            <QueryDetailsActions>
+                                <span style={{ flexWrap: 'nowrap' }}>
+                                    {showEdit && (
+                                        <EditQueryAction>
+                                            <EditQueryActionButton type="text" onClick={onEditQuery}>
+                                                <EditOutlined />
+                                            </EditQueryActionButton>
+                                        </EditQueryAction>
+                                    )}
+                                    {showDelete && (
+                                        <EditQueryAction>
+                                            <Dropdown
+                                                overlay={
+                                                    <Menu>
+                                                        <Menu.Item key="0" onClick={confirmDeleteQuery}>
+                                                            <DeleteOutlined /> &nbsp; Delete
+                                                        </Menu.Item>
+                                                    </Menu>
+                                                }
+                                                trigger={['click']}
+                                            >
+                                                <MoreOutlined
+                                                    data-testid="query-edit-button"
+                                                    style={{ fontSize: 14 }}
+                                                />
+                                            </Dropdown>
+                                        </EditQueryAction>
+                                    )}
+                                </span>
+                            </QueryDetailsActions>
+                        </QueryHeader>
+                        <QueryDescription style={{ height: 52, overflow: 'scroll' }}>
+                            {(description && (
+                                <NoMarkdownViewer
+                                    shouldWrap
+                                    limit={200}
+                                    readMore={<MoreButton onClick={() => setShowQueryModal(true)}>more</MoreButton>}
+                                >
+                                    {description}
+                                </NoMarkdownViewer>
+                            )) || <EmptyContentText>No description</EmptyContentText>}
+                        </QueryDescription>
+                        <Date>
+                            {createdAtMs && (
+                                <Typography.Text type="secondary">
+                                    Created on {toLocalDateString(createdAtMs)}
+                                </Typography.Text>
                             )}
-                            {showDelete && (
-                                <EditQueryAction>
-                                    <EditQueryActionButton type="text" onClick={onDeleteQuery}>
-                                        <MoreOutlined />
-                                    </EditQueryActionButton>
-                                </EditQueryAction>
-                            )}
-                        </div>
-                    </QueryHeader>
-                    <QueryDescription>
-                        <NoMarkdownViewer shouldWrap limit={600}>
-                            {description || 'No description'}
-                        </NoMarkdownViewer>
-                    </QueryDescription>
-                    <Date>
-                        {executedAtMs && (
-                            <Typography.Text type="secondary">
-                                Executed on {toLocalDateString(executedAtMs)}
-                            </Typography.Text>
-                        )}
-                    </Date>
-                    <Date>
-                        {createdAtMs && (
-                            <Typography.Text type="secondary">
-                                Created on {toLocalDateString(createdAtMs)}
-                            </Typography.Text>
-                        )}
-                    </Date>
-                </QueryDetails>
+                        </Date>
+                    </QueryDetails>
+                )}
             </QueryCard>
             {showQueryModal && (
                 <QueryModal
@@ -230,12 +295,13 @@ export default function Query({
                     title={title}
                     description={description}
                     onClose={() => setShowQueryModal(false)}
+                    showDetails={showDetails}
                 />
             )}
             {showEditQueryModal && (
                 <QueryBuilderModal
                     initialState={{ urn: urn as string, title, description, query }}
-                    onSubmit={onEdited}
+                    onSubmit={onEditSubmitted}
                     onClose={() => setShowEditQueryModal(false)}
                 />
             )}

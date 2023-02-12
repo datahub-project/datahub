@@ -190,6 +190,7 @@ query getRecentQueries($urn: String!) {
     dataset(urn: $urn) {
         usageStats(range: MONTH) {
             buckets {
+                bucket
                 metrics {
                     topSqlQueries
                 }

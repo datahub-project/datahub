@@ -1,7 +1,7 @@
 import { Button, Input, Pagination, Typography } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import { useListQueriesQuery } from '../../../../../../graphql/query.generated';
 import { GetDatasetQuery, useGetRecentQueriesQuery } from '../../../../../../graphql/dataset.generated';
@@ -12,6 +12,8 @@ import { useAppConfig } from '../../../../../useAppConfig';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { QueryEntity } from '../../../../../../types.generated';
 import QueryBuilderModal from './QueryBuilderModal';
+import EmptyQueries from './EmptyQueries';
+import { addQueryToListQueriesCache, removeQueryFromListQueriesCache, updateListQueriesCache } from './cacheUtils';
 
 const QueriesSection = styled.div`
     margin-bottom: 28px;
@@ -34,11 +36,21 @@ const StyledInput = styled(Input)`
 
 const QueriesContent = styled.div`
     padding: 24px;
+    height: 100%;
+    overflow: scroll;
+`;
+
+const StyledPagination = styled(Pagination)`
+    padding: 0px 24px 24px 24px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const MAX_QUERIES_COUNT = 1000;
-const DEFAULT_PAGE_SIZE = 10;
-const DEFAULT_MAX_RECENT_QUERIES = 10;
+const DEFAULT_PAGE_SIZE = 6;
+const DEFAULT_MAX_RECENT_QUERIES = 9;
 
 const MAX_ROWS_BEFORE_DEBOUNCE = 50;
 const HALF_SECOND_IN_MS = 500;
@@ -54,6 +66,12 @@ const filterQueries = (filterText, queries: QueryEntity[]) => {
     });
 };
 
+const getCurrentPage = (queries: QueryEntity[], page: number, pageSize: number) => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return queries.length >= end ? queries.slice(start, end) : queries.slice(start, queries.length);
+};
+
 export default function QueriesTab() {
     const appConfig = useAppConfig();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -65,22 +83,25 @@ export default function QueriesTab() {
     /**
      * Pagination State
      */
-    const [page, setPage] = useState(0);
+    const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-    const { data: highlightedQueriesData, refetch } = useListQueriesQuery({
+    const { data: highlightedQueriesData, client } = useListQueriesQuery({
         variables: { input: { datasetUrn: baseEntity?.dataset?.urn, start: 0, count: MAX_QUERIES_COUNT } },
         skip: !baseEntity?.dataset?.urn,
+        fetchPolicy: 'cache-first',
     });
 
     const { data: recentQueriesData } = useGetRecentQueriesQuery({
         variables: { urn: baseEntity?.dataset?.urn as string },
         skip: !baseEntity?.dataset?.urn,
+        fetchPolicy: 'cache-first',
     });
 
-    const highlightedQueries = filterQueries(
-        filterText,
-        (highlightedQueriesData?.listQueries?.queries as QueryEntity[]) || [],
+    const highlightedQueries = getCurrentPage(
+        filterQueries(filterText, (highlightedQueriesData?.listQueries?.queries as QueryEntity[]) || []),
+        page,
+        pageSize,
     );
     const totalQueries = highlightedQueriesData?.listQueries?.total || 0;
 
@@ -95,19 +116,26 @@ export default function QueriesTab() {
         highlightedQueries.length > MAX_ROWS_BEFORE_DEBOUNCE ? HALF_SECOND_IN_MS : 0,
     );
 
-    const onQueryCreated = () => {
-        // Use cache
-        setTimeout(() => refetch(), 3000);
+    const onQueryCreated = (newQuery) => {
+        addQueryToListQueriesCache(newQuery, client, MAX_QUERIES_COUNT, baseEntity?.dataset?.urn);
         setShowQueryBuilder(false);
     };
 
-    const onQueryDeleted = () => {
-        setTimeout(() => refetch(), 3000);
+    const onQueryDeleted = (urn) => {
+        removeQueryFromListQueriesCache(urn, client, 1, MAX_QUERIES_COUNT, baseEntity?.dataset?.urn);
     };
 
-    const onQueryEdited = () => {
-        setTimeout(() => refetch(), 3000);
+    const onQueryEdited = (newQuery) => {
+        updateListQueriesCache(newQuery.urn, newQuery, client, 1, MAX_QUERIES_COUNT, baseEntity?.dataset?.urn);
     };
+
+    const queriesContentRef = useRef(null);
+
+    useEffect(() => {
+        (queriesContentRef?.current as any)?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    }, [page]);
+
+    const showEmptyView = !recentQueries.length && !highlightedQueries.length;
 
     return (
         <>
@@ -122,7 +150,8 @@ export default function QueriesTab() {
                     prefix={<SearchOutlined />}
                 />
             </TabToolbar>
-            <QueriesContent>
+            <QueriesContent ref={queriesContentRef}>
+                {showEmptyView && <EmptyQueries onClickAddQuery={() => setShowQueryBuilder(true)} />}
                 {highlightedQueries.length > 0 && (
                     <>
                         <QueriesTitle level={4}>Highlighted Queries</QueriesTitle>
@@ -141,18 +170,20 @@ export default function QueriesTab() {
                                     filterText={filterText}
                                 />
                             ))}
-                            {totalQueries > pageSize && (
-                                <Pagination
-                                    current={page}
-                                    pageSize={pageSize}
-                                    total={totalQueries}
-                                    showLessItems
-                                    onChange={setPage}
-                                    onShowSizeChange={(_currSize, newSize) => setPageSize(newSize)}
-                                    showSizeChanger={false}
-                                />
-                            )}
                         </QueriesSection>
+                        {totalQueries > pageSize && (
+                            <StyledPagination
+                                current={page}
+                                pageSize={pageSize}
+                                total={totalQueries}
+                                showLessItems
+                                onChange={(newPage) => {
+                                    setPage(newPage);
+                                }}
+                                onShowSizeChange={(_currSize, newSize) => setPageSize(newSize)}
+                                showSizeChanger={false}
+                            />
+                        )}
                     </>
                 )}
                 {recentQueries.length > 0 && (
@@ -160,7 +191,7 @@ export default function QueriesTab() {
                         <QueriesTitle level={4}>Recently Executed</QueriesTitle>
                         <QueriesSection>
                             {recentQueries.map((query) => (
-                                <Query query={query.query} executedAtMs={query.dateMs} />
+                                <Query query={query.query} showDetails={false} />
                             ))}
                         </QueriesSection>
                     </>
