@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -76,7 +77,12 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
         result.setStart(gmsResult.getFrom());
         result.setCount(gmsResult.getPageSize());
         result.setTotal(gmsResult.getNumEntities());
-        result.setQueries(entities.values().stream().map(QueryMapper::map).collect(Collectors.toList()));
+        result.setQueries(gmsResult.getEntities()
+            .stream()
+            .map(entity -> entities.get(entity.getEntity()))
+            .filter(Objects::nonNull)
+            .map(QueryMapper::map)
+            .collect(Collectors.toList()));
         return result;
       } catch (Exception e) {
         throw new RuntimeException("Failed to list Queries", e);
