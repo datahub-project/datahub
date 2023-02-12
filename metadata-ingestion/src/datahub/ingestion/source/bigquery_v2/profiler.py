@@ -11,7 +11,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    RANGE_PARTITION_NAME,
+    BigqueryTable,
+)
 from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -87,13 +90,13 @@ class BigqueryProfiler(GenericProfiler):
             f"generate partition profiler query for project: {project} schema: {schema} and table {table.name}, partition_datetime: {partition_datetime}"
         )
         partition = table.max_partition_id
-        if partition:
+        if table.partition_info and partition:
             partition_where_clause: str
 
-            if not table.time_partitioning:
-                if table.time_partitioning and table.time_partitioning.column:
+            if table.partition_info.type == RANGE_PARTITION_NAME:
+                if table.partition_info and table.partition_info.column:
                     partition_where_clause = (
-                        f"{table.time_partitioning.column.name} >= {partition}"
+                        f"{table.partition_info.column.name} >= {partition}"
                     )
                 else:
                     logger.warning(
@@ -120,18 +123,17 @@ class BigqueryProfiler(GenericProfiler):
                     ] = partition
                     return None, None
 
-                # ingestion time partitoned tables partition column is not in the schema, so we default to TIMESTAMP type
-                if not table.time_partitioning.column:
+                if not table.partition_info.column:
                     logger.warning(
                         f"Partitioned table {table.name} without partition column, it seems like a bug in our extraction"
                     )
                     return None, None
 
-                if table.time_partitioning.type in ("HOUR", "DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"{table.time_partitioning.column.data_type}(`{table.time_partitioning.field}`) BETWEEN {table.time_partitioning.column.data_type}('{partition_datetime}') AND {table.time_partitioning.column.data_type}('{upper_bound_partition_datetime}')"
+                if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
+                    partition_where_clause = f"{table.partition_info.column.data_type}(`{table.partition_info.field}`) BETWEEN {table.partition_info.column.data_type}('{partition_datetime}') AND {table.partition_info.column.data_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
-                        f"Not supported partition type {table.time_partitioning.type}"
+                        f"Not supported partition type {table.partition_info.type}"
                     )
                     return None, None
             custom_sql = """
@@ -258,7 +260,7 @@ WHERE
             project, dataset, table, self.config.profiling.partition_datetime
         )
 
-        if partition is None and table.time_partitioning:
+        if partition is None and table.partition_info:
             self.report.report_warning(
                 "profile skipped as partitioned table is empty or partition id was invalid",
                 dataset_name,

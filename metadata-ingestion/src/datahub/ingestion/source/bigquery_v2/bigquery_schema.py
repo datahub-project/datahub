@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import (
@@ -24,6 +24,9 @@ class BigqueryColumn(BaseColumn):
     is_partition_column: bool
 
 
+RANGE_PARTITION_NAME: str = "RANGE"
+
+
 @dataclass
 class PartitionInfo:
     field: str
@@ -39,11 +42,39 @@ class PartitionInfo:
         cls, time_partitioning: TimePartitioning
     ) -> "PartitionInfo":
         return cls(
-            field=time_partitioning.field,
+            field=time_partitioning.field
+            if time_partitioning.field
+            else "_PARTITIONTIME",
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
             require_partition_filter=time_partitioning.require_partition_filter,
         )
+
+    @classmethod
+    def from_range_partitioning(
+        cls, range_partitioning: Dict[str, Any]
+    ) -> Optional["PartitionInfo"]:
+        field: Optional[str] = range_partitioning.get("field")
+        if not field:
+            return None
+
+        return cls(
+            field=field,
+            type="RANGE",
+        )
+
+    @classmethod
+    def from_table_info(cls, table_info: TableListItem) -> Optional["PartitionInfo"]:
+        RANGE_PARTITIONING_KEY: str = "rangePartitioning"
+
+        if table_info.time_partitioning:
+            return PartitionInfo.from_time_partitioning(table_info.time_partitioning)
+        elif RANGE_PARTITIONING_KEY in table_info._properties:
+            return PartitionInfo.from_range_partitioning(
+                table_info._properties[RANGE_PARTITIONING_KEY]
+            )
+        else:
+            return None
 
 
 @dataclass
@@ -56,7 +87,7 @@ class BigqueryTable(BaseTable):
     max_shard_id: Optional[str] = None
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
-    time_partitioning: Optional[PartitionInfo] = None
+    partition_info: Optional[PartitionInfo] = None
     columns_ignore_from_profiling: List[str] = field(default_factory=list)
 
 
@@ -365,10 +396,8 @@ class BigQueryDataDictionary:
                 ddl=table.ddl,
                 expires=tables[table.table_name].expires if tables else None,
                 labels=tables[table.table_name].labels if tables else None,
-                time_partitioning=PartitionInfo.from_time_partitioning(
-                    tables[table.table_name].time_partitioning
-                )
-                if tables and tables[table.table_name].time_partitioning
+                partition_info=PartitionInfo.from_table_info(tables[table.table_name])
+                if tables
                 else None,
                 clustering_fields=tables[table.table_name].clustering_fields
                 if tables
