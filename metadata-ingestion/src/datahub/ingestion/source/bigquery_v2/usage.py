@@ -2,6 +2,7 @@ import collections
 import logging
 import textwrap
 import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
@@ -243,8 +244,9 @@ class BigQueryUsageExtractor:
                 yield from self.get_workunits(aggregated_info)
             except Exception as e:
                 self.report.usage_failed_extraction.append(project_id)
+                trace = traceback.format_exc()
                 logger.error(
-                    f"Error getting usage for project {project_id} due to error {e}"
+                    f"Error getting usage for project {project_id} due to error {e}, trace: {trace}"
                 )
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
@@ -270,8 +272,7 @@ class BigQueryUsageExtractor:
 
         except Exception as e:
             logger.warning(
-                f"Encountered exception retrieving AuditLogEntries for project {client.project}",
-                e,
+                f"Encountered exception retrieving AuditLogEntries for project {client.project} - {e}"
             )
             self.report.report_failure(
                 "lineage-extraction",
@@ -375,8 +376,7 @@ class BigQueryUsageExtractor:
 
         except Exception as e:
             logger.warning(
-                f"Encountered exception retrieving AuditLogEntires for project {client.project}",
-                e,
+                f"Encountered exception retrieving AuditLogEntires for project {client.project} - {e}"
             )
             self.report.report_failure(
                 "usage-extraction",
@@ -774,7 +774,7 @@ class BigQueryUsageExtractor:
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
             )
             logger.warning(
-                f"Failed to process event {str(event.read_event.resource)}", e
+                f"Failed to process event {str(event.read_event.resource)} - {e}"
             )
             return datasets
 
