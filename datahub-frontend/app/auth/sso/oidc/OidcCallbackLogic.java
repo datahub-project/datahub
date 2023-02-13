@@ -57,6 +57,12 @@ import org.pac4j.play.PlayWebContext;
 import play.mvc.Result;
 import auth.sso.SsoManager;
 
+import static auth.AuthUtils.AUTH_COOKIE_SAME_SITE;
+import static auth.AuthUtils.AUTH_COOKIE_SECURE;
+import static auth.AuthUtils.DEFAULT_AUTH_COOKIE_SAME_SITE;
+import static auth.AuthUtils.DEFAULT_AUTH_COOKIE_SECURE;
+import static auth.AuthUtils.DEFAULT_SESSION_TTL_HOURS;
+import static auth.AuthUtils.SESSION_TTL_CONFIG_PATH;
 import static auth.AuthUtils.createActorCookie;
 import static auth.AuthUtils.createSessionMap;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
@@ -80,13 +86,15 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private final EntityClient _entityClient;
   private final Authentication _systemAuthentication;
   private final AuthServiceClient _authClient;
+  private final com.typesafe.config.Config _configs;
 
   public OidcCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication,
-      final EntityClient entityClient, final AuthServiceClient authClient) {
+      final EntityClient entityClient, final AuthServiceClient authClient, final com.typesafe.config.Config configs) {
     _ssoManager = ssoManager;
     _systemAuthentication = systemAuthentication;
     _entityClient = entityClient;
     _authClient = authClient;
+    _configs = configs;
   }
 
   @Override
@@ -152,14 +160,20 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
       // Successfully logged in - Generate GMS login token
       final String accessToken = _authClient.generateSessionTokenForUser(corpUserUrn.getId());
+      int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
+          : DEFAULT_SESSION_TTL_HOURS;
+      String authCookieSameSite = _configs.hasPath(AUTH_COOKIE_SAME_SITE) ? _configs.getString(AUTH_COOKIE_SAME_SITE)
+          : DEFAULT_AUTH_COOKIE_SAME_SITE;
+      boolean authCookieSecure = _configs.hasPath(AUTH_COOKIE_SECURE) ? _configs.getBoolean(AUTH_COOKIE_SECURE)
+          : DEFAULT_AUTH_COOKIE_SECURE;
       return result
               .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
               .withCookies(
                   createActorCookie(
                       corpUserUrn.toString(),
-                      oidcConfigs.getSessionTtlInHours(),
-                      oidcConfigs.getAuthCookieSameSite(),
-                      oidcConfigs.getAuthCookieSecure()
+                      ttlInHours,
+                      authCookieSameSite,
+                      authCookieSecure
                   )
               );
     }
