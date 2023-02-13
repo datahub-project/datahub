@@ -1,0 +1,38 @@
+{
+    "styles": {
+        "primary-color": "#33cc60",
+        "layout-header-background": "#fcfcfc",
+        "layout-header-color": "#575c61",
+        "layout-body-background": "#fcfcfc",
+        "component-background": "#fcfcfc",
+        "body-background": "#fcfcfc",
+        "border-color-base": "#cacccf",
+        "text-color": "#0a0a0b",
+        "text-color-secondary": "#575c61",
+        "heading-color": "#0a0a0b",
+        "background-color-light": "#fcfcfc",
+        "divider-color": "#e9ebec",
+        "disabled-color": "#cacccf",
+        "steps-nav-arrow-color": "#cacccf",
+        "homepage-background-upper-fade": "#fcfcfc",
+        "homepage-background-lower-fade": "#fcfcfc",
+        "homepage-text-color": "#575c61",
+        "box-shadow": "0px 0px 30px 0px rgba(0, 0, 0, 0.2)",
+        "box-shadow-hover": "0px 1px 2px rgba(0, 0, 0, 0.2)"
+    },
+    "assets": {
+        "logoUrl": "/assets/loadsmart_symbol.svg"
+    },
+    "content": {
+        "title": "Data Catalog",
+        "homepage": {
+            "homepageMessage": "Find data you can count on"
+        },
+        "search": {
+            "searchbarMessage": "Search Dashboards, Terms, & more..."
+        },
+        "menu": {
+            "items": []
+        }
+    }
+}

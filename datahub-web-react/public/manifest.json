@@ -1,6 +1,6 @@
 {
-    "short_name": "DataHub",
-    "name": "DataHub",
+    "short_name": "Data Catalog",
+    "name": "Data Catalog",
     "icons": [
         {
             "src": "favicon.ico",
@@ -10,6 +10,6 @@
     ],
     "start_url": ".",
     "display": "standalone",
-    "theme_color": "#000000",
-    "background_color": "#ffffff"
+    "theme_color": "#33cc60",
+    "background_color": "#fcfcfc"
 }
