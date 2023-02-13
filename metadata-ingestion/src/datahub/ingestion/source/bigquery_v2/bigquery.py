@@ -652,6 +652,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         db_views: Dict[str, List[BigqueryView]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
+        lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
+
         for dataset in db_tables.keys():
             for table in db_tables[dataset]:
                 dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)
@@ -660,6 +662,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     dataset_name=dataset,
                     table=table,
                     platform=self.platform,
+                    lineage_metadata=lineage,
                 )
                 if lineage_info:
                     yield from self.gen_lineage(dataset_urn, lineage_info)
@@ -671,8 +674,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     dataset_name=dataset,
                     table=view,
                     platform=self.platform,
+                    lineage_metadata=lineage,
                 )
-                yield from self.gen_lineage(dataset_urn, lineage_info)
+                if lineage_info:
+                    yield from self.gen_lineage(dataset_urn, lineage_info)
 
     def generate_usage_statistics(
         self,
