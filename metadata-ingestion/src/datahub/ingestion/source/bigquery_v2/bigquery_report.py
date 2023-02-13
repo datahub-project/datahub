@@ -1,5 +1,6 @@
 import collections
 import dataclasses
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Counter, Dict, List, Optional
@@ -9,6 +10,8 @@ import pydantic
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.stats_collections import TopKDict
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -72,3 +75,12 @@ class BigQueryV2Report(ProfilingSqlReport):
     operation_types_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )
+    current_project_status: Optional[Dict[str, Dict[str, datetime]]] = None
+
+    def set_project_state(self, project: str, stage: str) -> None:
+        if self.current_project_status:
+            logger.info(
+                "Previous project state was: %s",
+                self.to_pure_python_obj(self.current_project_status),
+            )
+        self.current_project_status = {project: {stage: datetime.now()}}

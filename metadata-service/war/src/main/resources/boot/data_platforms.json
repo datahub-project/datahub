@@ -82,7 +82,7 @@
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "hana",
-      "displayName": "HANA",
+      "displayName": "SAP HANA",
       "type": "RELATIONAL_DB",
       "logoUrl": "/assets/platforms/hanalogo.png"
     }
@@ -451,7 +451,7 @@
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "nifi",
-      "displayName": "Nifi",
+      "displayName": "NiFi",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/nifilogo.svg"
     }
