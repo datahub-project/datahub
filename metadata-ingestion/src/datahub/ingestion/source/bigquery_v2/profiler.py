@@ -79,7 +79,7 @@ class BigqueryProfiler(GenericProfiler):
         project: str,
         schema: str,
         table: BigqueryTable,
-        partition_datetime: Optional[datetime],
+        partition_datetime: Optional[datetime] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Method returns partition id if table is partitioned or sharded and generate custom partition query for
@@ -123,14 +123,16 @@ class BigqueryProfiler(GenericProfiler):
                     ] = partition
                     return None, None
 
-                if not table.partition_info.column:
-                    logger.warning(
-                        f"Partitioned table {table.name} without partition column, it seems like a bug in our extraction"
-                    )
-                    return None, None
-
+                partition_data_type: str = "TIMESTAMP"
+                # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
+                # See more about this at
+                # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
+                partition_column_name = "_PARTITIONTIME"
+                if table.partition_info.column:
+                    partition_column_name = table.partition_info.column.name
+                    partition_data_type = table.partition_info.column.data_type
                 if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"{table.partition_info.column.data_type}(`{table.partition_info.field}`) BETWEEN {table.partition_info.column.data_type}('{partition_datetime}') AND {table.partition_info.column.data_type}('{upper_bound_partition_datetime}')"
+                    partition_where_clause = f"{partition_data_type}(`{partition_column_name}`) BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.partition_info.type}"

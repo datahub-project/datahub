@@ -1,5 +1,9 @@
 import json
 import os
+from typing import Dict
+from unittest.mock import patch
+
+from google.cloud.bigquery.table import TableListItem
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
@@ -89,7 +93,7 @@ def test_simple_upstream_table_generation():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {str(a): set([str(b)])}
+    source.lineage_extractor.lineage_metadata = {str(a): {str(b)}}
     upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
     assert list(upstreams) == [b]
 
@@ -112,7 +116,7 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {str(a): set([str(b)])}
+    source.lineage_extractor.lineage_metadata = {str(a): {str(b)}}
     upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
     assert list(upstreams) == []
 
@@ -143,8 +147,8 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     source.lineage_extractor.lineage_metadata = {
-        str(a): set([str(b)]),
-        str(b): set([str(c)]),
+        str(a): {str(b)},
+        str(b): {str(c)},
     }
     upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
     assert list(upstreams) == [c]
@@ -184,9 +188,76 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     source.lineage_extractor.lineage_metadata = {
-        str(a): set([str(b)]),
-        str(b): set([str(c), str(d)]),
-        str(d): set([str(e)]),
+        str(a): {str(b)},
+        str(b): {str(c), str(d)},
+        str(d): {str(e)},
     }
     upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
     assert list(upstreams).sort() == [c, e].sort()
+
+
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_schema.BigQueryDataDictionary.get_tables_for_dataset"
+)
+@patch("google.cloud.bigquery.client.Client")
+def test_table_processing_logic(client_mock, data_dictionary_mock):
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": "test-project",
+        }
+    )
+
+    tableListItems = [
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-table",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-sharded-table_20220102",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-sharded-table_20210101",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-sharded-table_20220101",
+                }
+            }
+        ),
+    ]
+
+    client_mock.list_tables.return_value = tableListItems
+    data_dictionary_mock.get_tables_for_dataset.return_value = None
+
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    _ = source.get_tables_for_dataset(
+        conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+    )
+
+    assert data_dictionary_mock.call_count == 1
+    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args.args[
+        3
+    ]  # alternatively
+    for table in tables.keys():
+        assert table in ["test-table", "test-sharded-table_20220102"]

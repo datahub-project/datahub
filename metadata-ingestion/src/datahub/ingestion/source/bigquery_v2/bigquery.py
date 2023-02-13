@@ -211,8 +211,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
         self.usage_extractor = BigQueryUsageExtractor(config, self.report)
 
-        # Currently caching using instance variables
-
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler(
             source=self,
@@ -498,12 +496,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     )
                     return
             except Exception as e:
+                trace = traceback.format_exc()
                 logger.error(
                     f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
                 )
+                logger.error(trace)
                 self.report.report_failure(
                     "metadata-extraction",
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}",
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e} Stacktrace: {trace}",
                 )
                 return None
 
@@ -572,6 +572,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 yield from self._process_schema(
                     conn, project_id, bigquery_dataset, db_tables, db_views
                 )
+
             except Exception as e:
                 error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission? The error was: {e}"
                 if self.config.profiling.enabled:
@@ -651,7 +652,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         db_views: Dict[str, List[BigqueryView]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
-        for dataset in db_tables:
+        for dataset in db_tables.keys():
             for table in db_tables[dataset]:
                 dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)
                 lineage_info = self.lineage_extractor.get_upstream_lineage_info(
@@ -1143,15 +1144,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 table_name = table_identifier.get_table_name().split(".")[-1]
 
-                # For sharded tables we only process the latest shard
-                # which has the highest date in the table name.
                 # Sharded tables look like: table_20220120
-                # We only has one special case where the table name is a date
+                # For sharded tables we only process the latest shard and ignore the rest
+                # to find the latest shard we iterate over the list of tables and store the maximum shard id
+                # We only has one special case where the table name is a date `20220110`
                 # in this case we merge all these tables under dataset name as table name.
                 # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
-                # It seems like there are some bigquery user who uses this way the tables.
+                # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
                 if shard:
-                    if not sharded_tables.get(table_identifier.get_table_name()):
+                    if not sharded_tables.get(table_name):
                         # When table is only a shard we use dataset_name as table_name
                         sharded_tables[table_name] = table
                         continue
@@ -1168,7 +1169,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                             stored_table_identifier.raw_table_name()
                         )
                         # When table is none, we use dataset_name as table_name
-                        table_name = table_identifier.get_table_name().split(".")[-1]
                         assert stored_shard
                         if stored_shard < shard:
                             sharded_tables[table_name] = table
@@ -1217,11 +1217,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     )
                 )
 
-            self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
-                timer.elapsed_seconds(), 2
-            )
+        self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
+            timer.elapsed_seconds(), 2
+        )
 
-            return bigquery_tables
+        return bigquery_tables
 
     def get_views_for_dataset(
         self,
