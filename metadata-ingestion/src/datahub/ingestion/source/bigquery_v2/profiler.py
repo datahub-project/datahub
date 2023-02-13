@@ -11,10 +11,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
-    BigqueryColumn,
-    BigqueryTable,
-)
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -94,13 +91,10 @@ class BigqueryProfiler(GenericProfiler):
             partition_where_clause: str
 
             if not table.time_partitioning:
-                partition_column: Optional[BigqueryColumn] = None
-                for column in table.columns:
-                    if column.is_partition_column:
-                        partition_column = column
-                        break
-                if partition_column:
-                    partition_where_clause = f"{partition_column.name} >= {partition}"
+                if table.time_partitioning and table.time_partitioning.column:
+                    partition_where_clause = (
+                        f"{table.time_partitioning.column.name} >= {partition}"
+                    )
                 else:
                     logger.warning(
                         f"Partitioned table {table.name} without partiton column"
@@ -127,16 +121,17 @@ class BigqueryProfiler(GenericProfiler):
                     return None, None
 
                 # ingestion time partitoned tables partition column is not in the schema, so we default to TIMESTAMP type
-                partition_column_type: str = "TIMESTAMP"
-                for c in table.columns:
-                    if c.is_partition_column:
-                        partition_column_type = c.data_type
+                if not table.time_partitioning.column:
+                    logger.warning(
+                        f"Partitioned table {table.name} without partition column, it seems like a bug in our extraction"
+                    )
+                    return None, None
 
-                if table.time_partitioning.type_ in ("HOUR", "DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"{partition_column_type}(`{table.time_partitioning.field}`) BETWEEN {partition_column_type}('{partition_datetime}') AND {partition_column_type}('{upper_bound_partition_datetime}')"
+                if table.time_partitioning.type in ("HOUR", "DAY", "MONTH", "YEAR"):
+                    partition_where_clause = f"{table.time_partitioning.column.data_type}(`{table.time_partitioning.field}`) BETWEEN {table.time_partitioning.column.data_type}('{partition_datetime}') AND {table.time_partitioning.column.data_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
-                        f"Not supported partition type {table.time_partitioning.type_}"
+                        f"Not supported partition type {table.time_partitioning.type}"
                     )
                     return None, None
             custom_sql = """
@@ -161,43 +156,38 @@ WHERE
         return None, None
 
     def get_workunits(
-        self, tables: Dict[str, Dict[str, List[BigqueryTable]]]
+        self, project_id: str, tables: Dict[str, List[BigqueryTable]]
     ) -> Iterable[MetadataWorkUnit]:
         # Otherwise, if column level profiling is enabled, use  GE profiler.
-        for project in tables.keys():
-            if not self.config.project_id_pattern.allowed(project):
+        if not self.config.project_id_pattern.allowed(project_id):
+            return
+        profile_requests = []
+
+        for dataset in tables:
+            if not self.config.schema_pattern.allowed(dataset):
                 continue
-            profile_requests = []
 
-            for dataset in tables[project]:
-                if not self.config.schema_pattern.allowed(dataset):
-                    continue
-
-                for table in tables[project][dataset]:
-                    normalized_table_name = BigqueryTableIdentifier(
-                        project_id=project, dataset=dataset, table=table.name
-                    ).get_table_name()
-                    for column in table.columns:
-                        # Profiler has issues with complex types (array, struct, geography, json), so we deny those types from profiling
-                        # We also filter columns without data type as it means that column is part of a complex type.
-                        if not column.data_type or any(
-                            word in column.data_type.lower()
-                            for word in ["array", "struct", "geography", "json"]
-                        ):
-                            self.config.profile_pattern.deny.append(
-                                f"^{normalized_table_name}.{column.field_path}$"
-                            )
-
-                    # Emit the profile work unit
-                    profile_request = self.get_bigquery_profile_request(
-                        project=project, dataset=dataset, table=table
+            for table in tables[dataset]:
+                normalized_table_name = BigqueryTableIdentifier(
+                    project_id=project_id, dataset=dataset, table=table.name
+                ).get_table_name()
+                for column in table.columns_ignore_from_profiling:
+                    # Profiler has issues with complex types (array, struct, geography, json), so we deny those types from profiling
+                    # We also filter columns without data type as it means that column is part of a complex type.
+                    self.config.profile_pattern.deny.append(
+                        f"^{normalized_table_name}.{column}$"
                     )
-                    if profile_request is not None:
-                        profile_requests.append(profile_request)
 
-            if len(profile_requests) == 0:
-                continue
-            yield from self.generate_wu_from_profile_requests(profile_requests)
+                # Emit the profile work unit
+                profile_request = self.get_bigquery_profile_request(
+                    project=project_id, dataset=dataset, table=table
+                )
+                if profile_request is not None:
+                    profile_requests.append(profile_request)
+
+        if len(profile_requests) == 0:
+            return
+        yield from self.generate_wu_from_profile_requests(profile_requests)
 
     def generate_wu_from_profile_requests(
         self, profile_requests: List[BigqueryProfilerRequest]
@@ -257,7 +247,7 @@ WHERE
                 + 1
             )
 
-        if not table.columns:
+        if not table.column_count:
             skip_profiling = True
 
         if skip_profiling:
