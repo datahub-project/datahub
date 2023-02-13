@@ -182,13 +182,13 @@ def delete(
             "This will permanently delete data from DataHub. Do you want to continue?",
             abort=True,
         )
-    if csv:
-        df = pd.read_csv(csv, header=0, names=["urn"])
-        urns = df["urn"].tolist()
-    if urn or urns:
-        # urn delete based on list
-        if not urns:
+    if urn or csv:
+        if csv:
+            df = pd.read_csv(csv, header=0, names=["urn"])
+            urns = df["urn"].tolist()
+        else:
             urns = [urn]
+        # urn delete based on list
         session, host = cli_utils.get_session_and_host()
         logger.info(f"DataHub configured with {host}")
         deletion_result = DeletionResult()
