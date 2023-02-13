@@ -93,8 +93,10 @@ def test_simple_upstream_table_generation():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {str(a): {str(b)}}
-    upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
+    lineage_metadata = {str(a): {str(b)}}
+    upstreams = source.lineage_extractor.get_upstream_tables(
+        str(a), lineage_metadata, []
+    )
     assert list(upstreams) == [b]
 
 
@@ -116,8 +118,11 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {str(a): {str(b)}}
-    upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
+
+    lineage_metadata = {str(a): {str(b)}}
+    upstreams = source.lineage_extractor.get_upstream_tables(
+        str(a), lineage_metadata, []
+    )
     assert list(upstreams) == []
 
 
@@ -146,11 +151,13 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {
+    lineage_metadata = {
         str(a): {str(b)},
         str(b): {str(c)},
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
+    upstreams = source.lineage_extractor.get_upstream_tables(
+        str(a), lineage_metadata, []
+    )
     assert list(upstreams) == [c]
 
 
@@ -187,12 +194,14 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {
+    lineage_metadata = {
         str(a): {str(b)},
         str(b): {str(c), str(d)},
         str(d): {str(e)},
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
+    upstreams = source.lineage_extractor.get_upstream_tables(
+        str(a), lineage_metadata, []
+    )
     assert list(upstreams).sort() == [c, e].sort()
 
 
