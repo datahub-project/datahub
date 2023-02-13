@@ -256,7 +256,9 @@ def test_table_processing_logic(client_mock, data_dictionary_mock):
     )
 
     assert data_dictionary_mock.call_count == 1
-    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args.args[
+
+    # args only available from python 3.8 and that's why call_args_list is sooo ugly
+    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
         3
     ]  # alternatively
     for table in tables.keys():
