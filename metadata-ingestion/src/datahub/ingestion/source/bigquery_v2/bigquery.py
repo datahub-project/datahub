@@ -653,6 +653,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
         lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
+
         for dataset in db_tables.keys():
             for table in db_tables[dataset]:
                 dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)

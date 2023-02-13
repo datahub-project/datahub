@@ -118,6 +118,7 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
     lineage_metadata = {str(a): {str(b)}}
     upstreams = source.lineage_extractor.get_upstream_tables(
         str(a), lineage_metadata, []
