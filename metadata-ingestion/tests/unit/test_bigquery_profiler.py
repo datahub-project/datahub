@@ -206,5 +206,4 @@ def test_generate_sharded_table_profiler_query():
     )
 
     assert "20200101" == query[0]
-    assert query[1]
     assert query[1] is None
