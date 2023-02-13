@@ -2,6 +2,7 @@ import collections
 import logging
 import textwrap
 import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
@@ -243,8 +244,9 @@ class BigQueryUsageExtractor:
                 yield from self.get_workunits(aggregated_info)
             except Exception as e:
                 self.report.usage_failed_extraction.append(project_id)
+                trace = traceback.format_exc()
                 logger.error(
-                    f"Error getting usage for project {project_id} due to error {e}"
+                    f"Error getting usage for project {project_id} due to error {e}, trace: {trace}"
                 )
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
@@ -270,8 +272,7 @@ class BigQueryUsageExtractor:
 
         except Exception as e:
             logger.warning(
-                f"Encountered exception retrieving AuditLogEntries for project {client.project}",
-                e,
+                f"Encountered exception retrieving AuditLogEntries for project {client.project} - {e}"
             )
             self.report.report_failure(
                 "lineage-extraction",
@@ -337,17 +338,20 @@ class BigQueryUsageExtractor:
 
         try:
             list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
+            rate_limiter: Optional[RateLimiter] = None
             if self.config.rate_limit:
-                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
-                    list_entries = client.list_entries(
-                        filter_=filter, page_size=self.config.log_page_size
-                    )
-            else:
-                list_entries = client.list_entries(
-                    filter_=filter,
-                    page_size=self.config.log_page_size,
-                    max_results=limit,
+                # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
+                # to properly ratelimit we multiply the page size by the number of requests per minute
+                rate_limiter = RateLimiter(
+                    max_calls=self.config.requests_per_min * self.config.log_page_size,
+                    period=60,
                 )
+
+            list_entries = client.list_entries(
+                filter_=filter,
+                page_size=self.config.log_page_size,
+                max_results=limit,
+            )
 
             for i, entry in enumerate(list_entries):
                 if i == 0:
@@ -359,7 +363,12 @@ class BigQueryUsageExtractor:
                         f"Loaded {i} log entries from GCP Log for {client.project}"
                     )
                 self.report.total_query_log_entries += 1
-                yield entry
+
+                if rate_limiter:
+                    with rate_limiter:
+                        yield entry
+                else:
+                    yield entry
 
             logger.info(
                 f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging for {client.project}"
@@ -367,8 +376,7 @@ class BigQueryUsageExtractor:
 
         except Exception as e:
             logger.warning(
-                f"Encountered exception retrieving AuditLogEntires for project {client.project}",
-                e,
+                f"Encountered exception retrieving AuditLogEntires for project {client.project} - {e}"
             )
             self.report.report_failure(
                 "usage-extraction",
@@ -766,7 +774,7 @@ class BigQueryUsageExtractor:
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
             )
             logger.warning(
-                f"Failed to process event {str(event.read_event.resource)}", e
+                f"Failed to process event {str(event.read_event.resource)} - {e}"
             )
             return datasets
 
