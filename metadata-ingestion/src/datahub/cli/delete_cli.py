@@ -6,6 +6,7 @@ from random import choices
 from typing import Any, Dict, List, Optional, Tuple
 
 import click
+import pandas as pd
 import progressbar
 from requests import sessions
 from tabulate import tabulate
@@ -83,6 +84,12 @@ def delete_for_registry(
 @click.command()
 @click.option("--urn", required=False, type=str, help="the urn of the entity")
 @click.option(
+    "--csv",
+    required=False,
+    type=str,
+    help="file path of csv with a single urn column without header",
+)
+@click.option(
     "-a",
     # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
     "--aspect_name",
@@ -136,6 +143,7 @@ def delete_for_registry(
 @telemetry.with_telemetry()
 def delete(
     urn: str,
+    csv: str,
     aspect_name: Optional[str],
     force: bool,
     soft: bool,
@@ -155,7 +163,7 @@ def delete(
     # one of these must be provided
     if not urn and not platform and not env and not query and not registry_id:
         raise click.UsageError(
-            "You must provide one of urn / platform / env / query / registry_id in order to delete entities."
+            "You must provide one of urn / csv / platform / env / query / registry_id in order to delete entities."
         )
 
     include_removed: bool
@@ -174,56 +182,62 @@ def delete(
             "This will permanently delete data from DataHub. Do you want to continue?",
             abort=True,
         )
-
-    if urn:
-        # Single urn based delete
+    if csv:
+        df = pd.read_csv(csv, header=0, names=["urn"])
+        urns = df["urn"].tolist()
+    if urn or urns:
+        # urn delete based on list
+        if not urns:
+            urns = [urn]
         session, host = cli_utils.get_session_and_host()
-        entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
-
-        if not aspect_name:
-            references_count, related_aspects = delete_references(
-                urn, dry_run=True, cached_session_host=(session, host)
-            )
-            remove_references: bool = False
-
-            if (not force) and references_count > 0:
-                click.echo(
-                    f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+        deletion_result = DeletionResult()
+        for urn in urns:
+            entity_type = guess_entity_type(urn=urn)
+            if not aspect_name:
+                references_count, related_aspects = delete_references(
+                    urn, dry_run=True, cached_session_host=(session, host)
                 )
-                click.echo(
-                    tabulate(
-                        [x.values() for x in related_aspects],
-                        ["relationship", "entity", "aspect"],
-                        tablefmt="grid",
+                remove_references: bool = False
+
+                if (not force) and references_count > 0:
+                    click.echo(
+                        f"This urn was referenced in {references_count} other aspects across your metadata graph:"
                     )
-                )
-                remove_references = click.confirm(
-                    "Do you want to delete these references?"
-                )
+                    click.echo(
+                        tabulate(
+                            [x.values() for x in related_aspects],
+                            ["relationship", "entity", "aspect"],
+                            tablefmt="grid",
+                        )
+                    )
+                    remove_references = click.confirm(
+                        "Do you want to delete these references?"
+                    )
 
-            if force or remove_references:
-                delete_references(
-                    urn, dry_run=False, cached_session_host=(session, host)
-                )
+                if force or remove_references:
+                    delete_references(
+                        urn, dry_run=False, cached_session_host=(session, host)
+                    )
 
-        deletion_result: DeletionResult = delete_one_urn_cmd(
-            urn,
-            aspect_name=aspect_name,
-            soft=soft,
-            dry_run=dry_run,
-            start_time=start_time,
-            end_time=end_time,
-            cached_session_host=(session, host),
-        )
+            urn_deletion_result: DeletionResult = delete_one_urn_cmd(
+                urn,
+                aspect_name=aspect_name,
+                soft=soft,
+                dry_run=dry_run,
+                start_time=start_time,
+                end_time=end_time,
+                cached_session_host=(session, host),
+            )
+            deletion_result.merge(urn_deletion_result)
 
-        if not dry_run:
-            if deletion_result.num_records == 0:
-                click.echo(f"Nothing deleted for {urn}")
-            else:
-                click.echo(
-                    f"Successfully deleted {urn}. {deletion_result.num_records} rows deleted"
-                )
+            if not dry_run:
+                if urn_deletion_result.num_records == 0:
+                    click.echo(f"Nothing deleted for {urn}")
+                else:
+                    click.echo(
+                        f"Successfully deleted {urn}. {urn_deletion_result.num_records} rows deleted"
+                    )
 
     elif registry_id:
         # Registry-id based delete
@@ -259,7 +273,7 @@ def delete(
         )
     else:
         click.echo(
-            f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} rows will be affected. Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to evaluate."
+            f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records >= 0 else 'unknown'} rows will be affected. Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to evaluate."
         )
     if deletion_result.sample_records:
         click.echo(

@@ -74,7 +74,13 @@ If you wish to hard-delete using a curl request you can use something like below
 ```
 curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
 ```
+## Delete By Urn with CSV
 
+Use `--csv` instead of `--urn` , since we are using the same delete urn function under the hood, the flag that applies to `--urn` will work on `--csv` too.  
+**CSV should only contain a single column of urns without header**
+```
+datahub delete --csv "<csv file path>"
+```
 ## Delete using Broader Filters
 
 _Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). Additionally, as of v0.8.29 there is a new option: `--include-removed` that deletes softly deleted entities that match the provided filter.
