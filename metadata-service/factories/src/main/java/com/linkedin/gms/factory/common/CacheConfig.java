@@ -21,10 +21,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class CacheConfig {
 
-  @Value("${CACHE_TTL_SECONDS:600}")
+  @Value("${cache.primary.ttlSeconds:600}")
   private int cacheTtlSeconds;
 
-  @Value("${CACHE_MAX_SIZE:10000}")
+  @Value("${cache.primary.maxSize:10000}")
   private int cacheMaxSize;
 
   @Value("${searchService.cache.hazelcast.serviceName:hazelcast-service}")

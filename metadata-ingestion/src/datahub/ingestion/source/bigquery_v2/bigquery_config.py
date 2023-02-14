@@ -112,6 +112,11 @@ class BigQueryV2Config(
         description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False.",
     )
 
+    extract_lineage_from_catalog: bool = Field(
+        default=False,
+        description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/reference/data-lineage/rest",
+    )
+
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Convert urns to lowercase.",
@@ -158,6 +163,8 @@ class BigQueryV2Config(
         description="Whether to read date sharded tables or time partitioned tables when extracting usage from exported audit logs.",
     )
     _credentials_path: Optional[str] = PrivateAttr(None)
+
+    _cache_path: Optional[str] = PrivateAttr(None)
 
     upstream_lineage_in_report: bool = Field(
         default=False,

@@ -2,10 +2,13 @@ package com.linkedin.gms.factory.search;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.version.GitVersion;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -28,7 +31,8 @@ import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVE
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, ConfigurationProvider.class,
+        GitVersionFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ElasticSearchIndexBuilderFactory {
 
@@ -57,6 +61,9 @@ public class ElasticSearchIndexBuilderFactory {
   @Value("#{new Boolean('${elasticsearch.index.enableSettingsReindex}')}")
   private boolean enableSettingsReindex;
 
+  @Value("#{new Boolean('${elasticsearch.index.enableMappingsReindex}')}")
+  private boolean enableMappingsReindex;
+
   @Bean(name = "elasticSearchIndexSettingsOverrides")
   @Nonnull
   protected Map<String, Map<String, String>> getIndexSettingsOverrides(
@@ -73,9 +80,10 @@ public class ElasticSearchIndexBuilderFactory {
   @Bean(name = "elasticSearchIndexBuilder")
   @Nonnull
   protected ESIndexBuilder getInstance(
-          @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides) {
+          @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides,
+          final ConfigurationProvider configurationProvider, final GitVersion gitVersion) {
     return new ESIndexBuilder(searchClient, numShards, numReplicas, numRetries, refreshIntervalSeconds, overrides,
-            enableSettingsReindex);
+            enableSettingsReindex, enableMappingsReindex, configurationProvider.getElasticSearch(), gitVersion);
   }
 
   @Nonnull

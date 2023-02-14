@@ -56,6 +56,7 @@ ENV METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME="MetadataChangeLog_Timeseries_v1"
 ENV METADATA_CHANGE_PROPOSAL_TOPIC_NAME="MetadataChangeProposal_v1"
 ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME="FailedMetadataChangeProposal_v1"
 ENV PLATFORM_EVENT_TOPIC_NAME="PlatformEvent_v1"
+ENV DATAHUB_UPGRADE_HISTORY_TOPIC_NAME="DataHubUpgradeHistory_v1"
 
 COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
 COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh
