@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timezone
 from unittest import mock
 
-import great_expectations as ge
 import pytest
 from great_expectations.core.batch import Batch, BatchDefinition, BatchRequest
 from great_expectations.core.batch_spec import SqlAlchemyDatasourceBatchSpec
@@ -47,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="function")
 def ge_data_context(tmp_path: str) -> DataContext:
-    return ge.get_context(tmp_path)
+    return DataContext.create(tmp_path)
 
 
 @pytest.fixture(scope="function")
