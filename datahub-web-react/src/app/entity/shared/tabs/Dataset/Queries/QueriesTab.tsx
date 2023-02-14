@@ -1,4 +1,4 @@
-import { Button, Input, Pagination, Typography } from 'antd';
+import { Button, Input, Pagination, Tooltip, Typography } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import React, { useEffect, useRef, useState } from 'react';
@@ -75,6 +75,7 @@ const getCurrentPage = (queries: QueryEntity[], page: number, pageSize: number) 
 export default function QueriesTab() {
     const appConfig = useAppConfig();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
 
     const [showQueryBuilder, setShowQueryBuilder] = useState(false);
 
@@ -140,9 +141,13 @@ export default function QueriesTab() {
     return (
         <>
             <TabToolbar>
-                <Button type="text" onClick={() => setShowQueryBuilder(true)}>
-                    <PlusOutlined /> Add Query
-                </Button>
+                <Tooltip
+                    title={(!canEditQueries && 'You are not authorized to add Queries to this entity.') || undefined}
+                >
+                    <Button disabled={!canEditQueries} type="text" onClick={() => setShowQueryBuilder(true)}>
+                        <PlusOutlined /> Add Query
+                    </Button>
+                </Tooltip>
                 <StyledInput
                     placeholder="Search in queries..."
                     onChange={debouncedSetFilterText}
@@ -151,7 +156,9 @@ export default function QueriesTab() {
                 />
             </TabToolbar>
             <QueriesContent ref={queriesContentRef}>
-                {showEmptyView && <EmptyQueries onClickAddQuery={() => setShowQueryBuilder(true)} />}
+                {showEmptyView && (
+                    <EmptyQueries readOnly={!canEditQueries} onClickAddQuery={() => setShowQueryBuilder(true)} />
+                )}
                 {highlightedQueries.length > 0 && (
                     <>
                         <QueriesTitle level={4}>Highlighted Queries</QueriesTitle>

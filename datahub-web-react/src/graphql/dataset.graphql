@@ -183,6 +183,7 @@ fragment nonSiblingDatasetFields on Dataset {
     privileges {
         canEditLineage
         canEditEmbed
+        canEditQueries
     }
 }
 
