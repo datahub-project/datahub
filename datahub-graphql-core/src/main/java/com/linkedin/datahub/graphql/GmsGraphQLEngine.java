@@ -490,7 +490,6 @@ public class GmsGraphQLEngine {
         this.dataHubViewType = new DataHubViewType(entityClient);
         this.queryType = new QueryType(entityClient);
 
-
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
@@ -521,6 +520,7 @@ public class GmsGraphQLEngine {
             dataHubRoleType,
             schemaFieldType,
             dataHubViewType
+            queryType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
