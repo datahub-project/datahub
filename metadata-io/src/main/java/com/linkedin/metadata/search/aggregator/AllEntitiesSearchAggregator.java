@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.aggregator;
 import com.codahale.metrics.Timer;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -54,11 +55,12 @@ public class AllEntitiesSearchAggregator {
       EntityRegistry entityRegistry,
       EntitySearchService entitySearchService,
       CachingEntitySearchService cachingEntitySearchService,
-      SearchRanker searchRanker) {
+      SearchRanker searchRanker,
+      EntityDocCountCacheConfiguration entityDocCountCacheConfiguration) {
     _entitySearchService = Objects.requireNonNull(entitySearchService);
     _searchRanker = Objects.requireNonNull(searchRanker);
     _cachingEntitySearchService = Objects.requireNonNull(cachingEntitySearchService);
-    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService);
+    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService, entityDocCountCacheConfiguration);
     _maxAggregationValueCount = DEFAULT_MAX_AGGREGATION_VALUES; // TODO: Make this externally configurable
   }
 
