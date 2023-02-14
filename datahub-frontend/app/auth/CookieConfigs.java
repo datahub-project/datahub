@@ -24,9 +24,15 @@ public class CookieConfigs {
         : DEFAULT_AUTH_COOKIE_SECURE;
   }
 
-  public int getTtlInHours() { return _ttlInHours; }
+  public int getTtlInHours() {
+    return _ttlInHours;
+  }
 
-  public String getAuthCookieSameSite() { return _authCookieSameSite; }
+  public String getAuthCookieSameSite() {
+    return _authCookieSameSite;
+  }
 
-  public boolean getAuthCookieSecure() { return _authCookieSecure; }
+  public boolean getAuthCookieSecure() {
+    return _authCookieSecure;
+  }
 }
