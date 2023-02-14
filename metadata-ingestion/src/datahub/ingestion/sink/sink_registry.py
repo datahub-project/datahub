@@ -17,3 +17,4 @@ sink_registry.register_from_entrypoint("datahub.ingestion.sink.plugins")
 # These sinks are always enabled
 assert sink_registry.get("console")
 assert sink_registry.get("file")
+assert sink_registry.get("blackhole")

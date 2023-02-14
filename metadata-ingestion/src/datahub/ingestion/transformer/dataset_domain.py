@@ -155,6 +155,7 @@ class PatternAddDatasetDomain(AddDatasetDomain):
         generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=resolve_domain,
             semantics=config.semantics,
+            replace_existing=config.replace_existing,
         )
         super().__init__(generic_config, ctx)
 
