@@ -58,7 +58,7 @@ To debug with an IDE (i.e. IntelliJ), run the `bootRun` task with the `--debug-j
 listen on port 5005 for a remote debugger.
 
 ```
-MCE_CONSUMER_ENABLED=true ./gradlew :metadata-jobs:mce-consumer-job:bootRun --debug-jvm
+MCP_CONSUMER_ENABLED=true ./gradlew :metadata-jobs:mce-consumer-job:bootRun --debug-jvm
 ```
 
 ## Endpoints
