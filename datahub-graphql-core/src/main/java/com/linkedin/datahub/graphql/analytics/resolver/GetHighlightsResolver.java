@@ -40,10 +40,10 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   }
 
   private Highlight getTimeBasedHighlight(
-          String title,
-          String changeString,
-          DateTime endDateTime,
-          Function<DateTime, DateTime> periodStartFunc
+          final String title,
+          final String changeString,
+          final DateTime endDateTime,
+          final Function<DateTime, DateTime> periodStartFunc
   ) {
     DateTime startDate = periodStartFunc.apply(endDateTime);
     DateTime timeBeforeThat = periodStartFunc.apply(startDate);
