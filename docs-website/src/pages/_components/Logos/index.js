@@ -260,7 +260,7 @@ const platformLogos = [
     name: "MySQL",
     imageUrl: "/img/logos/platforms/mysql.svg",
   },
-  { name: "Nifi", imageUrl: "/img/logos/platforms/nifi.svg" },
+  { name: "NiFi", imageUrl: "/img/logos/platforms/nifi.svg" },
   { name: "Okta", imageUrl: "/img/logos/platforms/oracle.svg" },
   { name: "Oracle", imageUrl: "/img/logos/platforms/okta.png" },
   { name: "Pinot", imageUrl: "/img/logos/platforms/pinot.svg" },

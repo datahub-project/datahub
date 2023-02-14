@@ -124,11 +124,15 @@ class CliReport(Report):
     py_version: str = sys.version
     py_exec_path: str = sys.executable
     os_details: str = platform.platform()
+    _peak_memory_usage: int = 0
 
     def compute_stats(self) -> None:
-        self.mem_info = humanfriendly.format_size(
-            psutil.Process(os.getpid()).memory_info().rss
-        )
+        mem_usage = psutil.Process(os.getpid()).memory_info().rss
+        if self._peak_memory_usage < mem_usage:
+            self._peak_memory_usage = mem_usage
+            self.peak_memory_usage = humanfriendly.format_size(self._peak_memory_usage)
+
+        self.mem_info = humanfriendly.format_size(mem_usage)
         return super().compute_stats()
 
 

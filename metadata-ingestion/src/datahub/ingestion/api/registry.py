@@ -1,6 +1,17 @@
 import importlib
 import inspect
-from typing import Any, Callable, Dict, Generic, Optional, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import entrypoints
 import typing_inspect
@@ -9,6 +20,11 @@ from datahub import __package_name__
 from datahub.configuration.common import ConfigurationError
 
 T = TypeVar("T")
+
+# TODO: The `entrypoints` library is in maintenance mode and is not actively developed.
+# We should switch to importlib.metadata once we drop support for Python 3.7.
+# See https://entrypoints.readthedocs.io/en/latest/ and
+# https://docs.python.org/3/library/importlib.metadata.html.
 
 
 def _is_importable(path: str) -> bool:
@@ -36,12 +52,14 @@ def import_path(path: str) -> Any:
 
 
 class PluginRegistry(Generic[T]):
+    _entrypoints: List[str]
     _mapping: Dict[str, Union[str, Type[T], Exception]]
     _aliases: Dict[str, Tuple[str, Callable[[], None]]]
 
     def __init__(
         self, extra_cls_check: Optional[Callable[[Type[T]], None]] = None
     ) -> None:
+        self._entrypoints = []
         self._mapping = {}
         self._aliases = {}
         self._extra_cls_check = extra_cls_check
@@ -90,6 +108,8 @@ class PluginRegistry(Generic[T]):
         self._aliases[alias] = (real_key, fn)
 
     def _ensure_not_lazy(self, key: str) -> Union[Type[T], Exception]:
+        self._materialize_entrypoints()
+
         path = self._mapping[key]
         if not isinstance(path, str):
             return path
@@ -102,10 +122,15 @@ class PluginRegistry(Generic[T]):
             return e
 
     def is_enabled(self, key: str) -> bool:
+        self._materialize_entrypoints()
+
         tp = self._mapping[key]
         return not isinstance(tp, Exception)
 
-    def register_from_entrypoint(self, entry_point_key: str, lazy: bool = True) -> None:
+    def register_from_entrypoint(self, entry_point_key: str) -> None:
+        self._entrypoints.append(entry_point_key)
+
+    def _load_entrypoint(self, entry_point_key: str) -> None:
         entry_point: entrypoints.EntryPoint
         for entry_point in entrypoints.get_group_all(entry_point_key):
             name = entry_point.name
@@ -116,14 +141,20 @@ class PluginRegistry(Generic[T]):
                 path = f"{entry_point.module_name}:{entry_point.object_name}"
 
             self.register_lazy(name, path)
-            if not lazy:
-                self._ensure_not_lazy(name)
+
+    def _materialize_entrypoints(self) -> None:
+        for entry_point_key in self._entrypoints:
+            self._load_entrypoint(entry_point_key)
+        self._entrypoints = []
 
     @property
     def mapping(self) -> Dict[str, Union[str, Type[T], Exception]]:
+        self._materialize_entrypoints()
         return self._mapping
 
     def get(self, key: str) -> Type[T]:
+        self._materialize_entrypoints()
+
         if _is_importable(key):
             # If the key contains a dot or colon, we treat it as a import path and attempt
             # to load it dynamically.
@@ -155,6 +186,8 @@ class PluginRegistry(Generic[T]):
     def summary(
         self, verbose: bool = True, col_width: int = 15, verbose_col_width: int = 20
     ) -> str:
+        self._materialize_entrypoints()
+
         lines = []
         for key in sorted(self._mapping.keys()):
             # We want to attempt to load all plugins before printing a summary.
