@@ -62,6 +62,7 @@ import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
+import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
@@ -76,6 +77,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
+import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
@@ -1600,11 +1602,19 @@ public class GmsGraphQLEngine {
         builder
             .type("QueryEntity",
                 typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
+            .type("ListQueriesResult", typeWiring -> typeWiring
+                .dataFetcher("queries", new LoadableTypeBatchResolver<>(
+                    queryType,
+                    (env) -> ((ListQueriesResult) env.getSource()).getQueries().stream()
+                        .map(QueryEntity::getUrn)
+                        .collect(Collectors.toList())))
+            )
             .type("QuerySubject", typeWiring -> typeWiring
                 .dataFetcher("dataset", new LoadableTypeResolver<>(
                     datasetType,
                     (env) -> ((QuerySubject) env.getSource()).getDataset().getUrn()))
             );
+
     }
 
     private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {

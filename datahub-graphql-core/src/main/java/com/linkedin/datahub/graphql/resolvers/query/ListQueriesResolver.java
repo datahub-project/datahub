@@ -1,16 +1,15 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
-import com.linkedin.datahub.graphql.types.query.QueryMapper;
-import com.linkedin.entity.EntityResponse;
+import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -21,10 +20,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -40,19 +36,19 @@ import static com.linkedin.metadata.Constants.*;
 @RequiredArgsConstructor
 public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQueriesResult>> {
 
-  private static final Integer DEFAULT_START = 0;
-  private static final Integer DEFAULT_COUNT = 100;
-  private static final String DEFAULT_QUERY = "";
-  private static final String CREATED_AT_FIELD = "createdAt";
-  private static final String QUERY_SOURCE_FIELD = "source";
-  private static final String QUERY_ENTITIES_FIELD = "entities";
+  // Visible for Testing
+  static final Integer DEFAULT_START = 0;
+  static final Integer DEFAULT_COUNT = 100;
+  static final String DEFAULT_QUERY = "";
+  static final String CREATED_AT_FIELD = "createdAt";
+  static final String QUERY_SOURCE_FIELD = "source";
+  static final String QUERY_ENTITIES_FIELD = "entities";
 
   private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<ListQueriesResult> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final Authentication authentication = context.getAuthentication();
 
     final ListQueriesInput input = bindArgument(environment.getArgument("input"), ListQueriesInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
@@ -68,26 +64,30 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
         final SearchResult gmsResult = _entityClient.search(QUERY_ENTITY_NAME, query, buildFilters(input), sortCriterion, start, count,
             context.getAuthentication(), true);
 
-        // Then, get and hydrate all Queries.
-        final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(QUERY_ENTITY_NAME,
-            new HashSet<>(gmsResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList())),
-            null, authentication);
-
         final ListQueriesResult result = new ListQueriesResult();
         result.setStart(gmsResult.getFrom());
         result.setCount(gmsResult.getPageSize());
         result.setTotal(gmsResult.getNumEntities());
-        result.setQueries(gmsResult.getEntities()
-            .stream()
-            .map(entity -> entities.get(entity.getEntity()))
-            .filter(Objects::nonNull)
-            .map(QueryMapper::map)
-            .collect(Collectors.toList()));
+        result.setQueries(mapUnresolvedQueries(gmsResult.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList())));
         return result;
       } catch (Exception e) {
         throw new RuntimeException("Failed to list Queries", e);
       }
     });
+  }
+
+  // This method maps urns returned from the list endpoint into Partial Query objects which will be resolved be a separate Batch resolver.
+  private List<QueryEntity> mapUnresolvedQueries(final List<Urn> queryUrns) {
+    final List<QueryEntity> results = new ArrayList<>();
+    for (final Urn urn : queryUrns) {
+      final QueryEntity unresolvedView = new QueryEntity();
+      unresolvedView.setUrn(urn.toString());
+      unresolvedView.setType(EntityType.QUERY);
+      results.add(unresolvedView);
+    }
+    return results;
   }
 
   @Nullable
