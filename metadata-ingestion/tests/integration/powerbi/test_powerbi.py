@@ -1,6 +1,7 @@
 from typing import Any, Dict
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -534,6 +535,7 @@ def default_source_config():
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -571,6 +573,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_ingest_urn_lower_case(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -612,6 +615,7 @@ def test_powerbi_ingest_urn_lower_case(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_override_ownership(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -652,6 +656,7 @@ def test_override_ownership(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_scan_all_workspaces(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -697,6 +702,7 @@ def test_scan_all_workspaces(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -735,6 +741,7 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -781,6 +788,7 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_extract_endorsements(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -821,6 +829,7 @@ def test_extract_endorsements(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_workspace_container(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):

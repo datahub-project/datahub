@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from unittest import mock
 
 import pandas as pd
+import pytest
 from freezegun import freeze_time
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
@@ -40,6 +41,7 @@ def random_email():
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
@@ -135,6 +137,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
