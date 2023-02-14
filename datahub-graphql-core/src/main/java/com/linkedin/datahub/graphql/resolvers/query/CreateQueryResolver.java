@@ -38,15 +38,16 @@ public class CreateQueryResolver implements DataFetcher<CompletableFuture<QueryE
     final CreateQueryInput input = bindArgument(environment.getArgument("input"), CreateQueryInput.class);
     final Authentication authentication = context.getAuthentication();
 
-    if (!AuthorizationUtils.canCreateQuery(input.getSubjects()
-        .stream()
-        .map(CreateQuerySubjectInput::getDatasetUrn).map(UrnUtils::getUrn)
-        .collect(Collectors.toList()), context)) {
-      throw new AuthorizationException(
-          "Unauthorized to create Query. Please contact your DataHub administrator for more information.");
-    }
-
     return CompletableFuture.supplyAsync(() -> {
+
+      if (!AuthorizationUtils.canCreateQuery(input.getSubjects()
+          .stream()
+          .map(CreateQuerySubjectInput::getDatasetUrn).map(UrnUtils::getUrn)
+          .collect(Collectors.toList()), context)) {
+        throw new AuthorizationException(
+            "Unauthorized to create Query. Please contact your DataHub administrator for more information.");
+      }
+
       try {
         final Urn queryUrn = _queryService.createQuery(
             input.getProperties().getName(),

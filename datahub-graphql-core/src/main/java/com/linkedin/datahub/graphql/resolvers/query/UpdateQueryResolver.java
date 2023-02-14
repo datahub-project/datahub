@@ -43,30 +43,31 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
     final Urn queryUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    final QuerySubjects existingSubjects = _queryService.getQuerySubjects(queryUrn, authentication);
+    return CompletableFuture.supplyAsync(() -> {
 
-    if (existingSubjects == null) {
-      // No Query Found
-      throw new DataHubGraphQLException(String.format("Failed to find query with urn %s", queryUrn), DataHubGraphQLErrorCode.NOT_FOUND);
-    }
+      final QuerySubjects existingSubjects = _queryService.getQuerySubjects(queryUrn, authentication);
 
-    final List<Urn> subjectUrns = existingSubjects.getSubjects().stream().map(QuerySubject::getEntity).collect(Collectors.toList());
-    final List<Urn> newSubjectUrns = input.getSubjects() != null
-        ? input.getSubjects()
+      if (existingSubjects == null) {
+        // No Query Found
+        throw new DataHubGraphQLException(String.format("Failed to find query with urn %s", queryUrn), DataHubGraphQLErrorCode.NOT_FOUND);
+      }
+
+      final List<Urn> subjectUrns = existingSubjects.getSubjects().stream().map(QuerySubject::getEntity).collect(Collectors.toList());
+      final List<Urn> newSubjectUrns = input.getSubjects() != null
+          ? input.getSubjects()
           .stream()
           .map(sub -> UrnUtils.getUrn(sub.getDatasetUrn()))
           .collect(Collectors.toList())
-        : Collections.emptyList();
-    final List<Urn> impactedSubjectUrns = new ArrayList<>();
-    impactedSubjectUrns.addAll(subjectUrns);
-    impactedSubjectUrns.addAll(newSubjectUrns);
+          : Collections.emptyList();
+      final List<Urn> impactedSubjectUrns = new ArrayList<>();
+      impactedSubjectUrns.addAll(subjectUrns);
+      impactedSubjectUrns.addAll(newSubjectUrns);
 
-    if (!AuthorizationUtils.canUpdateQuery(queryUrn, impactedSubjectUrns, context)) {
-      throw new AuthorizationException(
-          "Unauthorized to update Query. Please contact your DataHub administrator if this needs corrective action.");
-    }
+      if (!AuthorizationUtils.canUpdateQuery(queryUrn, impactedSubjectUrns, context)) {
+        throw new AuthorizationException(
+            "Unauthorized to update Query. Please contact your DataHub administrator if this needs corrective action.");
+      }
 
-    return CompletableFuture.supplyAsync(() -> {
       try {
         _queryService.updateQuery(
             queryUrn,

@@ -31,16 +31,18 @@ public class DeleteQueryResolver implements DataFetcher<CompletableFuture<Boolea
     final Urn queryUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    final QuerySubjects existingSubjects = _queryService.getQuerySubjects(queryUrn, authentication);
-    final List<Urn> subjectUrns = existingSubjects != null
-        ? existingSubjects.getSubjects().stream().map(QuerySubject::getEntity).collect(Collectors.toList())
-        : Collections.emptyList();
-
-    if (!AuthorizationUtils.canDeleteQuery(queryUrn, subjectUrns, context)) {
-      throw new AuthorizationException(
-          "Unauthorized to delete Query. Please contact your DataHub administrator if this needs corrective action.");
-    }
     return CompletableFuture.supplyAsync(() -> {
+
+      final QuerySubjects existingSubjects = _queryService.getQuerySubjects(queryUrn, authentication);
+      final List<Urn> subjectUrns = existingSubjects != null
+          ? existingSubjects.getSubjects().stream().map(QuerySubject::getEntity).collect(Collectors.toList())
+          : Collections.emptyList();
+
+      if (!AuthorizationUtils.canDeleteQuery(queryUrn, subjectUrns, context)) {
+        throw new AuthorizationException(
+            "Unauthorized to delete Query. Please contact your DataHub administrator if this needs corrective action.");
+      }
+
       try {
         _queryService.deleteQuery(queryUrn, authentication);
         return true;
