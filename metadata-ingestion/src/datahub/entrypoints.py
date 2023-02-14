@@ -5,8 +5,6 @@ import sys
 from typing import Optional
 
 import click
-import stackprinter
-from pydantic import ValidationError
 
 import datahub as datahub_package
 from datahub.cli.check_cli import check
@@ -25,6 +23,7 @@ from datahub.cli.put_cli import put
 from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
+from datahub.configuration.common import should_show_stack_trace
 from datahub.telemetry import telemetry
 from datahub.utilities.logging_manager import configure_logging
 from datahub.utilities.server_config_util import get_gms_config
@@ -108,7 +107,7 @@ def datahub(
 
 
 @datahub.command()
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def version() -> None:
     """Print version number and exit."""
 
@@ -117,7 +116,7 @@ def version() -> None:
 
 
 @datahub.command()
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def init() -> None:
     """Configure which datahub instance to connect to"""
 
@@ -181,39 +180,10 @@ def main(**kwargs):
         error.show()
         sys.exit(1)
     except Exception as exc:
-        if "--debug-vars" in sys.argv:
-            show_vals = "like_source"
-        else:
-            # Unless --debug-vars is passed, we don't want to print the values of variables.
-            show_vals = None
-
-        if isinstance(exc, ValidationError) or isinstance(
-            exc.__cause__, ValidationError
-        ):
+        if not should_show_stack_trace(exc):
             # Don't print the full stack trace for simple config errors.
-            logger.error(exc)
-        elif logger.isEnabledFor(logging.DEBUG):
-            # We only print rich stacktraces during debug.
-            logger.error(
-                stackprinter.format(
-                    exc,
-                    line_wrap=MAX_CONTENT_WIDTH,
-                    truncate_vals=10 * MAX_CONTENT_WIDTH,
-                    suppressed_vars=[
-                        r".*password.*",
-                        r".*secret.*",
-                        r".*key.*",
-                        r".*access.*",
-                        # needed because sometimes secrets are in url
-                        r".*url.*",
-                        # needed because sqlalchemy uses it underneath
-                        # and passes all params
-                        r".*cparams.*",
-                    ],
-                    suppressed_paths=[r"lib/python.*/site-packages/click/"],
-                    show_vals=show_vals,
-                )
-            )
+            logger.debug("Error: %s", exc, exc_info=exc)
+            click.secho(f"{exc}", fg="red")
         else:
             logger.exception(f"Command failed: {exc}")
 
@@ -223,5 +193,7 @@ def main(**kwargs):
         logger.debug(
             f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
         )
-        logger.debug(f"GMS config {get_gms_config()}")
+        gms_config = get_gms_config()
+        if gms_config:
+            logger.debug(f"GMS config {gms_config}")
         sys.exit(1)

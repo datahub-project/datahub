@@ -128,7 +128,7 @@ class KafkaSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - Topics from the Kafka broker
-    - Schemas associated with each topic from the schema registry (only Avro schemas are currently supported)
+    - Schemas associated with each topic from the schema registry (Avro, Protobuf schemas are currently supported)
     """
 
     platform: str = "kafka"

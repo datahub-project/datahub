@@ -16,7 +16,12 @@ interface EmailMenuItemProps {
 const StyledMenuItem = styled(MenuItem)`
     && {
         color: ${ANTD_GRAY[8]};
+        background-color: ${ANTD_GRAY[1]};
     }
+`;
+
+const TextSpan = styled.span`
+    padding-left: 12px;
 `;
 
 export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemProps) {
@@ -38,11 +43,11 @@ export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemPro
                 {(link) => (
                     <Tooltip title={`Share this ${type} via email`}>
                         {isClicked ? <CheckOutlined /> : <MailOutlined />}
-                        <span>
+                        <TextSpan>
                             <a href={link} style={{ color: 'inherit' }}>
                                 <b>Email</b>
                             </a>
-                        </span>
+                        </TextSpan>
                     </Tooltip>
                 )}
             </EmailShare>

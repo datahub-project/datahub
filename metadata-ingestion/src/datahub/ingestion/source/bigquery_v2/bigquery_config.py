@@ -170,6 +170,8 @@ class BigQueryV2Config(
     )
     _credentials_path: Optional[str] = PrivateAttr(None)
 
+    _cache_path: Optional[str] = PrivateAttr(None)
+
     upstream_lineage_in_report: bool = Field(
         default=False,
         description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",

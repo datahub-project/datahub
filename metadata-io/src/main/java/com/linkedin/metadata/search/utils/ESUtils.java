@@ -12,6 +12,7 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -30,6 +31,8 @@ public class ESUtils {
 
   public static final String KEYWORD_SUFFIX = ".keyword";
   public static final int MAX_RESULT_SIZE = 10000;
+  public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
+  public static final String HEADER_VALUE_DELIMITER = "|";
 
   // we use this to make sure we filter for editable & non-editable fields
   public static final String[][] EDITABLE_FIELD_TO_QUERY_PAIRS = {
@@ -140,6 +143,7 @@ public class ESUtils {
         criterionToQuery.setCondition(criterion.getCondition());
         criterionToQuery.setNegated(criterion.isNegated());
         criterionToQuery.setValue(criterion.getValue());
+        criterionToQuery.setValues(criterion.getValues());
         criterionToQuery.setField(field + KEYWORD_SUFFIX);
         orQueryBuilder.should(getQueryBuilderFromCriterionForSingleField(criterionToQuery));
       }
@@ -238,5 +242,24 @@ public class ESUtils {
   @Nullable
   public static String toFacetField(@Nonnull final String filterField) {
     return filterField.replace(ESUtils.KEYWORD_SUFFIX, "");
+  }
+
+  public static RequestOptions buildReindexTaskRequestOptions(String version, String indexName, String tempIndexName) {
+    return RequestOptions.DEFAULT.toBuilder()
+        .addHeader(OPAQUE_ID_HEADER, getOpaqueIdHeaderValue(version, indexName, tempIndexName))
+        .build();
+  }
+
+  public static String getOpaqueIdHeaderValue(String version, String indexName, String tempIndexName) {
+    return String.join(HEADER_VALUE_DELIMITER, version, indexName, tempIndexName);
+  }
+
+  public static boolean prefixMatch(String id, String version, String indexName) {
+    return Optional.ofNullable(id)
+            .map(t -> t.startsWith(String.join(HEADER_VALUE_DELIMITER, version, indexName))).orElse(false);
+  }
+
+  public static String extractTargetIndex(String id) {
+    return id.split("[" + HEADER_VALUE_DELIMITER + "]", 3)[2];
   }
 }
