@@ -9,6 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.TestEntityUtil;
+import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -91,13 +92,16 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
 
   private void resetService(boolean withCache) {
     CachingEntitySearchService cachingEntitySearchService = new CachingEntitySearchService(_cacheManager, _elasticSearchService, 100, true);
+    EntityDocCountCacheConfiguration entityDocCountCacheConfiguration = new EntityDocCountCacheConfiguration();
+    entityDocCountCacheConfiguration.setTtlSeconds(600L);
     _lineageSearchService = new LineageSearchService(
         new SearchService(
-            new EntityDocCountCache(_entityRegistry, _elasticSearchService),
+            new EntityDocCountCache(_entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
             cachingEntitySearchService,
             new CachingAllEntitiesSearchAggregator(
                 _cacheManager,
-                new AllEntitiesSearchAggregator(_entityRegistry, _elasticSearchService, cachingEntitySearchService,  new SimpleRanker()),
+                new AllEntitiesSearchAggregator(_entityRegistry, _elasticSearchService, cachingEntitySearchService,
+                    new SimpleRanker(), entityDocCountCacheConfiguration),
                 100,
                 true),
             new SimpleRanker()),
