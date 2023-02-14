@@ -161,7 +161,14 @@ def delete(
 
     cli_utils.test_connectivity_complain_exit("delete")
     # one of these must be provided
-    if not urn and not platform and not env and not query and not registry_id and not csv:
+    if (
+        not urn
+        and not platform
+        and not env
+        and not query
+        and not registry_id
+        and not csv
+    ):
         raise click.UsageError(
             "You must provide one of urn / csv / platform / env / query / registry_id in order to delete entities."
         )
