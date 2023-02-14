@@ -93,7 +93,7 @@ def tableau_ingest_common(
     output_file_name,
     mock_datahub_graph,
     pipeline_config=config_source_default,
-    sign_out_side_effect: Any = lambda: None,
+    sign_out_side_effect=lambda: None,
 ):
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/tableau"
