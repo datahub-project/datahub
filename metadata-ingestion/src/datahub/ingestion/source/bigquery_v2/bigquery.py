@@ -737,7 +737,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 table_columns = columns.get(table.name, []) if columns else []
 
                 yield from self._process_table(
-                    conn, table, table_columns, project_id, dataset_name
+                    table=table,
+                    columns=table_columns,
+                    project_id=project_id,
+                    dataset_name=dataset_name,
                 )
 
         if self.config.include_views:
@@ -748,7 +751,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             for view in db_views[dataset_name]:
                 view_columns = columns.get(view.name, []) if columns else []
                 yield from self._process_view(
-                    view, view_columns, project_id, dataset_name
+                    view=view,
+                    columns=view_columns,
+                    project_id=project_id,
+                    dataset_name=dataset_name,
                 )
 
     # This method is used to generate the ignore list for datatypes the profiler doesn't support we have to do it here
@@ -765,13 +771,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _process_table(
         self,
-        conn: bigquery.Client,
         table: BigqueryTable,
         columns: List[BigqueryColumn],
         project_id: str,
-        schema_name: str,
+        dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        table_identifier = BigqueryTableIdentifier(project_id, schema_name, table.name)
+        table_identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
 
         self.report.report_entity_scanned(table_identifier.raw_table_name())
 
@@ -806,12 +811,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 None,
             )
         yield from self.gen_table_dataset_workunits(
-            table, columns, project_id, schema_name
+            table, columns, project_id, dataset_name
         )
 
     def _process_view(
         self,
-        conn: bigquery.Client,
         view: BigqueryView,
         columns: List[BigqueryColumn],
         project_id: str,
@@ -1182,7 +1186,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                             sharded_tables[table_name] = table
                         continue
                 else:
-                    table_count = table_count + 1
+                    if (
+                        table.time_partitioning
+                        or "range_partitioning" in table._properties
+                    ):
+                        partitioned_table_count_in_this_batch = (
+                            partitioned_table_count_in_this_batch + 1
+                        )
                     table_items[table.table_id] = table
 
                 if str(table_identifier).startswith(
@@ -1196,13 +1206,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
                 if (
                     table_count_in_this_batch
-                     % self.config.number_of_datasets_process_in_batch
-                    or (
-                            partitioned_table_count_in_this_batch > 0
-                            and partitioned_table_count_in_this_batch
-                            % self.config.number_of_partitioned_datasets_process_in_batch
-                            == 0
-                    )
+                    % self.config.number_of_datasets_process_in_batch
+                    == 0
+                ) or (
+                    partitioned_table_count_in_this_batch > 0
+                    and partitioned_table_count_in_this_batch
+                    % self.config.number_of_partitioned_datasets_process_in_batch
+                    == 0
                 ):
 
                     bigquery_tables.extend(
@@ -1214,8 +1224,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                             with_data_read_permission=self.config.profiling.enabled,
                         )
                     )
-                partitioned_table_count_in_this_batch = 0
-                table_items.clear()
+                    partitioned_table_count_in_this_batch = 0
+                    table_items.clear()
 
             # Sharded tables don't have partition keys, so it is safe to add to the list as
             # it should not affect the number of tables will be touched in the partitions system view.
