@@ -1,11 +1,13 @@
 package com.linkedin.metadata.utils;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -15,17 +17,23 @@ public class ConcurrencyUtils {
   private ConcurrencyUtils() {
   }
 
+  public static <O, T> List<T> transformAndCollectAsync(List<O> originalList, Function<O, T> transformer) {
+    return transformAndCollectAsync(originalList, transformer, Collectors.toList());
+  }
+
   /**
    * Transforms original list into the final list using the function transformer in an asynchronous fashion
    * i.e. each element transform is run as a separate CompleteableFuture and then joined at the end
    */
-  public static <O, T> List<T> transformAndCollectAsync(List<O> originalList, Function<O, T> transformer) {
-    return originalList.stream()
+  public static <O, T, OUTPUT> OUTPUT transformAndCollectAsync(Collection<O> originalCollection,
+      Function<O, T> transformer, Collector<T, ?, OUTPUT> collector) {
+    return originalCollection.stream()
         .map(element -> CompletableFuture.supplyAsync(() -> transformer.apply(element)))
         .collect(Collectors.collectingAndThen(Collectors.toList(),
             completableFutureList -> completableFutureList.stream().map(CompletableFuture::join)))
-        .collect(Collectors.toList());
+        .collect(collector);
   }
+
 
   /**
    * Transforms original list into the final list using the function transformer in an asynchronous fashion
@@ -34,13 +42,23 @@ public class ConcurrencyUtils {
    */
   public static <O, T> List<T> transformAndCollectAsync(List<O> originalList, Function<O, T> transformer,
       BiFunction<O, Throwable, ? extends T> exceptionHandler) {
-    return originalList.stream()
+    return transformAndCollectAsync(originalList, transformer, exceptionHandler, Collectors.toList());
+  }
+
+  /**
+   * Transforms original list into the final list using the function transformer in an asynchronous fashion
+   * with exceptions handled by the input exceptionHandler
+   * i.e. each element transform is run as a separate CompleteableFuture and then joined at the end
+   */
+  public static <O, T, OUTPUT> OUTPUT transformAndCollectAsync(Collection<O> originalCollection,
+      Function<O, T> transformer, BiFunction<O, Throwable, ? extends T> exceptionHandler, Collector<T, ?, OUTPUT> collector) {
+    return originalCollection.stream()
         .map(element -> CompletableFuture.supplyAsync(() -> transformer.apply(element))
             .exceptionally(e -> exceptionHandler.apply(element, e)))
         .filter(Objects::nonNull)
         .collect(Collectors.collectingAndThen(Collectors.toList(),
             completableFutureList -> completableFutureList.stream().map(CompletableFuture::join)))
-        .collect(Collectors.toList());
+        .collect(collector);
   }
 
   /**
