@@ -255,3 +255,11 @@ entityClient:
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
   numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}
+
+cache:
+  primary:
+    ttlSeconds: ${CACHE_TTL_SECONDS:600}
+    maxSize: ${CACHE_MAX_SIZE:10000}
+  homepage:
+    entityCounts:
+      ttlSeconds: ${CACHE_ENTITY_COUNTS_TTL_SECONDS:600}

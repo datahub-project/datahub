@@ -1,5 +1,6 @@
 package controllers;
 
+import auth.CookieConfigs;
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.EntityClient;
@@ -40,11 +41,12 @@ public class SsoCallbackController extends CallbackController {
       @Nonnull SsoManager ssoManager,
       @Nonnull Authentication systemAuthentication,
       @Nonnull EntityClient entityClient,
-      @Nonnull AuthServiceClient authClient) {
+      @Nonnull AuthServiceClient authClient,
+      @Nonnull com.typesafe.config.Config configs) {
     _ssoManager = ssoManager;
     setDefaultUrl("/"); // By default, redirects to Home Page on log in.
     setSaveInSession(false);
-    setCallbackLogic(new SsoCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient));
+    setCallbackLogic(new SsoCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient, new CookieConfigs(configs)));
   }
 
   public CompletionStage<Result> handleCallback(String protocol, Http.Request request) {
@@ -77,8 +79,8 @@ public class SsoCallbackController extends CallbackController {
     private final OidcCallbackLogic _oidcCallbackLogic;
 
     SsoCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication,
-        final EntityClient entityClient, final AuthServiceClient authClient) {
-      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient);
+        final EntityClient entityClient, final AuthServiceClient authClient, final CookieConfigs cookieConfigs) {
+      _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient, cookieConfigs);
     }
 
     @Override
