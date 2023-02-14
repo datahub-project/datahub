@@ -367,8 +367,11 @@ class TableauSource(StatefulIngestionSourceBase):
             if self.server is not None:
                 self.server.auth.sign_out()
         except ConnectionError as err:
-            logger.warning("During graceful closing of Tableau source a sign-out call was tried but ended up with"
-                           " a ConnectionError (%s). Continuing closing of the source", err)
+            logger.warning(
+                "During graceful closing of Tableau source a sign-out call was tried but ended up with"
+                " a ConnectionError (%s). Continuing closing of the source",
+                err,
+            )
             self.server = None
         super().close()
 
