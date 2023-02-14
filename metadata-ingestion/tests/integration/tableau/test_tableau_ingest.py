@@ -428,6 +428,8 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
         tmp_path,
         [
             read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
