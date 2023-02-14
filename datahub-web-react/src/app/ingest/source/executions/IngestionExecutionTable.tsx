@@ -38,7 +38,7 @@ export default function IngestionExecutionTable({
             dataIndex: 'duration',
             key: 'duration',
             render: (durationMs: number) => {
-                const seconds = (durationMs && `${durationMs / 1000}s`) || 'N/A';
+                const seconds = (durationMs && `${durationMs / 1000}s`) || 'None';
                 return seconds;
             },
         },

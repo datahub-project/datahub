@@ -16,6 +16,7 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -438,7 +439,56 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
         genericAspect.setContentType("application/json");
         gmce.setAspect(genericAspect);
-        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP);
+        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+    }
+
+    @Test
+    public void testAsyncProposalVersioned() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        DatasetProperties datasetProperties = new DatasetProperties();
+        datasetProperties.setName("Foo Bar");
+        MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(entityUrn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType("dataset");
+        gmce.setAspectName("datasetProperties");
+        JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+        byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+        GenericAspect genericAspect = new GenericAspect();
+        genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+        genericAspect.setContentType("application/json");
+        gmce.setAspect(genericAspect);
+        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, true);
+        verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.any());
+        verify(_mockProducer, times(1)).produceMetadataChangeProposal(Mockito.eq(entityUrn),
+            Mockito.eq(gmce));
+    }
+
+
+    @Test
+    public void testAsyncProposalTimeseries() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        DatasetProfile datasetProfile = new DatasetProfile();
+        datasetProfile.setRowCount(1000);
+        datasetProfile.setColumnCount(15);
+        datasetProfile.setTimestampMillis(0L);
+        MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(entityUrn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType("dataset");
+        gmce.setAspectName("datasetProfile");
+        JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+        byte[] datasetProfileSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProfile);
+        GenericAspect genericAspect = new GenericAspect();
+        genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
+        genericAspect.setContentType("application/json");
+        gmce.setAspect(genericAspect);
+        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, true);
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.any());
+        verify(_mockProducer, times(0)).produceMetadataChangeProposal(Mockito.eq(entityUrn),
+            Mockito.eq(gmce));
     }
 
     @Test
@@ -800,9 +850,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
 
-        verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
 
-        verify(_mockProducer, times(0)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
+        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn), Mockito.notNull(), Mockito.any(),
             Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
         verifyNoMoreInteractions(_mockProducer);

@@ -7,6 +7,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BytesType,
     DateType,
     EnumType,
+    MapType,
     NullType,
     NumberType,
     RecordType,
@@ -216,7 +217,6 @@ POSTGRES_MODIFIED_TYPES = {
 
 
 def resolve_postgres_modified_type(type_string: str) -> Any:
-
     if type_string.endswith("[]"):
         return ArrayType
 
@@ -321,7 +321,7 @@ SPARK_SQL_TYPES_MAP: Dict[str, Any] = {
 
 # https://trino.io/docs/current/language/types.html
 # https://github.com/trinodb/trino-python-client/blob/master/trino/sqlalchemy/datatype.py#L75
-TRINO_SQL_TYPES_MAP = {
+TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "boolean": BooleanType,
     "tinyint": NumberType,
     "smallint": NumberType,
@@ -339,4 +339,6 @@ TRINO_SQL_TYPES_MAP = {
     "time": TimeType,
     "timestamp": TimeType,
     "row": RecordType,
+    "map": MapType,
+    "array": ArrayType,
 }

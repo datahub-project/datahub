@@ -22,7 +22,8 @@
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
-        "MANAGE_TAGS"
+        "MANAGE_TAGS",
+        "MANAGE_GLOBAL_VIEWS"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
@@ -44,7 +45,8 @@
       },
       "privileges":[
         "EDIT_ENTITY",
-        "VIEW_ENTITY_PAGE"
+        "VIEW_ENTITY_PAGE",
+        "EDIT_LINEAGE"
       ],
       "displayName":"Root User - Edit and View All Resources",
       "description":"Grants full edit and view privileges for all resources to root 'datahub' root user.",
@@ -78,7 +80,6 @@
         "users":[]
       },
       "privileges":[
-        "MANAGE_POLICIES",
         "MANAGE_INGESTION",
         "MANAGE_SECRETS",
         "MANAGE_USERS_AND_GROUPS",
@@ -89,7 +90,7 @@
         "MANAGE_GLOSSARIES",
         "MANAGE_TAGS"
       ],
-      "displayName":"All Users - All Platform Privileges",
+      "displayName":"All Users - All Platform Privileges (EXCEPT MANAGE POLICIES)",
       "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
       "state":"ACTIVE",
       "type":"PLATFORM",
@@ -168,7 +169,8 @@
         "MANAGE_DOMAINS",
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
-        "MANAGE_TAGS"
+        "MANAGE_TAGS",
+        "MANAGE_GLOBAL_VIEWS"
       ],
       "displayName":"Admins - Platform Policy",
       "description":"Admins have all platform privileges.",
@@ -215,7 +217,8 @@
         "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
-        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
+        "EDIT_LINEAGE"
 
       ],
       "displayName":"Admins - Metadata Policy",
@@ -289,7 +292,8 @@
         "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
-        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
+        "EDIT_LINEAGE"
       ],
       "displayName":"Editors - Metadata Policy",
       "description":"Editors have all metadata privileges.",
@@ -379,7 +383,8 @@
         "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
         "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
-        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE",
+        "EDIT_LINEAGE"
       ],
       "displayName":"Asset Owners - Metadata Policy",
       "description":"Asset Owners have all metadata privileges ONLY for assets they own.",

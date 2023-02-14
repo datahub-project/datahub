@@ -1,12 +1,16 @@
 import datetime
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Generic, Optional, Type, TypeVar, cast
 
+from typing_extensions import Self
+
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.type_annotations import get_class_from_annotation
 
 
 @dataclass
@@ -15,7 +19,7 @@ class SinkReport(Report):
     records_written_per_second: int = 0
     warnings: LossyList[Any] = field(default_factory=LossyList)
     failures: LossyList[Any] = field(default_factory=LossyList)
-    start_time: datetime.datetime = datetime.datetime.now()
+    start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
     current_time: Optional[datetime.datetime] = None
     total_duration_in_seconds: Optional[float] = None
 
@@ -75,38 +79,59 @@ class NoopWriteCallback(WriteCallback):
         pass
 
 
-# See https://github.com/python/mypy/issues/5374 for why we suppress this mypy error.
-@dataclass  # type: ignore[misc]
-class Sink(Closeable, metaclass=ABCMeta):
+SinkReportType = TypeVar("SinkReportType", bound=SinkReport, covariant=True)
+SinkConfig = TypeVar("SinkConfig", bound=ConfigModel, covariant=True)
+
+
+class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     """All Sinks must inherit this base class."""
 
     ctx: PipelineContext
+    config: SinkConfig
+    report: SinkReportType
 
     @classmethod
-    @abstractmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Sink":
+    def get_config_class(cls) -> Type[SinkConfig]:
+        config_class = get_class_from_annotation(cls, Sink, ConfigModel)
+        assert config_class, "Sink subclasses must define a config class"
+        return cast(Type[SinkConfig], config_class)
+
+    @classmethod
+    def get_report_class(cls) -> Type[SinkReportType]:
+        report_class = get_class_from_annotation(cls, Sink, SinkReport)
+        assert report_class, "Sink subclasses must define a report class"
+        return cast(Type[SinkReportType], report_class)
+
+    def __init__(self, ctx: PipelineContext, config: SinkConfig):
+        self.ctx = ctx
+        self.config = config
+        self.report = self.get_report_class()()
+
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
         pass
 
-    @abstractmethod
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Self":
+        return cls(ctx, cls.get_config_class().parse_obj(config_dict))
+
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         pass
 
-    @abstractmethod
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
         pass
 
     @abstractmethod
     def write_record_async(
-        self, record_envelope: RecordEnvelope, callback: WriteCallback
+        self, record_envelope: RecordEnvelope, write_callback: WriteCallback
     ) -> None:
         # must call callback when done.
         pass
 
-    @abstractmethod
-    def get_report(self) -> SinkReport:
-        pass
+    def get_report(self) -> SinkReportType:
+        return self.report
 
-    @abstractmethod
     def close(self) -> None:
         pass
 

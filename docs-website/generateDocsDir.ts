@@ -15,7 +15,7 @@ const GITHUB_EDIT_URL =
 const GITHUB_BROWSE_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 
-const OUTPUT_DIRECTORY = "genDocs";
+const OUTPUT_DIRECTORY = "docs";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
@@ -121,9 +121,9 @@ function list_markdown_files(): string[] {
     /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion-examples\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
-    /^docs\/rfc\/templates\/000-template\.md$/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^SECURITY\.md$/,
     /^\s*$/, //Empty string
   ];
 

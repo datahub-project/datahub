@@ -1,6 +1,8 @@
 import time
 import uuid
 
+from datahub.api.entities.corpgroup.corpgroup import CorpGroup
+from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.api.entities.datajob.dataflow import DataFlow
 from datahub.api.entities.datajob.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -22,7 +24,7 @@ dataJob.emit(emitter)
 dataJob2 = DataJob(flow_urn=jobFlow.urn, id="job2", name="My Job 2")
 dataJob2.upstream_urns.append(dataJob.urn)
 dataJob2.tags.add("TestTag")
-dataJob2.owners.add("test@test.com")
+dataJob2.owners.add("testUser")
 dataJob2.emit(emitter)
 
 dataJob3 = DataJob(flow_urn=jobFlow.urn, id="job3", name="My Job 3")
@@ -32,6 +34,7 @@ dataJob3.emit(emitter)
 dataJob4 = DataJob(flow_urn=jobFlow.urn, id="job4", name="My Job 4")
 dataJob4.upstream_urns.append(dataJob2.urn)
 dataJob4.upstream_urns.append(dataJob3.urn)
+dataJob4.group_owners.add("testGroup")
 dataJob4.emit(emitter)
 
 # Hello World
@@ -105,3 +108,20 @@ jobRun4.emit_process_end(
     end_timestamp_millis=int(time.time() * 1000),
     result=InstanceRunResult.SUCCESS,
 )
+
+user1 = CorpUser(
+    id="testUser",
+    display_name="Test User",
+    email="test-user@test.com",
+    groups=["testGroup"],
+)
+user1.emit(emitter)
+
+group1 = CorpGroup(
+    id="testGroup",
+    display_name="Test Group",
+    email="test-group@test.com",
+    slack="#test-group",
+    overrideEditable=True,
+)
+group1.emit(emitter)

@@ -5,14 +5,14 @@ title: "Local Development"
 # DataHub Developer's Guide
 
 ## Pre-requirements
- - [Java 1.8 SDK](https://adoptopenjdk.net/?variant=openjdk8&jvmVariant=hotspot)
+ - [Java 11 SDK](https://openjdk.org/projects/jdk/11/)
  - [Docker](https://www.docker.com/)
  - [Docker Compose](https://docs.docker.com/compose/)
  - Docker engine with at least 8GB of memory to run tests.
 
  :::note
 
- Do not try to use a JDK newer than JDK 8. The build process does not work with newer JDKs currently.
+ Do not try to use a JDK newer than JDK 11. The build process does not work with newer JDKs currently.
 
  :::
 
@@ -70,7 +70,7 @@ cd ../
 
 Once you have compiled & packaged the project or appropriate module you can deploy the entire system via docker-compose by running:
 ```
-datahub docker quickstart --build-locally
+./gradlew quickstart
 ```
 
 Replace whatever container you want in the existing deployment.
@@ -101,7 +101,7 @@ You're probably using a Java version that's too new for gradle. Run the followin
 ```
 java --version
 ```
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 1.8](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html) (aka Java 8). Plan for Java 11 migration is being discussed in [this issue](https://github.com/datahub-project/datahub/issues/1699).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 11](https://openjdk.org/projects/jdk/11/) (aka Java 11).
 
 ### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
@@ -126,3 +126,6 @@ This generally means that an [incompatible change](https://linkedin.github.io/re
 ### `java.io.IOException: No space left on device`
 
 This means you're running out of space on your disk to build. Please free up some space or try a different disk.
+
+### `Build failed` for task `./gradlew :datahub-frontend:dist -x yarnTest -x yarnLint`
+This could mean that you need to update your [Yarn](https://yarnpkg.com/getting-started/install) version

@@ -3,13 +3,19 @@ package com.linkedin.metadata.graph.neo4j;
 import com.codahale.metrics.Timer;
 import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -17,12 +23,14 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,10 +41,12 @@ import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.driver.Driver;
+import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
+import org.neo4j.driver.internal.InternalRelationship;
 
 @Slf4j
 public class Neo4jGraphService implements GraphService {
@@ -61,6 +71,7 @@ public class Neo4jGraphService implements GraphService {
     return _lineageRegistry;
   }
 
+  @Override
   public void addEdge(@Nonnull final Edge edge) {
 
     log.debug(String.format("Adding Edge source: %s, destination: %s, type: %s",
@@ -91,6 +102,95 @@ public class Neo4jGraphService implements GraphService {
     statements.add(buildStatement(statement, paramsMerge));
 
     executeStatements(statements);
+  }
+
+  @Override
+  public void upsertEdge(final Edge edge) {
+    throw new UnsupportedOperationException("Upsert edge not supported by Neo4JGraphService at this time.");
+  }
+
+  @Override
+  public void removeEdge(final Edge edge) {
+    throw new UnsupportedOperationException("Remove edge not supported by Neo4JGraphService at this time.");
+  }
+
+  @Nonnull
+  @Override
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
+      GraphFilters graphFilters, int offset, int count, int maxHops) {
+    log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
+
+    final String statement = generateLineageStatement(entityUrn, direction, graphFilters, maxHops);
+
+    List<Record> neo4jResult = statement != null ? runQuery(buildStatement(statement, new HashMap<>())).list() : new ArrayList<>();
+
+    // It is possible to have more than 1 path from node A to node B in the graph and previous query returns all the paths.
+    // We convert the List into Map with only the shortest paths. "item.get(i).size()" is the path size between two nodes in relation.
+    // The key for mapping is the destination node as the source node is always the same, and it is defined by parameter.
+    neo4jResult = neo4jResult.stream()
+            .collect(Collectors.toMap(item -> item.values().get(2).asNode().get("urn").asString(),
+                    Function.identity(),
+                    (item1, item2) -> item1.get(1).size() < item2.get(1).size() ? item1 : item2))
+            .values()
+            .stream()
+            .collect(Collectors.toList());
+
+    LineageRelationshipArray relations = new LineageRelationshipArray();
+    neo4jResult.stream()
+            .skip(offset).limit(count)
+            .forEach(item -> {
+              String urn = item.values().get(2).asNode().get("urn").asString();
+              String relationType = ((InternalRelationship) item.get(1).asList().get(0)).type();
+              int numHops = item.get(1).size();
+              try {
+                relations.add(new LineageRelationship()
+                        .setEntity(Urn.createFromString(urn))
+                        .setType(relationType)
+                        .setDegree(numHops));
+              } catch (URISyntaxException ignored) {
+                log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
+              }
+            });
+
+    EntityLineageResult result = new EntityLineageResult().setStart(offset)
+            .setCount(relations.size())
+            .setRelationships(relations)
+            .setTotal(neo4jResult.size());
+
+    log.debug(String.format("Neo4j getLineage results = %s", result));
+    return result;
+  }
+
+  private String generateLineageStatement(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, GraphFilters graphFilters, int maxHops) {
+    final String multiHopTemplateDirect = "MATCH (a {urn: '%s'})-[r:%s*1..%d]->(b) WHERE b:%s RETURN a,r,b";
+    final String multiHopTemplateIndirect = "MATCH (a {urn: '%s'})<-[r:%s*1..%d]-(b) WHERE b:%s RETURN a,r,b";
+
+    List<LineageRegistry.EdgeInfo> edgesToFetch =
+            getLineageRegistry().getLineageRelationships(entityUrn.getEntityType(), direction);
+
+    String upstreamRel = edgesToFetch.stream()
+            .filter(item -> item.getDirection() == RelationshipDirection.OUTGOING)
+            .map(item -> item.getType())
+            .collect(Collectors.joining("|"));
+    String dowStreamRel = edgesToFetch.stream()
+            .filter(item -> item.getDirection() == RelationshipDirection.INCOMING)
+            .map(item -> item.getType())
+            .collect(Collectors.joining("|"));
+
+    final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
+
+    final String statementDirect = String.format(multiHopTemplateDirect, entityUrn, upstreamRel, maxHops, allowedEntityTypes);
+    final String statementIndirect = String.format(multiHopTemplateIndirect, entityUrn, dowStreamRel, maxHops, allowedEntityTypes);
+
+    String statement = null;
+    if (upstreamRel.length() > 0 && dowStreamRel.length() > 0) {
+      statement = statementDirect + " UNION " + statementIndirect;
+    } else if (upstreamRel.length() > 0) {
+      statement = statementDirect;
+    } else if (dowStreamRel.length() > 0) {
+      statement = statementIndirect;
+    }
+    return statement;
   }
 
   @Nonnull
@@ -254,6 +354,11 @@ public class Neo4jGraphService implements GraphService {
     removeNodesMatchingLabel(".*");
   }
 
+  @VisibleForTesting
+  public void wipe() {
+    runQuery(new Statement("MATCH (n) DETACH DELETE n", Map.of())).consume();
+  }
+
   // visible for testing
   @Nonnull
   Statement buildStatement(@Nonnull String queryTemplate, @Nonnull Map<String, Object> params) {
@@ -413,5 +518,10 @@ public class Neo4jGraphService implements GraphService {
     params.put("urn", urn.toString());
 
     return buildStatement(statement, params);
+  }
+
+  @Override
+  public boolean supportsMultiHop() {
+    return true;
   }
 }

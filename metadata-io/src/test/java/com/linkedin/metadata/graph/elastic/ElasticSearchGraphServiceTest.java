@@ -1,13 +1,14 @@
 package com.linkedin.metadata.graph.elastic;
 
+import com.linkedin.common.FabricType;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.ElasticSearchTestUtils;
-import com.linkedin.metadata.ElasticTestUtils;
-import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.ESTestConfiguration;
+import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
-import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -15,13 +16,15 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import java.util.Collections;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -30,30 +33,29 @@ import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
-
+@Import(ESTestConfiguration.class)
 public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
-  private ElasticsearchContainer _elasticsearchContainer;
+  @Autowired
   private RestHighLevelClient _searchClient;
+  @Autowired
+  private ESBulkProcessor _bulkProcessor;
+  @Autowired
+  private ESIndexBuilder _esIndexBuilder;
+
   private final IndexConvention _indexConvention = new IndexConventionImpl(null);
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
 
+  private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
+
   @BeforeClass
   public void setup() {
-    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    checkContainerEngine(_elasticsearchContainer.getDockerClient());
-    _elasticsearchContainer.start();
-    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
     _client = buildService();
     _client.configure();
   }
@@ -68,15 +70,9 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   private ElasticSearchGraphService buildService() {
     LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
     ESGraphQueryDAO readDAO = new ESGraphQueryDAO(_searchClient, lineageRegistry, _indexConvention);
-    ESGraphWriteDAO writeDAO =
-        new ESGraphWriteDAO(_searchClient, _indexConvention, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
-    return new ElasticSearchGraphService(lineageRegistry, _searchClient, _indexConvention, writeDAO, readDAO,
-        ElasticSearchServiceTest.getIndexBuilder(_searchClient));
-  }
-
-  @AfterClass
-  public void tearDown() {
-    _elasticsearchContainer.stop();
+    ESGraphWriteDAO writeDAO = new ESGraphWriteDAO(_indexConvention, _bulkProcessor, 1);
+    return new ElasticSearchGraphService(lineageRegistry, _bulkProcessor, _indexConvention, writeDAO, readDAO,
+        _esIndexBuilder);
   }
 
   @Override
@@ -87,7 +83,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected void syncAfterWrite() throws Exception {
-    ElasticSearchTestUtils.syncAfterWrite(_searchClient, _indexName);
+    ESTestConfiguration.syncAfterWrite(_bulkProcessor);
   }
 
   @Override
@@ -188,6 +184,28 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Test
+  // TODO: Only in ES for now since unimplemented in other services
+  public void testRemoveEdge() throws Exception {
+    DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
+    TagUrn tagUrn = new TagUrn("newTag");
+    Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
+    getGraphService().addEdge(edge);
+    syncAfterWrite();
+    RelatedEntitiesResult result = getGraphService().findRelatedEntities(Collections.singletonList(datasetType),
+        newFilter(Collections.singletonMap("urn", datasetUrn.toString())), Collections.singletonList("tag"),
+        EMPTY_FILTER, Collections.singletonList(TAG_RELATIONSHIP),
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING), 0, 100);
+    assertEquals(result.getTotal(), 1);
+    getGraphService().removeEdge(edge);
+    syncAfterWrite();
+    result = getGraphService().findRelatedEntities(Collections.singletonList(datasetType),
+        newFilter(Collections.singletonMap("urn", datasetUrn.toString())), Collections.singletonList("tag"),
+        EMPTY_FILTER, Collections.singletonList(TAG_RELATIONSHIP),
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING), 0, 100);
+    assertEquals(result.getTotal(), 0);
+  }
+
+  @Test
   @Override
   public void testConcurrentAddEdge() {
     // https://github.com/datahub-project/datahub/issues/3124
@@ -207,46 +225,5 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   public void testConcurrentRemoveNodes() {
     // https://github.com/datahub-project/datahub/issues/3118
     throw new SkipException("ElasticSearchGraphService produces duplicates");
-  }
-
-  @Test
-  public void testPopulatedGraphServiceGetLineageMultihop() throws Exception {
-    GraphService service = getLineagePopulatedGraphService();
-
-    EntityLineageResult upstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
-    assertEquals(upstreamLineage.getTotal().intValue(), 0);
-    assertEquals(upstreamLineage.getRelationships().size(), 0);
-
-    EntityLineageResult downstreamLineage = service.getLineage(datasetOneUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
-    assertEquals(downstreamLineage.getTotal().intValue(), 5);
-    assertEquals(downstreamLineage.getRelationships().size(), 5);
-    Map<Urn, LineageRelationship> relationships = downstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
-        Function.identity()));
-    assertTrue(relationships.containsKey(datasetTwoUrn));
-    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
-    assertTrue(relationships.containsKey(datasetThreeUrn));
-    assertEquals(relationships.get(datasetThreeUrn).getDegree().intValue(), 2);
-    assertTrue(relationships.containsKey(datasetFourUrn));
-    assertEquals(relationships.get(datasetFourUrn).getDegree().intValue(), 2);
-    assertTrue(relationships.containsKey(dataJobOneUrn));
-    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
-    assertTrue(relationships.containsKey(dataJobTwoUrn));
-    assertEquals(relationships.get(dataJobTwoUrn).getDegree().intValue(), 1);
-
-    upstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.UPSTREAM, 0, 1000, 2);
-    assertEquals(upstreamLineage.getTotal().intValue(), 3);
-    assertEquals(upstreamLineage.getRelationships().size(), 3);
-    relationships = upstreamLineage.getRelationships().stream().collect(Collectors.toMap(LineageRelationship::getEntity,
-        Function.identity()));
-    assertTrue(relationships.containsKey(datasetOneUrn));
-    assertEquals(relationships.get(datasetOneUrn).getDegree().intValue(), 2);
-    assertTrue(relationships.containsKey(datasetTwoUrn));
-    assertEquals(relationships.get(datasetTwoUrn).getDegree().intValue(), 1);
-    assertTrue(relationships.containsKey(dataJobOneUrn));
-    assertEquals(relationships.get(dataJobOneUrn).getDegree().intValue(), 1);
-
-    downstreamLineage = service.getLineage(datasetThreeUrn, LineageDirection.DOWNSTREAM, 0, 1000, 2);
-    assertEquals(downstreamLineage.getTotal().intValue(), 0);
-    assertEquals(downstreamLineage.getRelationships().size(), 0);
   }
 }

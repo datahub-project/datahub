@@ -22,6 +22,7 @@ public class MappingsBuilder {
   public static final String PARTITION_SPEC = "partitionSpec";
   public static final String PARTITION_SPEC_PARTITION = "partition";
   public static final String PARTITION_SPEC_TIME_PARTITION = "timePartition";
+  public static final String RUN_ID_FIELD = "runId";
 
   private MappingsBuilder() {
   }
@@ -34,6 +35,7 @@ public class MappingsBuilder {
 
     Map<String, Object> mappings = new HashMap<>();
 
+    mappings.put(RUN_ID_FIELD, ImmutableMap.of("type", "keyword"));
     mappings.put(URN_FIELD, ImmutableMap.of("type", "keyword"));
     mappings.put(MESSAGE_ID_FIELD, ImmutableMap.of("type", "keyword"));
     mappings.put(TIMESTAMP_FIELD, ImmutableMap.of("type", "date"));

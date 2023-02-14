@@ -1,4 +1,9 @@
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import moment from 'moment';
 import { DateInterval } from '../../../types.generated';
+
+dayjs.extend(relativeTime);
 
 export const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
@@ -145,3 +150,42 @@ export const toRelativeTimeString = (timeMs: number) => {
     const diffInYears = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Year]);
     return rtf.format(diffInYears, 'year');
 };
+
+export function getTimeFromNow(timestampMillis) {
+    if (!timestampMillis) {
+        return '';
+    }
+    const relativeTimeString = dayjs(timestampMillis).fromNow();
+    if (relativeTimeString === 'a few seconds ago') {
+        return 'now';
+    }
+    return relativeTimeString;
+}
+
+export function getTimeRangeDescription(startDate: moment.Moment | null, endDate: moment.Moment | null): string {
+    if (!startDate && !endDate) {
+        return 'All Time';
+    }
+
+    if (!startDate && endDate) {
+        return `Until ${endDate.format('ll')}`;
+    }
+
+    if (startDate && !endDate) {
+        return `From ${startDate.format('ll')}`;
+    }
+
+    if (startDate && endDate) {
+        if (endDate && endDate.isSame(moment(), 'day')) {
+            const startDateRelativeTime = moment().diff(startDate, 'days');
+            return `Last ${startDateRelativeTime} days`;
+        }
+
+        if (endDate.isSame(startDate, 'day')) {
+            return startDate.format('ll');
+        }
+        return `${startDate.format('ll')} - ${endDate.format('ll')}`;
+    }
+
+    return 'Unknown time range';
+}

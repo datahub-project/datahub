@@ -1,6 +1,5 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
@@ -8,7 +7,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/my_view"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -23,15 +22,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.my_table,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -41,19 +37,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -63,12 +52,9 @@
                         "fields": [
                             {
                                 "fieldPath": "country",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "The country",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -79,24 +65,17 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension",
-                                            "context": null
+                                            "tag": "urn:li:tag:Dimension"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "city",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "City",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -107,24 +86,17 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension",
-                                            "context": null
+                                            "tag": "urn:li:tag:Dimension"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "is_latest",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Is latest data",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -135,24 +107,17 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension",
-                                            "context": null
+                                            "tag": "urn:li:tag:Dimension"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "timestamp",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Timestamp of measurement",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -163,28 +128,20 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension",
-                                            "context": null
+                                            "tag": "urn:li:tag:Dimension"
                                         },
                                         {
-                                            "tag": "urn:li:tag:Temporal",
-                                            "context": null
+                                            "tag": "urn:li:tag:Temporal"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "average_measurement",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "My measurement",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -195,20 +152,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Measure",
-                                            "context": null
+                                            "tag": "urn:li:tag:Measure"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
                         ],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "primaryKeys": []
                     }
                 },
                 {
@@ -216,31 +167,21 @@
                         "customProperties": {
                             "looker.file.path": "foo.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "my_view",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -249,17 +190,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -268,14 +204,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
@@ -283,7 +215,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/my_derived_view"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -298,15 +230,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -316,19 +245,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -338,12 +260,9 @@
                         "fields": [
                             {
                                 "fieldPath": "country",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "The country",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -354,24 +273,17 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension",
-                                            "context": null
+                                            "tag": "urn:li:tag:Dimension"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "city",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "City",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -382,24 +294,17 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension",
-                                            "context": null
+                                            "tag": "urn:li:tag:Dimension"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "timestamp",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "Timestamp of measurement",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -410,28 +315,20 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Dimension",
-                                            "context": null
+                                            "tag": "urn:li:tag:Dimension"
                                         },
                                         {
-                                            "tag": "urn:li:tag:Temporal",
-                                            "context": null
+                                            "tag": "urn:li:tag:Temporal"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "average_measurement",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "My measurement",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -442,20 +339,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Measure",
-                                            "context": null
+                                            "tag": "urn:li:tag:Measure"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
                         ],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "primaryKeys": []
                     }
                 },
                 {
@@ -463,31 +354,21 @@
                         "customProperties": {
                             "looker.file.path": "bar.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "my_derived_view",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -496,17 +377,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -515,14 +391,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.include_able_view,PROD)",
@@ -530,7 +402,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/include_able_view"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -545,15 +417,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.looker_schema.include_able,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -561,31 +430,21 @@
                         "customProperties": {
                             "looker.file.path": "included_view_file.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "include_able_view",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.include_able_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -594,17 +453,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.include_able_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -613,14 +467,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
@@ -628,7 +478,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/looker_events"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -643,15 +493,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.looker_schema.events,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -659,31 +506,21 @@
                         "customProperties": {
                             "looker.file.path": "view_declarations.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "looker_events",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -692,17 +529,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -711,14 +543,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.extending_looker_events,PROD)",
@@ -726,7 +554,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/extending_looker_events"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -741,15 +569,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.looker_schema.events,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -759,19 +584,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -781,12 +599,9 @@
                         "fields": [
                             {
                                 "fieldPath": "additional_measure",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -797,20 +612,14 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:Measure",
-                                            "context": null
+                                            "tag": "urn:li:tag:Measure"
                                         }
                                     ]
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
                         ],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "primaryKeys": []
                     }
                 },
                 {
@@ -818,31 +627,21 @@
                         "customProperties": {
                             "looker.file.path": "view_declarations.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "extending_looker_events",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.extending_looker_events,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -851,17 +650,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.extending_looker_events,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -870,14 +664,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
@@ -885,7 +675,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/autodetect_sql_name_based_on_view_name"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -900,15 +690,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.autodetect_sql_name_based_on_view_name,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -916,31 +703,21 @@
                         "customProperties": {
                             "looker.file.path": "view_declarations.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "autodetect_sql_name_based_on_view_name",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -949,17 +726,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -968,14 +740,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.test_include_external_view,PROD)",
@@ -983,7 +751,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/test_include_external_view"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -998,15 +766,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.looker_schema.include_able,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -1014,31 +779,21 @@
                         "customProperties": {
                             "looker.file.path": "view_declarations.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "test_include_external_view",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.test_include_external_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1047,17 +802,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.test_include_external_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1066,14 +816,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
@@ -1081,7 +827,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/fragment_derived_view"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -1096,15 +842,12 @@
                             {
                                 "auditStamp": {
                                     "time": 0,
-                                    "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "actor": "urn:li:corpuser:unknown"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.fragment_derived_view,PROD)",
                                 "type": "VIEW"
                             }
-                        ],
-                        "fineGrainedLineages": null
+                        ]
                     }
                 },
                 {
@@ -1114,19 +857,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -1135,36 +871,10 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "date",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": "",
-                                "label": "",
-                                "created": null,
-                                "lastModified": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
-                            },
-                            {
                                 "fieldPath": "aliased_platform",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
@@ -1175,19 +885,13 @@
                                 "globalTags": {
                                     "tags": []
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "country",
-                                "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
                                 "label": "",
-                                "created": null,
-                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
@@ -1198,15 +902,27 @@
                                 "globalTags": {
                                     "tags": []
                                 },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "isPartitioningKey": null,
-                                "jsonProps": null
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "date",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
+                                "isPartOfKey": false
                             }
                         ],
-                        "primaryKeys": [],
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "primaryKeys": []
                     }
                 },
                 {
@@ -1214,31 +930,21 @@
                         "customProperties": {
                             "looker.file.path": "nested/fragment_derived.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "fragment_derived_view",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1247,17 +953,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1266,14 +967,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.customer_facts,PROD)",
@@ -1281,7 +978,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/views/customer_facts"
+                            "/prod/looker/lkml_samples/views"
                         ]
                     }
                 },
@@ -1291,35 +988,39 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.order,PROD)",
+                                "type": "VIEW"
+                            }
+                        ]
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "looker.file.path": "liquid.view.lkml"
                         },
-                        "externalUrl": null,
                         "name": "customer_facts",
-                        "qualifiedName": null,
-                        "description": null,
-                        "uri": null,
                         "tags": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.customer_facts,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1328,17 +1029,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.customer_facts,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -1347,14 +1043,165 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/looker/lkml_samples/views"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.ecommerce.ability,PROD)",
+                                "type": "VIEW"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.ecommerce.ability,PROD),pk)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD),pk)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "ability",
+                        "platform": "urn:li:dataPlatform:looker",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "pk",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "number",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Dimension"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "count",
+                                "nullable": false,
+                                "description": "",
+                                "label": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "count",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:Measure"
+                                        }
+                                    ]
+                                },
+                                "isPartOfKey": false
+                            }
+                        ],
+                        "primaryKeys": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "looker.file.path": "ability.view.lkml"
+                        },
+                        "name": "ability",
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"view: ability {\\n  sql_table_name: \\\"ECOMMERCE\\\".\\\"ABILITY\\\"\\n    ;;\\n\\n  dimension: pk {\\n    type: number\\n    sql: ${TABLE}.\\\"PK\\\" ;;\\n  }\\n\\n  measure: count {\\n    type: count\\n    drill_fields: []\\n  }\\n}\\n\", \"viewLanguage\": \"lookml\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Dimension",
@@ -1364,39 +1211,30 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER",
-                                "source": null
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Dimension",
-                        "description": "A tag that is applied to all dimension fields.",
-                        "colorHex": null
+                        "description": "A tag that is applied to all dimension fields."
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Temporal",
@@ -1406,39 +1244,30 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER",
-                                "source": null
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Temporal",
-                        "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations.",
-                        "colorHex": null
+                        "description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations."
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
             "urn": "urn:li:tag:Measure",
@@ -1448,35 +1277,69 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:datahub",
-                                "type": "DATAOWNER",
-                                "source": null
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.tag.TagProperties": {
                         "name": "Measure",
-                        "description": "A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on",
-                        "colorHex": null
+                        "description": "A tag that is applied to all measures (metrics). Measures are typically the columns that you aggregate on"
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Temporal",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
     }
 }
 ]

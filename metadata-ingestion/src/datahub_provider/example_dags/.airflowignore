@@ -1,0 +1,2 @@
+# This file uses a connection hook, which fails to load unless configured.
+snowflake_sample_dag.py

@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
+import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -20,15 +21,17 @@ import javax.annotation.Nonnull;
 public class EntityServiceFactory {
 
   @Bean(name = "entityService")
-  @DependsOn({"entityAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
+  @DependsOn({"entityAspectDao", "kafkaEventProducer", "kafkaHealthChecker",
+          TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
   @Nonnull
   protected EntityService createInstance(
       Producer<String, ? extends IndexedRecord> producer,
       TopicConvention convention,
+      KafkaHealthChecker kafkaHealthChecker,
       @Qualifier("entityAspectDao") AspectDao aspectDao,
       EntityRegistry entityRegistry) {
 
-    final KafkaEventProducer eventProducer = new KafkaEventProducer(producer, convention);
+    final KafkaEventProducer eventProducer = new KafkaEventProducer(producer, convention, kafkaHealthChecker);
     return new EntityService(aspectDao, eventProducer, entityRegistry);
   }
 }

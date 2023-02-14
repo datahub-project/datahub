@@ -3,6 +3,14 @@ from typing import Optional
 
 class SnowflakeQuery:
     @staticmethod
+    def current_account() -> str:
+        return "select CURRENT_ACCOUNT()"
+
+    @staticmethod
+    def current_region() -> str:
+        return "select CURRENT_REGION()"
+
+    @staticmethod
     def current_version() -> str:
         return "select CURRENT_VERSION()"
 
@@ -27,8 +35,23 @@ class SnowflakeQuery:
         return "show databases"
 
     @staticmethod
+    def show_tags() -> str:
+        return "show tags"
+
+    @staticmethod
     def use_database(db_name: str) -> str:
         return f'use database "{db_name}"'
+
+    @staticmethod
+    def get_databases(db_name: Optional[str]) -> str:
+        db_clause = f'"{db_name}".' if db_name is not None else ""
+        return f"""
+        SELECT database_name AS "DATABASE_NAME",
+        created AS "CREATED",
+        last_altered AS "LAST_ALTERED",
+        comment AS "COMMENT"
+        from {db_clause}information_schema.databases
+        order by database_name"""
 
     @staticmethod
     def schemas_for_database(db_name: Optional[str]) -> str:
@@ -81,6 +104,52 @@ class SnowflakeQuery:
         where table_schema='{schema_name}'
         and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
         order by table_schema, table_name"""
+
+    @staticmethod
+    def get_all_tags_on_object_with_propagation(
+        db_name: str, quoted_identifier: str, domain: str
+    ) -> str:
+        # https://docs.snowflake.com/en/sql-reference/functions/tag_references.html
+        return f"""
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        tag_value AS "TAG_VALUE"
+        FROM table("{db_name}".information_schema.tag_references('{quoted_identifier}', '{domain}'));
+        """
+
+    @staticmethod
+    def get_all_tags_in_database_without_propagation(db_name: str) -> str:
+        # https://docs.snowflake.com/en/sql-reference/account-usage/tag_references.html
+        return f"""
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        tag_value AS "TAG_VALUE",
+        object_database as "OBJECT_DATABASE",
+        object_schema AS "OBJECT_SCHEMA",
+        object_name AS "OBJECT_NAME",
+        column_name AS "COLUMN_NAME",
+        domain as "DOMAIN"
+        FROM snowflake.account_usage.tag_references
+        WHERE (object_database = '{db_name}' OR object_name = '{db_name}')
+        AND domain in ('DATABASE', 'SCHEMA', 'TABLE', 'COLUMN')
+        AND object_deleted IS NULL;
+        """
+
+    @staticmethod
+    def get_tags_on_columns_with_propagation(
+        db_name: str, quoted_table_identifier: str
+    ) -> str:
+        # https://docs.snowflake.com/en/sql-reference/functions/tag_references_all_columns.html
+        return f"""
+        SELECT tag_database as "TAG_DATABASE",
+        tag_schema AS "TAG_SCHEMA",
+        tag_name AS "TAG_NAME",
+        tag_value AS "TAG_VALUE",
+        column_name AS "COLUMN_NAME"
+        FROM table("{db_name}".information_schema.tag_references_all_columns('{quoted_table_identifier}', 'table'));
+        """
 
     # View definition is retrived in information_schema query only if role is owner of view. Hence this query is not used.
     # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
@@ -221,7 +290,9 @@ class SnowflakeQuery:
 
     @staticmethod
     def table_to_table_lineage_history(
-        start_time_millis: int, end_time_millis: int
+        start_time_millis: int,
+        end_time_millis: int,
+        include_column_lineage: bool = True,
     ) -> str:
         return f"""
         WITH table_lineage_history AS (
@@ -250,7 +321,11 @@ class SnowflakeQuery:
         downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM table_lineage_history
         WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_name ORDER BY query_start_time DESC) = 1"""
+        QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY downstream_table_name,
+            upstream_table_name{", downstream_table_columns" if include_column_lineage else ""}
+            ORDER BY query_start_time DESC
+        ) = 1"""
 
     @staticmethod
     def view_dependencies() -> str:
@@ -260,6 +335,7 @@ class SnowflakeQuery:
             referenced_database, '.', referenced_schema,
             '.', referenced_object_name
           ) AS "VIEW_UPSTREAM",
+          referenced_object_domain as "REFERENCED_OBJECT_DOMAIN",
           concat(
             referencing_database, '.', referencing_schema,
             '.', referencing_object_name
@@ -272,7 +348,11 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def view_lineage_history(start_time_millis: int, end_time_millis: int) -> str:
+    def view_lineage_history(
+        start_time_millis: int,
+        end_time_millis: int,
+        include_column_lineage: bool = True,
+    ) -> str:
         return f"""
         WITH view_lineage_history AS (
           SELECT
@@ -305,6 +385,7 @@ class SnowflakeQuery:
           view_domain AS "VIEW_DOMAIN",
           view_columns AS "VIEW_COLUMNS",
           downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
+          downstream_table_domain AS "DOWNSTREAM_TABLE_DOMAIN",
           downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
         FROM
           view_lineage_history
@@ -312,7 +393,7 @@ class SnowflakeQuery:
           view_domain in ('View', 'Materialized view')
           QUALIFY ROW_NUMBER() OVER (
             PARTITION BY view_name,
-            downstream_table_name
+            downstream_table_name {", downstream_table_columns" if include_column_lineage else ""}
             ORDER BY
               query_start_time DESC
           ) = 1
@@ -478,7 +559,7 @@ class SnowflakeQuery:
                 query_text
             QUALIFY row_number() over ( partition by bucket_start_time, object_name
             order by
-                total_queries desc ) <= {top_n_queries}
+                total_queries desc, query_text asc ) <= {top_n_queries}
         )
         select
             basic_usage_counts.object_name AS "OBJECT_NAME",
@@ -486,9 +567,9 @@ class SnowflakeQuery:
             ANY_VALUE(basic_usage_counts.object_domain) AS "OBJECT_DOMAIN",
             ANY_VALUE(basic_usage_counts.total_queries) AS "TOTAL_QUERIES",
             ANY_VALUE(basic_usage_counts.total_users) AS "TOTAL_USERS",
-            ARRAY_AGG( distinct top_queries.query_text) AS "TOP_SQL_QUERIES",
-            ARRAY_AGG( distinct OBJECT_CONSTRUCT( 'col', field_usage_counts.column_name, 'total', field_usage_counts.total_queries ) ) AS "FIELD_COUNTS",
-            ARRAY_AGG( distinct OBJECT_CONSTRUCT( 'user_name', user_usage_counts.user_name, 'email', user_usage_counts.user_email, 'total', user_usage_counts.total_queries ) ) AS "USER_COUNTS"
+            ARRAY_UNIQUE_AGG(top_queries.query_text) AS "TOP_SQL_QUERIES",
+            ARRAY_UNIQUE_AGG(OBJECT_CONSTRUCT( 'col', field_usage_counts.column_name, 'total', field_usage_counts.total_queries ) ) AS "FIELD_COUNTS",
+            ARRAY_UNIQUE_AGG(OBJECT_CONSTRUCT( 'user_name', user_usage_counts.user_name, 'email', user_usage_counts.user_email, 'total', user_usage_counts.total_queries ) ) AS "USER_COUNTS"
         from
             basic_usage_counts basic_usage_counts
             left join
@@ -510,7 +591,7 @@ class SnowflakeQuery:
                 'View',
                 'Materialized view',
                 'External table'
-            )
+            ) and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
             basic_usage_counts.bucket_start_time

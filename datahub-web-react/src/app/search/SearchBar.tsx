@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Input, AutoComplete, Image, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
 import { AutoCompleteResultForEntity, CorpUser, Entity, EntityType, ScenarioType, Tag } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
@@ -113,7 +113,7 @@ const getDisplayName = (registry: EntityRegistry, entity: Entity) => {
     );
 };
 
-const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityRegistry) => {
+export const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityRegistry) => {
     // Special rendering.
     if (entity.type === EntityType.CorpUser) {
         return renderUserSuggestion(query, entity as CorpUser, registry);
@@ -298,26 +298,26 @@ export const SearchBar = ({
                 style={autoCompleteStyle}
                 options={options}
                 filterOption={false}
-                onSelect={(value: string, option) => {
+                onSelect={(value, option) => {
                     // If the autocomplete option type is NOT an entity, then render as a normal search query.
                     if (
                         option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
                         option.type === RECOMMENDED_QUERY_OPTION_TYPE
                     ) {
                         onSearch(
-                            `${filterSearchQuery(value)}`,
+                            `${filterSearchQuery(value as string)}`,
                             searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
                         );
                     } else {
                         // Navigate directly to the entity profile.
-                        history.push(getEntityPath(option.type, value, entityRegistry, false, false));
+                        history.push(getEntityPath(option.type, value as string, entityRegistry, false, false));
                         setSelected('');
                     }
                 }}
                 onSearch={(value: string) => onQueryChange(value)}
                 defaultValue={initialQuery || undefined}
                 value={selected}
-                onChange={(v) => setSelected(filterSearchQuery(v))}
+                onChange={(v) => setSelected(filterSearchQuery(v as string))}
                 dropdownStyle={{
                     maxHeight: 1000,
                     overflowY: 'visible',

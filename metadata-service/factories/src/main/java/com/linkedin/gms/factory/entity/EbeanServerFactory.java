@@ -4,6 +4,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import io.ebean.EbeanServer;
 import io.ebean.config.ServerConfig;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
@@ -13,6 +14,7 @@ import org.springframework.context.annotation.DependsOn;
 
 
 @Configuration
+@Slf4j
 public class EbeanServerFactory {
   public static final String EBEAN_MODEL_PACKAGE = EbeanAspectV2.class.getPackage().getName();
 
@@ -30,6 +32,11 @@ public class EbeanServerFactory {
       serverConfig.getPackages().add(EBEAN_MODEL_PACKAGE);
     }
     // TODO: Consider supporting SCSI
-    return io.ebean.EbeanServerFactory.create(serverConfig);
+    try {
+      return io.ebean.EbeanServerFactory.create(serverConfig);
+    } catch (NullPointerException ne) {
+      log.error("Failed to connect to the server. Is it up?");
+      throw ne;
+    }
   }
 }

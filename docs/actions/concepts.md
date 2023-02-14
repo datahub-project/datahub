@@ -41,7 +41,7 @@ The Actions Framework consists of a few core concepts--
 Each of these will be described in detail below.
 
 ![](imgs/actions.png)
-*In the Actions Framework, Events flow continuously from left-to-right.** 
+**In the Actions Framework, Events flow continuously from left-to-right.** 
 
 ### Pipelines
 

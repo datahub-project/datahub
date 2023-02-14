@@ -7,19 +7,16 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
-import { SOURCE_TEMPLATE_CONFIGS } from './conf/sources';
 import { EntityType, FacetMetadata } from '../../../types.generated';
 import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
 import EntityRegistry from '../../entity/EntityRegistry';
+import { SourceConfig } from './builder/types';
+import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '../../../graphql/ingestion.generated';
 
-export const sourceTypeToIconUrl = (type: string) => {
-    return SOURCE_TEMPLATE_CONFIGS.find((config) => config.type === type)?.logoUrl;
-};
-
-export const getSourceConfigs = (sourceType: string) => {
-    const sourceConfigs = SOURCE_TEMPLATE_CONFIGS.find((configs) => configs.type === sourceType);
+export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
+    const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
     if (!sourceConfigs) {
-        throw new Error(`Failed to find source configs with source type ${sourceType}`);
+        console.error(`Failed to find source configs with source type ${sourceType}`);
     }
     return sourceConfigs;
 };
@@ -35,6 +32,11 @@ export const jsonToYaml = (json: string): string => {
     const yamlStr = YAML.stringify(obj, 6);
     return yamlStr;
 };
+
+export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: string) {
+    const selectedSource = ingestionSources.find((source) => source.name === type);
+    return selectedSource?.recipe || '';
+}
 
 export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
@@ -60,7 +62,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === ROLLED_BACK && WarningOutlined) ||
         (status === ROLLING_BACK && LoadingOutlined) ||
         (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
-        undefined
+        ClockCircleOutlined
     );
 };
 
@@ -117,6 +119,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dataset.toLowerCase(),
     EntityType.Container.toLowerCase(),
     EntityType.Notebook.toLowerCase(),
+    EntityType.Dashboard.toLowerCase(),
 ]);
 
 type EntityTypeCount = {
@@ -168,4 +171,86 @@ export const extractEntityTypeCountsFromFacets = (
     }
 
     return finalCounts;
+};
+
+/**
+ * Add an entry to the ListIngestionSources cache.
+ */
+export const addToListIngestionSourcesCache = (client, newSource, pageSize, query) => {
+    // Read the data from our cache for this query.
+    const currData: ListIngestionSourcesQuery | null = client.readQuery({
+        query: ListIngestionSourcesDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: pageSize,
+                query,
+            },
+        },
+    });
+
+    // Add our new source into the existing list.
+    const newSources = [newSource, ...(currData?.listIngestionSources?.ingestionSources || [])];
+
+    // Write our data back to the cache.
+    client.writeQuery({
+        query: ListIngestionSourcesDocument,
+        variables: {
+            input: {
+                start: 0,
+                count: pageSize,
+                query,
+            },
+        },
+        data: {
+            listIngestionSources: {
+                start: 0,
+                count: (currData?.listIngestionSources?.count || 0) + 1,
+                total: (currData?.listIngestionSources?.total || 0) + 1,
+                ingestionSources: newSources,
+            },
+        },
+    });
+};
+
+/**
+ * Remove an entry from the ListIngestionSources cache.
+ */
+export const removeFromListIngestionSourcesCache = (client, urn, page, pageSize, query) => {
+    // Read the data from our cache for this query.
+    const currData: ListIngestionSourcesQuery | null = client.readQuery({
+        query: ListIngestionSourcesDocument,
+        variables: {
+            input: {
+                start: (page - 1) * pageSize,
+                count: pageSize,
+                query,
+            },
+        },
+    });
+
+    // Remove the source from the existing sources set.
+    const newSources = [
+        ...(currData?.listIngestionSources?.ingestionSources || []).filter((source) => source.urn !== urn),
+    ];
+
+    // Write our data back to the cache.
+    client.writeQuery({
+        query: ListIngestionSourcesDocument,
+        variables: {
+            input: {
+                start: (page - 1) * pageSize,
+                count: pageSize,
+                query,
+            },
+        },
+        data: {
+            listIngestionSources: {
+                start: currData?.listIngestionSources?.start || 0,
+                count: (currData?.listIngestionSources?.count || 1) - 1,
+                total: (currData?.listIngestionSources?.total || 1) - 1,
+                ingestionSources: newSources,
+            },
+        },
+    });
 };

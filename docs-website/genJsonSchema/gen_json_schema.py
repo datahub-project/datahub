@@ -86,7 +86,7 @@ def get_base() -> Any:
                         "description": "Extra headers which will be added to the request.",
                     },
                     "disable_ssl_verification": {
-                        "type": "bool",
+                        "type": "boolean",
                         "description": "Disable SSL verification for HTTPS communications.",
                         "default": False,
                     },
@@ -159,7 +159,7 @@ def get_base() -> Any:
                 "type": "array",
                 "items": {
                     "type": "object",
-                    "description": "Transformer configs see at https://datahubproject.io/docs/metadata-ingestion/transformers",
+                    "description": "Transformer configs see at https://datahubproject.io/docs/metadata-ingestion/docs/transformer",
                     "properties": {
                         "type": {"type": "string", "description": "Transformer type"},
                         "config": {

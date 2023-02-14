@@ -3,7 +3,7 @@ import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Image from "@theme/IdealImage";
-import useThemeContext from "@theme/hooks/useThemeContext";
+import { useColorMode } from "@docusaurus/theme-common";
 import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 
@@ -19,7 +19,7 @@ const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
 );
 
 const Hero = ({}) => {
-  const { isDarkTheme } = useThemeContext();
+  const { colorMode } = useColorMode();
   return (
     <header className={clsx("hero", styles.hero)}>
       <div className="container">
@@ -39,11 +39,7 @@ const Hero = ({}) => {
             </Link>
           </div>
         </div>
-        <Image
-          className="hero__image"
-          img={require(`/img/diagrams/datahub-flow-diagram-${isDarkTheme ? "dark" : "light"}.png`)}
-          alt="DataHub Flow Diagram"
-        />
+        <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
         <div className={clsx("card", styles.quickLinks)}>
           <div className={styles.quickLinksLabel}>
             <QuestionCircleOutlined />

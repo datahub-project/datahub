@@ -233,3 +233,19 @@ in [sql_common.py](./src/datahub/ingestion/source/sql/sql_common.py) if the sour
 ### 9. Add logo for the platform
 
 Add the logo image in [images folder](../datahub-web-react/src/images) and add it to be ingested at [startup](../metadata-service/war/src/main/resources/boot/data_platforms.json)
+
+### 10. Update Frontend for UI-based ingestion
+
+We are currently transitioning to a more dynamic approach to display available sources for UI-based Managed Ingestion. For the time being, adhere to these next steps to get your source to display in the UI Ingestion tab.
+
+#### 10.1 Add to sources.json
+
+Add new source to the list in [sources.json](https://github.com/datahub-project/datahub/blob/master/datahub-web-react/src/app/ingest/source/builder/sources.json) including a default quickstart recipe. This will render your source in the list of options when creating a new recipe in the UI.
+
+#### 10.2 Add logo to the React app
+
+Add your source logo to the React [images folder](https://github.com/datahub-project/datahub/tree/master/datahub-web-react/src/images) so your image is available in memory.
+
+#### 10.3 Update constants.ts
+
+Create new constants in [constants.ts](https://github.com/datahub-project/datahub/blob/master/datahub-web-react/src/app/ingest/source/builder/constants.ts) for the source urn and source name. Update PLATFORM_URN_TO_LOGO to map your source urn to the newly added logo in the images folder.

@@ -18,17 +18,11 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
+    depends_on:
+      - elasticsearch
     volumes:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
       - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
-
-  kafka-setup:
-    image: linkedin/datahub-kafka-setup:debug
-    build:
-      context: kafka-setup
-      dockerfile: Dockerfile
-      args:
-        APP_ENV: dev
 
   datahub-gms:
     image: linkedin/datahub-gms:debug
@@ -41,6 +35,7 @@ services:
       - SKIP_ELASTICSEARCH_CHECK=false
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+      - METADATA_SERVICE_AUTH_ENABLED=false
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
@@ -52,9 +47,24 @@ services:
   datahub-frontend-react:
     image: linkedin/datahub-frontend-react:debug
     build:
-      context: datahub-frontend
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: docker/datahub-frontend/Dockerfile
       args:
         APP_ENV: dev
     volumes:
       - ../datahub-frontend/build/stage/playBinary:/datahub-frontend
+
+  datahub-upgrade:
+    image: linkedin/datahub-upgrade:debug
+    build:
+      context: datahub-upgrade
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+    environment:
+      - SKIP_ELASTICSEARCH_CHECK=false
+      - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
+      - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    volumes:
+      - ../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
+      - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources

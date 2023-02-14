@@ -229,7 +229,7 @@ public class RecordUtils {
    * @param fieldName the name of the field to update
    * @param value the value to set
    */
-  public static <T extends RecordTemplate, V extends DataTemplate> void setRecordTemplateComplexField(
+  public static <T extends RecordTemplate, V> void setRecordTemplateComplexField(
       @Nonnull T recordTemplate, @Nonnull String fieldName, @Nonnull V value) {
 
     final RecordDataSchema.Field field = getRecordDataSchemaField(recordTemplate, fieldName);
@@ -427,6 +427,26 @@ public class RecordUtils {
   }
 
   /**
+   * Nullable version of the method above. Allows us to get null values in a list in the correct oder.
+   * Helper method for referencing array of RecordTemplate objects. Referencing a particular index or range of indices of an array is not supported.
+   *
+   * @param reference {@link AbstractArrayTemplate} corresponding to array of {@link RecordTemplate} which needs to be referenced
+   * @param ps {@link PathSpec} for the entire path inside the array that needs to be referenced
+   * @return {@link List} of objects from the array, referenced using the PathSpec
+   */
+  @Nullable
+  @SuppressWarnings("rawtypes")
+  private static List<Object> getNullableReferenceForAbstractArray(@Nonnull AbstractArrayTemplate<Object> reference,
+      @Nonnull PathSpec ps) {
+    if (!reference.isEmpty()) {
+      return Arrays.stream((reference).toArray())
+          .map(x -> getNullableFieldValue(x, ps))
+          .collect(Collectors.toList());
+    }
+    return Collections.emptyList();
+  }
+
+  /**
    * Similar to {@link #getFieldValue(Object, PathSpec)} but takes string representation of Pegasus PathSpec as
    * input.
    */
@@ -486,4 +506,47 @@ public class RecordUtils {
     }
     return Optional.of(reference);
   }
+
+  /**
+   * A nullable version of the getFieldValue method above. This is used when grabbing values from aspects based on field specs
+   * on Relationship annotations. This allows us to get null values for fields that don't have a value for a given path spec.
+   * Then we can map values correctly based on list indices creating graph edges.
+   * Given a {@link Object} and {@link com.linkedin.data.schema.PathSpec} this will return value of the path from the record.
+   * This handles only RecordTemplate, fields of which can be primitive types, typeRefs, arrays of primitive types or array of records.
+   * Fetching of values in a RecordTemplate where the field has a default value will return the field default value.
+   * Referencing field corresponding to a particular index or range of indices of an array is not supported.
+   * Fields corresponding to 1) multi-dimensional array 2) AbstractMapTemplate 3) FixedTemplate are currently not supported, return null.
+   *
+   * @param record {@link Object} Object to traverse the path. If record is of primitive type, and path is not empty, it will fail to traverse.
+   * @param ps {@link PathSpec} representing the path whose value needs to be returned
+   * @return Referenced object of the RecordTemplate corresponding to the PathSpec
+   */
+  @Nullable
+  @SuppressWarnings("rawtypes")
+  public static Object getNullableFieldValue(@Nonnull Object record, @Nonnull PathSpec ps) {
+    Object reference = record;
+    final int pathSize = ps.getPathComponents().size();
+    for (int i = 0; i < pathSize; i++) {
+      final String part = ps.getPathComponents().get(i);
+      if (part.equals(ARRAY_WILDCARD)) {
+        continue;
+      }
+      if (StringUtils.isNumeric(part)) {
+        throw new UnsupportedOperationException(
+            String.format("Array indexing is not supported for %s (%s from %s)", part, ps, reference));
+      }
+      if (reference instanceof RecordTemplate) {
+        reference = invokeMethod((RecordTemplate) reference, part);
+      } else if (reference instanceof UnionTemplate) {
+        reference = getUnionMember((UnionTemplate) reference, part);
+      } else if (reference instanceof AbstractArrayTemplate) {
+        return getNullableReferenceForAbstractArray((AbstractArrayTemplate<Object>) reference,
+            new PathSpec(ps.getPathComponents().subList(i, pathSize)));
+      } else {
+        return null;
+      }
+    }
+    return reference;
+  }
+
 }

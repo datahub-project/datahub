@@ -1,3 +1,4 @@
+import pathlib
 from typing import Optional
 
 from deltalake import DeltaTable, PyDeltaTableError
@@ -20,8 +21,27 @@ def read_delta_table(
                 opts = {
                     "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id", ""),
                     "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key", ""),
+                    # Allow http connections, this is required for minio
+                    "AWS_STORAGE_ALLOW_HTTP": "true",
                 }
-        delta_table = DeltaTable(path, storage_options=opts)
+                if delta_lake_config.s3.aws_config.aws_region:
+                    opts["AWS_REGION"] = delta_lake_config.s3.aws_config.aws_region
+                if delta_lake_config.s3.aws_config.aws_endpoint_url:
+                    opts[
+                        "AWS_ENDPOINT_URL"
+                    ] = delta_lake_config.s3.aws_config.aws_endpoint_url
+        else:
+            # Local file system
+            if not pathlib.Path(path).exists():
+                # The DeltaTable() constructor will create the path if it doesn't exist.
+                # Hence we need an extra, manual check here.
+                return None
+
+        delta_table = DeltaTable(
+            path,
+            storage_options=opts,
+            without_files=not delta_lake_config.require_files,
+        )
 
     except PyDeltaTableError as e:
         if "Not a Delta table" not in str(e):

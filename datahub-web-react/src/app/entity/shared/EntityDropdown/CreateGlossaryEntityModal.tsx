@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
+import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
+import DOMPurify from 'dompurify';
 import {
     useCreateGlossaryTermMutation,
     useCreateGlossaryNodeMutation,
@@ -9,6 +11,9 @@ import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import NodeParentSelect from './NodeParentSelect';
 import { useEntityData, useRefetch } from '../EntityContext';
+import analytics, { EventType } from '../../../analytics';
+import DescriptionModal from '../components/legacy/DescriptionModal';
+import { validateCustomUrnId } from '../../../shared/textUtil';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -16,6 +21,10 @@ const StyledItem = styled(Form.Item)`
 
 const OptionalWrapper = styled.span`
     font-weight: normal;
+`;
+
+const StyledButton = styled(Button)`
+    padding: 0;
 `;
 
 interface Props {
@@ -29,8 +38,11 @@ function CreateGlossaryEntityModal(props: Props) {
     const entityData = useEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
+    const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
     const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
+    const [documentation, setDocumentation] = useState('');
+    const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
     const refetch = useRefetch();
 
@@ -41,17 +53,25 @@ function CreateGlossaryEntityModal(props: Props) {
         const mutation =
             entityType === EntityType.GlossaryTerm ? createGlossaryTermMutation : createGlossaryNodeMutation;
 
+        const sanitizedDescription = DOMPurify.sanitize(documentation);
         mutation({
             variables: {
                 input: {
+                    id: stagedId?.length ? stagedId : undefined,
                     name: stagedName,
                     parentNode: selectedParentUrn || null,
+                    description: sanitizedDescription || null,
                 },
             },
         })
             .then(() => {
                 message.loading({ content: 'Updating...', duration: 2 });
                 setTimeout(() => {
+                    analytics.event({
+                        type: EventType.CreateGlossaryEntityEvent,
+                        entityType,
+                        parentNodeUrn: selectedParentUrn || undefined,
+                    });
                     message.success({
                         content: `Created ${entityRegistry.getEntityName(entityType)}!`,
                         duration: 2,
@@ -67,6 +87,11 @@ function CreateGlossaryEntityModal(props: Props) {
                 message.error({ content: `Failed to create: \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
+    }
+
+    function addDocumentation(description: string) {
+        setDocumentation(description);
+        setIsDocumentationModalVisible(false);
     }
 
     return (
@@ -125,6 +150,62 @@ function CreateGlossaryEntityModal(props: Props) {
                         />
                     </StyledItem>
                 </Form.Item>
+                <StyledItem
+                    label={
+                        <Typography.Text strong>
+                            Documentation <OptionalWrapper>(optional)</OptionalWrapper>
+                        </Typography.Text>
+                    }
+                >
+                    <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
+                        <EditOutlined />
+                        {documentation ? 'Edit' : 'Add'} Documentation
+                    </StyledButton>
+                    {isDocumentationModalVisible && (
+                        <DescriptionModal
+                            title="Add Documentation"
+                            onClose={() => setIsDocumentationModalVisible(false)}
+                            onSubmit={addDocumentation}
+                            description={documentation}
+                        />
+                    )}
+                </StyledItem>
+                <Collapse ghost>
+                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                        <Form.Item
+                            label={
+                                <Typography.Text strong>
+                                    {entityRegistry.getEntityName(props.entityType)} Id
+                                </Typography.Text>
+                            }
+                        >
+                            <Typography.Paragraph>
+                                By default, a random UUID will be generated to uniquely identify this entity. If
+                                you&apos;d like to provide a custom id, you may provide it here. Note that it should be
+                                unique across the entire Glossary. Be careful, you cannot easily change the id after
+                                creation.
+                            </Typography.Paragraph>
+                            <Form.Item
+                                name="id"
+                                rules={[
+                                    () => ({
+                                        validator(_, value) {
+                                            if (value && validateCustomUrnId(value)) {
+                                                return Promise.resolve();
+                                            }
+                                            return Promise.reject(new Error('Please enter a valid entity id'));
+                                        },
+                                    }),
+                                ]}
+                            >
+                                <Input
+                                    placeholder="classification"
+                                    onChange={(event) => setStagedId(event.target.value)}
+                                />
+                            </Form.Item>
+                        </Form.Item>
+                    </Collapse.Panel>
+                </Collapse>
             </Form>
         </Modal>
     );

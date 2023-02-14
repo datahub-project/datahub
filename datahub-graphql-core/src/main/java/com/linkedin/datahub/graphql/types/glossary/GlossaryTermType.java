@@ -53,6 +53,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm, Stri
         OWNERSHIP_ASPECT_NAME,
         STATUS_ASPECT_NAME,
         BROWSE_PATHS_ASPECT_NAME,
+        DOMAINS_ASPECT_NAME,
         DEPRECATION_ASPECT_NAME
     );
 
@@ -111,7 +112,7 @@ public class GlossaryTermType implements SearchableEntityType<GlossaryTerm, Stri
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search(
-            "glossaryTerm", query, facetFilters, start, count, context.getAuthentication());
+            "glossaryTerm", query, facetFilters, start, count, context.getAuthentication(), true);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

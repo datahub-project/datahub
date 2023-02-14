@@ -16,6 +16,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -63,7 +64,7 @@ public class MetadataChangeProposalsProcessor {
       event = EventUtils.avroToPegasusMCP(record);
       log.debug("MetadataChangeProposal {}", event);
       // TODO: Get this from the event itself.
-      entityClient.ingestProposal(event, this.systemAuthentication);
+      entityClient.ingestProposal(event, this.systemAuthentication, false);
     } catch (Throwable throwable) {
       log.error("MCP Processor Error", throwable);
       log.error("Message: {}", record);

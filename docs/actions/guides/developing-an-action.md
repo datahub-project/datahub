@@ -24,7 +24,7 @@ print the configuration that is provided when it is created, and print any Event
 ```python
 # custom_action.py
 from datahub_actions.action.action import Action
-from datahub_actions.event.event import EventEnvelope
+from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 
 class CustomAction(Action):

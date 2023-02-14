@@ -1,5 +1,9 @@
 package com.datahub.authentication.authenticator;
 
+import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.token.StatelessTokenService;
+import com.datahub.authentication.token.TokenClaims;
+import com.datahub.authentication.token.TokenExpiredException;
 import com.datahub.authentication.Actor;
 
 import com.datahub.authentication.Authentication;
@@ -7,12 +11,8 @@ import com.datahub.authentication.AuthenticationConstants;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticationException;
-import com.datahub.authentication.Authenticator;
+import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorContext;
-import com.datahub.authentication.token.StatefulTokenService;
-import com.datahub.authentication.token.TokenClaims;
-import com.datahub.authentication.token.TokenExpiredException;
-import com.datahub.authentication.token.StatelessTokenService;
 import com.linkedin.metadata.entity.EntityService;
 import javax.annotation.Nonnull;
 import java.util.Map;
@@ -33,9 +33,9 @@ import static com.datahub.authentication.AuthenticationConstants.*;
 @Slf4j
 public class DataHubTokenAuthenticator implements Authenticator {
 
-  static final String SIGNING_KEY_CONFIG_NAME = "signingKey";
-  static final String SALT_CONFIG_NAME = "salt";
-  static final String SIGNING_ALG_CONFIG_NAME = "signingAlg";
+  public static final String SIGNING_KEY_CONFIG_NAME = "signingKey";
+  public static final String SALT_CONFIG_NAME = "salt";
+  public static final String SIGNING_ALG_CONFIG_NAME = "signingAlg";
   static final String DEFAULT_SIGNING_ALG = "HS256";
   static final String DEFAULT_ISSUER = "datahub-metadata-service";
 

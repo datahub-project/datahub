@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass
 from hashlib import md5
-from typing import Iterable, List, Optional, Tuple, cast
+from typing import Iterable, List, Optional, Tuple
 
 import requests
 
@@ -27,10 +27,11 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    JobId,
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source_config.pulsar import PulsarSourceConfig
@@ -43,11 +44,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    JobStatusClass,
     SubTypesClass,
+)
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
 )
 
 logger = logging.getLogger(__name__)
@@ -98,16 +101,17 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.platform: str = "pulsar"
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
+        # Create and register the stateful ingestion use-case handlers.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            source=self,
+            config=self.config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
         self.base_url: str = f"{self.config.web_service_url}/admin/v2"
         self.tenants: List[str] = config.tenants
-
-        if (
-            self.is_stateful_ingestion_configured()
-            and not self.config.platform_instance
-        ):
-            raise ConfigurationError(
-                "Enabling Pulsar stateful ingestion requires to specify a platform instance."
-            )
 
         self.session = requests.Session()
         self.session.verify = self.config.verify_ssl
@@ -219,37 +223,6 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"An ambiguous exception occurred while handling the request: {e}"
             )
 
-    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        return job_id == (
-            self.get_default_ingestion_job_id()
-            and self.is_stateful_ingestion_configured()
-            and self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-        )
-
-    def get_default_ingestion_job_id(self) -> JobId:
-        """
-        Default ingestion job name that kafka provides.
-        """
-        return JobId("ingest_from_pulsar_source")
-
-    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
-        """
-        Create a custom checkpoint with empty state for the job.
-        """
-        assert self.ctx.pipeline_name is not None
-        if job_id == self.get_default_ingestion_job_id():
-            return Checkpoint(
-                job_name=job_id,
-                pipeline_name=self.ctx.pipeline_name,
-                platform_instance_id=self.get_platform_instance_id(),
-                run_id=self.ctx.run_id,
-                config=self.config,
-                # TODO Create a PulsarCheckpointState ?
-                state=KafkaCheckpointState(),
-            )
-        return None
-
     def get_platform_instance_id(self) -> str:
         assert self.config.platform_instance is not None
         return self.config.platform_instance
@@ -264,46 +237,13 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         return cls(config, ctx)
 
-    def soft_delete_dataset(self, urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-        logger.debug(f"Soft-deleting stale entity of type {type} - {urn}.")
-        mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            entityUrn=urn,
-            changeType=ChangeTypeClass.UPSERT,
-            aspectName="status",
-            aspect=StatusClass(removed=True),
-        )
-        wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-        self.report.report_workunit(wu)
-        self.report.report_stale_entity_soft_deleted(urn)
-        yield wu
-
-    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), KafkaCheckpointState
-        )
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-        if (
-            self.config.stateful_ingestion
-            and self.config.stateful_ingestion.remove_stale_metadata
-            and last_checkpoint is not None
-            and last_checkpoint.state is not None
-            and cur_checkpoint is not None
-            and cur_checkpoint.state is not None
-        ):
-            logger.debug("Checking for stale entity removal.")
-
-            last_checkpoint_state = cast(KafkaCheckpointState, last_checkpoint.state)
-            cur_checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
-
-            for topic_urn in last_checkpoint_state.get_topic_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from self.soft_delete_dataset(topic_urn, "topic")
-
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Interacts with the Pulsar Admin Api and loops over tenants, namespaces and topics. For every topic
         the schema information is retrieved if available.
@@ -371,38 +311,13 @@ class PulsarSource(StatefulIngestionSourceBase):
                         for topic, is_partitioned in topics.items():
                             self.report.topics_scanned += 1
                             if self.config.topic_patterns.allowed(topic):
-
                                 yield from self._extract_record(topic, is_partitioned)
-                                # Add topic to checkpoint if stateful ingestion is enabled
-                                if self.is_stateful_ingestion_configured():
-                                    self._add_topic_to_checkpoint(topic)
                             else:
                                 self.report.report_topics_dropped(topic)
-
-                        if self.is_stateful_ingestion_configured():
-                            # Clean up stale entities.
-                            yield from self.gen_removed_entity_workunits()
-
                     else:
                         self.report.report_namespaces_dropped(namespace)
             else:
                 self.report.report_tenants_dropped(tenant)
-
-    def _add_topic_to_checkpoint(self, topic: str) -> None:
-        cur_checkpoint = self.get_current_checkpoint(
-            self.get_default_ingestion_job_id()
-        )
-
-        if cur_checkpoint is not None:
-            checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
-            checkpoint_state.add_topic_urn(
-                make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    name=topic,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
-            )
 
     def _is_token_authentication_configured(self) -> bool:
         return self.config.token is not None
@@ -413,7 +328,6 @@ class PulsarSource(StatefulIngestionSourceBase):
     def _get_schema_and_fields(
         self, pulsar_topic: PulsarTopic, is_key_schema: bool
     ) -> Tuple[Optional[PulsarSchema], List[SchemaField]]:
-
         pulsar_schema: Optional[PulsarSchema] = None
 
         schema_url = (
@@ -458,7 +372,6 @@ class PulsarSource(StatefulIngestionSourceBase):
     def _get_schema_metadata(
         self, pulsar_topic: PulsarTopic, platform_urn: str
     ) -> Tuple[Optional[PulsarSchema], Optional[SchemaMetadata]]:
-
         # FIXME: Type annotations are not working for this function.
         schema, fields = self._get_schema_and_fields(
             pulsar_topic=pulsar_topic, is_key_schema=False
@@ -498,32 +411,20 @@ class PulsarSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-        status_wu = MetadataWorkUnit(
-            id=f"{dataset_urn}-status",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="status",
-                aspect=StatusClass(removed=False),
-            ),
-        )
+        status_wu = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
         self.report.report_workunit(status_wu)
         yield status_wu
 
         # 2. Emit schemaMetadata aspect
         schema, schema_metadata = self._get_schema_metadata(pulsar_topic, platform_urn)
         if schema_metadata is not None:
-            schema_metadata_wu = MetadataWorkUnit(
-                id=f"{dataset_urn}-schemaMetadata",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="schemaMetadata",
-                    aspect=schema_metadata,
-                ),
-            )
+            schema_metadata_wu = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=schema_metadata,
+            ).as_workunit()
             self.report.report_workunit(schema_metadata_wu)
             yield schema_metadata_wu
 
@@ -538,19 +439,13 @@ class PulsarSource(StatefulIngestionSourceBase):
             # Add some static properties to the schema properties
             schema.properties.update(schema_properties)
 
-            dataset_properties_wu = MetadataWorkUnit(
-                id=f"{dataset_urn}-datasetProperties",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="datasetProperties",
-                    aspect=DatasetPropertiesClass(
-                        description=schema.schema_description,
-                        customProperties=schema.properties,
-                    ),
+            dataset_properties_wu = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetPropertiesClass(
+                    description=schema.schema_description,
+                    customProperties=schema.properties,
                 ),
-            )
+            ).as_workunit()
             self.report.report_workunit(dataset_properties_wu)
             yield dataset_properties_wu
 
@@ -564,52 +459,34 @@ class PulsarSource(StatefulIngestionSourceBase):
             else pulsar_path
         )
 
-        browse_path_wu = MetadataWorkUnit(
-            id=f"{dataset_urn}-browsePaths",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="browsePaths",
-                aspect=BrowsePathsClass(
-                    [f"/{self.config.env.lower()}/{self.platform}/{browse_path_suffix}"]
-                ),
+        browse_path_wu = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=BrowsePathsClass(
+                [f"/{self.config.env.lower()}/{self.platform}/{browse_path_suffix}"]
             ),
-        )
+        ).as_workunit()
         self.report.report_workunit(browse_path_wu)
         yield browse_path_wu
 
         # 5. Emit dataPlatformInstance aspect.
         if self.config.platform_instance:
-            platform_instance_wu = MetadataWorkUnit(
-                id=f"{dataset_urn}-dataPlatformInstance",
-                mcp=MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=dataset_urn,
-                    aspectName="dataPlatformInstance",
-                    aspect=DataPlatformInstanceClass(
-                        platform=platform_urn,
-                        instance=make_dataplatform_instance_urn(
-                            self.platform, self.config.platform_instance
-                        ),
+            platform_instance_wu = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DataPlatformInstanceClass(
+                    platform=platform_urn,
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
                     ),
                 ),
-            )
+            ).as_workunit()
             self.report.report_workunit(platform_instance_wu)
             yield platform_instance_wu
 
         # 6. Emit subtype aspect marking this as a "topic"
-        subtype_wu = MetadataWorkUnit(
-            id=f"{dataset_urn}-subTypes",
-            mcp=MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_urn,
-                aspectName="subTypes",
-                aspect=SubTypesClass(typeNames=["topic"]),
-            ),
-        )
+        subtype_wu = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=["topic"]),
+        ).as_workunit()
         self.report.report_workunit(subtype_wu)
         yield subtype_wu
 
@@ -621,7 +498,6 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         if domain_urn:
             wus = add_domain_to_entity_wu(
-                entity_type="dataset",
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
             )
@@ -632,19 +508,6 @@ class PulsarSource(StatefulIngestionSourceBase):
     def get_report(self):
         return self.report
 
-    def update_default_job_run_summary(self) -> None:
-        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
-        if summary is not None:
-            # For now just add the config and the report.
-            summary.config = self.config.json()
-            summary.custom_summary = self.report.as_string()
-            summary.runStatus = (
-                JobStatusClass.FAILED
-                if self.get_report().failures
-                else JobStatusClass.COMPLETED
-            )
-
     def close(self):
-        self.update_default_job_run_summary()
-        self.prepare_for_commit()
+        super().close()
         self.session.close()

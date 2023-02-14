@@ -192,7 +192,6 @@ class ClickHouseUsageSource(Source):
     def _get_joined_access_event(self, events):
         joined_access_events = []
         for event_dict in events:
-
             event_dict["starttime"] = self._convert_str_to_datetime(
                 event_dict.get("starttime")
             )
@@ -257,6 +256,3 @@ class ClickHouseUsageSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self) -> None:
-        pass

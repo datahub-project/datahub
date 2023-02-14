@@ -1,6 +1,13 @@
 plugins {
     id 'org.springframework.boot'
     id 'java'
+    id 'com.palantir.docker'
+}
+
+apply from: "../../gradle/versioning/versioning.gradle"
+
+ext {
+    docker_repo = 'datahub-mae-consumer'
 }
 
 dependencies {
@@ -17,4 +24,30 @@ dependencies {
 
 bootJar {
     mainClassName = 'com.linkedin.metadata.kafka.MaeConsumerApplication'
+    archiveFileName = "${project.name}.jar"
 }
+
+docker {
+    name "${docker_registry}/${docker_repo}:v${version}"
+    version "v${version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+    files bootJar.outputs.files
+    files fileTree(rootProject.projectDir) {
+        include 'docker/monitoring/*'
+        include "docker/${docker_repo}/*"
+        include 'metadata-models/src/main/resources/*'
+    }
+
+    // platform('linux/arm64', 'linux/amd64')
+    buildx(true)
+    load(true)
+    push(false)
+}
+tasks.getByName("docker").dependsOn([bootJar])
+
+task cleanLocalDockerImages {
+    doLast {
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+    }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

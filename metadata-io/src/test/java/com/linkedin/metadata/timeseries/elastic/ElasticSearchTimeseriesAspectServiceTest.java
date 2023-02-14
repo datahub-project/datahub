@@ -15,7 +15,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.StringMapArray;
-import com.linkedin.metadata.ElasticTestUtils;
+import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
@@ -26,7 +26,8 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -36,13 +37,15 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.CalendarInterval;
+import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testng.annotations.AfterClass;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -54,14 +57,13 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
-import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
+import static com.linkedin.metadata.ESTestConfiguration.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
 
-
-public class ElasticSearchTimeseriesAspectServiceTest {
+@Import(ESTestConfiguration.class)
+public class ElasticSearchTimeseriesAspectServiceTest extends AbstractTestNGSpringContextTests {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private static final String ENTITY_NAME = "testEntity";
@@ -74,8 +76,12 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   private static final String ES_FILED_TIMESTAMP = "timestampMillis";
   private static final String ES_FILED_STAT = "stat";
 
-  private ElasticsearchContainer _elasticsearchContainer;
+  @Autowired
   private RestHighLevelClient _searchClient;
+  @Autowired
+  private ESBulkProcessor _bulkProcessor;
+  @Autowired
+  private ESIndexBuilder _esIndexBuilder;
   private EntityRegistry _entityRegistry;
   private IndexConvention _indexConvention;
   private ElasticSearchTimeseriesAspectService _elasticSearchTimeseriesAspectService;
@@ -92,11 +98,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   public void setup() {
     _entityRegistry = new ConfigEntityRegistry(new DataSchemaFactory("com.datahub.test"),
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
-    _indexConvention = new IndexConventionImpl(null);
-    _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    checkContainerEngine(_elasticsearchContainer.getDockerClient());
-    _elasticsearchContainer.start();
-    _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
+    _indexConvention = new IndexConventionImpl("es_timeseries_aspect_service_test");
     _elasticSearchTimeseriesAspectService = buildService();
     _elasticSearchTimeseriesAspectService.configure();
     EntitySpec entitySpec = _entityRegistry.getEntitySpec(ENTITY_NAME);
@@ -106,13 +108,8 @@ public class ElasticSearchTimeseriesAspectServiceTest {
   @Nonnull
   private ElasticSearchTimeseriesAspectService buildService() {
     return new ElasticSearchTimeseriesAspectService(_searchClient, _indexConvention,
-        new TimeseriesAspectIndexBuilders(ElasticSearchServiceTest.getIndexBuilder(_searchClient), _entityRegistry,
-            _indexConvention), _entityRegistry, ElasticSearchServiceTest.getBulkProcessor(_searchClient));
-  }
-
-  @AfterClass
-  public void tearDown() {
-    _elasticsearchContainer.stop();
+        new TimeseriesAspectIndexBuilders(_esIndexBuilder, _entityRegistry,
+            _indexConvention), _entityRegistry, _bulkProcessor, 1);
   }
 
   /*
@@ -184,7 +181,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
       }
     });
 
-    syncAfterWrite(_searchClient);
+    syncAfterWrite(_bulkProcessor);
   }
 
   @Test(groups = "upsertUniqueMessageId")
@@ -210,7 +207,7 @@ public class ElasticSearchTimeseriesAspectServiceTest {
       }
     });
 
-    syncAfterWrite(_searchClient);
+    syncAfterWrite(_bulkProcessor);
 
     List<EnvelopedAspect> resultAspects =
         _elasticSearchTimeseriesAspectService.getAspectValues(urn, ENTITY_NAME, ASPECT_NAME, null, null,
@@ -757,5 +754,36 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     assertEquals(resultTable.getRows().size(), 2);
     assertEquals(resultTable.getRows(),
         new StringArrayArray(new StringArray("col1", "3264"), new StringArray("col2", "3288")));
+  }
+
+  @Test(groups = {"deleteAspectValues1"}, dependsOnGroups = {"getAggregatedStats", "getAspectValues"})
+  public void testDeleteAspectValuesByUrnAndTimeRangeDay1() {
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
+        .setValue(_startTime.toString());
+    Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+        .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
+        .setValue(String.valueOf(_startTime + 23 * TIME_INCREMENT));
+
+    Filter filter =
+        QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
+    DeleteAspectValuesResult result =
+        _elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
+    // For day1, we expect 24 (number of hours) * 3 (each testEntityProfile aspect expands 3 elastic docs:
+    //  1 original + 2 for componentProfiles) = 72 total.
+    assertEquals(result.getNumDocsDeleted(), Long.valueOf(72L));
+  }
+
+  @Test(groups = {"deleteAspectValues2"}, dependsOnGroups = {"deleteAspectValues1"})
+  public void testDeleteAspectValuesByUrn() {
+    Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
+    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
+    DeleteAspectValuesResult result =
+        _elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
+    // Of the 300 elastic docs upserted for TEST_URN, 72 got deleted by deleteAspectValues1 test group leaving 228.
+    assertEquals(result.getNumDocsDeleted(), Long.valueOf(228L));
   }
 }

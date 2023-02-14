@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -72,6 +72,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
         platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));
         platformPrivileges.setManageTags(AuthorizationUtils.canManageTags(context));
+        platformPrivileges.setManageGlobalViews(AuthorizationUtils.canManageGlobalViews(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();

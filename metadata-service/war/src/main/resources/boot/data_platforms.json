@@ -451,7 +451,7 @@
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "nifi",
-      "displayName": "Nifi",
+      "displayName": "NiFi",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/nifilogo.svg"
     }
@@ -513,6 +513,26 @@
       "displayName": "Delta Lake",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/deltalakelogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:databricks",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "databricks",
+      "displayName": "Databricks",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/databrickslogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:vertica",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "vertica",
+      "displayName": "Vertica",
+      "type": "OLAP_DATASTORE",
+      "logoUrl": "/assets/platforms/verticalogo.png"
     }
   }
 ]

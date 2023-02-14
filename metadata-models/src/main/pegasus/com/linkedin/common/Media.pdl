@@ -1,0 +1,16 @@
+namespace com.linkedin.common
+
+/**
+ * Carries information about which roles a user is assigned to.
+ */
+record Media {
+  /**
+   * Type of content the Media is storing, e.g. image, video, etc.
+   */
+  type: MediaType
+
+  /**
+   * Where the media content is stored.
+   */
+  location: Url
+}

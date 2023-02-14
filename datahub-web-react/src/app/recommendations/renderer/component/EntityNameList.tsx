@@ -1,19 +1,20 @@
 import React from 'react';
 import { Divider, List, Checkbox } from 'antd';
 import styled from 'styled-components';
-import { Entity } from '../../../../types.generated';
+import { Entity, EntityPath } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { IconStyleType } from '../../../entity/Entity';
-import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { EntityAndType } from '../../../entity/shared/types';
+import { getPlatformName } from '../../../entity/shared/utils';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 
 const StyledCheckbox = styled(Checkbox)`
     margin-right: 12px;
 `;
 
 const StyledList = styled(List)`
-    overflow-y: scroll;
+    overflow-y: auto;
     height: 100%;
     margin-top: -1px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
@@ -60,6 +61,7 @@ const ThinDivider = styled(Divider)`
 
 type AdditionalProperties = {
     degree?: number;
+    paths?: EntityPath[];
 };
 
 type Props = {
@@ -117,14 +119,12 @@ export const EntityNameList = ({
                 const additionalProperties = additionalPropertiesList?.[index];
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
                 const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
-                const platformName =
-                    genericProps?.platform?.properties?.displayName ||
-                    capitalizeFirstLetter(genericProps?.platform?.name);
+                const platformName = getPlatformName(genericProps);
                 const entityTypeName = entityRegistry.getEntityName(entity.type);
                 const displayName = entityRegistry.getDisplayName(entity.type, entity);
                 const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
                 const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
-                const subType = genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
+                const subType = capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]);
                 const entityCount = genericProps?.entityCount;
                 const deprecation = genericProps?.deprecation;
                 return (
@@ -140,10 +140,11 @@ export const EntityNameList = ({
                             )}
                             <DefaultPreviewCard
                                 name={displayName}
+                                urn={entity.urn}
                                 logoUrl={platformLogoUrl || undefined}
                                 logoComponent={fallbackIcon}
                                 url={url}
-                                platform={platformName || undefined}
+                                platform={platformName}
                                 type={subType || entityTypeName}
                                 titleSizePx={14}
                                 tags={genericProps?.globalTags || undefined}
@@ -153,6 +154,7 @@ export const EntityNameList = ({
                                 entityCount={entityCount}
                                 degree={additionalProperties?.degree}
                                 deprecation={deprecation}
+                                paths={additionalProperties?.paths}
                             />
                         </ListItem>
                         <ThinDivider />

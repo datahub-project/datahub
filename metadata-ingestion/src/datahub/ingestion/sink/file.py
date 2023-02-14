@@ -5,7 +5,7 @@ import os
 import pathlib
 from enum import Enum
 from io import BufferedWriter
-from typing import Iterable, Iterator, Optional, TextIO, Union
+from typing import Iterable, Iterator, Optional, Union
 
 from pydantic import validator
 
@@ -67,18 +67,37 @@ class DirectoryFileProvider(Iterator[pathlib.Path]):
         self.next_file_name = f"{self.root_directory}/{self.file_name_base}.{self.current_index}{self.file_name_extension}"
         return pathlib.Path(next_file_name)
 
+    legacy_nested_json_string: bool = False
 
-class FileSink(Sink):
+
+class FileSink(Sink[FileSinkConfig, FileSinkReport]):
     @staticmethod
-    def _get_file_extension(config: FileSinkConfig) -> str:
+    def _get_file_extension(
+        config: FileSinkConfig,
+    ) -> str:  # Keeping it for backward compatibility
         ext_base = "" if config.filename.endswith(".json") else ".json"
         if config.compression == CompressionTypes.GZIP:
             return ext_base + ".gz"
         else:
             return ext_base
 
+    @staticmethod
+    def _get_file_extension_new(config: FileSinkConfig) -> str:
+        ext_base = ".json"
+        if config.compression == CompressionTypes.GZIP:
+            ext_base = ext_base + ".gz"
+
+        return ext_base
+
+    @staticmethod
+    def _get_file_base_name(config: FileSinkConfig) -> str:
+        if ".json" in config.filename:
+            return config.filename.split(".json")[0]
+
+        return config.filename
+
     def __init__(self, ctx: PipelineContext, config: FileSinkConfig):
-        super().__init__(ctx)
+        super().__init__(ctx, config)
         self.config = config
         self.report = FileSinkReport()
 
@@ -91,8 +110,8 @@ class FileSink(Sink):
             os.makedirs(self.config.path, exist_ok=True)
             self.file_name_iterator = DirectoryFileProvider(
                 self.config.path,
-                self.config.filename,
-                self._get_file_extension(self.config),
+                self._get_file_base_name(config),
+                self._get_file_extension_new(self.config),
             )
             self.current_file: Optional[Union[gzip.GzipFile, BufferedWriter]] = None
         else:
@@ -177,3 +196,39 @@ class FileSink(Sink):
 
     def close(self):
         self._close_file()
+
+
+def _to_obj_for_file(
+    obj: Union[
+        MetadataChangeEvent,
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
+        UsageAggregation,
+    ],
+    simplified_structure: bool = True,
+) -> dict:
+    if isinstance(obj, MetadataChangeProposalWrapper):
+        return obj.to_obj(simplified_structure=simplified_structure)
+    return obj.to_obj()
+
+
+def write_metadata_file(
+    file: pathlib.Path,
+    records: Iterable[
+        Union[
+            MetadataChangeEvent,
+            MetadataChangeProposal,
+            MetadataChangeProposalWrapper,
+            UsageAggregation,
+        ]
+    ],
+) -> None:
+    # This simplified version of the FileSink can be used for testing purposes.
+    with file.open("w") as f:
+        f.write("[\n")
+        for i, record in enumerate(records):
+            if i > 0:
+                f.write(",\n")
+            obj = _to_obj_for_file(record)
+            json.dump(obj, f, indent=4)
+        f.write("\n]")

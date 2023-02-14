@@ -1,0 +1,30 @@
+source:
+  type: unity-catalog
+  config:
+    workspace_url: https://my-workspace.cloud.databricks.com
+    token: "mygenerated_databricks_token"
+    #metastore_id_pattern:
+    #  deny:
+    #    - 11111-2222-33333-44-555555
+    #catalog_pattern:
+    #  allow:
+    #    - my-catalog
+    #schema_pattern:
+    #  deny:
+    #    - information_schema
+    #table_pattern:
+    #  allow:
+    #    - test.lineagedemo.dinner
+    # First you have to create domains on Datahub by following this guide -> https://datahubproject.io/docs/domains/#domains-setup-prerequisites-and-permissions
+    #domain:
+    #  urn:li:domain:1111-222-333-444-555:
+    #    allow:
+    #      - main.*
+
+    stateful_ingestion:
+      enabled: true
+
+pipeline_name: acme-corp-unity
+
+
+# sink configs if needed

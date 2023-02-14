@@ -1,11 +1,23 @@
+from typing import MutableSet, Optional
+
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
 
 
-class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport):
+class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport):
+    account_locator: Optional[str] = None
+    region: Optional[str] = None
+
+    schemas_scanned: int = 0
+    databases_scanned: int = 0
+    tags_scanned: int = 0
+
     include_usage_stats: bool = False
     include_operational_stats: bool = False
     include_technical_schema: bool = False
+    include_column_lineage: bool = False
 
     usage_aggregation_query_secs: float = -1
     table_lineage_query_secs: float = -1
@@ -20,4 +32,45 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport):
     num_get_views_for_schema_queries: int = 0
     num_get_columns_for_table_queries: int = 0
 
+    # these will be non-zero if the user choses to enable the extract_tags = "with_lineage" option, which requires
+    # individual queries per object (database, schema, table) and an extra query per table to get the tags on the columns.
+    num_get_tags_for_object_queries: int = 0
+    num_get_tags_on_columns_for_table_queries: int = 0
+
     rows_zero_objects_modified: int = 0
+
+    _processed_tags: MutableSet[str] = set()
+    _scanned_tags: MutableSet[str] = set()
+
+    edition: Optional[SnowflakeEdition] = None
+
+    def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
+        """
+        Entity could be a view or a table or a schema or a database
+        """
+        if ent_type == "table":
+            self.tables_scanned += 1
+        elif ent_type == "view":
+            self.views_scanned += 1
+        elif ent_type == "schema":
+            self.schemas_scanned += 1
+        elif ent_type == "database":
+            self.databases_scanned += 1
+        elif ent_type == "tag":
+            # the same tag can be assigned to multiple objects, so we need
+            # some extra logic account for each tag only once.
+            if self._is_tag_scanned(name):
+                return
+            self._scanned_tags.add(name)
+            self.tags_scanned += 1
+        else:
+            raise KeyError(f"Unknown entity {ent_type}.")
+
+    def is_tag_processed(self, tag_name: str) -> bool:
+        return tag_name in self._processed_tags
+
+    def _is_tag_scanned(self, tag_name: str) -> bool:
+        return tag_name in self._scanned_tags
+
+    def report_tag_processed(self, tag_name: str) -> None:
+        self._processed_tags.add(tag_name)

@@ -6,6 +6,17 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
 import { useIsSeparateSiblingsMode, SEPARATE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
+import {
+    ENTITY_PROFILE_DOCUMENTATION_ID,
+    ENTITY_PROFILE_DOMAINS_ID,
+    ENTITY_PROFILE_ENTITIES_ID,
+    ENTITY_PROFILE_GLOSSARY_TERMS_ID,
+    ENTITY_PROFILE_LINEAGE_ID,
+    ENTITY_PROFILE_OWNERS_ID,
+    ENTITY_PROFILE_PROPERTIES_ID,
+    ENTITY_PROFILE_SCHEMA_ID,
+    ENTITY_PROFILE_TAGS_ID,
+} from '../../../../onboarding/config/EntityProfileOnboardingConfig';
 
 export function getDataForEntityType<T>({
     data: entityData,
@@ -93,6 +104,14 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     return routedTab;
 }
 
+export function useIsOnTab(tabName: string): boolean {
+    const { pathname } = useLocation();
+    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
+    const splitPathName = trimmedPathName.split('/');
+    const lastTokenInPath = splitPathName[splitPathName.length - 1];
+    return lastTokenInPath === tabName;
+}
+
 export function formatDateString(time: number) {
     const date = new Date(time);
     return date.toLocaleDateString('en-US');
@@ -106,4 +125,43 @@ export function useEntityQueryParams() {
     }
 
     return response;
+}
+
+export function getOnboardingStepIdsForEntityType(entityType: EntityType): string[] {
+    switch (entityType) {
+        case EntityType.Chart:
+            return [
+                ENTITY_PROFILE_DOCUMENTATION_ID,
+                ENTITY_PROFILE_PROPERTIES_ID,
+                ENTITY_PROFILE_LINEAGE_ID,
+                ENTITY_PROFILE_TAGS_ID,
+                ENTITY_PROFILE_GLOSSARY_TERMS_ID,
+                ENTITY_PROFILE_OWNERS_ID,
+                ENTITY_PROFILE_DOMAINS_ID,
+            ];
+        case EntityType.Container:
+            return [
+                ENTITY_PROFILE_ENTITIES_ID,
+                ENTITY_PROFILE_DOCUMENTATION_ID,
+                ENTITY_PROFILE_PROPERTIES_ID,
+                ENTITY_PROFILE_OWNERS_ID,
+                ENTITY_PROFILE_TAGS_ID,
+                ENTITY_PROFILE_GLOSSARY_TERMS_ID,
+                ENTITY_PROFILE_DOMAINS_ID,
+            ];
+        case EntityType.Dataset:
+            return [
+                ENTITY_PROFILE_SCHEMA_ID,
+                ENTITY_PROFILE_DOCUMENTATION_ID,
+                ENTITY_PROFILE_LINEAGE_ID,
+                ENTITY_PROFILE_PROPERTIES_ID,
+                ENTITY_PROFILE_OWNERS_ID,
+                ENTITY_PROFILE_TAGS_ID,
+                ENTITY_PROFILE_GLOSSARY_TERMS_ID,
+                ENTITY_PROFILE_DOMAINS_ID,
+            ];
+            break;
+        default:
+            return [];
+    }
 }

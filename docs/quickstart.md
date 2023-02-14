@@ -4,21 +4,28 @@
 
 To deploy a new instance of DataHub, perform the following steps.
 
-1. Install [docker](https://docs.docker.com/install/), [jq](https://stedolan.github.io/jq/download/) and [docker-compose v1 ](https://github.com/docker/compose/blob/master/INSTALL.md) (if
-   using Linux). Make sure to allocate enough hardware resources for Docker engine. Tested & confirmed config: 2 CPUs,
-   8GB RAM, 2GB Swap area, and 10GB disk space.
+
+1. Install Docker and Docker Compose v2 for your platform.
+- On Windows or Mac, install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+- On Linux, install [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/).
+
+:::note
+
+Make sure to allocate enough hardware resources for Docker engine. 
+Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
+
+:::
 
 2. Launch the Docker Engine from command line or the desktop app.
 
 3. Install the DataHub CLI
 
-   a. Ensure you have Python 3.6+ installed & configured. (Check using `python3 --version`)
+   a. Ensure you have Python 3.7+ installed & configured. (Check using `python3 --version`).
 
    b. Run the following commands in your terminal
 
-   ```
+   ```sh
    python3 -m pip install --upgrade pip wheel setuptools
-   python3 -m pip uninstall datahub acryl-datahub || true  # sanity check - ok if it fails
    python3 -m pip install --upgrade acryl-datahub
    datahub version
    ```
@@ -37,15 +44,48 @@ To deploy a new instance of DataHub, perform the following steps.
    ```
 
    This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
+   If you are curious, the `docker-compose.yaml` file is downloaded to your home directory under the `.datahub/quickstart` directory.
+
+   If things go well, you should see messages like the ones below:
+
+   ```
+   Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml from GitHub
+   Pulling docker images...
+   Finished pulling docker images!
+
+   [+] Running 11/11
+   ⠿ Container zookeeper                  Running                                                                                                                                                         0.0s
+   ⠿ Container elasticsearch              Running                                                                                                                                                         0.0s
+   ⠿ Container broker                     Running                                                                                                                                                         0.0s
+   ⠿ Container schema-registry            Running                                                                                                                                                         0.0s
+   ⠿ Container elasticsearch-setup        Started                                                                                                                                                         0.7s
+   ⠿ Container kafka-setup                Started                                                                                                                                                         0.7s
+   ⠿ Container mysql                      Running                                                                                                                                                         0.0s
+   ⠿ Container datahub-gms                Running                                                                                                                                                         0.0s
+   ⠿ Container mysql-setup                Started                                                                                                                                                         0.7s
+   ⠿ Container datahub-datahub-actions-1  Running                                                                                                                                                         0.0s
+   ⠿ Container datahub-frontend-react     Running                                                                                                                                                         0.0s
+   .......
+   ✔ DataHub is now running
+   Ingest some demo data using `datahub docker ingest-sample-data`,
+   or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.
+   Need support? Get in touch on Slack: https://slack.datahubproject.io/
+   ```
 
    Upon completion of this step, you should be able to navigate to the DataHub UI
    at [http://localhost:9002](http://localhost:9002) in your browser. You can sign in using `datahub` as both the
    username and password.
 
+:::note
+   
+   On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`, this typically means that the datahub cli was not able to detect that you are running it on Apple Silicon. To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
+
+:::
+
 
 5. To ingest the sample metadata, run the following CLI command from your terminal
 
-   ```
+   ```bash
    datahub docker ingest-sample-data
    ```
 
@@ -67,13 +107,13 @@ Command not found: datahub
 If running the datahub cli produces "command not found" errors inside your terminal, your system may be defaulting to an
 older version of Python. Try prefixing your `datahub` commands with `python3 -m`:
 
-```
+```bash
 python3 -m datahub docker quickstart
 ```
 
 Another possibility is that your system PATH does not include pip's `$HOME/.local/bin` directory.  On linux, you can add this to your `~/.bashrc`:
 
-```
+```bash
 if [ -d "$HOME/.local/bin" ] ; then
     PATH="$HOME/.local/bin:$PATH"
 fi
@@ -96,9 +136,17 @@ By default the quickstart deploy will require the following ports to be free on 
 
   In case the default ports conflict with software you are already running on your machine, you can override these ports by passing additional flags to the `datahub docker quickstart` command.
   e.g. To override the MySQL port with 53306 (instead of the default 3306), you can say: `datahub docker quickstart --mysql-port 53306`. Use `datahub docker quickstart --help` to see all the supported options.
+  For the metadata service container (datahub-gms), you need to use an environment variable, `DATAHUB_MAPPED_GMS_PORT`. So for instance to use the port 58080, you would say `DATAHUB_MAPPED_GMS_PORT=58080 datahub docker quickstart`
 
 </details>
 
+<details>
+<summary>
+no matching manifest for linux/arm64/v8 in the manifest list entries
+</summary>
+On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`, this typically means that the datahub cli was not able to detect that you are running it on Apple Silicon. To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
+
+</details>
 <details>
 <summary>
 Miscellaneous Docker issues
@@ -117,6 +165,7 @@ docker system prune
 <summary>
 Still stuck?
 </summary>
+
 Hop over to our [Slack community](https://slack.datahubproject.io) and ask for help in the [#troubleshoot](https://datahubspace.slack.com/archives/C029A3M079U) channel!
 </details>
 

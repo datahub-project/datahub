@@ -3,4 +3,5 @@ namespace com.linkedin.metadata.run
 record DeleteEntityResponse {
     urn: string
     rows: long
+    timeseriesRows: optional long
 }

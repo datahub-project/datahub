@@ -6,7 +6,9 @@ import pytest
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.committable import StatefulCommittable
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
+    IngestionCheckpointingProviderBase,
+)
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
 
@@ -21,8 +23,8 @@ def validate_all_providers_have_committed_successfully(
     provider_count: int = 0
     for _, provider in pipeline.ctx.get_committables():
         provider_count += 1
-        assert isinstance(provider, StatefulCommittable)
-        stateful_committable = cast(StatefulCommittable, provider)
+        assert isinstance(provider, IngestionCheckpointingProviderBase)
+        stateful_committable = cast(IngestionCheckpointingProviderBase, provider)
         assert stateful_committable.has_successfully_committed()
         assert stateful_committable.state_to_commit
     assert provider_count == expected_providers
@@ -74,7 +76,6 @@ def mock_datahub_graph():
             self,
             graph_ref: MagicMock,
             entity_urn: str,
-            aspect_name: str,
             aspect_type: Type[DictWrapper],
             filter_criteria_map: Dict[str, str],
         ) -> Optional[DictWrapper]:

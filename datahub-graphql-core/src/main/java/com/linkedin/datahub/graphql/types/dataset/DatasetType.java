@@ -80,7 +80,8 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
         DOMAINS_ASPECT_NAME,
         SCHEMA_METADATA_ASPECT_NAME,
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-        SIBLINGS_ASPECT_NAME
+        SIBLINGS_ASPECT_NAME,
+        EMBED_ASPECT_NAME
     );
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
@@ -153,7 +154,8 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, start, count, context.getAuthentication());
+        final SearchResult searchResult = _entityClient.search(ENTITY_NAME, query, facetFilters, start, count,
+                context.getAuthentication(), true);
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -208,7 +210,7 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
         final List<String> urns = Arrays.stream(input).map(BatchDatasetUpdateInput::getUrn).collect(Collectors.toList());
 
         try {
-            _entityClient.batchIngestProposals(proposals, context.getAuthentication());
+            _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
         } catch (RemoteInvocationException e) {
             throw new RuntimeException(String.format("Failed to write entity with urn %s", urns), e);
         }
@@ -224,7 +226,7 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
             proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
             try {
-                _entityClient.batchIngestProposals(proposals, context.getAuthentication());
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

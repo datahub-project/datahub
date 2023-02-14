@@ -37,6 +37,12 @@ class ProvidedConfig(ConfigModel):
     value: str
 
 
+class GenericConnectorConfig(ConfigModel):
+    connector_name: str
+    source_dataset: str
+    source_platform: str
+
+
 class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
@@ -66,6 +72,10 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     platform_instance_map: Optional[Dict[str, str]] = Field(
         default=None,
         description='Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }`',
+    )
+    generic_connectors: List[GenericConnectorConfig] = Field(
+        default=[],
+        description="Provide lineage graph for sources connectors other than Confluent JDBC Source Connector, Debezium Source Connector, and Mongo Source Connector",
     )
 
 
@@ -113,7 +123,9 @@ def remove_prefix(text: str, prefix: str) -> str:
     return text
 
 
-def unquote(string: str, leading_quote: str = '"', trailing_quote: str = None) -> str:
+def unquote(
+    string: str, leading_quote: str = '"', trailing_quote: Optional[str] = None
+) -> str:
     """
     If string starts and ends with a quote, unquote it
     """
@@ -259,14 +271,14 @@ class ConfluentJDBCSourceConnector:
         self,
         connector_manifest: ConnectorManifest,
     ) -> JdbcParser:
-
         url = remove_prefix(
             str(connector_manifest.config.get("connection.url")), "jdbc:"
         )
         url_instance = make_url(url)
         source_platform = get_platform_from_sqlalchemy_uri(str(url_instance))
         database_name = url_instance.database
-        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{url_instance.database}"
+        assert database_name
+        db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
 
         topic_prefix = self.connector_manifest.config.get("topic.prefix", None)
 
@@ -466,7 +478,6 @@ class ConfluentJDBCSourceConnector:
             return
 
         if SINGLE_TRANSFORM and transforms[0]["type"] == self.REGEXROUTER:
-
             tables = self.get_table_names()
             topic_names = list(self.connector_manifest.topic_names)
 
@@ -546,6 +557,68 @@ class ConfluentJDBCSourceConnector:
 
 
 @dataclass
+class MongoSourceConnector:
+    # https://www.mongodb.com/docs/kafka-connector/current/source-connector/
+
+    connector_manifest: ConnectorManifest
+
+    def __init__(
+        self, connector_manifest: ConnectorManifest, config: KafkaConnectSourceConfig
+    ) -> None:
+        self.connector_manifest = connector_manifest
+        self.config = config
+        self._extract_lineages()
+
+    @dataclass
+    class MongoSourceParser:
+        db_connection_url: Optional[str]
+        source_platform: str
+        database_name: Optional[str]
+        topic_prefix: Optional[str]
+        transforms: List[str]
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> MongoSourceParser:
+        parser = self.MongoSourceParser(
+            db_connection_url=connector_manifest.config.get("connection.uri"),
+            source_platform="mongodb",
+            database_name=connector_manifest.config.get("database"),
+            topic_prefix=connector_manifest.config.get("topic_prefix"),
+            transforms=connector_manifest.config["transforms"].split(",")
+            if "transforms" in connector_manifest.config
+            else [],
+        )
+
+        return parser
+
+    def _extract_lineages(self):
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        source_platform = parser.source_platform
+        topic_naming_pattern = r"mongodb\.(\w+)\.(\w+)"
+
+        if not self.connector_manifest.topic_names:
+            return lineages
+
+        for topic in self.connector_manifest.topic_names:
+            found = re.search(re.compile(topic_naming_pattern), topic)
+
+            if found:
+                table_name = get_dataset_name(found.group(1), None, found.group(2))
+
+                lineage = KafkaConnectLineage(
+                    source_dataset=table_name,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform="kafka",
+                )
+                lineages.append(lineage)
+        self.connector_manifest.lineages = lineages
+
+
+@dataclass
 class DebeziumSourceConnector:
     connector_manifest: ConnectorManifest
 
@@ -562,64 +635,64 @@ class DebeziumSourceConnector:
         server_name: Optional[str]
         database_name: Optional[str]
 
+    def get_server_name(self, connector_manifest: ConnectorManifest) -> str:
+        if "topic.prefix" in connector_manifest.config:
+            return connector_manifest.config["topic.prefix"]
+        else:
+            return connector_manifest.config.get("database.server.name", "")
+
     def get_parser(
         self,
         connector_manifest: ConnectorManifest,
     ) -> DebeziumParser:
         connector_class = connector_manifest.config.get("connector.class", "")
+
         if connector_class == "io.debezium.connector.mysql.MySqlConnector":
-            # https://debezium.io/documentation/reference/connectors/mysql.html#mysql-topic-names
             parser = self.DebeziumParser(
                 source_platform="mysql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=None,
             )
         elif connector_class == "MySqlConnector":
             parser = self.DebeziumParser(
                 source_platform="mysql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=None,
             )
         elif connector_class == "io.debezium.connector.mongodb.MongoDbConnector":
-            # https://debezium.io/documentation/reference/connectors/mongodb.html#mongodb-topic-names
             parser = self.DebeziumParser(
                 source_platform="mongodb",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=None,
             )
         elif connector_class == "io.debezium.connector.postgresql.PostgresConnector":
-            # https://debezium.io/documentation/reference/connectors/postgresql.html#postgresql-topic-names
             parser = self.DebeziumParser(
                 source_platform="postgres",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.oracle.OracleConnector":
-            # https://debezium.io/documentation/reference/connectors/oracle.html#oracle-topic-names
             parser = self.DebeziumParser(
                 source_platform="oracle",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.sqlserver.SqlServerConnector":
-            # https://debezium.io/documentation/reference/connectors/sqlserver.html#sqlserver-topic-names
             parser = self.DebeziumParser(
                 source_platform="mssql",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.db2.Db2Connector":
-            # https://debezium.io/documentation/reference/connectors/db2.html#db2-topic-names
             parser = self.DebeziumParser(
                 source_platform="db2",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("database.dbname"),
             )
         elif connector_class == "io.debezium.connector.vitess.VitessConnector":
-            # https://debezium.io/documentation/reference/connectors/vitess.html#vitess-topic-names
             parser = self.DebeziumParser(
                 source_platform="vitess",
-                server_name=connector_manifest.config.get("database.server.name"),
+                server_name=self.get_server_name(connector_manifest),
                 database_name=connector_manifest.config.get("vitess.keyspace"),
             )
         else:
@@ -825,19 +898,6 @@ def transform_connector_config(
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class KafkaConnectSource(Source):
-    """
-    This plugin extracts the following:
-
-    - Kafka Connect connector as individual `DataFlowSnapshotClass` entity
-    - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
-    - Lineage information between source database to Kafka topic
-
-    Current limitations:
-
-    - works only for
-        - JDBC and Debezium source connectors
-        - BigQuery sink connector
-    """
 
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -874,7 +934,6 @@ class KafkaConnectSource(Source):
 
     def get_connectors_manifest(self) -> List[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API.
-
         Enrich with lineages metadata.
         """
         connectors_manifest = list()
@@ -907,7 +966,6 @@ class KafkaConnectSource(Source):
 
             # Populate Source Connector metadata
             if connector_manifest.type == "source":
-
                 tasks = self.session.get(
                     f"{self.config.connect_uri}/connectors/{c}/tasks",
                 ).json()
@@ -923,19 +981,41 @@ class KafkaConnectSource(Source):
                         config=self.config,
                         report=self.report,
                     ).connector_manifest
+                elif connector_manifest.config.get("connector.class", "").startswith(
+                    "io.debezium.connector"
+                ):
+                    connector_manifest = DebeziumSourceConnector(
+                        connector_manifest=connector_manifest, config=self.config
+                    ).connector_manifest
+                elif (
+                    connector_manifest.config.get("connector.class", "")
+                    == "com.mongodb.kafka.connect.MongoSourceConnector"
+                ):
+                    connector_manifest = MongoSourceConnector(
+                        connector_manifest=connector_manifest, config=self.config
+                    ).connector_manifest
                 else:
-                    # Debezium Source Connector lineages
-                    try:
-                        connector_manifest = DebeziumSourceConnector(
-                            connector_manifest=connector_manifest, config=self.config
-                        ).connector_manifest
-
-                    except ValueError as err:
+                    # Find the target connector object in the list, or log an error if unknown.
+                    target_connector = None
+                    for connector in self.config.generic_connectors:
+                        if connector.connector_name == connector_manifest.name:
+                            target_connector = connector
+                            break
+                    if not target_connector:
                         logger.warning(
-                            f"Skipping connector {connector_manifest.name} due to error: {err}"
+                            f"Detected undefined connector {connector_manifest.name}, which is not in the customized connector list. Please refer to Kafka Connect ingestion recipe to define this customized connector."
                         )
-                        self.report.report_failure(connector_manifest.name, str(err))
                         continue
+
+                    for topic in topics:
+                        lineage = KafkaConnectLineage(
+                            source_dataset=target_connector.source_dataset,
+                            source_platform=target_connector.source_platform,
+                            target_dataset=topic,
+                            target_platform="kafka",
+                        )
+
+                    connector_manifest.lineages.append(lineage)
 
             if connector_manifest.type == "sink":
                 if connector_manifest.config.get("connector.class").__eq__(
@@ -968,10 +1048,7 @@ class KafkaConnectSource(Source):
         )
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataFlow",
             entityUrn=flow_urn,
-            changeType=models.ChangeTypeClass.UPSERT,
-            aspectName="dataFlowInfo",
             aspect=models.DataFlowInfoClass(
                 name=connector_name,
                 description=f"{connector_type.capitalize()} connector using `{connector_class}` plugin.",
@@ -990,7 +1067,6 @@ class KafkaConnectSource(Source):
     def construct_job_workunits(
         self, connector: ConnectorManifest
     ) -> Iterable[MetadataWorkUnit]:
-
         connector_name = connector.name
         flow_urn = builder.make_data_flow_urn(
             "kafka-connect", connector_name, self.config.env
@@ -1044,10 +1120,7 @@ class KafkaConnectSource(Source):
                 ]
 
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataJob",
                     entityUrn=job_urn,
-                    changeType=models.ChangeTypeClass.UPSERT,
-                    aspectName="dataJobInfo",
                     aspect=models.DataJobInfoClass(
                         name=f"{connector_name}:{job_id}",
                         type="COMMAND",
@@ -1065,10 +1138,7 @@ class KafkaConnectSource(Source):
                 yield wu
 
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataJob",
                     entityUrn=job_urn,
-                    changeType=models.ChangeTypeClass.UPSERT,
-                    aspectName="dataJobInputOutput",
                     aspect=models.DataJobInputOutputClass(
                         inputDatasets=inlets,
                         outputDatasets=outlets,
@@ -1085,7 +1155,6 @@ class KafkaConnectSource(Source):
     def construct_lineage_workunits(
         self, connector: ConnectorManifest
     ) -> Iterable[MetadataWorkUnit]:
-
         lineages = connector.lineages
         if lineages:
             for lineage in lineages:
@@ -1105,15 +1174,12 @@ class KafkaConnectSource(Source):
                 )
 
                 mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
                     entityUrn=builder.make_dataset_urn_with_platform_instance(
                         target_platform,
                         target_dataset,
                         platform_instance=target_platform_instance,
                         env=self.config.env,
                     ),
-                    changeType=models.ChangeTypeClass.UPSERT,
-                    aspectName="dataPlatformInstance",
                     aspect=models.DataPlatformInstanceClass(
                         platform=builder.make_data_platform_urn(target_platform),
                         instance=builder.make_dataplatform_instance_urn(
@@ -1129,15 +1195,12 @@ class KafkaConnectSource(Source):
                 yield wu
                 if source_dataset:
                     mcp = MetadataChangeProposalWrapper(
-                        entityType="dataset",
                         entityUrn=builder.make_dataset_urn_with_platform_instance(
                             source_platform,
                             source_dataset,
                             platform_instance=source_platform_instance,
                             env=self.config.env,
                         ),
-                        changeType=models.ChangeTypeClass.UPSERT,
-                        aspectName="dataPlatformInstance",
                         aspect=models.DataPlatformInstanceClass(
                             platform=builder.make_data_platform_urn(source_platform),
                             instance=builder.make_dataplatform_instance_urn(

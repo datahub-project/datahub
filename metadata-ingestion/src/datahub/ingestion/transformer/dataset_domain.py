@@ -49,6 +49,13 @@ class AddDatasetDomain(DatasetDomainTransformer):
         return cls(config, ctx)
 
     @staticmethod
+    def raise_ctx_configuration_error(ctx: PipelineContext) -> None:
+        if ctx.graph is None:
+            raise ConfigurationError(
+                "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
+            )
+
+    @staticmethod
     def get_domain_class(
         graph: Optional[DataHubGraph], domains: List[str]
     ) -> DomainsClass:
@@ -61,7 +68,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
         return domain_class
 
     @staticmethod
-    def get_domains_to_set(
+    def _merge_with_server_domains(
         graph: DataHubGraph, urn: str, mce_domain: Optional[DomainsClass]
     ) -> Optional[DomainsClass]:
         if not mce_domain or not mce_domain.domains:
@@ -76,7 +83,8 @@ class AddDatasetDomain(DatasetDomainTransformer):
             for domain in mce_domain.domains:
                 if domain not in server_domain.domains:
                     domains_to_add.append(domain)
-
+            # Lets patch
+            mce_domain.domains = []
             mce_domain.domains.extend(server_domain.domains)
             mce_domain.domains.extend(domains_to_add)
 
@@ -85,11 +93,11 @@ class AddDatasetDomain(DatasetDomainTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-
-        domain_aspect: DomainsClass = DomainsClass(domains=[])
+        in_domain_aspect: DomainsClass = cast(DomainsClass, aspect)
+        domain_aspect = DomainsClass(domains=[])
         # Check if we have received existing aspect
-        if aspect is not None:
-            domain_aspect.domains.extend(cast(DomainsClass, aspect).domains)
+        if in_domain_aspect is not None and self.config.replace_existing is False:
+            domain_aspect.domains.extend(in_domain_aspect.domains)
 
         domain_to_add = self.config.get_domains_to_add(entity_urn)
 
@@ -99,15 +107,10 @@ class AddDatasetDomain(DatasetDomainTransformer):
             assert self.ctx.graph
             patch_domain_aspect: Optional[
                 DomainsClass
-            ] = AddDatasetDomain.get_domains_to_set(
+            ] = AddDatasetDomain._merge_with_server_domains(
                 self.ctx.graph, entity_urn, domain_aspect
             )
-            # This will pass the mypy lint
-            domain_aspect = (
-                patch_domain_aspect
-                if patch_domain_aspect is not None
-                else domain_aspect
-            )
+            return cast(Optional[Aspect], patch_domain_aspect)
 
         return cast(Optional[Aspect], domain_aspect)
 
@@ -118,15 +121,12 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
     def __init__(
         self, config: SimpleDatasetDomainSemanticsConfig, ctx: PipelineContext
     ):
-        if ctx.graph is None:
-            raise ConfigurationError(
-                "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
-            )
-
+        AddDatasetDomain.raise_ctx_configuration_error(ctx)
         domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domains)
         generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=lambda _: domains,
             semantics=config.semantics,
+            replace_existing=config.replace_existing,
         )
         super().__init__(generic_config, ctx)
 
@@ -144,10 +144,7 @@ class PatternAddDatasetDomain(AddDatasetDomain):
     def __init__(
         self, config: PatternDatasetDomainSemanticsConfig, ctx: PipelineContext
     ):
-        if ctx.graph is None:
-            raise ConfigurationError(
-                "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
-            )
+        AddDatasetDomain.raise_ctx_configuration_error(ctx)
 
         domain_pattern = config.domain_pattern
 
@@ -158,6 +155,7 @@ class PatternAddDatasetDomain(AddDatasetDomain):
         generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=resolve_domain,
             semantics=config.semantics,
+            replace_existing=config.replace_existing,
         )
         super().__init__(generic_config, ctx)
 

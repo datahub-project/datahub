@@ -165,19 +165,39 @@ type Query {
     entityExists(urn: String!): Boolean
 
     """
-    Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
-    """
-    getNativeUserInviteToken: InviteToken
-
-    """
     Gets an entity based on its urn
     """
     entity(urn: String!): Entity
 
     """
+    Gets entities based on their urns
+    """
+    entities(urns: [String!]!): [Entity]
+
+    """
     List all DataHub Roles
     """
     listRoles(input: ListRolesInput!): ListRolesResult
+
+    """
+    Get invite token
+    """
+    getInviteToken(input: GetInviteTokenInput!): InviteToken
+
+    """
+    List all Posts
+    """
+    listPosts(input: ListPostsInput!): ListPostsResult
+
+    """
+    List DataHub Views owned by the current user
+    """
+    listMyViews(input: ListMyViewsInput!): ListViewsResult
+
+    """
+    List Global DataHub Views
+    """
+    listGlobalViews(input: ListGlobalViewsInput!): ListViewsResult
 }
 
 """
@@ -485,11 +505,6 @@ type Mutation {
     removeRelatedTerms(input: RelatedTermsInput!): Boolean
 
     """
-    Generates an invite token that can be shared with prospective users to create their accounts.
-    """
-    createNativeUserInviteToken: InviteToken
-
-    """
     Generates a token that can be shared with existing native users to reset their credentials.
     """
     createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
@@ -500,6 +515,11 @@ type Mutation {
     batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
 
     """
+    Update the View-related settings for a user.
+    """
+    updateCorpUserViewsSettings(input: UpdateCorpUserViewsSettingsInput!): Boolean
+
+    """
     Update a user setting
     """
     updateUserSetting(input: UpdateUserSettingInput!): Boolean
@@ -508,6 +528,59 @@ type Mutation {
     Batch assign roles to users
     """
     batchAssignRole(input: BatchAssignRoleInput!): Boolean
+
+    """
+    Accept role using invite token
+    """
+    acceptRole(input: AcceptRoleInput!): Boolean
+
+    """
+    Create invite token
+    """
+    createInviteToken(input: CreateInviteTokenInput!): InviteToken
+
+    """
+    Create a post
+    """
+    createPost(input: CreatePostInput!): Boolean
+
+    """
+    Delete a post
+    """
+    deletePost(urn: String!): Boolean
+
+    """
+    Create a new DataHub View (Saved Filter)
+    """
+    createView(
+      "Input required to create a new DataHub View"
+      input: CreateViewInput!): DataHubView
+
+    """
+    Delete a DataHub View (Saved Filter)
+    """
+    updateView(
+      "The urn of the View to update"
+      urn: String!,
+      "Input required to updat an existing DataHub View"
+      input: UpdateViewInput!): DataHubView
+
+    """
+    Delete a DataHub View (Saved Filter)
+    """
+    deleteView(
+      "The urn of the View to delete"
+      urn: String!): Boolean
+
+    """
+    Update lineage for an entity
+    """
+    updateLineage(input: UpdateLineageInput!): Boolean
+
+    """
+    Update the Embed information for a Dataset, Dashboard, or Chart.
+    """
+    updateEmbed(input: UpdateEmbedInput!): Boolean
 }
 
 """
@@ -683,6 +756,21 @@ enum EntityType {
     A DataHub Role
     """
     DATAHUB_ROLE
+
+    """
+    A DataHub Post
+    """
+    POST
+
+    """
+    A Schema Field
+    """
+    SCHEMA_FIELD
+
+    """
+    A DataHub View
+    """
+    DATAHUB_VIEW
 }
 
 """
@@ -715,6 +803,14 @@ input LineageInput {
     Optional flag to not merge siblings in the response. They are merged by default.
     """
     separateSiblings: Boolean
+    """
+    An optional starting time to filter on
+    """
+    startTimeMillis: Long
+    """
+    An optional ending time to filter on
+    """
+    endTimeMillis: Long
 }
 
 """
@@ -836,6 +932,32 @@ type LineageRelationship {
     Degree of relationship (number of hops to get to entity)
     """
     degree: Int!
+
+    """
+    Timestamp for when this lineage relationship was created. Could be null.
+    """
+    createdOn: Long
+
+    """
+    The actor who created this lineage relationship. Could be null.
+    """
+    createdActor: Entity
+
+    """
+    Timestamp for when this lineage relationship was last updated. Could be null.
+    """
+    updatedOn: Long
+
+    """
+    The actor who last updated this lineage relationship. Could be null.
+    """
+    updatedActor: Entity
+
+    """
+    Whether this edge is a manual edge. Could be null.
+    """
+    isManual: Boolean
+
 }
 
 """
@@ -994,6 +1116,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     status: Status
 
     """
+    Embed information about the Dataset
+    """
+    embed: Embed
+
+    """
     Tags used for searching dataset
     """
     tags: GlobalTags
@@ -1128,6 +1255,26 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Metadata about the datasets siblings
     """
     siblings: SiblingProperties
+
+    """
+    fine grained lineage
+    """
+    fineGrainedLineages: [FineGrainedLineage!]
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+}
+
+type FineGrainedLineage {
+    upstreams: [SchemaFieldRef!]
+    downstreams: [SchemaFieldRef!]
 }
 
 """
@@ -1393,6 +1540,32 @@ type DatasetProperties {
 
 
 """
+Additional read only properties about a DataPlatformInstance
+"""
+type DataPlatformInstanceProperties {
+
+    """
+    The name of the data platform instance used in display
+    """
+    name: String
+
+    """
+    Read only technical description for the data platform instance
+    """
+    description: String
+
+    """
+    Custom properties of the data platform instance
+    """
+    customProperties: [CustomPropertiesEntry!]
+
+    """
+    External URL associated with the data platform instance
+    """
+    externalUrl: String
+}
+
+"""
 A Glossary Term, or a node in a Business Glossary representing a standardized domain
 data type
 """
@@ -1408,6 +1581,11 @@ type GlossaryTerm implements Entity {
     ownership: Ownership
 
     """
+    The Domain associated with the glossary term
+    """
+    domain: DomainAssociation
+
+    """
     References to internal resources related to the Glossary Term
     """
     institutionalMemory: InstitutionalMemory
@@ -1418,7 +1596,7 @@ type GlossaryTerm implements Entity {
     type: EntityType!
 
     """
-    Name / id of the glossary term
+    A unique identifier for the Glossary Term. Deprecated - Use properties.name field instead.
     """
     name: String! @deprecated
 
@@ -1457,6 +1635,16 @@ type GlossaryTerm implements Entity {
     Recursively get the lineage of glossary nodes for this entity
     """
     parentNodes: ParentNodesResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -1584,6 +1772,16 @@ type GlossaryNode implements Entity {
     Recursively get the lineage of glossary nodes for this entity
     """
     parentNodes: ParentNodesResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -1691,6 +1889,36 @@ type DataPlatformInstance implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Additional read only properties associated with a data platform instance
+    """
+    properties: DataPlatformInstanceProperties
+
+    """
+    Ownership metadata of the data platform instance
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the data platform instance
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Tags used for searching the data platform instance
+    """
+    tags: GlobalTags
+
+    """
+    The deprecation status of the data platform instance
+    """
+    deprecation: Deprecation
+
+    """
+    Status metadata of the container
+    """
+    status: Status
 }
 
 """
@@ -1944,6 +2172,16 @@ type Container implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Status metadata of the container
+    """
+    status: Status
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -1969,6 +2207,11 @@ type ContainerProperties {
   Native platform URL of the Container
   """
   externalUrl: String
+
+  """
+  Fully-qualified name of the Container
+  """
+  qualifiedName: String
 }
 
 """
@@ -2288,11 +2531,16 @@ type KeyValueSchema {
 Standalone schema field entity. Differs from the SchemaField struct because it is not directly nested inside a
 schema field
 """
-type SchemaFieldEntity {
+type SchemaFieldEntity implements Entity {
     """
     Primary key of the schema field
     """
     urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
 
     """
     Field path identifying the field in its dataset
@@ -2300,9 +2548,14 @@ type SchemaFieldEntity {
     fieldPath: String!
 
     """
-    The primary key of the field's parent.
+    The field's parent.
     """
-    parent: String!
+    parent: Entity!
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
@@ -2916,6 +3169,11 @@ type CorpUserSettings {
     Settings that control look and feel of the DataHub UI for the user
     """
     appearance: CorpUserAppearanceSettings
+
+    """
+    Settings related to the DataHub Views feature
+    """
+    views: CorpUserViewsSettings
 }
 
 """
@@ -2927,6 +3185,16 @@ type CorpUserAppearanceSettings {
     who have less operational use cases for the datahub tool.
     """
     showSimplifiedHomepage: Boolean
+}
+
+"""
+Settings related to the Views feature of DataHub.
+"""
+type CorpUserViewsSettings {
+    """
+    The default view for the User.
+    """
+    defaultView: DataHubView
 }
 
 """
@@ -2988,6 +3256,11 @@ type CorpUserInfo {
     two uppercase letters country code
     """
     countryCode: String
+
+    """
+    Custom properties of the ldap
+    """
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -3048,6 +3321,11 @@ type CorpUserProperties {
     two uppercase letters country code
     """
     countryCode: String
+
+    """
+    Custom properties of the ldap
+    """
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -3403,7 +3681,7 @@ type Tag implements Entity {
     type: EntityType!
 
     """
-    The name / id of the tag. Use properties.name instead.
+    A unique identifier for the Tag. Deprecated - Use properties.name field instead.
     """
     name: String! @deprecated
 
@@ -4047,6 +4325,11 @@ type Notebook implements Entity & BrowsableEntity {
     The browse paths corresponding to the Notebook. If no Browse Paths have been generated before, this will be null.
     """
     browsePaths: [BrowsePath!]
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4261,6 +4544,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     status: Status
 
     """
+    Embed information about the Dashboard
+    """
+    embed: Embed
+
+    """
     The deprecation status of the dashboard
     """
     deprecation: Deprecation
@@ -4342,6 +4630,21 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Input fields that power all the charts in the dashboard
     """
     inputFields: InputFields
+
+    """
+    Sub Types of the dashboard
+    """
+    subTypes: SubTypes
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4554,6 +4857,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     deprecation: Deprecation
 
     """
+    Embed information about the Chart
+    """
+    embed: Embed
+
+    """
     The tags associated with the chart
     """
     tags: GlobalTags
@@ -4627,6 +4935,16 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Input fields to power the chart
     """
     inputFields: InputFields
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4974,6 +5292,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the datflow is defined
     """
     platform: DataPlatform!
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5156,6 +5479,16 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     History of runs of this task
     """
     runs(start: Int, count: Int): DataProcessInstanceResult
+
+    """
+    Privileges given to a user relevant to this entity
+    """
+    privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5795,6 +6128,11 @@ type DatasetProfile implements TimeSeriesAspect {
   An optional column count of the Dataset
   """
   columnCount: Long
+
+  """
+  The storage size in bytes
+  """
+  sizeInBytes: Long
 
   """
   An optional set of per field statistics obtained in the profile
@@ -7056,9 +7394,9 @@ Input for updating the parent node of a resource. Currently only GlossaryNodes a
 """
 input UpdateParentNodeInput {
     """
-    The new parent node urn
+    The new parent node urn. If parentNode is null, this will remove the parent from this entity
     """
-    parentNode: String!
+    parentNode: String
 
     """
     The primary key of the resource to update the parent node for
@@ -7993,6 +8331,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     An additional set of of read write properties
     """
     editableProperties: MLModelEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -8046,7 +8389,7 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     ownership: Ownership
 
     """
-    Status metadata of the MLFeature
+    Status metadata of the MLModelGroup
     """
     status: Status
 
@@ -8094,6 +8437,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     An additional set of of read write properties
     """
     editableProperties: MLModelGroupEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLModelGroupProperties {
@@ -8208,6 +8556,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     An additional set of of read write properties
     """
     editableProperties: MLFeatureEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLHyperParam {
@@ -8253,6 +8606,8 @@ type MLModelProperties {
     groups: [MLModelGroup]
 
     customProperties: [CustomPropertiesEntry!]
+
+    externalUrl: String
 }
 
 type MLFeatureProperties {
@@ -8370,6 +8725,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     An additional set of of read write properties
     """
     editableProperties: MLPrimaryKeyEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLPrimaryKeyProperties {
@@ -8487,6 +8847,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     An additional set of of read write properties
     """
     editableProperties: MLFeatureTableEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLFeatureTableEditableProperties {
@@ -9218,13 +9583,15 @@ type InputField {
     schemaField: SchemaField
 }
 
+"""
+An individual setting type for a Corp User.
+"""
 enum UserSetting {
     """
     Show simplified homepage
     """
     SHOW_SIMPLIFIED_HOMEPAGE
 }
-
 
 """
 Input for updating a user setting
@@ -9246,9 +9613,9 @@ Input provided when batch assigning a role to a list of users
 """
 input BatchAssignRoleInput {
     """
-    The urn of the role to assign to the actors
+    The urn of the role to assign to the actors. If undefined, will remove the role.
     """
-    roleUrn: String!
+    roleUrn: String
 
     """
     The urns of the actors to assign the role to
@@ -9329,4 +9696,535 @@ type DataHubRole implements Entity {
     The description of the Role
     """
     description: String!
+}
+
+"""
+Input provided when getting an invite token
+"""
+input GetInviteTokenInput {
+    """
+    The urn of the role to get the invite token for
+    """
+    roleUrn: String
+}
+
+"""
+Input provided when creating an invite token
+"""
+input CreateInviteTokenInput {
+    """
+    The urn of the role to create the invite token for
+    """
+    roleUrn: String
+}
+
+"""
+Input provided when accepting a DataHub role using an invite token
+"""
+input AcceptRoleInput {
+    """
+    The token needed to accept the role
+    """
+    inviteToken: String!
+}
+
+"""
+The type of post
+"""
+enum PostType {
+    """
+    Posts on the home page
+    """
+    HOME_PAGE_ANNOUNCEMENT,
+}
+
+"""
+The type of post
+"""
+enum PostContentType {
+    """
+    Text content
+    """
+    TEXT,
+
+    """
+    Link content
+    """
+    LINK
+}
+
+"""
+The type of media
+"""
+enum MediaType {
+    """
+    An image
+    """
+    IMAGE
+}
+
+"""
+Input provided when creating a Post
+"""
+input CreatePostInput {
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: UpdatePostContentInput!
+}
+
+"""
+Input provided for filling in a post content
+"""
+input UpdatePostContentInput {
+    """
+    The type of post content
+    """
+    contentType: PostContentType!
+
+    """
+    The title of the post
+    """
+    title: String!
+
+    """
+    Optional content of the post
+    """
+    description: String
+
+    """
+    Optional link that the post is associated with
+    """
+    link: String
+
+    """
+    Optional media contained in the post
+    """
+    media: UpdateMediaInput
+}
+
+"""
+Input provided for filling in a post content
+"""
+input UpdateMediaInput {
+    """
+    The type of media
+    """
+    type: MediaType!
+
+    """
+    The location of the media (a URL)
+    """
+    location: String!
+}
+
+"""
+Input provided when listing existing posts
+"""
+input ListPostsInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Roles to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+
+"""
+The result obtained when listing Posts
+"""
+type ListPostsResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Roles in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Roles in the result set
+    """
+    total: Int!
+
+    """
+    The Posts themselves
+    """
+    posts: [Post!]!
+}
+
+"""
+Input provided when creating a Post
+"""
+type Post implements Entity {
+    """
+    The primary key of the Post
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Granular API for querying edges extending from the Post
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    The type of post
+    """
+    postType: PostType!
+
+    """
+    The content of the post
+    """
+    content: PostContent!
+
+    """
+    When the post was last modified
+    """
+    lastModified: AuditStamp!
+}
+
+"""
+Post content
+"""
+type PostContent {
+    """
+    The type of post content
+    """
+    contentType: PostContentType!
+
+    """
+    The title of the post
+    """
+    title: String!
+
+    """
+    Optional content of the post
+    """
+    description: String
+
+    """
+    Optional link that the post is associated with
+    """
+    link: String
+
+    """
+    Optional media contained in the post
+    """
+    media: Media
+}
+
+"""
+Media content
+"""
+type Media {
+    """
+    The type of media
+    """
+    type: MediaType!
+
+    """
+    The location of the media (a URL)
+    """
+    location: String!
+}
+
+"""
+The type of a DataHub View
+"""
+enum DataHubViewType {
+  """
+  A personal view - e.g. saved filters
+  """
+  PERSONAL
+
+  """
+  A global view, e.g. role view
+  """
+  GLOBAL
+}
+
+"""
+An DataHub View - Filters that are applied across the application automatically.
+"""
+type DataHubView implements Entity {
+  """
+  The primary key of the View
+  """
+  urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The type of the View
+  """
+  viewType: DataHubViewType!
+
+  """
+  The name of the View
+  """
+  name: String!
+
+  """
+  The description of the View
+  """
+  description: String
+
+  """
+  The definition of the View
+  """
+  definition: DataHubViewDefinition!
+
+  """
+  Granular API for querying edges extending from the View
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+An DataHub View Definition
+"""
+type DataHubViewDefinition {
+  """
+  A set of filters to apply. If left empty, then ALL entity types are in scope.
+  """
+  entityTypes: [EntityType!]!
+
+  """
+  A set of filters to apply. If left empty, then no filters will be applied.
+  """
+  filter: DataHubViewFilter!
+}
+
+"""
+A Logical Operator, AND or OR.
+"""
+enum LogicalOperator {
+  """
+  An AND operator.
+  """
+  AND
+
+  """
+  An OR operator.
+  """
+  OR
+}
+
+"""
+A DataHub View Filter. Note that
+"""
+type DataHubViewFilter {
+  """
+  The operator used to combine the filters.
+  """
+  operator: LogicalOperator!
+
+  """
+  A set of filters combined using the operator. If left empty, then no filters will be applied.
+  """
+  filters: [FacetFilter!]!
+}
+
+"""
+Input provided when listing DataHub Views
+"""
+input ListMyViewsInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Views to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+
+    """
+    Optional - List the type of View to filter for.
+    """
+    viewType: DataHubViewType
+}
+
+"""
+Input provided when listing DataHub Global Views
+"""
+input ListGlobalViewsInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Views to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+
+"""
+The result obtained when listing DataHub Views
+"""
+type ListViewsResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Views in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Views in the result set
+    """
+    total: Int!
+
+    """
+    The Views themselves
+    """
+    views: [DataHubView!]!
+}
+
+"""
+Input provided when creating a DataHub View
+"""
+input CreateViewInput {
+    """
+    The type of View
+    """
+    viewType: DataHubViewType!
+
+    """
+    The name of the View
+    """
+    name: String!
+
+    """
+    An optional description of the View
+    """
+    description: String
+
+    """
+    The view definition itself
+    """
+    definition: DataHubViewDefinitionInput!
+}
+
+"""
+Input required for creating a DataHub View Definition
+"""
+input DataHubViewDefinitionInput {
+  """
+  A set of entity types that the view applies for. If left empty, then ALL entities will be in scope.
+  """
+  entityTypes: [EntityType!]!
+
+  """
+  A set of filters to apply.
+  """
+  filter: DataHubViewFilterInput!
+}
+
+"""
+Input required for creating a DataHub View Definition
+"""
+input DataHubViewFilterInput {
+  """
+  The operator used to combine the filters.
+  """
+  operator: LogicalOperator!
+
+  """
+  A set of filters combined via an operator. If left empty, then no filters will be applied.
+  """
+  filters: [FacetFilterInput!]!
+}
+
+"""
+Input provided when updating a DataHub View
+"""
+input UpdateViewInput {
+    """
+    The name of the View
+    """
+    name: String
+
+    """
+    An optional description of the View
+    """
+    description: String
+
+    """
+    The view definition itself
+    """
+    definition: DataHubViewDefinitionInput
+}
+
+"""
+Input required to update a users settings.
+"""
+input UpdateCorpUserViewsSettingsInput {
+  """
+  The URN of the View that serves as this user's personal default.
+  If not provided, any existing default view will be removed.
+  """
+  defaultView: String
+}
+
+"""
+Information required to render an embedded version of an asset
+"""
+type Embed {
+    """
+    A URL which can be rendered inside of an iframe.
+    """
+    renderUrl: String
+}
+
+"""
+Input required to set or clear information related to rendering a Data Asset inside of DataHub.
+"""
+input UpdateEmbedInput {
+  """
+  The URN associated with the Data Asset to update. Only dataset, dashboard, and chart urns are currently supported.
+  """
+  urn: String!
+
+  """
+  Set or clear a URL used to render an embedded asset.
+  """
+  renderUrl: String
 }

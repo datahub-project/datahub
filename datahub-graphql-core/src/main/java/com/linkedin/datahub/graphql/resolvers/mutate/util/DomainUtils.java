@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 
+// TODO: Move to consuming from DomainService.
 @Slf4j
 public class DomainUtils {
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
@@ -87,7 +88,7 @@ public class DomainUtils {
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor));
+      entityService.ingestProposal(change, getAuditStamp(actor), false);
     }
   }
 }

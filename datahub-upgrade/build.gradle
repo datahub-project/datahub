@@ -1,6 +1,14 @@
 plugins {
   id 'org.springframework.boot'
   id 'java'
+  id 'com.palantir.docker'
+}
+
+apply from: "../gradle/versioning/versioning.gradle"
+
+ext {
+  docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
+  docker_repo = 'datahub-upgrade'
 }
 
 dependencies {
@@ -14,9 +22,18 @@ dependencies {
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
     exclude group: "org.apache.htrace", module: "htrace-core4"
   }
-  compile externalDependency.lombok
+
+  constraints {
+    implementation(externalDependency.hadoopCommon3) {
+      because("previous versions are vulnerable to CVE-2021-37404")
+    }
+  }
+
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   compile externalDependency.picocli
   compile externalDependency.parquet
+  implementation externalDependency.protobuf
   compile externalDependency.springBeans
   compile externalDependency.springBootAutoconfigure
   compile externalDependency.springCore
@@ -27,10 +44,41 @@ dependencies {
   runtime externalDependency.mysqlConnector
   runtime externalDependency.postgresql
 
+  implementation externalDependency.awsMskIamAuth
+
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
+
+  testImplementation externalDependency.springBootTest
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
 }
 
 bootJar {
   mainClassName = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
+  archiveFileName = "${project.name}.jar"
 }
+
+docker {
+  name "${docker_registry}/${docker_repo}:v${version}"
+  version "v${version}"
+  dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+  files bootJar.outputs.files
+  files fileTree(rootProject.projectDir) {
+    include "docker/${docker_repo}/*"
+    include 'metadata-models/src/main/resources/*'
+  }
+
+  // platform('linux/arm64', 'linux/amd64')
+  buildx(true)
+  load(true)
+  push(false)
+}
+tasks.getByName("docker").dependsOn([bootJar])
+
+task cleanLocalDockerImages {
+  doLast {
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+  }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

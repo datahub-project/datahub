@@ -1,0 +1,33 @@
+apply plugin: 'java'
+
+dependencies {
+
+  implementation 'org.apache.commons:commons-lang3:3.12.0'
+  implementation project(path: ':metadata-auth:auth-api')
+  implementation externalDependency.guava
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.jacksonDataFormatYaml
+  implementation externalDependency.jacksonJDK8
+  implementation externalDependency.jacksonDataPropertyFormat
+  implementation externalDependency.logbackClassic;
+  implementation externalDependency.slf4jApi
+  
+  compileOnly externalDependency.lombok
+
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
+  annotationProcessor externalDependency.lombok
+}
+
+test {
+  // Build sample plugin to unit test IsolatedClassLoader
+  dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:build'
+  // Set system properties for permission management
+  systemProperty 'datahub.gms.home', file("$projectDir").absolutePath
+  systemProperty 'java.security.policy', file("../war/src/main/resources/security.policy").absolutePath
+  systemProperty 'datahub.project.root.dir', "$rootDir" // used in security.policy
+}
+
+clean {
+  dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:clean'
+}

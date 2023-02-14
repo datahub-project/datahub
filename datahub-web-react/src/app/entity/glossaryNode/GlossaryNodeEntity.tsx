@@ -6,7 +6,7 @@ import GlossaryEntitiesPath from '../../glossary/GlossaryEntitiesPath';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -80,15 +80,11 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                     },
                     {
                         component: SidebarOwnerSection,
-                        properties: {
-                            hideOwnerType: true,
-                        },
                     },
                 ]}
                 customNavBar={<GlossaryEntitiesPath />}
                 headerDropdownItems={
                     new Set([
-                        EntityMenuItems.COPY_URL,
                         EntityMenuItems.ADD_TERM_GROUP,
                         EntityMenuItems.ADD_TERM,
                         EntityMenuItems.MOVE,
@@ -114,7 +110,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     };
 
     renderPreview = (_: PreviewType, data: GlossaryNode) => {
-        console.log(data);
         return (
             <Preview
                 urn={data?.urn}

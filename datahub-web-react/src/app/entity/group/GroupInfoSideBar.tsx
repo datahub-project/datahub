@@ -1,10 +1,11 @@
 import { Divider, message, Space, Button, Typography, Row, Col, Tooltip } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
 import { useHistory, useRouteMatch } from 'react-router-dom';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
 import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
+import { useUpdateNameMutation } from '../../../graphql/mutations.generated';
 
 import GroupEditModal from './GroupEditModal';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
@@ -20,6 +21,7 @@ import {
     GroupsSection,
 } from '../shared/SidebarStyledComponents';
 import GroupMembersSideBarSection from './GroupMembersSideBarSection';
+import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const { Paragraph } = Typography;
 
@@ -34,7 +36,7 @@ type SideBarData = {
     groupOwnerShip: Ownership;
     isExternalGroup: boolean;
     externalGroupType: string | undefined;
-    urn: string | undefined;
+    urn: string;
 };
 
 type Props = {
@@ -61,10 +63,21 @@ const GroupNameHeader = styled(Row)`
     min-height: 100px;
 `;
 
-const GroupName = styled.div`
+const GroupTitle = styled(Typography.Title)`
     max-width: 260px;
     word-wrap: break-word;
     width: 140px;
+
+    &&& {
+        margin-bottom: 0;
+        word-break: break-all;
+        margin-left: 10px;
+    }
+
+    .ant-typography-edit {
+        font-size: 16px;
+        margin-left: 10px;
+    }
 `;
 
 /**
@@ -90,7 +103,31 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
 
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editGroupModal, showEditGroupModal] = useState(false);
-    const canEditGroup = true; // TODO; Replace this will fine-grained understanding of user permissions.
+    const me = useGetAuthenticatedUser();
+    const canEditGroup = me?.platformPrivileges.manageIdentities;
+    const [groupTitle, setGroupTitle] = useState(name);
+    const [updateName] = useUpdateNameMutation();
+
+    useEffect(() => {
+        setGroupTitle(groupTitle);
+    }, [groupTitle]);
+
+    // Update Group Title
+    // eslint-disable-next-line @typescript-eslint/no-shadow
+    const handleTitleUpdate = async (name: string) => {
+        setGroupTitle(name);
+        await updateName({ variables: { input: { name, urn } } })
+            .then(() => {
+                message.success({ content: 'Name Updated', duration: 2 });
+                refetch();
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({ content: `Failed to update name: \n ${e.message || ''}`, duration: 3 });
+                }
+            });
+    };
 
     const getEditModalData = {
         urn,
@@ -135,7 +172,9 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                             />
                         </Col>
                         <Col>
-                            <GroupName>{name}</GroupName>
+                            <GroupTitle level={3} editable={canEditGroup ? { onChange: handleTitleUpdate } : false}>
+                                {groupTitle}
+                            </GroupTitle>
                         </Col>
                         <Col>
                             {isExternalGroup && (

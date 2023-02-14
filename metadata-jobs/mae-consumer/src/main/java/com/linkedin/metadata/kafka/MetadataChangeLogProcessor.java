@@ -81,6 +81,9 @@ public class MetadataChangeLogProcessor {
 
     // Here - plug in additional "custom processor hooks"
     for (MetadataChangeLogHook hook : this.hooks) {
+      if (!hook.isEnabled()) {
+        continue;
+      }
       try (Timer.Context ignored = MetricUtils.timer(this.getClass(), hook.getClass().getSimpleName() + "_latency")
           .time()) {
         hook.invoke(event);

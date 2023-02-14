@@ -10,7 +10,7 @@ import { GenericEntityProperties } from '../shared/types';
 import MLModelSummary from './profile/MLModelSummary';
 import MLModelGroupsTab from './profile/MLModelGroupsTab';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -57,8 +57,10 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getCollectionName = () => 'ML Models';
 
-    getOverridePropertiesFromEntity = (_?: MlModel | null): GenericEntityProperties => {
-        return {};
+    getOverridePropertiesFromEntity = (mlModel?: MlModel | null): GenericEntityProperties => {
+        return {
+            externalUrl: mlModel?.properties?.externalUrl,
+        };
     };
 
     renderProfile = (urn: string) => (
@@ -68,7 +70,7 @@ export class MLModelEntity implements Entity<MlModel> {
             entityType={EntityType.Mlmodel}
             useEntityQuery={useGetMlModelQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Summary',

@@ -1,0 +1,60 @@
+/**
+ Applies a consistent versioning scheme to all projects using this script
+  -PreleaseVersion=0.2.3.4 will set the jar version to 0.2.3-4
+
+  Not providing a property will make it use git tags to mint either a version like:
+  0.8.44 or 0.8.44-1 (for clean tags) or 0.8.45-SNAPSHOT (for unclean repositories)
+
+ **/
+
+
+import org.apache.tools.ant.filters.ReplaceTokens
+
+def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
+def snapshotVersion = false
+if (project.hasProperty("releaseVersion")) {
+  version = releaseVersion
+  detailedVersionString = releaseVersion
+} else {
+  try {
+      // apply this plugin in a try-catch block so that we can handle cases without .git directory
+      apply plugin: "com.palantir.git-version"
+      def details = versionDetails()
+      detailedVersionString = gitVersion()
+      version = details.lastTag
+      version = version.startsWith("v")? version.substring(1): version
+      def suffix = details.isCleanTag? "": "-SNAPSHOT"
+      snapshotVersion = ! details.isCleanTag
+    }
+    catch (Exception e) {
+          e.printStackTrace()
+          // last fall back
+          version = detailedVersionString
+      }
+  }
+    // trim version if it is of size 4 to size 3
+    def versionParts = version.tokenize(".")
+    if (versionParts.size() > 3) {
+      // at-least 4 part version
+      // we check if the 4th part is a .0 in which case we want to create a release
+      if ((versionParts.size() == 4) && (versionParts[3] == '0')) {
+        versionParts = versionParts[0..2]
+      }
+      version = versionParts[0..2].join('.')
+      if (versionParts.size() > 3) {
+          version = version + "-" + versionParts[3..versionParts.size()-1].join('-')
+      }
+    }
+
+    if (snapshotVersion) {
+        if (versionParts[versionParts.size()-1].isInteger()) {
+          version = versionParts[0..versionParts.size()-2].join('.') + '.' + (versionParts[versionParts.size()-1].toInteger()+1).toString() + "-SNAPSHOT"
+        } else {
+          // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
+          version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
+      }
+    }
+
+    processResources {
+      filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
+    }

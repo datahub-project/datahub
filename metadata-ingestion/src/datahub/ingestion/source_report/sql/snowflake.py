@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 
 
@@ -12,7 +12,7 @@ class BaseSnowflakeReport(BaseTimeWindowReport):
 
 
 @dataclass
-class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
+class SnowflakeReport(BaseSnowflakeReport, ProfilingSqlReport):
     num_table_to_table_edges_scanned: int = 0
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0

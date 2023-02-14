@@ -149,7 +149,6 @@ def test_DataHubValidationAction_basic(
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
 ) -> None:
-
     server_url = "http://localhost:9999"
 
     datahub_action = DataHubValidationAction(
@@ -252,7 +251,6 @@ def test_DataHubValidationAction_graceful_failure(
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
 ) -> None:
-
     server_url = "http://localhost:9999"
 
     datahub_action = DataHubValidationAction(
@@ -272,7 +270,6 @@ def test_DataHubValidationAction_not_supported(
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
 ) -> None:
-
     server_url = "http://localhost:99199"
 
     datahub_action = DataHubValidationAction(

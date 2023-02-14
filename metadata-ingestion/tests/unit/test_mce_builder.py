@@ -21,3 +21,15 @@ def test_can_add_aspect():
     assert builder.can_add_aspect(dataset_mce, DatasetPropertiesClass)
     assert builder.can_add_aspect(dataset_mce, OwnershipClass)
     assert not builder.can_add_aspect(dataset_mce, DataFlowInfoClass)
+
+
+def test_create_dataset_urn_with_reserved_chars() -> None:
+    assert (
+        builder.make_dataset_urn_with_platform_instance(
+            "platform)",
+            "table_(name)",
+            "platform,instance",
+            builder.DEFAULT_ENV,
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:platform%29,platform%2Cinstance.table_%28name%29,PROD)"
+    )

@@ -175,13 +175,64 @@
         "type" : "array",
         "items" : "ChartDataSourceType"
       },
-      "doc" : "Data sources for the chart",
+      "doc" : "Data sources for the chart\nDeprecated! Use inputEdges instead.",
       "optional" : true,
       "Relationship" : {
         "/*/string" : {
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
           "name" : "Consumes"
+        }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "inputEdges",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "Edge",
+          "namespace" : "com.linkedin.common",
+          "doc" : "Information about a relatonship edge.",
+          "fields" : [ {
+            "name" : "sourceUrn",
+            "type" : "Urn",
+            "doc" : "Urn of the source of this relationship edge."
+          }, {
+            "name" : "destinationUrn",
+            "type" : "Urn",
+            "doc" : "Urn of the destination of this relationship edge."
+          }, {
+            "name" : "created",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp containing who created this relationship edge and when"
+          }, {
+            "name" : "lastModified",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp containing who last modified this relationship edge and when"
+          }, {
+            "name" : "properties",
+            "type" : {
+              "type" : "map",
+              "values" : "string"
+            },
+            "doc" : "A generic properties bag that allows us to store specific information on this graph edge.",
+            "optional" : true
+          } ]
+        }
+      },
+      "doc" : "Data sources for the chart",
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "inputEdges/*/created/actor",
+          "createdOn" : "inputEdges/*/created/time",
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "name" : "Consumes",
+          "properties" : "inputEdges/*/properties",
+          "updatedActor" : "inputEdges/*/lastModified/actor",
+          "updatedOn" : "inputEdges/*/lastModified/time"
         }
       }
     }, {
@@ -725,7 +776,7 @@
     "Aspect" : {
       "name" : "deprecation"
     }
-  }, {
+  }, "com.linkedin.common.Edge", {
     "type" : "typeref",
     "name" : "EmailAddress",
     "namespace" : "com.linkedin.common",
@@ -811,7 +862,14 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity"
+      "doc" : "Tags associated with a given entity",
+      "Searchable" : {
+        "/*/tag" : {
+          "boostScore" : 0.5,
+          "fieldType" : "URN",
+          "queryByDefault" : true
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "globalTags"
@@ -906,7 +964,15 @@
         "type" : "array",
         "items" : "GlossaryTermAssociation"
       },
-      "doc" : "The related business terms"
+      "doc" : "The related business terms",
+      "Searchable" : {
+        "/*/urn" : {
+          "boostScore" : 0.5,
+          "fieldName" : "glossaryTerms",
+          "fieldType" : "URN",
+          "queryByDefault" : true
+        }
+      }
     }, {
       "name" : "auditStamp",
       "type" : "AuditStamp",
@@ -1167,6 +1233,21 @@
       "name" : "status"
     }
   }, "com.linkedin.common.TagAssociation", "com.linkedin.common.TagUrn", "com.linkedin.common.Time", {
+    "type" : "record",
+    "name" : "TimeStamp",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A standard event timestamp",
+    "fields" : [ {
+      "name" : "time",
+      "type" : "Time",
+      "doc" : "When did the event occur"
+    }, {
+      "name" : "actor",
+      "type" : "Urn",
+      "doc" : "Optional: The actor urn involved in the event.",
+      "optional" : true
+    } ]
+  }, {
     "type" : "typeref",
     "name" : "Uri",
     "namespace" : "com.linkedin.common",
@@ -1213,13 +1294,34 @@
         "type" : "array",
         "items" : "com.linkedin.common.ChartUrn"
       },
-      "doc" : "Charts in a dashboard",
+      "doc" : "Charts in a dashboard\nDeprecated! Use chartEdges instead.",
       "default" : [ ],
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "chart" ],
           "isLineage" : true,
           "name" : "Contains"
+        }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "chartEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Charts in a dashboard",
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "chartEdges/*/created/actor",
+          "createdOn" : "chartEdges/*/created/time",
+          "entityTypes" : [ "chart" ],
+          "isLineage" : true,
+          "name" : "Contains",
+          "properties" : "chartEdges/*/properties",
+          "updatedActor" : "chartEdges/*/lastModified/actor",
+          "updatedOn" : "chartEdges/*/lastModified/time"
         }
       }
     }, {
@@ -1228,13 +1330,34 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "Datasets consumed by a dashboard",
+      "doc" : "Datasets consumed by a dashboard\nDeprecated! Use datasetEdges instead.",
       "default" : [ ],
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
           "isLineage" : true,
           "name" : "Consumes"
+        }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "datasetEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Datasets consumed by a dashboard",
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "datasetEdges/*/created/actor",
+          "createdOn" : "datasetEdges/*/created/time",
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "name" : "Consumes",
+          "properties" : "datasetEdges/*/properties",
+          "updatedActor" : "datasetEdges/*/lastModified/actor",
+          "updatedOn" : "datasetEdges/*/lastModified/time"
         }
       }
     }, {
@@ -1317,6 +1440,28 @@
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : false
       }
+    }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "dataFlowInfo"
@@ -1370,6 +1515,28 @@
       "doc" : "DataFlow urn that this job is part of",
       "optional" : true
     }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
       "name" : "status",
       "type" : {
         "type" : "enum",
@@ -1387,8 +1554,9 @@
           "UNKNOWN" : "Jobs with unknown status (either unmappable or unavailable)"
         }
       },
-      "doc" : "Status of the job",
-      "optional" : true
+      "doc" : "Status of the job - Deprecated for Data Process Instance model.",
+      "optional" : true,
+      "deprecated" : "Use Data Process Instance model, instead"
     } ],
     "Aspect" : {
       "name" : "dataJobInfo"
@@ -1404,7 +1572,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.DatasetUrn"
       },
-      "doc" : "Input datasets consumed by the data job during processing",
+      "doc" : "Input datasets consumed by the data job during processing\nDeprecated! Use inputDatasetEdges instead.",
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
@@ -1419,6 +1587,35 @@
           "numValuesFieldName" : "numInputDatasets",
           "queryByDefault" : false
         }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "inputDatasetEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Input datasets consumed by the data job during processing",
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "inputDatasetEdges/*/created/actor",
+          "createdOn" : "inputDatasetEdges/*/created/time",
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "name" : "Consumes",
+          "properties" : "inputDatasetEdges/*/properties",
+          "updatedActor" : "inputDatasetEdges/*/lastModified/actor",
+          "updatedOn" : "inputDatasetEdges/*/lastModified/time"
+        }
+      },
+      "Searchable" : {
+        "/*/destinationUrn" : {
+          "fieldName" : "inputDatasetEdges",
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numInputDatasets",
+          "queryByDefault" : false
+        }
       }
     }, {
       "name" : "outputDatasets",
@@ -1426,7 +1623,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.DatasetUrn"
       },
-      "doc" : "Output datasets produced by the data job during processing",
+      "doc" : "Output datasets produced by the data job during processing\nDeprecated! Use outputDatasetEdges instead.",
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataset" ],
@@ -1442,6 +1639,36 @@
           "numValuesFieldName" : "numOutputDatasets",
           "queryByDefault" : false
         }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "outputDatasetEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Output datasets produced by the data job during processing",
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "outputDatasetEdges/*/created/actor",
+          "createdOn" : "outputDatasetEdges/*/created/time",
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "isUpstream" : false,
+          "name" : "Produces",
+          "properties" : "outputDatasetEdges/*/properties",
+          "updatedActor" : "outputDatasetEdges/*/lastModified/actor",
+          "updatedOn" : "outputDatasetEdges/*/lastModified/time"
+        }
+      },
+      "Searchable" : {
+        "/*/destinationUrn" : {
+          "fieldName" : "outputDatasetEdges",
+          "fieldType" : "URN",
+          "numValuesFieldName" : "numOutputDatasets",
+          "queryByDefault" : false
+        }
       }
     }, {
       "name" : "inputDatajobs",
@@ -1449,13 +1676,34 @@
         "type" : "array",
         "items" : "com.linkedin.common.DataJobUrn"
       },
-      "doc" : "Input datajobs that this data job depends on",
+      "doc" : "Input datajobs that this data job depends on\nDeprecated! Use inputDatajobEdges instead.",
       "optional" : true,
       "Relationship" : {
         "/*" : {
           "entityTypes" : [ "dataJob" ],
           "isLineage" : true,
           "name" : "DownstreamOf"
+        }
+      },
+      "deprecated" : true
+    }, {
+      "name" : "inputDatajobEdges",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Input datajobs that this data job depends on",
+      "optional" : true,
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "inputDatajobEdges/*/created/actor",
+          "createdOn" : "inputDatajobEdges/*/created/time",
+          "entityTypes" : [ "dataJob" ],
+          "isLineage" : true,
+          "name" : "DownstreamOf",
+          "properties" : "inputDatajobEdges/*/properties",
+          "updatedActor" : "inputDatajobEdges/*/lastModified/actor",
+          "updatedOn" : "inputDatajobEdges/*/lastModified/time"
         }
       }
     }, {
@@ -1620,6 +1868,11 @@
       "name" : "name",
       "type" : "string",
       "doc" : "Name of the data platform",
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : false,
+        "fieldType" : "TEXT_PARTIAL"
+      },
       "validate" : {
         "strlen" : {
           "max" : 15
@@ -1629,7 +1882,12 @@
       "name" : "displayName",
       "type" : "string",
       "doc" : "The name that will be used for displaying a platform type.",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
     }, {
       "name" : "type",
       "type" : {
@@ -1830,13 +2088,36 @@
       "doc" : "The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
       "optional" : true
     }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
+      "name" : "lastModified",
+      "type" : "com.linkedin.common.TimeStamp",
+      "doc" : "A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)",
+      "optional" : true,
+      "Searchable" : {
+        "/time" : {
+          "fieldName" : "lastModifiedAt",
+          "fieldType" : "DATETIME"
+        }
+      }
+    }, {
       "name" : "tags",
       "type" : {
         "type" : "array",
         "items" : "string"
       },
-      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.",
-      "default" : [ ]
+      "doc" : "[Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.\nThis is now deprecated.",
+      "default" : [ ],
+      "deprecated" : "Use GlobalTags aspect instead."
     } ],
     "Aspect" : {
       "name" : "datasetProperties"
@@ -1891,20 +2172,29 @@
     "fields" : [ {
       "name" : "auditStamp",
       "type" : "com.linkedin.common.AuditStamp",
-      "doc" : "Audit stamp containing who reported the lineage and when.\nWARNING: this field is deprecated and may be removed in a future release.",
+      "doc" : "Audit stamp containing who reported the lineage and when.",
       "default" : {
         "actor" : "urn:li:corpuser:unknown",
         "time" : 0
-      },
-      "deprecated" : "we no longer associate a timestamp per upstream edge"
+      }
+    }, {
+      "name" : "created",
+      "type" : "com.linkedin.common.AuditStamp",
+      "doc" : "Audit stamp containing who created the lineage and when.",
+      "optional" : true
     }, {
       "name" : "dataset",
       "type" : "com.linkedin.common.DatasetUrn",
       "doc" : "The upstream dataset the lineage points to",
       "Relationship" : {
+        "createdActor" : "upstreams/*/created/actor",
+        "createdOn" : "upstreams/*/created/time",
         "entityTypes" : [ "dataset" ],
         "isLineage" : true,
-        "name" : "DownstreamOf"
+        "name" : "DownstreamOf",
+        "properties" : "upstreams/*/properties",
+        "updatedActor" : "upstreams/*/auditStamp/actor",
+        "updatedOn" : "upstreams/*/auditStamp/time"
       },
       "Searchable" : {
         "fieldName" : "upstreams",
@@ -1915,6 +2205,14 @@
       "name" : "type",
       "type" : "DatasetLineageType",
       "doc" : "The type of the lineage"
+    }, {
+      "name" : "properties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "A generic properties bag that allows us to store specific information on this graph edge.",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -2138,6 +2436,17 @@
                     "type" : "string",
                     "doc" : "Slack channel for the group",
                     "optional" : true
+                  }, {
+                    "name" : "created",
+                    "type" : "com.linkedin.common.AuditStamp",
+                    "doc" : "Created Audit stamp",
+                    "optional" : true,
+                    "Searchable" : {
+                      "/time" : {
+                        "fieldName" : "createdTime",
+                        "fieldType" : "DATETIME"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -2193,6 +2502,7 @@
                   "name" : "CorpUserInfo",
                   "namespace" : "com.linkedin.identity",
                   "doc" : "Linkedin corp user information",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "active",
                     "type" : "boolean",
@@ -2592,7 +2902,11 @@
                   "fields" : [ {
                     "name" : "platform",
                     "type" : "com.linkedin.common.Urn",
-                    "doc" : "Data platform urn associated with the dataset"
+                    "doc" : "Data platform urn associated with the dataset",
+                    "Searchable" : {
+                      "enableAutocomplete" : true,
+                      "fieldType" : "URN"
+                    }
                   }, {
                     "name" : "name",
                     "type" : "string",
@@ -4457,6 +4771,14 @@
                   "doc" : "Properties associated with a GlossaryTerm",
                   "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
+                    "name" : "id",
+                    "type" : "string",
+                    "doc" : "Optional id for the term",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
+                  }, {
                     "name" : "name",
                     "type" : "string",
                     "doc" : "Display name of the term",
@@ -4562,6 +4884,46 @@
                         "fieldType" : "URN"
                       }
                     }
+                  }, {
+                    "name" : "values",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.GlossaryTermUrn"
+                    },
+                    "doc" : "The relationship Has Value with glossary term.\nThese are fixed value a term has. For example a ColorEnum where RED, GREEN and YELLOW are fixed values.",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "glossaryTerm" ],
+                        "name" : "HasValue"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "fieldName" : "values",
+                        "fieldType" : "URN"
+                      }
+                    }
+                  }, {
+                    "name" : "relatedTerms",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.GlossaryTermUrn"
+                    },
+                    "doc" : "The relationship isRelatedTo with glossary term",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "glossaryTerm" ],
+                        "name" : "IsRelatedTo"
+                      }
+                    },
+                    "Searchable" : {
+                      "/*" : {
+                        "fieldName" : "relatedTerms",
+                        "fieldType" : "URN"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "glossaryRelatedTerms"
@@ -4641,6 +5003,14 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "displayName",
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
+                  }, {
+                    "name" : "id",
+                    "type" : "string",
+                    "doc" : "Optional id for the GlossaryNode",
+                    "optional" : true,
+                    "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],

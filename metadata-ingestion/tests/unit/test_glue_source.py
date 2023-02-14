@@ -11,6 +11,7 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -30,6 +31,8 @@ from tests.test_helpers.state_helpers import (
 )
 from tests.test_helpers.type_helpers import PytestConfig
 from tests.unit.test_glue_source_stubs import (
+    databases_1,
+    databases_2,
     get_bucket_tagging,
     get_databases_response,
     get_dataflow_graph_response_1,
@@ -162,15 +165,12 @@ def test_glue_ingest(
                 },
             )
 
-            mce_objects = [
-                wu.metadata.to_obj() for wu in glue_source_instance.get_workunits()
-            ]
+            mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
 
             glue_stubber.assert_no_pending_responses()
             s3_stubber.assert_no_pending_responses()
 
-            with open(str(tmp_path / mce_file), "w") as f:
-                json.dump(mce_objects, f, indent=2)
+            write_metadata_file(tmp_path / mce_file, mce_objects)
 
     # Verify the output.
     test_resources_dir = pytestconfig.rootpath / "tests/unit/glue"
@@ -230,7 +230,7 @@ def get_current_checkpoint_from_pipeline(
 ) -> Optional[Checkpoint]:
     glue_source = cast(GlueSource, pipeline.source)
     return glue_source.get_current_checkpoint(
-        glue_source.get_default_ingestion_job_id()
+        glue_source.stale_entity_removal_handler.job_id
     )
 
 
@@ -246,6 +246,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
+            "fail_safe_threshold": 100.0,
             "state_provider": {
                 "type": "datahub",
                 "config": {"datahub_api": {"server": GMS_SERVER}},
@@ -277,13 +278,13 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         with patch(
-            "datahub.ingestion.source.aws.glue.GlueSource.get_all_tables",
-        ) as mock_get_all_tables:
+            "datahub.ingestion.source.aws.glue.GlueSource.get_all_tables_and_databases",
+        ) as mock_get_all_tables_and_databases:
             tables_on_first_call = tables_1
             tables_on_second_call = tables_2
-            mock_get_all_tables.side_effect = [
-                tables_on_first_call,
-                tables_on_second_call,
+            mock_get_all_tables_and_databases.side_effect = [
+                (databases_1, tables_on_first_call),
+                (databases_2, tables_on_second_call),
             ]
 
             pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)
@@ -323,12 +324,10 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             # part of the second state
             state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
             state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
-            difference_urns = list(state1.get_table_urns_not_in(state2))
-
-            assert len(difference_urns) == 1
-
-            urn1 = (
-                "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)"
+            difference_urns = set(
+                state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
             )
-
-            assert urn1 in difference_urns
+            assert difference_urns == {
+                "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+                "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+            }

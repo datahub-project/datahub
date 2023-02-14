@@ -73,7 +73,7 @@ The following are environment variables you can use to configure topic names use
 - `FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted when MCPs fail processing.
 - `METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME`: The name of the topic for Metadata Change Logs that are produced for Versioned Aspects.
 - `METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME`: The name of the topic for Metadata Change Logs that are produced for Timeseries Aspects.
-- `METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME`: The name of the topic for Platform Events (high-level semantic events).
+- `PLATFORM_EVENT_TOPIC_NAME`: The name of the topic for Platform Events (high-level semantic events).
 - `DATAHUB_USAGE_EVENT_NAME`: The name of the topic for product analytics events. 
 - (Deprecated) `METADATA_CHANGE_EVENT_NAME`: The name of the metadata change event topic.
 - (Deprecated) `METADATA_AUDIT_EVENT_NAME`: The name of the metadata audit event topic.
@@ -90,7 +90,7 @@ The following are environment variables you can use to configure topic names use
 
 - `METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME`: The name of the topic for Metadata Change Logs that are produced for Versioned Aspects.
 - `METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME`: The name of the topic for Metadata Change Logs that are produced for Timeseries Aspects.
-- `METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME`: The name of the topic for Platform Events (high-level semantic events).
+- `PLATFORM_EVENT_TOPIC_NAME`: The name of the topic for Platform Events (high-level semantic events).
 - `DATAHUB_USAGE_EVENT_NAME`: The name of the topic for product analytics events.
 - (Deprecated) `METADATA_AUDIT_EVENT_NAME`: The name of the deprecated metadata audit event topic.
   

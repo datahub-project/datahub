@@ -14,7 +14,7 @@ import {
 import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
-import { CLI_EXECUTOR_ID } from './utils';
+import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
 import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
@@ -25,6 +25,13 @@ import IngestionSourceTable from './IngestionSourceTable';
 import { scrollToTop } from '../../shared/searchUtils';
 import useRefreshIngestionData from './executions/useRefreshIngestionData';
 import { isExecutionRequestActive } from './executions/IngestionSourceExecutionList';
+import analytics, { EventType } from '../../analytics';
+import {
+    INGESTION_CREATE_SOURCE_ID,
+    INGESTION_REFRESH_SOURCES_ID,
+} from '../../onboarding/config/IngestionOnboardingConfig';
+
+const PLACEHOLDER_URN = 'placeholder-urn';
 
 const SourceContainer = styled.div``;
 
@@ -95,7 +102,7 @@ export const IngestionSourceList = () => {
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
 
     // Ingestion Source Queries
-    const { loading, error, data, refetch } = useListIngestionSourcesQuery({
+    const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
             input: {
                 start,
@@ -103,6 +110,7 @@ export const IngestionSourceList = () => {
                 query,
             },
         },
+        fetchPolicy: 'cache-first',
     });
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -141,6 +149,9 @@ export const IngestionSourceList = () => {
             },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.ExecuteIngestionSourceEvent,
+                });
                 message.success({
                     content: `Successfully submitted ingestion execution request!`,
                     duration: 3,
@@ -171,6 +182,11 @@ export const IngestionSourceList = () => {
             // Update:
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
+                    analytics.event({
+                        type: EventType.UpdateIngestionSourceEvent,
+                        sourceType: input.type,
+                        interval: input.schedule?.interval,
+                    });
                     message.success({
                         content: `Successfully updated ingestion source!`,
                         duration: 3,
@@ -191,8 +207,26 @@ export const IngestionSourceList = () => {
             createIngestionSource({ variables: { input } })
                 .then((result) => {
                     message.loading({ content: 'Loading...', duration: 2 });
+                    const newSource = {
+                        urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
+                        name: input.name,
+                        type: input.type,
+                        config: null,
+                        schedule: {
+                            interval: input.schedule?.interval || null,
+                            timezone: input.schedule?.timezone || null,
+                        },
+                        platform: null,
+                        executions: null,
+                    };
+                    addToListIngestionSourcesCache(client, newSource, pageSize, query);
                     setTimeout(() => {
                         refetch();
+                        analytics.event({
+                            type: EventType.CreateIngestionSourceEvent,
+                            sourceType: input.type,
+                            interval: input.schedule?.interval,
+                        });
                         message.success({
                             content: `Successfully created ingestion source!`,
                             duration: 3,
@@ -204,7 +238,6 @@ export const IngestionSourceList = () => {
                     setIsBuildingSource(false);
                     setFocusSourceUrn(undefined);
                     resetState();
-                    // onCreateOrUpdateIngestionSourceSuccess();
                 })
                 .catch((e) => {
                     message.destroy();
@@ -222,14 +255,18 @@ export const IngestionSourceList = () => {
     };
 
     const deleteIngestionSource = async (urn: string) => {
+        removeFromListIngestionSourcesCache(client, urn, page, pageSize, query);
         removeIngestionSourceMutation({
             variables: { urn },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.DeleteIngestionSourceEvent,
+                });
                 message.success({ content: 'Removed ingestion source.', duration: 2 });
                 const newRemovedUrns = [...removedUrns, urn];
                 setRemovedUrns(newRemovedUrns);
-                setTimeout(function () {
+                setTimeout(() => {
                     refetch?.();
                 }, 3000);
             })
@@ -321,10 +358,10 @@ export const IngestionSourceList = () => {
             <SourceContainer>
                 <TabToolbar>
                     <div>
-                        <Button type="text" onClick={() => setIsBuildingSource(true)}>
+                        <Button id={INGESTION_CREATE_SOURCE_ID} type="text" onClick={() => setIsBuildingSource(true)}>
                             <PlusOutlined /> Create new source
                         </Button>
-                        <Button type="text" onClick={onRefresh}>
+                        <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
                             <RedoOutlined /> Refresh
                         </Button>
                     </div>
@@ -353,6 +390,7 @@ export const IngestionSourceList = () => {
                             onSearch={() => null}
                             onQueryChange={(q) => setQuery(q)}
                             entityRegistry={entityRegistry}
+                            hideRecommendations
                         />
                     </FilterWrapper>
                 </TabToolbar>

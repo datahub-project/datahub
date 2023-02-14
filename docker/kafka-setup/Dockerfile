@@ -4,7 +4,7 @@ FROM confluentinc/cp-base-new:6.1.4 as confluent_base
 # Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
 
-ENV KAFKA_VERSION 2.8.1
+ENV KAFKA_VERSION 2.8.2
 ENV SCALA_VERSION 2.13
 
 # Set the classpath for JARs required by `cub`
@@ -18,7 +18,9 @@ ARG PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC="git+https://github.com/confluent
 
 LABEL name="kafka" version=${KAFKA_VERSION}
 
-RUN apk add --no-cache openjdk8-jre bash coreutils
+RUN apk add --no-cache bash coreutils
+RUN apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+
 RUN apk add --no-cache -t .build-deps git curl ca-certificates jq gcc musl-dev libffi-dev zip
 RUN mkdir -p /opt \
   && mirror=$(curl --stderr /dev/null https://www.apache.org/dyn/closer.cgi\?as_json\=1 | jq -r '.preferred') \
@@ -42,16 +44,24 @@ WORKDIR /opt/kafka
 RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
 
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /usr/share/java/cp-base-new
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /opt/kafka/libs
+
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"
 ENV FAILED_METADATA_CHANGE_EVENT_NAME="FailedMetadataChangeEvent_v4"
 ENV DATAHUB_USAGE_EVENT_NAME="DataHubUsageEvent_v1"
-ENV METADATA_CHANGE_LOG_VERSIONED_TOPIC="MetadataChangeLog_Versioned_v1"
-ENV METADATA_CHANGE_LOG_TIMESERIES_TOPIC="MetadataChangeLog_Timeseries_v1"
-ENV METADATA_CHANGE_PROPOSAL_TOPIC="MetadataChangeProposal_v1"
-ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC="FailedMetadataChangeProposal_v1"
+ENV METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME="MetadataChangeLog_Versioned_v1"
+ENV METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME="MetadataChangeLog_Timeseries_v1"
+ENV METADATA_CHANGE_PROPOSAL_TOPIC_NAME="MetadataChangeProposal_v1"
+ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME="FailedMetadataChangeProposal_v1"
 ENV PLATFORM_EVENT_TOPIC_NAME="PlatformEvent_v1"
+ENV DATAHUB_UPGRADE_HISTORY_TOPIC_NAME="DataHubUpgradeHistory_v1"
 
-COPY ./kafka-setup.sh ./kafka-setup.sh
+COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
+COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh
+COPY docker/kafka-setup/kafka-topic-workers.sh ./kafka-topic-workers.sh
+
+RUN chmod +x ./kafka-setup.sh && chmod +x ./kafka-topic-workers.sh
 
 CMD ./kafka-setup.sh

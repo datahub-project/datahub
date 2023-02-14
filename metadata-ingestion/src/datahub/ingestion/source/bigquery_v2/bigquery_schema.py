@@ -1,58 +1,111 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, cast
 
 from google.cloud import bigquery
-from google.cloud.bigquery.table import RowIterator
+from google.cloud.bigquery.table import (
+    RowIterator,
+    TableListItem,
+    TimePartitioning,
+    TimePartitioningType,
+)
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
-class BigqueryColumn:
-    name: str
-    ordinal_position: int
-    is_nullable: bool
+class BigqueryColumn(BaseColumn):
+    field_path: str
     is_partition_column: bool
-    data_type: str
-    comment: str
+
+
+RANGE_PARTITION_NAME: str = "RANGE"
 
 
 @dataclass
-class BigqueryTable:
-    name: str
-    created: datetime
-    last_altered: datetime
-    size_in_bytes: int
-    rows_count: int
-    comment: str
-    ddl: str
-    columns: List[BigqueryColumn] = field(default_factory=list)
+class PartitionInfo:
+    field: str
+    # Data type is optional as we not have it when we set it from TimePartitioning
+    column: Optional[BigqueryColumn] = None
+    type: str = TimePartitioningType.DAY
+    expiration_ms: Optional[int] = None
+    require_partition_filter: bool = False
+
+    # TimePartitioning field doesn't provide data_type so we have to add it afterwards
+    @classmethod
+    def from_time_partitioning(
+        cls, time_partitioning: TimePartitioning
+    ) -> "PartitionInfo":
+        return cls(
+            field=time_partitioning.field
+            if time_partitioning.field
+            else "_PARTITIONTIME",
+            type=time_partitioning.type_,
+            expiration_ms=time_partitioning.expiration_ms,
+            require_partition_filter=time_partitioning.require_partition_filter,
+        )
+
+    @classmethod
+    def from_range_partitioning(
+        cls, range_partitioning: Dict[str, Any]
+    ) -> Optional["PartitionInfo"]:
+        field: Optional[str] = range_partitioning.get("field")
+        if not field:
+            return None
+
+        return cls(
+            field=field,
+            type="RANGE",
+        )
+
+    @classmethod
+    def from_table_info(cls, table_info: TableListItem) -> Optional["PartitionInfo"]:
+        RANGE_PARTITIONING_KEY: str = "rangePartitioning"
+
+        if table_info.time_partitioning:
+            return PartitionInfo.from_time_partitioning(table_info.time_partitioning)
+        elif RANGE_PARTITIONING_KEY in table_info._properties:
+            return PartitionInfo.from_range_partitioning(
+                table_info._properties[RANGE_PARTITIONING_KEY]
+            )
+        else:
+            return None
 
 
 @dataclass
-class BigqueryView:
-    name: str
-    created: datetime
-    last_altered: datetime
-    comment: str
-    ddl: str
+class BigqueryTable(BaseTable):
+    expires: Optional[datetime] = None
+    clustering_fields: Optional[List[str]] = None
+    labels: Optional[Dict[str, str]] = None
+    num_partitions: Optional[int] = None
+    max_partition_id: Optional[str] = None
+    max_shard_id: Optional[str] = None
+    active_billable_bytes: Optional[int] = None
+    long_term_billable_bytes: Optional[int] = None
+    partition_info: Optional[PartitionInfo] = None
+    columns_ignore_from_profiling: List[str] = field(default_factory=list)
+
+
+@dataclass
+class BigqueryView(BaseView):
     columns: List[BigqueryColumn] = field(default_factory=list)
 
 
 @dataclass
 class BigqueryDataset:
     name: str
-    created: datetime
-    last_altered: datetime
-    location: str
-    comment: str
+    created: Optional[datetime] = None
+    last_altered: Optional[datetime] = None
+    location: Optional[str] = None
+    comment: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
+    columns: List[BigqueryColumn] = field(default_factory=list)
 
 
 @dataclass
@@ -63,9 +116,8 @@ class BigqueryProject:
 
 
 class BigqueryQuery:
-
     show_datasets: str = (
-        "select schema_name from {project_id}.INFORMATION_SCHEMA.SCHEMATA"
+        "select schema_name from `{project_id}`.INFORMATION_SCHEMA.SCHEMATA"
     )
 
     datasets_for_project_id: str = """
@@ -77,8 +129,8 @@ select
   s.LAST_MODIFIED_TIME as last_altered,
   o.OPTION_VALUE as comment
 from
-  {project_id}.INFORMATION_SCHEMA.SCHEMATA as s
-  left join {project_id}.INFORMATION_SCHEMA.SCHEMATA_OPTIONS as o on o.schema_name = s.schema_name
+  `{project_id}`.INFORMATION_SCHEMA.SCHEMATA as s
+  left join `{project_id}`.INFORMATION_SCHEMA.SCHEMATA_OPTIONS as o on o.schema_name = s.schema_name
   and o.option_name = "description"
 order by
   s.schema_name
@@ -97,18 +149,67 @@ SELECT
   is_insertable_into,
   ddl,
   row_count,
-  size_bytes as bytes
+  size_bytes as bytes,
+  num_partitions,
+  max_partition_id,
+  active_billable_bytes,
+  long_term_billable_bytes,
+  REGEXP_EXTRACT(t.table_name, r".*_(\\d+)$") as table_suffix,
+  REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
+
 FROM
-  `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+  left join (
+    select
+        table_name,
+        sum(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then 1 else 0 END) as num_partitions,
+        max(case when partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__') then partition_id else NULL END) as max_partition_id,
+        sum(total_rows) as total_rows,
+        sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes,
+        sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
+    from
+        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
+    group by
+        table_name) as p on
+    t.table_name = p.table_name
+WHERE
+  table_type in ('BASE TABLE', 'EXTERNAL')
+{table_filter}
+order by
+  table_schema ASC,
+  table_base ASC,
+  table_suffix DESC
+"""
+
+    tables_for_dataset_without_partition_data = """
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  tos.OPTION_VALUE as comment,
+  is_insertable_into,
+  ddl,
+  REGEXP_EXTRACT(t.table_name, r".*_(\\d+)$") as table_suffix,
+  REGEXP_REPLACE(t.table_name, r"_(\\d+)$", "") as table_base
+
+FROM
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('BASE TABLE', 'EXTERNAL TABLE')
+  table_type in ('BASE TABLE', 'EXTERNAL')
+{table_filter}
 order by
-  table_schema,
-  table_name
+  table_schema ASC,
+  table_base ASC,
+  table_suffix DESC
 """
 
     views_for_dataset: str = """
@@ -125,16 +226,38 @@ SELECT
   row_count,
   size_bytes
 FROM
-  `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLES t
-  join `{project_id}`.{dataset_name}.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  join `{project_id}`.`{dataset_name}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
   table_type in ('VIEW MATERIALIZED', 'VIEW')
 order by
-  table_schema,
-  table_name
+  table_schema ASC,
+  table_name ASC
+"""
+
+    views_for_dataset_without_data_read: str = """
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  tos.OPTION_VALUE as comment,
+  is_insertable_into,
+  ddl as view_definition
+FROM
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLES t
+  left join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+WHERE
+  table_type in ('VIEW MATERIALIZED', 'VIEW')
+order by
+  table_schema ASC,
+  table_name ASC
 """
 
     columns_for_dataset: str = """
@@ -144,8 +267,9 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
-  c.data_type as data_type,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   description as comment,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column
@@ -154,7 +278,7 @@ from
   join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
   and cfp.column_name = c.column_name
 ORDER BY
-  ordinal_position"""
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
     columns_for_table: str = """
 select
@@ -163,19 +287,20 @@ select
   c.table_name as table_name,
   c.column_name as column_name,
   c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
   c.is_nullable as is_nullable,
-  c.data_type as data_type,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column,
   description as comment
 from
-  `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMNS as c
-  join `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  `{table_identifier.project_id}`.`{table_identifier.dataset}`.INFORMATION_SCHEMA.COLUMNS as c
+  join `{table_identifier.project_id}`.`{table_identifier.dataset}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
   and cfp.column_name = c.column_name
 where
   c.table_name = '{table_identifier.table}'
 ORDER BY
-  ordinal_position"""
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
 
 class BigQueryDataDictionary:
@@ -195,9 +320,18 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_datasets_for_project_id(
+        conn: bigquery.Client, project_id: str, maxResults: Optional[int] = None
+    ) -> List[BigqueryDataset]:
+        # FIXME: Due to a bug in BigQuery's type annotations, we need to cast here.
+        maxResults = cast(int, maxResults)
+        datasets = conn.list_datasets(project_id, max_results=maxResults)
+
+        return [BigqueryDataset(name=d.dataset_id) for d in datasets]
+
+    @staticmethod
+    def get_datasets_for_project_id_with_information_schema(
         conn: bigquery.Client, project_id: str
     ) -> List[BigqueryDataset]:
-
         schemas = BigQueryDataDictionary.get_query_result(
             conn,
             BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
@@ -215,54 +349,114 @@ class BigQueryDataDictionary:
 
     @staticmethod
     def get_tables_for_dataset(
-        conn: bigquery.Client, project_id: str, dataset_name: str
+        conn: bigquery.Client,
+        project_id: str,
+        dataset_name: str,
+        tables: Dict[str, TableListItem],
+        with_data_read_permission: bool = False,
     ) -> List[BigqueryTable]:
+        filter: str = ", ".join(f"'{table}'" for table in tables.keys())
 
-        cur = BigQueryDataDictionary.get_query_result(
-            conn,
-            BigqueryQuery.tables_for_dataset.format(
-                project_id=project_id, dataset_name=dataset_name
-            ),
-        )
-
+        if with_data_read_permission:
+            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+            # and skip the others. Sharded tables are tables with suffix _20220102
+            cur = BigQueryDataDictionary.get_query_result(
+                conn,
+                BigqueryQuery.tables_for_dataset.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    table_filter=f" and t.table_name in ({filter})" if filter else "",
+                ),
+            )
+        else:
+            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+            # and skip the others. Sharded tables are tables with suffix _20220102
+            cur = BigQueryDataDictionary.get_query_result(
+                conn,
+                BigqueryQuery.tables_for_dataset_without_partition_data.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    table_filter=f" and t.table_name in ({filter})" if filter else "",
+                ),
+            )
+        # Some property we want to capture only available from the TableListItem we get from an earlier query of
+        # the list of tables.
         return [
             BigqueryTable(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.last_altered,
-                size_in_bytes=table.bytes,
-                rows_count=table.row_count,
+                last_altered=datetime.fromtimestamp(
+                    table.get("last_altered") / 1000, tz=timezone.utc
+                )
+                if table.get("last_altered") is not None
+                else table.created,
+                size_in_bytes=table.get("bytes"),
+                rows_count=table.get("row_count"),
                 comment=table.comment,
                 ddl=table.ddl,
+                expires=tables[table.table_name].expires if tables else None,
+                labels=tables[table.table_name].labels if tables else None,
+                partition_info=PartitionInfo.from_table_info(tables[table.table_name])
+                if tables
+                else None,
+                clustering_fields=tables[table.table_name].clustering_fields
+                if tables
+                else None,
+                max_partition_id=table.get("max_partition_id"),
+                max_shard_id=BigqueryTableIdentifier.get_table_and_shard(
+                    table.table_name
+                )[1]
+                if len(BigqueryTableIdentifier.get_table_and_shard(table.table_name))
+                == 2
+                else None,
+                num_partitions=table.get("num_partitions"),
+                active_billable_bytes=table.get("active_billable_bytes"),
+                long_term_billable_bytes=table.get("long_term_billable_bytes"),
             )
             for table in cur
         ]
 
     @staticmethod
     def get_views_for_dataset(
-        conn: bigquery.Client, project_id: str, dataset_name: str
+        conn: bigquery.Client,
+        project_id: str,
+        dataset_name: str,
+        has_data_read: bool,
     ) -> List[BigqueryView]:
+        if has_data_read:
+            cur = BigQueryDataDictionary.get_query_result(
+                conn,
+                BigqueryQuery.views_for_dataset.format(
+                    project_id=project_id, dataset_name=dataset_name
+                ),
+            )
+        else:
+            cur = BigQueryDataDictionary.get_query_result(
+                conn,
+                BigqueryQuery.views_for_dataset_without_data_read.format(
+                    project_id=project_id, dataset_name=dataset_name
+                ),
+            )
 
-        cur = BigQueryDataDictionary.get_query_result(
-            conn,
-            BigqueryQuery.views_for_dataset.format(
-                project_id=project_id, dataset_name=dataset_name
-            ),
-        )
         return [
             BigqueryView(
                 name=table.table_name,
                 created=table.created,
-                last_altered=table.last_altered,
+                last_altered=table.last_altered
+                if "last_altered" in table
+                else table.created,
                 comment=table.comment,
-                ddl=table.view_definition,
+                view_definition=table.view_definition,
             )
             for table in cur
         ]
 
     @staticmethod
     def get_columns_for_dataset(
-        conn: bigquery.Client, project_id: str, dataset_name: str
+        conn: bigquery.Client,
+        project_id: str,
+        dataset_name: str,
+        column_limit: Optional[int] = None,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         try:
@@ -278,38 +472,69 @@ class BigQueryDataDictionary:
             # Please repeat query with more selective predicates.
             return None
 
+        last_seen_table: str = ""
         for column in cur:
-            columns[column.table_name].append(
-                BigqueryColumn(
-                    name=column.column_name,
-                    ordinal_position=column.ordinal_position,
-                    is_nullable=column.is_nullable == "YES",
-                    data_type=column.data_type,
-                    comment=column.comment,
-                    is_partition_column=column.is_partitioning_column == "YES",
+            if (
+                column_limit
+                and column.table_name in columns
+                and len(columns[column.table_name]) >= column_limit
+            ):
+                if last_seen_table != column.table_name:
+                    logger.warning(
+                        f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                    )
+                    last_seen_table = column.table_name
+            else:
+                columns[column.table_name].append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        field_path=column.field_path,
+                        is_nullable=column.is_nullable == "YES",
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                    )
                 )
-            )
 
         return columns
 
     @staticmethod
     def get_columns_for_table(
-        conn: bigquery.Client, table_identifier: BigqueryTableIdentifier
+        conn: bigquery.Client,
+        table_identifier: BigqueryTableIdentifier,
+        column_limit: Optional[int],
     ) -> List[BigqueryColumn]:
-
         cur = BigQueryDataDictionary.get_query_result(
             conn,
             BigqueryQuery.columns_for_table.format(table_identifier=table_identifier),
         )
 
-        return [
-            BigqueryColumn(
-                name=column.column_name,
-                ordinal_position=column.ordinal_position,
-                is_nullable=column.is_nullable == "YES",
-                data_type=column.data_type,
-                comment=column.comment,
-                is_partition_column=column.is_partitioning_column == "YES",
-            )
-            for column in cur
-        ]
+        columns: List[BigqueryColumn] = []
+        last_seen_table: str = ""
+        for column in cur:
+            if (
+                column_limit
+                and column.table_name in columns
+                and len(columns[column.table_name]) >= column_limit
+            ):
+                if last_seen_table != column.table_name:
+                    logger.warning(
+                        f"{table_identifier.project_id}.{table_identifier.dataset}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                    )
+                    last_seen_table = column.table_name
+            else:
+                columns.append(
+                    BigqueryColumn(
+                        name=column.column_name,
+                        ordinal_position=column.ordinal_position,
+                        is_nullable=column.is_nullable == "YES",
+                        field_path=column.field_path,
+                        data_type=column.data_type,
+                        comment=column.comment,
+                        is_partition_column=column.is_partitioning_column == "YES",
+                    )
+                )
+            last_seen_table = column.table_name
+
+        return columns

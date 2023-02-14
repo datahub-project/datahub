@@ -35,6 +35,18 @@ public class DataHubKafkaProducerFactory {
   @Value("${kafka.schemaRegistry.type}")
   private String schemaRegistryType;
 
+  @Value("${kafka.producer.retryCount}")
+  private String kafkaProducerRetryCount;
+
+  @Value("${kafka.producer.deliveryTimeout}")
+  private String kafkaProducerDeliveryTimeout;
+
+  @Value("${kafka.producer.requestTimeout}")
+  private String kafkaProducerRequestTimeout;
+
+  @Value("${kafka.producer.backoffTimeout}")
+  private String kafkaProducerBackOffTimeout;
+
   @Autowired
   @Lazy
   @Qualifier("kafkaSchemaRegistry")
@@ -65,6 +77,11 @@ public class DataHubKafkaProducerFactory {
     Map<String, Object> props = properties.buildProducerProperties();
 
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, schemaRegistryConfig.getSerializer().getName());
+
+    props.put(ProducerConfig.RETRIES_CONFIG, kafkaProducerRetryCount);
+    props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, kafkaProducerDeliveryTimeout);
+    props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, kafkaProducerRequestTimeout);
+    props.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, kafkaProducerBackOffTimeout);
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     schemaRegistryConfig.getProperties().entrySet()

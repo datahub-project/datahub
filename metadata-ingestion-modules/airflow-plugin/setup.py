@@ -1,11 +1,7 @@
 import os
 import pathlib
-import sys
-from typing import Dict, Set
 
 import setuptools
-
-is_py37_or_newer = sys.version_info >= (3, 7)
 
 
 package_metadata: dict = {}
@@ -26,8 +22,8 @@ base_requirements = {
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=1.5.1",
-    "apache-airflow >= 1.10.2",
-    "acryl-datahub[airflow] >= 0.8.36",
+    "apache-airflow >= 2.0.2",
+    f"acryl-datahub[airflow] == {package_metadata['__version__']}",
 }
 
 
@@ -75,20 +71,10 @@ base_dev_requirements = {
     "packaging",
 }
 
-base_dev_requirements_airflow_1 = base_dev_requirements.copy()
-
 dev_requirements = {
     *base_dev_requirements,
 }
 
-dev_requirements_airflow_1_base = {
-    "apache-airflow==1.10.15",
-    "apache-airflow-backport-providers-snowflake",
-}
-dev_requirements_airflow_1 = {
-    *base_dev_requirements_airflow_1,
-    *dev_requirements_airflow_1_base,
-}
 
 entry_points = {
     "airflow.plugins": "acryl-datahub-airflow-plugin = datahub_airflow_plugin.datahub_plugin:DatahubPlugin"
@@ -114,10 +100,10 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -131,7 +117,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,
@@ -139,7 +125,5 @@ setuptools.setup(
     install_requires=list(base_requirements),
     extras_require={
         "dev": list(dev_requirements),
-        "dev-airflow1-base": list(dev_requirements_airflow_1_base),
-        "dev-airflow1": list(dev_requirements_airflow_1),
     },
 )

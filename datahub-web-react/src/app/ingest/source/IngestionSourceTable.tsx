@@ -48,13 +48,15 @@ function IngestionSourceTable({
             title: 'Type',
             dataIndex: 'type',
             key: 'type',
-            render: TypeColumn,
+            render: (type: string, record: any) => <TypeColumn type={type} record={record} />,
+            sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
         },
         {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
             render: (name: string) => name || '',
+            sorter: (sourceA, sourceB) => sourceA.name.localeCompare(sourceB.name),
         },
         {
             title: 'Schedule',
@@ -67,12 +69,14 @@ function IngestionSourceTable({
             dataIndex: 'execCount',
             key: 'execCount',
             render: (execCount: any) => <Typography.Text>{execCount || '0'}</Typography.Text>,
+            sorter: (sourceA, sourceB) => sourceA.execCount - sourceB.execCount,
         },
         {
             title: 'Last Execution',
             dataIndex: 'lastExecTime',
             key: 'lastExecTime',
             render: LastExecutionColumn,
+            sorter: (sourceA, sourceB) => sourceA.lastExecTime - sourceB.lastExecTime,
         },
         {
             title: 'Last Status',
@@ -81,6 +85,7 @@ function IngestionSourceTable({
             render: (status: any, record) => (
                 <LastStatusColumn status={status} record={record} setFocusExecutionUrn={setFocusExecutionUrn} />
             ),
+            sorter: (sourceA, sourceB) => (sourceA.lastExecStatus || '').localeCompare(sourceB.lastExecStatus || ''),
         },
         {
             title: '',
@@ -103,6 +108,7 @@ function IngestionSourceTable({
         urn: source.urn,
         type: source.type,
         name: source.name,
+        platformUrn: source.platform?.urn,
         schedule: source.schedule?.interval,
         timezone: source.schedule?.timezone,
         execCount: source.executions?.total || 0,
@@ -116,7 +122,7 @@ function IngestionSourceTable({
             source.executions?.total &&
             source.executions?.total > 0 &&
             source.executions?.executionRequests[0].result?.status,
-        cliIngestion: source.config.executorId === CLI_EXECUTOR_ID,
+        cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
     }));
 
     return (

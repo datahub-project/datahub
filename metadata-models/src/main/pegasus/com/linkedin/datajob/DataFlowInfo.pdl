@@ -3,6 +3,7 @@ namespace com.linkedin.datajob
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.Urn
+import com.linkedin.common.TimeStamp
 
 /**
  * Information about a Data processing flow
@@ -39,4 +40,26 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     "queryByDefault": false
   }
   project: optional string
+
+  /**
+   * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  created: optional TimeStamp
+
+  /**
+   * A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional TimeStamp
 }

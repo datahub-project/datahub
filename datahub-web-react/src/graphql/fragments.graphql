@@ -19,8 +19,8 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
     }
-    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
-        count
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 10000 }) {
+        total
     }
 }
 
@@ -73,7 +73,11 @@ fragment parentContainersFields on ParentContainersResult {
 fragment parentNodesFields on ParentNodesResult {
     count
     nodes {
-        ...glossaryNode
+        urn
+        type
+        properties {
+            name
+        }
     }
 }
 
@@ -168,6 +172,10 @@ fragment ownershipFields on Ownership {
     }
 }
 
+fragment embedFields on Embed {
+    renderUrl
+}
+
 fragment institutionalMemoryFields on InstitutionalMemory {
     elements {
         url
@@ -245,6 +253,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     deprecation {
         ...deprecationFields
     }
+    embed {
+        ...embedFields
+    }
 }
 
 fragment nonRecursiveDataFlowFields on DataFlow {
@@ -305,6 +316,7 @@ fragment nonRecursiveDataJobFields on DataJob {
 fragment dataJobFields on DataJob {
     urn
     type
+    exists
     lastIngested
     dataFlow {
         ...nonRecursiveDataFlowFields
@@ -346,11 +358,15 @@ fragment dataJobFields on DataJob {
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    privileges {
+        canEditLineage
+    }
 }
 
 fragment dashboardFields on Dashboard {
     urn
     type
+    exists
     lastIngested
     tool
     dashboardId
@@ -398,6 +414,9 @@ fragment dashboardFields on Dashboard {
     status {
         removed
     }
+    embed {
+        ...embedFields
+    }
     deprecation {
         ...deprecationFields
     }
@@ -426,11 +445,19 @@ fragment dashboardFields on Dashboard {
     inputFields {
         ...inputFieldsFields
     }
+    subTypes {
+        typeNames
+    }
+    privileges {
+        canEditLineage
+        canEditEmbed
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
     urn
     type
+    exists
     lastIngested
     name
     featureNamespace
@@ -499,6 +526,7 @@ fragment nonRecursiveMLFeature on MLFeature {
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     urn
     type
+    exists
     lastIngested
     name
     featureNamespace
@@ -567,6 +595,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     urn
     type
+    exists
     lastIngested
     name
     platform {
@@ -692,6 +721,7 @@ fragment schemaMetadataFields on SchemaMetadata {
 fragment nonRecursiveMLModel on MLModel {
     urn
     type
+    exists
     lastIngested
     name
     description
@@ -708,6 +738,7 @@ fragment nonRecursiveMLModel on MLModel {
     properties {
         description
         date
+        externalUrl
         version
         type
         trainingMetrics {
@@ -752,11 +783,15 @@ fragment nonRecursiveMLModel on MLModel {
     deprecation {
         ...deprecationFields
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     urn
     type
+    exists
     lastIngested
     name
     description

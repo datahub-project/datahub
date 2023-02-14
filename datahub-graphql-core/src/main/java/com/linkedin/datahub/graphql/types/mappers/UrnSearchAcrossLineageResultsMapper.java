@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
@@ -46,9 +48,15 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setEntity(UrnToEntityMapper.map(searchEntity.getEntity()))
         .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
         .setMatchedFields(getMatchedFieldEntry(searchEntity.getMatchedFields()))
-        .setPath(searchEntity.getPath().stream().map(UrnToEntityMapper::map).collect(Collectors.toList()))
+        .setPaths(searchEntity.getPaths().stream().map(this::mapPath).collect(Collectors.toList()))
         .setDegree(searchEntity.getDegree())
         .build();
+  }
+
+  private EntityPath mapPath(UrnArray path) {
+    EntityPath entityPath = new EntityPath();
+    entityPath.setPath(path.stream().map(UrnToEntityMapper::map).collect(Collectors.toList()));
+    return entityPath;
   }
 
   private FacetMetadata mapFacet(com.linkedin.metadata.search.AggregationMetadata aggregationMetadata) {

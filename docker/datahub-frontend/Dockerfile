@@ -1,32 +1,22 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.14 AS base
+FROM alpine:3 AS base
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub
 
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl openjdk8-jre
-
-FROM --platform=$BUILDPLATFORM node:16.13.0-alpine3.14 AS prod-build
-
-# Upgrade Alpine and base packages
-RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add perl openjdk8
-
-ARG USE_SYSTEM_NODE="true"
-ENV CI=true
-ENV GRADLE_OPTS="-Xms256m -Xmx512m"
-COPY . datahub-src
-RUN cd datahub-src \
-    && ./gradlew :datahub-web-react:build -x test -x yarnTest -x yarnLint \
-    && ./gradlew :datahub-frontend:dist -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint \
-    && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
-    && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
+    && apk --no-cache add curl \
+    && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
 
 FROM base as prod-install
-COPY --from=prod-build /datahub-frontend /datahub-frontend/
+
+COPY ./datahub-frontend.zip /
+RUN unzip datahub-frontend.zip && rm datahub-frontend.zip
+COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
+RUN wget https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.18.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
+    && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.16.1/jmx_prometheus_javaagent-0.16.1.jar -O jmx_prometheus_javaagent.jar
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 
 FROM base as dev-install
@@ -43,14 +33,5 @@ RUN echo $SERVER_PORT
 EXPOSE $SERVER_PORT
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:$SERVER_PORT/admin || exit 1
-
-ENV JAVA_OPTS=" \
-   -Xms512m \
-   -Xmx1024m \
-   -Dhttp.port=$SERVER_PORT \
-   -Dconfig.file=datahub-frontend/conf/application.conf \
-   -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
-   -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
-   -Dlogback.debug=false \
-   -Dpidfile.path=/dev/null"
-CMD ["datahub-frontend/bin/datahub-frontend"]
+COPY ./docker/datahub-frontend/start.sh /
+CMD ./start.sh

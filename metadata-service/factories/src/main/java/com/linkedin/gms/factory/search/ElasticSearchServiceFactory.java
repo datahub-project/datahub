@@ -44,6 +44,6 @@ public class ElasticSearchServiceFactory {
             settingsBuilder), esSearchDAO,
         new ESBrowseDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention()),
         new ESWriteDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
-            components.getBulkProcessor()));
+            components.getBulkProcessor(), components.getNumRetries()));
   }
 }

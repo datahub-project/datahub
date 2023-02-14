@@ -1,8 +1,7 @@
 import React, { ReactNode, useState } from 'react';
-import { Button, Divider, Tooltip, Typography } from 'antd';
+import { Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { ArrowRightOutlined } from '@ant-design/icons';
 
 import {
     GlobalTags,
@@ -16,6 +15,7 @@ import {
     Deprecation,
     Domain,
     ParentNodesResult,
+    EntityPath,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -23,11 +23,13 @@ import NoMarkdownViewer from '../entity/shared/components/styled/StripMarkdownTe
 import { getNumberWithOrdinal } from '../entity/shared/utils';
 import { useEntityData } from '../entity/shared/EntityContext';
 import PlatformContentView from '../entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import { useParentContainersTruncation } from '../entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
+import useContentTruncation from '../shared/useContentTruncation';
 import EntityCount from '../entity/shared/containers/profile/header/EntityCount';
 import { ExpandedActorGroup } from '../entity/shared/components/styled/ExpandedActorGroup';
 import { DeprecationPill } from '../entity/shared/components/styled/DeprecationPill';
 import { PreviewType } from '../entity/Entity';
+import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
+import EntityPaths from './EntityPaths/EntityPaths';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -36,8 +38,8 @@ const PreviewContainer = styled.div`
     align-items: center;
 `;
 
-const LeftColumn = styled.div`
-    max-width: 60%;
+const LeftColumn = styled.div<{ expandWidth: boolean }>`
+    max-width: ${(props) => (props.expandWidth ? '100%' : '60%')};
 `;
 
 const RightColumn = styled.div`
@@ -71,6 +73,13 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
         font-weight: 600;
         vertical-align: middle;
     }
+`;
+
+const CardEntityTitle = styled(EntityTitle)`
+    max-width: 350px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 const PlatformText = styled(Typography.Text)`
@@ -122,21 +131,6 @@ const InsightIconContainer = styled.span`
     margin-right: 4px;
 `;
 
-const ExternalUrlContainer = styled.span`
-    font-size: 12px;
-`;
-
-const ExternalUrlButton = styled(Button)`
-    > :hover {
-        text-decoration: underline;
-    }
-    &&& {
-        padding-bottom: 0px;
-    }
-    padding-left: 12px;
-    padding-right: 12px;
-`;
-
 const UserListContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -157,6 +151,7 @@ const UserListTitle = styled(Typography.Text)`
 
 interface Props {
     name: string;
+    urn: string;
     logoUrl?: string;
     logoComponent?: JSX.Element;
     url: string;
@@ -189,10 +184,12 @@ interface Props {
     parentContainers?: ParentContainersResult | null;
     parentNodes?: ParentNodesResult | null;
     previewType?: Maybe<PreviewType>;
+    paths?: EntityPath[];
 }
 
 export default function DefaultPreviewCard({
     name,
+    urn,
     logoUrl,
     logoComponent,
     url,
@@ -225,6 +222,7 @@ export default function DefaultPreviewCard({
     platforms,
     logoUrls,
     previewType,
+    paths,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -244,16 +242,18 @@ export default function DefaultPreviewCard({
     }
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
 
-    const { parentContainersRef, areContainersTruncated } = useParentContainersTruncation(container);
+    const { contentRef, isContentTruncated } = useContentTruncation(container);
 
     const onPreventMouseDown = (event) => {
         event.preventDefault();
         event.stopPropagation();
     };
 
+    const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn>
+            <LeftColumn expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
                         platformName={platform}
@@ -266,22 +266,31 @@ export default function DefaultPreviewCard({
                         entityType={type}
                         parentContainers={parentContainers?.containers}
                         parentNodes={parentNodes?.nodes}
-                        parentContainersRef={parentContainersRef}
-                        areContainersTruncated={areContainersTruncated}
+                        parentContainersRef={contentRef}
+                        areContainersTruncated={isContentTruncated}
                     />
                     <EntityTitleContainer>
                         <Link to={url}>
-                            <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                {name || ' '}
-                            </EntityTitle>
+                            {previewType === PreviewType.HOVER_CARD ? (
+                                <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                                    {name || ' '}
+                                </CardEntityTitle>
+                            ) : (
+                                <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                                    {name || ' '}
+                                </EntityTitle>
+                            )}
                         </Link>
-                        {deprecation?.deprecated && <DeprecationPill deprecation={deprecation} preview />}
+                        {deprecation?.deprecated && (
+                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} preview />
+                        )}
                         {externalUrl && (
-                            <ExternalUrlContainer>
-                                <ExternalUrlButton type="link" href={externalUrl} target="_blank">
-                                    View in {platform} <ArrowRightOutlined style={{ fontSize: 12 }} />
-                                </ExternalUrlButton>
-                            </ExternalUrlContainer>
+                            <ExternalUrlButton
+                                externalUrl={externalUrl}
+                                platformName={platform}
+                                entityUrn={urn}
+                                entityType={type}
+                            />
                         )}
                     </EntityTitleContainer>
 
@@ -297,6 +306,7 @@ export default function DefaultPreviewCard({
                     {!!degree && entityCount && <PlatformDivider />}
                     <EntityCount entityCount={entityCount} />
                 </TitleContainer>
+                {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} />}
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer
@@ -340,27 +350,29 @@ export default function DefaultPreviewCard({
                     </InsightContainer>
                 )}
             </LeftColumn>
-            <RightColumn>
-                {topUsers && topUsers?.length > 0 && (
-                    <>
+            {shouldShowRightColumn && (
+                <RightColumn>
+                    {topUsers && topUsers?.length > 0 && (
+                        <>
+                            <UserListContainer>
+                                <UserListTitle strong>Top Users</UserListTitle>
+                                <div>
+                                    <ExpandedActorGroup actors={topUsers} max={2} />
+                                </div>
+                            </UserListContainer>
+                        </>
+                    )}
+                    {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
+                    {owners && owners?.length > 0 && (
                         <UserListContainer>
-                            <UserListTitle strong>Top Users</UserListTitle>
+                            <UserListTitle strong>Owners</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={topUsers} max={2} />
+                                <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
                             </div>
                         </UserListContainer>
-                    </>
-                )}
-                {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
-                {owners && owners?.length > 0 && (
-                    <UserListContainer>
-                        <UserListTitle strong>Owners</UserListTitle>
-                        <div>
-                            <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
-                        </div>
-                    </UserListContainer>
-                )}
-            </RightColumn>
+                    )}
+                </RightColumn>
+            )}
         </PreviewContainer>
     );
 }

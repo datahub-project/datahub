@@ -6,28 +6,31 @@ configurations {
 }
 
 dependencies {
-  implementation 'com.github.java-json-tools:json-patch:1.13'
+  implementation externalDependency.jsonPatch
   compile project(':entity-registry')
   compile project(':metadata-utils')
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-registration')
   compile project(':metadata-events:mxe-utils-avro-1.7')
   compile project(path: ':metadata-models')
+  compile project(':metadata-service:restli-client')
 
   compile spec.product.pegasus.data
   compile spec.product.pegasus.generator
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
+  implementation externalDependency.slf4jApi
+  runtime externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   compile externalDependency.datastaxOssNativeProtocol
   compile externalDependency.datastaxOssCore
   compile externalDependency.datastaxOssQueryBuilder
-  compile externalDependency.parquet
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.javatuples
   compile externalDependency.javaxValidation
+  runtimeOnly externalDependency.jna
   compile externalDependency.kafkaClients
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
@@ -54,15 +57,20 @@ dependencies {
   testCompile externalDependency.testContainersCassandra
   testCompile externalDependency.lombok
   testCompile project(':test-models')
+  testImplementation externalDependency.springBootTest
+  testImplementation project(':datahub-graphql-core')
 
   testAnnotationProcessor externalDependency.lombok
 
   constraints {
-    implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
+    implementation(externalDependency.log4jCore) {
         because("previous versions are vulnerable to CVE-2021-45105")
     }
-    implementation("org.apache.logging.log4j:log4j-api:2.17.0") {
+    implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.commonsText) {
+      because("previous versions are vulnerable to CVE-2022-42889")
     }
   }
 }
@@ -100,7 +108,7 @@ tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
   it.setAdditionalProperties([
       "group-id" : "io.datahubproject",
       "dateLibrary" : "java8",
-      "java8" : "true",
+      "java11" : "true",
       "modelPropertyNaming" : "original",
       "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
 

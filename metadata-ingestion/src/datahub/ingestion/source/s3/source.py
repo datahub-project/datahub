@@ -63,6 +63,7 @@ from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
+from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -159,8 +160,6 @@ profiling_flags_to_report = [
     "include_field_sample_values",
 ]
 
-S3_PREFIXES = ("s3://", "s3n://", "s3a://")
-
 
 # LOCAL_BROWSE_PATH_TRANSFORMER_CONFIG = AddDatasetBrowsePathConfig(
 #     path_templates=["/ENV/PLATFORMDATASET_PARTS"], replace_existing=True
@@ -249,7 +248,6 @@ class S3Source(Source):
             self.init_spark()
 
     def init_spark(self):
-
         conf = SparkConf()
 
         conf.set(
@@ -264,7 +262,6 @@ class S3Source(Source):
         )
 
         if self.source_config.aws_config is not None:
-
             credentials = self.source_config.aws_config.get_credentials()
 
             aws_access_key_id = credentials.get("aws_access_key_id")
@@ -278,7 +275,6 @@ class S3Source(Source):
             ]
 
             if any(x is not None for x in aws_provided_credentials):
-
                 # see https://hadoop.apache.org/docs/r3.0.3/hadoop-aws/tools/hadoop-aws/index.html#Changing_Authentication_Providers
                 if all(x is not None for x in aws_provided_credentials):
                     conf.set(
@@ -323,7 +319,6 @@ class S3Source(Source):
         return cls(config, ctx)
 
     def read_file_spark(self, file: str, ext: str) -> Optional[DataFrame]:
-
         logger.debug(f"Opening file {file} for profiling in spark")
         file = file.replace("s3://", "s3a://")
 
@@ -378,13 +373,14 @@ class S3Source(Source):
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")
 
-            s3_client = self.source_config.aws_config.get_s3_client()
+            s3_client = self.source_config.aws_config.get_s3_client(
+                self.source_config.verify_ssl
+            )
 
             file = smart_open(
                 table_data.full_path, "rb", transport_params={"client": s3_client}
             )
         else:
-
             file = open(table_data.full_path, "rb")
 
         fields = []
@@ -515,7 +511,6 @@ class S3Source(Source):
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
-
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
             strip_s3_prefix(table_data.table_path)
@@ -534,7 +529,7 @@ class S3Source(Source):
 
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[],
+            aspects=[Status(removed=False)],
         )
 
         customProperties: Optional[Dict[str, str]] = None
@@ -543,6 +538,8 @@ class S3Source(Source):
                 "number_of_files": str(table_data.number_of_files),
                 "size_in_bytes": str(table_data.size_in_bytes),
             }
+            if table_data.is_s3:
+                customProperties["table_path"] = str(table_data.table_path)
 
         dataset_properties = DatasetPropertiesClass(
             description="",
@@ -579,6 +576,7 @@ class S3Source(Source):
                 self.ctx,
                 self.source_config.use_s3_bucket_tags,
                 self.source_config.use_s3_object_tags,
+                self.source_config.verify_ssl,
             )
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
@@ -613,7 +611,6 @@ class S3Source(Source):
     def extract_table_data(
         self, path_spec: PathSpec, path: str, timestamp: datetime, size: int
     ) -> TableData:
-
         logger.debug(f"Getting table data for path: {path}")
         table_name, table_path = path_spec.extract_table_name_and_path(path)
         table_data = None
@@ -647,7 +644,9 @@ class S3Source(Source):
     def s3_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
-        s3 = self.source_config.aws_config.get_s3_resource()
+        s3 = self.source_config.aws_config.get_s3_resource(
+            self.source_config.verify_ssl
+        )
         bucket_name = get_bucket_name(path_spec.include)
         logger.debug(f"Scanning bucket: {bucket_name}")
         bucket = s3.Bucket(bucket_name)
@@ -755,6 +754,9 @@ class S3Source(Source):
                         ):
                             table_dict[
                                 table_data.table_path
+                            ].full_path = table_data.full_path
+                            table_dict[
+                                table_data.table_path
                             ].timestamp = table_data.timestamp
 
                 for guid, table_data in table_dict.items():
@@ -797,6 +799,3 @@ class S3Source(Source):
 
     def get_report(self):
         return self.report
-
-    def close(self):
-        pass

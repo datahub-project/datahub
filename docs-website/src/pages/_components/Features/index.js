@@ -9,14 +9,22 @@ const featuresContent = [
   {
     title: "Metadata 360",
     icon: <DeploymentUnitOutlined />,
-    description: <>Combine technical, operational and business metadata to provide a 360 degree view of your data entities.</>,
+    description: (
+      <>
+        Combine technical, operational and business metadata to provide a{" "}
+        <Link to="https://blog.datahubproject.io/the-3-must-haves-of-metadata-management-part-1-bf128517ff6e">360 degree view</Link> of your data
+        entities.
+      </>
+    ),
   },
   {
     title: "Shift-left",
     icon: <NodeCollapseOutlined />,
     description: (
       <>
-        Apply “shift-left” practices to pre-enrich important metadata using ingestion transformers, support for dbt meta-mapping and other features.
+        Apply “shift-left” practices to{" "}
+        <Link to="https://blog.datahubproject.io/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb">pre-enrich important metadata</Link>{" "}
+        using ingestion transformers, support for dbt meta-mapping and other features.
       </>
     ),
   },
@@ -25,7 +33,8 @@ const featuresContent = [
     icon: <HddTwoTone />,
     description: (
       <>
-        Act on changes in metadata in real time by notifying key stakeholders, circuit-breaking business-critcal pipelines, propogating metadata across entites, and more.
+        Act on changes in metadata in real time by notifying key stakeholders, circuit-breaking business-critcal pipelines, propogating metadata
+        across entites, and more.
       </>
     ),
   },

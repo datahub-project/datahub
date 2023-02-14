@@ -3,6 +3,7 @@ package com.datahub.authentication.token;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -19,8 +20,6 @@ import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.crypto.spec.SecretKeySpec;
-
-import static com.datahub.authentication.token.TokenClaims.*;
 
 
 /**
@@ -82,10 +81,10 @@ public class StatelessTokenService {
     Objects.requireNonNull(actor);
 
     Map<String, Object> claims = new HashMap<>();
-    claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.ONE.numericValue)); // Hardcode version 1 for now.
-    claims.put(TOKEN_TYPE_CLAIM_NAME, type.toString());
-    claims.put(ACTOR_TYPE_CLAIM_NAME, actor.getType());
-    claims.put(ACTOR_ID_CLAIM_NAME, actor.getId());
+    claims.put(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.ONE.numericValue)); // Hardcode version 1 for now.
+    claims.put(TokenClaims.TOKEN_TYPE_CLAIM_NAME, type.toString());
+    claims.put(TokenClaims.ACTOR_TYPE_CLAIM_NAME, actor.getType());
+    claims.put(TokenClaims.ACTOR_ID_CLAIM_NAME, actor.getId());
     return generateAccessToken(actor.getId(), claims, expiresInMs);
   }
 
@@ -128,15 +127,16 @@ public class StatelessTokenService {
     try {
       byte [] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
       final String base64Key = Base64.getEncoder().encodeToString(apiKeySecretBytes);
-      final Claims claims = (Claims) Jwts.parserBuilder()
+      final Jws<Claims> jws = Jwts.parserBuilder()
           .setSigningKey(base64Key)
           .build()
-          .parse(accessToken)
-          .getBody();
-      final String tokenVersion = claims.get(TOKEN_VERSION_CLAIM_NAME, String.class);
-      final String tokenType = claims.get(TOKEN_TYPE_CLAIM_NAME, String.class);
-      final String actorId = claims.get(ACTOR_ID_CLAIM_NAME, String.class);
-      final String actorType = claims.get(ACTOR_TYPE_CLAIM_NAME, String.class);
+          .parseClaimsJws(accessToken);
+      validateTokenAlgorithm(jws.getHeader().getAlgorithm());
+      final Claims claims = jws.getBody();
+      final String tokenVersion = claims.get(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.class);
+      final String tokenType = claims.get(TokenClaims.TOKEN_TYPE_CLAIM_NAME, String.class);
+      final String actorId = claims.get(TokenClaims.ACTOR_ID_CLAIM_NAME, String.class);
+      final String actorType = claims.get(TokenClaims.ACTOR_TYPE_CLAIM_NAME, String.class);
       if (tokenType != null && actorId != null && actorType != null) {
           return new TokenClaims(
               TokenVersion.fromNumericStringValue(tokenVersion),
@@ -151,6 +151,14 @@ public class StatelessTokenService {
       throw new TokenException("Failed to validate DataHub token", e);
     }
     throw new TokenException("Failed to validate DataHub token: Found malformed or missing 'actor' claim.");
+  }
+
+  private void validateTokenAlgorithm(final String algorithm) throws TokenException {
+    try {
+      validateAlgorithm(algorithm);
+    } catch (UnsupportedOperationException e) {
+      throw new TokenException(String.format("Failed to validate signing algorithm for provided JWT! Found %s", algorithm));
+    }
   }
 
   private SignatureAlgorithm validateAlgorithm(final String algorithm) {

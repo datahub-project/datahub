@@ -13,4 +13,9 @@ record SearchFlags {
    * The maximum number of values in an facet aggregation
    */
   maxAggValues: int = 20
+
+  /**
+   * Structured or unstructured fulltext query
+   */
+  fulltext:optional boolean
 }

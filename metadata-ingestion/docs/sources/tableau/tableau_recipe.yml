@@ -4,6 +4,7 @@ source:
     # Coordinates
     connect_uri: https://prod-ca-a.online.tableau.com
     site: acryl
+    platform_instance: acryl_instance
     projects: ["default", "Project 2"]
 
     # Credentials

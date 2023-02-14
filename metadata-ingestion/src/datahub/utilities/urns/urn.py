@@ -4,6 +4,11 @@ from typing import List
 from datahub.utilities.urns.error import InvalidUrnError
 
 
+def guess_entity_type(urn: str) -> str:
+    assert urn.startswith("urn:li:"), "urns must start with urn:li:"
+    return urn.split(":")[2]
+
+
 class Urn:
     """
     URNs are Globally Unique Identifiers (GUID) used to represent an entity.

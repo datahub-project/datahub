@@ -1,46 +1,83 @@
 import hashlib
 import json
-from typing import Any, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, TypeVar
 
+from deprecated import deprecated
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
-from datahub.emitter.mce_builder import make_container_urn, make_data_platform_urn
+from datahub.emitter.mce_builder import (
+    make_container_urn,
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    DataPlatformInstance,
+    TimeStamp,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
-from datahub.metadata.com.linkedin.pegasus2avro.events.metadata import ChangeType
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     ContainerClass,
     DomainsClass,
+    EmbedClass,
     GlobalTagsClass,
+    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    StatusClass,
     SubTypesClass,
     TagAssociationClass,
     _Aspect,
 )
 
 
+def _stable_guid_from_dict(d: dict) -> str:
+    json_key = json.dumps(
+        d,
+        separators=(",", ":"),
+        sort_keys=True,
+        cls=DatahubKeyJSONEncoder,
+    )
+    md5_hash = hashlib.md5(json_key.encode("utf-8"))
+    return str(md5_hash.hexdigest())
+
+
 class DatahubKey(BaseModel):
+    def guid_dict(self) -> Dict[str, str]:
+        return self.dict(by_alias=True, exclude_none=True)
+
     def guid(self) -> str:
-        nonnull_dict = self.dict(by_alias=True, exclude_none=True)
-        json_key = json.dumps(
-            nonnull_dict,
-            separators=(",", ":"),
-            sort_keys=True,
-            cls=DatahubKeyJSONEncoder,
-        )
-        md5_hash = hashlib.md5(json_key.encode("utf-8"))
-        return str(md5_hash.hexdigest())
+        bag = self.guid_dict()
+        return _stable_guid_from_dict(bag)
 
 
 class PlatformKey(DatahubKey):
     platform: str
     instance: Optional[str] = None
+
+    # BUG: In some of our sources, we incorrectly set the platform instance
+    # to the env if no platform instance was specified. Now, we have to maintain
+    # backwards compatibility with this bug, which means generating our GUIDs
+    # in the same way. Specifically, we need to use the backcompat value if
+    # the normal instance value is not set.
+    backcompat_instance_for_guid: Optional[str] = Field(default=None, exclude=True)
+
+    def guid_dict(self) -> Dict[str, str]:
+        # FIXME: Notice that we can't use exclude_none=True here. This is because
+        # we need to maintain the insertion order in the dict (so that instance)
+        # comes before the keys from any subclasses. While the guid computation
+        # method uses sort_keys=True, we also use the guid_dict method when
+        # generating custom properties, which are not sorted.
+        bag = self.dict(by_alias=True, exclude_none=False)
+
+        if self.instance is None:
+            bag["instance"] = self.backcompat_instance_for_guid
+
+        bag = {k: v for k, v in bag.items() if v is not None}
+        return bag
 
 
 class DatabaseKey(PlatformKey):
@@ -53,6 +90,18 @@ class SchemaKey(DatabaseKey):
 
 class ProjectIdKey(PlatformKey):
     project_id: str
+
+
+class MetastoreKey(PlatformKey):
+    metastore: str
+
+
+class CatalogKey(MetastoreKey):
+    catalog: str
+
+
+class UnitySchemaKey(CatalogKey):
+    unity_schema: str
 
 
 class BigQueryDatasetKey(ProjectIdKey):
@@ -68,7 +117,6 @@ class S3BucketKey(PlatformKey):
 
 
 class DatahubKeyJSONEncoder(json.JSONEncoder):
-
     # overload method default
     def default(self, obj: Any) -> Any:
         if hasattr(obj, "guid"):
@@ -81,24 +129,18 @@ KeyType = TypeVar("KeyType", bound=PlatformKey)
 
 
 def add_domain_to_entity_wu(
-    entity_type: str, entity_urn: str, domain_urn: str
+    entity_urn: str, domain_urn: str
 ) -> Iterable[MetadataWorkUnit]:
-    mcp = MetadataChangeProposalWrapper(
-        entityType=entity_type,
-        changeType=ChangeTypeClass.UPSERT,
+    yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
         aspect=DomainsClass(domains=[domain_urn]),
-    )
-    wu = MetadataWorkUnit(id=f"{domain_urn}-to-{entity_urn}", mcp=mcp)
-    yield wu
+    ).as_workunit()
 
 
 def add_owner_to_entity_wu(
     entity_type: str, entity_urn: str, owner_urn: str
 ) -> Iterable[MetadataWorkUnit]:
-    mcp = MetadataChangeProposalWrapper(
-        entityType=entity_type,
-        changeType=ChangeTypeClass.UPSERT,
+    yield MetadataChangeProposalWrapper(
         entityUrn=f"{entity_urn}",
         aspect=OwnershipClass(
             owners=[
@@ -108,26 +150,22 @@ def add_owner_to_entity_wu(
                 )
             ]
         ),
-    )
-    wu = MetadataWorkUnit(id=f"{owner_urn}-to-{entity_urn}", mcp=mcp)
-    yield wu
+    ).as_workunit()
 
 
 def add_tags_to_entity_wu(
     entity_type: str, entity_urn: str, tags: List[str]
 ) -> Iterable[MetadataWorkUnit]:
-    mcp = MetadataChangeProposalWrapper(
+    yield MetadataChangeProposalWrapper(
         entityType=entity_type,
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{entity_urn}",
         aspect=GlobalTagsClass(
             tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
         ),
-    )
-    wu = MetadataWorkUnit(id=f"tags-to-{entity_urn}", mcp=mcp)
-    yield wu
+    ).as_workunit()
 
 
+@deprecated("use MetadataChangeProposalWrapper(...).as_workunit() instead")
 def wrap_aspect_as_workunit(
     entityName: str,
     entityUrn: str,
@@ -137,11 +175,8 @@ def wrap_aspect_as_workunit(
     wu = MetadataWorkUnit(
         id=f"{aspectName}-for-{entityUrn}",
         mcp=MetadataChangeProposalWrapper(
-            entityType=entityName,
             entityUrn=entityUrn,
-            aspectName=aspectName,
             aspect=aspect,
-            changeType=ChangeType.UPSERT,
         ),
     )
     return wu
@@ -152,60 +187,62 @@ def gen_containers(
     name: str,
     sub_types: List[str],
     parent_container_key: Optional[PlatformKey] = None,
+    extra_properties: Optional[Dict[str, str]] = None,
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
     external_url: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    qualified_name: Optional[str] = None,
+    created: Optional[int] = None,
+    last_modified: Optional[int] = None,
 ) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
     )
-    mcp = MetadataChangeProposalWrapper(
-        entityType="container",
-        changeType=ChangeTypeClass.UPSERT,
+    yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
-        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+        # entityKeyAspect=ContainerKeyClass(guid=parent_container_key.guid()),
         aspect=ContainerProperties(
             name=name,
             description=description,
-            customProperties=container_key.dict(exclude_none=True, by_alias=True),
+            customProperties={
+                **container_key.guid_dict(),
+                **(extra_properties or {}),
+            },
             externalUrl=external_url,
+            qualifiedName=qualified_name,
+            created=TimeStamp(time=created) if created is not None else None,
+            lastModified=TimeStamp(time=last_modified)
+            if last_modified is not None
+            else None,
         ),
-    )
-    wu = MetadataWorkUnit(id=f"container-info-{name}-{container_urn}", mcp=mcp)
-    yield wu
+    ).as_workunit()
 
-    mcp = MetadataChangeProposalWrapper(
-        entityType="container",
-        changeType=ChangeTypeClass.UPSERT,
+    # add status
+    yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
-        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
+        aspect=StatusClass(removed=False),
+    ).as_workunit()
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=f"{container_urn}",
         aspect=DataPlatformInstance(
             platform=f"{make_data_platform_urn(container_key.platform)}",
+            instance=f"{make_dataplatform_instance_urn(container_key.platform, container_key.instance)}"
+            if container_key.instance
+            else None,
         ),
-    )
-    wu = MetadataWorkUnit(
-        id=f"container-platforminstance-{name}-{container_urn}", mcp=mcp
-    )
-    yield wu
+    ).as_workunit()
 
     # Set subtype
-    subtype_mcp = MetadataChangeProposalWrapper(
-        entityType="container",
-        changeType=ChangeTypeClass.UPSERT,
+    yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
-        # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
         aspect=SubTypesClass(typeNames=sub_types),
-    )
-    wu = MetadataWorkUnit(
-        id=f"container-subtypes-{name}-{container_urn}", mcp=subtype_mcp
-    )
-    yield wu
+    ).as_workunit()
 
     if domain_urn:
         yield from add_domain_to_entity_wu(
-            entity_type="container",
             entity_urn=container_urn,
             domain_urn=domain_urn,
         )
@@ -221,7 +258,7 @@ def gen_containers(
         yield from add_tags_to_entity_wu(
             entity_type="container",
             entity_urn=container_urn,
-            tags=tags,
+            tags=sorted(tags),
         )
 
     if parent_container_key:
@@ -231,39 +268,23 @@ def gen_containers(
 
         # Set database container
         parent_container_mcp = MetadataChangeProposalWrapper(
-            entityType="container",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=f"{container_urn}",
-            # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
             aspect=ContainerClass(container=parent_container_urn),
-            # aspect=ContainerKeyClass(guid=database_container_key.guid())
         )
-        wu = MetadataWorkUnit(
-            id=f"container-parent-container-{name}-{container_urn}-{parent_container_urn}",
-            mcp=parent_container_mcp,
-        )
-
-        yield wu
+        yield parent_container_mcp.as_workunit()
 
 
 def add_dataset_to_container(
-    # FIXME: Union requires two or more type arguments
-    container_key: KeyType,
-    dataset_urn: str,
-) -> Iterable[Union[MetadataWorkUnit]]:
+    container_key: KeyType, dataset_urn: str
+) -> Iterable[MetadataWorkUnit]:
     container_urn = make_container_urn(
         guid=container_key.guid(),
     )
 
-    mcp = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        changeType=ChangeTypeClass.UPSERT,
+    yield MetadataChangeProposalWrapper(
         entityUrn=f"{dataset_urn}",
         aspect=ContainerClass(container=f"{container_urn}"),
-        # aspect=ContainerKeyClass(guid=schema_container_key.guid())
-    )
-    wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{dataset_urn}", mcp=mcp)
-    yield wu
+    ).as_workunit()
 
 
 def add_entity_to_container(
@@ -272,11 +293,27 @@ def add_entity_to_container(
     container_urn = make_container_urn(
         guid=container_key.guid(),
     )
-    mcp = MetadataChangeProposalWrapper(
+    yield MetadataChangeProposalWrapper(
         entityType=entity_type,
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=entity_urn,
         aspect=ContainerClass(container=f"{container_urn}"),
+    ).as_workunit()
+
+
+def mcps_from_mce(
+    mce: MetadataChangeEventClass,
+) -> Iterable[MetadataChangeProposalWrapper]:
+    for aspect in mce.proposedSnapshot.aspects:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=mce.proposedSnapshot.urn,
+            auditHeader=mce.auditHeader,
+            aspect=aspect,
+            systemMetadata=mce.systemMetadata,
+        )
+
+
+def create_embed_mcp(urn: str, embed_url: str) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=urn,
+        aspect=EmbedClass(renderUrl=embed_url),
     )
-    wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{entity_urn}", mcp=mcp)
-    yield wu

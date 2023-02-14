@@ -27,7 +27,8 @@ class ContainerWUCreator:
     def __init__(self, platform, platform_instance, env):
         self.processed_containers = []
         self.platform = platform
-        self.instance = env if platform_instance is None else platform_instance
+        self.instance = platform_instance
+        self.env = env
 
     def create_emit_containers(
         self,
@@ -54,6 +55,7 @@ class ContainerWUCreator:
         return FolderKey(
             platform=self.platform,
             instance=self.instance,
+            backcompat_instance_for_guid=self.env,
             folder_abs_path=abs_path,
         )
 
@@ -61,6 +63,7 @@ class ContainerWUCreator:
         return S3BucketKey(
             platform="s3",
             instance=self.instance,
+            backcompat_instance_for_guid=self.env,
             bucket_name=name,
         )
 

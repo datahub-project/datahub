@@ -6,14 +6,17 @@ apply plugin: 'java'
 dependencies {
     compile project(':metadata-service:restli-client')
     compile project(':metadata-service:auth-impl')
+    compile project(':metadata-service:auth-config')
     compile project(':metadata-io')
     compile project(':metadata-utils')
 
-    compile externalDependency.graphqlJava
+    implementation externalDependency.graphqlJava
+    implementation externalDependency.graphqlJavaScalars
     compile externalDependency.antlr4Runtime
     compile externalDependency.antlr4
     compile externalDependency.guava
 
+    implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 
@@ -32,6 +35,8 @@ graphqlCodegen {
         "$projectDir/src/main/resources/auth.graphql".toString(),
         "$projectDir/src/main/resources/timeline.graphql".toString(),
         "$projectDir/src/main/resources/tests.graphql".toString(),
+        "$projectDir/src/main/resources/step.graphql".toString(),
+        "$projectDir/src/main/resources/lineage.graphql".toString(),
     ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"

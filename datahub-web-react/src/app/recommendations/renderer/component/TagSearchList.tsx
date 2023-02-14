@@ -44,7 +44,7 @@ export const TagSearchList = ({ content, onClick }: Props) => {
             filters: [
                 {
                     field: 'tags',
-                    value: tag.urn,
+                    values: [tag.urn],
                 },
             ],
             history,

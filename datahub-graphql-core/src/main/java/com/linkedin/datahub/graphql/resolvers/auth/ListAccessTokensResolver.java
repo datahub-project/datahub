@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -55,8 +56,8 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
               new SortCriterion().setField(EXPIRES_AT_FIELD_NAME).setOrder(SortOrder.DESCENDING);
 
           final SearchResult searchResult = _entityClient.search(Constants.ACCESS_TOKEN_ENTITY_NAME, "",
-              buildFilter(filters), sortCriterion, start, count,
-              getAuthentication(environment));
+              buildFilter(filters, Collections.emptyList()), sortCriterion, start, count,
+              getAuthentication(environment), true);
 
           final List<AccessTokenMetadata> tokens = searchResult.getEntities().stream().map(entity -> {
             final AccessTokenMetadata metadata = new AccessTokenMetadata();
@@ -94,6 +95,6 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
    */
   private boolean isListingSelfTokens(final List<FacetFilterInput> filters, final QueryContext context) {
     return AuthorizationUtils.canGeneratePersonalAccessToken(context) && filters.stream()
-        .anyMatch(filter -> filter.getField().equals("ownerUrn") && filter.getValue().equals(context.getActorUrn()));
+        .anyMatch(filter -> filter.getField().equals("ownerUrn") && filter.getValues().equals(ImmutableList.of(context.getActorUrn())));
   }
 }

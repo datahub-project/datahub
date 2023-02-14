@@ -162,6 +162,9 @@ fragment autoCompleteFields on Entity {
             ...dataPlatformInstanceFields
         }
     }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -212,6 +215,7 @@ fragment searchResultFields on Entity {
                 key
                 value
             }
+            externalUrl
         }
         ownership {
             ...ownershipFields
@@ -248,12 +252,15 @@ fragment searchResultFields on Entity {
                         name
                         description
                         qualifiedName
+                        externalUrl
                     }
                 }
             }
         }
         lastProfile: datasetProfiles(limit: 1) {
             rowCount
+            columnCount
+            sizeInBytes
             timestampMillis
         }
         lastOperation: operations(limit: 1) {
@@ -375,8 +382,8 @@ fragment searchResultFields on Entity {
                 }
             }
         }
-        inputFields {
-            ...inputFieldsFields
+        subTypes {
+            typeNames
         }
     }
     ... on Chart {
@@ -440,9 +447,6 @@ fragment searchResultFields on Entity {
                 }
             }
         }
-        inputFields {
-            ...inputFieldsFields
-        }
     }
     ... on DataFlow {
         flowId
@@ -451,6 +455,7 @@ fragment searchResultFields on Entity {
             name
             description
             project
+            externalUrl
         }
         ownership {
             ...ownershipFields
@@ -491,6 +496,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            externalUrl
         }
         globalTags {
             ...globalTagsFields
@@ -545,6 +551,9 @@ fragment searchResultFields on Entity {
         parentNodes {
             ...parentNodesFields
         }
+        domain {
+            ...entityDomain
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
@@ -565,6 +574,7 @@ fragment searchResultFields on Entity {
         properties {
             name
             description
+            externalUrl
         }
         platform {
             ...platformFields
@@ -669,6 +679,9 @@ fragment searchResultFields on Entity {
         }
         description
     }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
 }
 
 fragment facetFields on FacetMetadata {
@@ -754,6 +767,15 @@ fragment searchResults on SearchResults {
     }
 }
 
+fragment schemaFieldEntityFields on SchemaFieldEntity {
+    urn
+    type
+    fieldPath
+    parent {
+        ...searchResultFields
+    }
+}
+
 fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     start
     count
@@ -761,6 +783,17 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
     searchResults {
         entity {
             ...searchResultFields
+            ... on Dataset {
+                assertions @include(if: $includeAssertions) {
+                    assertions {
+                        runEvents(limit: 1) {
+                            total
+                            failed
+                            succeeded
+                        }
+                    }
+                }
+            }
         }
         matchedFields {
             name
@@ -769,6 +802,14 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         insights {
             text
             icon
+        }
+        paths {
+            path {
+                ...searchResultFields
+                ... on SchemaFieldEntity {
+                    ...schemaFieldEntityFields
+                }
+            }
         }
         degree
     }
@@ -789,8 +830,16 @@ query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-query searchAcrossLineage($input: SearchAcrossLineageInput!) {
+query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
+    }
+}
+
+query getEntityMentionNode($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...searchResultFields
     }
 }

@@ -18,7 +18,7 @@ What you need to add tags:
 * **Edit Tags** metadata privilege to add tags at the entity level
 * **Edit Dataset Column Tags** to edit tags at the column level 
 
-You can create these privileges by creating a new [Metadata Policy](./docs/authorization/policies.md).
+You can create these privileges by creating a new [Metadata Policy](./authorization/policies.md).
 
 ## Using DataHub Tags
 
@@ -72,10 +72,16 @@ You can search for a tag in the search bar, and even filter entities by the pres
 
 ### GraphQL
 
-* [Tag](../graphql/queries.md#tag)
-* [AddTagsInput](../graphql/inputObjects.md#addtagsinput)
-* [BatchAddTagsInput](../graphql/inputObjects.md#batchaddtagsinput)
-* [BatchRemoveTagsInput](../graphql/inputObjects.md#batchremovetagsinput)
+* [addTag](../graphql/mutations.md#addtag)
+* [addTags](../graphql/mutations.md#addtags)
+* [batchAddTags](../graphql/mutations.md#batchaddtags)
+* [removeTag](../graphql/mutations.md#removetag)
+* [batchRemoveTags](../graphql/mutations.md#batchremovetags)
+* [createTag](../graphql/mutations.md#createtag)
+* [updateTag](../graphql/mutations.md#updatetag)
+* [deleteTag](../graphql/mutations.md#deletetag)
+
+You can easily fetch the Tags for an entity with a given its URN using the **tags** property. Check out [Working with Metadata Entities](./api/graphql/querying-entities.md#querying-for-tags-of-an-asset) for an example. 
 
 ### DataHub Blog
 
@@ -101,5 +107,5 @@ Domains are a set of top-level categories usually aligned to business units/disc
 
 ### Related Features
 
-* [Glossary Terms](./docs/how/business-glossary-guide.md)
-* [Domains](./docs/domains.md)
+* [Glossary Terms](./glossary/business-glossary.md)
+* [Domains](./domains.md)

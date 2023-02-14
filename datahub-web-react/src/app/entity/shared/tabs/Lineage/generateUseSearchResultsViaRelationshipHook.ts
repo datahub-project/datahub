@@ -5,14 +5,18 @@ import { GetSearchResultsParams } from '../../components/styled/search/types';
 export default function generateUseSearchResultsViaRelationshipHook({
     urn,
     direction,
+    startTimeMillis,
+    endTimeMillis,
 }: {
     urn: string;
     direction: LineageDirection;
+    startTimeMillis?: number;
+    endTimeMillis?: number;
 }) {
     return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
         const {
             variables: {
-                input: { types, query, start, count, filters },
+                input: { types, query, start, count, filters, orFilters },
             },
         } = params;
 
@@ -26,6 +30,9 @@ export default function generateUseSearchResultsViaRelationshipHook({
                     start,
                     count,
                     filters,
+                    orFilters,
+                    startTimeMillis: startTimeMillis || undefined,
+                    endTimeMillis: endTimeMillis || undefined,
                 },
             },
         });
@@ -42,6 +49,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
                         start: refetchStart,
                         count: refetchCount,
                         filters: refetchFilters,
+                        orFilters: refetchOrFilters,
                     },
                 } = refetchParams;
                 return refetch({
@@ -53,6 +61,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
                         start: refetchStart,
                         count: refetchCount,
                         filters: refetchFilters,
+                        orFilters: refetchOrFilters,
                     },
                 }).then((res) => res.data.searchAcrossLineage);
             },

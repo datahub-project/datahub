@@ -2,9 +2,10 @@ import collections
 import logging
 import textwrap
 import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Set, Union, cast
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
@@ -14,7 +15,7 @@ from ratelimiter import RateLimiter
 
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import make_user_urn
-from datahub.emitter.mcp_builder import wrap_aspect_as_workunit
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BQ_AUDIT_V2,
@@ -35,6 +36,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.delayed_iter import delayed_iter
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -65,7 +67,7 @@ class OperationalDataMeta:
 def bigquery_audit_metadata_query_template(
     dataset: str,
     use_date_sharded_tables: bool,
-    table_allow_filter: str = None,
+    table_allow_filter: Optional[str] = None,
     limit: Optional[int] = None,
 ) -> str:
     """
@@ -149,14 +151,9 @@ class BigQueryUsageExtractor:
     * Aggregation of these statistics into buckets, by day or hour granularity
 
     :::note
-    1. This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` plugin.
-    2. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+    1. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
     :::
     """
-
-    aggregated_info: Dict[
-        datetime, Dict[BigQueryTableRef, AggregatedDataset]
-    ] = collections.defaultdict(dict)
 
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config: BigQueryV2Config = config
@@ -172,61 +169,85 @@ class BigQueryUsageExtractor:
             and self.config.table_pattern.allowed(table_ref.table_identifier.table)
         )
 
-    def generate_usage_for_project(self, project_id: str) -> Iterable[MetadataWorkUnit]:
+    def generate_usage_for_project(
+        self, project_id: str, tables: Dict[str, List[str]]
+    ) -> Iterable[MetadataWorkUnit]:
+        aggregated_info: Dict[
+            datetime, Dict[BigQueryTableRef, AggregatedDataset]
+        ] = collections.defaultdict(dict)
+
         parsed_bigquery_log_events: Iterable[
             Union[ReadEvent, QueryEvent, MetadataWorkUnit]
         ]
+        with PerfTimer() as timer:
+            try:
+                bigquery_log_entries = self._get_parsed_bigquery_log_events(project_id)
+                if self.config.use_exported_bigquery_audit_metadata:
+                    parsed_bigquery_log_events = (
+                        self._parse_exported_bigquery_audit_metadata(
+                            bigquery_log_entries
+                        )
+                    )
+                else:
+                    parsed_bigquery_log_events = self._parse_bigquery_log_entries(
+                        bigquery_log_entries
+                    )
 
-        bigquery_log_entries = self._get_parsed_bigquery_log_events(project_id)
-        if self.config.use_exported_bigquery_audit_metadata:
-            parsed_bigquery_log_events = self._parse_exported_bigquery_audit_metadata(
-                bigquery_log_entries
-            )
-        else:
-            parsed_bigquery_log_events = self._parse_bigquery_log_entries(
-                bigquery_log_entries
-            )
-        parsed_events_uncasted: Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]
-        last_updated_work_units_uncasted: Iterable[
-            Union[ReadEvent, QueryEvent, MetadataWorkUnit]
-        ]
-        parsed_events_uncasted, last_updated_work_units_uncasted = partition(
-            lambda x: isinstance(x, MetadataWorkUnit), parsed_bigquery_log_events
-        )
-        parsed_events: Iterable[Union[ReadEvent, QueryEvent]] = cast(
-            Iterable[Union[ReadEvent, QueryEvent]], parsed_events_uncasted
-        )
-
-        hydrated_read_events = self._join_events_by_job_id(parsed_events)
-        # storing it all in one big object.
-
-        # TODO: handle partitioned tables
-
-        # TODO: perhaps we need to continuously prune this, rather than
-        num_aggregated: int = 0
-        self.report.num_operational_stats_workunits_emitted = 0
-        for event in hydrated_read_events:
-            if self.config.usage.include_operational_stats:
-                operational_wu = self._create_operation_aspect_work_unit(event)
-                if operational_wu:
-                    self.report.report_workunit(operational_wu)
-                    yield operational_wu
-                    self.report.num_operational_stats_workunits_emitted += 1
-            if event.read_event:
-                self.aggregated_info = self._aggregate_enriched_read_events(
-                    self.aggregated_info, event
+                parsed_events_uncasted: Iterable[
+                    Union[ReadEvent, QueryEvent, MetadataWorkUnit]
+                ]
+                last_updated_work_units_uncasted: Iterable[
+                    Union[ReadEvent, QueryEvent, MetadataWorkUnit]
+                ]
+                parsed_events_uncasted, last_updated_work_units_uncasted = partition(
+                    lambda x: isinstance(x, MetadataWorkUnit),
+                    parsed_bigquery_log_events,
                 )
-                num_aggregated += 1
-        logger.info(f"Total number of events aggregated = {num_aggregated}.")
-        bucket_level_stats: str = "\n\t" + "\n\t".join(
-            [
-                f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
-                for db, ads in self.aggregated_info.items()
-            ]
-        )
-        logger.debug(
-            f"Number of buckets created = {len(self.aggregated_info)}. Per-bucket details:{bucket_level_stats}"
-        )
+                parsed_events: Iterable[Union[ReadEvent, QueryEvent]] = cast(
+                    Iterable[Union[ReadEvent, QueryEvent]], parsed_events_uncasted
+                )
+
+                hydrated_read_events = self._join_events_by_job_id(parsed_events)
+                # storing it all in one big object.
+
+                # TODO: handle partitioned tables
+
+                # TODO: perhaps we need to continuously prune this, rather than
+                num_aggregated: int = 0
+                self.report.num_operational_stats_workunits_emitted = 0
+                for event in hydrated_read_events:
+                    if self.config.usage.include_operational_stats:
+                        operational_wu = self._create_operation_aspect_work_unit(event)
+                        if operational_wu:
+                            yield operational_wu
+                            self.report.num_operational_stats_workunits_emitted += 1
+                    if event.read_event:
+                        aggregated_info = self._aggregate_enriched_read_events(
+                            aggregated_info, event, tables
+                        )
+                        num_aggregated += 1
+                logger.info(f"Total number of events aggregated = {num_aggregated}.")
+                bucket_level_stats: str = "\n\t" + "\n\t".join(
+                    [
+                        f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
+                        for db, ads in aggregated_info.items()
+                    ]
+                )
+                logger.debug(
+                    f"Number of buckets created = {len(aggregated_info)}. Per-bucket details:{bucket_level_stats}"
+                )
+
+                self.report.usage_extraction_sec[project_id] = round(
+                    timer.elapsed_seconds(), 2
+                )
+
+                yield from self.get_workunits(aggregated_info)
+            except Exception as e:
+                self.report.usage_failed_extraction.append(project_id)
+                trace = traceback.format_exc()
+                logger.error(
+                    f"Error getting usage for project {project_id} due to error {e}, trace: {trace}"
+                )
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
         self, client: BigQueryClient
@@ -240,18 +261,22 @@ class BigQueryUsageExtractor:
             i: int = 0
             for i, entry in enumerate(list_entries):
                 if i == 0:
-                    logger.info("Starting log load from BigQuery")
+                    logger.info(
+                        f"Starting log load from BigQuery for project {client.project}"
+                    )
                 yield entry
 
-            logger.info(f"Finished loading {i} log entries from BigQuery")
+            logger.info(
+                f"Finished loading {i} log entries from BigQuery for project {client.project}"
+            )
 
         except Exception as e:
             logger.warning(
-                f"Encountered exception retrieving AuditLogEntries for project {client.project}",
-                e,
+                f"Encountered exception retrieving AuditLogEntries for project {client.project} - {e}"
             )
             self.report.report_failure(
-                f"{client.project}", f"unable to retrieve log entries {e}"
+                "lineage-extraction",
+                f"{client.project} - unable to retrieve log entries {e}",
             )
 
     def _get_exported_bigquery_audit_metadata(
@@ -313,35 +338,49 @@ class BigQueryUsageExtractor:
 
         try:
             list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
+            rate_limiter: Optional[RateLimiter] = None
             if self.config.rate_limit:
-                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
-                    list_entries = client.list_entries(
-                        filter_=filter, page_size=self.config.log_page_size
-                    )
-            else:
-                list_entries = client.list_entries(
-                    filter_=filter,
-                    page_size=self.config.log_page_size,
-                    max_results=limit,
+                # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
+                # to properly ratelimit we multiply the page size by the number of requests per minute
+                rate_limiter = RateLimiter(
+                    max_calls=self.config.requests_per_min * self.config.log_page_size,
+                    period=60,
                 )
+
+            list_entries = client.list_entries(
+                filter_=filter,
+                page_size=self.config.log_page_size,
+                max_results=limit,
+            )
 
             for i, entry in enumerate(list_entries):
                 if i == 0:
-                    logger.info("Starting log load from GCP Logging")
+                    logger.info(
+                        f"Starting log load from GCP Logging for {client.project}"
+                    )
+                if i % 1000 == 0:
+                    logger.info(
+                        f"Loaded {i} log entries from GCP Log for {client.project}"
+                    )
                 self.report.total_query_log_entries += 1
-                yield entry
+
+                if rate_limiter:
+                    with rate_limiter:
+                        yield entry
+                else:
+                    yield entry
 
             logger.info(
-                f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging"
+                f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging for {client.project}"
             )
 
         except Exception as e:
             logger.warning(
-                f"Encountered exception retrieving AuditLogEntires for project {client.project}",
-                e,
+                f"Encountered exception retrieving AuditLogEntires for project {client.project} - {e}"
             )
             self.report.report_failure(
-                f"{client.project}", f"unable to retrive log entrires {e}"
+                "usage-extraction",
+                f"{client.project} - unable to retrive log entrires {e}",
             )
 
     def _generate_filter(self, audit_templates: Dict[str, str]) -> str:
@@ -409,7 +448,7 @@ class BigQueryUsageExtractor:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
             # - SCRIPT statement type ends up here as well
-            logger.warning(f"Unable to find destination table in event {event}")
+            logger.debug(f"Unable to find destination table in event {event}")
             return None
 
     def _extract_operational_meta(
@@ -417,7 +456,6 @@ class BigQueryUsageExtractor:
     ) -> Optional[OperationalDataMeta]:
         # If we don't have Query object that means this is a queryless read operation or a read operation which was not executed as JOB
         # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason/
-        operation_meta: OperationalDataMeta
         if not event.query_event and event.read_event:
             return OperationalDataMeta(
                 statement_type=OperationTypeClass.CUSTOM,
@@ -461,7 +499,6 @@ class BigQueryUsageExtractor:
     def _create_operation_aspect_work_unit(
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
-
         if not event.read_event and not event.query_event:
             return None
 
@@ -511,14 +548,10 @@ class BigQueryUsageExtractor:
             if event.query_event and event.query_event.numAffectedRows:
                 operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
-        return wrap_aspect_as_workunit(
-            "dataset",
-            destination_table.to_urn(
-                env=self.config.env,
-            ),
-            "operation",
-            operation_aspect,
-        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=destination_table.to_urn(env=self.config.env),
+            aspect=operation_aspect,
+        ).as_workunit()
 
     def _create_operational_custom_properties(
         self, event: AuditEvent
@@ -597,10 +630,8 @@ class BigQueryUsageExtractor:
                 self.report.num_query_events += 1
 
             if event is None:
-                self.error(
-                    logger,
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
+                logger.warning(
+                    f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}"
                 )
             else:
                 yield event
@@ -639,10 +670,8 @@ class BigQueryUsageExtractor:
             else:
                 self.error(
                     logger,
-                    f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
-                    f"Unable to parse audit metadata missing "
-                    f"QueryEvent keys:{str(missing_query_event_exported_audit)},"
-                    f" ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
+                    "usage-extraction",
+                    f"{audit_metadata['logName']}-{audit_metadata['insertId']} Unable to parse audit metadata missing QueryEvent keys:{str(missing_query_event_exported_audit)} ReadEvent keys: {str(missing_read_event_exported_audit)} for {audit_metadata}",
                 )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> Any:
@@ -712,9 +741,8 @@ class BigQueryUsageExtractor:
                     num_joined += 1
                     event.query_event = query_jobs[event.read_event.jobName]
                 else:
-                    self.report.report_warning(
-                        str(event.read_event.resource),
-                        f"Failed to match table read event {event.read_event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
+                    logger.debug(
+                        f"Failed to match table read event {event.read_event.jobName} with reason {event.read_event.readReason} with job at {event.read_event.timestamp}; try increasing `query_log_delay` or `max_query_duration`"
                     )
             yield event
         logger.info(f"Number of read events joined with query events: {num_joined}")
@@ -723,6 +751,7 @@ class BigQueryUsageExtractor:
         self,
         datasets: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]],
         event: AuditEvent,
+        tables: Dict[str, List[str]],
     ) -> Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]:
         if not event.read_event:
             return datasets
@@ -733,12 +762,19 @@ class BigQueryUsageExtractor:
         resource: Optional[BigQueryTableRef] = None
         try:
             resource = event.read_event.resource.get_sanitized_table_ref()
+            if (
+                resource.table_identifier.dataset not in tables
+                or resource.table_identifier.get_table_name()
+                not in tables[resource.table_identifier.dataset]
+            ):
+                logger.debug(f"Skipping non existing {resource} from usage")
+                return datasets
         except Exception as e:
             self.report.report_warning(
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
             )
             logger.warning(
-                f"Failed to process event {str(event.read_event.resource)}", e
+                f"Failed to process event {str(event.read_event.resource)} - {e}"
             )
             return datasets
 
@@ -764,13 +800,13 @@ class BigQueryUsageExtractor:
 
         return datasets
 
-    def report_usage_stat(self):
+    def get_workunits(
+        self, aggregated_info: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
+    ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
-        for time_bucket in self.aggregated_info.values():
+        for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self._make_usage_stat(aggregate)
                 self.report.num_usage_workunits_emitted += 1
 
     def _make_usage_stat(self, agg: AggregatedDataset) -> MetadataWorkUnit:
@@ -803,7 +839,6 @@ class BigQueryUsageExtractor:
             )
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: Dict[str, Set[str]]
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):
             logger.debug(f"Connection test got one {entry}")
             return

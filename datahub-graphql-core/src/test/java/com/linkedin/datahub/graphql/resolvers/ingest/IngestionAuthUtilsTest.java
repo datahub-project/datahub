@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest;
 
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.Authorizer;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import java.util.Optional;
 import org.mockito.Mockito;

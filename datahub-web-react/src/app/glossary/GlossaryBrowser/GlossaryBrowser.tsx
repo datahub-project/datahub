@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../../graphql/glossary.generated';
-import { GlossaryNode, GlossaryTerm } from '../../../types.generated';
+import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
+import { GlossaryNode } from '../../../types.generated';
 import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -18,7 +19,7 @@ const BrowserWrapper = styled.div`
 
 interface Props {
     rootNodes?: GlossaryNode[];
-    rootTerms?: GlossaryTerm[];
+    rootTerms?: ChildGlossaryTermFragment[];
     isSelecting?: boolean;
     hideTerms?: boolean;
     openToEntity?: boolean;

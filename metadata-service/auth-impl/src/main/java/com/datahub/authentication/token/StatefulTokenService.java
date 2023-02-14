@@ -10,9 +10,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubAccessTokenKey;
-import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -29,8 +29,6 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang.ArrayUtils;
-
-import static com.datahub.authentication.token.TokenClaims.*;
 
 
 /**
@@ -92,10 +90,10 @@ public class StatefulTokenService extends StatelessTokenService {
 
     Map<String, Object> claims = new HashMap<>();
     // Only stateful token service generates v2 tokens.
-    claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.TWO.numericValue));
-    claims.put(TOKEN_TYPE_CLAIM_NAME, type.toString());
-    claims.put(ACTOR_TYPE_CLAIM_NAME, actor.getType());
-    claims.put(ACTOR_ID_CLAIM_NAME, actor.getId());
+    claims.put(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.TWO.numericValue));
+    claims.put(TokenClaims.TOKEN_TYPE_CLAIM_NAME, type.toString());
+    claims.put(TokenClaims.ACTOR_TYPE_CLAIM_NAME, actor.getType());
+    claims.put(TokenClaims.ACTOR_ID_CLAIM_NAME, actor.getId());
     final String accessToken = super.generateAccessToken(actor.getId(), claims, expiresInMs);
     final String tokenHash = this.hash(accessToken);
 
@@ -129,8 +127,8 @@ public class StatefulTokenService extends StatelessTokenService {
     // Need this to write key aspect
     final List<MetadataChangeProposal> additionalChanges = AspectUtils.getAdditionalChanges(proposal, _entityService);
 
-    _entityService.ingestProposal(proposal, auditStamp);
-    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp));
+    _entityService.ingestProposal(proposal, auditStamp, false);
+    additionalChanges.forEach(mcp -> _entityService.ingestProposal(mcp, auditStamp, false));
 
     return accessToken;
   }

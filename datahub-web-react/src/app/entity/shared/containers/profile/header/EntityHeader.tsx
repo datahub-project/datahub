@@ -1,10 +1,6 @@
-import React, { useState } from 'react';
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useEntityData, useRefetch } from '../../../EntityContext';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { EntityHealthStatus } from './EntityHealthStatus';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
 import PlatformContent from './PlatformContent';
@@ -13,11 +9,13 @@ import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser'
 import { EntityType, PlatformPrivileges } from '../../../../../../types.generated';
 import EntityCount from './EntityCount';
 import EntityName from './EntityName';
-import CopyUrn from '../../../../../shared/CopyUrn';
 import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import CompactContext from '../../../../../shared/CompactContext';
-import { EntitySubHeaderSection } from '../../../types';
+import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
+import ExternalUrlButton from '../../../ExternalUrlButton';
+import ShareButton from '../../../../../shared/share/ShareButton';
+import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -57,23 +55,15 @@ const TopButtonsWrapper = styled.div`
     margin-bottom: 8px;
 `;
 
-const ExternalUrlContainer = styled.span`
-    font-size: 14px;
-`;
-
-const ExternalUrlButton = styled(Button)`
-    > :hover {
-        text-decoration: underline;
-    }
-    padding-left: 12px;
-    padding-right: 12px;
-`;
-
-export function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
+export function getCanEditName(
+    entityType: EntityType,
+    entityData: GenericEntityProperties | null,
+    privileges?: PlatformPrivileges,
+) {
     switch (entityType) {
         case EntityType.GlossaryTerm:
         case EntityType.GlossaryNode:
-            return privileges?.manageGlossaries;
+            return privileges?.manageGlossaries || !!entityData?.privileges?.canManageEntity;
         case EntityType.Domain:
             return privileges?.manageDomains;
         default:
@@ -99,23 +89,16 @@ export const EntityHeader = ({
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const me = useGetAuthenticatedUser();
-    const [copiedUrn, setCopiedUrn] = useState(false);
-    const basePlatformName = getPlatformName(entityData);
-    const platformName = capitalizeFirstLetterOnly(basePlatformName);
+    const platformName = getPlatformName(entityData);
     const externalUrl = entityData?.externalUrl || undefined;
     const entityCount = entityData?.entityCount;
     const isCompact = React.useContext(CompactContext);
 
-    const sendAnalytics = () => {
-        analytics.event({
-            type: EventType.EntityActionEvent,
-            actionType: EntityActionType.ClickExternalUrl,
-            entityType,
-            entityUrn: urn,
-        });
-    };
+    const entityName = entityData?.name;
+    const subType = capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) || undefined;
 
-    const canEditName = isNameEditable && getCanEditName(entityType, me?.platformPrivileges as PlatformPrivileges);
+    const canEditName =
+        isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
 
     return (
         <>
@@ -125,7 +108,13 @@ export const EntityHeader = ({
                     <TitleWrapper>
                         <EntityName isNameEditable={canEditName} />
                         {entityData?.deprecation?.deprecated && (
-                            <DeprecationPill deprecation={entityData?.deprecation} preview={isCompact} />
+                            <DeprecationPill
+                                urn={urn}
+                                deprecation={entityData?.deprecation}
+                                showUndeprecate
+                                preview={isCompact}
+                                refetch={refetch}
+                            />
                         )}
                         {entityData?.health?.map((health) => (
                             <EntityHealthStatus
@@ -140,21 +129,17 @@ export const EntityHeader = ({
                 <SideHeaderContent>
                     <TopButtonsWrapper>
                         {externalUrl && (
-                            <ExternalUrlContainer>
-                                <ExternalUrlButton
-                                    type="link"
-                                    href={externalUrl}
-                                    target="_blank"
-                                    onClick={sendAnalytics}
-                                >
-                                    View in {platformName} <ArrowRightOutlined style={{ fontSize: 12 }} />
-                                </ExternalUrlButton>
-                            </ExternalUrlContainer>
+                            <ExternalUrlButton
+                                externalUrl={externalUrl}
+                                entityUrn={urn}
+                                platformName={platformName}
+                                entityType={entityType}
+                            />
                         )}
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
-                        <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
+                        <ShareButton entityType={entityType} subType={subType} urn={urn} name={entityName} />
                         {headerDropdownItems && (
                             <EntityDropdown
                                 urn={urn}
@@ -163,7 +148,6 @@ export const EntityHeader = ({
                                 menuItems={headerDropdownItems}
                                 refetchForEntity={refetch}
                                 refreshBrowser={refreshBrowser}
-                                platformPrivileges={me?.platformPrivileges as PlatformPrivileges}
                             />
                         )}
                     </TopButtonsWrapper>

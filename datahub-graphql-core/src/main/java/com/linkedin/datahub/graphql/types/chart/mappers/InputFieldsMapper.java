@@ -24,6 +24,9 @@ public class InputFieldsMapper {
             if (field.hasSchemaField()) {
                 fieldResult.setSchemaField(SchemaFieldMapper.map(field.getSchemaField(), entityUrn));
             }
+            if (field.hasSchemaFieldUrn()) {
+                fieldResult.setSchemaFieldUrn(field.getSchemaFieldUrn().toString());
+            }
             return fieldResult;
         }).collect(Collectors.toList()));
 

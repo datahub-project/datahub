@@ -74,7 +74,7 @@ public class DeleteUtils {
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor));
+      entityService.ingestProposal(change, getAuditStamp(actor), false);
     }
   }
 }

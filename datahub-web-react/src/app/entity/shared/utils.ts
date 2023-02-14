@@ -1,4 +1,7 @@
+import * as QueryString from 'query-string';
+
 import { MatchedField } from '../../../types.generated';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { GenericEntityProperties } from './types';
 
@@ -69,7 +72,7 @@ export const singularizeCollectionName = (collectionName: string): string => {
 };
 
 export function getPlatformName(entityData: GenericEntityProperties | null) {
-    return entityData?.platform?.properties?.displayName || entityData?.platform?.name;
+    return entityData?.platform?.properties?.displayName || capitalizeFirstLetterOnly(entityData?.platform?.name);
 }
 
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
@@ -83,14 +86,63 @@ export const isListSubset = (l1, l2): boolean => {
     return l1.every((result) => l2.indexOf(result) >= 0);
 };
 
+function normalize(value: string) {
+    return value.trim().toLowerCase();
+}
+
+function fromQueryGetBestMatch(selectedMatchedFields: MatchedField[], rawQuery: string) {
+    const query = normalize(rawQuery);
+    // first lets see if there's an exact match between a field value and the query
+    const exactMatch = selectedMatchedFields.find((field) => normalize(field.value) === query);
+    if (exactMatch) {
+        return exactMatch;
+    }
+
+    // if no exact match exists, we'll see if the entire query is contained in any of the values
+    const containedMatch = selectedMatchedFields.find((field) => normalize(field.value).includes(query));
+    if (containedMatch) {
+        return containedMatch;
+    }
+
+    // otherwise, just return whichever is first
+    return selectedMatchedFields[0];
+}
+
 export const getMatchPrioritizingPrimary = (
     matchedFields: MatchedField[],
     primaryField: string,
 ): MatchedField | undefined => {
-    const primaryMatch = matchedFields.find((field) => field.name === primaryField);
-    if (primaryMatch) {
-        return primaryMatch;
+    const { location } = window;
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
+
+    const primaryMatches = matchedFields.filter((field) => field.name === primaryField);
+    if (primaryMatches.length > 0) {
+        return fromQueryGetBestMatch(primaryMatches, query);
     }
 
-    return matchedFields.find((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
+    const matchesThatShouldBeShownOnFE = matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
+
+    return fromQueryGetBestMatch(matchesThatShouldBeShownOnFE, query);
+};
+
+function getGraphqlErrorCode(e) {
+    if (e.graphQLErrors && e.graphQLErrors.length) {
+        const firstError = e.graphQLErrors[0];
+        const { extensions } = firstError;
+        const errorCode = extensions && (extensions.code as number);
+        return errorCode;
+    }
+    return undefined;
+}
+
+export const handleBatchError = (urns, e, defaultMessage) => {
+    if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
+        return {
+            content:
+                'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',
+            duration: 3,
+        };
+    }
+    return defaultMessage;
 };

@@ -1,0 +1,118 @@
+plugins {
+  id("com.palantir.git-version") apply false
+}
+
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'java'
+apply plugin: 'signing'
+apply plugin: 'maven-publish'
+apply plugin: 'io.codearte.nexus-staging'
+apply from: '../../metadata-integration/java/versioning.gradle'
+
+
+test {
+  useJUnit()
+}
+
+jar {
+  archiveName = "$project.name-lib.jar"
+}
+
+shadowJar {
+  zip64 true
+  classifier = null
+  archiveName = "$project.name-${version}.jar"
+  exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+}
+
+dependencies() {
+  implementation spec.product.pegasus.data
+  implementation project(path: ':li-utils')
+  implementation project(path: ':metadata-utils')
+ 
+  compile externalDependency.guava
+  compile externalDependency.lombok
+
+  annotationProcessor externalDependency.lombok
+  
+  testCompile externalDependency.testng
+}
+
+task sourcesJar(type: Jar) {
+  classifier 'sources'
+  from sourceSets.main.allJava
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+  classifier 'javadoc'
+  from javadoc.destinationDir
+}
+
+assemble {
+  dependsOn shadowJar
+}
+
+publishing {
+  publications {
+    shadow(MavenPublication) {
+      publication -> project.shadow.component(publication)
+        pom {
+          name = 'DataHub Auth API'
+          group = 'io.acryl'
+          artifactId = 'datahub-auth-api'
+          description = 'DataHub Auth API for developers to write custom Authentication & Authorization plugins for DataHub'
+          url = 'https://datahubproject.io'
+          artifacts = [ shadowJar, javadocJar, sourcesJar ]
+
+          scm {
+            connection = 'scm:git:git://github.com/datahub-project/datahub.git'
+            developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
+            url = 'https://github.com/datahub-project/datahub.git'
+          }
+
+          licenses {
+            license {
+              name = 'The Apache License, Version 2.0'
+              url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+            }
+          }
+
+          developers {
+            developer {
+              id = 'datahub'
+              name = 'Datahub'
+              email = 'datahub@acryl.io'
+            }
+          }
+        }
+    }
+  }
+
+  repositories {
+    maven {
+      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def ossrhUsername = System.getenv('RELEASE_USERNAME')
+      def ossrhPassword = System.getenv('RELEASE_PASSWORD')
+      credentials {
+        username ossrhUsername
+        password ossrhPassword
+      }
+      url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+    }
+  }
+}
+
+signing {
+  def signingKey = findProperty("signingKey")
+  def signingPassword = System.getenv("SIGNING_PASSWORD")
+  useInMemoryPgpKeys(signingKey, signingPassword)
+  sign publishing.publications.shadow
+}
+
+// Required to submit jar file to staging repo of maven central
+nexusStaging {
+  serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+  username = System.getenv("NEXUS_USERNAME")
+  password = System.getenv("NEXUS_PASSWORD")
+}

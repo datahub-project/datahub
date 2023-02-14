@@ -10,13 +10,16 @@ record Upstream {
 
   /**
    * Audit stamp containing who reported the lineage and when.
-   * WARNING: this field is deprecated and may be removed in a future release.
    */
-  @deprecated = "we no longer associate a timestamp per upstream edge"
   auditStamp: AuditStamp = {
     "time": 0,
     "actor": "urn:li:corpuser:unknown"
   }
+
+  /**
+   * Audit stamp containing who created the lineage and when.
+   */
+  created: optional AuditStamp
 
   /**
    * The upstream dataset the lineage points to
@@ -24,7 +27,12 @@ record Upstream {
   @Relationship = {
     "name": "DownstreamOf",
     "entityTypes": [ "dataset" ],
-    "isLineage": true
+    "isLineage": true,
+    "createdOn": "upstreams/*/created/time"
+    "createdActor": "upstreams/*/created/actor"
+    "updatedOn": "upstreams/*/auditStamp/time"
+    "updatedActor": "upstreams/*/auditStamp/actor"
+    "properties": "upstreams/*/properties"
   }
   @Searchable = {
     "fieldName": "upstreams",
@@ -37,4 +45,9 @@ record Upstream {
    * The type of the lineage
    */
   type: DatasetLineageType
+
+  /**
+   * A generic properties bag that allows us to store specific information on this graph edge.
+   */
+  properties: optional map[string, string]
 }

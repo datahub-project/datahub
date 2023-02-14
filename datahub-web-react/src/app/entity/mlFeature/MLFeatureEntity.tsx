@@ -7,7 +7,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GenericEntityProperties } from '../shared/types';
 import { GetMlFeatureQuery, useGetMlFeatureQuery } from '../../../graphql/mlFeature.generated';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -69,7 +69,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             entityType={EntityType.Mlfeature}
             useEntityQuery={useGetMlFeatureQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Feature Tables',
@@ -169,7 +169,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             // eslint-disable-next-line
             icon: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.properties?.logoUrl || undefined,
             // eslint-disable-next-line
-            platform: entity?.['featureTables']?.relationships?.[0]?.entity?.platform?.name,
+            platform: entity?.['featureTables']?.relationships?.[0]?.entity?.platform,
         };
     };
 

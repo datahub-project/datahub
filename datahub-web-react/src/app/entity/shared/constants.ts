@@ -1,3 +1,5 @@
+import { EntityType } from '../../../types.generated';
+
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {
     GREY: '#e5e5e5',
@@ -56,3 +58,24 @@ export const EMPTY_MESSAGES = {
         description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
     },
 };
+
+export const ELASTIC_MAX_COUNT = 10000;
+
+export const getElasticCappedTotalValueText = (count: number) => {
+    if (count === ELASTIC_MAX_COUNT) {
+        return `${ELASTIC_MAX_COUNT}+`;
+    }
+
+    return `${count}`;
+};
+
+export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
+    EntityType.Dashboard,
+    EntityType.Chart,
+    EntityType.Dataset,
+    EntityType.DataJob,
+]);
+
+export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
+
+export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';

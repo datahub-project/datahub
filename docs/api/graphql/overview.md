@@ -1,6 +1,6 @@
 # DataHub GraphQL API
 
-### DataHub provides a rich [GraphQL](https://graphql.org/) API for programmatically interacting with the Entities & Relationships comprising your organization's Metadata Graph
+DataHub provides a rich [GraphQL](https://graphql.org/) API for programmatically interacting with the Entities & Relationships comprising your organization's Metadata Graph.
 
 ## Getting Started
 
@@ -43,23 +43,13 @@ The GraphQL API undergoing continuous development. A few of the things we're mos
 DataHub plans to support the following use cases via the GraphQL API:
 
 - **Creating entities**: Programmatically creating Datasets, Dashboards, Charts, Data Flows (Pipelines), Data Jobs (Tasks) and more.
-- **Listing entities**: Listing all Metadata Entities of a particular type. 
-- **Removing entities**: The ability to soft & hard delete Metadata Entities on DataHub.
-
-This will enable organization's to build flows on top of DataHub for creating custom Metadata Entities,
-extracting batch data from DataHub, and curating the Entities that are visible on the platform. 
 
 ### Client SDKs
 
 DataHub plans to develop Open Source Client SDKs for Python, Java, Javascript among others on top of this API. If you're interested
 in contributing, [join us on Slack](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email)!
 
-### Token Based Authentication
-
-Add universal token based authentication and get rid of the legacy `PLAY_SESSION` session cookie and `X-DataHub-Actor` used
-for conveying actor identity information. 
-
 ## Feedback, Feature Requests, & Support
 
-Visit our [Slack channel](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just 
+Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
 stop by to say 'Hi'. 

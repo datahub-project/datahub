@@ -42,12 +42,12 @@ class PathSpec(ConfigModel):
 
     table_name: Optional[str] = Field(
         default=None,
-        description="Display name of the dataset.Combination of named variableds from include path and strings",
+        description="Display name of the dataset.Combination of named variables from include path and strings",
     )
 
     enable_compression: bool = Field(
         default=True,
-        description="Enable or disable processing compressed files. Currenly .gz and .bz files are supported.",
+        description="Enable or disable processing compressed files. Currently .gz and .bz files are supported.",
     )
 
     sample_files: bool = Field(
@@ -175,7 +175,6 @@ class PathSpec(ConfigModel):
 
     @pydantic.root_validator()
     def validate_path_spec(cls, values: Dict) -> Dict[str, Any]:
-
         # validate that main fields are populated
         required_fields = ["include", "file_types", "default_extension"]
         for f in required_fields:

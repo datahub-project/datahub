@@ -7,6 +7,10 @@ ext {
   venv_name = 'venv'
 }
 
+if (!project.hasProperty("extra_pip_requirements")) {
+    ext.extra_pip_requirements = ""
+}
+
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
 }
@@ -14,7 +18,7 @@ task checkPythonVersion(type: Exec) {
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools==57.5.0"
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools>=63.0.0"
 }
 
 task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
@@ -24,7 +28,7 @@ task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
 task installPackage(type: Exec, dependsOn: runPreFlightScript) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine "${venv_name}/bin/pip", 'install', '-e', '.'
+  commandLine 'bash', '-x', '-c', "${venv_name}/bin/pip install -e . ${extra_pip_requirements}"
 }
 
 task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
@@ -39,8 +43,11 @@ task installDev(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file("${venv_name}/.build_install_dev_sentinel")
-  commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e .[dev] && touch ${venv_name}/.build_install_dev_sentinel"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && " +
+    "./scripts/install-sqlalchemy-stubs.sh && " +
+    "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
 
@@ -67,15 +74,20 @@ task lint(type: Exec, dependsOn: installDev) {
    */
   commandLine 'bash', '-c',
     "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
-    "source ${venv_name}/bin/activate && set -x && black --check --diff src/ tests/ examples/ && isort --check --diff src/ tests/ examples/ && flake8 --count --statistics src/ tests/ examples/ && mypy src/ tests/ examples/"
+    "source ${venv_name}/bin/activate && set -x && " +
+    "black --check --diff src/ tests/ examples/ && " +
+    "isort --check --diff src/ tests/ examples/ && " +
+    "flake8 --count --statistics src/ tests/ examples/ && " +
+    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
+    "./scripts/install-sqlalchemy-stubs.sh && " +
     "black src/ tests/ examples/ && " +
     "isort src/ tests/ examples/ && " +
     "flake8 src/ tests/ examples/ && " +
-    "mypy src/ tests/ examples/"
+    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 
 task testQuick(type: Exec, dependsOn: installDev) {
@@ -92,7 +104,7 @@ task installDevTest(type: Exec, dependsOn: [install]) {
   outputs.dir("${venv_name}")
   outputs.file("${venv_name}/.build_install_dev_test_sentinel")
   commandLine 'bash', '-c',
-    "${venv_name}/bin/pip install -e .[dev,integration-tests] && touch ${venv_name}/.build_install_dev_test_sentinel"
+    "${venv_name}/bin/pip install -e .[dev,integration-tests] ${extra_pip_requirements} && touch ${venv_name}/.build_install_dev_test_sentinel"
 }
 
 def testFile = hasProperty('testFile') ? testFile : 'unknown'
@@ -107,14 +119,6 @@ task testSingle(dependsOn: [installDevTest]) {
    throw new GradleException("No file provided. Use -PtestFile=<test_file>")
     }
   }
-}
-
-task installAirflow1(type: Exec, dependsOn: [install]) {
-  inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
-  outputs.file("${venv_name}/.build_install_airflow_sentinel")
-  commandLine 'bash', '-x', '-c',
-    "${venv_name}/bin/pip install -e .[dev-airflow1] -c tests/airflow1-constraints.txt && touch ${venv_name}/.build_install_airflow_sentinel"
 }
 
 task testIntegration(type: Exec, dependsOn: [installDevTest]) {

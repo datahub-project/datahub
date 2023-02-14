@@ -144,7 +144,7 @@ public class MutableTypeBatchResolverTest {
         List<Dataset> result = resolver.get(mockEnv).join();
 
         ArgumentCaptor<Collection<MetadataChangeProposal>> changeProposalCaptor = ArgumentCaptor.forClass((Class) Collection.class);
-        Mockito.verify(mockClient, Mockito.times(1)).batchIngestProposals(changeProposalCaptor.capture(), Mockito.any());
+        Mockito.verify(mockClient, Mockito.times(1)).batchIngestProposals(changeProposalCaptor.capture(), Mockito.any(), Mockito.eq(false));
         Mockito.verify(mockClient, Mockito.times(1)).batchGetV2(
                 Mockito.eq(Constants.DATASET_ENTITY_NAME),
                 Mockito.eq(ImmutableSet.of(datasetUrn1, datasetUrn2)),

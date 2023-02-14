@@ -2,22 +2,27 @@ package com.linkedin.metadata.search;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationship;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,16 +35,19 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.cache.Cache;
 
 
 @RequiredArgsConstructor
+@Slf4j
 public class LineageSearchService {
   private final SearchService _searchService;
   private final GraphService _graphService;
+  @Nullable
   private final Cache cache;
+  private final boolean cacheEnabled;
 
   private static final String DEGREE_FILTER = "degree";
   private static final String DEGREE_FILTER_INPUT = "degree.keyword";
@@ -50,6 +58,7 @@ public class LineageSearchService {
   private static final int MAX_RELATIONSHIPS = 1000000;
   private static final int MAX_TERMS = 50000;
   private static final SearchFlags SKIP_CACHE = new SearchFlags().setSkipCache(true);
+  private static final long DAY_IN_MS = 24 * 60 * 60 * 1000;
 
   /**
    * Gets a list of documents that match given search request that is related to the input entity
@@ -69,13 +78,33 @@ public class LineageSearchService {
   @WithSpan
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
     // Cache multihop result for faster performance
-    EntityLineageResult lineageResult = cache.get(Pair.of(sourceUrn, direction), EntityLineageResult.class);
-    if (lineageResult == null) {
+    final EntityLineageResultCacheKey cacheKey =
+        new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis);
+    CachedEntityLineageResult cachedLineageResult = cacheEnabled
+        ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
+    EntityLineageResult lineageResult;
+    if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
-      lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
+      lineageResult =
+          _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops, startTimeMillis,
+              endTimeMillis);
+      if (cacheEnabled) {
+        cache.put(cacheKey,
+            new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+      }
+    } else {
+      lineageResult = cachedLineageResult.getEntityLineageResult();
+      if (System.currentTimeMillis() - cachedLineageResult.getTimestamp() > DAY_IN_MS) {
+        log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
+      }
     }
+
+    // set schemaField relationship entity to be its reference urn
+    LineageRelationshipArray updatedRelationships = convertSchemaFieldRelationships(lineageResult);
+    lineageResult.setRelationships(updatedRelationships);
 
     // Filter hopped result based on the set of entities to return and inputFilters before sending to search
     List<LineageRelationship> lineageRelationships =
@@ -83,6 +112,32 @@ public class LineageSearchService {
 
     return getSearchResultInBatches(lineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
         from, size);
+  }
+
+  // Necessary so we don't filter out schemaField entities and so that we search to get the parent reference entity
+  private LineageRelationshipArray convertSchemaFieldRelationships(EntityLineageResult lineageResult) {
+    return lineageResult.getRelationships().stream().map(relationship -> {
+      if (relationship.getEntity().getEntityType().equals("schemaField")) {
+        Urn entity = getSchemaFieldReferenceUrn(relationship.getEntity());
+        relationship.setEntity(entity);
+      }
+      return relationship;
+    }).collect(Collectors.toCollection(LineageRelationshipArray::new));
+  }
+
+  private Map<Urn, LineageRelationship> generateUrnToRelationshipMap(List<LineageRelationship> lineageRelationships) {
+    Map<Urn, LineageRelationship> urnToRelationship = new HashMap<>();
+    for (LineageRelationship relationship : lineageRelationships) {
+      LineageRelationship existingRelationship = urnToRelationship.get(relationship.getEntity());
+      if (existingRelationship == null) {
+        urnToRelationship.put(relationship.getEntity(), relationship);
+      } else {
+        UrnArrayArray paths = existingRelationship.getPaths();
+        paths.addAll(relationship.getPaths());
+        existingRelationship.setPaths(paths);
+      }
+    }
+    return urnToRelationship;
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches
@@ -102,8 +157,7 @@ public class LineageSearchService {
           .map(relationship -> relationship.getEntity().getEntityType())
           .distinct()
           .collect(Collectors.toList());
-      Map<Urn, LineageRelationship> urnToRelationship =
-          lineageRelationships.stream().collect(Collectors.toMap(LineageRelationship::getEntity, Function.identity()));
+      Map<Urn, LineageRelationship> urnToRelationship = generateUrnToRelationshipMap(batch);
       Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
       LineageSearchResult resultForBatch = buildLineageSearchResult(
           _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize,
@@ -153,6 +207,18 @@ public class LineageSearchService {
     }).reduce(x -> false, Predicate::or);
   }
 
+  private Urn getSchemaFieldReferenceUrn(Urn urn) {
+    if (urn.getEntityType().equals(Constants.SCHEMA_FIELD_ENTITY_NAME)) {
+      try {
+        // Get the dataset urn referenced inside the schemaField urn
+        return Urn.createFromString(urn.getId());
+      } catch (Exception e) {
+        log.error("Invalid destination urn: {}", urn.getId(), e);
+      }
+    }
+    return urn;
+  }
+
   private List<LineageRelationship> filterRelationships(@Nonnull EntityLineageResult lineageResult,
       @Nonnull Set<String> entities, @Nullable Filter inputFilters) {
     Stream<LineageRelationship> relationshipsFilteredByEntities = lineageResult.getRelationships().stream();
@@ -166,7 +232,7 @@ public class LineageSearchService {
         List<String> degreeFilter = conjunctiveCriterion.getAnd()
             .stream()
             .filter(criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT))
-            .map(Criterion::getValue)
+            .flatMap(c -> c.getValues().stream())
             .collect(Collectors.toList());
         if (!degreeFilter.isEmpty()) {
           Predicate<Integer> degreePredicate = convertFilterToPredicate(degreeFilter);
@@ -202,9 +268,9 @@ public class LineageSearchService {
       Map<Urn, LineageRelationship> urnToRelationship) {
     AggregationMetadataArray aggregations = new AggregationMetadataArray(searchResult.getMetadata().getAggregations());
     return new LineageSearchResult().setEntities(new LineageSearchEntityArray(searchResult.getEntities()
-        .stream()
-        .map(searchEntity -> buildLineageSearchEntity(searchEntity, urnToRelationship.get(searchEntity.getEntity())))
-        .collect(Collectors.toList())))
+            .stream()
+            .map(searchEntity -> buildLineageSearchEntity(searchEntity, urnToRelationship.get(searchEntity.getEntity())))
+            .collect(Collectors.toList())))
         .setMetadata(new SearchResultMetadata().setAggregations(aggregations))
         .setFrom(searchResult.getFrom())
         .setPageSize(searchResult.getPageSize())
@@ -215,7 +281,7 @@ public class LineageSearchService {
       @Nullable LineageRelationship lineageRelationship) {
     LineageSearchEntity entity = new LineageSearchEntity(searchEntity.data());
     if (lineageRelationship != null) {
-      entity.setPath(lineageRelationship.getPath());
+      entity.setPaths(lineageRelationship.getPaths());
       entity.setDegree(lineageRelationship.getDegree());
     }
     return entity;

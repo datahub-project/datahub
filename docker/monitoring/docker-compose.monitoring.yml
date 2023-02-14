@@ -1,7 +1,18 @@
 ---
-version: '3.5'
+version: '3.8'
 services:
   datahub-gms:
+    environment:
+      - ENABLE_PROMETHEUS=true
+      - ENABLE_OTEL=true
+      - OTEL_TRACES_EXPORTER=jaeger
+      - OTEL_EXPORTER_JAEGER_ENDPOINT=http://jaeger-all-in-one:14250
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_SERVICE_NAME=datahub-gms
+    ports:
+      - "4318"
+
+  datahub-frontend-react:
     environment:
       - ENABLE_PROMETHEUS=true
       - ENABLE_OTEL=true
@@ -29,7 +40,7 @@ services:
       - "9089:9090"
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:9.1.4
     ports:
       - "3001:3000"
     volumes:

@@ -1,13 +1,19 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
+import com.linkedin.datahub.graphql.generated.OwnerEntityType;
+import com.linkedin.datahub.graphql.generated.OwnershipType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DomainKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -30,6 +36,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 public class CreateDomainResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
+  private final EntityService _entityService;
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
@@ -60,10 +67,12 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
         proposal.setEntityType(Constants.DOMAIN_ENTITY_NAME);
         proposal.setAspectName(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(mapDomainProperties(input)));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(mapDomainProperties(input, context)));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        return _entityClient.ingestProposal(proposal, context.getAuthentication());
+        String domainUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+        OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+        return domainUrn;
       } catch (Exception e) {
         log.error("Failed to create Domain with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
         throw new RuntimeException(String.format("Failed to create Domain with id: %s, name: %s", input.getId(), input.getName()), e);
@@ -71,10 +80,11 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
     });
   }
 
-  private DomainProperties mapDomainProperties(final CreateDomainInput input) {
+  private DomainProperties mapDomainProperties(final CreateDomainInput input, final QueryContext context) {
     final DomainProperties result = new DomainProperties();
     result.setName(input.getName());
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
+    result.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
     return result;
   }
 }

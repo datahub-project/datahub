@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionReport,
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
 )
 
 
 @dataclass
-class PulsarSourceReport(StatefulIngestionReport):
+class PulsarSourceReport(StaleEntityRemovalSourceReport):
     pulsar_version: Optional[str] = None
     tenants_scanned: Optional[int] = None
     namespaces_scanned: Optional[int] = None
@@ -15,7 +15,6 @@ class PulsarSourceReport(StatefulIngestionReport):
     tenants_filtered: List[str] = field(default_factory=list)
     namespaces_filtered: List[str] = field(default_factory=list)
     topics_filtered: List[str] = field(default_factory=list)
-    soft_deleted_stale_entities: List[str] = field(default_factory=list)
 
     def report_pulsar_version(self, version: str) -> None:
         self.pulsar_version = version
@@ -28,6 +27,3 @@ class PulsarSourceReport(StatefulIngestionReport):
 
     def report_topics_dropped(self, topic: str) -> None:
         self.topics_filtered.append(topic)
-
-    def report_stale_entity_soft_deleted(self, urn: str) -> None:
-        self.soft_deleted_stale_entities.append(urn)

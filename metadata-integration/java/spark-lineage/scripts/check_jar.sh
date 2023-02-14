@@ -1,5 +1,7 @@
 # This script checks the shadow jar to ensure that we only have allowed classes being exposed through the jar
-jarFiles=$(find build/libs -name "datahub-spark-lineage*.jar" | grep -v sources | grep -v javadoc)
+libName=datahub-spark-lineage
+jarishFile=$(find build/libs -name "${libName}*.jar" -exec ls -1rt "{}" +;)
+jarFiles=$(echo "$jarishFile" | grep -v sources | grep -v javadoc | tail -n 1)
 for jarFile in ${jarFiles}; do
 jar -tvf $jarFile |\
       grep -v "datahub/shaded" |\
@@ -15,7 +17,6 @@ jar -tvf $jarFile |\
       grep -v " org/$" |\
       grep -v " io/$" |\
       grep -v "git.properties" |\
-      grep -v "org/springframework" |\
       grep -v "org/aopalliance" |\
       grep -v "javax/" |\
       grep -v "io/swagger" |\

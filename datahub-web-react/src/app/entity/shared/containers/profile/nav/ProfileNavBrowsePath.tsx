@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Badge, Breadcrumb, Row } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { InfoCircleOutlined, PartitionOutlined } from '@ant-design/icons';
 import { grey, blue } from '@ant-design/colors';
 import { EntityType } from '../../../../../../types.generated';
@@ -9,7 +9,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { PageRoutes } from '../../../../../../conf/Global';
 import { navigateToLineageUrl } from '../../../../../lineage/utils/navigateToLineageUrl';
 import useIsLineageMode from '../../../../../lineage/utils/useIsLineageMode';
-import { ANTD_GRAY } from '../../../constants';
+import { ANTD_GRAY, ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../../constants';
 
 type Props = {
     type: EntityType;
@@ -128,6 +128,7 @@ export const ProfileNavBrowsePath = ({
     ));
 
     const hasLineage = upstreams > 0 || downstreams > 0;
+    const canNavigateToLineage = hasLineage || ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(type);
 
     const upstreamText = upstreams === 100 ? '100+' : upstreams;
     const downstreamText = downstreams === 100 ? '100+' : downstreams;
@@ -149,10 +150,10 @@ export const ProfileNavBrowsePath = ({
             <LineageNavContainer>
                 <LineageIconGroup>
                     <IconGroup
-                        disabled={!hasLineage}
+                        disabled={!canNavigateToLineage}
                         isSelected={!isLineageMode}
                         onClick={() => {
-                            if (hasLineage) {
+                            if (canNavigateToLineage) {
                                 navigateToLineageUrl({ location, history, isLineageMode: false });
                             }
                         }}
@@ -161,10 +162,10 @@ export const ProfileNavBrowsePath = ({
                         Details
                     </IconGroup>
                     <IconGroup
-                        disabled={!hasLineage}
+                        disabled={!canNavigateToLineage}
                         isSelected={isLineageMode}
                         onClick={() => {
-                            if (hasLineage) {
+                            if (canNavigateToLineage) {
                                 navigateToLineageUrl({ location, history, isLineageMode: true });
                             }
                         }}

@@ -13,10 +13,11 @@ import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import GlossaryEntitiesPath from '../../glossary/GlossaryEntitiesPath';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -65,12 +66,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 useEntityQuery={useGetGlossaryTermQuery as any}
                 headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={
-                    new Set([
-                        EntityMenuItems.COPY_URL,
-                        EntityMenuItems.UPDATE_DEPRECATION,
-                        EntityMenuItems.MOVE,
-                        EntityMenuItems.DELETE,
-                    ])
+                    new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.MOVE, EntityMenuItems.DELETE])
                 }
                 displayGlossaryBrowser
                 isNameEditable
@@ -112,6 +108,12 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                     {
                         component: SidebarOwnerSection,
                     },
+                    {
+                        component: SidebarDomainSection,
+                        properties: {
+                            hideOwnerType: true,
+                        },
+                    },
                 ]}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
                 customNavBar={<GlossaryEntitiesPath />}
@@ -139,6 +141,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
+                domain={data.domain?.domain}
             />
         );
     };

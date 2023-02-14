@@ -41,6 +41,8 @@ export const Preview = ({
     container,
     parentContainers,
     rowCount,
+    columnCount,
+    sizeInBytes,
     statsSummary,
     lastUpdatedMs,
 }: {
@@ -48,7 +50,7 @@ export const Preview = ({
     name: string;
     origin: FabricType;
     description?: string | null;
-    platformName: string;
+    platformName?: string;
     platformLogo?: string | null;
     platformNames?: (Maybe<string> | undefined)[];
     platformLogos?: (Maybe<string> | undefined)[];
@@ -65,20 +67,22 @@ export const Preview = ({
     container?: Container | null;
     parentContainers?: ParentContainersResult | null;
     rowCount?: number | null;
+    columnCount?: number | null;
+    sizeInBytes?: number | null;
     statsSummary?: DatasetStatsSummary | null;
     lastUpdatedMs?: number | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalPlatformName = capitalizeFirstLetterOnly(platformName);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Dataset, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             type={capitalizeFirstLetterOnly(subtype) || 'Dataset'}
             logoUrl={platformLogo || ''}
             typeIcon={entityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT)}
-            platform={capitalPlatformName}
+            platform={platformName}
             platforms={platformNames}
             logoUrls={platformLogos}
             platformInstanceId={platformInstanceId}
@@ -97,6 +101,8 @@ export const Preview = ({
             subHeader={
                 <DatasetStatsSummaryView
                     rowCount={rowCount}
+                    columnCount={columnCount}
+                    sizeInBytes={sizeInBytes}
                     queryCountLast30Days={statsSummary?.queryCountLast30Days}
                     uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
                     lastUpdatedMs={lastUpdatedMs}

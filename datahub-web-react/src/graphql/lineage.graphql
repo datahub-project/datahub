@@ -123,6 +123,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Chart {
         tool
@@ -168,6 +171,16 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         status {
             removed
+        }
+        fineGrainedLineages {
+            upstreams {
+                urn
+                path
+            }
+            downstreams {
+                urn
+                path
+            }
         }
     }
     ... on MLModelGroup {
@@ -215,6 +228,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
 
 fragment lineageFields on EntityWithRelationships {
     ...lineageNodeProperties
+    ...canEditLineageFragment
     ... on Dataset {
         siblings {
             isPrimary
@@ -239,8 +253,53 @@ fragment fullLineageResults on EntityLineageResult {
     total
     relationships {
         type
+        createdOn
+        createdActor {
+            urn
+            type
+            ... on CorpUser {
+                username
+                info {
+                    displayName
+                }
+                properties {
+                    displayName
+                }
+                editableProperties {
+                    displayName
+                }
+            }
+        }
+        updatedOn
+        updatedActor {
+            urn
+            type
+            ... on CorpUser {
+                username
+                info {
+                    displayName
+                }
+                properties {
+                    displayName
+                }
+                editableProperties {
+                    displayName
+                }
+            }
+        }
+        isManual
         entity {
             ...lineageFields
+            ... on Dataset {
+                schemaMetadata(version: 0) @include(if: $showColumns) {
+                    ...schemaMetadataFields
+                }
+            }
+            ... on Chart {
+                inputFields @include(if: $showColumns) {
+                    ...inputFieldsFields
+                }
+            }
         }
     }
 }
@@ -264,12 +323,24 @@ fragment partialLineageResults on EntityLineageResult {
     total
 }
 
-query getEntityLineage($urn: String!, $separateSiblings: Boolean) {
+query getEntityLineage(
+    $urn: String!
+    $separateSiblings: Boolean
+    $showColumns: Boolean!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $excludeUpstream: Boolean = false
+    $excludeDownstream: Boolean = false
+) {
     entity(urn: $urn) {
         urn
         type
         ...lineageNodeProperties
+        ...canEditLineageFragment
         ... on Dataset {
+            schemaMetadata(version: 0) @include(if: $showColumns) {
+                ...schemaMetadataFields
+            }
             siblings {
                 isPrimary
                 siblings {
@@ -279,17 +350,59 @@ query getEntityLineage($urn: String!, $separateSiblings: Boolean) {
                 }
             }
         }
+        ... on Chart {
+            inputFields @include(if: $showColumns) {
+                ...inputFieldsFields
+            }
+        }
         ... on EntityWithRelationships {
             upstream: lineage(
-                input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }
-            ) {
+                input: {
+                    direction: UPSTREAM
+                    start: 0
+                    count: 100
+                    separateSiblings: $separateSiblings
+                    startTimeMillis: $startTimeMillis
+                    endTimeMillis: $endTimeMillis
+                }
+            ) @skip(if: $excludeUpstream) {
                 ...fullLineageResults
             }
             downstream: lineage(
-                input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }
-            ) {
+                input: {
+                    direction: DOWNSTREAM
+                    start: 0
+                    count: 100
+                    separateSiblings: $separateSiblings
+                    startTimeMillis: $startTimeMillis
+                    endTimeMillis: $endTimeMillis
+                }
+            ) @skip(if: $excludeDownstream) {
                 ...fullLineageResults
             }
+        }
+    }
+}
+
+fragment canEditLineageFragment on EntityWithRelationships {
+    ... on Dataset {
+        privileges {
+            canEditLineage
+        }
+    }
+    ... on Chart {
+        privileges {
+            canEditLineage
+        }
+    }
+    ... on Dashboard {
+        privileges {
+            canEditLineage
+        }
+    }
+    ... on DataJob {
+        privileges {
+            canEditLineage
         }
     }
 }

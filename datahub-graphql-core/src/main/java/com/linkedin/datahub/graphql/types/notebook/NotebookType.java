@@ -85,7 +85,8 @@ public class NotebookType implements SearchableEntityType<Notebook, String>, Bro
     // Put empty map here according to
     // https://datahubspace.slack.com/archives/C029A3M079U/p1646288772126639
     final Map<String, String> facetFilters = Collections.emptyMap();
-    final SearchResult searchResult = _entityClient.search(NOTEBOOK_ENTITY_NAME, query, facetFilters, start, count, context.getAuthentication());
+    final SearchResult searchResult = _entityClient.search(NOTEBOOK_ENTITY_NAME, query, facetFilters, start, count,
+            context.getAuthentication(), true);
     return UrnSearchResultsMapper.map(searchResult);
   }
 
@@ -175,7 +176,7 @@ public class NotebookType implements SearchableEntityType<Notebook, String>, Bro
     proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
     try {
-      _entityClient.batchIngestProposals(proposals, context.getAuthentication());
+      _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
     }

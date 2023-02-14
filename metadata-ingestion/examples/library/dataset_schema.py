@@ -6,7 +6,6 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     DateTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
@@ -16,10 +15,7 @@ from datahub.metadata.schema_classes import (
 )
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD"),
-    aspectName="schemaMetadata",
     aspect=SchemaMetadataClass(
         schemaName="customer",  # not used
         platform=make_data_platform_urn("hive"),  # important <- platform must be an urn

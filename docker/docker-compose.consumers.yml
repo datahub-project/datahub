@@ -10,27 +10,32 @@ services:
     build:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
-    image: linkedin/datahub-mae-consumer:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     env_file: datahub-mae-consumer/env/docker.env
     hostname: datahub-mae-consumer
     container_name: datahub-mae-consumer
     ports:
       - "9091:9091"
     depends_on:
-      - kafka-setup
-      - elasticsearch-setup
       - neo4j
 
   datahub-mce-consumer:
     build:
       context: ../
       dockerfile: docker/datahub-mce-consumer/Dockerfile
-    image: linkedin/datahub-mce-consumer:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-linkedin/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     env_file: datahub-mce-consumer/env/docker.env
     hostname: datahub-mce-consumer
     container_name: datahub-mce-consumer
+    environment:
+      - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+      - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+      - NEO4J_HOST=http://neo4j:7474
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
+      - GRAPH_SERVICE_IMPL=neo4j
     ports:
       - "9090:9090"
     depends_on:
-      - kafka-setup
-      - datahub-gms
+      - neo4j

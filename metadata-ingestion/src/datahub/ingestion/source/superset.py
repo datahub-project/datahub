@@ -59,7 +59,7 @@ class SupersetConfig(ConfigModel):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(default="localhost:8088", description="Superset host URL.")
-    display_uri: str = Field(
+    display_uri: Optional[str] = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
@@ -308,6 +308,24 @@ class SupersetSource(Source):
         group_bys = params.get("groupby", []) or []
         if isinstance(group_bys, str):
             group_bys = [group_bys]
+        # handling List[Union[str, dict]] case
+        # a dict containing two keys: sqlExpression and label
+        elif isinstance(group_bys, list) and len(group_bys) != 0:
+            temp_group_bys = []
+            for item in group_bys:
+                # if the item is a custom label
+                if isinstance(item, dict):
+                    item_value = item.get("label", "")
+                    if item_value != "":
+                        temp_group_bys.append(f"{item_value}_custom_label")
+                    else:
+                        temp_group_bys.append(str(item))
+
+                # if the item is a string
+                elif isinstance(item, str):
+                    temp_group_bys.append(item)
+
+            group_bys = temp_group_bys
 
         custom_properties = {
             "Metrics": ", ".join(metrics),

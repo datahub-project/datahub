@@ -109,7 +109,8 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                 int count,
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search("tag", query, facetFilters, start, count, context.getAuthentication());
+        final SearchResult searchResult = _entityClient.search("tag", query, facetFilters, start, count,
+                context.getAuthentication(), true);
         return UrnSearchResultsMapper.map(searchResult);
     }
 
@@ -132,7 +133,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
             final Collection<MetadataChangeProposal> proposals = TagUpdateInputMapper.map(input, actor);
             proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
             try {
-                _entityClient.batchIngestProposals(proposals, context.getAuthentication());
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

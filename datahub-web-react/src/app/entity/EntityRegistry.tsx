@@ -114,6 +114,12 @@ export default class EntityRegistry {
         return entity.renderPreview(PreviewType.BROWSE, data);
     }
 
+    // render the regular profile if embedded profile doesn't exist. Compact context should be set to true.
+    renderEmbeddedProfile(type: EntityType, urn: string): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.renderEmbeddedProfile ? entity.renderEmbeddedProfile(urn) : entity.renderProfile(urn);
+    }
+
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
@@ -128,6 +134,10 @@ export default class EntityRegistry {
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
+                downstreamRelationships: genericEntityProperties?.downstream?.relationships
+                    ?.filter((relationship) => relationship.entity)
+                    // eslint-disable-next-line @typescript-eslint/dot-notation
+                    ?.filter((relationship) => !relationship.entity?.['status']?.removed),
                 numDownstreamChildren: genericEntityProperties?.downstream?.total,
                 upstreamChildren: genericEntityProperties?.upstream?.relationships
                     ?.filter((relationship) => relationship.entity)
@@ -137,9 +147,17 @@ export default class EntityRegistry {
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
+                upstreamRelationships: genericEntityProperties?.upstream?.relationships
+                    ?.filter((relationship) => relationship.entity)
+                    // eslint-disable-next-line @typescript-eslint/dot-notation
+                    ?.filter((relationship) => !relationship.entity?.['status']?.removed),
                 numUpstreamChildren: genericEntityProperties?.upstream?.total,
                 status: genericEntityProperties?.status,
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
+                fineGrainedLineages: genericEntityProperties?.fineGrainedLineages,
+                schemaMetadata: genericEntityProperties?.schemaMetadata,
+                inputFields: genericEntityProperties?.inputFields,
+                canEditLineage: genericEntityProperties?.privileges?.canEditLineage,
             } as FetchedEntity) || undefined
         );
     }

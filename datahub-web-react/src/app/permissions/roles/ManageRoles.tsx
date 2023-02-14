@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Pagination, Tooltip } from 'antd';
+import { Button, Empty, message, Pagination, Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
@@ -15,6 +15,11 @@ import { EntityCapabilityType } from '../../entity/Entity';
 import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
 import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
 import RoleDetailsModal from './RoleDetailsModal';
+import analytics, { EventType } from '../../analytics';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
+import { clearUserListCache } from '../../identity/user/cacheUtils';
 
 const SourceContainer = styled.div``;
 
@@ -30,6 +35,16 @@ const RoleName = styled.span`
 
 const PageContainer = styled.span`
     width: 100%;
+`;
+
+const ActionsContainer = styled.div`
+    width: 100%;
+    display: flex;
+    justify-content: right;
+`;
+
+const AddUsersButton = styled(Button)`
+    margin-right: 16px;
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -57,7 +72,7 @@ export const ManageRoles = () => {
         data: rolesData,
         refetch: rolesRefetch,
     } = useListRolesQuery({
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         variables: {
             input: {
                 start,
@@ -79,7 +94,7 @@ export const ManageRoles = () => {
         setFocusRole(undefined);
     };
 
-    const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
+    const [batchAssignRoleMutation, { client }] = useBatchAssignRoleMutation();
     // eslint-disable-next-line
     const batchAssignRole = (actorUrns: Array<string>) => {
         if (!focusRole || !focusRole.urn) {
@@ -95,12 +110,18 @@ export const ManageRoles = () => {
         })
             .then(({ errors }) => {
                 if (!errors) {
+                    analytics.event({
+                        type: EventType.BatchSelectUserRoleEvent,
+                        roleUrn: focusRole?.urn,
+                        userUrns: actorUrns,
+                    });
                     message.success({
                         content: `Assigned Role to users!`,
                         duration: 2,
                     });
-                    setTimeout(function () {
+                    setTimeout(() => {
                         rolesRefetch();
+                        clearUserListCache(client);
                     }, 3000);
                 }
             })
@@ -127,7 +148,7 @@ export const ManageRoles = () => {
                     <>
                         <RoleName
                             onClick={() => onViewRole(record.role)}
-                            style={{ color: record?.editable ? '#000000' : '#8C8C8C' }}
+                            style={{ color: record?.editable ? '#000000' : ANTD_GRAY[8] }}
                         >
                             {record?.name}
                         </RoleName>
@@ -148,32 +169,36 @@ export const ManageRoles = () => {
             render: (_: any, record: any) => {
                 return (
                     <>
-                        <AvatarsGroup
-                            users={record?.users}
-                            groups={record?.resolvedGroups}
-                            entityRegistry={entityRegistry}
-                            maxCount={3}
-                            size={28}
-                        />
+                        {(record?.users.length && (
+                            <AvatarsGroup
+                                users={record?.users}
+                                groups={record?.resolvedGroups}
+                                entityRegistry={entityRegistry}
+                                maxCount={3}
+                                size={28}
+                            />
+                        )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
                     </>
                 );
             },
         },
         {
-            dataIndex: 'add_users',
-            key: 'add_users',
+            dataIndex: 'actions',
+            key: 'actions',
             render: (_: any, record: any) => {
                 return (
-                    <Tooltip title={`Assign ${record.name} role to users`}>
-                        <Button
-                            onClick={() => {
-                                setIsBatchAddRolesModalVisible(true);
-                                setFocusRole(record.role);
-                            }}
-                        >
-                            ADD USERS
-                        </Button>
-                    </Tooltip>
+                    <ActionsContainer>
+                        <Tooltip title={`Assign the ${record.name} role to users`}>
+                            <AddUsersButton
+                                onClick={() => {
+                                    setIsBatchAddRolesModalVisible(true);
+                                    setFocusRole(record.role);
+                                }}
+                            >
+                                ADD USERS
+                            </AddUsersButton>
+                        </Tooltip>
+                    </ActionsContainer>
                 );
             },
         },
@@ -191,15 +216,18 @@ export const ManageRoles = () => {
 
     return (
         <PageContainer>
+            <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
             {rolesLoading && !rolesData && (
                 <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
             )}
             {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>
+                    <div />
                     <SearchBar
                         initialQuery={query || ''}
                         placeholderText="Search roles..."
+                        hideRecommendations
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -246,13 +274,7 @@ export const ManageRoles = () => {
                     showSizeChanger={false}
                 />
             </PaginationContainer>
-            {showViewRoleModal && (
-                <RoleDetailsModal
-                    role={focusRole as DataHubRole}
-                    visible={showViewRoleModal}
-                    onClose={resetRoleState}
-                />
-            )}
+            <RoleDetailsModal role={focusRole as DataHubRole} visible={showViewRoleModal} onClose={resetRoleState} />
         </PageContainer>
     );
 };

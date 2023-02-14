@@ -5,7 +5,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Ent
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
@@ -66,7 +66,7 @@ export class DomainEntity implements Entity<Domain> {
             useEntityQuery={useGetDomainQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+            headerDropdownItems={new Set([EntityMenuItems.DELETE])}
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
             isNameEditable
             tabs={[
@@ -85,9 +85,6 @@ export class DomainEntity implements Entity<Domain> {
                 },
                 {
                     component: SidebarOwnerSection,
-                    properties: {
-                        hideOwnerType: true,
-                    },
                 },
             ]}
         />

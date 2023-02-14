@@ -8,8 +8,15 @@ import com.linkedin.common.Urn
 record LineageSearchEntity includes SearchEntity {
 
   /**
+   * Optional list of entities between the source and destination node.
+   * There can be multiple paths from the source to the destination.
+   */
+  paths: array[array[Urn]] = []
+
+  /**
    * Optional list of entities between the source and destination node
    */
+  @deprecated
   path: array[Urn] = []
 
   /**

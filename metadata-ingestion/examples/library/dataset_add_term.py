@@ -10,7 +10,6 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
 )
@@ -25,10 +24,8 @@ graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 dataset_urn = make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD")
 
-current_terms: Optional[GlossaryTermsClass] = graph.get_aspect_v2(
-    entity_urn=dataset_urn,
-    aspect="glossaryTerms",
-    aspect_type=GlossaryTermsClass,
+current_terms: Optional[GlossaryTermsClass] = graph.get_aspect(
+    entity_urn=dataset_urn, aspect_type=GlossaryTermsClass
 )
 
 term_to_add = make_term_urn("Classification.HighlyConfidential")
@@ -52,10 +49,7 @@ else:
 
 if need_write:
     event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=dataset_urn,
-        aspectName="glossaryTerms",
         aspect=current_terms,
     )
     graph.emit(event)

@@ -94,6 +94,7 @@ export const SearchResultList = ({
     return (
         <>
             <ResultList<React.FC<ListProps<CombinedSearchResult>>>
+                id="search-result-list"
                 dataSource={searchResults}
                 split={false}
                 locale={{
@@ -104,7 +105,7 @@ export const SearchResultList = ({
                                 description={`No results found for "${query}"`}
                             />
                             <Button onClick={() => navigateToSearchUrl({ query: '*', page: 0, history })}>
-                                <RocketOutlined /> Explore your metadata
+                                <RocketOutlined /> Explore all
                             </Button>
                         </NoDataContainer>
                     ),

@@ -1,14 +1,20 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import com.linkedin.common.urn.GlossaryNodeUrn;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
+import com.linkedin.datahub.graphql.generated.OwnerEntityType;
+import com.linkedin.datahub.graphql.generated.OwnershipType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryTermKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -30,15 +36,17 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
+  private final EntityService _entityService;
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
 
     final QueryContext context = environment.getContext();
     final CreateGlossaryEntityInput input = bindArgument(environment.getArgument("input"), CreateGlossaryEntityInput.class);
+    final Urn parentNode = input.getParentNode() != null ? UrnUtils.getUrn(input.getParentNode()) : null;
 
     return CompletableFuture.supplyAsync(() -> {
-      if (AuthorizationUtils.canManageGlossaries((context))) {
+      if (GlossaryUtils.canManageChildrenEntities(context, parentNode, _entityClient)) {
         try {
           final GlossaryTermKey key = new GlossaryTermKey();
 
@@ -56,7 +64,9 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
           proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryTermInfo(input)));
           proposal.setChangeType(ChangeType.UPSERT);
 
-          return _entityClient.ingestProposal(proposal, context.getAuthentication());
+          String glossaryTermUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
+          OwnerUtils.addCreatorAsOwner(context, glossaryTermUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+          return glossaryTermUrn;
         } catch (Exception e) {
           log.error("Failed to create GlossaryTerm with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
           throw new RuntimeException(String.format("Failed to create GlossaryTerm with id: %s, name: %s", input.getId(), input.getName()), e);

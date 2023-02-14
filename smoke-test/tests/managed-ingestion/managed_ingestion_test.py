@@ -1,5 +1,4 @@
 import json
-import time
 
 import pytest
 import tenacity
@@ -152,6 +151,7 @@ def _ensure_ingestion_source_present(
     )
     response.raise_for_status()
     res_data = response.json()
+    print(res_data)
 
     assert res_data
     assert res_data["data"]
@@ -327,7 +327,7 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
                 "name": "My Test Ingestion Source",
                 "type": "mysql",
                 "description": "My ingestion source description",
-                "schedule": {"interval": "*/5 * * * *", "timezone": "UTC"},
+                "schedule": {"interval": "*/60 * * * *", "timezone": "UTC"},
                 "config": {
                     "recipe": '{"source":{"type":"mysql","config":{"include_tables":true,"database":null,"password":"${MYSQL_PASSWORD}","profiling":{"enabled":false},"host_port":null,"include_views":true,"username":"${MYSQL_USERNAME}"}},"pipeline_name":"urn:li:dataHubIngestionSource:f38bd060-4ea8-459c-8f24-a773286a2927"}',
                     "version": "0.8.18",
@@ -389,7 +389,7 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
     assert ingestion_source["urn"] == ingestion_source_urn
     assert ingestion_source["type"] == "mysql"
     assert ingestion_source["name"] == "My Test Ingestion Source"
-    assert ingestion_source["schedule"]["interval"] == "*/5 * * * *"
+    assert ingestion_source["schedule"]["interval"] == "*/60 * * * *"
     assert ingestion_source["schedule"]["timezone"] == "UTC"
     assert (
         ingestion_source["config"]["recipe"]

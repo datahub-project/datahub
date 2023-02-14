@@ -133,7 +133,8 @@ public interface EntityClient {
    */
   @Nonnull
   public SearchResult search(@Nonnull String entity, @Nonnull String input,
-      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull Authentication authentication)
+      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull Authentication authentication,
+                             @Nullable Boolean fulltext)
       throws RemoteInvocationException;
 
   /**
@@ -162,7 +163,8 @@ public interface EntityClient {
    */
   @Nonnull
   public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
-      SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication) throws RemoteInvocationException;
+      SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication,
+                             @Nullable Boolean fulltext) throws RemoteInvocationException;
 
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
@@ -198,6 +200,35 @@ public interface EntityClient {
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
+   * Gets a list of documents that match given search request that is related to
+   * the input entity
+   *
+   * @param sourceUrn       Urn of the source entity
+   * @param direction       Direction of the relationship
+   * @param entities        list of entities to search (If empty, searches
+   *                        across all entities)
+   * @param input           the search input text
+   * @param maxHops         the max number of hops away to search for. If null,
+   *                        searches all hops.
+   * @param filter          the request map with fields and values as filters
+   *                        to be applied to search hits
+   * @param sortCriterion   {@link SortCriterion} to be applied to search
+   *                        results
+   * @param start           index to start the search from
+   * @param count           the number of search hits to return
+   * @param endTimeMillis   end time to filter to
+   * @param startTimeMillis start time to filter from
+   * @return a {@link SearchResult} that contains a list of matched documents and
+   *         related search result metadata
+   */
+  @Nonnull
+  public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
+          @Nullable SortCriterion sortCriterion, int start, int count, @Nullable final Long startTimeMillis,
+          @Nullable final Long endTimeMillis, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -276,22 +307,40 @@ public interface EntityClient {
       @Nonnull Boolean getLatestValue, @Nullable Filter filter, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
-  public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException;
+  @Deprecated
+  default String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    return ingestProposal(metadataChangeProposal, authentication, false);
+  }
 
+  String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException;
+
+  @Deprecated
   default String wrappedIngestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
       @Nonnull final Authentication authentication) {
+    return wrappedIngestProposal(metadataChangeProposal, authentication, false);
+  }
+
+  default String wrappedIngestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
+      @Nonnull final Authentication authentication, final boolean async) {
     try {
-      return ingestProposal(metadataChangeProposal, authentication);
+      return ingestProposal(metadataChangeProposal, authentication, async);
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(e);
     }
   }
 
+  @Deprecated
   default List<String> batchIngestProposals(@Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
       @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    return batchIngestProposals(metadataChangeProposals, authentication, false);
+  }
+
+  default List<String> batchIngestProposals(@Nonnull final Collection<MetadataChangeProposal> metadataChangeProposals,
+      @Nonnull final Authentication authentication, final boolean async) throws RemoteInvocationException {
     return metadataChangeProposals.stream()
-        .map(proposal -> wrappedIngestProposal(proposal, authentication))
+        .map(proposal -> wrappedIngestProposal(proposal, authentication, async))
         .collect(Collectors.toList());
   }
 

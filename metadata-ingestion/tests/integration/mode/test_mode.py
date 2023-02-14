@@ -107,12 +107,10 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
 
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_failure(pytestconfig, tmp_path):
-
     with patch(
         "datahub.ingestion.source.mode.requests.session",
         side_effect=mocked_requests_failure,
     ):
-
         global test_resources_dir
         test_resources_dir = pytestconfig.rootpath / "tests/integration/mode"
 

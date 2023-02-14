@@ -35,7 +35,9 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         str(test_resources_dir_kafka / "docker-compose.yml"),
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
-    with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+    with docker_compose_runner(
+        docker_compose_file, "kafka-connect", cleanup=False
+    ) as docker_services:
         wait_for_port(
             docker_services,
             "test_mysql",
@@ -43,6 +45,13 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
             timeout=120,
             checker=lambda: is_mysql_up("test_mysql", 3306),
         )
+
+    with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+        # We sometimes run into issues where the broker fails to come up on the first try because
+        # of all the other processes that are running. By running docker compose twice, we can
+        # avoid some test flakes. How does this work? The "key" is the same between both
+        # calls to the docker_compose_runner and the first one sets cleanup=False.
+
         wait_for_port(docker_services, "test_broker", 59092, timeout=120)
         wait_for_port(docker_services, "test_connect", 58083, timeout=120)
         docker_services.wait_until_responsive(
@@ -53,6 +62,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
             ).status_code
             == 200,
         )
+
         # Creating MySQL source with no transformations , only topic prefix
         r = requests.post(
             "http://localhost:58083/connectors",
@@ -215,6 +225,29 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                 }""",
         )
         assert r.status_code == 201  # Created
+
+        # Creating Generic source
+        r = requests.post(
+            "http://localhost:58083/connectors",
+            headers={"Content-Type": "application/json"},
+            data="""{
+                    "name": "generic_source",
+                    "config": {
+                        "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+                        "kafka.topic": "my-topic",
+                        "quickstart": "product",
+                        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+                        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+                        "value.converter.schemas.enable": "false",
+                        "max.interval": 1000,
+                        "iterations": 10000000,
+                        "tasks.max": "1"
+                    }
+                }""",
+        )
+        r.raise_for_status()
+        assert r.status_code == 201  # Created
+
         # Give time for connectors to process the table data
         time.sleep(60)
 
@@ -227,5 +260,90 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
             pytestconfig,
             output_path=tmp_path / "kafka_connect_mces.json",
             golden_path=test_resources_dir / "kafka_connect_mces_golden.json",
+            ignore_paths=[],
+        )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration_batch_1
+def test_kafka_connect_mongosourceconnect_ingest(
+    docker_compose_runner, pytestconfig, tmp_path, mock_time
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
+    test_resources_dir_kafka = pytestconfig.rootpath / "tests/integration/kafka"
+
+    # Share Compose configurations between files and projects
+    # https://docs.docker.com/compose/extends/
+    docker_compose_file = [
+        str(test_resources_dir_kafka / "docker-compose.yml"),
+        str(test_resources_dir / "docker-compose.override.yml"),
+    ]
+    with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+        time.sleep(10)
+        # Run the setup.sql file to populate the database.
+        command = 'docker exec test_mongo mongo admin -u admin -p admin --eval "rs.initiate();"'
+        ret = subprocess.run(
+            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        assert ret.returncode == 0
+        time.sleep(10)
+
+        wait_for_port(docker_services, "test_broker", 59092, timeout=120)
+        wait_for_port(docker_services, "test_connect", 58083, timeout=120)
+        docker_services.wait_until_responsive(
+            timeout=30,
+            pause=1,
+            check=lambda: requests.get(
+                "http://localhost:58083/connectors",
+            ).status_code
+            == 200,
+        )
+
+        # Creating MongoDB source
+        r = requests.post(
+            "http://localhost:58083/connectors",
+            headers={"Content-Type": "application/json"},
+            data=r"""{
+                    "name": "source_mongodb_connector",
+                    "config": {
+                        "tasks.max": "1",
+                        "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                        "connection.uri": "mongodb://admin:admin@test_mongo:27017",
+                        "topic.prefix": "mongodb",
+                        "database": "test_db",
+                        "collection": "purchases",
+                        "copy.existing": true,
+                        "copy.existing.namespace.regex": "test_db.purchases",
+                        "change.stream.full.document": "updateLookup",
+                        "topic.creation.enable": "true",
+                        "topic.creation.default.replication.factor": "-1",
+                        "topic.creation.default.partitions": "-1",
+                        "output.json.formatter": "com.mongodb.kafka.connect.source.json.formatter.SimplifiedJson",
+                        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+                        "value.converter": "org.apache.kafka.connect.storage.StringConverter",
+                        "key.converter.schemas.enable": false,
+                        "value.converter.schemas.enable": false,
+                        "output.format.key": "schema",
+                        "output.format.value": "json",
+                        "output.schema.infer.value": false,
+                        "publish.full.document.only":true
+                    }
+                }""",
+        )
+        r.raise_for_status()
+        assert r.status_code == 201  # Created
+
+        # Give time for connectors to process the table data
+        time.sleep(60)
+
+        # Run the metadata ingestion pipeline.
+        config_file = (test_resources_dir / "kafka_connect_to_file.yml").resolve()
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "kafka_connect_mces.json",
+            golden_path=test_resources_dir / "kafka_connect_mongo_mces_golden.json",
             ignore_paths=[],
         )

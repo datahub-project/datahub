@@ -3,9 +3,8 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export const Logo = (props) => {
   return (
-    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
+    <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
       <img
-        height="150"
         alt="DataHub Logo"
         src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
         {...props}
@@ -110,26 +109,37 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Adevinta](https://www.adevinta.com/)
 - [Banksalad](https://www.banksalad.com)
 - [Cabify](https://cabify.tech/)
+- [ClassDojo](https://www.classdojo.com/)
+- [Coursera](https://www.coursera.org/)
 - [DefinedCrowd](http://www.definedcrowd.com)
 - [DFDS](https://www.dfds.com/)
+- [Digital Turbine](https://www.digitalturbine.com/)
 - [Expedia Group](http://expedia.com)
 - [Experius](https://www.experius.nl)
 - [Geotab](https://www.geotab.com)
 - [Grofers](https://grofers.com)
 - [Haibo Technology](https://www.botech.com.cn)
 - [hipages](https://hipages.com.au/)
+- [inovex](https://www.inovex.de/)
 - [IOMED](https://iomed.health)
 - [Klarna](https://www.klarna.com)
 - [LinkedIn](http://linkedin.com)
 - [Moloco](https://www.moloco.com/en)
+- [N26](https://n26brasil.com/)
+- [Optum](https://www.optum.com/)
 - [Peloton](https://www.onepeloton.com)
+- [Razer](https://www.razer.com)
 - [Saxo Bank](https://www.home.saxo)
+- [Showroomprive](https://www.showroomprive.com/)
+- [SpotHero](https://spothero.com)
 - [Stash](https://www.stash.com)
 - [Shanghai HuaRui Bank](https://www.shrbank.com)
 - [ThoughtWorks](https://www.thoughtworks.com)
 - [TypeForm](http://typeform.com)
+- [Udemy](https://www.udemy.com/)
 - [Uphold](https://uphold.com)
 - [Viasat](https://viasat.com)
+- [Wikimedia](https://www.wikimedia.org)
 - [Wolt](https://wolt.com)
 - [Zynga](https://www.zynga.com)
 
@@ -150,7 +160,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [Data Catalogue — Knowing your data](https://medium.com/albert-franzi/data-catalogue-knowing-your-data-15f7d0724900)
 - [DataHub: A Generalized Metadata Search & Discovery Tool](https://engineering.linkedin.com/blog/2019/data-hub)
 - [Open sourcing DataHub: LinkedIn’s metadata search and discovery platform](https://engineering.linkedin.com/blog/2020/open-sourcing-datahub--linkedins-metadata-search-and-discovery-p)
-- [Emerging Architectures for Modern Data Infrastructure](https://a16z.com/2020/10/15/the-emerging-architectures-for-modern-data-infrastructure/)
+- [Emerging Architectures for Modern Data Infrastructure](https://future.com/emerging-architectures-for-modern-data-infrastructure-2020/)
 
 See the full list [here](docs/links.md).
 

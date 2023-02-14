@@ -2,13 +2,12 @@ package com.linkedin.gms.factory.search;
 
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
-import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import javax.annotation.Nonnull;
-import org.elasticsearch.action.bulk.BackoffPolicy;
-import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.client.RequestOptions;
+
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.unit.TimeValue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +17,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 
 
+@Slf4j
 @Configuration
 @Import({RestHighLevelClientFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
@@ -38,15 +38,22 @@ public class ElasticSearchBulkProcessorFactory {
   @Value("${elasticsearch.bulkProcessor.retryInterval}")
   private Long retryInterval;
 
+  @Value("#{new Boolean('${elasticsearch.bulkProcessor.async}')}")
+  private boolean async;
+
+  @Value("${elasticsearch.bulkProcessor.refreshPolicy}")
+  private String refreshPolicy;
+
   @Bean(name = "elasticSearchBulkProcessor")
   @Nonnull
-  protected BulkProcessor getInstance() {
-    return BulkProcessor.builder((request, bulkListener) -> {
-      searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
-    }, BulkListener.getInstance())
-        .setBulkActions(bulkRequestsLimit)
-        .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
-        .setBackoffPolicy(BackoffPolicy.constantBackoff(TimeValue.timeValueSeconds(retryInterval), numRetries))
-        .build();
+  protected ESBulkProcessor getInstance() {
+    return ESBulkProcessor.builder(searchClient)
+            .async(async)
+            .bulkFlushPeriod(bulkFlushPeriod)
+            .bulkRequestsLimit(bulkRequestsLimit)
+            .retryInterval(retryInterval)
+            .numRetries(numRetries)
+            .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
+            .build();
   }
 }

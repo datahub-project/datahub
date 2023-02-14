@@ -1,18 +1,19 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
             "aspects": [
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "name": "folder_aaa.pokemon_abilities_json",
-                        "qualifiedName": null,
                         "description": "",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -23,17 +24,12 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.OtherSchema": {
@@ -43,47 +39,31 @@
                         "fields": [
                             {
                                 "fieldPath": "effect_changes",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries.effect",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -91,16 +71,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries.language",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -108,16 +83,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries.language.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -125,16 +95,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.effect_entries.language.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -142,16 +107,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.version_group",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -159,16 +119,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.version_group.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -176,16 +131,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_changes.version_group.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -193,35 +143,23 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.effect",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -229,16 +167,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.language",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -246,16 +179,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.language.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -263,16 +191,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.language.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -280,16 +203,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "effect_entries.short_effect",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -297,35 +215,23 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.flavor_text",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -333,16 +239,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.language",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -350,16 +251,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.language.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -367,16 +263,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.language.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -384,16 +275,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.version_group",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -401,16 +287,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.version_group.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -418,16 +299,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "flavor_text_entries.version_group.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -435,16 +311,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "generation",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -452,16 +323,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "generation.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -469,16 +335,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "generation.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -486,16 +347,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "id",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -503,16 +359,11 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "is_main_series",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -520,16 +371,11 @@
                                 },
                                 "nativeDataType": "bool",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -537,35 +383,23 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names.language",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -573,16 +407,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names.language.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -590,16 +419,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names.language.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -607,16 +431,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "names.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -624,35 +443,23 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": null
-                                        }
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
                                     }
                                 },
                                 "nativeDataType": "list",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.is_hidden",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -660,16 +467,11 @@
                                 },
                                 "nativeDataType": "bool",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.pokemon",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.RecordType": {}
@@ -677,16 +479,11 @@
                                 },
                                 "nativeDataType": "dict",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.pokemon.name",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -694,16 +491,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.pokemon.url",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -711,16 +503,11 @@
                                 },
                                 "nativeDataType": "str",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "pokemon.slot",
-                                "jsonPath": null,
                                 "nullable": false,
-                                "description": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -728,34 +515,22 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
+                                "isPartOfKey": false
                             }
-                        ],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        ]
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -764,17 +539,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -783,17 +567,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -802,17 +581,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -821,17 +595,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -840,17 +623,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -859,17 +637,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -878,17 +651,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -897,17 +665,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -916,17 +693,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -935,17 +707,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -954,17 +721,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -973,17 +735,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_partition_basic.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -992,17 +763,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1011,17 +777,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1030,17 +791,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json,UAT)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1049,10 +805,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_partition_basic.json",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "folder_partition_basic.json"
     }
 }
 ]

@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { CorpUser } from '../../types.generated';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { HomePageRecommendations } from './HomePageRecommendations';
 
@@ -17,10 +18,6 @@ const BodyContainer = styled.div`
 `;
 
 export const HomePageBody = () => {
-    const authenticatedUserUrn = useGetAuthenticatedUser()?.corpUser?.urn;
-    return (
-        <BodyContainer>
-            {authenticatedUserUrn && <HomePageRecommendations userUrn={authenticatedUserUrn} />}
-        </BodyContainer>
-    );
+    const user: CorpUser = useGetAuthenticatedUser()?.corpUser as CorpUser;
+    return <BodyContainer>{user && <HomePageRecommendations user={user} />}</BodyContainer>;
 };

@@ -12,6 +12,7 @@ import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
 import { Message } from '../shared/Message';
 import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
 import { ErrorSection } from '../shared/error/ErrorSection';
+import { VIEW_ENTITY_PAGE } from './shared/constants';
 
 interface RouteParams {
     urn: string;
@@ -40,6 +41,7 @@ export const EntityPage = ({ entityType }: Props) => {
                 resourceSpec: { resourceType: entityType, resourceUrn: urn },
             },
         },
+        fetchPolicy: 'cache-first',
     });
     const privileges = data?.getGrantedPrivileges?.privileges || [];
 
@@ -51,7 +53,7 @@ export const EntityPage = ({ entityType }: Props) => {
         });
     }, [entityType, urn]);
 
-    const canViewEntityPage = privileges.find((privilege) => privilege === 'VIEW_ENTITY_PAGE');
+    const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
     const showNewPage =
         entityType === EntityType.Dataset ||
         entityType === EntityType.Dashboard ||

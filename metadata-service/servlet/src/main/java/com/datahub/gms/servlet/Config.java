@@ -30,6 +30,7 @@ public class Config extends HttpServlet {
     put("noCode", "true");
     put("retention", "true");
     put("statefulIngestionCapable", true);
+    put("patchCapable", true);
   }};
   ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 

@@ -14,14 +14,23 @@ set -euxo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip wheel setuptools
-pip install -r requirements.txt
+if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
+    source ./run-quickstart.sh
+fi
 
-echo "DATAHUB_VERSION = $DATAHUB_VERSION"
-DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --quickstart-compose-file ../docker/quickstart/docker-compose-without-neo4j.quickstart.yml --dump-logs-on-failure
+source venv/bin/activate
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
-pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
+export CYPRESS_ADMIN_USERNAME=${ADMIN_USERNAME:-datahub}
+export CYPRESS_ADMIN_PASSWORD=${ADMIN_PASSWORD:-datahub}
+
+if [[ -z "${TEST_STRATEGY}" ]]; then
+    pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
+else
+    if [ "$TEST_STRATEGY" == "no_cypress" ]; then
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress'
+    else
+        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_cypress_${TEST_STRATEGY}.xml tests/cypress/integration_test.py
+    fi
+fi

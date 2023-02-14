@@ -3,9 +3,9 @@ import logging
 import re
 from typing import Any, Dict, List, Tuple
 
+import pydantic
 import pytest
 
-from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.elastic_search import (
     ElasticsearchSourceConfig,
     ElasticToSchemaFieldConverter,
@@ -2467,8 +2467,6 @@ def test_host_port_parsing() -> None:
 
     for bad_example in bad_examples:
         config_dict = {"host": bad_example}
-        try:
-            config = ElasticsearchSourceConfig.parse_obj(config_dict)
-            assert False, f"{bad_example} should throw exception"
-        except Exception as e:
-            assert isinstance(e, ConfigurationError)
+
+        with pytest.raises(pydantic.ValidationError):
+            ElasticsearchSourceConfig.parse_obj(config_dict)

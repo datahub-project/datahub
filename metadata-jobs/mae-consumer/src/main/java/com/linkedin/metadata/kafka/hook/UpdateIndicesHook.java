@@ -2,9 +2,15 @@ package com.linkedin.metadata.kafka.hook;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.InputField;
+import com.linkedin.common.InputFields;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
@@ -15,6 +21,8 @@ import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
@@ -31,32 +39,43 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.io.UnsupportedEncodingException;
-import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
+// TODO: Backfill tests for this class in UpdateIndicesHookTest.java
 @Slf4j
 @Component
 @Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
     EntityRegistryFactory.class, SystemMetadataServiceFactory.class, SearchDocumentTransformerFactory.class})
 public class UpdateIndicesHook implements MetadataChangeLogHook {
+
+  private static final Set<ChangeType> UPDATE_CHANGE_TYPES = ImmutableSet.of(
+      ChangeType.UPSERT,
+      ChangeType.RESTATE,
+      ChangeType.PATCH);
+  private static final String DOWNSTREAM_OF = "DownstreamOf";
 
   private final GraphService _graphService;
   private final EntitySearchService _entitySearchService;
@@ -64,6 +83,9 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
   private final SearchDocumentTransformer _searchDocumentTransformer;
+
+  @Value("${featureFlags.graphServiceDiffModeEnabled:false}")
+  private boolean _diffMode;
 
   @Autowired
   public UpdateIndicesHook(
@@ -79,114 +101,309 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
-    _graphService.configure();
-    _entitySearchService.configure();
-    _systemMetadataService.configure();
-    _timeseriesAspectService.configure();
   }
 
   @Override
-  public void invoke(@Nonnull MetadataChangeLog event) {
-    EntitySpec entitySpec;
-    try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
-    } catch (IllegalArgumentException e) {
-      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
+  public void invoke(@Nonnull final MetadataChangeLog event) {
+    if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+      handleUpdateChangeEvent(event);
+    } else if (event.getChangeType() == ChangeType.DELETE) {
+      handleDeleteChangeEvent(event);
+    }
+  }
+
+  /**
+   * This very important method processes {@link MetadataChangeLog} events
+   * that represent changes to the Metadata Graph.
+   *
+   * In particular, it handles updating the Search, Graph, Timeseries, and
+   * System Metadata stores in response to a given change type to reflect
+   * the changes present in the new aspect.
+   *
+   * @param event the change event to be processed.
+   */
+  private void handleUpdateChangeEvent(@Nonnull final MetadataChangeLog event) {
+
+    final EntitySpec entitySpec = getEventEntitySpec(event);
+    final Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
+
+    if (!event.hasAspectName() || !event.hasAspect()) {
+      log.error("Aspect or aspect name is missing. Skipping aspect processing...");
       return;
     }
-    Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
 
-    if (event.getChangeType() == ChangeType.UPSERT || event.getChangeType() == ChangeType.RESTATE) {
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve Aspect Spec for entity with name %s, aspect with name %s. Cannot update indices for MCL.",
+              event.getEntityType(),
+              event.getAspectName()));
+    }
 
-      if (!event.hasAspectName() || !event.hasAspect()) {
-        log.error("Aspect or aspect name is missing");
-        return;
-      }
+    RecordTemplate aspect = GenericRecordUtils.deserializeAspect(
+        event.getAspect().getValue(),
+        event.getAspect().getContentType(),
+        aspectSpec);
+    GenericAspect previousAspectValue = event.getPreviousAspectValue();
+    RecordTemplate previousAspect = previousAspectValue != null
+        ? GenericRecordUtils.deserializeAspect(previousAspectValue.getValue(), previousAspectValue.getContentType(), aspectSpec)
+        : null;
 
-      AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
-      if (aspectSpec == null) {
-        log.error("Unrecognized aspect name {} for entity {}", event.getAspectName(), event.getEntityType());
-        return;
-      }
+    // Step 0. If the aspect is timeseries, add to its timeseries index.
+    if (aspectSpec.isTimeseries()) {
+      updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
+          event.getSystemMetadata());
+    } else {
+      // Inject into the System Metadata Index when an aspect is non-timeseries only.
+      // TODO: Verify whether timeseries aspects can be dropped into System Metadata as well
+      // without impacting rollbacks.
+      updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
+    }
 
-      RecordTemplate aspect =
-          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
-              aspectSpec);
-      if (aspectSpec.isTimeseries()) {
-        updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
-            event.getSystemMetadata());
-      } else {
-        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect, event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
-        updateGraphService(urn, aspectSpec, aspect);
-        updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
-      }
-    } else if (event.getChangeType() == ChangeType.DELETE) {
-      if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
-        log.error("Previous aspect or aspect name is missing");
-        return;
-      }
+    // Step 1. For all aspects, attempt to update Search
+    updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect,
+        event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
 
-      AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
-      if (aspectSpec == null) {
-        log.error("Unrecognized aspect name {} for entity {}", event.getAspectName(), event.getEntityType());
-        return;
-      }
+    // Step 2. For all aspects, attempt to update Graph
+    if (_diffMode && _graphService instanceof ElasticSearchGraphService) {
+      updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
+    } else {
+      updateGraphService(urn, aspectSpec, aspect, event);
+    }
+  }
 
-      RecordTemplate aspect = GenericRecordUtils.deserializeAspect(event.getPreviousAspectValue().getValue(),
-              event.getPreviousAspectValue().getContentType(), aspectSpec);
-      Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
+  /**
+   * This very important method processes {@link MetadataChangeLog} deletion events
+   * to cleanup the Metadata Graph when an aspect or entity is removed.
+   *
+   * In particular, it handles updating the Search, Graph, Timeseries, and
+   * System Metadata stores to reflect the deletion of a particular aspect.
+   *
+   * Note that if an entity's key aspect is deleted, the entire entity will be purged
+   * from search, graph, timeseries, etc.
+   *
+   * @param event the change event to be processed.
+   */
+  private void handleDeleteChangeEvent(@Nonnull final MetadataChangeLog event) {
 
-      if (!aspectSpec.isTimeseries()) {
-        deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
-        deleteGraphData(urn, aspectSpec, aspect, isDeletingKey);
-        deleteSearchData(urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
+    final EntitySpec entitySpec = getEventEntitySpec(event);
+    final Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
+
+    if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
+      log.error("Previous aspect or aspect name is missing. Skipping aspect processing...");
+      return;
+    }
+
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve Aspect Spec for entity with name %s, aspect with name %s. Cannot update indices for MCL.",
+              event.getEntityType(),
+              event.getAspectName()));
+    }
+
+    RecordTemplate aspect = GenericRecordUtils.deserializeAspect(event.getPreviousAspectValue().getValue(),
+        event.getPreviousAspectValue().getContentType(), aspectSpec);
+    Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
+
+    if (!aspectSpec.isTimeseries()) {
+      deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
+      deleteGraphData(urn, aspectSpec, aspect, isDeletingKey, event);
+      deleteSearchData(urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
+    }
+  }
+
+  // TODO: remove this method once we implement sourceOverride when creating graph edges
+  private void updateFineGrainedEdgesAndRelationships(
+      RecordTemplate aspect,
+      List<Edge> edgesToAdd,
+      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+  ) {
+    UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
+    if (upstreamLineage.getFineGrainedLineages() != null) {
+      for (FineGrainedLineage fineGrainedLineage : upstreamLineage.getFineGrainedLineages()) {
+        if (!fineGrainedLineage.hasDownstreams() || !fineGrainedLineage.hasUpstreams()) {
+          break;
+        }
+        // for every downstream, create an edge with each of the upstreams
+        for (Urn downstream : fineGrainedLineage.getDownstreams()) {
+          for (Urn upstream : fineGrainedLineage.getUpstreams()) {
+            // TODO: add edges uniformly across aspects
+            edgesToAdd.add(new Edge(downstream, upstream, DOWNSTREAM_OF, null, null, null, null, null));
+            Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(downstream, new HashSet<>());
+            relationshipTypes.add(DOWNSTREAM_OF);
+            urnToRelationshipTypesBeingAdded.put(downstream, relationshipTypes);
+          }
+        }
       }
     }
   }
 
-  private Pair<List<Edge>, Set<String>> getEdgesAndRelationshipTypesFromAspect(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
-    final Set<String> relationshipTypesBeingAdded = new HashSet<>();
+  private Urn generateSchemaFieldUrn(@Nonnull final String resourceUrn, @Nonnull final String fieldPath) {
+    // we rely on schemaField fieldPaths to be encoded since we do that with fineGrainedLineage on the ingestion side
+    final String encodedFieldPath = fieldPath.replaceAll("\\(", "%28").replaceAll("\\)", "%29").replaceAll(",", "%2C");
+    final SchemaFieldKey key = new SchemaFieldKey().setParent(UrnUtils.getUrn(resourceUrn)).setFieldPath(encodedFieldPath);
+    return EntityKeyUtils.convertEntityKeyToUrn(key, Constants.SCHEMA_FIELD_ENTITY_NAME);
+  }
+
+  // TODO: remove this method once we implement sourceOverride and update inputFields aspect
+  private void updateInputFieldEdgesAndRelationships(
+      @Nonnull final Urn urn,
+      @Nonnull final InputFields inputFields,
+      @Nonnull final List<Edge> edgesToAdd,
+      @Nonnull final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded
+  ) {
+    if (inputFields.hasFields()) {
+      for (final InputField field : inputFields.getFields()) {
+        if (field.hasSchemaFieldUrn() && field.hasSchemaField() && field.getSchemaField().hasFieldPath()) {
+          final Urn sourceFieldUrn = generateSchemaFieldUrn(urn.toString(), field.getSchemaField().getFieldPath());
+          // TODO: add edges uniformly across aspects
+          edgesToAdd.add(new Edge(sourceFieldUrn, field.getSchemaFieldUrn(), DOWNSTREAM_OF, null, null, null, null, null));
+          final Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(sourceFieldUrn, new HashSet<>());
+          relationshipTypes.add(DOWNSTREAM_OF);
+          urnToRelationshipTypesBeingAdded.put(sourceFieldUrn, relationshipTypes);
+        }
+      }
+    }
+  }
+
+  private Pair<List<Edge>, HashMap<Urn, Set<String>>> getEdgesAndRelationshipTypesFromAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate aspect,
+      @Nonnull final MetadataChangeLog event,
+      final boolean isNewAspectVersion
+  ) {
     final List<Edge> edgesToAdd = new ArrayList<>();
+    final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
+
+    // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage and inputFields
+    // since @Relationship only links between the parent entity urn and something else.
+    if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
+      updateFineGrainedEdgesAndRelationships(aspect, edgesToAdd, urnToRelationshipTypesBeingAdded);
+    }
+    if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
+      final InputFields inputFields = new InputFields(aspect.data());
+      updateInputFieldEdgesAndRelationships(urn, inputFields, edgesToAdd, urnToRelationshipTypesBeingAdded);
+    }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getRelationshipFieldSpecs());
 
     for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
-      relationshipTypesBeingAdded.add(entry.getKey().getRelationshipName());
-      for (Object fieldValue : entry.getValue()) {
-        try {
-          edgesToAdd.add(
-              new Edge(urn, Urn.createFromString(fieldValue.toString()), entry.getKey().getRelationshipName()));
-        } catch (URISyntaxException e) {
-          log.error("Invalid destination urn: {}", fieldValue.toString(), e);
-        }
-      }
+      Set<String> relationshipTypes = urnToRelationshipTypesBeingAdded.getOrDefault(urn, new HashSet<>());
+      relationshipTypes.add(entry.getKey().getRelationshipName());
+      urnToRelationshipTypesBeingAdded.put(urn, relationshipTypes);
+      final List<Edge> newEdges = GraphIndexUtils.extractGraphEdges(entry, aspect, urn, event, isNewAspectVersion);
+      edgesToAdd.addAll(newEdges);
     }
-    return Pair.of(edgesToAdd, relationshipTypesBeingAdded);
+    return Pair.of(edgesToAdd, urnToRelationshipTypesBeingAdded);
   }
 
   /**
    * Process snapshot and update graph index
    */
-  private void updateGraphService(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
-    Pair<List<Edge>, Set<String>> edgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect);
+  private void updateGraphService(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate aspect,
+      @Nonnull final MetadataChangeLog event
+  ) {
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
+        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event, true);
 
     final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
-    final Set<String> relationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
+    final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
 
-    log.debug("Here's the relationship types found {}", relationshipTypesBeingAdded);
-    if (relationshipTypesBeingAdded.size() > 0) {
-      _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-          newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
-      edgesToAdd.forEach(edge -> _graphService.addEdge(edge));
+    log.debug("Here's the relationship types found {}", urnToRelationshipTypesBeingAdded);
+    if (urnToRelationshipTypesBeingAdded.size() > 0) {
+      for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
+        _graphService.removeEdgesFromNode(entry.getKey(), new ArrayList<>(entry.getValue()),
+            newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+      }
+      edgesToAdd.forEach(_graphService::addEdge);
     }
+  }
+
+  private void updateGraphServiceDiff(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final RecordTemplate oldAspect,
+      @Nonnull final RecordTemplate newAspect,
+      @Nonnull final MetadataChangeLog event
+  ) {
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
+    if (oldAspect != null) {
+      oldEdgeAndRelationTypes = getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, oldAspect, event, false);
+    }
+
+    final List<Edge> oldEdges =
+        oldEdgeAndRelationTypes != null ? oldEdgeAndRelationTypes.getFirst() : Collections.emptyList();
+    final Set<Edge> oldEdgeSet = new HashSet<>(oldEdges);
+
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> newEdgeAndRelationTypes =
+        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, newAspect, event, true);
+
+    final List<Edge> newEdges = newEdgeAndRelationTypes.getFirst();
+    final Set<Edge> newEdgeSet = new HashSet<>(newEdges);
+
+    // Edges to add
+    final List<Edge> additiveDifference = newEdgeSet.stream()
+        .filter(edge -> !oldEdgeSet.contains(edge))
+        .collect(Collectors.toList());
+
+    // Edges to remove
+    final List<Edge> subtractiveDifference = oldEdgeSet.stream()
+        .filter(edge -> !newEdgeSet.contains(edge))
+        .collect(Collectors.toList());
+
+    // Edges to update
+    final List<Edge> mergedEdges = getMergedEdges(oldEdgeSet, newEdgeSet);
+
+    // Remove any old edges that no longer exist first
+    if (subtractiveDifference.size() > 0) {
+      log.debug("Removing edges: {}", subtractiveDifference);
+      subtractiveDifference.forEach(_graphService::removeEdge);
+    }
+
+    // Then add new edges
+    if (additiveDifference.size() > 0) {
+      log.debug("Adding edges: {}", additiveDifference);
+      additiveDifference.forEach(_graphService::addEdge);
+    }
+
+    // Then update existing edges
+    if (mergedEdges.size() > 0) {
+      log.debug("Updating edges: {}", mergedEdges);
+      mergedEdges.forEach(_graphService::upsertEdge);
+    }
+  }
+
+  private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {
+    final Map<Integer, com.linkedin.metadata.graph.Edge> oldEdgesMap = oldEdgeSet
+        .stream()
+        .map(edge -> Pair.of(edge.hashCode(), edge))
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+
+    final List<com.linkedin.metadata.graph.Edge> mergedEdges = new ArrayList<>();
+    if (!oldEdgesMap.isEmpty()) {
+      for (com.linkedin.metadata.graph.Edge newEdge : newEdgeSet) {
+        if (oldEdgesMap.containsKey(newEdge.hashCode())) {
+          final com.linkedin.metadata.graph.Edge oldEdge = oldEdgesMap.get(newEdge.hashCode());
+          final com.linkedin.metadata.graph.Edge mergedEdge = GraphIndexUtils.mergeEdges(oldEdge, newEdge);
+          mergedEdges.add(mergedEdge);
+        }
+      }
+    }
+
+    return mergedEdges;
   }
 
   /**
    * Process snapshot and update search index
    */
-  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect, @Nullable String runId) {
+  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect,
+      @Nullable String runId) {
     Optional<String> searchDocument;
     try {
       searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
@@ -209,7 +426,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   }
 
   /**
-   * Process snapshot and update timseries index
+   * Process snapshot and update time-series index
    */
   private void updateTimeseriesFields(String entityType, String aspectName, Urn urn, RecordTemplate aspect,
       AspectSpec aspectSpec, SystemMetadata systemMetadata) {
@@ -246,48 +463,66 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
   }
 
-  private void deleteGraphData(Urn urn, AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {
+  private void deleteGraphData(
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate aspect,
+      @Nonnull final Boolean isKeyAspect,
+      @Nonnull final MetadataChangeLog event
+  ) {
     if (isKeyAspect) {
       _graphService.removeNode(urn);
       return;
     }
 
-    Pair<List<Edge>, Set<String>> edgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect);
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
+        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event, true);
 
-    final Set<String> relationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
-    if (relationshipTypesBeingAdded.size() > 0) {
-      _graphService.removeEdgesFromNode(urn, new ArrayList<>(relationshipTypesBeingAdded),
-          createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+    final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = edgeAndRelationTypes.getSecond();
+    if (urnToRelationshipTypesBeingAdded.size() > 0) {
+      for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
+        _graphService.removeEdgesFromNode(entry.getKey(), new ArrayList<>(entry.getValue()),
+            createRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
+      }
     }
   }
 
   private void deleteSearchData(Urn urn, String entityName, AspectSpec aspectSpec, RecordTemplate aspect, Boolean isKeyAspect) {
-      String docId;
-      try {
-        docId = URLEncoder.encode(urn.toString(), "UTF-8");
-      } catch (UnsupportedEncodingException e) {
-        log.error("Failed to encode the urn with error: {}", e.toString());
-        return;
-      }
+    String docId;
+    try {
+      docId = URLEncoder.encode(urn.toString(), "UTF-8");
+    } catch (UnsupportedEncodingException e) {
+      log.error("Failed to encode the urn with error: {}", e.toString());
+      return;
+    }
 
-      if (isKeyAspect) {
-        _entitySearchService.deleteDocument(entityName, docId);
-        return;
-      }
+    if (isKeyAspect) {
+      _entitySearchService.deleteDocument(entityName, docId);
+      return;
+    }
 
-      Optional<String> searchDocument;
-      try {
-        searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true); // TODO
-      } catch (Exception e) {
-        log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
-        return;
-      }
+    Optional<String> searchDocument;
+    try {
+      searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true); // TODO
+    } catch (Exception e) {
+      log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
+      return;
+    }
 
-      if (!searchDocument.isPresent()) {
-        return;
-      }
+    if (!searchDocument.isPresent()) {
+      return;
+    }
 
     _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+  }
+
+  private EntitySpec getEventEntitySpec(@Nonnull final MetadataChangeLog event) {
+    try {
+      return _entityRegistry.getEntitySpec(event.getEntityType());
+    } catch (IllegalArgumentException e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve Entity Spec for entity with name %s. Cannot update indices for MCL.",
+              event.getEntityType()));
+    }
   }
 }

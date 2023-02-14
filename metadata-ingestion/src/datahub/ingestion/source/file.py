@@ -3,17 +3,19 @@ import gzip
 import json
 import logging
 import os.path
+import pathlib
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import auto
 from io import BufferedReader
-from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import ijson
-from pydantic import root_validator, validator
+from pydantic import validator
+from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigEnum, ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -38,15 +40,17 @@ from datahub.metadata.schema_classes import UsageAggregationClass
 logger = logging.getLogger(__name__)
 
 
-class FileReadMode(Enum):
-    STREAM = "STREAM"
-    BATCH = "BATCH"
-    AUTO = "AUTO"
+class FileReadMode(ConfigEnum):
+    STREAM = auto()
+    BATCH = auto()
+    AUTO = auto()
 
 
 class FileSourceConfig(ConfigModel):
-    filename: Optional[str] = Field(None, description="Path to file to ingest.")
-    path: str = Field(
+    filename: Optional[str] = Field(
+        None, description="[deprecated in favor of `path`] The file to ingest."
+    )
+    path: pathlib.Path = Field(
         description="Path to folder or file to ingest. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
     )
     file_extension: str = Field(
@@ -55,7 +59,12 @@ class FileSourceConfig(ConfigModel):
     )
     read_mode: FileReadMode = FileReadMode.AUTO
     aspect: Optional[str] = Field(
-        description="Set to an aspect to only read this aspect for ingestion."
+        default=None,
+        description="Set to an aspect to only read this aspect for ingestion.",
+    )
+    count_all_before_starting: bool = Field(
+        default=True,
+        description="When enabled, counts total number of records in the file before starting. Used for accurate estimation of completion time. Turn it off if startup time is too high.",
     )
 
     _minsize_for_streaming_mode_in_bytes: int = (
@@ -186,32 +195,49 @@ class GenericFileSource(TestableSource):
         config = FileSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
+    def _get_file_pattern(self) -> str:
+        def get_pattern(suffix: Optional[str] = None) -> str:
+            return (
+                f"*{self.config.file_extension}"
+                if suffix is None
+                else f"*{self.config.file_extension}{suffix}"
+            )
+
+        if self.config.compression == CompressionTypes.GZIP:
+            return get_pattern(suffix=".gz")
+
+        return get_pattern()
+
     def get_filenames(self) -> Iterable[str]:
-        is_file = os.path.isfile(self.config.path)
-        is_dir = os.path.isdir(self.config.path)
-        if is_file:
+        if self.config.path.is_file():
             self.report.total_num_files = 1
-            self.report.total_bytes_on_disk = os.path.getsize(Path(self.config.path))
-            return [self.config.path]
-        if is_dir:
-            p = Path(self.config.path)
+            self.report.total_bytes_on_disk = os.path.getsize(self.config.path)
+            return [str(self.config.path)]
+
+        if self.config.path.is_dir():
+            file_list: List[pathlib.Path] = list(
+                self.config.path.glob(self._get_file_pattern())
+            )
+
             files_and_stats = [
-                (str(x), os.path.getsize(x))
-                for x in list(p.glob(f"*{self.config.file_extension}"))
-                if x.is_file()
+                (str(x), os.path.getsize(x)) for x in file_list if x.is_file()
             ]
             self.report.total_num_files = len(files_and_stats)
             self.report.total_bytes_on_disk = sum([y for (x, y) in files_and_stats])
             return [x for (x, y) in files_and_stats]
+
         raise Exception(f"Failed to process {self.config.path}")
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
         for f in self.get_filenames():
             for i, obj in self.iterate_generic_file(f):
+                id = f"file://{f}:{i}"
                 wu: Union[MetadataWorkUnit, UsageStatsWorkUnit]
                 if isinstance(obj, UsageAggregationClass):
-                    wu = UsageStatsWorkUnit(f"file://{f}:{i}", obj)
-                elif isinstance(obj, MetadataChangeProposal):
+                    wu = UsageStatsWorkUnit(id, obj)
+                elif isinstance(
+                    obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
+                ):
                     self.report.entity_type_counts[obj.entityType] = (
                         self.report.entity_type_counts.get(obj.entityType, 0) + 1
                     )
@@ -225,9 +251,13 @@ class GenericFileSource(TestableSource):
                             and cur_aspect_name != self.config.aspect
                         ):
                             continue
-                    wu = MetadataWorkUnit(f"file://{f}:{i}", mcp_raw=obj)
+
+                    if isinstance(obj, MetadataChangeProposalWrapper):
+                        wu = MetadataWorkUnit(id, mcp=obj)
+                    else:
+                        wu = MetadataWorkUnit(id, mcp_raw=obj)
                 else:
-                    wu = MetadataWorkUnit(f"file://{f}:{i}", mce=obj)
+                    wu = MetadataWorkUnit(id, mce=obj)
                 self.report.report_workunit(wu)
                 yield wu
 
@@ -237,6 +267,7 @@ class GenericFileSource(TestableSource):
     def close(self):
         if self.fp:
             self.fp.close()
+        super().close()
 
     def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
         self.report.current_file_name = path
@@ -273,7 +304,7 @@ class GenericFileSource(TestableSource):
                 yield i, obj
                 self.report.current_file_elements_read += 1
         else:
-            self.fp = open_func(path, "rb")
+            self.fp = open_func(path, "rb")  # type: ignore
             count_start_time = datetime.datetime.now()
             parse_stream = ijson.parse(self.fp, use_float=True)
             total_elements = 0
@@ -283,7 +314,7 @@ class GenericFileSource(TestableSource):
             self.report.add_count_time(count_end_time - count_start_time)
             self.report.current_file_num_elements = total_elements
             self.report.current_file_elements_read = 0
-            self.fp.seek(0)
+            self.fp.seek(0)  # type: ignore
             parse_start_time = datetime.datetime.now()
             parse_stream = ijson.parse(self.fp, use_float=True)
             rows_yielded = 0
@@ -311,23 +342,18 @@ class GenericFileSource(TestableSource):
     ) -> Iterator[
         Tuple[
             int,
-            Union[MetadataChangeEvent, MetadataChangeProposal, UsageAggregationClass],
+            Union[
+                MetadataChangeEvent,
+                MetadataChangeProposalWrapper,
+                MetadataChangeProposal,
+                UsageAggregationClass,
+            ],
         ]
     ]:
         for i, obj in self._iterate_file(path):
-            item: Union[
-                MetadataChangeEvent, MetadataChangeProposal, UsageAggregationClass
-            ]
             try:
                 deserialize_start_time = datetime.datetime.now()
-                if "proposedSnapshot" in obj:
-                    item = MetadataChangeEvent.from_obj(obj)
-                elif "aspect" in obj:
-                    item = MetadataChangeProposal.from_obj(obj)
-                else:
-                    item = UsageAggregationClass.from_obj(obj)
-                if not item.validate():
-                    raise ValueError(f"failed to parse: {obj} (index {i})")
+                item = _from_obj_for_file(obj)
                 deserialize_duration = datetime.datetime.now() - deserialize_start_time
                 self.report.add_deserialize_time(deserialize_duration)
                 yield i, item
@@ -365,3 +391,48 @@ class GenericFileSource(TestableSource):
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True)
             )
+
+
+def _from_obj_for_file(
+    obj: dict,
+) -> Union[
+    MetadataChangeEvent,
+    MetadataChangeProposal,
+    MetadataChangeProposalWrapper,
+    UsageAggregationClass,
+]:
+    item: Union[
+        MetadataChangeEvent,
+        MetadataChangeProposalWrapper,
+        MetadataChangeProposal,
+        UsageAggregationClass,
+    ]
+
+    if "proposedSnapshot" in obj:
+        item = MetadataChangeEvent.from_obj(obj)
+    elif "aspect" in obj:
+        item = MetadataChangeProposalWrapper.from_obj(obj)
+    else:
+        item = UsageAggregationClass.from_obj(obj)
+    if not item.validate():
+        raise ValueError(f"failed to parse: {obj}")
+
+    return item
+
+
+def read_metadata_file(
+    file: pathlib.Path,
+) -> List[
+    Union[
+        MetadataChangeEvent,
+        MetadataChangeProposal,
+        MetadataChangeProposalWrapper,
+        UsageAggregationClass,
+    ]
+]:
+    # This simplified version of the FileSource can be used for testing purposes.
+    records = []
+    with file.open("r") as f:
+        for obj in json.load(f):
+            records.append(_from_obj_for_file(obj))
+    return records

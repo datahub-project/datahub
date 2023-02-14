@@ -30,6 +30,7 @@ describe('adjustVXTreeLayout', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -44,6 +45,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 
@@ -78,6 +80,7 @@ describe('adjustVXTreeLayout', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -92,6 +95,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 
@@ -131,6 +135,7 @@ describe('adjustVXTreeLayout', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -145,6 +150,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 
@@ -173,6 +179,7 @@ describe('adjustVXTreeLayout', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -187,6 +194,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 
@@ -215,6 +223,7 @@ describe('adjustVXTreeLayout', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -229,6 +238,7 @@ describe('adjustVXTreeLayout', () => {
                 mockFetchedEntities,
                 Direction.Upstream,
                 testEntityRegistry,
+                {},
             ),
         );
 

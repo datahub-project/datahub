@@ -75,4 +75,13 @@ record TestEntityInfo includes CustomProperties {
     }
     nestedArrayArrayField: optional array[string]
   }]
+
+  @Searchable = {
+    "/*": {
+      "name": "esObjectField",
+      "fieldType": "OBJECT",
+      "queryByDefault": true
+    }
+  }
+  esObjectField: optional map[string, string]
 }

@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.role;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.ListRolesInput;
 import com.linkedin.datahub.graphql.generated.ListRolesResult;
@@ -15,6 +14,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -40,10 +39,6 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
   @Override
   public CompletableFuture<ListRolesResult> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    if (!canManagePolicies(context)) {
-      throw new AuthorizationException(
-          "Unauthorized to view roles. Please contact your DataHub administrator if this needs corrective action.");
-    }
 
     final ListRolesInput input = bindArgument(environment.getArgument("input"), ListRolesInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
@@ -55,7 +50,7 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
         // First, get all role Urns.
         final SearchResult gmsResult =
             _entityClient.search(DATAHUB_ROLE_ENTITY_NAME, query, Collections.emptyMap(), start, count,
-                context.getAuthentication());
+                context.getAuthentication(), true);
 
         // Then, get and hydrate all users.
         final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(DATAHUB_ROLE_ENTITY_NAME,
@@ -75,6 +70,9 @@ public class ListRolesResolver implements DataFetcher<CompletableFuture<ListRole
   }
 
   private List<DataHubRole> mapEntitiesToRoles(final Collection<EntityResponse> entities) {
-    return entities.stream().map(DataHubRoleMapper::map).collect(Collectors.toList());
+    return entities.stream()
+        .map(DataHubRoleMapper::map)
+        .sorted(Comparator.comparing(DataHubRole::getName))
+        .collect(Collectors.toList());
   }
 }

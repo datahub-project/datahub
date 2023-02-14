@@ -21,7 +21,7 @@ pip install -U `acryl-datahub[datahub-rest]`
 ```python
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
@@ -39,10 +39,7 @@ dataset_properties = DatasetPropertiesClass(description="This table stored the c
 
 # Construct a MetadataChangeProposalWrapper object.
 metadata_event = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_dataset_urn("bigquery", "my-project.my-dataset.user-table"),
-    aspectName="datasetProperties",
     aspect=dataset_properties,
 )
 
@@ -75,7 +72,7 @@ pip install -U `acryl-datahub[datahub-kafka]`
 ```python
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 # Create an emitter to Kafka
@@ -100,10 +97,7 @@ dataset_properties = DatasetPropertiesClass(description="This table stored the c
 
 # Construct a MetadataChangeProposalWrapper object.
 metadata_event = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_dataset_urn("bigquery", "my-project.my-dataset.user-table"),
-    aspectName="datasetProperties",
     aspect=dataset_properties,
 )
 

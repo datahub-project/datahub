@@ -2,6 +2,7 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
@@ -48,6 +49,11 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -55,6 +61,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.platform.PlatformDoProducePlatformEventRequestBuilder;
 import com.linkedin.platform.PlatformRequestBuilders;
 import com.linkedin.r2.RemoteInvocationException;
@@ -66,6 +73,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -75,8 +83,6 @@ import javax.annotation.Nullable;
 import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 
 
 @Slf4j
@@ -90,8 +96,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   private static final PlatformRequestBuilders PLATFORM_REQUEST_BUILDERS = new PlatformRequestBuilders();
   private static final RunsRequestBuilders RUNS_REQUEST_BUILDERS = new RunsRequestBuilders();
 
-  public RestliEntityClient(@Nonnull final Client restliClient) {
-    super(restliClient);
+  public RestliEntityClient(@Nonnull final Client restliClient, @Nonnull final BackoffPolicy backoffPolicy, int retryCount) {
+    super(restliClient, backoffPolicy, retryCount);
   }
 
   @Nullable
@@ -152,7 +158,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   /**
-   * Batch get a set of aspects for a single entity.
+   * Batch get a set of aspects for multiple entities.
    *
    * @param entityName the entity type to fetch
    * @param urns the urns of the entities to batch get
@@ -321,8 +327,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
+  @Override
   public SearchResult search(@Nonnull String entity, @Nonnull String input,
-      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull final Authentication authentication)
+      @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull final Authentication authentication,
+                             @Nullable Boolean fulltext)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
@@ -330,7 +338,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .inputParam(input)
         .filterParam(newFilter(requestFilters))
         .startParam(start)
-        .countParam(count);
+        .countParam(count)
+        .fulltextParam(fulltext);
 
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
@@ -368,15 +377,18 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * @throws RemoteInvocationException
    */
   @Nonnull
+  @Override
   public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
-      SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+      SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication,
+                             @Nullable Boolean fulltext)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionSearch()
         .entityParam(entity)
         .inputParam(input)
         .startParam(start)
-        .countParam(count);
+        .countParam(count)
+        .fulltextParam(fulltext);
 
     if (filter != null) {
       requestBuilder.filterParam(filter);
@@ -423,6 +435,32 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException {
+
+    final EntitiesDoSearchAcrossLineageRequestBuilder requestBuilder =
+        ENTITIES_REQUEST_BUILDERS.actionSearchAcrossLineage()
+            .urnParam(sourceUrn.toString())
+            .directionParam(direction.name())
+            .inputParam(input)
+            .startParam(start)
+            .countParam(count);
+
+    if (entities != null) {
+      requestBuilder.entitiesParam(new StringArray(entities));
+    }
+    if (filter != null) {
+      requestBuilder.filterParam(filter);
+    }
+
+    return sendClientRequest(requestBuilder, authentication).getEntity();
+  }
+
+  @Nonnull
+  @Override
+  public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
+      @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Long startTimeMillis,
+      @Nonnull final Long endTimeMillis, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchAcrossLineageRequestBuilder requestBuilder =
@@ -619,10 +657,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    * Ingest a MetadataChangeProposal event.
    * @return
    */
+  @Override
   public String ingestProposal(@Nonnull final MetadataChangeProposal metadataChangeProposal,
-      @Nonnull final Authentication authentication) throws RemoteInvocationException {
+                               @Nonnull final Authentication authentication,
+                               final boolean async) throws RemoteInvocationException {
     final AspectsDoIngestProposalRequestBuilder requestBuilder =
-        ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal);
+        ASPECTS_REQUEST_BUILDERS.actionIngestProposal().proposalParam(metadataChangeProposal).asyncParam(String.valueOf(async));
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
@@ -680,5 +720,26 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws Exception {
     final RunsDoRollbackRequestBuilder requestBuilder = RUNS_REQUEST_BUILDERS.actionRollback().runIdParam(runId).dryRunParam(false);
     sendClientRequest(requestBuilder, authentication);
+  }
+
+  // TODO: Refactor QueryUtils inside of metadata-io to extract these methods into a single shared library location.
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL condition (default).
+  @Nonnull
+  public static Filter newFilter(@Nullable Map<String, String> params) {
+    if (params == null) {
+      return new Filter().setOr(new ConjunctiveCriterionArray());
+    }
+    CriterionArray criteria = params.entrySet()
+        .stream()
+        .filter(e -> Objects.nonNull(e.getValue()))
+        .map(e -> newCriterion(e.getKey(), e.getValue(), Condition.EQUAL))
+        .collect(Collectors.toCollection(CriterionArray::new));
+    return new Filter().setOr(
+        new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(criteria))));
+  }
+
+  @Nonnull
+  public static Criterion newCriterion(@Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
+    return new Criterion().setField(field).setValue(value).setCondition(condition);
   }
 }

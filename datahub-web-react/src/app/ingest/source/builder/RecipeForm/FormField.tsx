@@ -1,25 +1,17 @@
 import React from 'react';
-import { Button, Checkbox, Form, Input, Select, Tooltip } from 'antd';
+import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
-import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import Button from 'antd/lib/button';
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { RecipeField, FieldType } from './common';
 import { Secret } from '../../../../../types.generated';
 import SecretField, { StyledFormItem } from './SecretField/SecretField';
-
-const Label = styled.div`
-    font-weight: bold;
-    padding-bottom: 8px;
-`;
+import DictField, { Label, StyledQuestion, ListWrapper, ErrorWrapper } from './DictField';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const StyledButton = styled(Button)`
     color: ${ANTD_GRAY[7]};
     width: 80%;
-`;
-
-const StyledQuestion = styled(QuestionCircleOutlined)`
-    color: rgba(0, 0, 0, 0.45);
-    margin-left: 4px;
 `;
 
 const StyledRemoveIcon = styled(MinusCircleOutlined)`
@@ -27,24 +19,26 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-const ListWrapper = styled.div<{ removeMargin: boolean }>`
-    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
+const StyledCheckbox = styled(Checkbox)`
+    .ant-checkbox-inner {
+        border-color: ${ANTD_GRAY[7]};
+    }
+    .ant-checkbox-checked {
+        .ant-checkbox-inner {
+            border-color: ${(props) => props.theme.styles['primary-color']};
+        }
+    }
 `;
 
-interface ListFieldProps {
+interface CommonFieldProps {
     field: RecipeField;
     removeMargin?: boolean;
 }
 
-interface SelectFieldProps {
-    field: RecipeField;
-    removeMargin?: boolean;
-}
-
-function ListField({ field, removeMargin }: ListFieldProps) {
+function ListField({ field, removeMargin }: CommonFieldProps) {
     return (
-        <Form.List name={field.name}>
-            {(fields, { add, remove }) => (
+        <Form.List name={field.name} rules={field.rules || undefined}>
+            {(fields, { add, remove }, { errors }) => (
                 <ListWrapper removeMargin={!!removeMargin}>
                     <Label>
                         {field.label}
@@ -63,17 +57,25 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                     <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
                         {field.buttonLabel}
                     </StyledButton>
+                    <ErrorWrapper>{errors}</ErrorWrapper>
                 </ListWrapper>
             )}
         </Form.List>
     );
 }
 
-function SelectField({ field, removeMargin }: SelectFieldProps) {
+function SelectField({ field, removeMargin }: CommonFieldProps) {
     return (
-        <StyledFormItem name={field.name} label={field.label} tooltip={field.tooltip} removeMargin={!!removeMargin}>
+        <StyledFormItem
+            required={field.required}
+            name={field.name}
+            label={field.label}
+            tooltip={field.tooltip}
+            removeMargin={!!removeMargin}
+            rules={field.rules || undefined}
+        >
             {field.options && (
-                <Select placeholder={field.placeholder}>
+                <Select placeholder={field.placeholder} allowClear={!field.required}>
                     {field.options.map((option) => (
                         <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
@@ -83,32 +85,62 @@ function SelectField({ field, removeMargin }: SelectFieldProps) {
     );
 }
 
+function DateField({ field, removeMargin }: CommonFieldProps) {
+    return (
+        <StyledFormItem
+            required={field.required}
+            name={field.name}
+            label={field.label}
+            tooltip={field.tooltip}
+            removeMargin={!!removeMargin}
+            rules={field.rules || undefined}
+        >
+            <DatePicker showTime />
+        </StyledFormItem>
+    );
+}
+
 interface Props {
     field: RecipeField;
     secrets: Secret[];
     refetchSecrets: () => void;
     removeMargin?: boolean;
+    updateFormValue: (field, value) => void;
 }
 
 function FormField(props: Props) {
-    const { field, secrets, refetchSecrets, removeMargin } = props;
+    const { field, secrets, refetchSecrets, removeMargin, updateFormValue } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
     if (field.type === FieldType.SELECT) return <SelectField field={field} removeMargin={removeMargin} />;
 
+    if (field.type === FieldType.DATE) return <DateField field={field} removeMargin={removeMargin} />;
+
     if (field.type === FieldType.SECRET)
         return (
-            <SecretField field={field} secrets={secrets} removeMargin={removeMargin} refetchSecrets={refetchSecrets} />
+            <SecretField
+                field={field}
+                secrets={secrets}
+                removeMargin={removeMargin}
+                refetchSecrets={refetchSecrets}
+                updateFormValue={updateFormValue}
+            />
         );
 
+    if (field.type === FieldType.DICT) return <DictField field={field} />;
+
     const isBoolean = field.type === FieldType.BOOLEAN;
-    const input = isBoolean ? <Checkbox /> : <Input placeholder={field.placeholder} />;
+    let input = <Input placeholder={field.placeholder} />;
+    if (isBoolean) input = <StyledCheckbox />;
+    if (field.type === FieldType.TEXTAREA)
+        input = <Input.TextArea required={field.required} placeholder={field.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
     const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 
     return (
         <StyledFormItem
+            required={field.required}
             style={isBoolean ? { flexDirection: 'row', alignItems: 'center' } : {}}
             label={field.label}
             name={field.name}

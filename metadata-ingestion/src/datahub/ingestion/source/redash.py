@@ -390,7 +390,11 @@ class RedashSource(Source):
     def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
         parser_cls = cls._import_sql_parser_cls(sql_parser_path)
 
-        sql_table_names: List[str] = parser_cls(sql).get_tables()
+        try:
+            sql_table_names: List[str] = parser_cls(sql).get_tables()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            return []
 
         # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]
@@ -398,7 +402,7 @@ class RedashSource(Source):
 
         return sql_table_names
 
-    def _get_chart_data_source(self, data_source_id: int = None) -> Dict:
+    def _get_chart_data_source(self, data_source_id: Optional[int] = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
         resp = self.client._get(url).json()
         logger.debug(resp)
@@ -792,6 +796,3 @@ class RedashSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self):
-        pass

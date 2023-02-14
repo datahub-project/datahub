@@ -1,19 +1,37 @@
 import logging
 import pathlib
-from typing import Any
+from typing import Any, List, Optional, cast
 from unittest import mock
 
+import pydantic
+import pytest
 from freezegun import freeze_time
 from looker_sdk.sdk.api31.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.file import read_metadata_file
+from datahub.ingestion.source.looker.lookml_source import (
+    LookMLSource,
+    LookMLSourceConfig,
+)
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.metadata.schema_classes import (
+    DatasetSnapshotClass,
+    MetadataChangeEventClass,
+    UpstreamLineageClass,
+)
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.state_helpers import (
+    validate_all_providers_have_committed_successfully,
+)
 
 logging.getLogger("lkml").setLevel(logging.INFO)
 
-
 FROZEN_TIME = "2020-04-14 07:00:00"
+GMS_PORT = 8080
+GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
 @freeze_time(FROZEN_TIME)
@@ -37,6 +55,7 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
                     "tag_measures_and_dimensions": False,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -80,6 +99,7 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -123,6 +143,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data"]},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -168,6 +189,7 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -246,6 +268,7 @@ def ingestion_test(
                         },
                         "parse_table_names_from_sql": True,
                         "model_pattern": {"deny": ["data2"]},
+                        "emit_reachable_views_only": False,
                     },
                 },
                 "sink": {
@@ -289,6 +312,7 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
                     "sql_parser": "bad.sql.Parser",
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -302,11 +326,8 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
     pipeline.run()
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=False)
-    try:
+    with pytest.raises(PipelineExecutionError):  # we expect the source to have warnings
         pipeline.raise_from_status(raise_warnings=True)
-        assert False, "Pipeline should have generated warnings"
-    except PipelineExecutionError:
-        pass
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -316,7 +337,7 @@ def test_lookml_bad_sql_parser(pytestconfig, tmp_path, mock_time):
 
 
 @freeze_time(FROZEN_TIME)
-def test_lookml_github_info(pytestconfig, tmp_path, mock_time):
+def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
     """Add github info to config"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out = "lookml_mces_with_external_urls.json"
@@ -338,6 +359,7 @@ def test_lookml_github_info(pytestconfig, tmp_path, mock_time):
                     "project_name": "lkml_samples",
                     "model_pattern": {"deny": ["data2"]},
                     "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
+                    "emit_reachable_views_only": False,
                 },
             },
             "sink": {
@@ -421,3 +443,234 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view2,PROD)"
         in entity_urns
     )
+
+
+@freeze_time(FROZEN_TIME)
+def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
+    """Test omit db name from hive ids"""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out = "lookml_mces_with_db_name_omitted.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "lookml-test",
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "base_folder": str(test_resources_dir / "lkml_samples_hive"),
+                    "connection_to_platform_map": {
+                        "my_connection": {
+                            "platform": "hive",
+                            "default_db": "default_database",
+                            "default_schema": "default_schema",
+                        }
+                    },
+                    "parse_table_names_from_sql": True,
+                    "project_name": "lkml_samples",
+                    "model_pattern": {"deny": ["data2"]},
+                    "github_info": {"repo": "datahub/looker-demo", "branch": "master"},
+                    "emit_reachable_views_only": False,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/{mce_out}",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=True)
+
+    events = read_metadata_file(tmp_path / mce_out)
+    for mce in events:
+        if isinstance(mce, MetadataChangeEventClass):
+            if isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
+                lineage_aspects = [
+                    a
+                    for a in mce.proposedSnapshot.aspects
+                    if isinstance(a, UpstreamLineageClass)
+                ]
+                for a in lineage_aspects:
+                    for upstream in a.upstreams:
+                        assert "hive." not in upstream.dataset
+
+
+@freeze_time(FROZEN_TIME)
+def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+    output_file_name: str = "lookml_mces.json"
+    golden_file_name: str = "expected_output.json"
+    output_file_deleted_name: str = "lookml_mces_deleted_stateful.json"
+    golden_file_deleted_name: str = "lookml_mces_golden_deleted_stateful.json"
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+
+    pipeline_run1 = None
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+        pipeline_run1 = Pipeline.create(
+            {
+                "run_id": "lookml-test",
+                "pipeline_name": "lookml_stateful",
+                "source": {
+                    "type": "lookml",
+                    "config": {
+                        "base_folder": str(test_resources_dir / "lkml_samples"),
+                        "connection_to_platform_map": {"my_connection": "conn"},
+                        "parse_table_names_from_sql": True,
+                        "tag_measures_and_dimensions": False,
+                        "project_name": "lkml_samples",
+                        "model_pattern": {"deny": ["data2"]},
+                        "emit_reachable_views_only": False,
+                        "stateful_ingestion": {
+                            "enabled": True,
+                            "remove_stale_metadata": True,
+                            "fail_safe_threshold": 100.0,
+                            "state_provider": {
+                                "type": "datahub",
+                                "config": {"datahub_api": {"server": GMS_SERVER}},
+                            },
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/{output_file_name}",
+                    },
+                },
+            }
+        )
+        pipeline_run1.run()
+        pipeline_run1.raise_from_status()
+        pipeline_run1.pretty_print_summary()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / output_file_name,
+            golden_path=f"{test_resources_dir}/{golden_file_name}",
+        )
+
+    checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
+    assert checkpoint1
+    assert checkpoint1.state
+
+    pipeline_run2 = None
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        pipeline_run2 = Pipeline.create(
+            {
+                "run_id": "lookml-test",
+                "pipeline_name": "lookml_stateful",
+                "source": {
+                    "type": "lookml",
+                    "config": {
+                        "base_folder": str(test_resources_dir / "lkml_samples"),
+                        "connection_to_platform_map": {"my_connection": "conn"},
+                        "parse_table_names_from_sql": True,
+                        "tag_measures_and_dimensions": False,
+                        "project_name": "lkml_samples",
+                        "model_pattern": {"deny": ["data2"]},
+                        "emit_reachable_views_only": True,
+                        "stateful_ingestion": {
+                            "enabled": True,
+                            "remove_stale_metadata": True,
+                            "fail_safe_threshold": 100.0,
+                            "state_provider": {
+                                "type": "datahub",
+                                "config": {"datahub_api": {"server": GMS_SERVER}},
+                            },
+                        },
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/{output_file_deleted_name}",
+                    },
+                },
+            }
+        )
+        pipeline_run2.run()
+        pipeline_run2.raise_from_status()
+        pipeline_run2.pretty_print_summary()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / output_file_deleted_name,
+            golden_path=f"{test_resources_dir}/{golden_file_deleted_name}",
+        )
+
+    checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
+    assert checkpoint2
+    assert checkpoint2.state
+
+    # Validate that all providers have committed successfully.
+    validate_all_providers_have_committed_successfully(
+        pipeline=pipeline_run1, expected_providers=1
+    )
+    validate_all_providers_have_committed_successfully(
+        pipeline=pipeline_run2, expected_providers=1
+    )
+
+    # Perform all assertions on the states. The deleted table should not be
+    # part of the second state
+    state1 = cast(GenericCheckpointState, checkpoint1.state)
+    state2 = cast(GenericCheckpointState, checkpoint2.state)
+
+    difference_dataset_urns = list(
+        state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
+    )
+    assert len(difference_dataset_urns) == 9
+    deleted_dataset_urns: List[str] = [
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.test_include_external_view,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.extending_looker_events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.customer_facts,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.include_able_view,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
+    ]
+    assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
+
+
+def get_current_checkpoint_from_pipeline(
+    pipeline: Pipeline,
+) -> Optional[Checkpoint]:
+    dbt_source = cast(LookMLSource, pipeline.source)
+    return dbt_source.get_current_checkpoint(
+        dbt_source.stale_entity_removal_handler.job_id
+    )
+
+
+def test_lookml_base_folder():
+    fake_api = {
+        "base_url": "https://filler.cloud.looker.com",
+        "client_id": "this-is-fake",
+        "client_secret": "this-is-also-fake",
+    }
+
+    LookMLSourceConfig.parse_obj(
+        {
+            "github_info": {
+                "repo": "acryldata/long-tail-companions-looker",
+                "deploy_key": "this-is-fake",
+            },
+            "api": fake_api,
+        }
+    )
+
+    with pytest.raises(
+        pydantic.ValidationError, match=r"base_folder.+not provided.+deploy_key"
+    ):
+        LookMLSourceConfig.parse_obj({"api": fake_api})

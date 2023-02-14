@@ -57,6 +57,7 @@ export class TagEntity implements Entity<Tag> {
         <DefaultPreviewCard
             description={data.description || ''}
             name={data.name}
+            urn={data.urn}
             url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
             logoComponent={<PreviewTagIcon />}
             type="Tag"

@@ -2,7 +2,9 @@ source:
   type: feast
   config:
     # Coordinates
-    core_url: "localhost:6565"
+    path: "/path/to/repository/"
+    # Options
+    environment: "PROD"
 
 sink:
   # sink configs

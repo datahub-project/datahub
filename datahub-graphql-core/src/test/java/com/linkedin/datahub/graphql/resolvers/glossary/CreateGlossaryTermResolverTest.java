@@ -10,6 +10,7 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryTermKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
@@ -75,10 +76,11 @@ public class CreateGlossaryTermResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService mockService = Mockito.mock(EntityService.class);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT, "test-description", parentNodeUrn);
 
-    CreateGlossaryTermResolver resolver = new CreateGlossaryTermResolver(mockClient);
+    CreateGlossaryTermResolver resolver = new CreateGlossaryTermResolver(mockClient, mockService);
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
@@ -90,10 +92,11 @@ public class CreateGlossaryTermResolverTest {
   @Test
   public void testGetSuccessNoDescription() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService mockService = Mockito.mock(EntityService.class);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT_NO_DESCRIPTION, "", parentNodeUrn);
 
-    CreateGlossaryTermResolver resolver = new CreateGlossaryTermResolver(mockClient);
+    CreateGlossaryTermResolver resolver = new CreateGlossaryTermResolver(mockClient, mockService);
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
@@ -105,10 +108,11 @@ public class CreateGlossaryTermResolverTest {
   @Test
   public void testGetSuccessNoParentNode() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService mockService = Mockito.mock(EntityService.class);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT_NO_PARENT_NODE, "test-description", null);
 
-    CreateGlossaryTermResolver resolver = new CreateGlossaryTermResolver(mockClient);
+    CreateGlossaryTermResolver resolver = new CreateGlossaryTermResolver(mockClient, mockService);
     resolver.get(mockEnv).get();
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(

@@ -5,9 +5,6 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
-from datahub.ingestion.reporting.datahub_ingestion_reporting_provider import (
-    DatahubIngestionReportingProviderConfig,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
 )
@@ -90,68 +87,8 @@ checkpointing_provider_config_test_params: Dict[
     ),
 }
 
-# 2. Datahub Reporting Provider Config test params
-reporting_provider_config_test_params: Dict[
-    str,
-    Tuple[
-        Type[DatahubIngestionReportingProviderConfig],
-        Dict[str, Any],
-        Optional[DatahubIngestionReportingProviderConfig],
-        bool,
-    ],
-] = {
-    # Full custom-config
-    "reporting_valid_full_config": (
-        DatahubIngestionReportingProviderConfig,
-        {
-            "datahub_api": datahub_client_configs["full"],
-        },
-        DatahubIngestionReportingProviderConfig(
-            datahub_api=DatahubClientConfig(
-                server="http://localhost:8080",
-                token="dummy_test_tok",
-                timeout_sec=10,
-                extra_headers={},
-                max_threads=1,
-            ),
-        ),
-        False,
-    ),
-    # Simple config
-    "reporting_valid_simple_config": (
-        DatahubIngestionReportingProviderConfig,
-        {
-            "datahub_api": datahub_client_configs["simple"],
-        },
-        DatahubIngestionReportingProviderConfig(
-            datahub_api=DatahubClientConfig(
-                server="http://localhost:8080",
-            ),
-        ),
-        False,
-    ),
-    # Default
-    "reporting_default": (
-        DatahubIngestionReportingProviderConfig,
-        {
-            "datahub_api": datahub_client_configs["default"],
-        },
-        DatahubIngestionReportingProviderConfig(
-            datahub_api=DatahubClientConfig(),
-        ),
-        False,
-    ),
-    # None
-    "reporting_bad_config": (
-        DatahubIngestionReportingProviderConfig,
-        datahub_client_configs["none"],
-        None,
-        True,
-    ),
-}
 
-
-# 3. StatefulIngestion Config test params
+# 2. StatefulIngestion Config test params
 stateful_ingestion_config_test_params: Dict[
     str,
     Tuple[
@@ -238,7 +175,6 @@ CombinedTestConfigType = Dict[
 
 combined_test_configs = {
     **cast(CombinedTestConfigType, checkpointing_provider_config_test_params),
-    **cast(CombinedTestConfigType, reporting_provider_config_test_params),
     **cast(CombinedTestConfigType, stateful_ingestion_config_test_params),
 }
 

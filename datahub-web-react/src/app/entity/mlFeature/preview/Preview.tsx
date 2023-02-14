@@ -27,9 +27,12 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Mlfeature, urn)}
             name={name}
+            urn={urn}
             platformInstanceId={platformInstanceId}
             description={description || ''}
-            platform={capitalizeFirstLetterOnly(platform?.properties?.displayName) || featureNamespace}
+            platform={
+                platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name) || featureNamespace
+            }
             logoUrl={platform?.properties?.logoUrl || ''}
             type="ML Feature"
             typeIcon={entityRegistry.getIcon(EntityType.Mlfeature, 14, IconStyleType.ACCENT)}

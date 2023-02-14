@@ -7,9 +7,11 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
@@ -18,7 +20,6 @@ import com.linkedin.mxe.Topics;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +29,6 @@ import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-
 /**
  * <p>The topic names that this emits to can be controlled by constructing this with a {@link TopicConvention}.
  * If none is given, defaults to a {@link TopicConventionImpl} with the default delimiter of an underscore (_).
@@ -37,32 +37,21 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 public class KafkaEventProducer implements EventProducer {
 
   private final Producer<String, ? extends IndexedRecord> _producer;
-  private final Optional<Callback> _callback;
   private final TopicConvention _topicConvention;
+  private final KafkaHealthChecker _kafkaHealthChecker;
 
   /**
    * Constructor.
    *
    * @param producer The Kafka {@link Producer} to use
    * @param topicConvention the convention to use to get kafka topic names
+   * @param kafkaHealthChecker The {@link Callback} to invoke when the request is completed
    */
   public KafkaEventProducer(@Nonnull final Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull final TopicConvention topicConvention) {
-    this(producer, topicConvention, null);
-  }
-
-  /**
-   * Constructor.
-   *
-   * @param producer The Kafka {@link Producer} to use
-   * @param topicConvention the convention to use to get kafka topic names
-   * @param callback The {@link Callback} to invoke when the request is completed
-   */
-  public KafkaEventProducer(@Nonnull final Producer<String, ? extends IndexedRecord> producer,
-      @Nonnull final TopicConvention topicConvention, @Nullable final Callback callback) {
+      @Nonnull final TopicConvention topicConvention, @Nonnull final KafkaHealthChecker kafkaHealthChecker) {
     _producer = producer;
-    _callback = Optional.ofNullable(callback);
     _topicConvention = topicConvention;
+    _kafkaHealthChecker = kafkaHealthChecker;
   }
 
   @Override
@@ -92,30 +81,16 @@ public class KafkaEventProducer implements EventProducer {
     try {
       log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataAuditEvent: %s",
           urn,
-          metadataAuditEvent.toString()));
+          metadataAuditEvent));
       record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
     } catch (IOException e) {
-      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent.toString()), e);
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent), e);
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
-    if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record),
-          _callback.get());
-    } else {
-      _producer.send(new ProducerRecord(_topicConvention.getMetadataAuditEventTopicName(), urn.toString(), record),
-          (metadata, e) -> {
-            if (e != null) {
-              log.error(String.format("Failed to emit MAE for entity with urn %s", urn), e);
-            } else {
-              log.debug(String.format("Successfully emitted MAE for entity with urn %s at offset %s, partition %s, topic %s",
-                  urn,
-                  metadata.offset(),
-                  metadata.partition(),
-                  metadata.topic()));
-            }
-          });
-    }
+    String topic = _topicConvention.getMetadataAuditEventTopicName();
+    _producer.send(new ProducerRecord(topic, urn.toString(), record),
+            _kafkaHealthChecker.getKafkaCallBack("MAE", urn.toString()));
   }
 
   @Override
@@ -126,10 +101,10 @@ public class KafkaEventProducer implements EventProducer {
     try {
       log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeLog: %s",
           urn,
-          metadataChangeLog.toString()));
+          metadataChangeLog));
       record = EventUtils.pegasusToAvroMCL(metadataChangeLog);
     } catch (IOException e) {
-      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataChangeLog.toString()), e);
+      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataChangeLog), e);
       throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
     }
 
@@ -137,22 +112,29 @@ public class KafkaEventProducer implements EventProducer {
     if (aspectSpec.isTimeseries()) {
       topic = _topicConvention.getMetadataChangeLogTimeseriesTopicName();
     }
+    _producer.send(new ProducerRecord(topic, urn.toString(), record),
+            _kafkaHealthChecker.getKafkaCallBack("MCL", urn.toString()));
+  }
 
-    if (_callback.isPresent()) {
-      _producer.send(new ProducerRecord(topic, urn.toString(), record), _callback.get());
-    } else {
-      _producer.send(new ProducerRecord(topic, urn.toString(), record), (metadata, e) -> {
-        if (e != null) {
-          log.error(String.format("Failed to emit MCL for entity with urn %s", urn), e);
-        } else {
-          log.debug(String.format("Successfully emitted MCL for entity with urn %s at offset %s, partition %s, topic %s",
-              urn,
-              metadata.offset(),
-              metadata.partition(),
-              metadata.topic()));
-        }
-      });
+  @Override
+  @WithSpan
+  public void produceMetadataChangeProposal(@Nonnull final Urn urn, @Nonnull final MetadataChangeProposal
+      metadataChangeProposal) {
+    GenericRecord record;
+
+    try {
+      log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeProposal: %s",
+          urn,
+          metadataChangeProposal));
+      record = EventUtils.pegasusToAvroMCP(metadataChangeProposal);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus MCP to Avro: %s", metadataChangeProposal), e);
+      throw new ModelConversionException("Failed to convert Pegasus MCP to Avro", e);
     }
+
+    String topic = _topicConvention.getMetadataChangeProposalTopicName();
+    _producer.send(new ProducerRecord(topic, urn.toString(), record),
+            _kafkaHealthChecker.getKafkaCallBack("MCP", urn.toString()));
   }
 
   @Override
@@ -161,25 +143,32 @@ public class KafkaEventProducer implements EventProducer {
     try {
       log.debug(String.format("Converting Pegasus Event to Avro Event urn %s\nEvent: %s",
           name,
-          event.toString()));
+          event));
       record = EventUtils.pegasusToAvroPE(event);
     } catch (IOException e) {
-      log.error(String.format("Failed to convert Pegasus Platform Event to Avro: %s", event.toString()), e);
+      log.error(String.format("Failed to convert Pegasus Platform Event to Avro: %s", event), e);
       throw new ModelConversionException("Failed to convert Pegasus Platform Event to Avro", e);
     }
 
-    final Callback callback = _callback.orElseGet(() -> (metadata, e) -> {
-      if (e != null) {
-        log.error(String.format("Failed to emit Platform Event for entity with name %s", name), e);
-      } else {
-        log.debug(String.format(
-            "Successfully emitted Platform Event for entity with name %s at offset %s, partition %s, topic %s", name,
-            metadata.offset(), metadata.partition(), metadata.topic()));
-      }
-    });
-
     final String topic = _topicConvention.getPlatformEventTopicName();
-    _producer.send(new ProducerRecord(topic, key == null ? name : key, record), callback);
+    _producer.send(new ProducerRecord(topic, key == null ? name : key, record),
+            _kafkaHealthChecker.getKafkaCallBack("Platform Event", name));
+  }
+
+  @Override
+  public void produceDataHubUpgradeHistoryEvent(@Nonnull DataHubUpgradeHistoryEvent event) {
+    GenericRecord record;
+    try {
+      log.debug(String.format("Converting Pegasus Event to Avro Event\nEvent: %s", event));
+      record = EventUtils.pegasusToAvroDUHE(event);
+    } catch (IOException e) {
+      log.error(String.format("Failed to convert Pegasus DataHub Upgrade History Event to Avro: %s", event), e);
+      throw new ModelConversionException("Failed to convert Pegasus Platform Event to Avro", e);
+    }
+
+    final String topic = _topicConvention.getDataHubUpgradeHistoryTopicName();
+    _producer.send(new ProducerRecord(topic, event.getVersion(), record), _kafkaHealthChecker
+            .getKafkaCallBack("History Event", "Event Version: " + event.getVersion()));
   }
 
   @VisibleForTesting

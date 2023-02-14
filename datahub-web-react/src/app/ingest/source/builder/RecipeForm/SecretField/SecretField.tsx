@@ -1,10 +1,12 @@
 import React, { ReactNode } from 'react';
-import { Divider, Form, Select } from 'antd';
+import { AutoComplete, Divider, Form } from 'antd';
+import { useApolloClient } from '@apollo/client';
 import styled from 'styled-components/macro';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
 import { RecipeField } from '../common';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
+import { clearSecretListCache } from '../../../../secret/cacheUtils';
 
 const StyledDivider = styled(Divider)`
     margin: 0;
@@ -12,7 +14,7 @@ const StyledDivider = styled(Divider)`
 
 export const StyledFormItem = styled(Form.Item)<{
     alignLeft?: boolean;
-    removeMargin: boolean;
+    removeMargin?: boolean;
     isSecretField?: boolean;
 }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
@@ -52,6 +54,7 @@ interface SecretFieldProps {
     secrets: Secret[];
     removeMargin?: boolean;
     refetchSecrets: () => void;
+    updateFormValue: (field, value) => void;
 }
 
 function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {
@@ -79,32 +82,45 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
     );
 }
 
-function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFieldProps) {
+const encodeSecret = (secretName: string) => {
+    return `\${${secretName}}`;
+};
+
+function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSecrets }: SecretFieldProps) {
+    const options = secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name }));
+    const apolloClient = useApolloClient();
+
     return (
         <StyledFormItem
+            required={field.required}
             name={field.name}
             label={field.label}
+            rules={field.rules || undefined}
             tooltip={<SecretFieldTooltip tooltipLabel={field?.tooltip} />}
             removeMargin={!!removeMargin}
             isSecretField
         >
-            <Select
-                showSearch
-                filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
-                dropdownRender={(menu) => (
-                    <>
-                        {menu}
-                        <StyledDivider />
-                        <CreateSecretButton refetchSecrets={refetchSecrets} />
-                    </>
-                )}
-            >
-                {secrets.map((secret) => (
-                    <Select.Option key={secret.urn} value={`\${${secret.name}}`}>
-                        {secret.name}
-                    </Select.Option>
-                ))}
-            </Select>
+            <AutoComplete
+                placeholder={field.placeholder}
+                filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+                notFoundContent={<>No secrets found</>}
+                options={options}
+                dropdownRender={(menu) => {
+                    return (
+                        <>
+                            {menu}
+                            <StyledDivider />
+                            <CreateSecretButton
+                                onSubmit={(state) => {
+                                    updateFormValue(field.name, encodeSecret(state.name as string));
+                                    setTimeout(() => clearSecretListCache(apolloClient), 3000);
+                                }}
+                                refetchSecrets={refetchSecrets}
+                            />
+                        </>
+                    );
+                }}
+            />
         </StyledFormItem>
     );
 }

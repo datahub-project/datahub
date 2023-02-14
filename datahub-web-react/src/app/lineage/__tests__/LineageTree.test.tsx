@@ -37,6 +37,7 @@ describe('LineageTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -48,8 +49,16 @@ describe('LineageTree', () => {
         const downstreamData = constructTree(
             { entity: dataset3WithLineage, type: EntityType.Dataset },
             mockFetchedEntities,
+            Direction.Downstream,
+            testEntityRegistry,
+            {},
+        );
+        const upstreamData = constructTree(
+            { entity: dataset3WithLineage, type: EntityType.Dataset },
+            mockFetchedEntities,
             Direction.Upstream,
             testEntityRegistry,
+            {},
         );
 
         const { getByTestId } = render(
@@ -66,7 +75,8 @@ describe('LineageTree', () => {
                     {(zoom) => (
                         <svg>
                             <LineageTree
-                                data={downstreamData}
+                                upstreamData={upstreamData}
+                                downstreamData={downstreamData}
                                 zoom={zoom}
                                 onEntityClick={jest.fn()}
                                 onLineageExpand={jest.fn()}
@@ -78,6 +88,7 @@ describe('LineageTree', () => {
                                 setDraggedNodes={jest.fn()}
                                 onEntityCenter={jest.fn()}
                                 setHoveredEntity={jest.fn()}
+                                fetchedEntities={mockFetchedEntities}
                             />
                         </svg>
                     )}

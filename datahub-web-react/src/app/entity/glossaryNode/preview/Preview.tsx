@@ -22,6 +22,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.GlossaryNode, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             owners={owners}
             logoComponent={<FolderOutlined style={{ fontSize: '20px' }} />}

@@ -7,7 +7,6 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserCredentials;
-import com.linkedin.identity.InviteToken;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.secret.SecretService;
 import java.time.Instant;
@@ -28,10 +27,11 @@ public class NativeUserServiceTest {
   private static final String EMAIL = "mock@email.com";
   private static final String TITLE = "Data Scientist";
   private static final String PASSWORD = "password";
-  private static final String INVITE_TOKEN = "inviteToken";
-  private static final String ENCRYPTED_INVITE_TOKEN = "encryptedInviteToken";
+  private static final String HASHED_PASSWORD = "hashedPassword";
+  private static final String ENCRYPTED_INVITE_TOKEN = "encryptedInviteroToken";
   private static final String RESET_TOKEN = "inviteToken";
   private static final String ENCRYPTED_RESET_TOKEN = "encryptedInviteToken";
+  private static final byte[] SALT = "salt".getBytes();
   private static final String ENCRYPTED_SALT = "encryptedSalt";
   private static final Urn USER_URN = new CorpuserUrn(EMAIL);
   private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
@@ -53,70 +53,35 @@ public class NativeUserServiceTest {
   }
 
   @Test
-  public void testConstructor() throws Exception {
-    assertThrows(() -> new NativeUserService(null, _entityClient, _secretService));
-    assertThrows(() -> new NativeUserService(_entityService, null, _secretService));
-    assertThrows(() -> new NativeUserService(_entityService, _entityClient, null));
-
-    // Succeeds!
-    new NativeUserService(_entityService, _entityClient, _secretService);
-  }
-
-  @Test
   public void testCreateNativeUserNullArguments() {
-    assertThrows(() -> _nativeUserService.createNativeUser(null, FULL_NAME, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, null, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION));
     assertThrows(
-        () -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, null, TITLE, PASSWORD, INVITE_TOKEN,
-            SYSTEM_AUTHENTICATION));
-    assertThrows(
-        () -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD, INVITE_TOKEN,
-            SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, null, INVITE_TOKEN,
+        () -> _nativeUserService.createNativeUser(null, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, null, EMAIL, TITLE, PASSWORD,
         SYSTEM_AUTHENTICATION));
-    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, null,
+    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, null, TITLE, PASSWORD,
         SYSTEM_AUTHENTICATION));
-  }
-
-  @Test(expectedExceptions = RuntimeException.class,
-      expectedExceptionsMessageRegExp = "Invalid sign-up token. Please ask your administrator to send you an updated link!")
-  public void testCreateNativeUserInviteTokenDoesNotExist() throws Exception {
-    // Nonexistent invite token
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(null);
-
-    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION);
+    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, null, PASSWORD,
+        SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, null,
+        SYSTEM_AUTHENTICATION));
   }
 
   @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserAlreadyExists() throws Exception {
-    InviteToken mockInviteTokenAspect = mock(InviteToken.class);
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(mockInviteTokenAspect);
-    when(mockInviteTokenAspect.hasToken()).thenReturn(true);
-    when(mockInviteTokenAspect.getToken()).thenReturn(ENCRYPTED_INVITE_TOKEN);
-    when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN))).thenReturn(INVITE_TOKEN);
-
     // The user already exists
     when(_entityService.exists(any())).thenReturn(true);
 
-    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION);
+    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
   @Test
   public void testCreateNativeUserPasses() throws Exception {
-    InviteToken mockInviteTokenAspect = mock(InviteToken.class);
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(mockInviteTokenAspect);
-    when(mockInviteTokenAspect.hasToken()).thenReturn(true);
-    when(mockInviteTokenAspect.getToken()).thenReturn(ENCRYPTED_INVITE_TOKEN);
     when(_entityService.exists(any())).thenReturn(false);
-    when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN))).thenReturn(INVITE_TOKEN);
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
 
-    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, INVITE_TOKEN,
-        SYSTEM_AUTHENTICATION);
+    _nativeUserService.createNativeUser(USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD, SYSTEM_AUTHENTICATION);
   }
 
   @Test
@@ -133,40 +98,12 @@ public class NativeUserServiceTest {
 
   @Test
   public void testUpdateCorpUserCredentialsPasses() throws Exception {
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
 
     _nativeUserService.updateCorpUserCredentials(USER_URN, PASSWORD, SYSTEM_AUTHENTICATION);
     verify(_entityClient).ingestProposal(any(), any());
-  }
-
-  @Test
-  public void testGenerateNativeUserInviteTokenPasses() throws Exception {
-    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_INVITE_TOKEN);
-
-    _nativeUserService.generateNativeUserInviteToken(SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), any());
-  }
-
-  @Test
-  public void testGetNativeUserInviteTokenInviteTokenDoesNotExistPasses() throws Exception {
-    // Nonexistent invite token
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(null);
-    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_INVITE_TOKEN);
-
-    _nativeUserService.getNativeUserInviteToken(SYSTEM_AUTHENTICATION);
-    verify(_entityClient).ingestProposal(any(), any());
-  }
-
-  @Test
-  public void testGetNativeUserInviteTokenPasses() throws Exception {
-    InviteToken mockInviteTokenAspect = mock(InviteToken.class);
-    when(_entityService.getLatestAspect(any(), eq(INVITE_TOKEN_ASPECT_NAME))).thenReturn(mockInviteTokenAspect);
-    when(_entityService.exists(any())).thenReturn(false);
-    when(mockInviteTokenAspect.hasToken()).thenReturn(true);
-    when(mockInviteTokenAspect.getToken()).thenReturn(ENCRYPTED_INVITE_TOKEN);
-    when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN))).thenReturn(INVITE_TOKEN);
-
-    assertEquals(_nativeUserService.getNativeUserInviteToken(SYSTEM_AUTHENTICATION), INVITE_TOKEN);
   }
 
   @Test
@@ -268,6 +205,7 @@ public class NativeUserServiceTest {
     when(mockCorpUserCredentialsAspect.getPasswordResetTokenExpirationTimeMillis()).thenReturn(
         Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli());
     when(_secretService.decrypt(eq(ENCRYPTED_RESET_TOKEN))).thenReturn(RESET_TOKEN);
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
     when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
 
     _nativeUserService.resetCorpUserCredentials(USER_URN_STRING, PASSWORD, RESET_TOKEN, SYSTEM_AUTHENTICATION);

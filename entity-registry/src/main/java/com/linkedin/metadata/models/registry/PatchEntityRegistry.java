@@ -12,6 +12,7 @@ import com.linkedin.metadata.models.EventSpecBuilder;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
 import com.linkedin.metadata.models.registry.config.Event;
+import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.util.Pair;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -30,6 +31,8 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
+import static com.linkedin.metadata.models.registry.EntityRegistryUtils.*;
+
 
 /**
  * Implementation of {@link EntityRegistry} that is similar to {@link ConfigEntityRegistry} but different in one important way.
@@ -41,6 +44,7 @@ public class PatchEntityRegistry implements EntityRegistry {
   private final DataSchemaFactory dataSchemaFactory;
   private final Map<String, EntitySpec> entityNameToSpec;
   private final Map<String, EventSpec> eventNameToSpec;
+  private final Map<String, AspectSpec> _aspectNameToSpec;
 
   private final String registryName;
   private final ComparableVersion registryVersion;
@@ -138,14 +142,16 @@ public class PatchEntityRegistry implements EntityRegistry {
           entity.getAspects().stream().collect(Collectors.joining()));
       List<AspectSpec> aspectSpecs = new ArrayList<>();
       if (entity.getKeyAspect() != null) {
-        throw new EntityRegistryException(
-            "Patch Entities cannot define entities yet. They can only enhance an existing entity with additional (non-key) aspects");
-        // aspectSpecs.add(getAspectSpec(entity.getKeyAspect(), entitySpecBuilder));
+        AspectSpec keyAspectSpec = buildAspectSpec(entity.getKeyAspect(), entitySpecBuilder);
+        log.info("Adding key aspect {} with spec {}", entity.getKeyAspect(), keyAspectSpec);
+        aspectSpecs.add(keyAspectSpec);
       }
       entity.getAspects().forEach(aspect -> {
-        AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
-        log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
-        aspectSpecs.add(aspectSpec);
+        if (!aspect.equals(entity.getKeyAspect())) {
+          AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
+          log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
+          aspectSpecs.add(aspectSpec);
+        }
       });
 
       EntitySpec entitySpec =
@@ -162,6 +168,7 @@ public class PatchEntityRegistry implements EntityRegistry {
         eventNameToSpec.put(event.getName().toLowerCase(), eventSpec);
       }
     }
+    _aspectNameToSpec = populateAspectMap(new ArrayList<>(entityNameToSpec.values()));
   }
 
   @Override
@@ -199,8 +206,22 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
+  public Map<String, AspectSpec> getAspectSpecs() {
+    return _aspectNameToSpec;
+  }
+
+  @Nonnull
+  @Override
   public Map<String, EventSpec> getEventSpecs() {
     return eventNameToSpec;
+  }
+
+  @Nonnull
+  @Override
+  public AspectTemplateEngine getAspectTemplateEngine() {
+    //TODO: support patch based templates
+
+    return new AspectTemplateEngine();
   }
 
   private AspectSpec buildAspectSpec(String aspectName, EntitySpecBuilder entitySpecBuilder) {

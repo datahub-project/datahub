@@ -1,8 +1,9 @@
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from random import choices
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import progressbar
@@ -10,16 +11,12 @@ from requests import sessions
 from tabulate import tabulate
 
 from datahub.cli import cli_utils
-from datahub.cli.cli_utils import guess_entity_type
 from datahub.emitter import rest_emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    StatusClass,
-    SystemMetadataClass,
-)
+from datahub.metadata.schema_classes import StatusClass, SystemMetadataClass
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -30,25 +27,27 @@ UNKNOWN_NUM_RECORDS = -1
 
 @dataclass
 class DeletionResult:
-    start_time_millis: int = int(time.time() * 1000.0)
-    end_time_millis: int = 0
+    start_time: int = int(time.time() * 1000.0)
+    end_time: int = 0
     num_records: int = 0
+    num_timeseries_records: int = 0
     num_entities: int = 0
     sample_records: Optional[List[List[str]]] = None
 
     def start(self) -> None:
-        self.start_time_millis = int(time.time() * 1000.0)
+        self.start_time = int(time.time() * 1000.0)
 
     def end(self) -> None:
-        self.end_time_millis = int(time.time() * 1000.0)
+        self.end_time = int(time.time() * 1000.0)
 
     def merge(self, another_result: "DeletionResult") -> None:
-        self.end_time_millis = another_result.end_time_millis
+        self.end_time = another_result.end_time
         self.num_records = (
             self.num_records + another_result.num_records
             if another_result.num_records != UNKNOWN_NUM_RECORDS
             else UNKNOWN_NUM_RECORDS
         )
+        self.num_timeseries_records += another_result.num_timeseries_records
         self.num_entities += another_result.num_entities
         if another_result.sample_records:
             if not self.sample_records:
@@ -56,7 +55,7 @@ class DeletionResult:
             self.sample_records.extend(another_result.sample_records)
 
 
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def delete_for_registry(
     registry_id: str,
     soft: bool,
@@ -82,26 +81,70 @@ def delete_for_registry(
 
 
 @click.command()
-@click.option("--urn", required=False, type=str)
-@click.option("-f", "--force", required=False, is_flag=True)
-@click.option("--soft/--hard", required=False, is_flag=True, default=True)
-@click.option("-e", "--env", required=False, type=str)
-@click.option("-p", "--platform", required=False, type=str)
-@click.option("--entity_type", required=False, type=str, default="dataset")
+@click.option("--urn", required=False, type=str, help="the urn of the entity")
+@click.option(
+    "-a",
+    # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
+    "--aspect_name",
+    "--aspect-name",
+    required=False,
+    type=str,
+    help="the aspect name associated with the entity(only for timeseries aspects)",
+)
+@click.option(
+    "-f", "--force", required=False, is_flag=True, help="force the delete if set"
+)
+@click.option(
+    "--soft/--hard",
+    required=False,
+    is_flag=True,
+    default=True,
+    help="specifies soft/hard deletion",
+)
+@click.option(
+    "-e", "--env", required=False, type=str, help="the environment of the entity"
+)
+@click.option(
+    "-p", "--platform", required=False, type=str, help="the platform of the entity"
+)
+@click.option(
+    # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
+    "--entity_type",
+    "--entity-type",
+    required=False,
+    type=str,
+    default="dataset",
+    help="the entity type of the entity",
+)
 @click.option("--query", required=False, type=str)
+@click.option(
+    "--start-time",
+    required=False,
+    type=click.DateTime(),
+    help="the start time(only for timeseries aspects)",
+)
+@click.option(
+    "--end-time",
+    required=False,
+    type=click.DateTime(),
+    help="the end time(only for timeseries aspects)",
+)
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def delete(
     urn: str,
+    aspect_name: Optional[str],
     force: bool,
     soft: bool,
     env: str,
     platform: str,
     entity_type: str,
     query: str,
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
     registry_id: str,
     dry_run: bool,
     only_soft_deleted: bool,
@@ -109,10 +152,10 @@ def delete(
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
     cli_utils.test_connectivity_complain_exit("delete")
-    # one of urn / platform / env / query must be provided
+    # one of these must be provided
     if not urn and not platform and not env and not query and not registry_id:
         raise click.UsageError(
-            "You must provide either an urn or a platform or an env or a query for me to delete anything"
+            "You must provide one of urn / platform / env / query / registry_id in order to delete entities."
         )
 
     include_removed: bool
@@ -138,32 +181,39 @@ def delete(
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
-        references_count, related_aspects = delete_references(
-            urn, dry_run=True, cached_session_host=(session, host)
-        )
-        remove_references: bool = False
-
-        if references_count > 0:
-            print(
-                f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+        if not aspect_name:
+            references_count, related_aspects = delete_references(
+                urn, dry_run=True, cached_session_host=(session, host)
             )
-            click.echo(
-                tabulate(
-                    [x.values() for x in related_aspects],
-                    ["relationship", "entity", "aspect"],
-                    tablefmt="grid",
+            remove_references: bool = False
+
+            if (not force) and references_count > 0:
+                click.echo(
+                    f"This urn was referenced in {references_count} other aspects across your metadata graph:"
                 )
-            )
-            remove_references = click.confirm("Do you want to delete these references?")
+                click.echo(
+                    tabulate(
+                        [x.values() for x in related_aspects],
+                        ["relationship", "entity", "aspect"],
+                        tablefmt="grid",
+                    )
+                )
+                remove_references = click.confirm(
+                    "Do you want to delete these references?"
+                )
 
-        if remove_references:
-            delete_references(urn, dry_run=False, cached_session_host=(session, host))
+            if force or remove_references:
+                delete_references(
+                    urn, dry_run=False, cached_session_host=(session, host)
+                )
 
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
+            aspect_name=aspect_name,
             soft=soft,
             dry_run=dry_run,
-            entity_type=entity_type,
+            start_time=start_time,
+            end_time=end_time,
             cached_session_host=(session, host),
         )
 
@@ -195,17 +245,21 @@ def delete(
             search_query=query,
             force=force,
             include_removed=include_removed,
+            aspect_name=aspect_name,
             only_soft_deleted=only_soft_deleted,
         )
 
     if not dry_run:
         message = "soft delete" if soft else "hard delete"
         click.echo(
-            f"Took {(deletion_result.end_time_millis-deletion_result.start_time_millis)/1000.0} seconds to {message} {deletion_result.num_records} rows for {deletion_result.num_entities} entities"
+            f"Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to {message}"
+            f" {deletion_result.num_records} versioned rows"
+            f" and {deletion_result.num_timeseries_records} timeseries aspect rows"
+            f" for {deletion_result.num_entities} entities."
         )
     else:
         click.echo(
-            f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} rows will be affected. Took {(deletion_result.end_time_millis-deletion_result.start_time_millis)/1000.0} seconds to evaluate."
+            f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} rows will be affected. Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to evaluate."
         )
     if deletion_result.sample_records:
         click.echo(
@@ -217,19 +271,19 @@ def _get_current_time() -> int:
     return int(time.time() * 1000.0)
 
 
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def delete_with_filters(
     dry_run: bool,
     soft: bool,
     force: bool,
     include_removed: bool,
+    aspect_name: Optional[str] = None,
     search_query: str = "*",
     entity_type: str = "dataset",
     env: Optional[str] = None,
     platform: Optional[str] = None,
     only_soft_deleted: Optional[bool] = False,
 ) -> DeletionResult:
-
     session, gms_host = cli_utils.get_session_and_host()
     token = cli_utils.get_token()
 
@@ -276,7 +330,7 @@ def delete_with_filters(
         click.echo(
             f"No urns to delete. Maybe you want to change entity_type={entity_type} or platform={platform} to be something different?"
         )
-        return DeletionResult(end_time_millis=int(time.time() * 1000.0))
+        return DeletionResult(end_time=int(time.time() * 1000.0))
 
     if not force and not dry_run:
         type_delete = "soft" if soft else "permanently"
@@ -290,7 +344,7 @@ def delete_with_filters(
             one_result = _delete_one_urn(
                 urn,
                 soft=soft,
-                entity_type=entity_type,
+                aspect_name=aspect_name,
                 dry_run=dry_run,
                 cached_session_host=(session, gms_host),
                 cached_emitter=emitter,
@@ -303,7 +357,6 @@ def delete_with_filters(
             one_result = _delete_one_urn(
                 urn,
                 soft=soft,
-                entity_type=entity_type,
                 dry_run=dry_run,
                 cached_session_host=(session, gms_host),
                 cached_emitter=emitter,
@@ -319,14 +372,16 @@ def _delete_one_urn(
     urn: str,
     soft: bool = False,
     dry_run: bool = False,
-    entity_type: str = "dataset",
+    aspect_name: Optional[str] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
     run_id: str = "delete-run-id",
-    deletion_timestamp: int = _get_current_time(),
+    deletion_timestamp: Optional[int] = None,
     is_soft_deleted: Optional[bool] = None,
 ) -> DeletionResult:
-
+    deletion_timestamp = deletion_timestamp or _get_current_time()
     soft_delete_msg: str = ""
     if dry_run and is_soft_deleted:
         soft_delete_msg = "(soft-deleted)"
@@ -336,6 +391,10 @@ def _delete_one_urn(
     deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
 
     if soft:
+        if aspect_name:
+            raise click.UsageError(
+                "Please provide --hard flag, as aspect values cannot be soft deleted."
+            )
         # Add removed aspect
         if cached_emitter:
             emitter = cached_emitter
@@ -346,10 +405,7 @@ def _delete_one_urn(
         if not dry_run:
             emitter.emit_mcp(
                 MetadataChangeProposalWrapper(
-                    entityType=entity_type,
-                    changeType=ChangeTypeClass.UPSERT,
                     entityUrn=urn,
-                    aspectName="status",
                     aspect=StatusClass(removed=True),
                     systemMetadata=SystemMetadataClass(
                         runId=run_id, lastObserved=deletion_timestamp
@@ -359,13 +415,22 @@ def _delete_one_urn(
         else:
             logger.info(f"[Dry-run] Would soft-delete {urn}")
     elif not dry_run:
-        payload_obj = {"urn": urn}
-        urn, rows_affected = cli_utils.post_delete_endpoint(
+        payload_obj: Dict[str, Any] = {"urn": urn}
+        if aspect_name:
+            payload_obj["aspectName"] = aspect_name
+        if start_time:
+            payload_obj["startTimeMillis"] = int(round(start_time.timestamp() * 1000))
+        if end_time:
+            payload_obj["endTimeMillis"] = int(round(end_time.timestamp() * 1000))
+        rows_affected: int
+        ts_rows_affected: int
+        urn, rows_affected, ts_rows_affected = cli_utils.post_delete_endpoint(
             payload_obj,
             "/entities?action=delete",
             cached_session_host=cached_session_host,
         )
         deletion_result.num_records = rows_affected
+        deletion_result.num_timeseries_records = ts_rows_affected
     else:
         logger.info(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
         deletion_result.num_records = (
@@ -376,12 +441,14 @@ def _delete_one_urn(
     return deletion_result
 
 
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def delete_one_urn_cmd(
     urn: str,
+    aspect_name: Optional[str] = None,
     soft: bool = False,
     dry_run: bool = False,
-    entity_type: str = "dataset",
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
 ) -> DeletionResult:
@@ -395,7 +462,9 @@ def delete_one_urn_cmd(
         urn,
         soft,
         dry_run,
-        entity_type,
+        aspect_name,
+        start_time,
+        end_time,
         cached_session_host,
         cached_emitter,
     )

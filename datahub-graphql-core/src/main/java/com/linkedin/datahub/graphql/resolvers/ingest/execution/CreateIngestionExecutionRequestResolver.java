@@ -22,6 +22,7 @@ import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -105,7 +106,10 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           execInput.setRequestedAt(System.currentTimeMillis());
 
           Map<String, String> arguments = new HashMap<>();
-          arguments.put(RECIPE_ARG_NAME, injectRunId(ingestionSourceInfo.getConfig().getRecipe(), executionRequestUrn.toString()));
+          String recipe = ingestionSourceInfo.getConfig().getRecipe();
+          recipe = injectRunId(recipe, executionRequestUrn.toString());
+          recipe = IngestionUtils.injectPipelineName(recipe, executionRequestUrn.toString());
+          arguments.put(RECIPE_ARG_NAME, recipe);
           arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().hasVersion()
               ? ingestionSourceInfo.getConfig().getVersion()
               : _ingestionConfiguration.getDefaultCliVersion()

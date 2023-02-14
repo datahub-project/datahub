@@ -4,7 +4,6 @@ import functools
 import json
 import logging
 import os
-import pathlib
 import sys
 from datetime import datetime
 from typing import Optional
@@ -22,7 +21,6 @@ from datahub.cli.cli_utils import (
     get_session_and_host,
     post_rollback_endpoint,
 )
-from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
@@ -46,7 +44,7 @@ def ingest() -> None:
 @click.option(
     "-c",
     "--config",
-    type=click.Path(exists=True, dir_okay=False),
+    type=click.Path(dir_okay=False),
     help="Config file in .toml or .yaml format.",
     required=True,
 )
@@ -77,13 +75,6 @@ def ingest() -> None:
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
 @click.option(
-    "--suppress-error-logs",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Suppress display of variable values in logs by suppressing elaborate stacktrace (stackprinter) during ingestion failures",
-)
-@click.option(
     "--test-source-connection",
     type=bool,
     is_flag=True,
@@ -107,7 +98,7 @@ def ingest() -> None:
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 @memory_leak_detector.with_leak_detection
 def run(
     ctx: click.Context,
@@ -116,7 +107,6 @@ def run(
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
-    suppress_error_logs: bool,
     test_source_connection: bool,
     report_to: str,
     no_default_report: bool,
@@ -128,9 +118,7 @@ def run(
         pipeline: Pipeline, structured_report: Optional[str] = None
     ) -> int:
         logger.info("Starting metadata ingestion")
-        with click_spinner.spinner(
-            beep=False, disable=no_spinner, force=False, stream=sys.stdout
-        ):
+        with click_spinner.spinner(disable=no_spinner):
             try:
                 pipeline.run()
             except Exception as e:
@@ -140,13 +128,7 @@ def run(
                 logger.info(
                     f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
                 )
-                # We dont want to log sensitive information in variables if the pipeline fails due to
-                # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-                # with `--suppress-error-logs` flag.
-                if suppress_error_logs:
-                    raise SensitiveError() from e
-                else:
-                    raise e
+                raise e
             else:
                 logger.info("Finished metadata ingestion")
                 pipeline.log_ingestion_stats()
@@ -182,30 +164,27 @@ def run(
     # main function begins
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
-    config_file = pathlib.Path(config)
     pipeline_config = load_config_file(
-        config_file, squirrel_original_config=True, squirrel_field="__raw_config"
+        config,
+        squirrel_original_config=True,
+        squirrel_field="__raw_config",
+        allow_stdin=True,
     )
-    raw_pipeline_config = pipeline_config["__raw_config"]
-    pipeline_config = {k: v for k, v in pipeline_config.items() if k != "__raw_config"}
+    raw_pipeline_config = pipeline_config.pop("__raw_config")
+
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 
-    try:
-        logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(
-            pipeline_config,
-            dry_run,
-            preview,
-            preview_workunits,
-            report_to,
-            no_default_report,
-            raw_pipeline_config,
-        )
-    except Exception as e:
-        # The pipeline_config may contain sensitive information, so we wrap the exception
-        # in a SensitiveError to prevent detailed variable-level information from being logged.
-        raise SensitiveError() from e
+    # logger.debug(f"Using config: {pipeline_config}")
+    pipeline = Pipeline.create(
+        pipeline_config,
+        dry_run,
+        preview,
+        preview_workunits,
+        report_to,
+        no_default_report,
+        raw_pipeline_config,
+    )
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_func_check_upgrade(pipeline))
@@ -256,7 +235,7 @@ def parse_restli_response(response):
     help="If enabled, will list ingestion runs which have been soft deleted",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
@@ -304,7 +283,7 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
@@ -348,7 +327,7 @@ def show(
     help="Path to directory where rollback reports will be saved to",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
@@ -414,5 +393,5 @@ def rollback(
                     writer.writerow([row.get("urn")])
 
         except IOError as e:
-            print(e)
+            logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")

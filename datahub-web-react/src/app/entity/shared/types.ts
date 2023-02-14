@@ -31,6 +31,9 @@ import {
     CustomPropertiesEntry,
     DomainAssociation,
     InputFields,
+    FineGrainedLineage,
+    EntityPrivileges,
+    Embed,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -45,7 +48,7 @@ export type EntityTab = {
 };
 
 export type EntitySidebarSection = {
-    component: React.FunctionComponent<{ properties?: any }>;
+    component: React.FunctionComponent<{ properties?: any; readOnly?: boolean }>;
     display?: {
         visible: (GenericEntityProperties, T) => boolean; // Whether the sidebar is visible on the UI. Defaults to true.
     };
@@ -97,6 +100,10 @@ export type GenericEntityProperties = {
     siblingPlatforms?: Maybe<DataPlatform[]>;
     lastIngested?: Maybe<number>;
     inputFields?: Maybe<InputFields>;
+    fineGrainedLineages?: Maybe<FineGrainedLineage[]>;
+    privileges?: Maybe<EntityPrivileges>;
+    embed?: Maybe<Embed>;
+    exists?: boolean;
 };
 
 export type GenericEntityUpdate = {
@@ -125,6 +132,7 @@ export type EntityContextType = {
     entityType: EntityType;
     dataNotCombinedWithSiblings: any;
     entityData: GenericEntityProperties | null;
+    loading: boolean;
     baseEntity: any;
     updateEntity?: UpdateEntityType<any> | null;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;

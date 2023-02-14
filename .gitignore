@@ -37,7 +37,7 @@ MANIFEST
 **/build
 /config
 */i18n
-/out
+out/
 
 # Mac OS
 **/.DS_Store
@@ -68,7 +68,13 @@ metadata-ingestion/generated/**
 # docs
 docs/generated/
 tmp*
-temp*
+temp/**
 
 # frontend assets
 datahub-frontend/public/**
+
+.remote*
+# Ignore runtime generated authenticatior/authorizer jar files
+metadata-service/plugin/src/test/resources/sample-plugins/**
+
+smoke-test/rollback-reports

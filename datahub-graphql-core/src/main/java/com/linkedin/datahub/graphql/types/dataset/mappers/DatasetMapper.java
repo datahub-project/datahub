@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Embed;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -18,11 +19,13 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.EmbedMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UpstreamLineagesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -32,6 +35,7 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.dataset.ViewProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -97,7 +101,10 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
         mappingHelper.mapToResult(SIBLINGS_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setSiblings(SiblingsMapper.map(new Siblings(dataMap))));
-
+        mappingHelper.mapToResult(UPSTREAM_LINEAGE_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setFineGrainedLineages(UpstreamLineagesMapper.map(new UpstreamLineage(dataMap))));
+        mappingHelper.mapToResult(EMBED_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setEmbed(EmbedMapper.map(new Embed(dataMap))));
         return mappingHelper.getResult();
     }
 
@@ -129,9 +136,6 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         properties.setQualifiedName(gmsProperties.getQualifiedName());
         dataset.setProperties(properties);
         dataset.setDescription(properties.getDescription());
-        if (gmsProperties.getUri() != null) {
-            dataset.setUri(gmsProperties.getUri().toString());
-        }
     }
 
     private void mapEditableDatasetProperties(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {

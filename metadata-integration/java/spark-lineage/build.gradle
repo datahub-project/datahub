@@ -7,9 +7,20 @@ apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
 apply plugin: 'jacoco'
-import org.apache.tools.ant.filters.ReplaceTokens
+apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
+
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+tasks.withType(Test).configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
 
 //to rename artifacts for publish
 project.archivesBaseName = 'datahub-'+project.name
@@ -20,53 +31,6 @@ configurations {
     provided
     implementation.extendsFrom provided
 }
-
-def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
-def snapshotVersion = false
-if (project.hasProperty("releaseVersion")) {
-  version = releaseVersion
-  detailedVersionString = releaseVersion
-} else {
-  try {
-      // apply this plugin in a try-catch block so that we can handle cases without .git directory
-      apply plugin: "com.palantir.git-version"
-      def details = versionDetails()
-      detailedVersionString = gitVersion()
-      version = details.lastTag
-      version = version.startsWith("v")? version.substring(1): version
-      def suffix = details.isCleanTag? "": "-SNAPSHOT"
-      snapshotVersion = ! details.isCleanTag
-    }
-    catch (Exception e) {
-          e.printStackTrace()
-          // last fall back
-          version = detailedVersionString
-      }
-  }
-    // trim version if it is of size 4 to size 3
-    def versionParts = version.tokenize(".")
-    if (versionParts.size() > 3) {
-      // at-least 4 part version
-      // we check if the 4th part is a .0 in which case we want to create a release
-      if (versionParts[3] != '0') {
-        snapshotVersion = true
-      }
-      versionParts = versionParts[0..2]
-      version = versionParts[0..2].join('.')
-    }
-
-    if (snapshotVersion) {
-        if (versionParts[versionParts.size()-1].isInteger()) {
-          version = versionParts[0..versionParts.size()-2].join('.') + '.' + (versionParts[versionParts.size()-1].toInteger()+1).toString() + "-SNAPSHOT"
-        } else {
-          // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
-          version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
-      }
-    }
-
-    processResources {
-      filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
-    }
 
 dependencies {
 
@@ -83,6 +47,7 @@ dependencies {
     force = true
   } // required for org.apache.commons.io.Charsets that is used internally
 
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
@@ -91,14 +56,13 @@ dependencies {
 
   implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
 
-
   provided(externalDependency.sparkSql)
   provided(externalDependency.sparkHive)
+  implementation externalDependency.httpAsyncClient
 
   // Tests need a concrete log4j available. Providing it here
   testImplementation 'org.apache.logging.log4j:log4j-api:2.17.1'
   testImplementation 'org.apache.logging.log4j:log4j-core:2.17.1'
-
 
   testImplementation(externalDependency.postgresql){
     exclude group: "com.fasterxml.jackson.core"
@@ -139,9 +103,18 @@ shadowJar {
     exclude(dependency {
             exclude_modules.contains(it.name)
         })
-
   }
+
+  // preventing java multi-release JAR leakage
+  // https://github.com/johnrengelman/shadow/issues/729
+  exclude('module-info.class', 'META-INF/versions/**')
+
+  // prevent jni conflict with spark
+  exclude '**/libzstd-jni.*'
+  exclude '**/com_github_luben_zstd_*'
+
   relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+  relocate 'org.slf4j','datahub.shaded.org.slf4j'
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'org.apache.commons.compress', 'datahub.spark2.shaded.o.a.c.compress'
@@ -171,7 +144,7 @@ assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec ) {
+task integrationTest(type: Exec, dependsOn: build ) {
   commandLine "spark-smoke-test/smoke.sh"
 }
 

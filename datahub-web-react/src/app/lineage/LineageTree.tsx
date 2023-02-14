@@ -1,13 +1,16 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
-import { NodeData, Direction, EntitySelectParams, TreeProps, EntityAndType } from './types';
+import { NodeData, EntitySelectParams, TreeProps, EntityAndType, FetchedEntity, UpdatedLineages } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
 import layoutTree from './utils/layoutTree';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
+import useSortColumnsBySelectedField from './utils/useSortColumnsBySelectedField';
+import { populateColumnsByUrn } from './utils/columnLineageUtils';
 
 type LineageTreeProps = {
-    data: NodeData;
+    upstreamData: NodeData;
+    downstreamData: NodeData;
     zoom: {
         transformMatrix: TransformMatrix;
     };
@@ -18,15 +21,17 @@ type LineageTreeProps = {
     hoveredEntity?: EntitySelectParams;
     setHoveredEntity: (EntitySelectParams) => void;
     margin: TreeProps['margin'];
-    direction: Direction;
     canvasHeight: number;
     setIsDraggingNode: (isDraggingNode: boolean) => void;
     draggedNodes: Record<string, { x: number; y: number }>;
     setDraggedNodes: (draggedNodes: Record<string, { x: number; y: number }>) => void;
+    fetchedEntities: { [x: string]: FetchedEntity };
+    setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 };
 
 export default function LineageTree({
-    data,
+    upstreamData,
+    downstreamData,
     zoom,
     margin,
     onEntityClick,
@@ -35,24 +40,63 @@ export default function LineageTree({
     selectedEntity,
     hoveredEntity,
     setHoveredEntity,
-    direction,
     canvasHeight,
     setIsDraggingNode,
     draggedNodes,
     setDraggedNodes,
+    fetchedEntities,
+    setUpdatedLineages,
 }: LineageTreeProps) {
     const [xCanvasScale, setXCanvasScale] = useState(1);
-    const { expandTitles } = useContext(LineageExplorerContext);
+    const {
+        expandTitles,
+        showColumns,
+        collapsedColumnsNodes,
+        fineGrainedMap,
+        visibleColumnsByUrn,
+        columnsByUrn,
+        setColumnsByUrn,
+    } = useContext(LineageExplorerContext);
+
+    useEffect(() => {
+        populateColumnsByUrn(columnsByUrn, fetchedEntities, setColumnsByUrn);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fetchedEntities]);
+
+    useSortColumnsBySelectedField(fetchedEntities);
 
     useEffect(() => {
         setXCanvasScale(1);
-    }, [data.urn]);
+    }, [upstreamData.urn]);
 
     let dragState: { urn: string; x: number; y: number } | undefined;
 
     const { nodesToRender, edgesToRender, nodesByUrn, layers } = useMemo(
-        () => layoutTree(data, direction, draggedNodes, canvasHeight, expandTitles),
-        [data, direction, draggedNodes, canvasHeight, expandTitles],
+        () =>
+            layoutTree(
+                upstreamData,
+                downstreamData,
+                draggedNodes,
+                canvasHeight,
+                expandTitles,
+                showColumns,
+                collapsedColumnsNodes,
+                fineGrainedMap,
+                visibleColumnsByUrn,
+                columnsByUrn,
+            ),
+        [
+            upstreamData,
+            downstreamData,
+            draggedNodes,
+            canvasHeight,
+            expandTitles,
+            showColumns,
+            collapsedColumnsNodes,
+            fineGrainedMap,
+            visibleColumnsByUrn,
+            columnsByUrn,
+        ],
     );
 
     const dragContinue = (event: MouseEvent) => {
@@ -94,7 +138,7 @@ export default function LineageTree({
 
     return (
         <LineageTreeNodeAndEdgeRenderer
-            data={data}
+            data={downstreamData}
             onDrag={onDrag}
             nodesToRender={nodesToRender}
             edgesToRender={edgesToRender}
@@ -107,7 +151,7 @@ export default function LineageTree({
             selectedEntity={selectedEntity}
             hoveredEntity={hoveredEntity}
             setHoveredEntity={setHoveredEntity}
-            direction={direction}
+            setUpdatedLineages={setUpdatedLineages}
         />
     );
 }

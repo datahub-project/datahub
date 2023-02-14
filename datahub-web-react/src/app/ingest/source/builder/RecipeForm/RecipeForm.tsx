@@ -5,11 +5,12 @@ import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { CONNECTORS_WITH_TEST_CONNECTION, RECIPE_FIELDS } from './constants';
+import { CONNECTORS_WITH_TEST_CONNECTION, RecipeSections, RECIPE_FIELDS } from './constants';
 import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
 import { RecipeField, setFieldValueOnRecipe } from './common';
+import { SourceBuilderState, SourceConfig } from '../types';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -59,8 +60,9 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     }
     if (recipeObj) {
         allFields.forEach((field) => {
-            initialValues[field.name] =
-                field.getValueFromRecipeOverride?.(recipeObj) || get(recipeObj, field.fieldPath);
+            initialValues[field.name] = field.getValueFromRecipeOverride
+                ? field.getValueFromRecipeOverride(recipeObj)
+                : get(recipeObj, field.fieldPath);
         });
     }
 
@@ -88,17 +90,21 @@ function shouldRenderFilterSectionHeader(field: RecipeField, index: number, filt
 }
 
 interface Props {
-    type: string;
+    state: SourceBuilderState;
     isEditing: boolean;
     displayRecipe: string;
+    sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeForm(props: Props) {
-    const { type, isEditing, displayRecipe, setStagedRecipe, onClickNext, goToPrevious } = props;
-    const { fields, advancedFields, filterFields, filterSectionTooltip } = RECIPE_FIELDS[type];
+    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const { type } = state;
+    const version = state.config?.version;
+    const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
+        RECIPE_FIELDS[type as string];
     const allFields = [...fields, ...advancedFields, ...filterFields];
     const { data, refetch: refetchSecrets } = useListSecretsQuery({
         variables: {
@@ -110,6 +116,7 @@ function RecipeForm(props: Props) {
     });
     const secrets =
         data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+    const [form] = Form.useForm();
 
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
@@ -117,9 +124,9 @@ function RecipeForm(props: Props) {
         Object.keys(changedValues).forEach((fieldName) => {
             const recipeField = allFields.find((f) => f.name === fieldName);
             if (recipeField) {
-                updatedValues =
-                    recipeField.setValueOnRecipeOverride?.(updatedValues, allValues[fieldName]) ||
-                    setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
+                updatedValues = recipeField.setValueOnRecipeOverride
+                    ? recipeField.setValueOnRecipeOverride(updatedValues, allValues[fieldName])
+                    : setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
             }
         });
 
@@ -127,11 +134,17 @@ function RecipeForm(props: Props) {
         setStagedRecipe(stagedRecipe);
     }
 
+    function updateFormValue(fieldName, fieldValue) {
+        updateFormValues({ [fieldName]: fieldValue }, { [fieldName]: fieldValue });
+        form.setFieldsValue({ [fieldName]: fieldValue });
+    }
+
     return (
         <Form
             layout="vertical"
             initialValues={getInitialValues(displayRecipe, allFields)}
             onFinish={onClickNext}
+            form={form}
             onValuesChange={updateFormValues}
         >
             <StyledCollapse defaultActiveKey="0">
@@ -142,17 +155,22 @@ function RecipeForm(props: Props) {
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
                             removeMargin={i === fields.length - 1}
+                            updateFormValue={updateFormValue}
                         />
                     ))}
-                    {CONNECTORS_WITH_TEST_CONNECTION.has(type) && (
+                    {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
                         <TestConnectionWrapper>
-                            <TestConnectionButton type={type} recipe={displayRecipe} />
+                            <TestConnectionButton
+                                recipe={displayRecipe}
+                                sourceConfigs={sourceConfigs}
+                                version={version}
+                            />
                         </TestConnectionWrapper>
                     )}
                 </Collapse.Panel>
             </StyledCollapse>
             {filterFields.length > 0 && (
-                <StyledCollapse>
+                <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Filter) ? '1' : ''}>
                     <Collapse.Panel
                         forceRender
                         header={
@@ -175,6 +193,7 @@ function RecipeForm(props: Props) {
                                         secrets={secrets}
                                         refetchSecrets={refetchSecrets}
                                         removeMargin={i === filterFields.length - 1}
+                                        updateFormValue={updateFormValue}
                                     />
                                 </MarginWrapper>
                             </>
@@ -182,10 +201,16 @@ function RecipeForm(props: Props) {
                     </Collapse.Panel>
                 </StyledCollapse>
             )}
-            <StyledCollapse>
+            <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}>
                 <Collapse.Panel
                     forceRender
-                    header={<SectionHeader icon={<SettingOutlined />} text="Advanced" />}
+                    header={
+                        <SectionHeader
+                            icon={<SettingOutlined />}
+                            text="Advanced"
+                            sectionTooltip={advancedSectionTooltip}
+                        />
+                    }
                     key="2"
                 >
                     {advancedFields.map((field, i) => (
@@ -194,6 +219,7 @@ function RecipeForm(props: Props) {
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
                             removeMargin={i === advancedFields.length - 1}
+                            updateFormValue={updateFormValue}
                         />
                     ))}
                 </Collapse.Panel>

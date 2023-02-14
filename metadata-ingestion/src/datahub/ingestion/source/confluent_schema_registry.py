@@ -141,7 +141,8 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         if schema_seen is None:
             schema_seen = set()
 
-        for schema_ref in schema.references:  # type: SchemaReference
+        schema_ref: SchemaReference
+        for schema_ref in schema.references:
             ref_subject: str = schema_ref["subject"]
             if ref_subject in schema_seen:
                 continue

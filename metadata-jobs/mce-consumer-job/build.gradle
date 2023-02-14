@@ -1,17 +1,73 @@
 plugins {
     id 'org.springframework.boot'
     id 'java'
+    id 'com.palantir.docker'
+}
+
+apply from: "../../gradle/versioning/versioning.gradle"
+
+ext {
+    docker_repo = 'datahub-mce-consumer'
 }
 
 dependencies {
-    compile project(':metadata-jobs:mce-consumer')
-    compile(externalDependency.springBootStarterWeb) {
+    implementation project(':metadata-service:factories')
+    implementation project(':metadata-service:auth-filter')
+    implementation project(':metadata-jobs:mce-consumer')
+    implementation project(':entity-registry')
+
+    implementation(externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }
-    compile externalDependency.springBootStarterJetty
-    compile externalDependency.springKafka
+    implementation externalDependency.springBootStarterJetty
+    implementation externalDependency.springKafka
+    implementation spec.product.pegasus.restliDocgen
+    implementation spec.product.pegasus.restliSpringBridge
+    implementation externalDependency.slf4jApi
+    implementation externalDependency.log4j2Api
+    compileOnly externalDependency.lombok
+    implementation externalDependency.logbackClassic
+
+    runtime externalDependency.mariadbConnector
+    runtime externalDependency.mysqlConnector
+    runtime externalDependency.postgresql
+
+    annotationProcessor externalDependency.lombok
+
+    testImplementation externalDependency.springBootTest
+    testCompile externalDependency.mockito
+    testCompile externalDependency.testng
 }
 
 bootJar {
     mainClassName = 'com.linkedin.metadata.kafka.MceConsumerApplication'
+    archiveFileName = "${project.name}.jar"
+
+    // working around the restli error when it tries to open a jar within the spring boot fat jar
+    requiresUnpack '**/restli-servlet-impl.jar'
 }
+
+docker {
+    name "${docker_registry}/${docker_repo}:v${version}"
+    version "v${version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+    files bootJar.outputs.files
+    files fileTree(rootProject.projectDir) {
+        include 'docker/monitoring/*'
+        include "docker/${docker_repo}/*"
+        include 'metadata-models/src/main/resources/*'
+    }
+
+    // platform('linux/arm64', 'linux/amd64')
+    buildx(true)
+    load(true)
+    push(false)
+}
+tasks.getByName("docker").dependsOn([bootJar])
+
+task cleanLocalDockerImages {
+    doLast {
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+    }
+}
+dockerClean.finalizedBy(cleanLocalDockerImages)

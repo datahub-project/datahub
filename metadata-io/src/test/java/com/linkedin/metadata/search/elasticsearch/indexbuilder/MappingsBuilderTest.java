@@ -16,8 +16,15 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 15);
-    assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword"));
+    assertEquals(properties.size(), 19);
+    assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword",
+            "fields",
+            ImmutableMap.of("delimited",
+                    ImmutableMap.of("type", "text", "analyzer", "urn_component", "search_analyzer", "query_urn_component",
+                            "search_quote_analyzer", "quote_analyzer"),
+                    "ngram",
+                    ImmutableMap.of("type", "search_as_you_type", "max_shingle_size", "4", "doc_values", "false",
+                            "analyzer", "partial_urn_component"))));
     assertEquals(properties.get("runId"), ImmutableMap.of("type", "keyword"));
     assertTrue(properties.containsKey("browsePaths"));
     // KEYWORD
@@ -84,6 +91,11 @@ public class MappingsBuilderTest {
     assertEquals(nestedForeignKeySubfields.size(), 2);
     assertTrue(nestedForeignKeySubfields.containsKey("keyword"));
     assertTrue(nestedForeignKeySubfields.containsKey("ngram"));
+
+    // OBJECT
+    Map<String, Object> esObjectField = (Map<String, Object>) properties.get("esObjectField");
+    assertEquals(esObjectField.get("type"), "object");
+    assertEquals(customPropertiesField.get("normalizer"), "keyword_normalizer");
 
     // Scores
     Map<String, Object> feature1 = (Map<String, Object>) properties.get("feature1");

@@ -6,6 +6,13 @@ delegate authentication responsibility to identity providers like Okta.
 
 This guide will provide steps for configuring DataHub authentication using Okta.
 
+:::caution
+Even when OIDC is configured, the root user can still login without OIDC by going
+to `/login` URL endpoint. It is recommended that you don't use the default
+credentials by mounting a different file in the front end container. To do this
+please see [this guide](../jaas.md) to mount a custom user.props file for a JAAS authenticated deployment.
+:::
+
 ## Steps
 
 ### 1. Create an application in Okta Developer Console
@@ -84,7 +91,7 @@ AUTH_OIDC_SCOPE="openid profile email groups"
 
 Replacing the placeholders above with the client id & client secret received from Okta in Step 2.
 
-> **Pro Tip!** You can easily enable Okta to return the groups that a user is associated with, which will be provisioned in DataHub, along with the user logging in, 
+> **Pro Tip!** You can easily enable Okta to return the groups that a user is associated with, which will be provisioned in DataHub, along with the user logging in. This can be enabled by setting the `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` flag to `true`. 
 > if they do not already exist in DataHub. You can enable your Okta application to return a 'groups' claim from the Okta Console at Applications > Your Application -> Sign On -> OpenID Connect ID Token Settings (Requires an edit).
 > 
 > By default, we assume that the groups will appear in a claim named "groups". This can be customized using the `AUTH_OIDC_GROUPS_CLAIM` container configuration. 

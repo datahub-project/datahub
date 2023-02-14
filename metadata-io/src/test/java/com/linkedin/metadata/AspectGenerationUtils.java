@@ -39,7 +39,7 @@ public class AspectGenerationUtils {
 
   @Nonnull
   public static CorpUserKey createCorpUserKey(Urn urn) {
-    return (CorpUserKey) EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
+    return (CorpUserKey) EntityKeyUtils.convertUrnToEntityKeyInternal(urn, new CorpUserKey().schema());
   }
 
   @Nonnull

@@ -1,15 +1,7 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 from airflow.exceptions import AirflowException
-
-try:
-    from airflow.hooks.base import BaseHook
-
-    AIRFLOW_1 = False
-except ModuleNotFoundError:
-    from airflow.hooks.base_hook import BaseHook
-
-    AIRFLOW_1 = True
+from airflow.hooks.base import BaseHook
 
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -17,14 +9,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 
 if TYPE_CHECKING:
+    from airflow.models.connection import Connection
+
     from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
     from datahub.emitter.rest_emitter import DatahubRestEmitter
     from datahub.ingestion.sink.datahub_kafka import KafkaSinkConfig
-
-
-_default_hook_args = []
-if AIRFLOW_1:
-    _default_hook_args = [None]
 
 
 class DatahubRestHook(BaseHook):
@@ -46,7 +35,7 @@ class DatahubRestHook(BaseHook):
     hook_name = "DataHub REST Server"
 
     def __init__(self, datahub_rest_conn_id: str = default_conn_name) -> None:
-        super().__init__(*_default_hook_args)
+        super().__init__()
         self.datahub_rest_conn_id = datahub_rest_conn_id
 
     @staticmethod
@@ -64,12 +53,14 @@ class DatahubRestHook(BaseHook):
         }
 
     def _get_config(self) -> Tuple[str, Optional[str], Optional[int]]:
-        conn = self.get_connection(self.datahub_rest_conn_id)
+        conn: "Connection" = self.get_connection(self.datahub_rest_conn_id)
+
         host = conn.host
         if host is None:
             raise AirflowException("host parameter is required")
+        password = conn.password
         timeout_sec = conn.extra_dejson.get("timeout_sec")
-        return (host, conn.password, timeout_sec)
+        return (host, password, timeout_sec)
 
     def make_emitter(self) -> "DatahubRestEmitter":
         import datahub.emitter.rest_emitter
@@ -108,7 +99,7 @@ class DatahubKafkaHook(BaseHook):
     hook_name = "DataHub Kafka Sink"
 
     def __init__(self, datahub_kafka_conn_id: str = default_conn_name) -> None:
-        super().__init__(*_default_hook_args)
+        super().__init__()
         self.datahub_kafka_conn_id = datahub_kafka_conn_id
 
     @staticmethod
@@ -191,22 +182,21 @@ class DatahubGenericHook(BaseHook):
     """
 
     def __init__(self, datahub_conn_id: str) -> None:
-        super().__init__(*_default_hook_args)
+        super().__init__()
         self.datahub_conn_id = datahub_conn_id
 
     def get_underlying_hook(self) -> Union[DatahubRestHook, DatahubKafkaHook]:
         conn = self.get_connection(self.datahub_conn_id)
 
-        # Attempt to guess the correct underlying hook type.
-        if (
-            conn.conn_type == DatahubRestHook.conn_type
-            or "rest" in self.datahub_conn_id
-        ):
+        # We need to figure out the underlying hook type. First check the
+        # conn_type. If that fails, attempt to guess using the conn id name.
+        if conn.conn_type == DatahubRestHook.conn_type:
             return DatahubRestHook(self.datahub_conn_id)
-        elif (
-            conn.conn_type == DatahubKafkaHook.conn_type
-            or "kafka" in self.datahub_conn_id
-        ):
+        elif conn.conn_type == DatahubKafkaHook.conn_type:
+            return DatahubKafkaHook(self.datahub_conn_id)
+        elif "rest" in self.datahub_conn_id:
+            return DatahubRestHook(self.datahub_conn_id)
+        elif "kafka" in self.datahub_conn_id:
             return DatahubKafkaHook(self.datahub_conn_id)
         else:
             raise AirflowException(

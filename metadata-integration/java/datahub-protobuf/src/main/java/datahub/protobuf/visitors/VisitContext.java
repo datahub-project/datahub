@@ -54,4 +54,8 @@ public class VisitContext {
                 .reduce(Double::sum)
                 .orElse(0);
     }
+
+    public static class VisitContextBuilder {
+
+    };
 }

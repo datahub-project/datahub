@@ -2,6 +2,7 @@
 .vscode/
 output
 pvenv36/
+/venv*/
 bq_credentials.json
 /tmp
 

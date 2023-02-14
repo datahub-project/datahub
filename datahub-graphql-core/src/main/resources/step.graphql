@@ -1,0 +1,103 @@
+extend type Query {
+    """
+    Batch fetch the state for a set of steps.
+    """
+    batchGetStepStates(input: BatchGetStepStatesInput!): BatchGetStepStatesResult!
+}
+
+
+extend type Mutation {
+    """
+    Batch update the state for a set of steps.
+    """
+    batchUpdateStepStates(input: BatchUpdateStepStatesInput!): BatchUpdateStepStatesResult!
+}
+
+
+"""
+Input arguments required for fetching step states
+"""
+input BatchGetStepStatesInput {
+    """
+    The unique ids for the steps to retrieve
+    """
+    ids: [String!]!
+}
+
+
+"""
+Input arguments required for updating step states
+"""
+input BatchUpdateStepStatesInput {
+    """
+    Set of step states. If the id does not exist, it will be created.
+    """
+    states: [StepStateInput!]!
+}
+
+
+"""
+The input required to update the state of a step
+"""
+input StepStateInput {
+    """
+    The globally unique id for the step
+    """
+    id: String!
+
+    """
+    The new properties for the step
+    """
+    properties: [StringMapEntryInput]!
+}
+
+"""
+Result returned when fetching step state
+"""
+type BatchGetStepStatesResult {
+    """
+    The step states
+    """
+    results: [StepStateResult!]!
+}
+
+"""
+A single step state
+"""
+type StepStateResult {
+    """
+    Unique id of the step
+    """
+    id: String!
+
+    """
+    The properties for the step state
+    """
+    properties: [StringMapEntry!]!
+}
+
+
+"""
+Result returned when fetching step state
+"""
+type BatchUpdateStepStatesResult {
+    """
+    Results for each step
+    """
+    results: [UpdateStepStateResult!]!
+}
+
+"""
+Result returned when fetching step state
+"""
+type UpdateStepStateResult {
+    """
+    Id of the step
+    """
+    id: String!
+
+    """
+    Whether the update succeeded.
+    """
+    succeeded: Boolean!
+}

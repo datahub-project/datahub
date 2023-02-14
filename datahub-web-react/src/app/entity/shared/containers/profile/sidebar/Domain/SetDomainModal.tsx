@@ -9,11 +9,15 @@ import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
+import { handleBatchError } from '../../../../utils';
 
 type Props = {
     urns: string[];
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
+    defaultValue?: { urn: string; entity?: Entity | null };
+    onOkOverride?: (result: string) => void;
+    titleOverride?: string;
 };
 
 type SelectedDomain = {
@@ -30,10 +34,18 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
+export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
-    const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(undefined);
+    const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
+        defaultValue
+            ? {
+                  displayName: entityRegistry.getDisplayName(EntityType.Domain, defaultValue?.entity),
+                  type: EntityType.Domain,
+                  urn: defaultValue?.urn,
+              }
+            : undefined,
+    );
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
     const domainSearchResults =
         domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
@@ -100,6 +112,12 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
         if (!selectedDomain) {
             return;
         }
+
+        if (onOkOverride) {
+            onOkOverride(selectedDomain?.urn);
+            return;
+        }
+
         batchSetDomainMutation({
             variables: {
                 input: {
@@ -118,7 +136,12 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
+                message.error(
+                    handleBatchError(urns, e, {
+                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        duration: 3,
+                    }),
+                );
             });
     };
 
@@ -149,7 +172,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
 
     return (
         <Modal
-            title="Set Domain"
+            title={titleOverride || 'Set Domain'}
             visible
             onCancel={onModalClose}
             footer={

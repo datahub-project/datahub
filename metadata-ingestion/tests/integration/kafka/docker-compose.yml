@@ -22,6 +22,7 @@ services:
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.2.0
+    restart: unless-stopped
     env_file: schema-registry.env
     container_name: test_schema_registry
     depends_on:
@@ -31,5 +32,4 @@ services:
       - "58081:8081"
 
 volumes:
-    test_zkdata:
-
+  test_zkdata:

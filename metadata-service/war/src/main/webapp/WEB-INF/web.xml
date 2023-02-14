@@ -97,7 +97,7 @@
   <!-- filter definitions -->
   <filter>
     <filter-name>AuthenticationFilter</filter-name> <!-- mandatory -->
-    <filter-class>com.datahub.authentication.filter.AuthenticationFilter</filter-class>
+    <filter-class>com.datahub.auth.authentication.filter.AuthenticationFilter</filter-class>
     <async-supported>true</async-supported>
   </filter>
 

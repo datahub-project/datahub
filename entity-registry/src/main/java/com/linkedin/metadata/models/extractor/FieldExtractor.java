@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
 
 /**
@@ -32,7 +33,7 @@ public class FieldExtractor {
   }
 
   // Extract the value of each field in the field specs from the input record
-  public static <T extends FieldSpec> Map<T, List<Object>> extractFields(RecordTemplate record, List<T> fieldSpecs) {
+  public static <T extends FieldSpec> Map<T, List<Object>> extractFields(@Nonnull RecordTemplate record, List<T> fieldSpecs) {
     final Map<T, List<Object>> extractedFields = new HashMap<>();
     for (T fieldSpec : fieldSpecs) {
       Optional<Object> value = RecordUtils.getFieldValue(record, fieldSpec.getPath());

@@ -1,0 +1,31 @@
+namespace com.linkedin.common
+
+/**
+ * Information about a relatonship edge.
+ */
+record Edge {
+  /**
+   * Urn of the source of this relationship edge.
+   */
+  sourceUrn: Urn
+
+  /**
+   * Urn of the destination of this relationship edge.
+   */
+  destinationUrn: Urn
+
+  /**
+   * Audit stamp containing who created this relationship edge and when
+   */
+  created: AuditStamp
+
+  /**
+   * Audit stamp containing who last modified this relationship edge and when
+   */
+  lastModified: AuditStamp
+
+  /**
+   * A generic properties bag that allows us to store specific information on this graph edge.
+   */
+  properties: optional map[string, string]
+}

@@ -323,7 +323,7 @@ It takes the following parameters:
   annotations. To customize the set of analyzers used to index a certain field, you must add a new field type and define
   the set of mappings to be applied in the MappingsBuilder.
 
-  Thus far, we have implemented 9 fieldTypes:
+  Thus far, we have implemented 10 fieldTypes:
 
     1. *KEYWORD* - Short text fields that only support exact matches, often used only for filtering
 
@@ -344,6 +344,10 @@ It takes the following parameters:
     8. *COUNT* - Count fields used for filtering.
   
     9. *DATETIME* - Datetime fields used to represent timestamps.
+
+    10. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
+    `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
+    mapping explosion in Elasticsearch.
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.
@@ -388,7 +392,14 @@ Now, when Datahub ingests Dashboards, it will index the Dashboard’s title in E
 Dashboards, that query will be used to search on the title index and matching Dashboards will be returned.
 
 Note, when @Searchable annotation is applied to a map, it will convert it into a list with "key.toString()
-=value.toString()" as elements. This allows us to index map fields, while not increasing the number of columns indexed.
+=value.toString()" as elements. This allows us to index map fields, while not increasing the number of columns indexed. 
+This way, the keys can be queried by `aMapField:key1=value1`.
+
+You can change this behavior by specifying the fieldType as OBJECT in the @Searchable annotation. It will put each key 
+into a column in Elasticsearch instead of an array of serialized kay-value pairs. This way the query would look more 
+like `aMapField.key1:value1`. As this method will increase the number of columns with each unique key - large maps can
+cause a mapping explosion in Elasticsearch. You should *not* use the object fieldType if you expect your maps to get 
+large.
 
 #### @Relationship
 

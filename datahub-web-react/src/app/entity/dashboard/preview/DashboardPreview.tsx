@@ -14,16 +14,17 @@ import {
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetter } from '../../../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
 
 export const DashboardPreview = ({
     urn,
-    name,
-    platformInstanceId,
-    description,
     platform,
+    platformInstanceId,
+    name,
+    subtype,
+    description,
     access,
     owners,
     tags,
@@ -42,9 +43,10 @@ export const DashboardPreview = ({
     snippet,
 }: {
     urn: string;
-    platform: string;
+    platform?: string;
     platformInstanceId?: string;
     name?: string;
+    subtype?: string | null;
     description?: string | null;
     access?: AccessLevel | null;
     owners?: Array<Owner> | null;
@@ -64,18 +66,18 @@ export const DashboardPreview = ({
     snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalizedPlatform = capitalizeFirstLetter(platform);
 
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Dashboard, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
-            type="Dashboard"
+            type={capitalizeFirstLetterOnly(subtype) || 'Dashboard'}
             typeIcon={entityRegistry.getIcon(EntityType.Dashboard, 14, IconStyleType.ACCENT)}
             logoUrl={logoUrl || ''}
             platformInstanceId={platformInstanceId}
-            platform={capitalizedPlatform}
+            platform={platform}
             qualifier={access}
             owners={owners}
             tags={tags}

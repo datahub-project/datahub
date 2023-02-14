@@ -9,11 +9,18 @@ from datahub.utilities.sql_parser import SqlLineageSQLParser, SQLParser
 class BigQuerySQLParser(SQLParser):
     parser: SQLParser
 
-    def __init__(self, sql_query: str) -> None:
+    def __init__(
+        self,
+        sql_query: str,
+        use_external_process: bool = False,
+        use_raw_names: bool = False,
+    ) -> None:
         super().__init__(sql_query)
 
         self._parsed_sql_query = self.parse_sql_query(sql_query)
-        self.parser = SqlLineageSQLParser(self._parsed_sql_query)
+        self.parser = SqlLineageSQLParser(
+            self._parsed_sql_query, use_external_process, use_raw_names
+        )
 
     def parse_sql_query(self, sql_query: str) -> str:
         sql_query = BigQuerySQLParser._parse_bigquery_comment_sign(sql_query)
@@ -72,7 +79,7 @@ class BigQuerySQLParser(SQLParser):
         Note: ignore cases of having keyword FROM as part of datetime function EXTRACT
         """
         return re.sub(
-            r"(?<!day\s)(?<!(date|time|hour|week|year)\s)(?<!month\s)(?<!(second|minute)\s)(?<!quarter\s)(?<!\.)(from\s)([^`\s()]+)",
+            r"(?<!day\s)(?<!(date|time|hour|week|year)\s)(?<!month\s)(?<!(second|minute)\s)(?<!quarter\s)(?<!\.)(from\s)([^`\s();]+)",
             r"\3`\4`",
             sql_query,
             flags=re.IGNORECASE,

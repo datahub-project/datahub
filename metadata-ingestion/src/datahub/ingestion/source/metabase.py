@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
+import pydantic
 import requests
-from pydantic import validator
-from pydantic.fields import Field
+from pydantic import Field, validator
 from requests.models import HTTPError
 from sqllineage.runner import LineageRunner
 
@@ -48,8 +48,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
-    username: str = Field(default=None, description="Metabase username.")
-    password: str = Field(default=None, description="Metabase password.")
+    username: Optional[str] = Field(default=None, description="Metabase username.")
+    password: Optional[pydantic.SecretStr] = Field(
+        default=None, description="Metabase password."
+    )
     database_alias_map: Optional[dict] = Field(
         default=None,
         description="Database name map to use when constructing dataset URN.",
@@ -126,7 +128,9 @@ class MetabaseSource(Source):
             None,
             {
                 "username": self.config.username,
-                "password": self.config.password,
+                "password": self.config.password.get_secret_value()
+                if self.config.password
+                else None,
             },
         )
 
@@ -165,6 +169,7 @@ class MetabaseSource(Source):
                 key="metabase-session",
                 reason=f"Unable to logout for user {self.config.username}",
             )
+        super().close()
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -204,7 +209,6 @@ class MetabaseSource(Source):
     def construct_dashboard_from_api_data(
         self, dashboard_info: dict
     ) -> Optional[DashboardSnapshot]:
-
         dashboard_id = dashboard_info.get("id", "")
         dashboard_url = f"{self.config.connect_uri}/api/dashboard/{dashboard_id}"
         try:
@@ -240,7 +244,9 @@ class MetabaseSource(Source):
         chart_urns = []
         cards_data = dashboard_details.get("ordered_cards", "{}")
         for card_info in cards_data:
-            chart_urn = builder.make_chart_urn(self.platform, card_info.get("id", ""))
+            chart_urn = builder.make_chart_urn(
+                self.platform, card_info.get("card_id", "")
+            )
             chart_urns.append(chart_urn)
 
         dashboard_info_class = DashboardInfoClass(
@@ -339,9 +345,7 @@ class MetabaseSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        chart_type = self._get_chart_type(
-            card_details.get("id", ""), card_details.get("display")
-        )
+        chart_type = self._get_chart_type(card_id, card_details.get("display"))
         description = card_details.get("description") or ""
         title = card_details.get("name") or ""
         datasource_urn = self.get_datasource_urn(card_details)
@@ -432,12 +436,15 @@ class MetabaseSource(Source):
 
         return custom_properties
 
-    def get_datasource_urn(self, card_details):
-        platform, database_name, platform_instance = self.get_datasource_from_id(
-            card_details.get("database_id", "")
-        )
+    def get_datasource_urn(self, card_details: dict) -> Optional[List]:
+        (
+            platform,
+            database_name,
+            database_schema,
+            platform_instance,
+        ) = self.get_datasource_from_id(card_details.get("database_id", ""))
         query_type = card_details.get("dataset_query", {}).get("type", {})
-        source_paths = set()
+        source_tables = set()
 
         if query_type == "query":
             source_table_id = (
@@ -448,8 +455,8 @@ class MetabaseSource(Source):
             if source_table_id is not None:
                 schema_name, table_name = self.get_source_table_from_id(source_table_id)
                 if table_name:
-                    source_paths.add(
-                        f"{f'{schema_name}.' if schema_name else ''}{table_name}"
+                    source_tables.add(
+                        f"{database_name + '.' if database_name else ''}{schema_name + '.' if schema_name else ''}{table_name}"
                     )
         else:
             try:
@@ -462,11 +469,19 @@ class MetabaseSource(Source):
 
                 for table in parser.source_tables:
                     sources = str(table).split(".")
+
+                    source_db = sources[-3] if len(sources) > 2 else database_name
                     source_schema, source_table = sources[-2], sources[-1]
                     if source_schema == "<default>":
-                        source_schema = str(self.config.default_schema)
+                        source_schema = (
+                            database_schema
+                            if database_schema is not None
+                            else str(self.config.default_schema)
+                        )
 
-                    source_paths.add(f"{source_schema}.{source_table}")
+                    source_tables.add(
+                        f"{source_db + '.' if source_db else ''}{source_schema}.{source_table}"
+                    )
             except Exception as e:
                 self.report.report_failure(
                     key="metabase-query",
@@ -476,10 +491,10 @@ class MetabaseSource(Source):
                 )
                 return None
 
+        if platform == "snowflake":
+            source_tables = set(i.lower() for i in source_tables)
+
         # Create dataset URNs
-        dataset_urn = []
-        dbname = f"{f'{database_name}.' if database_name else ''}"
-        source_tables = list(map(lambda tbl: f"{dbname}{tbl}", source_paths))
         dataset_urn = [
             builder.make_dataset_urn_with_platform_instance(
                 platform=platform,
@@ -531,7 +546,6 @@ class MetabaseSource(Source):
         # Map engine names to what datahub expects in
         # https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json
         engine = dataset_json.get("engine", "")
-        platform = engine
 
         engine_mapping = {
             "sparksql": "spark",
@@ -547,10 +561,13 @@ class MetabaseSource(Source):
         if engine in engine_mapping:
             platform = engine_mapping[engine]
         else:
+            platform = engine
+
             self.report.report_warning(
                 key=f"metabase-platform-{datasource_id}",
                 reason=f"Platform was not found in DataHub. Using {platform} name as is",
             )
+
         # Set platform_instance if configuration provides a mapping from platform name to instance
         platform_instance = (
             self.config.platform_instance_map.get(platform)
@@ -576,6 +593,8 @@ class MetabaseSource(Source):
             else None
         )
 
+        schema = dataset_json.get("details", {}).get("schema")
+
         if (
             self.config.database_alias_map is not None
             and platform in self.config.database_alias_map
@@ -587,7 +606,7 @@ class MetabaseSource(Source):
                 reason=f"Cannot determine database name for platform: {platform}",
             )
 
-        return platform, dbname, platform_instance
+        return platform, dbname, schema, platform_instance
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:

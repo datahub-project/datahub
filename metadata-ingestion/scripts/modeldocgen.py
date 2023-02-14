@@ -1,18 +1,19 @@
 import glob
 import json
 import logging
+import os
 import re
+import shutil
 import unittest.mock
 from dataclasses import Field, dataclass, field
-from enum import Enum, auto
+from enum import auto
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import avro.schema
 import click
-from pydantic import validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigEnum, ConfigModel
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -20,16 +21,15 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
     ForeignKeyConstraintClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OtherSchemaClass,
+    SchemaFieldClass as SchemaField,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
@@ -47,7 +47,7 @@ def capitalize_first(something: str) -> str:
     return something[0:1].upper() + something[1:]
 
 
-class EntityCategory(Enum):
+class EntityCategory(ConfigEnum):
     CORE = auto()
     INTERNAL = auto()
 
@@ -70,12 +70,6 @@ class EntityDefinition:
     # @validator("name")
     # def lower_everything(cls, v: str) -> str:
     #    return v.lower()
-
-    @validator("category", pre=True)
-    def find_match(cls, v: str) -> EntityCategory:
-        if isinstance(v, str) and v.upper() == "INTERNAL":
-            return EntityCategory.INTERNAL
-        return EntityCategory.CORE
 
     @property
     def display_name(self):
@@ -143,12 +137,7 @@ def load_schema_file(schema_file: str) -> None:
         # probably an aspect schema
         record_schema: avro.schema.RecordSchema = avro_schema
         aspect_def = record_schema.get_prop("Aspect")
-        try:
-            aspect_definition = AspectDefinition(**aspect_def)
-        except Exception as e:
-            import pdb
-
-            breakpoint()
+        aspect_definition = AspectDefinition(**aspect_def)
 
         aspect_definition.schema = record_schema
         aspect_registry[aspect_definition.name] = aspect_definition
@@ -263,8 +252,9 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
         timeseries_aspects_section = ""
 
         for aspect in entity_def.aspects or []:
-            aspect_definition: AspectDefinition = aspect_registry.get(aspect)
+            aspect_definition: AspectDefinition = aspect_registry[aspect]
             assert aspect_definition
+            assert aspect_definition.schema
             deprecated_message = (
                 " (Deprecated)"
                 if aspect_definition.schema.get_prop("Deprecated")
@@ -278,7 +268,7 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
                 f"\n### {aspect}{deprecated_message}{timeseries_qualifier}\n"
             )
             this_aspect_doc += f"{aspect_definition.schema.get_prop('doc')}\n"
-            this_aspect_doc += f"<details>\n<summary>Schema</summary>\n\n"
+            this_aspect_doc += "<details>\n<summary>Schema</summary>\n\n"
             # breakpoint()
             this_aspect_doc += f"```javascript\n{json.dumps(aspect_definition.schema.to_json(), indent=2)}\n```\n</details>\n"
 
@@ -295,20 +285,20 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
         relationships_section = "\n## Relationships\n"
         adjacency = graph.get_adjacency(entity_def.display_name)
         if adjacency.self_loop:
-            relationships_section += f"\n### Self\nThese are the relationships to itself, stored in this entity's aspects"
+            relationships_section += "\n### Self\nThese are the relationships to itself, stored in this entity's aspects"
         for relnship in adjacency.self_loop:
             relationships_section += (
                 f"\n- {relnship.name} ({relnship.doc[1:] if relnship.doc else ''})"
             )
 
         if adjacency.outgoing:
-            relationships_section += f"\n### Outgoing\nThese are the relationships stored in this entity's aspects"
+            relationships_section += "\n### Outgoing\nThese are the relationships stored in this entity's aspects"
             relationships_section += make_relnship_docs(
                 adjacency.outgoing, direction="outgoing"
             )
 
         if adjacency.incoming:
-            relationships_section += f"\n### Incoming\nThese are the relationships stored in other entity's aspects"
+            relationships_section += "\n### Incoming\nThese are the relationships stored in other entity's aspects"
             relationships_section += make_relnship_docs(
                 adjacency.incoming, direction="incoming"
             )
@@ -413,9 +403,6 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
                             f_field.globalTags.tags.append(
                                 TagAssociationClass(tag="urn:li:tag:Temporal")
                             )
-                        import pdb
-
-                        # breakpoint()
                     if "Searchable" in json_dict:
                         f_field.globalTags = f_field.globalTags or GlobalTagsClass(
                             tags=[]
@@ -509,10 +496,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
         events.append(mce)
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=d.urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(typeNames=["entity"]),
         )
         events.append(mcp)
@@ -544,7 +528,7 @@ def get_sorted_entity_names(
         (x, y) for (x, y) in entity_names if y.category == EntityCategory.CORE
     ]
     priority_bearing_core_entities = [(x, y) for (x, y) in core_entities if y.priority]
-    priority_bearing_core_entities.sort(key=lambda x: x[1].priority)
+    priority_bearing_core_entities.sort(key=lambda t: t[1].priority)
     priority_bearing_core_entities = [x for (x, y) in priority_bearing_core_entities]
 
     non_priority_core_entities = [x for (x, y) in core_entities if not y.priority]
@@ -581,6 +565,7 @@ def preprocess_markdown(markdown_contents: str) -> str:
     content_swap_register = {}
     while inline_pattern.search(markdown_contents, pos=pos):
         match = inline_pattern.search(markdown_contents, pos=pos)
+        assert match
         file_name = match.group(1)
         with open(file_name, "r") as fp:
             inline_content = fp.read()
@@ -598,7 +583,9 @@ def preprocess_markdown(markdown_contents: str) -> str:
 
 
 @click.command()
-@click.argument("schema_files", type=click.Path(exists=True), nargs=-1, required=True)
+@click.argument("schemas_root", type=click.Path(exists=True), required=True)
+@click.option("--registry", type=click.Path(exists=True), required=True)
+@click.option("--generated-docs-dir", type=click.Path(exists=True), required=True)
 @click.option("--server", type=str, required=False)
 @click.option("--file", type=str, required=False)
 @click.option(
@@ -607,7 +594,9 @@ def preprocess_markdown(markdown_contents: str) -> str:
 @click.option("--png", type=str, required=False)
 @click.option("--extra-docs", type=str, required=False)
 def generate(
-    schema_files: List[str],
+    schemas_root: str,
+    registry: str,
+    generated_docs_dir: str,
     server: Optional[str],
     file: Optional[str],
     dot: Optional[str],
@@ -630,40 +619,39 @@ def generate(
                     final_markdown = preprocess_markdown(file_contents)
                     entity_extra_docs[entity_name] = final_markdown
 
-    for schema_file in schema_files:
-        if schema_file.endswith(".yml") or schema_file.endswith(".yaml"):
-            # registry file
-            load_registry_file(schema_file)
-        else:
-            # schema file
-            load_schema_file(schema_file)
+    # registry file
+    load_registry_file(registry)
+
+    # schema files
+    for schema_file in Path(schemas_root).glob("**/*.avsc"):
+        if (
+            schema_file.name in {"MetadataChangeEvent.avsc"}
+            or json.loads(schema_file.read_text()).get("Aspect") is not None
+        ):
+            load_schema_file(str(schema_file))
 
     if entity_extra_docs:
         for entity_name in entity_extra_docs:
 
-            entity_registry.get(entity_name).doc_file_contents = entity_extra_docs[
+            entity_registry[entity_name].doc_file_contents = entity_extra_docs[
                 entity_name
             ]
 
     relationship_graph = RelationshipGraph()
     events = generate_stitched_record(relationship_graph)
 
-    generated_docs_dir = "../docs/generated/metamodel"
-    import shutil
-
     shutil.rmtree(f"{generated_docs_dir}/entities", ignore_errors=True)
-    entity_names = [(x, entity_registry.get(x)) for x in generated_documentation]
+    entity_names = [(x, entity_registry[x]) for x in generated_documentation]
 
     sorted_entity_names = get_sorted_entity_names(entity_names)
 
     index = 0
     for category, sorted_entities in sorted_entity_names:
         for entity_name in sorted_entities:
-            entity_def = entity_registry.get(entity_name)
+            entity_def = entity_registry[entity_name]
 
             entity_category = entity_def.category
             entity_dir = f"{generated_docs_dir}/entities/"
-            import os
 
             os.makedirs(entity_dir, exist_ok=True)
 

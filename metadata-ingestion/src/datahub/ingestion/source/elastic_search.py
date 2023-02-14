@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
@@ -10,8 +9,9 @@ from elasticsearch import Elasticsearch
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.validate_host_port import validate_host_port
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -39,7 +39,6 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
-    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DateTypeClass,
@@ -51,6 +50,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.config_clean import remove_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,6 @@ class ElasticToSchemaFieldConverter:
 
     @staticmethod
     def get_column_type(elastic_column_type: str) -> SchemaFieldDataType:
-
         type_class: Optional[
             Type
         ] = ElasticToSchemaFieldConverter._field_type_to_schema_field_type.get(
@@ -248,29 +247,11 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):
-            # The port can be provided but is not required.
-            port = None
-            for prefix in ["http://", "https://"]:
-                if entry.startswith(prefix):
-                    entry = entry[len(prefix) :]
+            entry = remove_protocol(entry)
             for suffix in ["/"]:
                 if entry.endswith(suffix):
                     entry = entry[: -len(suffix)]
-
-            if ":" in entry:
-                (host, port) = entry.rsplit(":", 1)
-            else:
-                host = entry
-            if not re.match(
-                # This regex is quite loose. Many invalid hostnames or IPs will slip through,
-                # but it serves as a good first line of validation. We defer to Elastic for the
-                # remaining validation.
-                r"^[\w\-\.]+$",
-                host,
-            ):
-                raise ConfigurationError(f"host contains bad characters, found {host}")
-            if port is not None and not port.isdigit():
-                raise ConfigurationError(f"port must be all digits, found {port}")
+            validate_host_port(entry)
         return host_val
 
     @property
@@ -278,7 +259,7 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         return None if self.username is None else (self.username, self.password or "")
 
 
-@platform_name("Elastic Search")
+@platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -355,13 +336,10 @@ class ElasticsearchSource(Source):
                 platform_instance=self.source_config.platform_instance,
             )
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
                 entityUrn=dataset_urn,
-                aspectName="datasetProperties",
                 aspect=DatasetPropertiesClass(
                     customProperties={"numPartitions": str(count)}
                 ),
-                changeType=ChangeTypeClass.UPSERT,
             )
 
     def _extract_mcps(
@@ -414,27 +392,19 @@ class ElasticsearchSource(Source):
             env=self.source_config.env,
         )
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName="schemaMetadata",
             aspect=schema_metadata,
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         # 2. Construct and emit the status aspect.
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName="status",
             aspect=StatusClass(removed=False),
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         # 3. Construct and emit subtype
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName="subTypes",
             aspect=SubTypesClass(
                 typeNames=[
                     "Index Template"
@@ -444,7 +414,6 @@ class ElasticsearchSource(Source):
                     else "Datastream"
                 ]
             ),
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         # 4. Construct and emit properties if needed. Will attempt to get the following properties
@@ -471,26 +440,20 @@ class ElasticsearchSource(Source):
             custom_properties["num_replicas"] = num_replicas
 
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=dataset_urn,
-            aspectName="datasetProperties",
             aspect=DatasetPropertiesClass(customProperties=custom_properties),
-            changeType=ChangeTypeClass.UPSERT,
         )
 
         # 5. Construct and emit platform instance aspect
         if self.source_config.platform_instance:
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
                 entityUrn=dataset_urn,
-                aspectName="dataPlatformInstance",
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
                     instance=make_dataplatform_instance_urn(
                         self.platform, self.source_config.platform_instance
                     ),
                 ),
-                changeType=ChangeTypeClass.UPSERT,
             )
 
     def get_report(self):
@@ -499,3 +462,4 @@ class ElasticsearchSource(Source):
     def close(self):
         if self.client:
             self.client.close()
+        super().close()

@@ -7,7 +7,7 @@ import pydantic
 
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 
@@ -29,7 +29,7 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
         description="The number of log item will be queried per page for lineage collection",
     )
     credential: Optional[BigQueryCredential] = pydantic.Field(
-        description="BigQuery credential informations"
+        default=None, description="BigQuery credential informations"
     )
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
     extra_client_options: Dict[str, Any] = pydantic.Field(
@@ -44,6 +44,7 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
     )
+
     bigquery_audit_metadata_datasets: Optional[List[str]] = pydantic.Field(
         default=None,
         description="A list of datasets that contain a table named cloudaudit_googleapis_com_data_access which contain BigQuery audit logs, specifically, those containing BigQueryAuditMetadata. It is recommended that the project of the dataset is also specified, for example, projectA.datasetB.",
@@ -96,16 +97,6 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
     def validate_that_bigquery_audit_metadata_datasets_is_correctly_configured(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
-        profiling = values.get("profiling")
-        if (
-            values.get("storage_project_id")
-            and profiling is not None
-            and profiling.enabled
-            and not profiling.bigquery_temp_table_schema
-        ):
-            raise ConfigurationError(
-                "If storage project is being used with profiling then bigquery_temp_table_schema needs to be set to a dataset in the compute project"
-            )
         if (
             values.get("use_exported_bigquery_audit_metadata")
             and not values.get("use_v2_audit_metadata")
@@ -114,7 +105,6 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
             raise ConfigurationError(
                 "bigquery_audit_metadata_datasets must be specified if using exported audit metadata. Otherwise set use_v2_audit_metadata to True."
             )
-            pass
         return values
 
     @pydantic.validator("platform")

@@ -72,7 +72,8 @@ public class ChartType implements SearchableEntityType<Chart, String>, Browsable
         DOMAINS_ASPECT_NAME,
         DEPRECATION_ASPECT_NAME,
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-        INPUT_FIELDS_ASPECT_NAME
+        INPUT_FIELDS_ASPECT_NAME,
+        EMBED_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "queryType", "tool", "type");
 
@@ -138,11 +139,12 @@ public class ChartType implements SearchableEntityType<Chart, String>, Browsable
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search(
             "chart",
-            query,
-            facetFilters,
-            start,
-            count,
-            context.getAuthentication()
+                query,
+                facetFilters,
+                start,
+                count,
+                context.getAuthentication(),
+                true
         );
         return UrnSearchResultsMapper.map(searchResult);
     }
@@ -203,7 +205,7 @@ public class ChartType implements SearchableEntityType<Chart, String>, Browsable
             proposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
 
             try {
-                _entityClient.batchIngestProposals(proposals, context.getAuthentication());
+                _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
             } catch (RemoteInvocationException e) {
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }

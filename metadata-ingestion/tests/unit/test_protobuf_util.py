@@ -23,7 +23,9 @@ message Test1 {
     assert 0 == len(fields)
 
 
-def test_protobuf_schema_to_mce_fields_with_single_message_single_field_key_schema() -> None:
+def test_protobuf_schema_to_mce_fields_with_single_message_single_field_key_schema() -> (
+    None
+):
     schema: str = """
 syntax = "proto3";
 

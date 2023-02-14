@@ -20,7 +20,7 @@ Before running any metadata ingestion job, you should make sure that DataHub bac
 
 ### Sources
 
-Data systems that we are extracting metadata from are referred to as **Sources**. The `Sources` tab on the left in the sidebar shows you all the sources that are available for you to ingest metadata from. For example, we have sources for [BigQuery](../docs/generated/ingestion/sources/bigquery.md), [Looker](../docs/generated/ingestion/sources/looker.md), [Tableau](../docs/generated/ingestion/sources/tableau.md) and many others.
+Data systems that we are extracting metadata from are referred to as **Sources**. The `Sources` tab on the left in the sidebar shows you all the sources that are available for you to ingest metadata from. For example, we have sources for [BigQuery](https://datahubproject.io/docs/generated/ingestion/sources/bigquery), [Looker](https://datahubproject.io/docs/generated/ingestion/sources/looker), [Tableau](https://datahubproject.io/docs/generated/ingestion/sources/tableau) and many others.
 
 #### Metadata Ingestion Source Status
 
@@ -126,13 +126,6 @@ By default `--preview` creates 10 workunits. But if you wish to try producing mo
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview --preview-workunits=20
 ```
 
-Sometimes, while running the ingestion pipeline, unexpected exceptions may occur. This can cause `stackprinter` to print all variables the logs. This may lead to credentials being written to logfiles. To prevent this behavior, in case of unexpected errors, a `--suppress-error-logs` option can be added to ingest cli command. By default, this option is set to false. However, if enabled, prevents printing all variables to logs, mitigating the risk of writing credentials to logs. The `--suppress-error-logs` option is applied when the ingestion pipeline is actually running.
-
-```shell
-# Running ingestion with --suppress-error-logs option
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --suppress-error-logs
-```
-
 #### Reporting
 
 By default, the cli sends an ingestion report to DataHub, which allows you to see the result of all cli-based ingestion in the UI. This can be turned off with the `--no-default-report` flag.
@@ -183,7 +176,7 @@ transformers: # an array of transformers applied sequentially
 # default sink, no config needed
 ```
 
-Check out the [transformers guide](./transformers.md) to learn more about how you can create really flexible pipelines for processing metadata using Transformers!
+Check out the [transformers guide](./docs/transformer/intro.md) to learn more about how you can create really flexible pipelines for processing metadata using Transformers!
 
 ## Using as a library (SDK)
 
@@ -195,5 +188,5 @@ In some cases, you might want to configure and run a pipeline entirely from with
 
 ## Developing
 
-See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./transformers.md).
+See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./docs/transformer/intro.md).
 

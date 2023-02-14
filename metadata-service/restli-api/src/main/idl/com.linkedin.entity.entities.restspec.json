@@ -27,6 +27,30 @@
       } ]
     } ],
     "actions" : [ {
+      "name" : "applyRetention",
+      "parameters" : [ {
+        "name" : "start",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "count",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "attemptWithVersion",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "aspectName",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "urn",
+        "type" : "string",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    }, {
       "name" : "autocomplete",
       "parameters" : [ {
         "name" : "entity",
@@ -86,9 +110,26 @@
       "returns" : "com.linkedin.metadata.browse.BrowseResult"
     }, {
       "name" : "delete",
+      "doc" : "Deletes all data related to an individual urn(entity).\nService Returns: - a DeleteEntityResponse object.",
       "parameters" : [ {
         "name" : "urn",
-        "type" : "string"
+        "type" : "string",
+        "doc" : "- the urn of the entity."
+      }, {
+        "name" : "aspectName",
+        "type" : "string",
+        "optional" : true,
+        "doc" : "- the optional aspect name if only want to delete the aspect (applicable only for timeseries aspects)."
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true,
+        "doc" : "- the optional start time (applicable only for timeseries aspects)."
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
+        "optional" : true,
+        "doc" : "- the optional end time (applicable only for the timeseries aspects)."
       } ],
       "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
     }, {
@@ -221,6 +262,11 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "fulltext",
+        "type" : "boolean",
+        "default" : "true",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
@@ -246,6 +292,11 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "fulltext",
+        "type" : "boolean",
+        "default" : "true",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
     }, {
@@ -282,6 +333,11 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "fulltext",
+        "type" : "boolean",
+        "default" : "true",
+        "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.LineageSearchResult"
     }, {

@@ -3,11 +3,15 @@ package com.linkedin.metadata.event;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
+import io.opentelemetry.extension.annotations.WithSpan;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -53,6 +57,16 @@ public interface EventProducer {
   );
 
   /**
+   * Produces a {@link com.linkedin.mxe.MetadataChangeProposal}
+   * as an async update to an entity
+   *
+   * @param metadataChangeProposal metadata change proposal to push into MCP kafka topic
+   */
+  @WithSpan
+  void produceMetadataChangeProposal(@Nonnull final Urn urn, @Nonnull final MetadataChangeProposal
+      metadataChangeProposal);
+
+  /**
    * Produces a generic platform "event".
    *
    * @param name the name, or type, of the event to produce, as defined in the {@link EntityRegistry}.
@@ -63,5 +77,14 @@ public interface EventProducer {
       @Nonnull String name,
       @Nullable String key,
       @Nonnull PlatformEvent payload
+  );
+
+  /**
+   * Creates an entry on the history log of when the indices were last rebuilt with the latest configuration.
+   *
+   * @param event the history event to send to the DataHub Upgrade history topic
+   */
+  void produceDataHubUpgradeHistoryEvent(
+      @Nonnull DataHubUpgradeHistoryEvent event
   );
 }

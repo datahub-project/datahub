@@ -1,9 +1,7 @@
 [
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -12,17 +10,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -31,17 +38,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -50,17 +52,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -69,17 +66,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -88,17 +94,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -107,17 +108,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -126,17 +122,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.test1,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -145,14 +136,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.test1,PROD)",
@@ -167,11 +154,8 @@
                         "customProperties": {
                             "p1": "property1"
                         },
-                        "externalUrl": null,
                         "name": "test1",
-                        "qualifiedName": null,
                         "description": "fake_comments",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -182,46 +166,32 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
                                 "tableSchema": ""
                             }
                         },
-                        "fields": [],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "fields": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.test1,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -230,17 +200,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.test2,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -249,14 +214,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.test2,PROD)",
@@ -271,11 +232,8 @@
                         "customProperties": {
                             "p1": "property1"
                         },
-                        "externalUrl": null,
                         "name": "test2",
-                        "qualifiedName": null,
                         "description": "fake_comments",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -286,46 +244,32 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
                                 "tableSchema": ""
                             }
                         },
-                        "fields": [],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "fields": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema1.test2,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -334,17 +278,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -353,17 +292,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -372,17 +320,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -391,17 +334,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "container",
     "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -410,17 +348,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.test3,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -429,14 +362,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.test3,PROD)",
@@ -451,11 +380,8 @@
                         "customProperties": {
                             "p1": "property1"
                         },
-                        "externalUrl": null,
                         "name": "test3",
-                        "qualifiedName": null,
                         "description": "fake_comments",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -466,46 +392,32 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
                                 "tableSchema": ""
                             }
                         },
-                        "fields": [],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "fields": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.test3,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -514,17 +426,12 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.test4,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -533,14 +440,10 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.test4,PROD)",
@@ -555,11 +458,8 @@
                         "customProperties": {
                             "p1": "property1"
                         },
-                        "externalUrl": null,
                         "name": "test4",
-                        "qualifiedName": null,
                         "description": "fake_comments",
-                        "uri": null,
                         "tags": []
                     }
                 },
@@ -570,46 +470,32 @@
                         "version": 0,
                         "created": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         },
-                        "deleted": null,
-                        "dataset": null,
-                        "cluster": null,
                         "hash": "",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.MySqlDDL": {
                                 "tableSchema": ""
                             }
                         },
-                        "fields": [],
-                        "primaryKeys": null,
-                        "foreignKeysSpecs": null,
-                        "foreignKeys": null
+                        "fields": []
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,schema2.test4,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -618,10 +504,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "oracle-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "oracle-2022_02_03-07_00_00"
     }
 }
 ]

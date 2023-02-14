@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.utils;
 import com.datahub.util.ModelUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.dao.BaseReadDAO;
 import com.linkedin.metadata.query.filter.Condition;
@@ -39,7 +40,7 @@ public class QueryUtils {
   // Creates new Criterion with field, value and condition.
   @Nonnull
   public static Criterion newCriterion(@Nonnull String field, @Nonnull String value, @Nonnull Condition condition) {
-    return new Criterion().setField(field).setValue(value).setCondition(condition);
+    return new Criterion().setField(field).setValue(value).setValues(new StringArray(ImmutableList.of(value))).setCondition(condition);
   }
 
   // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL condition (default).

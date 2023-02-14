@@ -4,7 +4,10 @@ source:
     # Your Power BI tenant identifier
     tenant_id: a949d688-67c0-4bf1-a344-e939411c6c0a
     # Ingest elements of below PowerBi Workspace into Datahub
-    workspace_id: 4bd10256-e999-45dd-8e56-571c77153a5f
+    workspace_id_pattern:
+      allow:
+        - 4bd10256-e999-45dd-8e56-571c77153a5f
+      deny:
     # Workspaces dataset environments (PROD, DEV, QA, STAGE)
     env: DEV
     # Azure AD Application identifier
@@ -13,6 +16,11 @@ source:
     client_secret: bar
     # Enable / Disable ingestion of user information for dashboards
     extract_ownership: true
+    # Enable/Disable extracting workspace information to DataHub containers
+    extract_workspaces_to_containers: true
+    # Enable / Disable ingestion of endorsements.
+    # Please notice that this may overwrite any existing tags defined to ingested entities!
+    extract_endorsements_to_tags: false
     # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
         PostgreSql: postgres

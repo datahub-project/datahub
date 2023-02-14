@@ -4,10 +4,10 @@ from functools import lru_cache
 from typing import Dict, Iterable, Optional, Tuple, Union
 
 import dateutil.parser as dp
+import pydantic
 import requests
 import tenacity
-from pydantic import validator
-from pydantic.fields import Field
+from pydantic import Field, validator
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -68,8 +68,10 @@ class ModeConfig(DatasetLineageProviderConfigBase):
     connect_uri: str = Field(
         default="https://app.mode.com", description="Mode host URL."
     )
-    token: str = Field(default=None, description="Mode user token.")
-    password: str = Field(default=None, description="Mode password for authentication.")
+    token: str = Field(description="Mode user token.")
+    password: pydantic.SecretStr = Field(
+        description="Mode password for authentication."
+    )
     workspace: Optional[str] = Field(default=None, description="")
     default_schema: str = Field(
         default="public",
@@ -168,7 +170,10 @@ class ModeSource(Source):
         self.report = SourceReport()
 
         self.session = requests.session()
-        self.session.auth = HTTPBasicAuth(self.config.token, self.config.password)
+        self.session.auth = HTTPBasicAuth(
+            self.config.token,
+            self.config.password.get_secret_value(),
+        )
         self.session.headers.update(
             {
                 "Content-Type": "application/json",
@@ -356,7 +361,6 @@ class ModeSource(Source):
     def construct_chart_custom_properties(
         self, chart_detail: dict, chart_type: str
     ) -> Dict:
-
         custom_properties = {}
         metadata = chart_detail.get("encoding", {})
         if chart_type == "table":
@@ -442,7 +446,6 @@ class ModeSource(Source):
     def _get_platform_and_dbname(
         self, data_source_id: int
     ) -> Union[Tuple[str, str], Tuple[None, None]]:
-
         data_sources = []
         try:
             ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")

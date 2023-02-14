@@ -1,8 +1,10 @@
 package com.linkedin.metadata.models.registry;
 
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
+import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,15 +39,30 @@ public interface EntityRegistry {
   EventSpec getEventSpec(@Nonnull final String eventName);
 
   /**
-   * Returns all {@link DefaultEntitySpec}s that the register is aware of.
-   * @return a list of {@link DefaultEntitySpec}s, empty list if none exists.
+   * Returns all {@link DefaultEntitySpec}s that the registry is aware of.
+   * @return a map of String to {@link DefaultEntitySpec}s, empty map if none exists.
    */
   @Nonnull
   Map<String, EntitySpec> getEntitySpecs();
+
+
+  /**
+   * Returns all {@link AspectSpec}s that the registry is aware of.
+   * @return a map of String to {@link AspectSpec}s, empty map if none exists.
+   */
+  @Nonnull
+  Map<String, AspectSpec> getAspectSpecs();
 
   /**
    * Returns all {@link EventSpec}s that the registry is aware of.
    */
   @Nonnull
   Map<String, EventSpec> getEventSpecs();
+
+  /**
+   * Returns an {@link AspectTemplateEngine} that is used for generating templates from {@link com.linkedin.metadata.models.AspectSpec}s
+   * @return a template engine instance associated with this registry
+   */
+  @Nonnull
+  AspectTemplateEngine getAspectTemplateEngine();
 }

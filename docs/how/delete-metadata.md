@@ -10,6 +10,10 @@ Read on to find out how to perform these kinds of deletes.
 
 _Note: Deleting metadata should only be done with care. Always use `--dry-run` to understand what will be deleted before proceeding. Prefer soft-deletes (`--soft`) unless you really want to nuke metadata rows. Hard deletes will actually delete rows in the primary store and recovering them will require using backups of the primary metadata store. Make sure you understand the implications of issuing soft-deletes versus hard-deletes before proceeding._ 
 
+
+:::info
+Deleting metadata using DataHub's CLI and GraphQL API is a simple, systems-level action. If you attempt to delete an Entity with children, such as a Domain, it will not delete those children, you will instead need to delete each child by URN in addition to deleting the parent. 
+:::
 ## Delete By Urn
 
 To delete all the data related to a single entity, run
@@ -33,8 +37,27 @@ This physically deletes all rows for all aspects of the entity. This action cann
 datahub delete --urn "<my urn>" --hard
 ```
 
-As of datahub v.0.8.35 doing a hard delete by urn will also provide you with a way to remove references to the urn being deleted across the metadata graph. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database.
+As of datahub v0.8.35 doing a hard delete by urn will also provide you with a way to remove references to the urn being deleted across the metadata graph. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database.
 For now, this behaviour must be opted into by a prompt that will appear for you to manually accept or deny.
+
+Starting v0.8.44.2, this also supports deletion of a specific `timeseries` aspect associated with the entity, optionally for a specific time range.
+
+_Note: Deletion by a specific aspect and time range is currently supported only for timeseries aspects._
+
+```bash
+# Delete all of the aspect values for a given entity and a timeseries aspect.
+datahub delete --urn "<entity urn>" -a "<timeseries aspect>" --hard
+Eg: datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_dataset,TEST)" -a "datasetProfile" --hard
+
+# Delete all of the aspect values for a given platform and a timeseries aspect.
+datahub delete -p "<platform>" -a "<timeseries aspect>" --hard
+Eg: datahub delete -p "snowflake" -a "datasetProfile" --hard
+
+# Delete the aspect values for a given platform and a timeseries aspect corresponding to a specific time range.
+datahub delete -p "<platform>" -a "<timeseries aspect>" --start-time '<start_time>' --end-time '<end_time>' --hard
+Eg: datahub delete -p "snowflake" -a "datasetProfile" --start-time '2022-05-29 00:00:00' --end-time '2022-05-31 00:00:00' --hard
+```
+
 
 You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
 You can optionally add `-f` or `--force` to skip confirmations
@@ -119,6 +142,7 @@ datahub ingest rollback --run-id <run-id>
 ```
 
 to rollback all aspects added with this run and all entities created by this run.
+This deletes both the versioned and the timeseries aspects associated with these entities.
 
 ### Unsafe Entities and Rollback
 

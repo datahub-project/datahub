@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import * as QueryString from 'query-string';
-import { Input, Button, Form, message, Image } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Input, Button, Form, message, Image, Divider } from 'antd';
+import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
-import styled, { useTheme } from 'styled-components';
+import styled, { useTheme } from 'styled-components/macro';
 import { Redirect, useLocation } from 'react-router';
 import styles from './login.module.css';
 import { Message } from '../shared/Message';
@@ -36,6 +36,29 @@ const FormInput = styled(Input)`
         font-size: 14px;
         background-color: transparent;
     }
+`;
+
+const SsoDivider = styled(Divider)`
+    background-color: white;
+`;
+
+const SsoButton = styled(Button)`
+    &&& {
+        align-self: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 5.6px 11px;
+        gap: 4px;
+    }
+`;
+
+const LoginLogo = styled(LoginOutlined)`
+    padding-top: 7px;
+`;
+
+const SsoTextSpan = styled.span`
+    padding-top: 6px;
 `;
 
 export type LogInProps = Record<string, never>;
@@ -128,6 +151,12 @@ export const LogIn: React.VFC<LogInProps> = () => {
                             }}
                         </Form.Item>
                     </Form>
+                    <SsoDivider />
+                    <SsoButton type="primary" href="/sso" block htmlType="submit" className={styles.sso_button}>
+                        <LoginLogo />
+                        <SsoTextSpan>Sign in with SSO</SsoTextSpan>
+                        <span />
+                    </SsoButton>
                 </div>
             </div>
         </div>

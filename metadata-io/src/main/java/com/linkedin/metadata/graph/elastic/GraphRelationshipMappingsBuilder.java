@@ -16,6 +16,7 @@ public class GraphRelationshipMappingsBuilder {
     mappings.put("source", getMappingsForEntity());
     mappings.put("destination", getMappingsForEntity());
     mappings.put("relationshipType", getMappingsForKeyword());
+    mappings.put("properties", getMappingsForEdgeProperties());
 
     return ImmutableMap.of("properties", mappings);
   }
@@ -32,5 +33,14 @@ public class GraphRelationshipMappingsBuilder {
         .build();
 
     return ImmutableMap.of("properties", mappings);
+  }
+
+  private static Map<String, Object> getMappingsForEdgeProperties() {
+
+    Map<String, Object> propertyMappings = ImmutableMap.<String, Object>builder()
+        .put("source", getMappingsForKeyword())
+        .build();
+
+    return ImmutableMap.of("properties", propertyMappings);
   }
 }

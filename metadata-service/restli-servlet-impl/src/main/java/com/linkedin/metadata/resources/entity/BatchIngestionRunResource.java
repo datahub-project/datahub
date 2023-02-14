@@ -22,6 +22,7 @@ import com.linkedin.metadata.run.UnsafeEntityInfo;
 import com.linkedin.metadata.run.UnsafeEntityInfoArray;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -31,6 +32,7 @@ import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +70,10 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Inject
   @Named("entityService")
   private EntityService _entityService;
+
+  @Inject
+  @Named("timeseriesAspectService")
+  private TimeseriesAspectService _timeseriesAspectService;
 
   /**
    * Rolls back an ingestion run
@@ -169,6 +175,10 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
           rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
         }
 
+        // Rollback timeseries aspects
+        DeleteAspectValuesResult timeseriesRollbackResult = _timeseriesAspectService.rollbackTimeseriesAspects(runId);
+        rowsDeletedFromEntityDeletion += timeseriesRollbackResult.getNumDocsDeleted();
+
         log.info("finished deleting {} rows", deletedRows.size());
         int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
 
@@ -258,7 +268,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         proposal.setAspect(GenericRecordUtils.serializeAspect(requestResult));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        _entityService.ingestProposal(proposal, new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
+        _entityService.ingestProposal(proposal,
+            new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
       }
     } catch (Exception e) {
       log.error(String.format("Not able to update execution result aspect with runId %s and new status %s.", runId, status), e);

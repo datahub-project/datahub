@@ -2,14 +2,13 @@ apply plugin: 'pegasus'
 
 dependencies {
   compile project(':metadata-service:restli-api')
-  compile project(':metadata-service:auth-api')
-  compile project(':metadata-service:restli-servlet-impl')
+  compile project(':metadata-auth:auth-api')
   compile project(path: ':metadata-service:restli-api', configuration: 'restClient')
   compile project(':metadata-events:mxe-schemas')
+  compile project(':metadata-utils')
 
-  dataModel project(':li-utils')
-
-  compile externalDependency.lombok
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 
   compile spec.product.pegasus.restliClient

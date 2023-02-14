@@ -8,17 +8,17 @@ export const OWNERSHIP_DISPLAY_TYPES = [
     {
         type: OwnershipType.TechnicalOwner,
         name: 'Technical Owner',
-        description: 'Involved in the production, maintenance, or distribution of the asset.',
+        description: 'Involved in the production, maintenance, or distribution of the asset(s).',
     },
     {
         type: OwnershipType.BusinessOwner,
         name: 'Business Owner',
-        description: 'Principle stakeholders or domain experts associated with the asset.',
+        description: 'Principle stakeholders or domain experts associated with the asset(s).',
     },
     {
         type: OwnershipType.DataSteward,
         name: 'Data Steward',
-        description: 'Involved in governance of the asset.',
+        description: 'Involved in governance of the asset(s).',
     },
     {
         type: OwnershipType.None,
