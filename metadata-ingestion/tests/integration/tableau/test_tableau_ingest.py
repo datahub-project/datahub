@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Optional, cast
+from typing import Optional, cast
 from unittest import mock
 
 import pytest
