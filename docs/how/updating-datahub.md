@@ -170,6 +170,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 - #5478 DataHub CLI `delete` command when used with `--hard` option will delete soft-deleted entities which match the other filters given.
 - #5471 Looker now populates `userEmail` in dashboard user usage stats. This version of looker connnector will not work with older version of **datahub-gms** if you have `extract_usage_history` looker config enabled.
 - #5529 - `ANALYTICS_ENABLED` environment variable in **datahub-gms** is now deprecated. Use `DATAHUB_ANALYTICS_ENABLED` instead.
+- #5485 `--include-removed` option was removed from delete CLI
 
 ### Potential Downtime
 
