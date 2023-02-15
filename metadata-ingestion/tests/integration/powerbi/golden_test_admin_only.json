@@ -1180,7 +1180,7 @@
         "json": {
             "customProperties": {},
             "title": "SalesMarketing",
-            "description": "Acryl sales marketing report",
+            "description": "SalesMarketing\n-----\nAcryl sales marketing report",
             "charts": [],
             "datasets": [],
             "lastModified": {
