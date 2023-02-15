@@ -49,7 +49,7 @@ Acryl DataHub employs a push-based metadata ingestion model. In practice, this m
 
 This approach comes with another benefit: security. By managing your own instance of the agent, you can keep the secrets and credentials within your walled garden. Skip uploading secrets & keys into a third-party cloud tool. &#x20;
 
-To push metadata into DataHub, Acryl provide's an ingestion framework written in Python. Typically, push jobs are run on a schedule at an interval of your choosing. For our step-by-step guide on ingestion, click [here](administering-datahub/metadata-ingestion-with-acryl/).
+To push metadata into DataHub, Acryl provide's an ingestion framework written in Python. Typically, push jobs are run on a schedule at an interval of your choosing. For our step-by-step guide on ingestion, click [here](docs/managed-datahub/metadata-ingestion-with-acryl/ingestion.md).
 
 ### Discovering Metadata
 

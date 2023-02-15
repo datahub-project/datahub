@@ -1,12 +1,12 @@
 # Ingestion
 
-Acryl Metadata Ingestion functions similarly to that in open source DataHub. Sources are configured via the[ UI Ingestion](https://datahubproject.io/docs/ui-ingestion) or via a [Recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes), ingestion recipes can be scheduled using your system of choice, and metadata can be pushed from anywhere.&#x20;
+Acryl Metadata Ingestion functions similarly to that in open source DataHub. Sources are configured via the[ UI Ingestion](docs/ui-ingestion.md) or via a [Recipe](metadata-ingestion/README.md#recipes), ingestion recipes can be scheduled using your system of choice, and metadata can be pushed from anywhere.&#x20;
 
 This document will describe the steps required to ingest metadata from your data sources.&#x20;
 
 ## Batch Ingestion&#x20;
 
-Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion ](https://datahubproject.io/docs/metadata-ingestion#install-from-pypi)framework.&#x20;
+Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion ](metadata-ingestion/README.md#install-from-pypi)framework.&#x20;
 
 The metadata that is extracted includes point-in-time instances of dataset, chart, dashboard, pipeline, user, group, usage, and task metadata.&#x20;
 
@@ -38,7 +38,7 @@ Your command line should return the proper version of DataHub upon executing the
 
 ### Step 2: Install Connector Plugins
 
-Our CLI follows a plugin architecture. You must install connectors for different data sources individually. For a list of all supported data sources, see [the open source docs](https://datahubproject.io/docs/metadata-ingestion/#installing-plugins).&#x20;
+Our CLI follows a plugin architecture. You must install connectors for different data sources individually. For a list of all supported data sources, see [the open source docs](metadata-ingestion/README.md#installing-plugins).&#x20;
 
 Once you've found the connectors you care about, simply install them using `pip install`.&#x20;
 
@@ -50,13 +50,13 @@ pip install --upgrade acryl-datahub[mysql]
 
 ### Step 3: Write a Recipe
 
-[Recipes](https://datahubproject.io/docs/metadata-ingestion/#recipes) are yaml configuration files that serve as input to the Metadata Ingestion framework. Each recipe file define a single source to read from and a single destination to push the metadata.&#x20;
+[Recipes](metadata-ingestion/README.md#recipes) are yaml configuration files that serve as input to the Metadata Ingestion framework. Each recipe file define a single source to read from and a single destination to push the metadata.&#x20;
 
-The two most important pieces of the file are the _source_ and _sin_k configuration blocks.&#x20;
+The two most important pieces of the file are the _source_ and \_sin_k configuration blocks.&#x20;
 
-The _source_ configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](https://datahubproject.io/docs/metadata-ingestion/#sources) documentation. &#x20;
+The _source_ configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](metadata-ingestion/README.md#sources) documentation. &#x20;
 
-The _sink_ configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](https://datahubproject.io/docs/metadata-ingestion/#sinks) documentation.&#x20;
+The _sink_ configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](metadata-ingestion/README.md#sinks) documentation.&#x20;
 
 In Acryl DataHub deployments, you _must_ use a sink of type `datahub-rest`, which simply means that metadata will be pushed to the REST endpoints exposed by your DataHub instance. The required configurations for this sink are&#x20;
 
@@ -65,18 +65,18 @@ In Acryl DataHub deployments, you _must_ use a sink of type `datahub-rest`, whic
 
 The token can be retrieved by logging in as admin. You can go to Settings page and generate a Personal Access Token with your desired expiration date.&#x20;
 
-![](../../imgs/saas/home-(1).png)
+![](../imgs/saas/home-(1).png)
 
-![](../../imgs/saas/settings.png)
+![](../imgs/saas/settings.png)
 
-To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your Acryl instance's domain suffixed by the path  `/gms`, as shown below.&#x20;
+To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your Acryl instance's domain suffixed by the path `/gms`, as shown below.&#x20;
 
 A complete example of a DataHub recipe file, which reads from MySQL and writes into a DataHub instance:
 
 ```yaml
 # example-recipe.yml
 
-# MySQL source configuration 
+# MySQL source configuration
 source:
   type: mysql
   config:
@@ -105,7 +105,7 @@ The final step requires invoking the DataHub CLI to ingest metadata based on you
 To do so, simply run `datahub ingest` with a pointer to your YAML recipe file:
 
 ```
-datahub ingest -c ./example-recipe.yml 
+datahub ingest -c ./example-recipe.yml
 ```
 
 ### Step 5: Scheduling Ingestion&#x20;
@@ -116,13 +116,6 @@ To schedule your ingestion job, we recommend using a job schedule like [Apache A
 
 Note that each source system will require a separate recipe file. This allows you to schedule ingestion from different sources independently or together.&#x20;
 
-
-
-_Looking for information on real-time ingestion? Click_ [_here_](advanced-ingestion.md#real-time-ingestion)_._
+_Looking for information on real-time ingestion? Click_ [_here_](docs/managed-datahub/metadata-ingestion-with-acryl/advanced-ingestion.md#real-time-ingestion)_._
 
 _Note: Real-time ingestion setup is not recommended for an initial POC as it generally takes longer to configure and is prone to inevitable system errors._
-
-
-
-
-

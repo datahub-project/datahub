@@ -473,8 +473,8 @@ module.exports = {
       "docs/managed-datahub/welcome-acryl",
       {
         "Metadata Ingestion With Acryl": [
-          "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/ingestion",
-          "docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/advanced-ingestion",
+          "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
+          "docs/managed-datahub/metadata-ingestion-with-acryl/advanced-ingestion",
         ],
       },
       {

@@ -26,7 +26,7 @@ Acryl DataHub offers a slew of additional features on top of the normal OSS proj
 - [Term Propagation](docs/managed-datahub/actions-guide/term-sync-propagation.md)
 
 ## Additional Ingestion Features
-- [Metadata Ingestion](docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/ingestion.md)
-- [Advanced Ingestion](docs/managed-datahub/administering-datahub/metadata-ingestion-with-acryl/advanced-ingestion.md)
+- [Metadata Ingestion](docs/managed-datahub/metadata-ingestion-with-acryl/ingestion.md)
+- [Advanced Ingestion](docs/managed-datahub/metadata-ingestion-with-acryl/advanced-ingestion.md)
 
 
