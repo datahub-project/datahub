@@ -1,7 +1,7 @@
 import React from 'react';
 import moment from 'moment';
 import { useHistory, useLocation } from 'react-router';
-
+import dayjs from 'dayjs';
 import { navigateToLineageUrl } from '../utils/navigateToLineageUrl';
 import analytics, { EventType } from '../../analytics';
 import { getTimeFromNow } from '../../shared/time/timeUtils';
@@ -45,8 +45,8 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
         <LineageTimeSelector
             onChange={lineageTimeSelectorOnChange}
             initialDates={[
-                startTimeMillis ? moment(startTimeMillis) : null,
-                endTimeMillis ? moment(endTimeMillis) : null,
+                moment(startTimeMillis || dayjs().subtract(14, 'day').valueOf()),
+                moment(endTimeMillis || dayjs().valueOf()),
             ]}
         />
     );
