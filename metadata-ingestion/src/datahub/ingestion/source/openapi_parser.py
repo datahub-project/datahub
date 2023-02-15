@@ -132,10 +132,6 @@ def check_sw_version(sw_dict: dict) -> None:
         )
 
 
-def slicedict(d, s):
-    return {k: v for k, v in d.items() if str(k).startswith(s)}
-
-
 def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C901
     """
     Get all the URLs accepting the "GET", "POST", "PUT" and "PATCH" methods, together with their description and the tags
@@ -147,8 +143,11 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
     for p_k, p_o in sw_dict["paths"].items():
         # will track only the "get" methods, which are the ones that give us data
         if "get" in p_o.keys():
-            if len(p_o["get"]["responses"]) > 0:
-                base_res = slicedict(p_o["get"]["responses"], "2")
+            if "200" in p_o["get"]["responses"].keys():
+                base_res = p_o["get"]["responses"]["200"]
+            elif 200 in p_o["get"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
+                base_res = p_o["get"]["responses"][200]
             else:
                 # the endpoint does not have a 200 response
                 continue
@@ -214,12 +213,15 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                 url_details[p_k]["parameters"] = p_o["get"]["parameters"]
 
         # will track only the "post" methods
-        if "post" in p_o.keys():
+        elif "post" in p_o.keys():
             if get_operations_only:
                 continue
 
-            if len(p_o["post"]["responses"]) > 0:
-                base_res = slicedict(p_o["post"]["responses"], "2")
+            if "200" in p_o["post"]["responses"].keys():
+                base_res = p_o["post"]["responses"]["200"]
+            elif 200 in p_o["post"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
+                base_res = p_o["post"]["responses"][200]
             else:
                 # the endpoint does not have a 200 response
                 continue
@@ -334,12 +336,15 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                         )
 
         # will track only the "put" methods
-        if "put" in p_o.keys():
+        elif "put" in p_o.keys():
             if get_operations_only:
                 continue
 
-            if len(p_o["put"]["responses"]) > 0:
-                base_res = slicedict(p_o["put"]["responses"], "2")
+            if "200" in p_o["put"]["responses"].keys():
+                base_res = p_o["put"]["responses"]["200"]
+            elif 200 in p_o["put"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
+                base_res = p_o["put"]["responses"][200]
             else:
                 # the endpoint does not have a 200 response
                 continue
@@ -464,12 +469,15 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                         )
 
         # will track only the "patch" methods
-        if "patch" in p_o.keys():
+        elif "patch" in p_o.keys():
             if get_operations_only:
                 continue
 
-            if len(p_o["patch"]["responses"]) > 0:
-                base_res = slicedict(p_o["patch"]["responses"], "2")
+            if "200" in p_o["patch"]["responses"].keys():
+                base_res = p_o["patch"]["responses"]["200"]
+            elif 200 in p_o["patch"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
+                base_res = p_o["patch"]["responses"][200]
             else:
                 # the endpoint does not have a 200 response
                 continue
