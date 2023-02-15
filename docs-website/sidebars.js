@@ -116,7 +116,12 @@ module.exports = {
       {
         Sources: [
           // collapse these; add push-based at top
-          "docs/lineage/airflow",
+          {
+            type: "doc",
+            id: "docs/lineage/airflow",
+            label: "Airflow",
+          },
+
           //"docker/airflow/local_airflow",
           "metadata-integration/java/spark-lineage/README",
           "metadata-ingestion/integration_docs/great-expectations",
