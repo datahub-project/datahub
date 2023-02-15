@@ -4,7 +4,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Union, cast
+from typing import Dict, Iterable, List, Optional, Union, cast, Callable
 
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
@@ -496,7 +496,7 @@ class SnowflakeV2Source(
 
         self.connection.close()
 
-        lru_cache_functions = [
+        lru_cache_functions: List[Callable] = [
             self.data_dictionary.get_tables_for_database,
             self.data_dictionary.get_views_for_database,
             self.data_dictionary.get_columns_for_schema,
@@ -504,7 +504,7 @@ class SnowflakeV2Source(
             self.data_dictionary.get_fk_constraints_for_schema,
         ]
         for func in lru_cache_functions:
-            self.report.lru_cache_info[func.__name__] = func.cache_info()._asdict()
+            self.report.lru_cache_info[func.__name__] = func.cache_info()._asdict()  # type: ignore
 
         # TODO: The checkpoint state for stale entity detection can be committed here.
 
