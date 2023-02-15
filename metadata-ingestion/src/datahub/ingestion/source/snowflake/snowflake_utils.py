@@ -172,6 +172,12 @@ class SnowflakeCommonMixin:
     ) -> str:
         return self.snowflake_identifier(f"{db_name}.{schema_name}.{table_name}")
 
+    @staticmethod
+    def get_database_from_dataset_identifier(dataset_identifier: str) -> Optional[str]:
+        if "." not in dataset_identifier:
+            return None
+        return dataset_identifier.split(".", 1)[0]
+
     # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
     # For example "test-database"."test-schema".test_table
     # whereas we generate urns without quotes even for quoted identifiers for backward compatibility

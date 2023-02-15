@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Callable, Iterable, List, Optional, cast
+from typing import Callable, Dict, Iterable, List, Optional, cast
 
 from snowflake.sqlalchemy import snowdialect
 from sqlalchemy import create_engine, inspect
@@ -18,10 +18,7 @@ from datahub.ingestion.source.ge_data_profiler import (
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeDatabase,
-    SnowflakeTable,
-)
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTable
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -53,7 +50,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         self.logger = logger
 
     def get_workunits(
-        self, databases: List[SnowflakeDatabase]
+        self, tables: List[SnowflakeTable], db_name: str, schema_name: str
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -62,60 +59,54 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                 "max_overflow", self.config.profiling.max_workers
             )
 
-        for db in databases:
-            if not self.config.database_pattern.allowed(db.name):
+        if not is_schema_allowed(
+            self.config.schema_pattern,
+            schema_name,
+            db_name,
+            self.config.match_fully_qualified_names,
+        ):
+            return
+
+        profile_requests = [
+            self.get_snowflake_profile_request(table, schema_name, db_name)
+            for table in tables
+        ]
+        profile_requests = [v for v in profile_requests if v is not None]
+
+        if len(profile_requests) == 0:
+            return
+
+        table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
+
+        for request, profile in self.generate_profiles(
+            table_profile_requests,
+            self.config.profiling.max_workers,
+            db_name,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+        ):
+            if profile is None:
                 continue
-            profile_requests = []
-            for schema in db.schemas:
-                if not is_schema_allowed(
-                    self.config.schema_pattern,
-                    schema.name,
-                    db.name,
-                    self.config.match_fully_qualified_names,
-                ):
-                    continue
-                for table in schema.tables:
-                    # Emit the profile work unit
-                    profile_request = self.get_snowflake_profile_request(
-                        table, schema.name, db.name
-                    )
-                    if profile_request is not None:
-                        profile_requests.append(profile_request)
+            profile.sizeInBytes = cast(
+                SnowflakeProfilerRequest, request
+            ).table.size_in_bytes
+            dataset_name = request.pretty_name
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
 
-            if len(profile_requests) == 0:
-                continue
-
-            table_profile_requests = cast(List[TableProfilerRequest], profile_requests)
-
-            for request, profile in self.generate_profiles(
-                table_profile_requests,
-                self.config.profiling.max_workers,
-                db.name,
-                platform=self.platform,
-                profiler_args=self.get_profile_args(),
-            ):
-                if profile is None:
-                    continue
-                profile.sizeInBytes = cast(
-                    SnowflakeProfilerRequest, request
-                ).table.size_in_bytes
-                dataset_name = request.pretty_name
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
+            # We don't add to the profiler state if we only do table level profiling as it always happens
+            if self.state_handler:
+                self.state_handler.add_to_state(
+                    dataset_urn, int(datetime.now().timestamp() * 1000)
                 )
 
-                # We don't add to the profiler state if we only do table level profiling as it always happens
-                if self.state_handler:
-                    self.state_handler.add_to_state(
-                        dataset_urn, int(datetime.now().timestamp() * 1000)
-                    )
-
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn, aspect=profile
-                ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=profile
+            ).as_workunit()
 
     def get_snowflake_profile_request(
         self,

@@ -1,8 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum, auto
+from functools import wraps
 from typing import Callable, Dict, Optional, Type
 
+from typing_extensions import ParamSpec, TypeVar
+
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import Source, SourceCapability
 
 

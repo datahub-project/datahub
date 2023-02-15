@@ -217,7 +217,8 @@ class StatefulIngestionSourceBase(Source):
                 )
             config_dict: Dict[str, Any] = cast(
                 Dict[str, Any],
-                self.stateful_ingestion_config.state_provider.dict().get("config", {}),
+                self.stateful_ingestion_config.state_provider.dict().get("config", {})
+                or {},
             )
             self.ingestion_checkpointing_state_provider = (
                 checkpointing_state_provider_class.create(

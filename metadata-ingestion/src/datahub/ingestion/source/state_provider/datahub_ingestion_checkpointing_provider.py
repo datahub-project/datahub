@@ -43,7 +43,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             # Use the pipeline-level graph if set
             return cls(ctx.graph, name)
         elif config_dict is None:
-            raise ConfigurationError("Missing provider configuration.")
+            raise ConfigurationError("Missing checkpointing provider configuration.")
         else:
             provider_config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
             if provider_config.datahub_api:
