@@ -49,6 +49,7 @@ public class SearchAcrossLineageResolver
         bindArgument(environment.getArgument("input"), SearchAcrossLineageInput.class);
 
     final Urn urn = Urn.createFromString(input.getUrn());
+
     final LineageDirection lineageDirection = input.getDirection();
 
     List<EntityType> entityTypes =
