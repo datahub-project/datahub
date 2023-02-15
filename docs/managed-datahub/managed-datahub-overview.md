@@ -1,7 +1,8 @@
 # Managed DataHub Exclusives
 Acryl DataHub offers a slew of additional features on top of the normal OSS project. 
 
-
+## Chrome Extension
+- [Early Access to the DataHub Chrome Extension](docs/managed-datahub/chrome-extension.md)
 
 ## Additional Integrations
 

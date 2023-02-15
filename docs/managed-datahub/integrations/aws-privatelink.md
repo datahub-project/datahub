@@ -1,10 +1,11 @@
-<FeatureAvailability saasOnly />
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # AWS PrivateLink
+<FeatureAvailability saasOnly />
 
-If you require a private connection between the provisioned DataHub instance and your own existing AWS account, Acryl supports using AWS PrivateLink in order to complete this private connection.&#x20;
+If you require a private connection between the provisioned DataHub instance and your own existing AWS account, Acryl supports using AWS PrivateLink in order to complete this private connection.
 
-In order to complete this connection, the Acryl integrations team will require the AWS ARN for a user or role that can accept and complete the connection to your AWS account. &#x20;
+In order to complete this connection, the Acryl integrations team will require the AWS ARN for a user or role that can accept and complete the connection to your AWS account. 
 
 Once that team reports the PrivateLink has been created, the team will give you a VPC Endpoint Service Name to use.
 

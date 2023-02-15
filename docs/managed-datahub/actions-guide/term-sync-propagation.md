@@ -1,7 +1,12 @@
-<FeatureAvailability saasOnly />
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
+:::caution
+This action is **experimental** and still in development. 
+:::
 
 # Term Sync (Propagation)
+<FeatureAvailability saasOnly />
+
 
 The Term Sync (or Term Propagation) Action allows you to propagate glossary terms from your assets into downstream entities.
 

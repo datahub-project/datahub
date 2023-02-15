@@ -1,20 +1,22 @@
 ---
 description: This page provides an overview of working with the DataHub Incidents API.
 ---
-<FeatureAvailability saasOnly />
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
+
 
 # Incidents API (Beta)
+<FeatureAvailability saasOnly />
 
 ## Introduction
 
-**Incidents** are a concept used to flag particular Data Assets as being in an unhealthy state. Each incident has an independent lifecycle and details including a state (active, resolved), a title, a description, & more.&#x20;
+**Incidents** are a concept used to flag particular Data Assets as being in an unhealthy state. Each incident has an independent lifecycle and details including a state (active, resolved), a title, a description, & more.
 
 A couple scenarios in which incidents can be useful are
 
-1. **Pipeline Circuit Breaking:** You can use Incidents as the basis for intelligent data pipelines that verify upstream inputs (e.g. datasets) are free of any active incidents before executing.&#x20;
-2. \[Coming Soon] **Announcing Known-Bad Assets**: You can mark a known-bad data asset as under an ongoing incident so consumers and stakeholders can be informed about the health status of a data asset via the DataHub UI. Moreover, they can follow the incident as it progresses toward resolution.&#x20;
+1. **Pipeline Circuit Breaking:** You can use Incidents as the basis for intelligent data pipelines that verify upstream inputs (e.g. datasets) are free of any active incidents before executing.
+2. \[Coming Soon] **Announcing Known-Bad Assets**: You can mark a known-bad data asset as under an ongoing incident so consumers and stakeholders can be informed about the health status of a data asset via the DataHub UI. Moreover, they can follow the incident as it progresses toward resolution.
 
-&#x20;In the next section, we'll show you how to&#x20;
+In the next section, we'll show you how to
 
 1. Create a new incident
 2. Fetch all incidents for a data asset
@@ -22,15 +24,15 @@ A couple scenarios in which incidents can be useful are
 
 for **Datasets** using the Acryl [GraphQL API](docs/api/graphql/overview.md).
 
-Let's get started!&#x20;
+Let's get started!
 
-## Creating an Incident&#x20;
+## Creating an Incident
 
 :::info
-Creating incidents is currently only supported against **Dataset** assets.&#x20;
+Creating incidents is currently only supported against **Dataset** assets.
 :::
 
-To create (i.e. raise) a new incident for a data asset, simply create a GraphQL request using the `raiseIncident` mutation.&#x20;
+To create (i.e. raise) a new incident for a data asset, simply create a GraphQL request using the `raiseIncident` mutation.
 
 ```
 type Mutation {
@@ -73,9 +75,9 @@ input RaiseIncidentInput {
 }
 ```
 
-### Examples&#x20;
+### Examples
 
-First, we'll create a demo GraphQL query, then show how to represent it via CURL & Python.&#x20;
+First, we'll create a demo GraphQL query, then show how to represent it via CURL & Python.
 
 Imagine we want to raise a new incident on a Dataset with URN `urn:li:dataset:(abc)` because it's failed automated quality checks. To do so, we could make the following GraphQL query:
 
@@ -104,11 +106,11 @@ _Response_
 }
 ```
 
-Now we'll see how to issue this query using a CURL or Python.&#x20;
+Now we'll see how to issue this query using a CURL or Python.
 
 #### CURL
 
-To issue the above GraphQL as a CURL:&#x20;
+To issue the above GraphQL as a CURL:
 
 ```
 curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
@@ -119,7 +121,7 @@ curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
 
 #### Python
 
-To issue the above GraphQL query in Python (requests):&#x20;
+To issue the above GraphQL query in Python (requests):
 
 ```
 import requests
@@ -145,13 +147,13 @@ response.raise_for_status()
 res_data = response.json() # Get result as JSON
 ```
 
-## Retrieving Active Incidents&#x20;
+## Retrieving Active Incidents
 
-To fetch the the ongoing incidents for a data asset, we can use the `incidents` GraphQL field on the entity of interest.&#x20;
+To fetch the the ongoing incidents for a data asset, we can use the `incidents` GraphQL field on the entity of interest.
 
 ### Datasets
 
-To retrieve all incidents for a Dataset with a particular [URN](docs/what/urn.md), you can reference the 'incidents' field of the Dataset type:&#x20;
+To retrieve all incidents for a Dataset with a particular [URN](docs/what/urn.md), you can reference the 'incidents' field of the Dataset type:
 
 ```
 type Dataset {
@@ -175,9 +177,9 @@ type Dataset {
 }
 ```
 
-### Examples&#x20;
+### Examples
 
-Now that we've raised an incident on it, imagine we want to fetch the first 10 "active" incidents for the Dataset with URN `urn:li:dataset:(abc`). To do so, we could issue the following request:&#x20;
+Now that we've raised an incident on it, imagine we want to fetch the first 10 "active" incidents for the Dataset with URN `urn:li:dataset:(abc`). To do so, we could issue the following request:
 
 _Request_
 
@@ -225,11 +227,11 @@ _Response_
 }
 ```
 
-Now we'll see how to issue this query using a CURL or Python.&#x20;
+Now we'll see how to issue this query using a CURL or Python.
 
 #### CURL
 
-To issue the above GraphQL as a CURL:&#x20;
+To issue the above GraphQL as a CURL:
 
 ```
 curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
@@ -238,7 +240,7 @@ curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
 --data-raw '{"query":"query dataset {\n dataset(urn: "urn:li:dataset:(abc)") {\n incidents(state: ACTIVE, start: 0, count: 10) {\n total\n incidents {\n urn\n title\n description\n status {\n state\n }\n }\n }\n }\n}","variables":{}}'Python
 ```
 
-To issue the above GraphQL query in Python (requests):&#x20;
+To issue the above GraphQL query in Python (requests):
 
 ```
 import requests
@@ -276,7 +278,7 @@ res_data = response.json() # Get result as JSON
 
 ## Resolving an Incident
 
-To resolve an incident for a data asset, simply create a GraphQL request using the `updateIncidentStatus` mutation. To mark an incident as resolved, simply update its state to `RESOLVED`.&#x20;
+To resolve an incident for a data asset, simply create a GraphQL request using the `updateIncidentStatus` mutation. To mark an incident as resolved, simply update its state to `RESOLVED`.
 
 ```
 type Mutation {
@@ -311,11 +313,11 @@ input UpdateIncidentStatusInput {
 }
 ```
 
-### Examples&#x20;
+### Examples
 
-Imagine that we've fixed our Dataset with urn `urn:li:dataset:(abc)` so that it's passing validation. Now we want to mark the Dataset as healthy, so stakeholders and downstream consumers know it's ready to use.&#x20;
+Imagine that we've fixed our Dataset with urn `urn:li:dataset:(abc)` so that it's passing validation. Now we want to mark the Dataset as healthy, so stakeholders and downstream consumers know it's ready to use.
 
-To do so, we need the URN of the Incident that we raised previously.&#x20;
+To do so, we need the URN of the Incident that we raised previously.
 
 _Request_
 
@@ -339,11 +341,11 @@ _Response_
 }
 ```
 
-True is returned if the incident's was successfully marked as resolved.&#x20;
+True is returned if the incident's was successfully marked as resolved.
 
 #### CURL
 
-To issue the above GraphQL as a CURL:&#x20;
+To issue the above GraphQL as a CURL:
 
 ```
 curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
@@ -352,7 +354,7 @@ curl --location --request POST 'https://your-account.acryl.io/api/graphql' \
 --data-raw '{"query":"mutation updateIncidentStatus {\n updateIncidentStatus(urn: "urn:li:incident:bfecab62-dc10-49a6-a305-78ce0cc6e5b1", \n input: {\n state: RESOLVED\n message: "Dataset is now passing validations. Verified by John Joyce on Data Platform eng."\n })\n}","variables":{}}'Python
 ```
 
-To issue the above GraphQL query in Python (requests):&#x20;
+To issue the above GraphQL query in Python (requests):
 
 ```
 import requests
@@ -398,11 +400,11 @@ Also, remember that you can play with an interactive version of the Acryl GraphQ
 
 ## Enabling Slack Notifications
 
-You can configure Acryl to send slack notifications to a specific channel when incidents are raised or their status is changed.&#x20;
+You can configure Acryl to send slack notifications to a specific channel when incidents are raised or their status is changed.
 
-These notifications are also able to tag the immediate asset's owners, along with the owners of downstream assets consuming it.&#x20;
+These notifications are also able to tag the immediate asset's owners, along with the owners of downstream assets consuming it.
 
 ![](../../imgs/saas/Screen-Shot-2022-03-22-at-6.46.41-PM.png)
 
-To do so, simply follow the [Slack Integration Guide](docs/managed-datahub/saas-slack-setup.md) and contact your Acryl customer success team to enable the feature! &#x20;
+To do so, simply follow the [Slack Integration Guide](docs/managed-datahub/saas-slack-setup.md) and contact your Acryl customer success team to enable the feature! 
 

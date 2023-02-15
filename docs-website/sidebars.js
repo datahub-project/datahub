@@ -466,8 +466,6 @@ module.exports = {
       "docs/links",
       "docs/rfc",
     ],
-
-    "Release History": ["releases"],
     "Managed DataHub": [
       "docs/managed-datahub/managed-datahub-overview",
       "docs/managed-datahub/welcome-acryl",
@@ -517,7 +515,8 @@ module.exports = {
             type: "doc",
             id: "docs/managed-datahub/integrations/aws-privatelink",
             className: "saasOnly",
-          },{
+          },
+          {
             type: "doc",
             id: "docs/managed-datahub/integrations/oidc-sso-integration",
             className: "saasOnly",
@@ -539,6 +538,12 @@ module.exports = {
         ],
       },
       {
+        type: "doc",
+        id: "docs/managed-datahub/chrome-extension",
+        className: "saasOnly",
+      },
+
+      {
         "Managed DataHub Release History": [
           "docs/managed-datahub/release-notes/v_0_2_0",
           "docs/managed-datahub/release-notes/v_0_1_73",
@@ -548,6 +553,7 @@ module.exports = {
         ],
       },
     ],
+    "Release History": ["releases"],
 
     // "Candidates for Deprecation": [
     // "README",

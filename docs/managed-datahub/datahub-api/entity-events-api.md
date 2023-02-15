@@ -3,27 +3,28 @@ description: >-
   This guide details the Entity Events API, which allows you to take action when
   things change on DataHub.
 ---
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-<FeatureAvailability saasOnly />
 # Entity Events API
+<FeatureAvailability saasOnly />
 
 ## Introduction
 
-The Events API allows you to integrate changes happening on the DataHub Metadata Graph in real time into a broader event-based architecture.&#x20;
+The Events API allows you to integrate changes happening on the DataHub Metadata Graph in real time into a broader event-based architecture.
 
 ### Supported Integrations
 
-* [AWS EventBridge](../operator-guide/setting-up-events-api-on-aws-eventbridge.md)
+* [AWS EventBridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
 
 ### Use Cases
 
 Real-time use cases broadly fall into the following categories:
 
-* **Workflow Integration:** Integrate DataHub flows into your organization's internal workflow management system. For example, create a Jira ticket when specific Tags or Terms are proposed on a Dataset.&#x20;
-* **Notifications**: Generate organization-specific notifications when a change is made on DataHub. For example, send an email to the governance team when a "PII" tag is added to any data asset.&#x20;
-* **Metadata Enrichment**: Trigger downstream metadata changes when an upstream change occurs. For example, propagating glossary terms or tags to downstream entities.&#x20;
-* **Synchronization**: Syncing changes made in DataHub into a 3rd party system. For example, reflecting Tag additions in DataHub into Snowflake.&#x20;
-* **Auditing:** Audit **** _who_ is making _what changes_ on DataHub through time.&#x20;
+* **Workflow Integration:** Integrate DataHub flows into your organization's internal workflow management system. For example, create a Jira ticket when specific Tags or Terms are proposed on a Dataset.
+* **Notifications**: Generate organization-specific notifications when a change is made on DataHub. For example, send an email to the governance team when a "PII" tag is added to any data asset.
+* **Metadata Enrichment**: Trigger downstream metadata changes when an upstream change occurs. For example, propagating glossary terms or tags to downstream entities.
+* **Synchronization**: Syncing changes made in DataHub into a 3rd party system. For example, reflecting Tag additions in DataHub into Snowflake.
+* **Auditing:** Audit **** _who_ is making _what changes_ on DataHub through time.
 
 ## Event Structure
 
@@ -40,9 +41,9 @@ Each entity event is serialized to JSON & follows a common base structure.
 | **modifier**         | String | The modifier that has been applied to the entity. The value depends on the category. An example includes the URN of a tag being applied to a Dataset or Schema Field.                                   | True      |
 | **parameters**       | Dict   | Additional key-value parameters used to provide specific context. The precise contents depends on the category + operation of the event. See the catalog below for a full summary of the combinations.  | True      |
 | **auditStamp.actor** | String | The urn of the actor who triggered the change.                                                                                                                                                          | False     |
-| **auditStamp.time**  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                               | False     |
+| **auditStamp.time**  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                               | False     |  
 
-For example, an event indicating that a Tag has been added to a particular Dataset would populate each of these fields:&#x20;
+For example, an event indicating that a Tag has been added to a particular Dataset would populate each of these fields:
 
 ```
 {
@@ -61,11 +62,11 @@ For example, an event indicating that a Tag has been added to a particular Datas
 }
 ```
 
-In the following sections, we'll take a closer look at the purpose and structure of each supported event type.&#x20;
+In the following sections, we'll take a closer look at the purpose and structure of each supported event type.
 
 ## Event Types
 
-Below, we will review the catalog of events available for consumption.&#x20;
+Below, we will review the catalog of events available for consumption.
 
 ### Add Tag Event
 
@@ -380,7 +381,7 @@ This event is emitted when the deprecation status of an entity has been modified
 
 ### Add Dataset Schema Field Event
 
-This event is emitted when a new field has been added to a **Dataset** **Schema**.&#x20;
+This event is emitted when a new field has been added to a **Dataset** **Schema**.
 
 #### Header
 
@@ -417,7 +418,7 @@ This event is emitted when a new field has been added to a **Dataset** **Schema*
 
 ### Remove Dataset Schema Field Event
 
-This event is emitted when a new field has been remove from a **Dataset** **Schema**.&#x20;
+This event is emitted when a new field has been remove from a **Dataset** **Schema**.
 
 #### Header
 
@@ -454,7 +455,7 @@ This event is emitted when a new field has been remove from a **Dataset** **Sche
 
 ### Entity Create Event
 
-This event is emitted when a new entity has been created on DataHub.&#x20;
+This event is emitted when a new entity has been created on DataHub.
 
 #### Header
 
@@ -479,7 +480,7 @@ _None_
 }
 ```
 
-### Entity Soft-Delete Event&#x20;
+### Entity Soft-Delete Event
 
 This event is emitted when a new entity has been soft-deleted on DataHub.
 
@@ -610,7 +611,7 @@ This event is emitted when a Data Process Instance Run has STARTED on DataHub.
 
 ### Completed Data Process Instance Run Event
 
-This event is emitted when a Data Process Instance Run has been COMPLETED on DataHub.&#x20;
+This event is emitted when a Data Process Instance Run has been COMPLETED on DataHub.
 
 #### Header
 
@@ -783,6 +784,7 @@ This event is emitted when an existing Action Request (proposal) changes status.
 #### Parameters
 
 These are the common parameters for all parameters.
+
 
 | Name                | Type   | Description                                                                               | Optional |
 | ------------------- | ------ | ----------------------------------------------------------------------------------------- | -------- |

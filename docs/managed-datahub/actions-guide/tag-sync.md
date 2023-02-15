@@ -1,6 +1,8 @@
-<FeatureAvailability saasOnly />
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Tag Sync
+<FeatureAvailability saasOnly />
+
 
 The Tag Sync (or Tag Propagation) Action allows you to propagate tags from your assets into downstream entities. e.g. You can apply a tag (like `critical`) on a dataset and have it propagate down to all the downstream datasets.
 
