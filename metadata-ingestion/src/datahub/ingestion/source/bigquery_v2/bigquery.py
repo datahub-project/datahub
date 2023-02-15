@@ -1191,9 +1191,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         table.time_partitioning
                         or "range_partitioning" in table._properties
                     ):
-                        partitioned_table_count_in_this_batch = (
-                            partitioned_table_count_in_this_batch + 1
-                        )
+                        partitioned_table_count_in_this_batch += 1
+
                     table_items[table.table_id] = table
 
                 if str(table_identifier).startswith(
