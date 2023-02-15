@@ -3,6 +3,7 @@ import time
 from typing import Optional, cast
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -99,6 +100,7 @@ def get_current_checkpoint_from_pipeline(
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_ldap_stateful(
     docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):

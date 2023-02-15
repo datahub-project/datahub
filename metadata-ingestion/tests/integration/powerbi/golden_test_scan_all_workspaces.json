@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {},
             "name": "public issue_history",
-            "description": "public issue_history\n-----\nLibrary dataset description",
+            "description": "public issue_history",
             "tags": []
         }
     },
@@ -41,7 +41,7 @@
         "json": {
             "customProperties": {},
             "name": "SNOWFLAKE_TESTTABLE",
-            "description": "SNOWFLAKE_TESTTABLE\n-----\nLibrary dataset description",
+            "description": "SNOWFLAKE_TESTTABLE",
             "tags": []
         }
     },
@@ -74,7 +74,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query",
-            "description": "snowflake native-query\n-----\nLibrary dataset description",
+            "description": "snowflake native-query",
             "tags": []
         }
     },
@@ -107,7 +107,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query-with-join",
-            "description": "snowflake native-query-with-join\n-----\nLibrary dataset description",
+            "description": "snowflake native-query-with-join",
             "tags": []
         }
     },
@@ -140,7 +140,7 @@
         "json": {
             "customProperties": {},
             "name": "job-history",
-            "description": "job-history\n-----\nLibrary dataset description",
+            "description": "job-history",
             "tags": []
         }
     },
@@ -173,7 +173,7 @@
         "json": {
             "customProperties": {},
             "name": "postgres_test_table",
-            "description": "postgres_test_table\n-----\nLibrary dataset description",
+            "description": "postgres_test_table",
             "tags": []
         }
     },
@@ -206,7 +206,7 @@
         "json": {
             "customProperties": {},
             "name": "dbo_book_issue",
-            "description": "dbo_book_issue\n-----\nhr pbi test description",
+            "description": "dbo_book_issue",
             "tags": []
         }
     },
@@ -239,7 +239,7 @@
         "json": {
             "customProperties": {},
             "name": "ms_sql_native_table",
-            "description": "ms_sql_native_table\n-----\nhr pbi test description",
+            "description": "ms_sql_native_table",
             "tags": []
         }
     },
@@ -271,10 +271,9 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "createdFrom": "Dataset",
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                "reportId": "",
-                "datasetWebUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
-                "createdFrom": "Dataset"
+                "datasetWebUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details"
             },
             "title": "test_tile",
             "description": "test_tile",
@@ -354,10 +353,9 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "createdFrom": "Dataset",
                 "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                "reportId": "",
-                "datasetWebUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed/details",
-                "createdFrom": "Dataset"
+                "datasetWebUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed/details"
             },
             "title": "yearly_sales",
             "description": "yearly_sales",
@@ -447,7 +445,7 @@
                 "workspaceId": "64ED5CAD-7C10-4684-8180-826122881108"
             },
             "title": "test_dashboard",
-            "description": "test_dashboard\n-----\nDescription of test dashboard",
+            "description": "test_dashboard",
             "charts": [
                 "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
                 "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
