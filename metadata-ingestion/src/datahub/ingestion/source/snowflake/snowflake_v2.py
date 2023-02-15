@@ -4,7 +4,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Union, cast, Callable
+from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
