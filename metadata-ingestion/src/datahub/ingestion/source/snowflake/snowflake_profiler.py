@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional, cast
+from typing import Callable, Iterable, List, Optional, cast
 
 from snowflake.sqlalchemy import snowdialect
 from sqlalchemy import create_engine, inspect
