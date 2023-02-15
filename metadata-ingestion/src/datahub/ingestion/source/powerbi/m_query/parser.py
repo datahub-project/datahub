@@ -7,7 +7,7 @@ from lark import Lark, Tree
 
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query import resolver, validator
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ def _parse_expression(expression: str) -> Tree:
 
     parse_tree: Tree = lark_parser.parse(expression)
 
-    logger.debug("Parsing expression = %s", expression)
+    logger.debug(f"Parsing expression = {expression}")
 
     if (
         logger.level == logging.DEBUG
@@ -43,12 +43,12 @@ def _parse_expression(expression: str) -> Tree:
 
 
 def get_upstream_tables(
-    table: PowerBiAPI.Table,
+    table: Table,
     reporter: PowerBiDashboardSourceReport,
     native_query_enabled: bool = True,
 ) -> List[resolver.DataPlatformTable]:
     if table.expression is None:
-        logger.debug("Expression is none for table %s", table.full_name)
+        logger.debug(f"Expression is none for table {table.full_name}")
         return []
 
     try:
@@ -57,7 +57,7 @@ def get_upstream_tables(
             parse_tree, native_query_enabled=native_query_enabled
         )
         if valid is False:
-            logger.debug("Validation failed: %s", cast(str, message))
+            logger.debug(f"Validation failed: {cast(str, message)}")
             reporter.report_warning(table.full_name, cast(str, message))
             return []
     except lark.exceptions.UnexpectedCharacters as e:

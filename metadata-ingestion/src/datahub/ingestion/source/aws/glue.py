@@ -97,6 +97,10 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +109,7 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueSourceConfig(
-    AwsSourceConfig, GlueProfilingConfig, StatefulIngestionConfigBase
-):
+class GlueSourceConfig(AwsSourceConfig, StatefulIngestionConfigBase):
     extract_owners: Optional[bool] = Field(
         default=True,
         description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",
@@ -943,6 +945,12 @@ class GlueSource(StatefulIngestionSourceBase):
                 yield wu
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         database_seen = set()
         databases, tables = self.get_all_tables_and_databases()
 
@@ -989,9 +997,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 dataset_urn=dataset_urn, db_name=database_name
             )
 
-            # Add table to the checkpoint state.
-            self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
-
             mcp = self.get_lineage_if_enabled(mce)
             if mcp:
                 mcp_wu = MetadataWorkUnit(
@@ -1012,9 +1017,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
         if self.extract_transforms:
             yield from self._transform_extraction()
-
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
@@ -1097,6 +1099,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 },
                 uri=table.get("Location"),
                 tags=[],
+                name=table["Name"],
                 qualifiedName=self.get_glue_arn(
                     account_id=table["CatalogId"],
                     database=table["DatabaseName"],

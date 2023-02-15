@@ -25,15 +25,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 
 import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.*;
 
 
+@Slf4j
 public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerator<SchemaMetadata> {
   private static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   private static final String BACKWARDS_INCOMPATIBLE_DESC = "A backwards incompatible change due to";
-  private static final String FORWARDS_COMPATIBLE_DESC = "A forwards compatible change due to ";
   private static final String BACK_AND_FORWARD_COMPATIBLE_DESC = "A forwards & backwards compatible change due to ";
   private static final String FIELD_DESCRIPTION_ADDED_FORMAT =
       "The description '%s' for the field '%s' has been added.";
@@ -42,11 +44,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   private static final String FIELD_DESCRIPTION_MODIFIED_FORMAT =
       "The description for the field '%s' has been changed from '%s' to '%s'.";
 
-  private static ChangeEvent getDescriptionChange(SchemaField baseField, SchemaField targetField,
+  private static ChangeEvent getDescriptionChange(@Nullable SchemaField baseField, @Nullable SchemaField targetField,
       String datasetFieldUrn, AuditStamp auditStamp) {
-    String baseDesciption = (baseField != null) ? baseField.getDescription() : null;
+    String baseDescription = (baseField != null) ? baseField.getDescription() : null;
     String targetDescription = (targetField != null) ? targetField.getDescription() : null;
-    if (baseDesciption == null && targetDescription != null) {
+    if (baseDescription == null && targetDescription != null) {
       // Description got added.
       return ChangeEvent.builder()
           .operation(ChangeOperation.ADD)
@@ -57,25 +59,25 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           .auditStamp(auditStamp)
           .build();
     }
-    if (baseDesciption != null && targetDescription == null) {
+    if (baseDescription != null && targetDescription == null) {
       // Description removed.
       return ChangeEvent.builder()
           .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .category(ChangeCategory.DOCUMENTATION)
           .entityUrn(datasetFieldUrn)
-          .description(String.format(FIELD_DESCRIPTION_REMOVED_FORMAT, baseDesciption, baseField.getFieldPath()))
+          .description(String.format(FIELD_DESCRIPTION_REMOVED_FORMAT, baseDescription, baseField.getFieldPath()))
           .auditStamp(auditStamp)
           .build();
     }
-    if (baseDesciption != null && !baseDesciption.equals(targetDescription)) {
+    if (baseDescription != null && !baseDescription.equals(targetDescription)) {
       // Description Change
       return ChangeEvent.builder()
           .operation(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.PATCH)
           .category(ChangeCategory.DOCUMENTATION)
           .entityUrn(datasetFieldUrn)
-          .description(String.format(FIELD_DESCRIPTION_MODIFIED_FORMAT, baseField.getFieldPath(), baseDesciption,
+          .description(String.format(FIELD_DESCRIPTION_MODIFIED_FORMAT, baseField.getFieldPath(), baseDescription,
               targetDescription))
           .auditStamp(auditStamp)
           .build();
@@ -84,7 +86,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static List<ChangeEvent> getGlobalTagChangeEvents(SchemaField baseField, SchemaField targetField,
-      String parentUrn,
+      String parentUrnStr,
       String datasetFieldUrn,
       AuditStamp auditStamp) {
 
@@ -96,9 +98,17 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     if (baseField != null || targetField != null) {
       String fieldPath = targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();
       // 2. Convert EntityTagChangeEvent into a SchemaFieldTagChangeEvent.
+      final Urn parentUrn;
+      try {
+        parentUrn = UrnUtils.getUrn(parentUrnStr);
+      } catch (Exception e) {
+        log.error("Failed to parse parentUrnStr: {}", parentUrnStr, e);
+        return Collections.emptyList();
+      }
+
       return convertEntityTagChangeEvents(
           fieldPath,
-          UrnUtils.getUrn(parentUrn),
+          parentUrn,
           entityTagChangeEvents);
     }
 
@@ -106,7 +116,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static List<ChangeEvent> getGlossaryTermsChangeEvents(SchemaField baseField, SchemaField targetField,
-      String parentUrn,
+      String parentUrnStr,
       String datasetFieldUrn,
       AuditStamp auditStamp) {
 
@@ -118,9 +128,17 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     if (targetField != null || baseField != null) {
       String fieldPath = targetField != null ? targetField.getFieldPath() : baseField.getFieldPath();
       // 2. Convert EntityGlossaryTermChangeEvent into a SchemaFieldGlossaryTermChangeEvent.
+      final Urn parentUrn;
+      try {
+        parentUrn = UrnUtils.getUrn(parentUrnStr);
+      } catch (Exception e) {
+        log.error("Failed to parse parentUrnStr: {}", parentUrnStr, e);
+        return Collections.emptyList();
+      }
+
       return convertEntityGlossaryTermChangeEvents(
           fieldPath,
-          UrnUtils.getUrn(parentUrn),
+          parentUrn,
           entityGlossaryTermsChangeEvents);
     }
 
@@ -233,7 +251,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           renamedFields.add(renamedField);
         }
       } else {
-        // The targetField got added or a rename occurred. Forward & backwards compatible change + minor version bump.
+        // The targetField got added or a renaming occurred. Forward & backwards compatible change + minor version bump.
         SchemaField renamedField = findRenamedField(curTargetField,
             baseFields.subList(baseFieldIdx, baseFields.size()), renamedFields);
         if (renamedField == null) {
@@ -271,7 +289,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     changeEvents.addAll(primaryKeyChangeEvents);
 
     // Handle foreign key constraint change events.
-    List<ChangeEvent> foreignKeyChangeEvents = getForeignKeyChangeEvents(baseSchema, targetSchema);
+    List<ChangeEvent> foreignKeyChangeEvents = getForeignKeyChangeEvents();
     changeEvents.addAll(foreignKeyChangeEvents);
 
     return changeEvents;
@@ -371,7 +389,6 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           .build();
   }
 
-  @SuppressWarnings("ConstantConditions")
   private static SchemaMetadata getSchemaMetadataFromAspect(EntityAspect entityAspect) {
     if (entityAspect != null && entityAspect.getMetadata() != null) {
       return RecordUtils.toRecordTemplate(SchemaMetadata.class, entityAspect.getMetadata());
@@ -380,7 +397,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   @SuppressWarnings("UnnecessaryLocalVariable")
-  private static List<ChangeEvent> getForeignKeyChangeEvents(SchemaMetadata baseSchema, SchemaMetadata targetSchema) {
+  private static List<ChangeEvent> getForeignKeyChangeEvents() {
     List<ChangeEvent> foreignKeyChangeEvents = new ArrayList<>();
     // TODO: Implement the diffing logic.
     return foreignKeyChangeEvents;
@@ -435,10 +452,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     SchemaMetadata baseSchema = getSchemaMetadataFromAspect(previousValue);
     SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
     assert (targetSchema != null);
-    List<ChangeEvent> changeEvents = new ArrayList<>();
+    List<ChangeEvent> changeEvents;
     try {
-      changeEvents.addAll(
-          computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory, null));
+      changeEvents = new ArrayList<>(
+          computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory,
+              null));
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
     }

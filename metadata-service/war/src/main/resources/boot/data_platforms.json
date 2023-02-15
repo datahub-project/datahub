@@ -451,7 +451,7 @@
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "nifi",
-      "displayName": "Nifi",
+      "displayName": "NiFi",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/nifilogo.svg"
     }

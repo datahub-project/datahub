@@ -87,7 +87,7 @@ public class ListRolesResolverTest {
         ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(ADMIN_ROLE_URN_STRING)),
             new SearchEntity().setEntity(Urn.createFromString(EDITOR_ROLE_URN_STRING)))));
 
-    when(_entityClient.search(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt(), any())).thenReturn(
+    when(_entityClient.search(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt(), any(), eq(Boolean.TRUE))).thenReturn(
         roleSearchResult);
     when(_entityClient.batchGetV2(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), any())).thenReturn(_entityResponseMap);
 

@@ -301,14 +301,14 @@ class NifiSourceReport(SourceReport):
 
 
 # allowRemoteAccess
-@platform_name("Nifi")
+@platform_name("NiFi", id="nifi")
 @config_class(NifiSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 class NifiSource(Source):
     """
     This plugin extracts the following:
 
-    - Nifi flow as `DataFlow` entity
+    - NiFi flow as `DataFlow` entity
     - Ingress, egress processors, remote input and output ports as `DataJob` entity
     - Input and output ports receiving remote connections as `Dataset` entity
     - Lineage information between external datasets and ingress/egress processors by analyzing provenance events
@@ -599,13 +599,13 @@ class NifiSource(Source):
             ):
                 self.report_warning(
                     self.config.site_url,
-                    f"Dropping Nifi Processor of type {c.type}, id {c.id}, name {c.name} from lineage view. \
+                    f"Dropping NiFi Processor of type {c.type}, id {c.id}, name {c.name} from lineage view. \
                     This is likely an Ingress or Egress node which may be reading to/writing from external datasets \
                     However not currently supported in datahub",
                 )
             else:
                 logger.debug(
-                    f"Dropping Nifi Component of type {c.type}, id {c.id}, name {c.name} from lineage view."
+                    f"Dropping NiFi Component of type {c.type}, id {c.id}, name {c.name} from lineage view."
                 )
 
             del self.nifi_flow.components[c.id]

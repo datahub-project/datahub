@@ -19,11 +19,12 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-from datahub.lite.duckdb_lite import DuckDBLiteConfig, SearchFlavor
+from datahub.lite.duckdb_lite_config import DuckDBLiteConfig
 from datahub.lite.lite_local import (
     AutoComplete,
     DataHubLiteLocal,
     PathNotFoundException,
+    SearchFlavor,
 )
 from datahub.lite.lite_util import LiteLocalConfig, get_datahub_lite
 from datahub.telemetry import telemetry
@@ -65,7 +66,7 @@ def lite() -> None:
 
 
 @lite.command()
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def list_urns() -> None:
     """List all urns"""
 
@@ -108,7 +109,7 @@ class CompleteablePath(click.ParamType):
 @click.option("--asof", required=False, type=click.DateTime(formats=["%Y-%m-%d"]))
 @click.option("--verbose", required=False, is_flag=True, default=False)
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def get(
     ctx: click.Context,
     urn: Optional[str],
@@ -176,7 +177,7 @@ def get(
 
 @lite.command()
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def nuke(ctx: click.Context) -> None:
     """Nuke the instance"""
     lite = _get_datahub_lite()
@@ -189,7 +190,7 @@ def nuke(ctx: click.Context) -> None:
 
 @lite.command(context_settings=dict(allow_extra_args=True))
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def reindex(ctx: click.Context) -> None:
     """Reindex the catalog"""
     lite = _get_datahub_lite()
@@ -198,7 +199,7 @@ def reindex(ctx: click.Context) -> None:
 
 @lite.command()
 @click.option("--port", type=int, default=8979)
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def serve(port: int) -> None:
     """Run a local server."""
 
@@ -213,7 +214,7 @@ def serve(port: int) -> None:
 
 @lite.command()
 @click.argument("path", required=False, type=CompleteablePath())
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def ls(path: Optional[str]) -> None:
     """List at a path"""
 
@@ -271,7 +272,7 @@ def ls(path: Optional[str]) -> None:
 )
 @click.option("--details/--no-details", required=False, is_flag=True, default=True)
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def search(
     ctx: click.Context,
     query: str = "",
@@ -318,7 +319,7 @@ def write_lite_config(lite_config: LiteLocalConfig) -> None:
 @click.option("--type", required=False, default=DEFAULT_LITE_IMPL)
 @click.option("--file", required=False)
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
 
     lite_config = get_lite_config()
@@ -341,7 +342,7 @@ def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
 @lite.command("import", context_settings=dict(allow_extra_args=True))
 @click.option("--file", required=False)
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def import_cmd(ctx: click.Context, file: Optional[str]) -> None:
     if file is None:
         if not ctx.args:
@@ -360,7 +361,7 @@ def import_cmd(ctx: click.Context, file: Optional[str]) -> None:
 @lite.command("export", context_settings=dict(allow_extra_args=True))
 @click.option("--file", required=True, type=str)
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def export(ctx: click.Context, file: str) -> None:
     if file is None:
         if not ctx.args:

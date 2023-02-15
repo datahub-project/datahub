@@ -10,6 +10,10 @@
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
       <level>INFO</level>
     </filter>
+    <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+      <excluded>Unable to renew the session. The session store may not support this feature</excluded>
+      <excluded>Preferred JWS algorithm: null not available. Using all metadata algorithms:</excluded>
+    </filter>
   </appender>
 
   <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">

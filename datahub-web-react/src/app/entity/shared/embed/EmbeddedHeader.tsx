@@ -61,7 +61,7 @@ export default function EmbeddedHeader() {
     const appConfig = useAppConfig();
     const themeConfig = useTheme();
 
-    const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
+    const typeIcon = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT, ANTD_GRAY[8]);
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const entityName = entityRegistry.getDisplayName(entityType, entityData);
     const entityTypePathName = entityRegistry.getPathName(entityType);

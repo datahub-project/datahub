@@ -108,6 +108,61 @@ def test_azure_ad_source_default_configs(pytestconfig, tmp_path):
 
 
 @freeze_time(FROZEN_TIME)
+def test_azure_ad_source_empty_group_membership(pytestconfig, tmp_path):
+    test_resources_dir: pathlib.Path = (
+        pytestconfig.rootpath / "tests/integration/azure_ad"
+    )
+
+    with patch(
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource.get_token"
+    ) as mock_token, patch(
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_users"
+    ) as mock_users, patch(
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_groups"
+    ) as mock_groups, patch(
+        "datahub.ingestion.source.identity.azure_ad.AzureADSource._get_azure_ad_group_members"
+    ) as mock_group_users:
+        mocked_functions(
+            test_resources_dir, mock_token, mock_users, mock_groups, mock_group_users
+        )
+        # Run an azure usage ingestion run.
+        pipeline = Pipeline.create(
+            {
+                "run_id": "test-azure-ad",
+                "source": {
+                    "type": "azure-ad",
+                    "config": {
+                        "client_id": "00000000-0000-0000-0000-000000000002",
+                        "tenant_id": "00000000-0000-0000-0000-000000000002",
+                        "client_secret": "client_secret",
+                        "redirect": "https://login.microsoftonline.com/common/oauth2/nativeclient",
+                        "authority": "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000",
+                        "token_url": "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token",
+                        "graph_url": "https://graph.microsoft.com/v1.0",
+                        "ingest_group_membership": True,
+                        "ingest_groups": True,
+                        "ingest_users": True,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/azure_ad_mces_default_config.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "azure_ad_mces_default_config.json",
+        golden_path=test_resources_dir / "azure_ad_mces_golden_default_config.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
 def test_azure_ad_source_nested_groups(pytestconfig, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -287,6 +342,8 @@ def mocked_functions(
             return [users]
         if group_id == "00000000-0000-0000-0000-0000000000001":
             return [users]
+        if group_id == "00000000-0000-0000-0000-0000000000002":
+            return [users[0:1]]
         if group_id == "99999999-9999-9999-9999-999999999999":
             return [nested_group_members]
         raise ValueError(f"Unexpected Azure AD group ID {group_id}")
