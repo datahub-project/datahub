@@ -519,7 +519,7 @@ public class GmsGraphQLEngine {
             dataHubPolicyType,
             dataHubRoleType,
             schemaFieldType,
-            dataHubViewType
+            dataHubViewType,
             queryType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);

@@ -93,11 +93,12 @@ public class QueryService extends BaseService {
 
     // 3. Write the new query to GMS, return the new URN.
     try {
-      UrnUtils.getUrn(this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
-          EntityKeyUtils.convertEntityKeyToUrn(key, Constants.QUERY_ENTITY_NAME), Constants.QUERY_PROPERTIES_ASPECT_NAME, queryProperties), authentication,
-          false));
+      final Urn entityUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.QUERY_ENTITY_NAME);
+      System.out.println(this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
+          entityUrn, Constants.QUERY_PROPERTIES_ASPECT_NAME, queryProperties), authentication,
+        false));
       return UrnUtils.getUrn(this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
-          EntityKeyUtils.convertEntityKeyToUrn(key, Constants.QUERY_ENTITY_NAME), Constants.QUERY_SUBJECTS_ASPECT_NAME, querySubjects), authentication,
+          entityUrn, Constants.QUERY_SUBJECTS_ASPECT_NAME, querySubjects), authentication,
           false));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create Query", e);
@@ -155,8 +156,8 @@ public class QueryService extends BaseService {
       final List<MetadataChangeProposal> aspectsToIngest = new ArrayList<>();
       aspectsToIngest.add(AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_PROPERTIES_ASPECT_NAME, properties));
       if (subjects != null) {
-        AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_SUBJECTS_ASPECT_NAME, new QuerySubjects()
-            .setSubjects(new QuerySubjectArray(subjects)));
+        aspectsToIngest.add(AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_SUBJECTS_ASPECT_NAME, new QuerySubjects()
+            .setSubjects(new QuerySubjectArray(subjects))));
       }
       this.entityClient.batchIngestProposals(aspectsToIngest, authentication,false);
     } catch (Exception e) {
