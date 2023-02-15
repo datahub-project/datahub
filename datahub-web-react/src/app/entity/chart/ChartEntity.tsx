@@ -29,13 +29,13 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 export class ChartEntity implements Entity<Chart> {
     type: EntityType = EntityType.Chart;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <LineChartOutlined style={{ fontSize }} />;
+            return <LineChartOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <LineChartOutlined style={{ fontSize, color: 'rgb(144 163 236)' }} />;
+            return <LineChartOutlined style={{ fontSize, color: color || 'rgb(144 163 236)' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -48,7 +48,7 @@ export class ChartEntity implements Entity<Chart> {
             <LineChartOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
