@@ -6,11 +6,11 @@ from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import duckdb
 
-from datahub.configuration.common import ConfigModel
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.lite.duckdb_lite_config import DuckDBLiteConfig
 from datahub.lite.lite_local import (
     AutoComplete,
     Browseable,
@@ -37,12 +37,6 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
-
-
-class DuckDBLiteConfig(ConfigModel):
-    file: str
-    read_only: bool = False
-    options: dict = {}
 
 
 class DuckDBLite(DataHubLiteLocal[DuckDBLiteConfig]):
