@@ -5,13 +5,13 @@ from typing import List
 import pytest
 from lark import Tree
 
+import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query import parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.resolver import (
     DataPlatformTable,
     SupportedDataPlatform,
 )
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu20658.ap-southeast-2.snowflakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -128,7 +128,7 @@ def test_parse_m_query13():
 @pytest.mark.integration
 def test_snowflake_regular_case():
     q: str = M_QUERIES[0]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -152,7 +152,7 @@ def test_snowflake_regular_case():
 @pytest.mark.integration
 def test_postgres_regular_case():
     q: str = M_QUERIES[13]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -175,7 +175,7 @@ def test_postgres_regular_case():
 @pytest.mark.integration
 def test_oracle_regular_case():
     q: str = M_QUERIES[14]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -198,7 +198,7 @@ def test_oracle_regular_case():
 @pytest.mark.integration
 def test_mssql_regular_case():
     q: str = M_QUERIES[15]
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -239,7 +239,7 @@ def test_mssql_with_query():
     ]
 
     for index, query in enumerate(mssql_queries):
-        table: PowerBiAPI.Table = PowerBiAPI.Table(
+        table: powerbi_data_classes.Table = powerbi_data_classes.Table(
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
@@ -276,7 +276,7 @@ def test_snowflake_native_query():
     ]
 
     for index, query in enumerate(snowflake_queries):
-        table: PowerBiAPI.Table = PowerBiAPI.Table(
+        table: powerbi_data_classes.Table = powerbi_data_classes.Table(
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
@@ -298,7 +298,7 @@ def test_snowflake_native_query():
 
 @pytest.mark.integration
 def test_native_query_disabled():
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[1],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -315,7 +315,7 @@ def test_native_query_disabled():
 @pytest.mark.integration
 def test_multi_source_table():
 
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[12],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -342,7 +342,7 @@ def test_multi_source_table():
 
 @pytest.mark.integration
 def test_table_combine():
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[16],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -378,7 +378,7 @@ def test_expression_is_none():
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     logging.getLogger().setLevel(logging.DEBUG)
 
-    table: PowerBiAPI.Table = PowerBiAPI.Table(
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=None,  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",

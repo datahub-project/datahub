@@ -1,5 +1,6 @@
 package auth.sso.oidc;
 
+import auth.CookieConfigs;
 import client.AuthServiceClient;
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
@@ -80,13 +81,15 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
   private final EntityClient _entityClient;
   private final Authentication _systemAuthentication;
   private final AuthServiceClient _authClient;
+  private final CookieConfigs _cookieConfigs;
 
   public OidcCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication,
-      final EntityClient entityClient, final AuthServiceClient authClient) {
+      final EntityClient entityClient, final AuthServiceClient authClient, final CookieConfigs cookieConfigs) {
     _ssoManager = ssoManager;
     _systemAuthentication = systemAuthentication;
     _entityClient = entityClient;
     _authClient = authClient;
+    _cookieConfigs = cookieConfigs;
   }
 
   @Override
@@ -157,9 +160,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
               .withCookies(
                   createActorCookie(
                       corpUserUrn.toString(),
-                      oidcConfigs.getSessionTtlInHours(),
-                      oidcConfigs.getAuthCookieSameSite(),
-                      oidcConfigs.getAuthCookieSecure()
+                      _cookieConfigs.getTtlInHours(),
+                      _cookieConfigs.getAuthCookieSameSite(),
+                      _cookieConfigs.getAuthCookieSecure()
                   )
               );
     }
