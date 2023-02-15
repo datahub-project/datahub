@@ -726,6 +726,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=project_id,
             dataset_name=dataset_name,
             column_limit=self.config.column_limit,
+            run_optimized_column_query=self.config.run_optimized_column_query,
         )
 
         if self.config.include_tables:

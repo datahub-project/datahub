@@ -86,7 +86,7 @@ class BigQueryV2Config(
     number_of_partitioned_datasets_process_in_batch: int = Field(
         hidden_from_schema=True,
         default=80,
-        description="Number of partitione table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+        description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
 
     column_limit: int = Field(
@@ -177,6 +177,12 @@ class BigQueryV2Config(
     upstream_lineage_in_report: bool = Field(
         default=False,
         description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",
+    )
+
+    run_optimized_column_query: bool = Field(
+        hidden_from_schema=True,
+        default=True,
+        description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
     def __init__(self, **data: Any):
