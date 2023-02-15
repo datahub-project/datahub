@@ -22,13 +22,13 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 export class ContainerEntity implements Entity<Container> {
     type: EntityType = EntityType.Container;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined />;
+            return <FolderOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderOutlined style={{ fontSize, color: '#B37FEB' }} />;
+            return <FolderOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -41,7 +41,7 @@ export class ContainerEntity implements Entity<Container> {
             <FolderOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
