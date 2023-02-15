@@ -6,7 +6,7 @@ description: >-
 
 # Advanced Ingestion
 
-To review our guide on general ingestion, click [here](./#batch-ingestion).
+To review our guide on general ingestion, click [here](metadata-ingestion/README.md).
 
 ## Real-Time Ingestion&#x20;
 

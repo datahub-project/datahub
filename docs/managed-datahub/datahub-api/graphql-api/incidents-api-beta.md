@@ -20,7 +20,7 @@ A couple scenarios in which incidents can be useful are
 2. Fetch all incidents for a data asset
 3. Resolve an incident
 
-for **Datasets** using the Acryl [GraphQL API](./).
+for **Datasets** using the Acryl [GraphQL API](docs/api/graphql/overview.md).
 
 Let's get started!&#x20;
 

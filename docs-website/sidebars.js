@@ -517,6 +517,10 @@ module.exports = {
             type: "doc",
             id: "docs/managed-datahub/integrations/aws-privatelink",
             className: "saasOnly",
+          },{
+            type: "doc",
+            id: "docs/managed-datahub/integrations/oidc-sso-integration",
+            className: "saasOnly",
           },
         ],
       },

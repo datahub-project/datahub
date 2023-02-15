@@ -12,7 +12,7 @@ Acryl DataHub offers a slew of additional features on top of the normal OSS proj
 
 ## Additional SSO/Login Support
 
-- [Adding and authenticating users](docs/authentication/guides/add-users.md)
+- [OIDC SSO Integration in the UI](docs/managed-datahub/integrations/oidc-sso-integration.md)
 
 ## Expanded API Features
 - [GraphQL API](docs/managed-datahub/datahub-api/graphql-api/getting-started.md)
