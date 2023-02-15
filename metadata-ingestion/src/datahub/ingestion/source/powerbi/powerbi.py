@@ -30,8 +30,8 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -316,7 +316,7 @@ class Mapper:
                 urn=ds_urn,
                 aspects=[StatusClass(removed=False)],
             )
-            columns: List[Union[PowerBiAPI.Column, PowerBiAPI.Measure]] = [
+            columns: List[Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]] = [
                 *table.columns,
                 *table.measures,
             ]
@@ -324,7 +324,7 @@ class Mapper:
                 self.get_schema_field(field) for field in columns if not field.is_hidden
             ]
             schema_metadata = SchemaMetadata(
-                schemaName=dataset.name,
+                schemaName=dataset.name or "",
                 platform=builder.make_data_platform_urn(self.__config.platform_name),
                 version=0,
                 hash="",
@@ -744,7 +744,7 @@ class Mapper:
         yield from deduplicate_list([wu for wu in work_units if wu is not None])
 
         for mce in dataset_mces:
-            yield SqlWorkUnit(id=dataset.name, mce=mce)
+            yield SqlWorkUnit(id=dataset.name or "", mce=mce)
 
     def pages_to_chart(
         self,

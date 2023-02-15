@@ -11,12 +11,14 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Column,
     Dashboard,
+    Measure,
     PowerBIDataset,
     Report,
     Table,
     User,
-    Workspace, Measure, Column,
+    Workspace,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
