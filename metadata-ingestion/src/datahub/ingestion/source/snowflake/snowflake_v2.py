@@ -277,6 +277,9 @@ class SnowflakeV2Source(
         if self.is_classification_enabled():
             self.classifiers = self.get_classifiers()
 
+        # Caches tables for a single database. Consider moving to disk or S3 when possible.
+        self.db_tables: Dict[str, List[SnowflakeTable]] = {}
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
         config = SnowflakeV2Config.parse_obj(config_dict)
@@ -668,8 +671,12 @@ class SnowflakeV2Source(
             for tag in snowflake_db.tags:
                 yield from self._process_tag(tag)
 
+        self.db_tables = {}
         for snowflake_schema in snowflake_db.schemas:
             yield from self._process_schema(snowflake_schema, db_name)
+
+        if self.config.profiling.enabled and self.db_tables:
+            yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
     def fetch_schemas_for_database(self, snowflake_db, db_name):
         try:
@@ -720,11 +727,11 @@ class SnowflakeV2Source(
         if self.config.include_technical_schema:
             yield from self.gen_schema_containers(snowflake_schema, db_name)
 
-        tables = []
         if self.config.include_tables:
             tables = self.fetch_tables_for_schema(
                 snowflake_schema, db_name, schema_name
             )
+            self.db_tables[schema_name] = tables
 
             if self.config.include_technical_schema:
                 for table in tables:
@@ -746,9 +753,6 @@ class SnowflakeV2Source(
                 "No tables/views found in schema. If tables exist, please grant REFERENCES or SELECT permissions on them.",
                 f"{db_name}.{schema_name}",
             )
-
-        if self.config.profiling.enabled and tables:
-            yield from self.profiler.get_workunits(tables, db_name, schema_name)
 
     def fetch_views_for_schema(self, snowflake_schema, db_name, schema_name):
         try:

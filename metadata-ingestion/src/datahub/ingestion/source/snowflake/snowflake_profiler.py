@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Callable, Iterable, List, Optional, cast
+from typing import Callable, Dict, Iterable, List, Optional, cast
 
 from snowflake.sqlalchemy import snowdialect
 from sqlalchemy import create_engine, inspect
@@ -18,7 +18,10 @@ from datahub.ingestion.source.ge_data_profiler import (
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTable
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeDatabase,
+    SnowflakeTable,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeCommonMixin
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -50,7 +53,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         self.logger = logger
 
     def get_workunits(
-        self, tables: List[SnowflakeTable], db_name: str, schema_name: str
+        self, database: SnowflakeDatabase, db_tables: Dict[str, List[SnowflakeTable]]
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
@@ -59,19 +62,22 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                 "max_overflow", self.config.profiling.max_workers
             )
 
-        if not is_schema_allowed(
-            self.config.schema_pattern,
-            schema_name,
-            db_name,
-            self.config.match_fully_qualified_names,
-        ):
-            return
+        profile_requests = []
+        for schema in database.schemas:
+            if not is_schema_allowed(
+                self.config.schema_pattern,
+                schema.name,
+                database.name,
+                self.config.match_fully_qualified_names,
+            ):
+                continue
 
-        profile_requests = [
-            self.get_snowflake_profile_request(table, schema_name, db_name)
-            for table in tables
-        ]
-        profile_requests = [v for v in profile_requests if v is not None]
+            for table in db_tables[schema.name]:
+                profile_request = self.get_snowflake_profile_request(
+                    table, schema.name, database.name
+                )
+                if profile_request is not None:
+                    profile_requests.append(profile_request)
 
         if len(profile_requests) == 0:
             return
@@ -81,7 +87,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         for request, profile in self.generate_profiles(
             table_profile_requests,
             self.config.profiling.max_workers,
-            db_name,
+            database.name,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
         ):
