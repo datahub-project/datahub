@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
 import { Button, Select, Typography } from 'antd';
-import dayjs from 'dayjs';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
 import {
@@ -85,8 +84,8 @@ export const LineageTab = ({
     const routeToLineage = useCallback(() => {
         history.push(
             getEntityPath(entityType, urn, entityRegistry, true, false, undefined, {
-                start_time_millis: startTimeMillis || dayjs().subtract(14, 'day').valueOf(),
-                end_time_millis: endTimeMillis || dayjs().valueOf(),
+                start_time_millis: startTimeMillis,
+                end_time_millis: endTimeMillis,
             }),
         );
     }, [history, entityType, urn, entityRegistry, startTimeMillis, endTimeMillis]);
