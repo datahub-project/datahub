@@ -70,6 +70,7 @@ sheet_graphql_query = """
     name
     path
     luid
+    documentViewId
     createdAt
     updatedAt
     tags {
