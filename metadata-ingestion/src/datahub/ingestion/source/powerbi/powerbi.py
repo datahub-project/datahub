@@ -316,7 +316,9 @@ class Mapper:
                 urn=ds_urn,
                 aspects=[StatusClass(removed=False)],
             )
-            columns: List[Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]] = [
+            columns: List[
+                Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
+            ] = [
                 *table.columns,
                 *table.measures,
             ]
