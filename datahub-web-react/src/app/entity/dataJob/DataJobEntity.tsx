@@ -34,20 +34,20 @@ const getDataJobPlatformName = (data?: DataJob): string => {
 export class DataJobEntity implements Entity<DataJob> {
     type: EntityType = EntityType.DataJob;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <ConsoleSqlOutlined style={{ fontSize }} />;
+            return <ConsoleSqlOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ConsoleSqlOutlined style={{ fontSize, color: '#B37FEB' }} />;
+            return <ConsoleSqlOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         return (
             <ConsoleSqlOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
