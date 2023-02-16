@@ -1,0 +1,336 @@
+[
+    {
+        "proposedSnapshot": {
+            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+                "aspects": [
+                    {
+                        "com.linkedin.pegasus2avro.common.Status": {
+                            "removed": false
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                            "customProperties": {
+                                "owner": "root",
+                                "created-at": "2023-01-13T11:56:49.169944100Z",
+                                "write.format.default": "parquet",
+                                "location": "s3a://warehouse/wh/nyc/taxis",
+                                "format-version": "1",
+                                "snapshot-id": "6917251075794782448",
+                                "manifest-list": "s3a://warehouse/wh/nyc/taxis/metadata/snap-6917251075794782448-1-dc6938ef-2471-4b9c-aa18-4d7d7c200607.avro"
+                            },
+                            "tags": []
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.common.Ownership": {
+                            "owners": [
+                                {
+                                    "owner": "urn:li:corpuser:root",
+                                    "type": "TECHNICAL_OWNER"
+                                },
+                                {
+                                    "owner": "urn:li:corpGroup:root",
+                                    "type": "TECHNICAL_OWNER"
+                                }
+                            ],
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            }
+                        }
+                    },
+                    {
+                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                            "schemaName": "nyc.taxis",
+                            "platform": "urn:li:dataPlatform:iceberg",
+                            "version": 0,
+                            "created": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "lastModified": {
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
+                            },
+                            "hash": "",
+                            "platformSchema": {
+                                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                    "rawSchema": "table {\n  1: VendorID: optional long\n  2: tpep_pickup_datetime: optional timestamptz\n  3: tpep_dropoff_datetime: optional timestamptz\n  4: passenger_count: optional double\n  5: trip_distance: optional double\n  6: RatecodeID: optional double\n  7: store_and_fwd_flag: optional string\n  8: PULocationID: optional long\n  9: DOLocationID: optional long\n  10: payment_type: optional long\n  11: fare_amount: optional double\n  12: extra: optional double\n  13: mta_tax: optional double\n  14: tip_amount: optional double\n  15: tolls_amount: optional double\n  16: improvement_surcharge: optional double\n  17: total_amount: optional double\n  18: congestion_surcharge: optional double\n  19: airport_fee: optional double\n}"
+                                }
+                            },
+                            "fields": [
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].VendorID",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "long",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].tpep_pickup_datetime",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamptz",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].tpep_dropoff_datetime",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "timestamptz",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].passenger_count",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].trip_distance",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].RatecodeID",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=string].store_and_fwd_flag",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "string",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].PULocationID",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "long",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].DOLocationID",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "long",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=long].payment_type",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "long",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"long\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].fare_amount",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].extra",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].mta_tax",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].tip_amount",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].tolls_amount",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].improvement_surcharge",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].total_amount",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].congestion_surcharge",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                },
+                                {
+                                    "fieldPath": "[version=2.0].[type=struct].[type=double].airport_fee",
+                                    "nullable": true,
+                                    "type": {
+                                        "type": {
+                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                        }
+                                    },
+                                    "nativeDataType": "double",
+                                    "recursive": false,
+                                    "isPartOfKey": false,
+                                    "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1586847600000,
+            "runId": "iceberg-test"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "datasetProfile",
+        "aspect": {
+            "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2171187, \"columnCount\": 19, \"fieldProfiles\": [{\"fieldPath\": \"VendorID\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"6\"}, {\"fieldPath\": \"tpep_pickup_datetime\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2009-01-01 03:21:35\", \"max\": \"2021-07-19 05:22:03\"}, {\"fieldPath\": \"tpep_dropoff_datetime\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2009-01-01 03:51:24\", \"max\": \"2021-07-19 05:38:54\"}, {\"fieldPath\": \"passenger_count\", \"nullCount\": 128020, \"nullProportion\": 0.05896313859653728, \"max\": \"9.0\"}, {\"fieldPath\": \"trip_distance\", \"nullCount\": 0, \"nullProportion\": 0.0, \"max\": \"280567.84\"}, {\"fieldPath\": \"RatecodeID\", \"nullCount\": 128020, \"nullProportion\": 0.05896313859653728, \"min\": \"1.0\", \"max\": \"99.0\"}, {\"fieldPath\": \"store_and_fwd_flag\", \"nullCount\": 128020, \"nullProportion\": 0.05896313859653728}, {\"fieldPath\": \"PULocationID\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"265\"}, {\"fieldPath\": \"DOLocationID\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"265\"}, {\"fieldPath\": \"payment_type\", \"nullCount\": 0, \"nullProportion\": 0.0, \"max\": \"4\"}, {\"fieldPath\": \"fare_amount\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"-415.0\", \"max\": \"395854.44\"}, {\"fieldPath\": \"extra\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"-5.5\", \"max\": \"8.25\"}, {\"fieldPath\": \"mta_tax\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"-0.5\", \"max\": \"3.3\"}, {\"fieldPath\": \"tip_amount\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"-333.32\", \"max\": \"380.0\"}, {\"fieldPath\": \"tolls_amount\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"-31.75\", \"max\": \"137.25\"}, {\"fieldPath\": \"improvement_surcharge\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"-0.3\", \"max\": \"0.3\"}, {\"fieldPath\": \"total_amount\", \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"-415.3\", \"max\": \"395854.74\"}, {\"fieldPath\": \"congestion_surcharge\", \"nullCount\": 128020, \"nullProportion\": 0.05896313859653728, \"min\": \"-2.5\", \"max\": \"2.5\"}, {\"fieldPath\": \"airport_fee\", \"nullCount\": 128096, \"nullProportion\": 0.058998142490720516, \"min\": \"-1.25\", \"max\": \"1.25\"}]}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1586847600000,
+            "runId": "iceberg-test"
+        }
+    }
+]

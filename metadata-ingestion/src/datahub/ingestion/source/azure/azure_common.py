@@ -1,7 +1,5 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
-from azure.identity import ClientSecretCredential
-from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
 from pydantic import Field, root_validator
 
 from datahub.configuration import ConfigModel
@@ -47,29 +45,7 @@ class AdlsSourceConfig(ConfigModel):
     )
 
     def get_abfss_url(self, folder_path: str = "") -> str:
-        if not folder_path.startswith("/"):
-            folder_path = f"/{folder_path}"
-        return f"abfss://{self.container_name}@{self.account_name}.dfs.core.windows.net{folder_path}"
-
-    def get_filesystem_client(self) -> FileSystemClient:
-        return self.get_service_client().get_file_system_client(self.container_name)
-
-    def get_service_client(self) -> DataLakeServiceClient:
-        return DataLakeServiceClient(
-            account_url=f"https://{self.account_name}.dfs.core.windows.net",
-            credential=self.get_credentials(),
-        )
-
-    def get_credentials(
-        self,
-    ) -> Union[Optional[str], ClientSecretCredential]:
-        if self.client_id and self.client_secret and self.tenant_id:
-            return ClientSecretCredential(
-                tenant_id=self.tenant_id,
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-            )
-        return self.sas_token if self.sas_token is not None else self.account_key
+        return f"abfss://{self.container_name}@{self.account_name}.dfs.core.windows.net{strltrim(folder_path, self.container_name)}"
 
     @root_validator()
     def _check_credential_values(cls, values: Dict) -> Dict:
@@ -86,3 +62,7 @@ class AdlsSourceConfig(ConfigModel):
         raise ConfigurationError(
             "credentials missing, requires one combination of account_key or sas_token or (client_id and client_secret and tenant_id)"
         )
+
+
+def strltrim(to_trim: str, prefix: str) -> str:
+    return to_trim[len(prefix) :] if to_trim.startswith(prefix) else to_trim

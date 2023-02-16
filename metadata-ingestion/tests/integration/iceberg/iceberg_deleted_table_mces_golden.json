@@ -1,0 +1,16 @@
+[
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,test_platform_instance.nyc.taxis,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "status",
+        "aspect": {
+            "value": "{\"removed\": true}",
+            "contentType": "application/json"
+        },
+        "systemMetadata": {
+            "lastObserved": 1586847600000,
+            "runId": "iceberg-2020_04_14-07_00_00"
+        }
+    }
+]
