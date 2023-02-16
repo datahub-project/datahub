@@ -112,7 +112,7 @@ export default function DownloadAsCsvModal({
             }
         >
             <Input
-                placeholder="datahub.csv"
+                placeholder="data-catalog.csv"
                 value={saveAsTitle}
                 onChange={(e) => {
                     setSaveAsTitle(e.target.value);

@@ -14,10 +14,10 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to DataHub <strong>Users</strong>!
+                    Welcome to Data Catalog <strong>Users</strong>!
                 </p>
                 <p>
-                    There are a few different ways to onboard new <strong>Users</strong> onto DataHub.
+                    There are a few different ways to onboard new <strong>Users</strong> onto Data Catalog.
                 </p>
             </Typography.Paragraph>
         ),
@@ -29,7 +29,7 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
             <Typography.Paragraph>
                 <p>
                     The preferred way to onboard new <strong>Users</strong> is to use <strong>Single Sign-On</strong>.
-                    Currently, DataHub supports OIDC SSO.
+                    Currently, Data Catalog supports OIDC SSO.
                 </p>
                 <p>
                     Learn more about how to configure <strong>Single Sign-On</strong>{' '}
@@ -52,8 +52,8 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Easily share an invite link with your colleagues to onboard them onto DataHub. Optionally assign a{' '}
-                    <strong>Role</strong> to anyone who joins using the link.
+                    Easily share an invite link with your colleagues to onboard them onto Data Catalog. Optionally
+                    assign a <strong>Role</strong> to anyone who joins using the link.
                 </p>
                 <p>
                     Learn more about configuring invite links{' '}

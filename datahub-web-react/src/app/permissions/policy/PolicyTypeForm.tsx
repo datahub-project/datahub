@@ -53,8 +53,9 @@ export default function PolicyTypeForm({
                     <Select.Option value={PolicyType.Metadata}>Metadata</Select.Option>
                 </Select>
                 <TypeDescriptionParagraph type="secondary">
-                    The <b>Platform</b> policy type allows you to assign top-level DataHub Platform privileges to users.
-                    These include managing users and groups, creating policies, viewing analytics dashboards and more.
+                    The <b>Platform</b> policy type allows you to assign top-level Data Catalog Platform privileges to
+                    users. These include managing users and groups, creating policies, viewing analytics dashboards and
+                    more.
                     <br />
                     <br />
                     The <b>Metadata</b> policy type allows you to assign metadata privileges to users. These include the

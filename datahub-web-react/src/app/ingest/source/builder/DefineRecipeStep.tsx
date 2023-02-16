@@ -128,13 +128,13 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                                 To get complete Looker metadata integration (including Looker views and lineage to the
                                 underlying warehouse tables), you must <b>also</b> use the{' '}
                                 <a href={LOOKML_DOC_LINK} target="_blank" rel="noopener noreferrer">
-                                    DataHub lookml module
+                                    Data Catalog lookml module
                                 </a>
                                 .
                                 <br />
                                 <br />
                                 LookML ingestion <b>cannot</b> currently be performed via UI-based ingestion. This is a
-                                known problem the DataHub team is working to solve!
+                                known problem the Data Catalog team is working to solve!
                                 <br />
                                 <Space direction="horizontal" style={{ width: '100%', justifyContent: 'center' }}>
                                     <Button type="ghost" size="small" onClick={() => setShowLookerBanner(false)}>

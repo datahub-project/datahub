@@ -12,10 +12,11 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to DataHub <strong>Policies</strong>!
+                    Welcome to Data Catalog <strong>Policies</strong>!
                 </p>
                 <p>
-                    In most cases, <strong>Roles</strong> are the best option for granting privileges to DataHub users.
+                    In most cases, <strong>Roles</strong> are the best option for granting privileges to Data Catalog
+                    users.
                 </p>
                 <p>
                     When more fine-grained control over user and group permissions is required, then{' '}

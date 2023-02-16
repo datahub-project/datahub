@@ -10,7 +10,7 @@ export const LOOKML_GITHUB_INFO_REPO: RecipeField = {
     tooltip: 'The name of the GitHub repository where your LookML is defined.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.github_info.repo',
-    placeholder: 'datahub-project/datahub',
+    placeholder: 'loadsmart/datahub',
     rules: [{ required: true, message: 'Github Repo is required' }],
     required: true,
 };
@@ -167,7 +167,7 @@ export const CONNECTION_TO_PLATFORM_MAP_NAME: RecipeField = {
 export const PLATFORM: RecipeField = {
     name: 'platform',
     label: 'Platform',
-    tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
+    tooltip: 'The Data Platform ID in Data Catalog (e.g. snowflake, bigquery, redshift, mysql, postgres)',
     type: FieldType.TEXT,
     fieldPath: 'platform',
     placeholder: 'snowflake',
@@ -190,7 +190,7 @@ export const CONNECTION_TO_PLATFORM_MAP: RecipeField = {
     name: 'connection_to_platform_map',
     label: 'Connection To Platform Map',
     tooltip:
-        'A mapping of Looker connection names to DataHub Data Platform and Database names. This is used to create an accurate picture of the Lineage between LookML models and upstream Data Sources.',
+        'A mapping of Looker connection names to Data Catalog Data Platform and Database names. This is used to create an accurate picture of the Lineage between LookML models and upstream Data Sources.',
     type: FieldType.DICT,
     buttonLabel: 'Add mapping',
     fieldPath: connectionToPlatformMapFieldPath,

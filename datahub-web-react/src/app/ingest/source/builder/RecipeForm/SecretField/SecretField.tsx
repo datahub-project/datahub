@@ -67,8 +67,8 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
                 </>
             )}
             <p>
-                This field requires you to use a DataHub Secret. For more information on Secrets in DataHub, please
-                review{' '}
+                This field requires you to use a Data Catalog Secret. For more information on Secrets in Data Catalog,
+                please review{' '}
                 <a
                     href="https://datahubproject.io/docs/ui-ingestion/#creating-a-secret"
                     target="_blank"

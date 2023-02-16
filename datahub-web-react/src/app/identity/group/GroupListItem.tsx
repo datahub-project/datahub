@@ -39,7 +39,7 @@ export default function GroupListItem({ group, onDelete }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
     const isExternalGroup: boolean = group.origin?.type === OriginType.External;
-    const externalGroupType: string = group.origin?.externalType || 'outside DataHub';
+    const externalGroupType: string = group.origin?.externalType || 'outside Data Catalog';
 
     return (
         <List.Item>

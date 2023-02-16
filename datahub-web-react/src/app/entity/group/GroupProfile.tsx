@@ -51,7 +51,7 @@ export default function GroupProfile() {
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
-    const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
+    const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside Data Catalog';
 
     const getTabs = () => {
         return [

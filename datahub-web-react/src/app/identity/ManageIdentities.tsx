@@ -74,7 +74,7 @@ export const ManageIdentities = () => {
             <PageHeaderContainer>
                 <PageTitle level={3}>Manage Users & Groups</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View your DataHub users & groups. Take administrative actions.
+                    View your Data Catalog users & groups. Take administrative actions.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <Content>

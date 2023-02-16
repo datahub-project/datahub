@@ -77,7 +77,7 @@ export const TestResultsList = ({ title, results }: Props) => {
                                 </div>
                             </div>
                             {navigator.clipboard && (
-                                <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+                                <Tooltip title="Copy URN. An URN uniquely identifies an entity on Data Catalog.">
                                     <Button
                                         icon={<CopyOutlined />}
                                         onClick={() => {

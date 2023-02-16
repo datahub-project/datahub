@@ -86,8 +86,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Executor Id</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the executor id to route execution requests to. The built-in DataHub executor id
-                                is &apos;default&apos;. Do not change this unless you have configured a custom executor.
+                                Provide the executor id to route execution requests to. The built-in Data Catalog
+                                executor id is &apos;default&apos;. Do not change this unless you have configured a
+                                custom executor.
                             </Typography.Paragraph>
                             <Input
                                 placeholder="default"

@@ -88,7 +88,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>Value</Typography.Text>}>
                     <Typography.Paragraph>
-                        The value of your secret, which will be encrypted and stored securely within DataHub.
+                        The value of your secret, which will be encrypted and stored securely within Data Catalog.
                     </Typography.Paragraph>
                     <Form.Item
                         name={VALUE_FIELD_NAME}

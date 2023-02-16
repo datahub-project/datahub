@@ -11,7 +11,7 @@ interface CopyUrnProps {
 export default function CopyUrn({ urn, isActive, onClick }: CopyUrnProps) {
     if (navigator.clipboard) {
         return (
-            <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+            <Tooltip title="Copy URN. An URN uniquely identifies an entity on Data Catalog.">
                 <Button
                     icon={isActive ? <CheckOutlined /> : <CopyOutlined />}
                     onClick={() => {

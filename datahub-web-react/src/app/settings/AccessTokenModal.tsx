@@ -97,7 +97,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
             <ModalSection>
                 <ModalSectionHeader strong>Learn More</ModalSectionHeader>
                 <ModalSectionParagraph>
-                    To learn more about the DataHub APIs, check out the
+                    To learn more about the Data Catalog APIs, check out the
                     <a href="https://www.datahubproject.io/docs/"> DataHub Docs.</a>
                 </ModalSectionParagraph>
             </ModalSection>

@@ -74,7 +74,7 @@ export const ManagePermissions = () => {
             <PageHeaderContainer>
                 <PageTitle level={3}>Manage Permissions</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View your DataHub permissions. Take administrative actions.
+                    View your Data Catalog permissions. Take administrative actions.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <Content>

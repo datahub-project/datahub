@@ -50,8 +50,8 @@ const resources = [
         shouldOpenInNewTab: true,
     },
     {
-        label: 'DataHub GitHub',
-        path: 'https://github.com/datahub-project/datahub',
+        label: 'Data Catalog GitHub',
+        path: 'https://github.com/loadsmart/datahub',
         shouldOpenInNewTab: true,
     },
 ];

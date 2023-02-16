@@ -13,7 +13,7 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         content: (
             <Typography.Paragraph>
                 <p>
-                    Configure new Integrations from DataHub to your <strong>Data Platforms</strong>, including
+                    Configure new Integrations from Data Catalog to your <strong>Data Platforms</strong>, including
                     Transactional Databases like <strong>MySQL</strong>, Data Warehouses such as{' '}
                     <strong>Snowflake</strong>, Dashboarding tools like <strong>Looker</strong>, and more!
                 </p>

@@ -14,13 +14,13 @@ export const LookerWarning = ({ type }: Props) => {
     if (type === LOOKER) {
         link = (
             <a href={LOOKML_DOC_LINK} target="_blank" rel="noopener noreferrer">
-                DataHub LookML Ingestion Source
+                Data Catalog LookML Ingestion Source
             </a>
         );
     } else if (type === LOOK_ML) {
         link = (
             <a href={LOOKER_DOC_LINK} target="_blank" rel="noopener noreferrer">
-                DataHub Looker Ingestion Source
+                Data Catalog Looker Ingestion Source
             </a>
         );
     }

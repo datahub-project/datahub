@@ -249,7 +249,7 @@ export const EXTRACT_OWNERS: RecipeField = {
     name: 'extract_owners',
     label: 'Extract Owners',
     tooltip:
-        'Try to extract owners from dbt meta properties. Be careful: This can override Owners added by users of DataHub.',
+        'Try to extract owners from dbt meta properties. Be careful: This can override Owners added by users of Data Catalog.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.enable_owner_extraction',
     rules: null,
@@ -287,7 +287,7 @@ export const TARGET_PLATFORM_INSTANCE: RecipeField = {
     tooltip: (
         <span>
             <TipSection>
-                The DataHub Platform Instance identifier that should be used for the assets extracted from dbt.
+                The Data Catalog Platform Instance identifier that should be used for the assets extracted from dbt.
             </TipSection>
             <TipSection>
                 This is used to correctly connect the metadata extracted from the Data Platform with that extracted from

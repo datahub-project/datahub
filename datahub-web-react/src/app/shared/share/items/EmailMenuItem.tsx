@@ -39,7 +39,7 @@ export default function EmailMenuItem({ urn, name, type, key }: EmailMenuItemPro
                 setIsClicked(true);
             }}
         >
-            <EmailShare subject={`${name} | ${type}`} body={`Check out this ${type} on DataHub: ${linkText}`}>
+            <EmailShare subject={`${name} | ${type}`} body={`Check out this ${type} on Data Catalog: ${linkText}`}>
                 {(link) => (
                     <Tooltip title={`Share this ${type} via email`}>
                         {isClicked ? <CheckOutlined /> : <MailOutlined />}

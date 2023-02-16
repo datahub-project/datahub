@@ -93,7 +93,7 @@ export const SettingsPage = () => {
             <SettingsBarContainer>
                 <SettingsBarHeader>
                     <PageTitle level={3}>Settings</PageTitle>
-                    <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
+                    <Typography.Paragraph type="secondary">Manage your Data Catalog settings.</Typography.Paragraph>
                 </SettingsBarHeader>
                 <ThinDivider />
                 <Menu

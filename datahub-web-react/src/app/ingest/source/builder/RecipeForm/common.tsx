@@ -313,7 +313,7 @@ export const COLUMN_PROFILING_ENABLED: RecipeField = {
 export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     name: 'stateful_ingestion.enabled',
     label: 'Enable Stateful Ingestion',
-    tooltip: 'Remove stale assets from DataHub once they have been deleted in the ingestion source.',
+    tooltip: 'Remove stale assets from Data Catalog once they have been deleted in the ingestion source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
     rules: null,
@@ -359,7 +359,7 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
 export const INGEST_TAGS: RecipeField = {
     name: 'ingest_tags',
     label: 'Ingest Tags',
-    tooltip: 'Ingest Tags from the source. Be careful: This can override Tags entered by users of DataHub.',
+    tooltip: 'Ingest Tags from the source. Be careful: This can override Tags entered by users of Data Catalog.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.ingest_tags',
     rules: null,
@@ -368,7 +368,7 @@ export const INGEST_TAGS: RecipeField = {
 export const INGEST_OWNER: RecipeField = {
     name: 'ingest_owner',
     label: 'Ingest Owner',
-    tooltip: 'Ingest Owner from source. Be careful: This cah override Owners added by users of DataHub.',
+    tooltip: 'Ingest Owner from source. Be careful: This cah override Owners added by users of Data Catalog.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.ingest_owner',
     rules: null,
@@ -419,10 +419,10 @@ export const GITHUB_INFO_REPO: RecipeField = {
         <div>
             <p>
                 Name of your github repo. e.g. repo for{' '}
-                <a href="https://github.com/datahub-project/datahub" target="_blank" rel="noreferrer">
-                    https://github.com/datahub-project/datahub
+                <a href="https://github.com/loadsmart/datahub" target="_blank" rel="noreferrer">
+                    https://github.com/loadsmart/datahub
                 </a>{' '}
-                is datahub-project/datahub.
+                is loadsmart/datahub.
             </p>
         </div>
     ),
@@ -466,7 +466,7 @@ export const START_TIME: RecipeField = {
     name: 'start_time',
     label: 'Start Time',
     tooltip:
-        'Earliest date used when processing audit logs for lineage, usage, and more. Default: Last full day in UTC or last time DataHub ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) to bootstrap your first ingestion run, and then reduce for subsequent runs. Changing this may increase the duration of the extraction process.',
+        'Earliest date used when processing audit logs for lineage, usage, and more. Default: Last full day in UTC or last time Data Catalog ingested usage (if stateful ingestion is enabled). Tip: Set this to an older date (e.g. 1 month ago) to bootstrap your first ingestion run, and then reduce for subsequent runs. Changing this may increase the duration of the extraction process.',
     placeholder: 'Select date and time',
     type: FieldType.DATE,
     fieldPath: startTimeFieldPath,

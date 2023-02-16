@@ -51,7 +51,7 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
                             Modal.confirm({
                                 title: `Confirm Delete`,
                                 content: `Are you sure you want to mark these assets as deleted? This will hide the assets
-                                from future DataHub searches. If the assets are re-ingested from an external data platform, they will be restored.`,
+                                from future Data Catalog searches. If the assets are re-ingested from an external data platform, they will be restored.`,
                                 onOk() {
                                     batchSoftDelete();
                                 },

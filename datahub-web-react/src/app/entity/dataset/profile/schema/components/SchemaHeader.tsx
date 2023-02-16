@@ -289,7 +289,7 @@ export default function SchemaHeader({
                                 content={
                                     <div>
                                         Semantic versions for this view were computed using Technical Schema. You can
-                                        find more info about how DataHub computes versions
+                                        find more info about how Data Catalog computes versions
                                         <a target="_blank" rel="noreferrer noopener" href={docLink}>
                                             {' '}
                                             here.{' '}

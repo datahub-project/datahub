@@ -87,7 +87,7 @@ export default function EmbeddedHeader() {
                         target="_blank"
                         rel="noreferrer noopener"
                     >
-                        view in DataHub <ArrowRightOutlined />
+                        view in Data Catalog <ArrowRightOutlined />
                     </StyledLink>
                 </EntityNameWrapper>
             </EntityContent>

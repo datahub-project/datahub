@@ -36,7 +36,7 @@ export default function CopyUrnMenuItem({ urn, key, type }: CopyUrnMenuItemProps
                 setIsClicked(true);
             }}
         >
-            <Tooltip title={`Copy the URN for this ${type}. An URN uniquely identifies an entity on DataHub.`}>
+            <Tooltip title={`Copy the URN for this ${type}. An URN uniquely identifies an entity on Data Catalog.`}>
                 {isClicked ? <CheckOutlined /> : <CopyOutlined />}
                 <TextSpan>
                     <b>Copy URN</b>

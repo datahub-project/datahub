@@ -121,7 +121,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
             </Section>
             <Form layout="vertical">
                 <Form.Item
-                    tooltip="Enable to run ingestion on a schedule. Running ingestion on a schedule helps to keep the information inside of DataHub up to date."
+                    tooltip="Enable to run ingestion on a schedule. Running ingestion on a schedule helps to keep the information inside of Data Catalog up to date."
                     label={
                         <Typography.Text strong>
                             Run on a schedule <Typography.Text type="secondary">(Recommended)</Typography.Text>

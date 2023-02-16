@@ -32,7 +32,7 @@ export const ManageViews = () => {
                 <PageTitle level={3}>Manage Views</PageTitle>
                 <Typography.Paragraph type="secondary">
                     Create, edit, and remove your Views. Views allow you to save and share sets of filters for reuse
-                    when browsing DataHub.
+                    when browsing Data Catalog.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>

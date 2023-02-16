@@ -126,7 +126,7 @@ export const AccessTokens = () => {
     const onRemoveToken = (token: any) => {
         Modal.confirm({
             title: 'Are you sure you want to revoke this token?',
-            content: `Anyone using this token will no longer be able to access the DataHub API. You cannot undo this action.`,
+            content: `Anyone using this token will no longer be able to access the Data Catalog API. You cannot undo this action.`,
             onOk() {
                 // Hack to deal with eventual consistency.
                 const newTokenIds = [...removedTokens, token.id];
@@ -223,7 +223,7 @@ export const AccessTokens = () => {
                 <TokensHeaderContainer>
                     <TokensTitle level={2}>Manage Access Tokens</TokensTitle>
                     <Typography.Paragraph type="secondary">
-                        Manage Access Tokens for use with DataHub APIs.
+                        Manage Access Tokens for use with Data Catalog APIs.
                     </Typography.Paragraph>
                 </TokensHeaderContainer>
             </TokensContainer>
@@ -234,7 +234,7 @@ export const AccessTokens = () => {
                     message={
                         <span>
                             <StyledInfoCircleOutlined />
-                            Token based authentication is currently disabled. Contact your DataHub administrator to
+                            Token based authentication is currently disabled. Contact your Data Catalog administrator to
                             enable this feature.
                         </span>
                     }
@@ -242,8 +242,8 @@ export const AccessTokens = () => {
             )}
             <Typography.Title level={5}>Personal Access Tokens</Typography.Title>
             <PersonTokenDescriptionText type="secondary">
-                Personal Access Tokens allow you to make programmatic requests to DataHub&apos;s APIs. They inherit your
-                privileges and have a finite lifespan. Do not share Personal Access Tokens.
+                Personal Access Tokens allow you to make programmatic requests to Data Catalog&apos;s APIs. They inherit
+                your privileges and have a finite lifespan. Do not share Personal Access Tokens.
             </PersonTokenDescriptionText>
             <TabToolbar>
                 <div>
