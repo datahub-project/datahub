@@ -144,8 +144,8 @@ public class ChartType implements SearchableEntityType<Chart, String>, Browsable
                 start,
                 count,
                 context.getAuthentication(),
-                true
-        );
+                true,
+            null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 
