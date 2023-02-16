@@ -74,7 +74,8 @@ public class ListGlobalViewsResolver implements DataFetcher<CompletableFuture<Li
                 start,
                 count,
                 context.getAuthentication(),
-                true);
+                true,
+            null);
 
         final ListViewsResult result = new ListViewsResult();
         result.setStart(gmsResult.getFrom());
