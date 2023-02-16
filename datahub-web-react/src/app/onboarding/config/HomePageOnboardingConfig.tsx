@@ -22,9 +22,9 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     style={{ marginLeft: '50px' }}
                     src="https://datahubproject.io/assets/ideal-img/datahub-flow-diagram-light.5ce651b.1600.png"
                 />
-                <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
+                <Typography.Title level={3}>Welcome to Data Catalog! 👋</Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
-                    <strong>DataHub</strong> helps you discover and organize the important data within your
+                    <strong>Data Catalog</strong> helps you discover and organize the important data within your
                     organization. You can:
                 </Typography.Paragraph>
                 <Typography.Paragraph style={{ lineHeight: '24px' }}>
