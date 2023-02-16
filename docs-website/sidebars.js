@@ -477,7 +477,6 @@ module.exports = {
       },
       {
         "DataHub API": [
-          "docs/managed-datahub/datahub-api/datahub-architecture",
           {
             type: "doc",
             id: "docs/managed-datahub/datahub-api/entity-events-api",
