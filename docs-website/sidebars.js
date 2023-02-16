@@ -472,7 +472,6 @@ module.exports = {
       {
         "Metadata Ingestion With Acryl": [
           "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
-          "docs/managed-datahub/metadata-ingestion-with-acryl/advanced-ingestion",
         ],
       },
       {
@@ -491,20 +490,6 @@ module.exports = {
                 className: "saasOnly",
               },
             ],
-          },
-        ],
-      },
-      {
-        "Actions Guide": [
-          {
-            type: "doc",
-            id: "docs/managed-datahub/actions-guide/tag-sync",
-            className: "saasOnly",
-          },
-          {
-            type: "doc",
-            id: "docs/managed-datahub/actions-guide/term-sync-propagation",
-            className: "saasOnly",
           },
         ],
       },
