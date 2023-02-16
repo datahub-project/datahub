@@ -24,7 +24,7 @@ import ColumnsLineageSelect from './ColumnLineageSelect';
 import { LineageTabContext } from './LineageTabContext';
 import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';
 import LineageTabTimeSelector from './LineageTabTimeSelector';
-import { useGetTimeParams } from '../../../../lineage/utils/useGetTimeParams';
+import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 import { ANTD_GRAY } from '../../constants';
 
 const StyledTabToolbar = styled(TabToolbar)`
@@ -68,14 +68,14 @@ export const LineageTab = ({
 }) => {
     const { urn, entityType, entityData } = useEntityData();
     const history = useHistory();
-    const entityRegistry = useEntityRegistry();
     const location = useLocation();
+    const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(properties.defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
     const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!params?.column);
     const [shouldRefetch, setShouldRefetch] = useState(false);
-    const { startTimeMillis, endTimeMillis } = useGetTimeParams();
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     function resetShouldRefetch() {
         setShouldRefetch(false);

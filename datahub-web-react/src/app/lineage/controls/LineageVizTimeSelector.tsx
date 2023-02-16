@@ -1,12 +1,11 @@
 import React from 'react';
 import moment from 'moment';
 import { useHistory, useLocation } from 'react-router';
-import dayjs from 'dayjs';
 import { navigateToLineageUrl } from '../utils/navigateToLineageUrl';
 import analytics, { EventType } from '../../analytics';
 import { getTimeFromNow } from '../../shared/time/timeUtils';
 import LineageTimeSelector from '../LineageTimeSelector';
-import { useGetTimeParams } from '../utils/useGetTimeParams';
+import { useGetLineageTimeParams } from '../utils/useGetLineageTimeParams';
 
 type Props = {
     isHideSiblingMode: boolean;
@@ -16,13 +15,13 @@ type Props = {
 export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns }: Props) {
     const history = useHistory();
     const location = useLocation();
-    const { startTimeMillis, endTimeMillis } = useGetTimeParams();
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     const lineageTimeSelectorOnChange = (dates, _dateStrings) => {
         if (dates) {
             const [start, end] = dates;
-            const startTimeMillisValue = start?.valueOf() || undefined;
-            const endTimeMillisValue = end?.valueOf() || undefined;
+            const startTimeMillisValue = start?.valueOf();
+            const endTimeMillisValue = end?.valueOf();
             analytics.event({
                 type: EventType.LineageGraphTimeRangeSelectionEvent,
                 relativeStartDate: getTimeFromNow(startTimeMillisValue),
@@ -45,8 +44,8 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
         <LineageTimeSelector
             onChange={lineageTimeSelectorOnChange}
             initialDates={[
-                moment(startTimeMillis || dayjs().subtract(14, 'day').valueOf()),
-                moment(endTimeMillis || dayjs().valueOf()),
+                (startTimeMillis && startTimeMillis > 0 && moment(startTimeMillis)) || null,
+                moment(endTimeMillis),
             ]}
         />
     );

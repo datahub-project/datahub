@@ -1,23 +1,22 @@
 import React from 'react';
 import moment from 'moment';
 import { useHistory, useLocation } from 'react-router';
-import dayjs from 'dayjs';
 import analytics, { EventType } from '../../../../analytics';
 import LineageTimeSelector from '../../../../lineage/LineageTimeSelector';
 import { getTimeFromNow } from '../../../../shared/time/timeUtils';
 import updateQueryParams from '../../../../shared/updateQueryParams';
-import { useGetTimeParams } from '../../../../lineage/utils/useGetTimeParams';
+import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 
 export default function LineageTabTimeSelector() {
     const history = useHistory();
     const location = useLocation();
-    const { startTimeMillis, endTimeMillis } = useGetTimeParams();
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     const lineageTimeSelectorOnChange = (dates, _dateStrings) => {
         if (dates) {
             const [start, end] = dates;
-            const startTimeMillisValue = start?.valueOf() || undefined;
-            const endTimeMillisValue = end?.valueOf() || undefined;
+            const startTimeMillisValue = start?.valueOf();
+            const endTimeMillisValue = end?.valueOf();
             analytics.event({
                 type: EventType.LineageGraphTimeRangeSelectionEvent,
                 relativeStartDate: getTimeFromNow(startTimeMillisValue),
@@ -36,8 +35,8 @@ export default function LineageTabTimeSelector() {
         <LineageTimeSelector
             onChange={lineageTimeSelectorOnChange}
             initialDates={[
-                moment(startTimeMillis || dayjs().subtract(14, 'day').valueOf()),
-                moment(endTimeMillis || dayjs().valueOf()),
+                (startTimeMillis && startTimeMillis > 0 && moment(startTimeMillis)) || null,
+                moment(endTimeMillis),
             ]}
         />
     );

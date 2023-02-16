@@ -2,7 +2,7 @@ import React from 'react';
 import { LineageDirection } from '../../../../../types.generated';
 import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
 import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
-import { useGetTimeParams } from '../../../../lineage/utils/useGetTimeParams';
+import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 
 type Props = {
     urn: string;
@@ -12,7 +12,7 @@ type Props = {
 };
 
 export const ImpactAnalysis = ({ urn, direction, shouldRefetch, resetShouldRefetch }: Props) => {
-    const { startTimeMillis, endTimeMillis } = useGetTimeParams();
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     return (
         <EmbeddedListSearchSection
