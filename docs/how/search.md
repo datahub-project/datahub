@@ -5,7 +5,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
 
 <!-- 
-Update feature availability; by default, feature availabilty is Self-Hosted and Managed DataHub
+Update feature availability; by default, feature availability is Self-Hosted and Managed DataHub
 
 Add in `saasOnly` for Managed DataHub-only features
  -->
@@ -84,35 +84,38 @@ With better metadata comes better results. Learn more about ingestion technical 
 
 The search bar supports advanced queries with pattern matching, logical expressions and filtering by specific field matches.
 
-The following examples are in the format of
-X: *typical question* :
-```what to key in search bar```.  [sample url](https://example.com)  
-Wildcard characters can be added to the search terms as well. These examples are non exhaustive and using Datasets as a reference.    
+The following are use cases with example search phrases. Additionally, an example link is provided for our demo instance.
+These examples are non exhaustive and using Datasets as a reference.    
   
-If you want to:  
-1. Find a dataset with the word **mask** in the name:  
-```name: *mask*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=name%3A%20%2Amask%2A)   
+If you want to:
+
+- Exact match a term or phrase
+```"datahub_schema"``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%22datahub_schema%22)
+Enclosing one or more terms with double quotes will enforce exact matching on these terms.
+
+- Find a dataset with the word **mask** in the name:  
+```? name: *mask*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%253F%2520name%253A%2520%2Amask%2A)   
 This will return entities with **mask** in the name.  
 Names tends to be connected by other symbols, hence the wildcard symbols before and after the word.  
 
-2. Find a dataset with a property, **encoding**  
-```customProperties: encoding*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=customProperties%3A%20encoding%2A)  
-Dataset Properties are indexed in ElasticSearch the manner of key=value. Hence if you know the precise key-value pair, you can search using ```key=value```. However, if you only know the key, you can use wildcards to replace the value and that is what is being done here.  
+- Find a dataset with a property, **encoding**  
+```? customProperties: encoding*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%253F%2520customProperties%3A%20encoding%2A)  
+Dataset Properties are indexed in ElasticSearch the manner of key=value. Hence if you know the precise key-value pair, you can search using ```"key=value"```. However, if you only know the key, you can use wildcards to replace the value and that is what is being done here.  
 
-3. Find a dataset with a column name, **latitude**  
-```fieldPaths: latitude``` [Sample results](https://demo.datahubproject.io/search?page=1&query=fieldPaths%3A%20latitude)  
+- Find a dataset with a column name, **latitude**  
+```? fieldPaths: latitude``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%253F%2520fieldPaths%3A%20latitude)  
 fieldPaths is the name of the attribute that holds the column name in Datasets.
 
-4. Find a dataset with the term **latitude** in the field description  
-```editedFieldDescriptions: latitude OR fieldDescriptions: latitude```  [Sample results](https://demo.datahubproject.io/search?page=1&query=editedFieldDescriptions%3A%20latitude%20OR%20fieldDescriptions%3A%20latitude)  
+- Find a dataset with the term **latitude** in the field description  
+```? editedFieldDescriptions: latitude OR fieldDescriptions: latitude```  [Sample results](https://demo.datahubproject.io/search?page=1&query=%253F%2520editedFieldDescriptions%3A%20latitude%20OR%20fieldDescriptions%3A%20latitude)  
 Datasets has 2 attributes that contains field description. fieldDescription comes from the SchemaMetadata aspect, while editedFieldDescriptions comes from the EditableSchemaMetadata aspect. EditableSchemaMetadata holds information that comes from UI edits, while SchemaMetadata holds data from ingestion of the dataset.  
 
-5. Find a dataset with the term **logical** in the dataset description  
-```editedDescription: *logical* OR description: *logical*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)  
+- Find a dataset with the term **logical** in the dataset description  
+```? editedDescription: *logical* OR description: *logical*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%253F%2520editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)  
 Similar to field descriptions, dataset descriptions can be found in 2 aspects, hence the need to search 2 attributes.  
 
-6. Find a dataset which reside in one of the browsing folders, for instance, the **hive** folder  
-```browsePaths: *hive*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=browsePaths%3A%20%2Ahive%2A)  
+- Find a dataset which reside in one of the browsing folders, for instance, the **hive** folder  
+```? browsePaths: *hive*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%253F%2520browsePaths%3A%20%2Ahive%2A)  
 BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/SampleKafkaDataset```, hence the need for wildcards on both ends of the term to return a result. 
 
 <!--

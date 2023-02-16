@@ -446,29 +446,38 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
 
     @Test
     public void testSmokeTestQueries() {
-        Map<String, Integer> expectedMinimums = Map.of(
+        Map<String, Integer> expectedFulltextMinimums = Map.of(
                 "sample", 3,
                 "covid", 2,
-                "\"raw_orders\"", 1
+                "\"raw_orders\"", 1,
+                "/q sample", 1,
+                "/q covid", 0,
+                "/q \"raw_orders\"", 1
         );
 
-        Map<String, SearchResult> results = expectedMinimums.entrySet().stream()
+        Map<String, SearchResult> results = expectedFulltextMinimums.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> search(searchService, entry.getKey())));
 
         results.forEach((key, value) -> {
             Integer actualCount = value.getEntities().size();
-            Integer expectedCount = expectedMinimums.get(key);
+            Integer expectedCount = expectedFulltextMinimums.get(key);
             assertSame(actualCount, expectedCount,
                     String.format("Search term `%s` has %s fulltext results, expected %s results.", key, actualCount,
                             expectedCount));
         });
 
-        results = expectedMinimums.entrySet().stream()
+        Map<String, Integer> expectedStructuredMinimums = Map.of(
+                "sample", 1,
+                "covid", 0,
+                "\"raw_orders\"", 1
+        );
+
+        results = expectedStructuredMinimums.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> searchStructured(searchService, entry.getKey())));
 
         results.forEach((key, value) -> {
             Integer actualCount = value.getEntities().size();
-            Integer expectedCount = expectedMinimums.get(key);
+            Integer expectedCount = expectedStructuredMinimums.get(key);
             assertSame(actualCount, expectedCount,
                     String.format("Search term `%s` has %s structured results, expected %s results.", key, actualCount,
                             expectedCount));
