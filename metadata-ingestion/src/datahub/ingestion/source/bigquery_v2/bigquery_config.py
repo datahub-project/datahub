@@ -180,8 +180,8 @@ class BigQueryV2Config(
     )
 
     run_optimized_column_query: bool = Field(
-        hidden_from_schema=False,
-        default=True,
+        hidden_from_schema=True,
+        default=False,
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
