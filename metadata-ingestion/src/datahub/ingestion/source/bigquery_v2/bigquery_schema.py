@@ -294,7 +294,7 @@ select * from
   description as comment,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column,
-  -- We count the colums to be able limit it later
+  -- We count the columns to be able limit it later
   row_number() over (partition by c.table_catalog, c.table_schema, c.table_name order by c.ordinal_position asc, c.data_type DESC) as column_num,
   -- Getting the maximum shard for each table
   row_number() over (partition by c.table_catalog, c.table_schema, ifnull(REGEXP_EXTRACT(c.table_name, r'(.*)_\\d{{8}}$'), c.table_name), cfp.field_path order by c.table_catalog, c.table_schema asc, c.table_name desc) as shard_num

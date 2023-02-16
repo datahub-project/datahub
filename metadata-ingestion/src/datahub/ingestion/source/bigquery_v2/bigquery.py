@@ -1136,7 +1136,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         with PerfTimer() as timer:
             bigquery_tables = []
             partitioned_table_count_in_this_batch: int = 0
-            table_count_in_this_batch: int = 0
             table_items: Dict[str, TableListItem] = {}
             # Dict to store sharded table and the last seen max shard id
             sharded_tables: Dict[str, TableListItem] = defaultdict()
@@ -1169,23 +1168,26 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         # When table is only a shard we use dataset_name as table_name
                         sharded_tables[table_name] = table
                         continue
-                    else:
-                        stored_table_identifier = BigqueryTableIdentifier(
-                            project_id=project_id,
-                            dataset=dataset_name,
-                            table=sharded_tables[table_name].table_id,
-                        )
-                        (
-                            _,
-                            stored_shard,
-                        ) = BigqueryTableIdentifier.get_table_and_shard(
-                            stored_table_identifier.raw_table_name()
-                        )
-                        # When table is none, we use dataset_name as table_name
-                        assert stored_shard
-                        if stored_shard < shard:
-                            sharded_tables[table_name] = table
-                        continue
+
+                    stored_table_identifier = BigqueryTableIdentifier(
+                        project_id=project_id,
+                        dataset=dataset_name,
+                        table=sharded_tables[table_name].table_id,
+                    )
+                    _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
+                        stored_table_identifier.raw_table_name()
+                    )
+                    # When table is none, we use dataset_name as table_name
+                    assert stored_shard
+                    if stored_shard < shard:
+                        sharded_tables[table_name] = table
+                    continue
+                elif str(table_identifier).startswith(
+                    self.config.temp_table_dataset_prefix
+                ):
+                    logger.debug(f"Dropping temporary table {table_identifier.table}")
+                    self.report.report_dropped(table_identifier.raw_table_name())
+                    continue
                 else:
                     if (
                         table.time_partitioning
@@ -1195,26 +1197,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
                     table_items[table.table_id] = table
 
-                if str(table_identifier).startswith(
-                    self.config.temp_table_dataset_prefix
-                ):
-                    logger.debug(f"Dropping temporary table {table_identifier.table}")
-                    self.report.report_dropped(table_identifier.raw_table_name())
-                    continue
-
-                table_count_in_this_batch += 1
-
                 if (
-                    table_count_in_this_batch
-                    % self.config.number_of_datasets_process_in_batch
+                    len(table_items) % self.config.number_of_datasets_process_in_batch
                     == 0
                 ) or (
-                    partitioned_table_count_in_this_batch > 0
-                    and partitioned_table_count_in_this_batch
-                    % self.config.number_of_partitioned_datasets_process_in_batch
-                    == 0
+                    partitioned_table_count_in_this_batch
+                    == self.config.number_of_partitioned_datasets_process_in_batch
                 ):
-
                     bigquery_tables.extend(
                         BigQueryDataDictionary.get_tables_for_dataset(
                             conn,
