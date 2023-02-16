@@ -466,15 +466,78 @@ module.exports = {
       "docs/links",
       "docs/rfc",
     ],
+    "Managed DataHub": [
+      "docs/managed-datahub/managed-datahub-overview",
+      "docs/managed-datahub/welcome-acryl",
+      {
+        "Metadata Ingestion With Acryl": [
+          "docs/managed-datahub/metadata-ingestion-with-acryl/ingestion",
+        ],
+      },
+      {
+        "DataHub API": [
+          {
+            type: "doc",
+            id: "docs/managed-datahub/datahub-api/entity-events-api",
+            className: "saasOnly",
+          },
+          {
+            "GraphQL API": [
+              "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+              {
+                type: "doc",
+                id: "docs/managed-datahub/datahub-api/graphql-api/incidents-api-beta",
+                className: "saasOnly",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        Integrations: [
+          {
+            type: "doc",
+            id: "docs/managed-datahub/integrations/aws-privatelink",
+            className: "saasOnly",
+          },
+          {
+            type: "doc",
+            id: "docs/managed-datahub/integrations/oidc-sso-integration",
+            className: "saasOnly",
+          },
+        ],
+      },
+      {
+        "Operator Guide": [
+          {
+            type: "doc",
+            id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor-on-aws",
+            className: "saasOnly",
+          },
+          {
+            type: "doc",
+            id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+            className: "saasOnly",
+          },
+        ],
+      },
+      {
+        type: "doc",
+        id: "docs/managed-datahub/chrome-extension",
+        className: "saasOnly",
+      },
 
-    "Release History": ["releases"],
-    "Managed DataHub Release History": [
-      "docs/managed-datahub/release-notes/v_0_2_0",
-      "docs/managed-datahub/release-notes/v_0_1_73",
-      "docs/managed-datahub/release-notes/v_0_1_72",
-      "docs/managed-datahub/release-notes/v_0_1_70",
-      "docs/managed-datahub/release-notes/v_0_1_69",
+      {
+        "Managed DataHub Release History": [
+          "docs/managed-datahub/release-notes/v_0_2_0",
+          "docs/managed-datahub/release-notes/v_0_1_73",
+          "docs/managed-datahub/release-notes/v_0_1_72",
+          "docs/managed-datahub/release-notes/v_0_1_70",
+          "docs/managed-datahub/release-notes/v_0_1_69",
+        ],
+      },
     ],
+    "Release History": ["releases"],
 
     // "Candidates for Deprecation": [
     // "README",
