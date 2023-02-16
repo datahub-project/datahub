@@ -83,7 +83,7 @@ export const LineageTab = ({
 
     const routeToLineage = useCallback(() => {
         history.push(
-            getEntityPath(entityType, urn, entityRegistry, true, false, undefined, {
+            getEntityPath(entityType, urn, entityRegistry, true, false, 'Lineage', {
                 start_time_millis: startTimeMillis,
                 end_time_millis: endTimeMillis,
             }),

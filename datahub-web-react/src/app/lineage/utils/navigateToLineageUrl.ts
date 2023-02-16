@@ -44,6 +44,7 @@ export const navigateToLineageUrl = ({
     }
     const newSearchStringified = QueryString.stringify(newSearch, { arrayFormat: 'comma' });
 
+    console.log(location.pathname);
     history.push({
         pathname: location.pathname,
         search: newSearchStringified,
