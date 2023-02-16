@@ -54,9 +54,9 @@ export default class EntityRegistry {
         return this.entities.filter((entity) => entity.isLineageEnabled()).map((entity) => entity.type);
     }
 
-    getIcon(type: EntityType, fontSize: number, styleType: IconStyleType): JSX.Element {
+    getIcon(type: EntityType, fontSize: number, styleType: IconStyleType, color?: string): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.icon(fontSize, styleType);
+        return entity.icon(fontSize, styleType, color);
     }
 
     getCollectionName(type: EntityType): string {
