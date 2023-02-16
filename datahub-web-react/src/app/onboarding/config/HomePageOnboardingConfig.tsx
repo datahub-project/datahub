@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Typography } from 'antd';
 import { OnboardingStep } from '../OnboardingStep';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import flowDiagram from '../../../images/datahub-flow-diagram-light.png';
 
 export const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
 export const HOME_PAGE_INGESTION_ID = 'home-page-ingestion';
@@ -15,13 +16,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         id: GLOBAL_WELCOME_TO_DATAHUB_ID,
         content: (
             <div>
-                <Image
-                    preview={false}
-                    height={184}
-                    width={500}
-                    style={{ marginLeft: '50px' }}
-                    src="https://datahubproject.io/assets/ideal-img/datahub-flow-diagram-light.5ce651b.1600.png"
-                />
+                <Image preview={false} height={184} width={500} style={{ marginLeft: '50px' }} src={flowDiagram} />
                 <Typography.Title level={3}>Welcome to Data Catalog! 👋</Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
                     <strong>Data Catalog</strong> helps you discover and organize the important data within your
