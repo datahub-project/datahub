@@ -75,7 +75,8 @@ public class ListMyViewsResolverTest {
             Mockito.eq(0),
             Mockito.eq(20),
             Mockito.any(Authentication.class),
-            Mockito.anyBoolean()
+            Mockito.anyBoolean(),
+            Mockito.eq(null)
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -126,7 +127,8 @@ public class ListMyViewsResolverTest {
             Mockito.eq(0),
             Mockito.eq(20),
             Mockito.any(Authentication.class),
-            Mockito.anyBoolean()
+            Mockito.anyBoolean(),
+            Mockito.eq(null)
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -171,7 +173,8 @@ public class ListMyViewsResolverTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.any(Authentication.class),
-            Mockito.anyBoolean());
+            Mockito.anyBoolean(),
+            Mockito.eq(null));
   }
 
   @Test
@@ -185,7 +188,8 @@ public class ListMyViewsResolverTest {
             Mockito.anyInt(),
             Mockito.anyInt(),
             Mockito.any(Authentication.class),
-            Mockito.anyBoolean());
+            Mockito.anyBoolean(),
+            Mockito.eq(null));
     ListMyViewsResolver resolver = new ListMyViewsResolver(mockClient);
 
     // Execute resolver

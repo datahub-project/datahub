@@ -54,7 +54,7 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
           // First, get all policy Urns.
           final SearchResult gmsResult =
               _entityClient.search(CORP_USER_ENTITY_NAME, query, Collections.emptyMap(), start, count,
-                      context.getAuthentication(), true);
+                      context.getAuthentication(), true, null);
 
           // Then, get hydrate all users.
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME,
