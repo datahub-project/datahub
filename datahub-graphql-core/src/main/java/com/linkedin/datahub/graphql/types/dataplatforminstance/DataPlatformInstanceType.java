@@ -24,7 +24,15 @@ import java.util.stream.Collectors;
 
 public class DataPlatformInstanceType implements com.linkedin.datahub.graphql.types.EntityType<DataPlatformInstance, String> {
 
-    static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of();
+    static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
+        Constants.DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME,
+        Constants.DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME,
+        Constants.DEPRECATION_ASPECT_NAME,
+        Constants.OWNERSHIP_ASPECT_NAME,
+        Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        Constants.GLOBAL_TAGS_ASPECT_NAME,
+        Constants.STATUS_ASPECT_NAME
+    );
     private final EntityClient _entityClient;
 
     public DataPlatformInstanceType(final EntityClient entityClient) {
@@ -72,7 +80,7 @@ public class DataPlatformInstanceType implements com.linkedin.datahub.graphql.ty
                     .collect(Collectors.toList());
 
         } catch (Exception e) {
-            throw new RuntimeException("Failed to batch load DataPlatformInstance");
+            throw new RuntimeException("Failed to batch load DataPlatformInstance", e);
         }
     }
 
