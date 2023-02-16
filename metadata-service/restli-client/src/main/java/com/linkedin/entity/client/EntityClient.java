@@ -15,6 +15,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -128,17 +129,20 @@ public interface EntityClient {
    * @param requestFilters search filters
    * @param start start offset for search results
    * @param count max number of search results requested
+   * @param searchFlags configuration flags for the search request
    * @return a set of search results
    * @throws RemoteInvocationException
    */
   @Nonnull
   public SearchResult search(@Nonnull String entity, @Nonnull String input,
       @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull Authentication authentication,
-                             @Nullable Boolean fulltext)
+      @Nullable Boolean fulltext, @Nullable SearchFlags searchFlags)
       throws RemoteInvocationException;
 
   /**
    * Filters for entities matching to a given query and filters
+   *
+   * TODO: This no longer has any usages, can we deprecate/remove?
    *
    * @param requestFilters search filters
    * @param start start offset for search results
@@ -158,13 +162,14 @@ public interface EntityClient {
    * @param sortCriterion sort criterion
    * @param start start offset for search results
    * @param count max number of search results requested
+   * @param searchFlags configuration flags for the search request
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
   @Nonnull
   public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
       SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication,
-                             @Nullable Boolean fulltext) throws RemoteInvocationException;
+      @Nullable Boolean fulltext, @Nullable SearchFlags searchFlags) throws RemoteInvocationException;
 
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
@@ -174,12 +179,14 @@ public interface EntityClient {
    * @param filter search filters
    * @param start start offset for search results
    * @param count max number of search results requested
+   * @param searchFlags configuration flags for the search request
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter filter, int start, int count, @Nonnull Authentication authentication)
+      @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
+      @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -194,12 +201,14 @@ public interface EntityClient {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param start index to start the search from
    * @param count the number of search hits to return
+   * @param searchFlags configuration flags for the search request
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+      @Nullable SortCriterion sortCriterion, int start, int count, @Nullable SearchFlags searchFlags,
+      @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -221,6 +230,7 @@ public interface EntityClient {
    * @param count           the number of search hits to return
    * @param endTimeMillis   end time to filter to
    * @param startTimeMillis start time to filter from
+   * @param searchFlags configuration flags for the search request
    * @return a {@link SearchResult} that contains a list of matched documents and
    *         related search result metadata
    */
@@ -228,7 +238,7 @@ public interface EntityClient {
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
           @Nullable SortCriterion sortCriterion, int start, int count, @Nullable final Long startTimeMillis,
-          @Nullable final Long endTimeMillis, @Nonnull final Authentication authentication)
+          @Nullable final Long endTimeMillis, @Nullable SearchFlags searchFlags, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   /**
