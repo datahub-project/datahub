@@ -16,7 +16,7 @@ record MLFeatureProperties {
    * Documentation of the MLFeature
    */
   @Searchable = {
-    "fieldType": "TEXT",
+    "fieldType": "TEXT_PARTIAL",
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string

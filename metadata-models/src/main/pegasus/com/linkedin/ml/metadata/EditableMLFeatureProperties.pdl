@@ -12,8 +12,8 @@ record EditableMLFeatureProperties {
    * Documentation of the MLFeature
    */
   @Searchable = {
-    "fieldType": "TEXT",
-    "fieldName": "editedDescription",
+    "fieldType": "TEXT_PARTIAL",
+    "hasValuesFieldName": "hasDescription"
   }
   description: optional string
 }

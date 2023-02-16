@@ -116,7 +116,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             <Preview
                 urn={data.urn}
                 name={data.name || ''}
-                description={data.description}
+                description={data.editableProperties?.description || data.description}
                 owners={data.ownership?.owners}
                 logoUrl={data.platform?.properties?.logoUrl}
                 platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
@@ -130,7 +130,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             <Preview
                 urn={data.urn}
                 name={data.name || ''}
-                description={data.description || ''}
+                description={data.editableProperties?.description || data.description || ''}
                 owners={data.ownership?.owners}
                 logoUrl={data.platform?.properties?.logoUrl}
                 platformName={data.platform?.properties?.displayName || capitalizeFirstLetterOnly(data.platform?.name)}
