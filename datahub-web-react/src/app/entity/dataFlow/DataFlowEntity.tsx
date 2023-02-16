@@ -23,20 +23,20 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 export class DataFlowEntity implements Entity<DataFlow> {
     type: EntityType = EntityType.DataFlow;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <ShareAltOutlined style={{ fontSize }} />;
+            return <ShareAltOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ShareAltOutlined style={{ fontSize, color: '#d6246c' }} />;
+            return <ShareAltOutlined style={{ fontSize, color: color || '#d6246c' }} />;
         }
 
         return (
             <ShareAltOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
