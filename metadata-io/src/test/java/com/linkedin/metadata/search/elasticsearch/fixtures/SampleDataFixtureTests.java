@@ -5,6 +5,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
+import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
+import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
@@ -23,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -35,6 +38,7 @@ import java.util.stream.Stream;
 import static com.linkedin.metadata.ESTestUtils.autocomplete;
 import static com.linkedin.metadata.ESTestUtils.search;
 import static com.linkedin.metadata.ESTestUtils.searchStructured;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
@@ -445,14 +449,42 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
+    public void testGroupAutoComplete() {
+        List.of("T", "Te", "Tes", "Test ", "Test G", "Test Gro", "Test Group ")
+                .forEach(query -> {
+                    try {
+                        AutoCompleteResults result = autocomplete(new CorpGroupType(entityClient), query);
+                        assertTrue(result.getEntities().size() == 1,
+                                String.format("Expected 1 results for `%s` found %s", query, result.getEntities().size()));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    @Test
+    public void testUserAutoComplete() {
+        List.of("D", "Da", "Dat", "Data ", "Data H", "Data Hu", "Data Hub", "Data Hub ")
+                .forEach(query -> {
+                    try {
+                        AutoCompleteResults result = autocomplete(new CorpUserType(entityClient, null), query);
+                        assertTrue(result.getEntities().size() >= 1,
+                                String.format("Expected at least 1 results for `%s` found %s", query, result.getEntities().size()));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+    }
+
+    @Test
     public void testSmokeTestQueries() {
         Map<String, Integer> expectedFulltextMinimums = Map.of(
                 "sample", 3,
                 "covid", 2,
                 "\"raw_orders\"", 1,
-                "/q sample", 1,
-                "/q covid", 0,
-                "/q \"raw_orders\"", 1
+                STRUCTURED_QUERY_PREFIX + "sample", 1,
+                STRUCTURED_QUERY_PREFIX + "covid", 0,
+                STRUCTURED_QUERY_PREFIX + "\"raw_orders\"", 1
         );
 
         Map<String, SearchResult> results = expectedFulltextMinimums.entrySet().stream()
@@ -631,6 +663,242 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
             assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
                     String.format("%s - Expected search results to include matched fields", query));
         });
+    }
+
+    @Test
+    public void testStructQueryFieldMatch() {
+        String query = STRUCTURED_QUERY_PREFIX + "name: customers";
+        SearchResult result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 1);
+    }
+
+    @Test
+    public void testStructQueryFieldPrefixMatch() {
+        String query = STRUCTURED_QUERY_PREFIX + "name: customers*";
+        SearchResult result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 2);
+    }
+
+    @Test
+    public void testStructQueryCustomPropertiesKeyPrefix() {
+        String query = STRUCTURED_QUERY_PREFIX + "customProperties: node_type=*";
+        SearchResult result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 9);
+    }
+
+    @Test
+    public void testStructQueryCustomPropertiesMatch() {
+        String query = STRUCTURED_QUERY_PREFIX + "customProperties: node_type=model";
+        SearchResult result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 5);
+    }
+
+    @Test
+    public void testStructQueryFieldPaths() {
+        String query = STRUCTURED_QUERY_PREFIX + "fieldPaths: customer_id";
+        SearchResult result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 3);
+    }
+
+    @Test
+    public void testStructQueryBoolean() {
+        String query = STRUCTURED_QUERY_PREFIX + "editedFieldTags:urn\\:li\\:tag\\:Legacy OR tags:urn\\:li\\:tag\\:testTag";
+        SearchResult result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 2);
+
+        query = STRUCTURED_QUERY_PREFIX + "editedFieldTags:urn\\:li\\:tag\\:Legacy";
+        result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 1);
+
+        query = STRUCTURED_QUERY_PREFIX + "tags:urn\\:li\\:tag\\:testTag";
+        result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 1);
+    }
+
+    @Test
+    public void testStructQueryBrowsePaths() {
+        String query = STRUCTURED_QUERY_PREFIX + "browsePaths:*/dbt/*";
+        SearchResult result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 9);
+    }
+
+    @Test
+    public void testOr() {
+        String query = "stg_customers | logging_events";
+        SearchResult result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 9);
+
+        query = "stg_customers";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 1);
+
+        query = "logging_events";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 8);
+    }
+
+    @Test
+    public void testNegate() {
+        String query = "logging_events -bckp";
+        SearchResult result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 7);
+
+        query = "logging_events";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 8);
+    }
+
+    @Test
+    public void testPrefix() {
+        String query = "bigquery";
+        SearchResult result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 8);
+
+        query = "big*";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 8);
+    }
+
+    @Test
+    public void testParens() {
+        String query = "dbt | (bigquery + covid19)";
+        SearchResult result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 11);
+
+        query = "dbt";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 9);
+
+        query = "bigquery + covid19";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 2);
+
+        query = "bigquery";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 8);
+
+        query = "covid19";
+        result = search(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+        assertEquals(result.getEntities().size(), 2);
+    }
+
+    @Test
+    @Ignore("wip")
+    public void testPrefixVsExact() {
+        String query = "\"customers\"";
+        SearchResult result = search(searchService, query);
+
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                String.format("%s - Expected search results", query));
+        assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                String.format("%s - Expected search results to include matched fields", query));
+
+        assertEquals(result.getEntities().size(), 2);
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+                "Expected exact match");
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {

@@ -33,7 +33,7 @@ import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_
 
 public class SearchQueryBuilder {
 
-  public static final String STRUCTURED_QUERY_PREFIX = "/q ";
+  public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
       new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL));
 
@@ -64,7 +64,6 @@ public class SearchQueryBuilder {
       getStandardFields(entitySpec).forEach(fieldBoost -> simpleBuilder.field(fieldBoost.getFirst(), fieldBoost.getSecond()));
       finalQuery.should(simpleBuilder);
       getPrefixQuery(entitySpec, query).ifPresent(finalQuery::should);
-      getExactQuery(entitySpec, query).ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix = query.startsWith(STRUCTURED_QUERY_PREFIX) ? query.substring(STRUCTURED_QUERY_PREFIX.length()) : query;
 
@@ -92,14 +91,14 @@ public class SearchQueryBuilder {
 
       String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
       double boostScore = fieldSpec.getSearchableAnnotation().getBoostScore();
-      fields.add(Pair.of(fieldName, (float) (boostScore)));
+      fields.add(Pair.of(fieldName, (float) boostScore));
 
       FieldType fieldType = fieldSpec.getSearchableAnnotation().getFieldType();
       if (TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType)) {
-        fields.add(Pair.of(fieldName + ".delimited", (float) (boostScore * 0.4)));
+        fields.add(Pair.of(fieldName + ".delimited", ((float) boostScore) * 0.4f));
       }
       if (FieldType.URN_PARTIAL.equals(fieldType)) {
-        fields.add(Pair.of(fieldName + ".delimited", (float) (boostScore * 0.4)));
+        fields.add(Pair.of(fieldName + ".delimited", ((float) boostScore) * 0.4f));
       }
     }
 
@@ -107,36 +106,20 @@ public class SearchQueryBuilder {
   }
 
   private static Optional<QueryBuilder> getPrefixQuery(@Nonnull EntitySpec entitySpec, String query) {
-    BoolQueryBuilder finalQuery =  QueryBuilders.boolQuery();
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+
     entitySpec.getSearchableFieldSpecs().stream()
             .map(SearchableFieldSpec::getSearchableAnnotation)
             .filter(SearchableAnnotation::isQueryByDefault)
-            .filter(SearchableAnnotation::isEnableAutocomplete)
+            .filter(SearchableAnnotation::isEnableAutocomplete) // Proxy for identifying likely exact match fields
             .filter(e -> TYPES_WITH_DELIMITED_SUBFIELD.contains(e.getFieldType()))
-            .forEach(fieldSpec -> finalQuery.should(
-                    QueryBuilders.matchPhrasePrefixQuery(fieldSpec.getFieldName() + ".delimited", query)
-                            .boost((float) fieldSpec.getBoostScore() * 0.9f))); // less than getExactQuery
+            .forEach(fieldSpec -> {
+              finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldSpec.getFieldName() + ".delimited", query)
+                      .boost((float) fieldSpec.getBoostScore() * 0.75f)); // less than exact
+              finalQuery.should(QueryBuilders.termQuery(fieldSpec.getFieldName() + ".keyword", query)
+                      .boost((float) fieldSpec.getBoostScore()));
+            });
     return finalQuery.should().size() > 0 ? Optional.of(finalQuery) : Optional.empty();
-  }
-
-  private static Optional<QueryBuilder> getExactQuery(@Nonnull EntitySpec entitySpec, String query) {
-    BoolQueryBuilder finalQuery =  QueryBuilders.boolQuery();
-    entitySpec.getSearchableFieldSpecs().stream()
-            .map(SearchableFieldSpec::getSearchableAnnotation)
-            .filter(SearchableAnnotation::isQueryByDefault)
-            .filter(anno -> !Set.of(FieldType.URN_PARTIAL, FieldType.URN).contains(anno.getFieldType()))
-            .forEach(fieldSpec -> finalQuery.should(
-                    QueryBuilders.termQuery(fieldSpec.getFieldName() + ".keyword", query)
-                            .boost((float) fieldSpec.getBoostScore())));
-    return finalQuery.should().size() > 0 ? Optional.of(finalQuery) : Optional.empty();
-  }
-
-  private static QueryBuilder getPhraseQuery(@Nonnull EntitySpec entitySpec, String query) {
-    BoolQueryBuilder finalQuery =  QueryBuilders.boolQuery();
-    getStandardFields(entitySpec).stream()
-            .filter(p -> p.getFirst().endsWith(".delimited"))
-            .forEach(p -> finalQuery.should(QueryBuilders.matchPhraseQuery(p.getFirst(), query).boost(p.getSecond())));
-    return finalQuery;
   }
 
   private static FunctionScoreQueryBuilder.FilterFunctionBuilder[] buildScoreFunctions(@Nonnull EntitySpec entitySpec) {

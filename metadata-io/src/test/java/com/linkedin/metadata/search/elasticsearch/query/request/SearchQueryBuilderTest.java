@@ -26,7 +26,7 @@ public class SearchQueryBuilderTest {
                 true);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
-    assertEquals(shouldQueries.size(), 3);
+    assertEquals(shouldQueries.size(), 2);
 
     SimpleQueryStringBuilder simpleQuery = (SimpleQueryStringBuilder) shouldQueries.get(0);
     assertEquals(simpleQuery.value(), "testQuery");
@@ -43,27 +43,18 @@ public class SearchQueryBuilderTest {
     assertTrue(boolPrefixQuery.should().size() > 0);
 
     List<Pair<String, Float>> prefixFieldWeights = boolPrefixQuery.should().stream().map(prefixQuery -> {
-      MatchPhrasePrefixQueryBuilder builder = (MatchPhrasePrefixQueryBuilder) prefixQuery;
-      return Pair.of(builder.fieldName(), builder.boost());
+      if (prefixQuery instanceof MatchPhrasePrefixQueryBuilder) {
+        MatchPhrasePrefixQueryBuilder builder = (MatchPhrasePrefixQueryBuilder) prefixQuery;
+        return Pair.of(builder.fieldName(), builder.boost());
+      } else {
+        // exact
+        TermQueryBuilder builder = (TermQueryBuilder) prefixQuery;
+        return Pair.of(builder.fieldName(), builder.boost());
+      }
     }).collect(Collectors.toList());
 
     assertEquals(prefixFieldWeights, List.of(
-            Pair.of("keyPart1.delimited", 9.0f)
-    ));
-
-    BoolQueryBuilder boolExactQuery = (BoolQueryBuilder)  shouldQueries.get(2);
-    assertTrue(boolPrefixQuery.should().size() > 0);
-    List<Pair<String, Float>> exactFieldWeights = boolExactQuery.should().stream().map(prefixQuery -> {
-      TermQueryBuilder builder = (TermQueryBuilder) prefixQuery;
-      return Pair.of(builder.fieldName(), builder.boost());
-    }).collect(Collectors.toList());
-    assertEquals(exactFieldWeights, List.of(
-            Pair.of("textFieldOverride.keyword", 1.0f),
-            Pair.of("esObjectField.keyword", 1.0f),
-            Pair.of("customProperties.keyword", 1.0f),
-            Pair.of("nestedArrayStringField.keyword", 1.0f),
-            Pair.of("textArrayField.keyword", 1.0f),
-            Pair.of("nestedArrayArrayField.keyword", 1.0f),
+            Pair.of("keyPart1.delimited", 7.5f),
             Pair.of("keyPart1.keyword", 10.0f)
     ));
 
