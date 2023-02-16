@@ -1,8 +1,36 @@
+# ROCK-<num>: <issue title>
+
+## Description
+
+_please describe your changes here to help reviewer_
 
 ## Checklist
 
-- [ ] The PR conforms to DataHub's [Contributing Guideline](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md) (particularly [Commit Message Format](https://github.com/datahub-project/datahub/blob/master/docs/CONTRIBUTING.md#commit-message-format))
-- [ ] Links to related issues (if applicable)
-- [ ] Tests for the changes have been added/updated (if applicable)
-- [ ] Docs related to the changes have been added/updated (if applicable). If a new feature has been added a Usage Guide has been added for the same.
-- [ ] For any breaking change/potential downtime/deprecation/big changes an entry has been made in [Updating DataHub](https://github.com/datahub-project/datahub/blob/master/docs/how/updating-datahub.md)
+This PR complies to:
+
+- [ ] Documented (API SPECs, software architecture changes, and code comments where necessary)
+- [ ] Smallest size possible
+- [ ] Synced branch with master
+- [ ] Tested locally
+- [ ] Tested on QA
+- [ ] Clog entry (if needed)
+- [ ] Production-ready
+
+## Requirements
+
+_please list any other PRs that should be merged before this_
+
+* _link 1_
+* _link 2_
+
+## How to test
+
+_please provide instructions for manual testing this PR_
+
+## Showroom
+
+_please include a video or screenshot_
+
+## Metrics
+
+_please provide a list of metric or analytics implemented in this PR - if applicable_
