@@ -167,6 +167,8 @@ export const LineageTab = ({
                 <ImpactAnalysis
                     urn={impactAnalysisUrn}
                     direction={lineageDirection as LineageDirection}
+                    startTimeMillis={startTimeMillis}
+                    endTimeMillis={endTimeMillis}
                     shouldRefetch={shouldRefetch}
                     resetShouldRefetch={resetShouldRefetch}
                 />
