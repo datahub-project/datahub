@@ -17,7 +17,6 @@ import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShow
 import { ErrorSection } from '../shared/error/ErrorSection';
 import usePrevious from '../shared/usePrevious';
 import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
-import { getDefaultLineageStartTime, getDefaultLineageEndTime } from './utils/lineageUtils';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -70,8 +69,8 @@ export default function LineageExplorer({ urn, type }: Props) {
             urn,
             separateSiblings: isHideSiblingMode,
             showColumns,
-            startTimeMillis: startTimeMillis === undefined ? getDefaultLineageStartTime() : startTimeMillis,
-            endTimeMillis: endTimeMillis === undefined ? getDefaultLineageEndTime() : endTimeMillis,
+            startTimeMillis,
+            endTimeMillis,
         },
     });
 

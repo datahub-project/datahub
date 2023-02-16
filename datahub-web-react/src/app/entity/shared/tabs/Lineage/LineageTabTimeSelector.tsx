@@ -6,14 +6,11 @@ import LineageTimeSelector from '../../../../lineage/LineageTimeSelector';
 import { getTimeFromNow } from '../../../../shared/time/timeUtils';
 import updateQueryParams from '../../../../shared/updateQueryParams';
 import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
-import { getDefaultLineageEndTime, getDefaultLineageStartTime } from '../../../../lineage/utils/lineageUtils';
 
 export default function LineageTabTimeSelector() {
     const history = useHistory();
     const location = useLocation();
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const finalStartTimeMillis = startTimeMillis === undefined ? getDefaultLineageStartTime() : startTimeMillis;
-    const finalEndTimeMillis = endTimeMillis === undefined ? getDefaultLineageEndTime() : endTimeMillis;
 
     const lineageTimeSelectorOnChange = (dates, _dateStrings) => {
         if (dates) {
@@ -38,8 +35,8 @@ export default function LineageTabTimeSelector() {
         <LineageTimeSelector
             onChange={lineageTimeSelectorOnChange}
             initialDates={[
-                (finalStartTimeMillis && finalStartTimeMillis > 0 && moment(finalStartTimeMillis)) || null,
-                moment(finalEndTimeMillis),
+                (startTimeMillis && startTimeMillis > 0 && moment(startTimeMillis)) || null,
+                moment(endTimeMillis),
             ]}
         />
     );

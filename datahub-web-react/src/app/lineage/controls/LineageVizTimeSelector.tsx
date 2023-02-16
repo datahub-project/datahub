@@ -6,7 +6,6 @@ import analytics, { EventType } from '../../analytics';
 import { getTimeFromNow } from '../../shared/time/timeUtils';
 import LineageTimeSelector from '../LineageTimeSelector';
 import { useGetLineageTimeParams } from '../utils/useGetLineageTimeParams';
-import { getDefaultLineageStartTime, getDefaultLineageEndTime } from '../utils/lineageUtils';
 
 type Props = {
     isHideSiblingMode: boolean;
@@ -17,8 +16,6 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
     const history = useHistory();
     const location = useLocation();
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const finalStartTimeMillis = startTimeMillis === undefined ? getDefaultLineageStartTime() : startTimeMillis;
-    const finalEndTimeMillis = endTimeMillis === undefined ? getDefaultLineageEndTime() : endTimeMillis;
 
     const lineageTimeSelectorOnChange = (dates, _dateStrings) => {
         if (dates) {
@@ -47,8 +44,8 @@ export default function LineageVizTimeSelector({ isHideSiblingMode, showColumns 
         <LineageTimeSelector
             onChange={lineageTimeSelectorOnChange}
             initialDates={[
-                (finalStartTimeMillis && finalStartTimeMillis > 0 && moment(finalStartTimeMillis)) || null,
-                moment(finalEndTimeMillis),
+                (startTimeMillis && startTimeMillis > 0 && moment(startTimeMillis)) || null,
+                moment(endTimeMillis),
             ]}
         />
     );
