@@ -385,7 +385,7 @@ def get_urns_by_filter(
     ):
         filter_criteria.append(
             {
-                "field": "platform",
+                "field": "platform.keyword",
                 "value": f"urn:li:dataPlatform:{platform}",
                 "condition": "EQUAL",
             }

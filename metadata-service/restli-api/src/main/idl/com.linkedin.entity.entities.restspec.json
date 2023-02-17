@@ -263,9 +263,15 @@
         "name" : "count",
         "type" : "int"
       }, {
+        "annotations" : {
+          "deprecated" : { }
+        },
         "name" : "fulltext",
         "type" : "boolean",
-        "default" : "true",
+        "optional" : true
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
         "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
@@ -293,9 +299,8 @@
         "name" : "count",
         "type" : "int"
       }, {
-        "name" : "fulltext",
-        "type" : "boolean",
-        "default" : "true",
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
         "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.SearchResult"
@@ -334,9 +339,8 @@
         "name" : "count",
         "type" : "int"
       }, {
-        "name" : "fulltext",
-        "type" : "boolean",
-        "default" : "true",
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
         "optional" : true
       } ],
       "returns" : "com.linkedin.metadata.search.LineageSearchResult"
