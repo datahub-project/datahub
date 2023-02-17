@@ -191,7 +191,7 @@ public class CreateQueryResolverTest {
     return service;
   }
 
-  private QueryContext getMockQueryContext(boolean allowManageQueries) {
+  private QueryContext getMockQueryContext(boolean allowEditEntityQueries) {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
 
@@ -206,9 +206,22 @@ public class CreateQueryResolverTest {
                 TEST_DATASET_URN.toString()))
     );
 
+    AuthorizationRequest editAllRequest = new AuthorizationRequest(
+        TEST_ACTOR_URN.toString(),
+        PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+        Optional.of(
+            new ResourceSpec(
+                TEST_DATASET_URN.getEntityType(),
+                TEST_DATASET_URN.toString()))
+    );
+
     AuthorizationResult editQueriesResult = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(editQueriesResult.getType()).thenReturn(allowManageQueries ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY);
+    Mockito.when(editQueriesResult.getType()).thenReturn(allowEditEntityQueries ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY);
     Mockito.when(mockAuthorizer.authorize(Mockito.eq(editQueriesRequest))).thenReturn(editQueriesResult);
+
+    AuthorizationResult editAllResult = Mockito.mock(AuthorizationResult.class);
+    Mockito.when(editAllResult.getType()).thenReturn(allowEditEntityQueries ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY);
+    Mockito.when(mockAuthorizer.authorize(Mockito.eq(editAllRequest))).thenReturn(editAllResult);
 
     Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     Mockito.when(mockContext.getAuthentication()).thenReturn(
