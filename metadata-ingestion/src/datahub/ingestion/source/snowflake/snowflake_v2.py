@@ -1554,6 +1554,7 @@ class SnowflakeV2Source(
 
     def close(self) -> None:
         super().close()
+        super(StatefulIngestionSourceBase, self).close()
         if hasattr(self, "lineage_extractor"):
             self.lineage_extractor.close()
         if hasattr(self, "usage_extractor"):
