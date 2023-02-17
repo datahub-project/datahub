@@ -104,19 +104,19 @@ public class Neo4jGraphService implements GraphService {
     String setupdatedActorTemplate;
     final StringJoiner propertiesTemplateJoiner = new StringJoiner(",");
     if (edge.getCreatedOn() != null) {
-      setCreatedOnTemplate = "r.createdOn = edge.getCreatedOn()";
+      setCreatedOnTemplate = "r.createdOn = " + edge.getCreatedOn();
       propertiesTemplateJoiner.add(setCreatedOnTemplate);
     }
     if (edge.getCreatedActor() != null) {
-      setcreatedActorTemplate = "r.createdActor = edge.getCreatedOn()";
+      setcreatedActorTemplate = "r.createdActor = " + edge.getCreatedOn();
       propertiesTemplateJoiner.add(setcreatedActorTemplate);
     }
     if (edge.getUpdatedOn() != null) {
-      setupdatedOnTemplate = "r.updatedOn = edge.getCreatedOn()";
+      setupdatedOnTemplate = "r.updatedOn = " + edge.getCreatedOn();
       propertiesTemplateJoiner.add(setupdatedOnTemplate);
     }
     if (edge.getUpdatedActor() != null) {
-      setupdatedActorTemplate = "r.updatedActor = edge.getCreatedOn()";
+      setupdatedActorTemplate = "r.updatedActor = " + edge.getCreatedOn();
       propertiesTemplateJoiner.add(setupdatedActorTemplate);
     }
     if (!StringUtils.isEmpty(propertiesTemplateJoiner.toString())) {
