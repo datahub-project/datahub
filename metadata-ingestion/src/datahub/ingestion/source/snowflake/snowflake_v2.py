@@ -316,13 +316,13 @@ class SnowflakeV2Source(
 
         except Exception as e:
             logger.error(f"Failed to test connection due to {e}", exc_info=e)
+            test_report.internal_failure = True
+            test_report.internal_failure_reason = f"{e}"
+
             if test_report.basic_connectivity is None:
                 test_report.basic_connectivity = CapabilityReport(
                     capable=False, failure_reason=f"{e}"
                 )
-            else:
-                test_report.internal_failure = True
-                test_report.internal_failure_reason = f"{e}"
         finally:
             return test_report
 
