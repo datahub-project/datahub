@@ -68,6 +68,7 @@ docker {
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }
+  tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   // platform('linux/arm64', 'linux/amd64')
   buildx(true)

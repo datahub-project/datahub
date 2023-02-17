@@ -110,7 +110,7 @@ public class ListPostsResolverTest {
         new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(POST_URN_STRING)))));
 
     when(_entityClient.search(eq(POST_ENTITY_NAME), any(), eq(null), any(), anyInt(), anyInt(),
-        eq(_authentication), Mockito.eq(Boolean.TRUE))).thenReturn(roleSearchResult);
+        eq(_authentication), Mockito.eq(Boolean.TRUE), Mockito.eq(null))).thenReturn(roleSearchResult);
     when(_entityClient.batchGetV2(eq(POST_ENTITY_NAME), any(), any(), any())).thenReturn(_entityResponseMap);
 
     ListPostsResult result = _resolver.get(_dataFetchingEnvironment).join();
