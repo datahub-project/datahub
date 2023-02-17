@@ -158,13 +158,13 @@ public class Neo4jGraphService implements GraphService {
     if (edge.getCreatedOn() != null) {
       properties.put("createdOn", edge.getCreatedOn());
     }
-    if (edge.getCreatedActor().toString() != null) {
+    if (edge.getCreatedActor() != null) {
       properties.put("createdActor", edge.getCreatedActor().toString());
     }
     if (edge.getUpdatedOn() != null) {
       properties.put("updatedOn", edge.getUpdatedOn());
     }
-    if (edge.getUpdatedActor().toString() != null) {
+    if (edge.getUpdatedActor() != null) {
       properties.put("updatedActor", edge.getUpdatedActor().toString());
     }
     paramsMerge.put("properties", properties);
