@@ -47,7 +47,8 @@ public class PolicyFetcher {
     log.debug(String.format("Batch fetching policies. start: %s, count: %s ", start, count));
     // First fetch all policy urns from start - start + count
     SearchResult result =
-        _entityClient.search(POLICY_ENTITY_NAME, query, null, POLICY_SORT_CRITERION, start, count, authentication);
+        _entityClient.search(POLICY_ENTITY_NAME, query, null, POLICY_SORT_CRITERION, start, count, authentication,
+            true, null);
     List<Urn> policyUrns = result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
     if (policyUrns.isEmpty()) {

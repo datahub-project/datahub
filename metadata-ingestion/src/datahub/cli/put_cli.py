@@ -5,9 +5,9 @@ from typing import Any, Optional
 import click
 from click_default_group import DefaultGroup
 
-from datahub.cli.cli_utils import get_url_and_token, post_entity
+from datahub.cli.cli_utils import post_entity
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     DataPlatformInfoClass as DataPlatformInfo,
     PlatformTypeClass,
@@ -38,7 +38,7 @@ def put() -> None:
 @click.option("-d", "--aspect-data", required=True, type=str)
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def aspect(ctx: Any, urn: str, aspect: str, aspect_data: str) -> None:
     """Update a single aspect of an entity"""
 
@@ -57,7 +57,7 @@ def aspect(ctx: Any, urn: str, aspect: str, aspect_data: str) -> None:
 @put.command()
 @click.pass_context
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 @click.option(
     "--name",
     type=str,
@@ -97,8 +97,7 @@ def platform(
         displayName=display_name or platform_name,
         logoUrl=logo,
     )
-    (url, token) = get_url_and_token()
-    datahub_graph = DataHubGraph(DataHubGraphConfig(server=url, token=token))
+    datahub_graph = get_default_graph()
     datahub_graph.emit(
         MetadataChangeProposalWrapper(
             entityUrn=str(platform_urn), aspect=data_platform_info

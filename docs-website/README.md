@@ -41,8 +41,8 @@ Please use the following steps when adding/managing content for the docs site.
 
 ### Leverage Documentation Templates
 
-* [Feature Guide Template](./docs/_feature-guide-template.md)
-* [Metadata Ingestion Source Template](./metadata-ingestion/source-docs-template.md)
+* [Feature Guide Template](../docs/_feature-guide-template.md)
+* [Metadata Ingestion Source Template](../metadata-ingestion/source-docs-template.md)
 
 ### Self-Hosted vs. Managed DataHub
 

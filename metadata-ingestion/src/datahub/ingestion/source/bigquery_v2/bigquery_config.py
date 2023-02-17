@@ -78,9 +78,17 @@ class BigQueryV2Config(
     )
 
     number_of_datasets_process_in_batch: int = Field(
-        default=80,
+        hidden_from_schema=True,
+        default=500,
         description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
+
+    number_of_partitioned_datasets_process_in_batch: int = Field(
+        hidden_from_schema=True,
+        default=80,
+        description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+    )
+
     column_limit: int = Field(
         default=300,
         description="Maximum number of columns to process in a table. This is a low level config property which should be touched with care. This restriction is needed because excessively wide tables can result in failure to ingest the schema.",
@@ -110,6 +118,11 @@ class BigQueryV2Config(
     lineage_sql_parser_use_raw_names: bool = Field(
         default=False,
         description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False.",
+    )
+
+    extract_lineage_from_catalog: bool = Field(
+        default=False,
+        description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/reference/data-lineage/rest",
     )
 
     convert_urns_to_lowercase: bool = Field(
@@ -159,9 +172,17 @@ class BigQueryV2Config(
     )
     _credentials_path: Optional[str] = PrivateAttr(None)
 
+    _cache_path: Optional[str] = PrivateAttr(None)
+
     upstream_lineage_in_report: bool = Field(
         default=False,
         description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",
+    )
+
+    run_optimized_column_query: bool = Field(
+        hidden_from_schema=True,
+        default=False,
+        description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
     def __init__(self, **data: Any):

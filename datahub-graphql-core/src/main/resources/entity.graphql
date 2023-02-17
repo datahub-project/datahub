@@ -803,6 +803,14 @@ input LineageInput {
     Optional flag to not merge siblings in the response. They are merged by default.
     """
     separateSiblings: Boolean
+    """
+    An optional starting time to filter on
+    """
+    startTimeMillis: Long
+    """
+    An optional ending time to filter on
+    """
+    endTimeMillis: Long
 }
 
 """
@@ -934,6 +942,22 @@ type LineageRelationship {
     The actor who created this lineage relationship. Could be null.
     """
     createdActor: Entity
+
+    """
+    Timestamp for when this lineage relationship was last updated. Could be null.
+    """
+    updatedOn: Long
+
+    """
+    The actor who last updated this lineage relationship. Could be null.
+    """
+    updatedActor: Entity
+
+    """
+    Whether this edge is a manual edge. Could be null.
+    """
+    isManual: Boolean
+
 }
 
 """
@@ -1241,6 +1265,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type FineGrainedLineage {
@@ -1511,6 +1540,32 @@ type DatasetProperties {
 
 
 """
+Additional read only properties about a DataPlatformInstance
+"""
+type DataPlatformInstanceProperties {
+
+    """
+    The name of the data platform instance used in display
+    """
+    name: String
+
+    """
+    Read only technical description for the data platform instance
+    """
+    description: String
+
+    """
+    Custom properties of the data platform instance
+    """
+    customProperties: [CustomPropertiesEntry!]
+
+    """
+    External URL associated with the data platform instance
+    """
+    externalUrl: String
+}
+
+"""
 A Glossary Term, or a node in a Business Glossary representing a standardized domain
 data type
 """
@@ -1585,6 +1640,11 @@ type GlossaryTerm implements Entity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -1717,6 +1777,11 @@ type GlossaryNode implements Entity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -1824,6 +1889,36 @@ type DataPlatformInstance implements Entity {
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Additional read only properties associated with a data platform instance
+    """
+    properties: DataPlatformInstanceProperties
+
+    """
+    Ownership metadata of the data platform instance
+    """
+    ownership: Ownership
+
+    """
+    References to internal resources related to the data platform instance
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Tags used for searching the data platform instance
+    """
+    tags: GlobalTags
+
+    """
+    The deprecation status of the data platform instance
+    """
+    deprecation: Deprecation
+
+    """
+    Status metadata of the container
+    """
+    status: Status
 }
 
 """
@@ -2082,6 +2177,11 @@ type Container implements Entity {
     Status metadata of the container
     """
     status: Status
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -3156,6 +3256,11 @@ type CorpUserInfo {
     two uppercase letters country code
     """
     countryCode: String
+
+    """
+    Custom properties of the ldap
+    """
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -3216,6 +3321,11 @@ type CorpUserProperties {
     two uppercase letters country code
     """
     countryCode: String
+
+    """
+    Custom properties of the ldap
+    """
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4215,6 +4325,11 @@ type Notebook implements Entity & BrowsableEntity {
     The browse paths corresponding to the Notebook. If no Browse Paths have been generated before, this will be null.
     """
     browsePaths: [BrowsePath!]
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4525,6 +4640,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -4820,6 +4940,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5167,6 +5292,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     Standardized platform urn where the datflow is defined
     """
     platform: DataPlatform!
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5354,6 +5484,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -5993,6 +6128,11 @@ type DatasetProfile implements TimeSeriesAspect {
   An optional column count of the Dataset
   """
   columnCount: Long
+
+  """
+  The storage size in bytes
+  """
+  sizeInBytes: Long
 
   """
   An optional set of per field statistics obtained in the profile
@@ -7254,9 +7394,9 @@ Input for updating the parent node of a resource. Currently only GlossaryNodes a
 """
 input UpdateParentNodeInput {
     """
-    The new parent node urn
+    The new parent node urn. If parentNode is null, this will remove the parent from this entity
     """
-    parentNode: String!
+    parentNode: String
 
     """
     The primary key of the resource to update the parent node for
@@ -8191,6 +8331,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     An additional set of of read write properties
     """
     editableProperties: MLModelEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 """
@@ -8292,6 +8437,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     An additional set of of read write properties
     """
     editableProperties: MLModelGroupEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLModelGroupProperties {
@@ -8406,6 +8556,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     An additional set of of read write properties
     """
     editableProperties: MLFeatureEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLHyperParam {
@@ -8570,6 +8725,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     An additional set of of read write properties
     """
     editableProperties: MLPrimaryKeyEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLPrimaryKeyProperties {
@@ -8687,6 +8847,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
     An additional set of of read write properties
     """
     editableProperties: MLFeatureTableEditableProperties
+
+    """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
 }
 
 type MLFeatureTableEditableProperties {

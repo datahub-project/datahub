@@ -4,12 +4,12 @@ These guides are focused on helping you get up and running with DataHub as quick
 
 ## Self-Hosted DataHub
 
-If you're looking to build and deploy DataHub youself, start here. 
+If you're looking to build and deploy DataHub youself, start here.
 
 <a
     className='button button--primary button--lg'
-    href="quickstart">
-    Get Started with Self-Hosted DataHub
+    href="/docs/quickstart">
+Get Started with Self-Hosted DataHub
 </a>
 
 ## Managed DataHub
@@ -18,6 +18,6 @@ If you're looking to build and deploy DataHub youself, start here.
 
 <a
     className='button button--primary button--lg'
-    href="authentication/guides/add-users">
-    Get Started with Managed DataHub
+    href="/docs/authentication/guides/add-users">
+Get Started with Managed DataHub
 </a>

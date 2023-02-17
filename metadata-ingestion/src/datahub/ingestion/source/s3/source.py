@@ -160,8 +160,6 @@ profiling_flags_to_report = [
     "include_field_sample_values",
 ]
 
-S3_PREFIXES = ("s3://", "s3n://", "s3a://")
-
 
 # LOCAL_BROWSE_PATH_TRANSFORMER_CONFIG = AddDatasetBrowsePathConfig(
 #     path_templates=["/ENV/PLATFORMDATASET_PARTS"], replace_existing=True
@@ -754,6 +752,9 @@ class S3Source(Source):
                             table_dict[table_data.table_path].timestamp
                             < table_data.timestamp
                         ):
+                            table_dict[
+                                table_data.table_path
+                            ].full_path = table_data.full_path
                             table_dict[
                                 table_data.table_path
                             ].timestamp = table_data.timestamp

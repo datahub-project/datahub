@@ -139,12 +139,13 @@ public class ChartType implements SearchableEntityType<Chart, String>, Browsable
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search(
             "chart",
-            query,
-            facetFilters,
-            start,
-            count,
-            context.getAuthentication()
-        );
+                query,
+                facetFilters,
+                start,
+                count,
+                context.getAuthentication(),
+                true,
+            null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

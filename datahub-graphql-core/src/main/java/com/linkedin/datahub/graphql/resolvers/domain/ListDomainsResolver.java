@@ -62,7 +62,9 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
                   new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
                   start,
                   count,
-                  context.getAuthentication());
+                  context.getAuthentication(),
+                  true,
+              null);
 
           // Now that we have entities we can bind this to a result.
           final ListDomainsResult result = new ListDomainsResult();

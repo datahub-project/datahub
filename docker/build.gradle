@@ -9,15 +9,28 @@ ext {
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
             ':docker:kafka-setup',
+            ':datahub-upgrade',
             ':metadata-jobs:mce-consumer-job',
             ':metadata-jobs:mae-consumer-job',
             ':metadata-service:war',
             ':datahub-frontend',
     ]
+    debug_modules = quickstart_modules - [':metadata-jobs:mce-consumer-job',
+                                          ':metadata-jobs:mae-consumer-job']
+    debug_compose_args = [
+            '-f', 'docker-compose-without-neo4j.yml',
+            '-f', 'docker-compose-without-neo4j.override.yml',
+            '-f', 'docker-compose-without-neo4j.m1.yml', // updates to mariadb
+            '-f', 'docker-compose.dev.yml'
+    ]
+    debug_reloadable = [
+            'datahub-gms',
+            'datahub-frontend-react'
+    ]
 }
 
 task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
-    dependsOn(quickstart_modules.collect { it + ':dockerTag-version' })
+    dependsOn(quickstart_modules.collect { it + ':dockerTag' })
     shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
 
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
@@ -26,6 +39,7 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',
             'datahub docker quickstart',
+            '--no-pull-images',
             '--standalone_consumers',
             '--version', "v${version}",
             '--dump-logs-on-failure'
@@ -43,7 +57,24 @@ task quickstartNuke(type: Exec, dependsOn: ":metadata-ingestion:install") {
     commandLine 'bash', '-c',  cmd.join(" ")
 }
 
-task quickstartRebuild() {
-    dependsOn(quickstart_modules.collect { it + ':clean' })
-    dependsOn'quickstart'
+task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
+    dependsOn(debug_modules.collect { it + ':dockerTagDebug' })
+    shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
+
+    environment "DATAHUB_TELEMETRY_ENABLED", "false"
+    environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
+
+    def cmd = [
+            'source ../metadata-ingestion/venv/bin/activate && ',
+            'datahub docker quickstart',
+            '--no-pull-images',
+            '--version', "debug",
+            '--dump-logs-on-failure'
+    ] + debug_compose_args
+    commandLine 'bash', '-c', cmd.join(" ")
+}
+
+task debugReload(type: Exec) {
+    def cmd = ['docker compose -p datahub'] + debug_compose_args + ['restart'] + debug_reloadable
+    commandLine 'bash', '-c', cmd.join(" ")
 }

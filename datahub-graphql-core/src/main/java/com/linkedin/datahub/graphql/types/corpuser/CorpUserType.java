@@ -106,7 +106,7 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final SearchResult searchResult = _entityClient.search("corpuser", query, Collections.emptyMap(), start, count,
-            context.getAuthentication());
+            context.getAuthentication(), true, null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

@@ -73,14 +73,14 @@ distributions {
 }
 
 docker {
-  name "${docker_registry}/${docker_repo}:${version}"
+  name "${docker_registry}/${docker_repo}:v${version}"
+  version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
   files fileTree(rootProject.projectDir) {
     include 'docker/monitoring/*'
     include "docker/${docker_dir}/*"
   }
-  tag("-${version}", "${docker_registry}/${docker_repo}:v${version}")
-  tag("-version", "${docker_registry}/${docker_repo}:v${version}")
+  tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   // platform('linux/arm64', 'linux/amd64')
   buildx(true)

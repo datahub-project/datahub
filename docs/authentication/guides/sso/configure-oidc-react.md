@@ -126,8 +126,8 @@ AUTH_OIDC_SCOPE=your-custom-scope
 AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 ```
 
-- `AUTH_OIDC_USER_NAME_CLAIM`: The attribute that will contain the username used on the DataHub platform. By default, this is "preferred_username" provided
-  as part of the standard `profile` scope.
+- `AUTH_OIDC_USER_NAME_CLAIM`: The attribute that will contain the username used on the DataHub platform. By default, this is "email" provided
+  as part of the standard `email` scope.
 - `AUTH_OIDC_USER_NAME_CLAIM_REGEX`: A regex string used for extracting the username from the userNameClaim attribute. For example, if
   the userNameClaim field will contain an email address, and we want to omit the domain name suffix of the email, we can specify a custom
   regex to do so. (e.g. `([^@]+)`)
@@ -137,6 +137,10 @@ AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
   is `client_secret_basic`, which uses HTTP Basic authentication. Another option is `client_secret_post`, which includes the client_id and secret_id
   as form parameters in the HTTP POST request. For more info, see [OAuth 2.0 Client Authentication](https://darutk.medium.com/oauth-2-0-client-authentication-4b5f929305d4)
 
+Additional OIDC Options:
+
+- `AUTH_OIDC_PREFERRED_JWS_ALGORITHM` - Can be used to select a preferred signing algorithm for id tokens. Examples include: `RS256` or `HS256`. If
+your IdP includes `none` before `RS256`/`HS256` in the list of signing algorithms, then this value **MUST** be set.
 
 ##### User & Group Provisioning (JIT Provisioning)
 
@@ -189,3 +193,45 @@ A brief summary of the steps that occur when the user navigates to the React app
 6. DataHub fetches the authenticated user's profile and extracts a username to identify the user on DataHub (eg. urn:li:corpuser:username)
 7. DataHub sets session cookies for the newly authenticated user
 8. DataHub redirects the user to the homepage ("/")
+
+## FAQ
+
+**No users can log in. Instead, I get redirected to the login page with an error. What do I do?**
+
+This can occur for a variety of reasons, but most often it is due to misconfiguration of Single-Sign On, either on the DataHub
+side or on the Identity Provider side. 
+
+First, verify that all values are consistent across them (e.g. the host URL where DataHub is deployed), and that no values
+are misspelled (client id, client secret). 
+
+Next, verify that the scopes requested are supported by your Identity Provider
+and that the claim (i.e. attribute) DataHub uses for uniquely identifying the user is supported by your Identity Provider (refer to Identity Provider OpenID Connect documentation). By default, this claim is `email`. 
+
+Then, make sure the Discovery URI you've configured (`AUTH_OIDC_DISCOVERY_URI`) is accessible where the datahub-frontend container is running. You
+can do this by issuing a basic CURL to the address (**Pro-Tip**: you may also visit the address in your browser to check more specific details about your Identity Provider). 
+
+Finally, check the container logs for the `datahub-frontend` container. This should hopefully provide some additional context
+around why exactly the login handoff is not working. 
+
+If all else fails, feel free to reach out to the DataHub Community on Slack for
+real-time support 
+
+
+
+**I'm seeing an error in the `datahub-frontend` logs when a user tries to login**
+```shell
+Caused by: java.lang.RuntimeException: Failed to resolve user name claim from profile provided by Identity Provider. Missing attribute. Attribute: 'email', Regex: '(.*)', Profile: { ...
+```
+**what do I do?**
+
+This indicates that your Identity Provider does not provide the claim with name 'email', which DataHub
+uses by default to uniquely identify users within your organization.
+
+To fix this, you may need to 
+
+1. Change the claim that is used as the unique user identifier to something else by changing the `AUTH_OIDC_USER_NAME_CLAIM` (e.g. to "name" or "preferred_username") _OR_
+2. Change the environment variable `AUTH_OIDC_SCOPE` to include the scope required to retrieve the claim with name "email"
+
+For the `datahub-frontend` container / pod. 
+
+**Pro-Tip**: Check the documentation for your Identity Provider to learn more about the scope claims supported.

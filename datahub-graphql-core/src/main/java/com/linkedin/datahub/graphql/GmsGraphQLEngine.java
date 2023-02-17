@@ -528,8 +528,8 @@ public class GmsGraphQLEngine {
         return loadableTypes
             .stream()
             .collect(Collectors.toMap(
-                    LoadableType::name,
-                    (graphType) -> (context) -> createDataLoader(graphType, context)
+                LoadableType::name,
+                (graphType) -> (context) -> createDataLoader(graphType, context)
             ));
     }
 
@@ -606,7 +606,7 @@ public class GmsGraphQLEngine {
             .type("AnalyticsChart", typeWiring -> typeWiring.typeResolver(new AnalyticsChartTypeResolver()));
         if (isAnalyticsEnabled) {
             builder.type("Query", typeWiring -> typeWiring.dataFetcher("getAnalyticsCharts",
-                new GetChartsResolver(analyticsService, entityClient))
+                    new GetChartsResolver(analyticsService, entityClient))
                 .dataFetcher("getHighlights", new GetHighlightsResolver(analyticsService))
                 .dataFetcher("getMetadataAnalyticsCharts", new GetMetadataAnalyticsResolver(entityClient)));
         }
@@ -617,6 +617,7 @@ public class GmsGraphQLEngine {
             .type("Container", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("platform",
                     new LoadableTypeResolver<>(dataPlatformType,
                         (env) -> ((Container) env.getSource()).getPlatform().getUrn()))
@@ -660,7 +661,7 @@ public class GmsGraphQLEngine {
                     this.testsConfiguration,
                     this.datahubConfiguration,
                     this.viewsConfiguration
-            ))
+                ))
             .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
             .dataFetcher("search", new SearchResolver(this.entityClient))
             .dataFetcher("searchAcrossEntities", new SearchAcrossEntitiesResolver(this.entityClient, this.viewService))
@@ -861,11 +862,11 @@ public class GmsGraphQLEngine {
         builder
             .type("SearchResult", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
-                        (env) -> ((SearchResult) env.getSource()).getEntity()))
-                )
+                    (env) -> ((SearchResult) env.getSource()).getEntity()))
+            )
             .type("SearchAcrossLineageResult", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
-                        (env) -> ((SearchAcrossLineageResult) env.getSource()).getEntity()))
+                    (env) -> ((SearchAcrossLineageResult) env.getSource()).getEntity()))
             )
             .type("AggregationMetadata", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
@@ -877,19 +878,19 @@ public class GmsGraphQLEngine {
             )
             .type("BrowseResults", typeWiring -> typeWiring
                 .dataFetcher("entities", new EntityTypeBatchResolver(entityTypes,
-                        (env) -> ((BrowseResults) env.getSource()).getEntities()))
+                    (env) -> ((BrowseResults) env.getSource()).getEntities()))
             )
             .type("EntityRelationshipLegacy", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
-                        (env) -> ((EntityRelationshipLegacy) env.getSource()).getEntity()))
+                    (env) -> ((EntityRelationshipLegacy) env.getSource()).getEntity()))
             )
             .type("EntityRelationship", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
-                        (env) -> ((EntityRelationship) env.getSource()).getEntity()))
+                    (env) -> ((EntityRelationship) env.getSource()).getEntity()))
             )
             .type("LineageRelationship", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
-                        (env) -> ((LineageRelationship) env.getSource()).getEntity()))
+                    (env) -> ((LineageRelationship) env.getSource()).getEntity()))
                 .dataFetcher("createdActor",
                     new EntityTypeResolver(entityTypes,
                         (env) -> {
@@ -897,24 +898,31 @@ public class GmsGraphQLEngine {
                             return relationship.getCreatedActor() != null ? relationship.getCreatedActor() : null;
                         })
                 )
+                .dataFetcher("updatedActor",
+                    new EntityTypeResolver(entityTypes,
+                        (env) -> {
+                            final LineageRelationship relationship = env.getSource();
+                            return relationship.getUpdatedActor() != null ? relationship.getUpdatedActor() : null;
+                        })
+                )
             )
             .type("ListDomainsResult", typeWiring -> typeWiring
                 .dataFetcher("domains", new LoadableTypeBatchResolver<>(domainType,
-                        (env) -> ((ListDomainsResult) env.getSource()).getDomains().stream()
-                            .map(Domain::getUrn)
-                            .collect(Collectors.toList())))
+                    (env) -> ((ListDomainsResult) env.getSource()).getDomains().stream()
+                        .map(Domain::getUrn)
+                        .collect(Collectors.toList())))
             )
             .type("GetRootGlossaryTermsResult", typeWiring -> typeWiring
                 .dataFetcher("terms", new LoadableTypeBatchResolver<>(glossaryTermType,
-                        (env) -> ((GetRootGlossaryTermsResult) env.getSource()).getTerms().stream()
-                            .map(GlossaryTerm::getUrn)
-                            .collect(Collectors.toList())))
+                    (env) -> ((GetRootGlossaryTermsResult) env.getSource()).getTerms().stream()
+                        .map(GlossaryTerm::getUrn)
+                        .collect(Collectors.toList())))
             )
             .type("GetRootGlossaryNodesResult", typeWiring -> typeWiring
                 .dataFetcher("nodes", new LoadableTypeBatchResolver<>(glossaryNodeType,
-                        (env) -> ((GetRootGlossaryNodesResult) env.getSource()).getNodes().stream()
-                            .map(GlossaryNode::getUrn)
-                            .collect(Collectors.toList())))
+                    (env) -> ((GetRootGlossaryNodesResult) env.getSource()).getNodes().stream()
+                        .map(GlossaryNode::getUrn)
+                        .collect(Collectors.toList())))
             )
             .type("AutoCompleteResults", typeWiring -> typeWiring
                 .dataFetcher("entities",
@@ -923,11 +931,11 @@ public class GmsGraphQLEngine {
             )
             .type("AutoCompleteResultForEntity", typeWiring -> typeWiring
                 .dataFetcher("entities", new EntityTypeBatchResolver(entityTypes,
-                        (env) -> ((AutoCompleteResultForEntity) env.getSource()).getEntities()))
+                    (env) -> ((AutoCompleteResultForEntity) env.getSource()).getEntities()))
             )
             .type("PolicyMatchCriterionValue", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
-                        (env) -> ((PolicyMatchCriterionValue) env.getSource()).getEntity()))
+                    (env) -> ((PolicyMatchCriterionValue) env.getSource()).getEntity()))
             )
             .type("ListTestsResult", typeWiring -> typeWiring
                 .dataFetcher("tests", new LoadableTypeBatchResolver<>(testType,
@@ -947,7 +955,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.datasetType))
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
-                            (env) -> ((Dataset) env.getSource()).getPlatform().getUrn())
+                    (env) -> ((Dataset) env.getSource()).getPlatform().getUrn())
                 )
                 .dataFetcher("container",
                     new LoadableTypeResolver<>(containerType,
@@ -971,10 +979,10 @@ public class GmsGraphQLEngine {
                     )
                 )
                 .dataFetcher("operations", new TimeSeriesAspectResolver(
-                            this.entityClient,
-                            "dataset",
-                            "operation",
-                            OperationMapper::map
+                        this.entityClient,
+                        "dataset",
+                        "operation",
+                        OperationMapper::map
                     )
                 )
                 .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
@@ -984,16 +992,17 @@ public class GmsGraphQLEngine {
                 .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
                 .dataFetcher("testResults", new TestResultsResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("subTypes", new SubTypesResolver(
-                   this.entityClient,
-                   "dataset",
-                   "subTypes"))
+                    this.entityClient,
+                    "dataset",
+                    "subTypes"))
                 .dataFetcher("runs", new EntityRunsResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("parentContainers", new ParentContainersResolver(entityClient)))
             .type("Owner", typeWiring -> typeWiring
-                    .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
-                        (env) -> ((Owner) env.getSource()).getOwner()))
+                .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
+                    (env) -> ((Owner) env.getSource()).getOwner()))
             )
             .type("UserUsageCounts", typeWiring -> typeWiring
                 .dataFetcher("user", new LoadableTypeResolver<>(corpUserType,
@@ -1057,6 +1066,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("schemaMetadata", new AspectResolver())
             .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
             .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+            .dataFetcher("exists", new EntityExistsResolver(entityService))
         );
     }
 
@@ -1064,6 +1074,7 @@ public class GmsGraphQLEngine {
         builder.type("GlossaryNode", typeWiring -> typeWiring
             .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
             .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+            .dataFetcher("exists", new EntityExistsResolver(entityService))
         );
     }
 
@@ -1102,23 +1113,23 @@ public class GmsGraphQLEngine {
         builder.type("CorpGroup", typeWiring -> typeWiring
             .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
         builder.type("CorpGroupInfo", typeWiring -> typeWiring
-            .dataFetcher("admins",
+                .dataFetcher("admins",
                     new LoadableTypeBatchResolver<>(corpUserType,
-                            (env) -> ((CorpGroupInfo) env.getSource()).getAdmins().stream()
-                                    .map(CorpUser::getUrn)
-                                    .collect(Collectors.toList())))
-            .dataFetcher("members",
+                        (env) -> ((CorpGroupInfo) env.getSource()).getAdmins().stream()
+                            .map(CorpUser::getUrn)
+                            .collect(Collectors.toList())))
+                .dataFetcher("members",
                     new LoadableTypeBatchResolver<>(corpUserType,
-                            (env) -> ((CorpGroupInfo) env.getSource()).getMembers().stream()
-                                    .map(CorpUser::getUrn)
-                                    .collect(Collectors.toList())))
-        )
-        .type("ListGroupsResult", typeWiring -> typeWiring
-            .dataFetcher("groups", new LoadableTypeBatchResolver<>(corpGroupType,
-                (env) -> ((ListGroupsResult) env.getSource()).getGroups().stream()
-                    .map(CorpGroup::getUrn)
-                    .collect(Collectors.toList())))
-        );
+                        (env) -> ((CorpGroupInfo) env.getSource()).getMembers().stream()
+                            .map(CorpUser::getUrn)
+                            .collect(Collectors.toList())))
+            )
+            .type("ListGroupsResult", typeWiring -> typeWiring
+                .dataFetcher("groups", new LoadableTypeBatchResolver<>(corpGroupType,
+                    (env) -> ((ListGroupsResult) env.getSource()).getGroups().stream()
+                        .map(CorpGroup::getUrn)
+                        .collect(Collectors.toList())))
+            );
     }
 
     private void configureTagAssociationResolver(final RuntimeWiring.Builder builder) {
@@ -1126,16 +1137,16 @@ public class GmsGraphQLEngine {
             .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
         builder.type("TagAssociation", typeWiring -> typeWiring
             .dataFetcher("tag",
-                    new LoadableTypeResolver<>(tagType,
-                            (env) -> ((com.linkedin.datahub.graphql.generated.TagAssociation) env.getSource()).getTag().getUrn()))
+                new LoadableTypeResolver<>(tagType,
+                    (env) -> ((com.linkedin.datahub.graphql.generated.TagAssociation) env.getSource()).getTag().getUrn()))
         );
     }
 
     private void configureGlossaryTermAssociationResolver(final RuntimeWiring.Builder builder) {
         builder.type("GlossaryTermAssociation", typeWiring -> typeWiring
-                .dataFetcher("term",
-                    new LoadableTypeResolver<>(glossaryTermType,
-                        (env) -> ((GlossaryTermAssociation) env.getSource()).getTerm().getUrn()))
+            .dataFetcher("term",
+                new LoadableTypeResolver<>(glossaryTermType,
+                    (env) -> ((GlossaryTermAssociation) env.getSource()).getTerm().getUrn()))
         );
     }
 
@@ -1148,6 +1159,7 @@ public class GmsGraphQLEngine {
         .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.notebookType))
         .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
             (env) -> ((Notebook) env.getSource()).getPlatform().getUrn()))
+        .dataFetcher("exists", new EntityExistsResolver(entityService))
         .dataFetcher("dataPlatformInstance",
             new LoadableTypeResolver<>(dataPlatformInstanceType,
                 (env) -> {
@@ -1167,7 +1179,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.dashboardType))
             .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
             .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
-                    (env) -> ((Dashboard) env.getSource()).getPlatform().getUrn()))
+                (env) -> ((Dashboard) env.getSource()).getPlatform().getUrn()))
             .dataFetcher("dataPlatformInstance",
                 new LoadableTypeResolver<>(dataPlatformInstanceType,
                     (env) -> {
@@ -1176,21 +1188,22 @@ public class GmsGraphQLEngine {
                     })
             )
             .dataFetcher("container", new LoadableTypeResolver<>(containerType,
-                    (env) -> {
-                        final Dashboard dashboard = env.getSource();
-                        return dashboard.getContainer() != null ? dashboard.getContainer().getUrn() : null;
-                    })
+                (env) -> {
+                    final Dashboard dashboard = env.getSource();
+                    return dashboard.getContainer() != null ? dashboard.getContainer().getUrn() : null;
+                })
             )
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
             .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
             .dataFetcher("statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
             .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+            .dataFetcher("exists", new EntityExistsResolver(entityService))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new LoadableTypeBatchResolver<>(chartType,
-                    (env) -> ((DashboardInfo) env.getSource()).getCharts().stream()
-                        .map(Chart::getUrn)
-                        .collect(Collectors.toList())))
+                (env) -> ((DashboardInfo) env.getSource()).getCharts().stream()
+                    .map(Chart::getUrn)
+                    .collect(Collectors.toList())))
         );
         builder.type("DashboardUserUsageCounts", typeWiring -> typeWiring
             .dataFetcher("user", new LoadableTypeResolver<>(
@@ -1200,12 +1213,12 @@ public class GmsGraphQLEngine {
         builder.type("DashboardStatsSummary", typeWiring -> typeWiring
             .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(corpUserType,
                 (env) -> {
-                DashboardStatsSummary summary = ((DashboardStatsSummary) env.getSource());
-                return summary.getTopUsersLast30Days() != null
-                    ? summary.getTopUsersLast30Days().stream()
+                    DashboardStatsSummary summary = ((DashboardStatsSummary) env.getSource());
+                    return summary.getTopUsersLast30Days() != null
+                        ? summary.getTopUsersLast30Days().stream()
                         .map(CorpUser::getUrn)
                         .collect(Collectors.toList())
-                    : null;
+                        : null;
                 }))
         );
     }
@@ -1237,6 +1250,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
             .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
             .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+            .dataFetcher("exists", new EntityExistsResolver(entityService))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,
@@ -1253,15 +1267,15 @@ public class GmsGraphQLEngine {
         builder
             .type("Entity", typeWiring -> typeWiring
                 .typeResolver(new EntityInterfaceTypeResolver(loadableTypes.stream()
-                        .filter(graphType -> graphType instanceof EntityType)
-                        .map(graphType -> (EntityType<?, ?>) graphType)
-                        .collect(Collectors.toList())
+                    .filter(graphType -> graphType instanceof EntityType)
+                    .map(graphType -> (EntityType<?, ?>) graphType)
+                    .collect(Collectors.toList())
                 )))
             .type("EntityWithRelationships", typeWiring -> typeWiring
                 .typeResolver(new EntityInterfaceTypeResolver(loadableTypes.stream()
-                        .filter(graphType -> graphType instanceof EntityType)
-                        .map(graphType -> (EntityType<?, ?>) graphType)
-                        .collect(Collectors.toList())
+                    .filter(graphType -> graphType instanceof EntityType)
+                    .map(graphType -> (EntityType<?, ?>) graphType)
+                    .collect(Collectors.toList())
                 )))
             .type("BrowsableEntity", typeWiring -> typeWiring
                 .typeResolver(new EntityInterfaceTypeResolver(browsableTypes.stream()
@@ -1275,16 +1289,16 @@ public class GmsGraphQLEngine {
                     .collect(Collectors.toList())
                 )))
             .type("PlatformSchema", typeWiring -> typeWiring
-                    .typeResolver(new PlatformSchemaUnionTypeResolver())
+                .typeResolver(new PlatformSchemaUnionTypeResolver())
             )
             .type("HyperParameterValueType", typeWiring -> typeWiring
-                    .typeResolver(new HyperParameterValueTypeResolver())
+                .typeResolver(new HyperParameterValueTypeResolver())
             )
             .type("Aspect", typeWiring -> typeWiring.typeResolver(new AspectInterfaceTypeResolver()))
             .type("TimeSeriesAspect", typeWiring -> typeWiring
                 .typeResolver(new TimeSeriesAspectInterfaceTypeResolver()))
             .type("ResultsType", typeWiring -> typeWiring
-                    .typeResolver(new ResultsTypeResolver()));
+                .typeResolver(new ResultsTypeResolver()));
     }
 
     /**
@@ -1314,6 +1328,7 @@ public class GmsGraphQLEngine {
                 )
                 .dataFetcher("runs", new DataJobRunsResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
             )
             .type("DataJobInputOutput", typeWiring -> typeWiring
                 .dataFetcher("inputDatasets", new LoadableTypeBatchResolver<>(datasetType,
@@ -1342,6 +1357,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1361,9 +1377,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.mlFeatureTableType))
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("platform",
-                        new LoadableTypeResolver<>(dataPlatformType,
-                                (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
+                    new LoadableTypeResolver<>(dataPlatformType,
+                        (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1374,48 +1391,49 @@ public class GmsGraphQLEngine {
             )
             .type("MLFeatureTableProperties", typeWiring -> typeWiring
                 .dataFetcher("mlFeatures",
-                                new LoadableTypeBatchResolver<>(mlFeatureType,
-                                        (env) ->
-                                            ((MLFeatureTableProperties) env.getSource()).getMlFeatures() != null
-                                                ? ((MLFeatureTableProperties) env.getSource()).getMlFeatures().stream()
-                                        .map(MLFeature::getUrn)
-                                        .collect(Collectors.toList()) : ImmutableList.of()))
+                    new LoadableTypeBatchResolver<>(mlFeatureType,
+                        (env) ->
+                            ((MLFeatureTableProperties) env.getSource()).getMlFeatures() != null
+                                ? ((MLFeatureTableProperties) env.getSource()).getMlFeatures().stream()
+                                .map(MLFeature::getUrn)
+                                .collect(Collectors.toList()) : ImmutableList.of()))
                 .dataFetcher("mlPrimaryKeys",
-                                new LoadableTypeBatchResolver<>(mlPrimaryKeyType,
-                                        (env) ->
-                                            ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys() != null
-                                                ? ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
-                                        .map(MLPrimaryKey::getUrn)
-                                        .collect(Collectors.toList()) : ImmutableList.of()))
+                    new LoadableTypeBatchResolver<>(mlPrimaryKeyType,
+                        (env) ->
+                            ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys() != null
+                                ? ((MLFeatureTableProperties) env.getSource()).getMlPrimaryKeys().stream()
+                                .map(MLPrimaryKey::getUrn)
+                                .collect(Collectors.toList()) : ImmutableList.of()))
             )
             .type("MLFeatureProperties", typeWiring -> typeWiring
                 .dataFetcher("sources", new LoadableTypeBatchResolver<>(datasetType,
-                                (env) -> {
-                                    if (((MLFeatureProperties) env.getSource()).getSources() == null) {
-                                        return Collections.emptyList();
-                                    }
-                                    return ((MLFeatureProperties) env.getSource()).getSources().stream()
-                                                        .map(datasetType.getKeyProvider())
-                                                        .collect(Collectors.toList());
-                                    })
+                    (env) -> {
+                        if (((MLFeatureProperties) env.getSource()).getSources() == null) {
+                            return Collections.emptyList();
+                        }
+                        return ((MLFeatureProperties) env.getSource()).getSources().stream()
+                            .map(datasetType.getKeyProvider())
+                            .collect(Collectors.toList());
+                    })
                 )
             )
             .type("MLPrimaryKeyProperties", typeWiring -> typeWiring
                 .dataFetcher("sources", new LoadableTypeBatchResolver<>(datasetType,
-                                (env) -> {
-                                    if (((MLPrimaryKeyProperties) env.getSource()).getSources() == null) {
-                                        return Collections.emptyList();
-                                    }
-                                    return ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
-                                        .map(datasetType.getKeyProvider())
-                                        .collect(Collectors.toList());
-                                })
+                    (env) -> {
+                        if (((MLPrimaryKeyProperties) env.getSource()).getSources() == null) {
+                            return Collections.emptyList();
+                        }
+                        return ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
+                            .map(datasetType.getKeyProvider())
+                            .collect(Collectors.toList());
+                    })
                 )
             )
             .type("MLModel", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.mlModelType))
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher("dataPlatformInstance",
@@ -1428,15 +1446,15 @@ public class GmsGraphQLEngine {
             )
             .type("MLModelProperties", typeWiring -> typeWiring
                 .dataFetcher("groups", new LoadableTypeBatchResolver<>(mlModelGroupType,
-                        (env) -> {
-                            MLModelProperties properties = env.getSource();
-                            if (properties.getGroups() != null) {
-                                return properties.getGroups().stream()
-                                    .map(MLModelGroup::getUrn)
-                                    .collect(Collectors.toList());
-                            }
-                            return Collections.emptyList();
-                        })
+                    (env) -> {
+                        MLModelProperties properties = env.getSource();
+                        if (properties.getGroups() != null) {
+                            return properties.getGroups().stream()
+                                .map(MLModelGroup::getUrn)
+                                .collect(Collectors.toList());
+                        }
+                        return Collections.emptyList();
+                    })
                 )
             )
             .type("MLModelGroup", typeWiring -> typeWiring
@@ -1444,8 +1462,9 @@ public class GmsGraphQLEngine {
                 .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.mlModelGroupType))
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
-                                (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn())
+                    (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn())
                 )
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1457,6 +1476,7 @@ public class GmsGraphQLEngine {
             .type("MLFeature", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("lineage",  new EntityLineageResultResolver(siblingGraphService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1468,6 +1488,7 @@ public class GmsGraphQLEngine {
             .type("MLPrimaryKey", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1480,9 +1501,9 @@ public class GmsGraphQLEngine {
 
     private void configureGlossaryRelationshipResolvers(final RuntimeWiring.Builder builder) {
         builder.type("GlossaryTerm", typeWiring -> typeWiring.dataFetcher("relationships",
-            new EntityRelationshipsResultResolver(graphClient)))
-        .type("GlossaryNode", typeWiring -> typeWiring.dataFetcher("relationships",
-            new EntityRelationshipsResultResolver(graphClient)));
+                new EntityRelationshipsResultResolver(graphClient)))
+            .type("GlossaryNode", typeWiring -> typeWiring.dataFetcher("relationships",
+                new EntityRelationshipsResultResolver(graphClient)));
     }
 
     private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
@@ -1535,27 +1556,27 @@ public class GmsGraphQLEngine {
 
     private void configureViewResolvers(final RuntimeWiring.Builder builder) {
         builder
-        .type("DataHubView",
-            typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
-        .type("ListViewsResult", typeWiring -> typeWiring
-            .dataFetcher("views", new LoadableTypeBatchResolver<>(
-                dataHubViewType,
-                (env) -> ((ListViewsResult) env.getSource()).getViews().stream()
-                    .map(DataHubView::getUrn)
-                    .collect(Collectors.toList())))
-        )
-        .type("CorpUserViewsSettings", typeWiring -> typeWiring
-            .dataFetcher("defaultView", new LoadableTypeResolver<>(
-                dataHubViewType,
-                (env) -> {
-                   final CorpUserViewsSettings settings = env.getSource();
-                   if (settings.getDefaultView() != null) {
-                       return settings.getDefaultView().getUrn();
-                   }
-                   return null;
-                }
+            .type("DataHubView",
+                typeWiring -> typeWiring.dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
+            .type("ListViewsResult", typeWiring -> typeWiring
+                .dataFetcher("views", new LoadableTypeBatchResolver<>(
+                    dataHubViewType,
+                    (env) -> ((ListViewsResult) env.getSource()).getViews().stream()
+                        .map(DataHubView::getUrn)
+                        .collect(Collectors.toList())))
             )
-        ));
+            .type("CorpUserViewsSettings", typeWiring -> typeWiring
+                .dataFetcher("defaultView", new LoadableTypeResolver<>(
+                        dataHubViewType,
+                        (env) -> {
+                            final CorpUserViewsSettings settings = env.getSource();
+                            if (settings.getDefaultView() != null) {
+                                return settings.getDefaultView().getUrn();
+                            }
+                            return null;
+                        }
+                    )
+                ));
     }
 
     private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {

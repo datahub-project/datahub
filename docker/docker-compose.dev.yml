@@ -24,17 +24,6 @@ services:
       - ./elasticsearch-setup/create-indices.sh:/create-indices.sh
       - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
 
-  kafka-setup:
-    image: linkedin/datahub-kafka-setup:debug
-    build:
-      context: ../
-      dockerfile: ./docker/kafka-setup/Dockerfile
-      args:
-        APP_ENV: dev
-    depends_on:
-      - broker
-      - schema-registry
-
   datahub-gms:
     image: linkedin/datahub-gms:debug
     build:
@@ -42,11 +31,16 @@ services:
       dockerfile: Dockerfile
       args:
         APP_ENV: dev
+    ports:
+      - ${DATAHUB_MAPPED_GMS_DEBUG_PORT:-5001}:5001
+      - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     environment:
       - SKIP_ELASTICSEARCH_CHECK=false
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
       - METADATA_SERVICE_AUTH_ENABLED=false
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001
+      - BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE=false
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
@@ -62,5 +56,25 @@ services:
       dockerfile: docker/datahub-frontend/Dockerfile
       args:
         APP_ENV: dev
+    ports:
+      - ${DATAHUB_MAPPED_FRONTEND_DEBUG_PORT:-5002}:5002
+      - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
+    environment:
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5002
     volumes:
       - ../datahub-frontend/build/stage/playBinary:/datahub-frontend
+
+  datahub-upgrade:
+    image: acryldata/datahub-upgrade:debug
+    build:
+      context: datahub-upgrade
+      dockerfile: Dockerfile
+      args:
+        APP_ENV: dev
+    environment:
+      - SKIP_ELASTICSEARCH_CHECK=false
+      - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
+      - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    volumes:
+      - ../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
+      - ../metadata-models/src/main/resources/:/datahub/datahub-gms/resources

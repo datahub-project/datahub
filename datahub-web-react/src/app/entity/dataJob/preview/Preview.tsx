@@ -6,7 +6,6 @@ import { ClockCircleOutlined } from '@ant-design/icons';
 import { Deprecation, Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toRelativeTimeString } from '../../../shared/time/timeUtils';
@@ -47,7 +46,6 @@ export const Preview = ({
     externalUrl?: string | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalizedPlatform = capitalizeFirstLetter(platformName);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
@@ -56,7 +54,7 @@ export const Preview = ({
             description={description || ''}
             type="Data Task"
             typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
-            platform={capitalizedPlatform}
+            platform={platformName}
             logoUrl={platformLogo || ''}
             platformInstanceId={platformInstanceId}
             owners={owners}

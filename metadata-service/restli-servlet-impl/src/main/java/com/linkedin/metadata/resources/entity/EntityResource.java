@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.EntitySpecUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -99,6 +100,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
+  private static final String PARAM_FULLTEXT = "fulltext";
   private static final String PARAM_VALUE = "value";
   private static final String PARAM_ASPECT_NAME = "aspectName";
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
@@ -160,7 +162,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           aspectNames == null ? Collections.emptySet() : new HashSet<>(Arrays.asList(aspectNames));
       final Entity entity = _entityService.getEntity(urn, projectedAspects);
       if (entity == null) {
-        throw RestliUtil.resourceNotFoundException();
+        throw RestliUtil.resourceNotFoundException(String.format("Did not find %s", urnStr));
       }
       return new AnyRecord(entity.data());
     }, MetricRegistry.name(this.getClass(), "get"));
@@ -268,13 +270,24 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<SearchResult> search(@ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) int count, @Optional @Deprecated @Nullable @ActionParam(PARAM_FULLTEXT) Boolean fulltext,
+      @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags) {
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
     return RestliUtil.toTask(
-        () -> validateSearchResult(_entitySearchService.search(entityName, input, filter, sortCriterion, start, count),
-            _entityService), MetricRegistry.name(this.getClass(), "search"));
+            () -> {
+              final SearchResult result;
+              // This API is not used by the frontend for search bars so we default to structured
+              final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(false);
+              if (Boolean.TRUE.equals(finalFlags.isFulltext()) || Boolean.TRUE.equals(fulltext)) {
+                result = _entitySearchService.fullTextSearch(entityName, input, filter, sortCriterion, start, count);
+              } else {
+                result = _entitySearchService.structuredSearch(entityName, input, filter, sortCriterion, start, count);
+              }
+              return validateSearchResult(result, _entityService);
+            },
+            MetricRegistry.name(this.getClass(), "search"));
   }
 
   @Action(name = ACTION_SEARCH_ACROSS_ENTITIES)
@@ -283,11 +296,12 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<SearchResult> searchAcrossEntities(@ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
       @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) int count, @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
+    final SearchFlags finalFlags = searchFlags != null ? searchFlags :  new SearchFlags().setFulltext(true);
     return RestliUtil.toTask(() -> validateSearchResult(
-        _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, null),
+        _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, finalFlags),
         _entityService), "searchAcrossEntities");
   }
 
@@ -301,14 +315,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_MAX_HOPS) @Optional @Nullable Integer maxHops,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
+      @ActionParam(PARAM_COUNT) int count,
+      @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
         urnStr, direction, entityList, input);
+    final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
     return RestliUtil.toTask(() -> validateLineageSearchResult(
         _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
-            filter, sortCriterion, start, count), _entityService), "searchAcrossRelationships");
+            filter, sortCriterion, start, count, null, null, searchFlags), _entityService), "searchAcrossRelationships");
   }
 
   @Action(name = ACTION_LIST)

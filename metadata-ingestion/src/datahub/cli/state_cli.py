@@ -5,8 +5,7 @@ from typing import Optional
 import click
 from click_default_group import DefaultGroup
 
-from datahub.cli.cli_utils import get_url_and_token
-from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -32,7 +31,7 @@ def state() -> None:
 @click.option("--platform", required=True, type=str)
 @click.option("--platform-instance", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def inspect(
     pipeline_name: str, platform: str, platform_instance: Optional[str]
 ) -> None:
@@ -44,8 +43,7 @@ def inspect(
     # Note that the platform-instance argument is not generated consistently,
     # and is not always equal to the platform_instance config.
 
-    (url, token) = get_url_and_token()
-    datahub_graph = DataHubGraph(DataHubGraphConfig(server=url, token=token))
+    datahub_graph = get_default_graph()
     checkpoint_provider = DatahubIngestionCheckpointingProvider(datahub_graph, "cli")
 
     job_name = StaleEntityRemovalHandler.compute_job_id(platform)

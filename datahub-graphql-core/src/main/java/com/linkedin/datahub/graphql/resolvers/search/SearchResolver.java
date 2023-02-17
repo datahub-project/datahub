@@ -4,8 +4,10 @@ import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -43,9 +45,15 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
       try {
         log.debug("Executing search. entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}", input.getType(),
             input.getQuery(), input.getFilters(), input.getOrFilters(), start, count);
+        SearchFlags searchFlags = null;
+        com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
+        if (inputFlags != null) {
+          searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+        }
         return UrnSearchResultsMapper.map(
-            _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()), null, start,
-                count, ResolverUtils.getAuthentication(environment)));
+            _entityClient.search(entityName, sanitizedQuery, ResolverUtils.buildFilter(input.getFilters(),
+                    input.getOrFilters()), null, start, count, ResolverUtils.getAuthentication(environment),
+                false, searchFlags));
       } catch (Exception e) {
         log.error("Failed to execute search: entity type {}, query {}, filters: {}, orFilters: {}, start: {}, count: {}",
             input.getType(), input.getQuery(), input.getFilters(), input.getOrFilters(), start, count);

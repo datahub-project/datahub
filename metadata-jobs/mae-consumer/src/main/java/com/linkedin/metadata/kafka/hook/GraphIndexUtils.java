@@ -7,14 +7,14 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.mxe.MetadataChangeLog;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class GraphIndexUtils {
@@ -97,7 +97,8 @@ public class GraphIndexUtils {
       @Nonnull final Map.Entry<RelationshipFieldSpec, List<Object>> extractedFieldsEntry,
       @Nonnull final RecordTemplate aspect,
       @Nonnull final Urn urn,
-      @Nonnull final MetadataChangeLog event
+      @Nonnull final MetadataChangeLog event,
+      @Nonnull final boolean isNewAspectVersion
   ) {
     final List<Edge> edgesToAdd = new ArrayList<>();
     final String createdOnPath = extractedFieldsEntry.getKey().getRelationshipAnnotation().getCreatedOn();
@@ -114,17 +115,36 @@ public class GraphIndexUtils {
 
     int index = 0;
     for (Object fieldValue : extractedFieldsEntry.getValue()) {
-      Long createdOn = createdOnList != null ? getTimestamp(createdOnList, index, extractedFieldsEntry.getValue().size()) : null;
-      Urn createdActor = createdActorList != null ? getActor(createdActorList, index, extractedFieldsEntry.getValue().size()) : null;
-      final Long updatedOn = updatedOnList != null ? getTimestamp(updatedOnList, index, extractedFieldsEntry.getValue().size()) : null;
-      final Urn updatedActor = updatedActorList != null ? getActor(updatedActorList, index, extractedFieldsEntry.getValue().size()) : null;
-      final Map<String, Object> properties = propertiesList != null ? getProperties(propertiesList, index, extractedFieldsEntry.getValue().size()) : null;
+      Long createdOn = createdOnList != null
+          ? getTimestamp(createdOnList, index, extractedFieldsEntry.getValue().size())
+          : null;
+      Urn createdActor = createdActorList != null
+          ? getActor(createdActorList, index, extractedFieldsEntry.getValue().size())
+          : null;
+      Long updatedOn = updatedOnList != null
+          ? getTimestamp(updatedOnList, index, extractedFieldsEntry.getValue().size())
+          : null;
+      Urn updatedActor = updatedActorList != null
+          ? getActor(updatedActorList, index, extractedFieldsEntry.getValue().size())
+          : null;
+      final Map<String, Object> properties = propertiesList != null
+          ? getProperties(propertiesList, index, extractedFieldsEntry.getValue().size())
+          : null;
 
-      if (createdOn == null && event.hasSystemMetadata()) {
-        createdOn = event.getSystemMetadata().getLastObserved();
+      SystemMetadata systemMetadata;
+      if (isNewAspectVersion) {
+        systemMetadata = event.hasSystemMetadata() ? event.getSystemMetadata() : null;
+      } else {
+        systemMetadata = event.hasPreviousSystemMetadata() ? event.getPreviousSystemMetadata() : null;
+      }
+
+      if (createdOn == null && systemMetadata != null) {
+        createdOn = systemMetadata.getLastObserved();
+        updatedOn = systemMetadata.getLastObserved();
       }
       if (createdActor == null && event.hasCreated()) {
         createdActor = event.getCreated().getActor();
+        updatedActor = event.getCreated().getActor();
       }
 
       try {
@@ -141,10 +161,26 @@ public class GraphIndexUtils {
             )
         );
       } catch (URISyntaxException e) {
-        log.error("Invalid destination urn: {}", fieldValue.toString(), e);
+        log.error("Invalid destination urn: {}", fieldValue, e);
       }
       index++;
     }
     return edgesToAdd;
+  }
+
+  @Nonnull
+  public static Edge mergeEdges(@Nonnull final Edge oldEdge, @Nonnull final Edge newEdge) {
+    // Set createdOn and createdActor to null, so they don't get overwritten in the Graph Index.
+    // A merged edge is really just an edge that's getting updated.
+    return new Edge(
+        oldEdge.getSource(),
+        oldEdge.getDestination(),
+        oldEdge.getRelationshipType(),
+        null,
+        null,
+        newEdge.getUpdatedOn(),
+        newEdge.getUpdatedActor(),
+        newEdge.getProperties()
+    );
   }
 }

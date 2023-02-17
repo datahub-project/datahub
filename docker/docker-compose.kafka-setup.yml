@@ -1,0 +1,4 @@
+# Empty docker compose for kafka-setup as we have moved kafka-setup back into the main compose
+version: '3.8'
+services:
+

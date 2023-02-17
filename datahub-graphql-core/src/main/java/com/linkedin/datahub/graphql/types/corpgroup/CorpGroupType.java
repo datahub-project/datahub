@@ -103,7 +103,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, M
                                 @Nonnull final QueryContext context) throws Exception {
         final SearchResult
             searchResult = _entityClient.search("corpGroup", query, Collections.emptyMap(), start, count,
-            context.getAuthentication());
+            context.getAuthentication(), true, null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

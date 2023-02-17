@@ -8,8 +8,14 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DEFAULT_ENV, EnvBasedSourceConfigBase
-from datahub.ingestion.api.source import SourceReport
+from datahub.configuration.source_common import DEFAULT_ENV
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +31,7 @@ class Constant:
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
     DATASET_GET = "DATASET_GET"
+    DATASET_LIST = "DATASET_LIST"
     REPORT_GET = "REPORT_GET"
     DATASOURCE_GET = "DATASOURCE_GET"
     TILE_GET = "TILE_GET"
@@ -33,10 +40,10 @@ class Constant:
     SCAN_GET = "SCAN_GET"
     SCAN_RESULT_GET = "SCAN_RESULT_GET"
     Authorization = "Authorization"
-    WorkspaceId = "WorkspaceId"
-    DashboardId = "DashboardId"
-    DatasetId = "DatasetId"
-    ReportId = "ReportId"
+    WORKSPACE_ID = "workspaceId"
+    DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
+    DATASET_ID = "datasetId"
+    REPORT_ID = "reportId"
     SCAN_ID = "ScanId"
     Dataset_URN = "DatasetURN"
     CHART_URN = "ChartURN"
@@ -49,30 +56,60 @@ class Constant:
     STATUS = "status"
     CHART_ID = "powerbi.linkedin.com/charts/{}"
     CHART_KEY = "chartKey"
-    DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
     DASHBOARD = "dashboard"
+    DASHBOARDS = "dashboards"
     DASHBOARD_KEY = "dashboardKey"
     OWNERSHIP = "ownership"
     BROWSERPATH = "browsePaths"
     DASHBOARD_INFO = "dashboardInfo"
     DATAPLATFORM_INSTANCE = "dataPlatformInstance"
     DATASET = "dataset"
-    DATASET_ID = "powerbi.linkedin.com/datasets/{}"
+    DATASETS = "datasets"
     DATASET_KEY = "datasetKey"
     DATASET_PROPERTIES = "datasetProperties"
     VALUE = "value"
     ENTITY = "ENTITY"
-    ID = "ID"
+    ID = "id"
     HTTP_RESPONSE_TEXT = "HttpResponseText"
     HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
+    NAME = "name"
+    DISPLAY_NAME = "displayName"
+    ORDER = "order"
+    IDENTIFIER = "identifier"
+    EMAIL_ADDRESS = "emailAddress"
+    PRINCIPAL_TYPE = "principalType"
+    GRAPH_ID = "graphId"
+    WORKSPACES = "workspaces"
+    TITLE = "title"
+    EMBED_URL = "embedUrl"
+    ACCESS_TOKEN = "access_token"
+    IS_READ_ONLY = "isReadOnly"
+    WEB_URL = "webUrl"
+    ODATA_COUNT = "@odata.count"
+    DESCRIPTION = "description"
+    REPORT = "report"
+    REPORTS = "reports"
+    CREATED_FROM = "createdFrom"
+    SUCCEEDED = "SUCCEEDED"
+    ENDORSEMENT = "endorsement"
+    ENDORSEMENT_DETAIL = "endorsementDetails"
+    TABLES = "tables"
+    EXPRESSION = "expression"
+    SOURCE = "source"
+    PLATFORM_NAME = "powerbi"
+    REPORT_TYPE_NAME = "Report"
+    CHART_COUNT = "chartCount"
+    WORKSPACE_NAME = "workspaceName"
+    DATASET_WEB_URL = "datasetWebUrl"
 
 
 @dataclass
-class PowerBiDashboardSourceReport(SourceReport):
+class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_scanned: int = 0
     charts_scanned: int = 0
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
     filtered_charts: List[str] = dataclass_field(default_factory=list)
+    number_of_workspaces: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -85,6 +122,9 @@ class PowerBiDashboardSourceReport(SourceReport):
 
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
+
+    def report_number_of_workspaces(self, number_of_workspaces: int) -> None:
+        self.number_of_workspaces = number_of_workspaces
 
 
 @dataclass
@@ -99,7 +139,16 @@ class PlatformDetail:
     )
 
 
-class PowerBiAPIConfig(EnvBasedSourceConfigBase):
+class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
+    platform_name: str = pydantic.Field(
+        default=Constant.PLATFORM_NAME, hidden_from_schema=True
+    )
+
+    platform_urn: str = pydantic.Field(
+        default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
+        hidden_from_schema=True,
+    )
+
     # Organisation Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
@@ -130,7 +179,9 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
-        default=True, description="Whether ownership should be ingested"
+        default=False,
+        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled. "
+        "Note that enabling this may overwrite owners that you've added inside DataHub's web application.",
     )
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
@@ -138,13 +189,19 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
-        default=True, description="Whether lineage should be ingested"
+        default=True,
+        description="Whether lineage should be ingested between X and Y. Admin API access is required if this setting is enabled",
     )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
-    # any existing tags defined to those entitiies
+    # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
-        description="Whether to extract endorsements to tags, note that this may overwrite existing tags",
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
+        "access is required is this setting is enabled",
+    )
+    # Enable/Disable extracting workspace information to DataHub containers
+    extract_workspaces_to_containers: bool = pydantic.Field(
+        default=True, description="Extract workspaces to DataHub containers"
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
@@ -157,10 +214,21 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         default=False,
         description="Whether to convert the PowerBI assets urns to lowercase",
     )
+
     # convert lineage dataset's urns to lowercase
     convert_lineage_urns_to_lowercase: bool = pydantic.Field(
         default=True,
         description="Whether to convert the urns of ingested lineage dataset to lowercase",
+    )
+    # Configuration for stateful ingestion
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+        default=None, description="PowerBI Stateful Ingestion Config."
+    )
+    # Retrieve PowerBI Metadata using Admin API only
+    admin_apis_only: bool = pydantic.Field(
+        default=False,
+        description="Retrieve metadata using PowerBI Admin API only. If this is enabled, then Report Pages will not "
+        "be extracted. Admin API access is required if this setting is enabled",
     )
 
     @validator("dataset_type_mapping")
@@ -193,8 +261,3 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
             )
             values.pop("workspace_id")
         return values
-
-
-class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
-    platform_name: str = "powerbi"
-    platform_urn: str = builder.make_data_platform_urn(platform=platform_name)

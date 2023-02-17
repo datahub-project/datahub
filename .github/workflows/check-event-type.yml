@@ -1,0 +1,35 @@
+name: code check
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "metadata-io/**"
+      - "datahub-web-react/**"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "metadata-io/**"
+      - "datahub-web-react/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  check_event_type:
+    name: check event type is not missing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: check events
+        run: |
+          python .github/scripts/check_event_type.py

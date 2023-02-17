@@ -54,9 +54,9 @@ export default class EntityRegistry {
         return this.entities.filter((entity) => entity.isLineageEnabled()).map((entity) => entity.type);
     }
 
-    getIcon(type: EntityType, fontSize: number, styleType: IconStyleType): JSX.Element {
+    getIcon(type: EntityType, fontSize: number, styleType: IconStyleType, color?: string): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.icon(fontSize, styleType);
+        return entity.icon(fontSize, styleType, color);
     }
 
     getCollectionName(type: EntityType): string {
@@ -112,6 +112,12 @@ export default class EntityRegistry {
     renderBrowse<T>(type: EntityType, data: T): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.renderPreview(PreviewType.BROWSE, data);
+    }
+
+    // render the regular profile if embedded profile doesn't exist. Compact context should be set to true.
+    renderEmbeddedProfile(type: EntityType, urn: string): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.renderEmbeddedProfile ? entity.renderEmbeddedProfile(urn) : entity.renderProfile(urn);
     }
 
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {

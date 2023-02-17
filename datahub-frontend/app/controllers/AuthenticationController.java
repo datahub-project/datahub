@@ -1,6 +1,7 @@
 package controllers;
 
 import auth.AuthUtils;
+import auth.CookieConfigs;
 import auth.JAASConfigs;
 import auth.NativeAuthenticationConfigs;
 import auth.sso.SsoManager;
@@ -32,19 +33,13 @@ import play.mvc.Result;
 import play.mvc.Results;
 import security.AuthenticationManager;
 
-import static auth.AuthUtils.AUTH_COOKIE_SAME_SITE;
-import static auth.AuthUtils.AUTH_COOKIE_SECURE;
 import static auth.AuthUtils.DEFAULT_ACTOR_URN;
-import static auth.AuthUtils.DEFAULT_AUTH_COOKIE_SAME_SITE;
-import static auth.AuthUtils.DEFAULT_AUTH_COOKIE_SECURE;
-import static auth.AuthUtils.DEFAULT_SESSION_TTL_HOURS;
 import static auth.AuthUtils.EMAIL;
 import static auth.AuthUtils.FULL_NAME;
 import static auth.AuthUtils.INVITE_TOKEN;
 import static auth.AuthUtils.LOGIN_ROUTE;
 import static auth.AuthUtils.PASSWORD;
 import static auth.AuthUtils.RESET_TOKEN;
-import static auth.AuthUtils.SESSION_TTL_CONFIG_PATH;
 import static auth.AuthUtils.TITLE;
 import static auth.AuthUtils.USER_NAME;
 import static auth.AuthUtils.createActorCookie;
@@ -62,7 +57,7 @@ public class AuthenticationController extends Controller {
     private static final String SSO_NO_REDIRECT_MESSAGE = "SSO is configured, however missing redirect from idp";
 
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
-    private final Config _configs;
+    private final CookieConfigs _cookieConfigs;
     private final JAASConfigs _jaasConfigs;
     private final NativeAuthenticationConfigs _nativeAuthenticationConfigs;
 
@@ -80,7 +75,7 @@ public class AuthenticationController extends Controller {
 
     @Inject
     public AuthenticationController(@Nonnull Config configs) {
-        _configs = configs;
+        _cookieConfigs = new CookieConfigs(configs);
         _jaasConfigs = new JAASConfigs(configs);
         _nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
     }
@@ -119,15 +114,15 @@ public class AuthenticationController extends Controller {
         // 3. If no auth enabled, fallback to using default user account & redirect.
         // Generate GMS session token, TODO:
         final String accessToken = _authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
-        int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-            : DEFAULT_SESSION_TTL_HOURS;
-        String authCookieSameSite = _configs.hasPath(AUTH_COOKIE_SAME_SITE) ? _configs.getString(AUTH_COOKIE_SAME_SITE)
-            : DEFAULT_AUTH_COOKIE_SAME_SITE;
-        boolean authCookieSecure = _configs.hasPath(AUTH_COOKIE_SECURE) ? _configs.getBoolean(AUTH_COOKIE_SECURE)
-            : DEFAULT_AUTH_COOKIE_SECURE;
-
         return Results.redirect(redirectPath).withSession(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken))
-            .withCookies(createActorCookie(DEFAULT_ACTOR_URN.toString(), ttlInHours, authCookieSameSite, authCookieSecure));
+            .withCookies(
+                createActorCookie(
+                    DEFAULT_ACTOR_URN.toString(),
+                    _cookieConfigs.getTtlInHours(),
+                    _cookieConfigs.getAuthCookieSameSite(),
+                    _cookieConfigs.getAuthCookieSecure()
+                )
+            );
     }
 
     /**
@@ -336,14 +331,15 @@ public class AuthenticationController extends Controller {
     }
 
     private Result createSession(String userUrnString, String accessToken) {
-        int ttlInHours = _configs.hasPath(SESSION_TTL_CONFIG_PATH) ? _configs.getInt(SESSION_TTL_CONFIG_PATH)
-            : DEFAULT_SESSION_TTL_HOURS;
-        String authCookieSameSite = _configs.hasPath(AUTH_COOKIE_SAME_SITE) ? _configs.getString(AUTH_COOKIE_SAME_SITE)
-            : DEFAULT_AUTH_COOKIE_SAME_SITE;
-        boolean authCookieSecure = _configs.hasPath(AUTH_COOKIE_SECURE) ? _configs.getBoolean(AUTH_COOKIE_SECURE)
-            : DEFAULT_AUTH_COOKIE_SECURE;
-
         return Results.ok().withSession(createSessionMap(userUrnString, accessToken))
-            .withCookies(createActorCookie(userUrnString, ttlInHours, authCookieSameSite,  authCookieSecure));
+            .withCookies(
+                createActorCookie(
+                    userUrnString,
+                    _cookieConfigs.getTtlInHours(),
+                    _cookieConfigs.getAuthCookieSameSite(),
+                    _cookieConfigs.getAuthCookieSecure()
+                )
+            );
+
     }
 }

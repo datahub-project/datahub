@@ -74,6 +74,31 @@ input SearchInput {
   A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
   orFilters: [AndFilterInput!]
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
+}
+
+"""
+Set of flags to control search behavior
+"""
+input  SearchFlags {
+  """
+  Whether to skip cache
+  """
+  skipCache: Boolean
+
+  """
+  The maximum number of values in an facet aggregation
+  """
+  maxAggValues: Int
+
+  """
+  Structured or unstructured fulltext query
+  """
+  fulltext: Boolean
 }
 
 """
@@ -115,6 +140,11 @@ input SearchAcrossEntitiesInput {
   Optional - A View to apply when generating results
   """
   viewUrn: String
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
 }
 
 """
@@ -161,6 +191,19 @@ input SearchAcrossLineageInput {
   A list of disjunctive criterion for the filter. (or operation to combine filters)
   """
   orFilters: [AndFilterInput!]
+  """
+  An optional starting time to filter on
+  """
+  startTimeMillis: Long
+  """
+  An optional ending time to filter on
+  """
+  endTimeMillis: Long
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
 }
 
 """
