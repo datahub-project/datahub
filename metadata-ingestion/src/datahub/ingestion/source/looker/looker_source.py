@@ -41,7 +41,6 @@ from datahub.ingestion.api.source import (
     SourceReport,
     TestableSource,
     TestConnectionReport,
-    Source,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker import looker_usage
@@ -246,11 +245,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             pipeline_name=self.ctx.pipeline_name,
             run_id=self.ctx.run_id,
         )
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = LookerDashboardSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
