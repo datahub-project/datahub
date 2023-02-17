@@ -199,7 +199,7 @@ class DataResolverBase(ABC):
         logger.debug(f"Page 0 = {zeroth_page}")
         if zeroth_page.get(Constant.ODATA_COUNT) is None:
             logger.warning(
-                "Failed to extract @odata.count field from PowerBI response for fetching groups. Cannot determine the number of pages to fetch."
+                "@odata.count field is not present in response. Unable to fetch workspaces."
             )
             return []
 

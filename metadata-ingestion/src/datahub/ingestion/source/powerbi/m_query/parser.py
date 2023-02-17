@@ -1,5 +1,6 @@
 import importlib.resources as pkg_resource
 import logging
+import sys
 from typing import List, Optional, cast
 
 import lark
@@ -53,6 +54,7 @@ def get_upstream_tables(
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
+
         valid, message = validator.validate_parse_tree(
             parse_tree, native_query_enabled=native_query_enabled
         )
@@ -60,15 +62,22 @@ def get_upstream_tables(
             logger.debug(f"Validation failed: {cast(str, message)}")
             reporter.report_warning(table.full_name, cast(str, message))
             return []
-    except lark.exceptions.UnexpectedCharacters as e:
-        logger.debug(f"Fail to parse expression {table.expression}", exc_info=e)
-        reporter.report_warning(
-            table.full_name, f"UnSupported expression = {table.expression}"
-        )
-        return []
 
-    return resolver.MQueryResolver(
-        table=table,
-        parse_tree=parse_tree,
-        reporter=reporter,
-    ).resolve_to_data_platform_table_list()  # type: ignore
+        return resolver.MQueryResolver(
+            table=table,
+            parse_tree=parse_tree,
+            reporter=reporter,
+        ).resolve_to_data_platform_table_list()  # type: ignore
+
+    except:  # noqa: E722
+        # It will catch all type of exceptions, so that ingestion can continue without lineage information
+        _, e, _ = sys.exc_info()
+        logger.warning(str(e))
+        if isinstance(e, lark.exceptions.UnexpectedCharacters):
+            reporter.report_warning(
+                table.full_name, f"UnSupported expression = {table.expression}"
+            )
+
+        logger.debug(f"Fail to parse expression {table.expression}", exc_info=e)
+
+    return []
