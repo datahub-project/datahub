@@ -5,9 +5,10 @@ import { Button, Tooltip } from 'antd';
 export type Props = {
     query: string;
     showCopyText?: boolean;
+    style?: any;
 };
 
-export default function CopyQuery({ query, showCopyText = false }: Props) {
+export default function CopyQuery({ query, showCopyText = false, style }: Props) {
     const [queryCopied, setQueryCopied] = useState(false);
 
     const copyQuery = () => {
@@ -17,7 +18,7 @@ export default function CopyQuery({ query, showCopyText = false }: Props) {
 
     return (
         <Tooltip title="Copy the query">
-            <Button onClick={copyQuery}>
+            <Button onClick={copyQuery} style={style}>
                 {showCopyText && ((queryCopied && 'Copied') || 'Copy')}
                 {(queryCopied && <CheckOutlined />) || <CopyOutlined />}
             </Button>

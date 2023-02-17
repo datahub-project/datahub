@@ -1,67 +1,58 @@
-import React from 'react';
-import Editor from '@monaco-editor/react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Form, Input, message, Modal, Typography } from 'antd';
+import { Button, message, Modal, Typography } from 'antd';
 import { useCreateQueryMutation, useUpdateQueryMutation } from '../../../../../../graphql/query.generated';
 import { QueryLanguage } from '../../../../../../types.generated';
-import analytics, { EventType } from '../../../../../analytics';
-import { ANTD_GRAY } from '../../../constants';
 import { QueryBuilderState } from './types';
 import ClickOutside from '../../../../../shared/ClickOutside';
-import { Editor as MarkdownEditor } from '../../Documentation/components/editor/Editor';
-
-const EditorWrapper = styled.div`
-    border: 1px solid ${ANTD_GRAY[5]};
-    border-radius: 1px;
-    background-color: ${ANTD_GRAY[2]};
-`;
-
-const StyledEditor = styled(MarkdownEditor)`
-    border: 1px solid ${ANTD_GRAY[4.5]};
-`;
+import QueryBuilderForm from './QueryBuilderForm';
+import analytics, { EventType } from '../../../../../analytics';
 
 const StyledModal = styled(Modal)`
-    top: 5vh;
+    top: 4vh;
     max-width: 1200px;
 `;
 
-const bodyStyle = {
-    height: '70vh',
+const MODAL_WIDTH = '80vw';
+
+const MODAL_BODY_STYLE = {
+    height: '74vh',
     overflow: 'scroll',
 };
 
-const TITLE_FIELD_NAME = 'title';
-const DESCRIPTION_FIELD_NAME = 'description';
-const QUERY_FIELD_NAME = 'query';
 const PLACEHOLDER_QUERY = `-- SELECT sum(price)
 -- FROM transactions
 -- WHERE user_id = "john_smith"
 --  AND product_id IN [1, 2, 3]`;
 
+const DEFAULT_STATE = {
+    query: PLACEHOLDER_QUERY,
+};
+
 type Props = {
     initialState?: QueryBuilderState;
     datasetUrn?: string;
     onClose?: () => void;
-    onSubmit?: (newDataset: any) => void;
+    onSubmit?: (newQuery: any) => void;
 };
 
 export default function QueryBuilderModal({ initialState, datasetUrn, onClose, onSubmit }: Props) {
-    const isEditing = initialState !== undefined;
+    const isUpdating = initialState?.urn !== undefined;
 
+    const [builderState, setBuilderState] = useState<QueryBuilderState>(initialState || DEFAULT_STATE);
     const [createQueryMutation] = useCreateQueryMutation();
     const [updateQueryMutation] = useUpdateQueryMutation();
 
-    const [form] = Form.useForm();
     const createQuery = () => {
         if (datasetUrn) {
             createQueryMutation({
                 variables: {
                     input: {
                         properties: {
-                            name: form.getFieldValue(TITLE_FIELD_NAME),
-                            description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                            name: builderState.title,
+                            description: builderState.description,
                             statement: {
-                                value: form.getFieldValue(QUERY_FIELD_NAME) as string,
+                                value: builderState.query as string,
                                 language: QueryLanguage.Sql,
                             },
                         },
@@ -79,7 +70,7 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                             duration: 3,
                         });
                         onSubmit?.(data?.createQuery);
-                        form.resetFields();
+                        setBuilderState(DEFAULT_STATE);
                     }
                 })
                 .catch(() => {
@@ -89,17 +80,17 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
         }
     };
 
-    const editQuery = () => {
+    const updateQuery = () => {
         if (initialState) {
             updateQueryMutation({
                 variables: {
-                    urn: initialState?.urn,
+                    urn: initialState?.urn as string,
                     input: {
                         properties: {
-                            name: form.getFieldValue(TITLE_FIELD_NAME),
-                            description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                            name: builderState.title,
+                            description: builderState.description,
                             statement: {
-                                value: form.getFieldValue(QUERY_FIELD_NAME) as string,
+                                value: builderState.query as string,
                                 language: QueryLanguage.Sql,
                             },
                         },
@@ -109,14 +100,14 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
                 .then(({ data, errors }) => {
                     if (!errors) {
                         analytics.event({
-                            type: EventType.CreateQueryEvent,
+                            type: EventType.UpdateQueryEvent,
                         });
                         message.success({
                             content: `Edited Query!`,
                             duration: 3,
                         });
                         onSubmit?.(data?.updateQuery);
-                        form.resetFields();
+                        setBuilderState(DEFAULT_STATE);
                     }
                 })
                 .catch(() => {
@@ -126,12 +117,20 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
         }
     };
 
+    const saveQuery = () => {
+        if (isUpdating) {
+            updateQuery();
+        } else {
+            createQuery();
+        }
+    };
+
     const confirmClose = () => {
         Modal.confirm({
             title: `Exit Query Editor`,
             content: `Are you sure you want to exit the editor? Any unsaved changes will be lost.`,
             onOk() {
-                form.resetFields();
+                setBuilderState(DEFAULT_STATE);
                 onClose?.();
             },
             onCancel() {},
@@ -144,71 +143,30 @@ export default function QueryBuilderModal({ initialState, datasetUrn, onClose, o
     return (
         <ClickOutside onClickOutside={confirmClose} wrapperClassName="query-builder-modal">
             <StyledModal
-                width="80vw"
-                bodyStyle={bodyStyle}
-                title={<Typography.Text>{isEditing ? 'Edit' : 'New'} Query</Typography.Text>}
+                width={MODAL_WIDTH}
+                bodyStyle={MODAL_BODY_STYLE}
+                title={<Typography.Text>{isUpdating ? 'Edit' : 'New'} Query</Typography.Text>}
                 className="query-builder-modal"
                 visible
                 onCancel={confirmClose}
                 footer={
                     <>
-                        <Button onClick={onClose} type="text">
+                        <Button onClick={onClose} data-testid="query-builder-cancel-button" type="text">
                             Cancel
                         </Button>
-                        <Button id="createQueryButton" onClick={isEditing ? editQuery : createQuery} type="primary">
+                        <Button
+                            id="createQueryButton"
+                            data-testid="query-builder-save-button"
+                            onClick={saveQuery}
+                            type="primary"
+                        >
                             Save
                         </Button>
                     </>
                 }
+                data-testid="query-builder-modal"
             >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    initialValues={{
-                        ...initialState,
-                    }}
-                >
-                    <Form.Item required label={<Typography.Text strong>Query</Typography.Text>}>
-                        <EditorWrapper>
-                            <Editor
-                                options={{
-                                    minimap: { enabled: false },
-                                    scrollbar: {
-                                        vertical: 'hidden',
-                                        horizontal: 'hidden',
-                                    },
-                                }}
-                                height="240px"
-                                defaultLanguage="sql"
-                                value={
-                                    (form.getFieldValue(QUERY_FIELD_NAME) as string) ||
-                                    initialState?.query ||
-                                    PLACEHOLDER_QUERY
-                                }
-                                onChange={(newValue) => form.setFieldValue(QUERY_FIELD_NAME, newValue)}
-                            />
-                        </EditorWrapper>
-                    </Form.Item>
-                    <Form.Item
-                        name={TITLE_FIELD_NAME}
-                        rules={[{ min: 1, max: 500 }]}
-                        hasFeedback
-                        label={<Typography.Text strong>Title</Typography.Text>}
-                    >
-                        <Input autoFocus placeholder="Join Transactions with Users" />
-                    </Form.Item>
-                    <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
-                        <StyledEditor
-                            doNotFocus
-                            content={
-                                (form.getFieldValue(DESCRIPTION_FIELD_NAME) as string) ||
-                                initialState?.description ||
-                                ''
-                            }
-                            onChange={(newValue) => form.setFieldValue(DESCRIPTION_FIELD_NAME, newValue)}
-                        />
-                    </Form.Item>
-                </Form>
+                <QueryBuilderForm state={builderState} updateState={setBuilderState} />
             </StyledModal>
         </ClickOutside>
     );

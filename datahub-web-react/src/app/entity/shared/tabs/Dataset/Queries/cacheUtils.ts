@@ -119,8 +119,3 @@ export const addQueryToListQueriesCache = (query, client, pageSize, datasetUrn) 
         },
     });
 };
-
-export const clearQueryListCache = (client) => {
-    // Remove any caching of 'listQueries'
-    client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'listQueries' });
-};
