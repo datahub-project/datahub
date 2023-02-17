@@ -254,7 +254,7 @@ PyMySQL==1.0.2
 pyOpenSSL==22.0.0
 pyparsing==3.0.9
 pyrsistent==0.19.3
-pyspark==3.0.3
+pyspark==3.3.2
 python-daemon==2.3.2
 python-dateutil==2.8.2
 python-dotenv==0.21.1
