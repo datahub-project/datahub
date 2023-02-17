@@ -13,7 +13,7 @@ record QuerySubject {
    */
   @Relationship = {
     "name": "IsAssociatedWith",
-    "entityTypes": [ "dataset" ]
+    "entityTypes": [ "dataset", "schemaField" ]
   }
   @Searchable = {
     "fieldName": "entities",

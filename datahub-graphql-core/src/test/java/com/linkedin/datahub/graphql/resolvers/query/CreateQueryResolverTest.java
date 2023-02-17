@@ -111,7 +111,7 @@ public class CreateQueryResolverTest {
   }
 
   @Test
-  public void testGetViewServiceException() throws Exception {
+  public void testGetQueryServiceException() throws Exception {
     // Create resolver
     QueryService mockService = Mockito.mock(QueryService.class);
     Mockito.doThrow(RuntimeException.class).when(mockService).createQuery(

@@ -95,9 +95,9 @@ public class QueryService extends BaseService {
     // 3. Write the new query to GMS, return the new URN.
     try {
       final Urn entityUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.QUERY_ENTITY_NAME);
-      System.out.println(this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
+      this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
           entityUrn, Constants.QUERY_PROPERTIES_ASPECT_NAME, queryProperties), authentication,
-        false));
+        false);
       return UrnUtils.getUrn(this.entityClient.ingestProposal(AspectUtils.buildMetadataChangeProposal(
           entityUrn, Constants.QUERY_SUBJECTS_ASPECT_NAME, querySubjects), authentication,
           false));

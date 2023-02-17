@@ -134,7 +134,7 @@ public class UpdateQueryResolverTest {
   }
 
   @Test
-  public void testGetViewServiceException() throws Exception {
+  public void testGetQueryServiceException() throws Exception {
     // Update resolver
     QueryService mockService = Mockito.mock(QueryService.class);
     Mockito.doThrow(RuntimeException.class).when(mockService).updateQuery(

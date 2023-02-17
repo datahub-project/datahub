@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.query;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -9,7 +10,6 @@ import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -48,7 +48,7 @@ public class QueryType implements com.linkedin.datahub.graphql.types.EntityType<
   @Override
   public List<DataFetcherResult<QueryEntity>> batchLoad(@Nonnull List<String> urns, @Nonnull QueryContext context)
       throws Exception {
-    final List<Urn> viewUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
+    final List<Urn> viewUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
       final Map<Urn, EntityResponse> entities =
@@ -65,14 +65,6 @@ public class QueryType implements com.linkedin.datahub.graphql.types.EntityType<
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Queries", e);
-    }
-  }
-
-  private Urn getUrn(final String urnStr) {
-    try {
-      return Urn.createFromString(urnStr);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(String.format("Failed to convert urn string %s into Urn", urnStr));
     }
   }
 }

@@ -83,10 +83,10 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
   private List<QueryEntity> mapUnresolvedQueries(final List<Urn> queryUrns) {
     final List<QueryEntity> results = new ArrayList<>();
     for (final Urn urn : queryUrns) {
-      final QueryEntity unresolvedView = new QueryEntity();
-      unresolvedView.setUrn(urn.toString());
-      unresolvedView.setType(EntityType.QUERY);
-      results.add(unresolvedView);
+      final QueryEntity unresolvedQuery = new QueryEntity();
+      unresolvedQuery.setUrn(urn.toString());
+      unresolvedQuery.setType(EntityType.QUERY);
+      results.add(unresolvedQuery);
     }
     return results;
   }

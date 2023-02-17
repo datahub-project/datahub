@@ -113,22 +113,33 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
   }
 
+  public static boolean canEditEntityQueries(@Nonnull List<Urn> entityUrns, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
+        ImmutableList.of(ALL_PRIVILEGES_GROUP,
+            new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
+    return entityUrns.stream().allMatch(entityUrn ->
+        isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            entityUrn.getEntityType(),
+            entityUrn.toString(),
+            orPrivilegeGroups
+        ));
+  }
+
   public static boolean canCreateQuery(@Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
-    return subjectUrns.stream().allMatch(subjectUrn ->
-        isAuthorized(context, Optional.of(new ResourceSpec(subjectUrn.getEntityType(), subjectUrn.toString())), PoliciesConfig.EDIT_QUERIES_PRIVILEGE)
-    );
+    // Currently - you only need permission to edit an entity's queries to create a query.
+    return canEditEntityQueries(subjectUrns, context);
+  }
+
+  public static boolean canUpdateQuery(@Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    // Currently - you only need permission to edit an entity's queries to update any query.
+    return canEditEntityQueries(subjectUrns, context);
   }
 
   public static boolean canDeleteQuery(@Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
-    return canDeleteEntity(entityUrn, context) || subjectUrns.stream().allMatch(subjectUrn ->
-        isAuthorized(context, Optional.of(new ResourceSpec(subjectUrn.getEntityType(), subjectUrn.toString())), PoliciesConfig.EDIT_QUERIES_PRIVILEGE)
-    );
-  }
-
-  public static boolean canUpdateQuery(@Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
-    return canDeleteEntity(entityUrn, context) || subjectUrns.stream().allMatch(subjectUrn ->
-        isAuthorized(context, Optional.of(new ResourceSpec(subjectUrn.getEntityType(), subjectUrn.toString())), PoliciesConfig.EDIT_QUERIES_PRIVILEGE)
-    );
+    // Currently - you only need permission to edit an entity's queries to remove any query.
+    return canEditEntityQueries(subjectUrns, context);
   }
 
   public static boolean isAuthorized(

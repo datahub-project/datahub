@@ -63,7 +63,7 @@ public class UpdateQueryResolver implements DataFetcher<CompletableFuture<QueryE
       impactedSubjectUrns.addAll(subjectUrns);
       impactedSubjectUrns.addAll(newSubjectUrns);
 
-      if (!AuthorizationUtils.canUpdateQuery(queryUrn, impactedSubjectUrns, context)) {
+      if (!AuthorizationUtils.canUpdateQuery(impactedSubjectUrns, context)) {
         throw new AuthorizationException(
             "Unauthorized to update Query. Please contact your DataHub administrator if this needs corrective action.");
       }
