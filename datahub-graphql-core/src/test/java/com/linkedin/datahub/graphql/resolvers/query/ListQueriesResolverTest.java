@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.QuerySource;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -68,7 +69,8 @@ public class ListQueriesResolverTest {
         Mockito.eq(input.getStart()),
         Mockito.eq(input.getCount()),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE)
+        Mockito.eq(Boolean.TRUE),
+        Mockito.eq(new SearchFlags().setFulltext(true))
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -113,7 +115,8 @@ public class ListQueriesResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE));
+        Mockito.eq(Boolean.TRUE),
+        Mockito.eq(new SearchFlags().setFulltext(true)));
   }
 
   @Test
@@ -127,7 +130,8 @@ public class ListQueriesResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE));
+        Mockito.eq(Boolean.TRUE),
+        Mockito.eq(new SearchFlags().setFulltext(true)));
     ListQueriesResolver resolver = new ListQueriesResolver(mockClient);
 
     // Execute resolver

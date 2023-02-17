@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -62,7 +63,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
 
         // First, get all Query Urns.
         final SearchResult gmsResult = _entityClient.search(QUERY_ENTITY_NAME, query, buildFilters(input), sortCriterion, start, count,
-            context.getAuthentication(), true);
+            context.getAuthentication(), true, new SearchFlags().setFulltext(true));
 
         final ListQueriesResult result = new ListQueriesResult();
         result.setStart(gmsResult.getFrom());
