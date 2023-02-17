@@ -132,6 +132,10 @@ def check_sw_version(sw_dict: dict) -> None:
         )
 
 
+def slicedict(d, s):
+    return {k: v for k, v in d.items() if str(k).startswith(s)}
+
+
 def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C901
     """
     Get all the URLs accepting the "GET", "POST", "PUT" and "PATCH" methods, together with their description and the tags
@@ -143,13 +147,16 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
     for p_k, p_o in sw_dict["paths"].items():
         # will track only the "get" methods, which are the ones that give us data
         if "get" in p_o.keys():
-            if "200" in p_o["get"]["responses"].keys():
-                base_res = p_o["get"]["responses"]["200"]
-            elif 200 in p_o["get"]["responses"].keys():
-                # if you read a plain yml file the 200 will be an integer
-                base_res = p_o["get"]["responses"][200]
+            if "responses" in p_o["get"].keys() \
+                    and p_o["get"]["responses"] is not None \
+                    and len(p_o["get"]["responses"]) > 0:
+                base_response = slicedict(p_o["get"]["responses"], "2")
+                if len(base_response) > 0:
+                    base_res = base_response[list(base_response.keys())[0]]
+                else:
+                    base_res = {}
             else:
-                # the endpoint does not have a 200 response
+                # the endpoint does not have a 2xx response
                 continue
 
             if "description" in p_o["get"].keys():
@@ -213,17 +220,20 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                 url_details[p_k]["parameters"] = p_o["get"]["parameters"]
 
         # will track only the "post" methods
-        elif "post" in p_o.keys():
+        if "post" in p_o.keys():
             if get_operations_only:
                 continue
 
-            if "200" in p_o["post"]["responses"].keys():
-                base_res = p_o["post"]["responses"]["200"]
-            elif 200 in p_o["post"]["responses"].keys():
-                # if you read a plain yml file the 200 will be an integer
-                base_res = p_o["post"]["responses"][200]
+            if "responses" in p_o["post"].keys() \
+                    and p_o["post"]["responses"] is not None \
+                    and len(p_o["post"]["responses"]) > 0:
+                base_response = slicedict(p_o["post"]["responses"], "2")
+                if len(base_response) > 0:
+                    base_res = base_response[list(base_response.keys())[0]]
+                else:
+                    base_res = {}
             else:
-                # the endpoint does not have a 200 response
+                # the endpoint does not have a 2xx response
                 continue
 
             if "description" in p_o["post"].keys():
@@ -336,17 +346,20 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                         )
 
         # will track only the "put" methods
-        elif "put" in p_o.keys():
+        if "put" in p_o.keys():
             if get_operations_only:
                 continue
 
-            if "200" in p_o["put"]["responses"].keys():
-                base_res = p_o["put"]["responses"]["200"]
-            elif 200 in p_o["put"]["responses"].keys():
-                # if you read a plain yml file the 200 will be an integer
-                base_res = p_o["put"]["responses"][200]
+            if "responses" in p_o["put"].keys() \
+                    and p_o["put"]["responses"] is not None \
+                    and len(p_o["put"]["responses"]) > 0:
+                base_response = slicedict(p_o["put"]["responses"], "2")
+                if len(base_response) > 0:
+                    base_res = base_response[list(base_response.keys())[0]]
+                else:
+                    base_res = {}
             else:
-                # the endpoint does not have a 200 response
+                # the endpoint does not have a 2xx response
                 continue
 
             if "description" in p_o["put"].keys():
@@ -469,17 +482,20 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
                         )
 
         # will track only the "patch" methods
-        elif "patch" in p_o.keys():
+        if "patch" in p_o.keys():
             if get_operations_only:
                 continue
 
-            if "200" in p_o["patch"]["responses"].keys():
-                base_res = p_o["patch"]["responses"]["200"]
-            elif 200 in p_o["patch"]["responses"].keys():
-                # if you read a plain yml file the 200 will be an integer
-                base_res = p_o["patch"]["responses"][200]
+            if "responses" in p_o["patch"].keys() \
+                    and p_o["patch"]["responses"] is not None \
+                    and len(p_o["patch"]["responses"]) > 0:
+                base_response = slicedict(p_o["patch"]["responses"], "2")
+                if len(base_response) > 0:
+                    base_res = base_response[list(base_response.keys())[0]]
+                else:
+                    base_res = {}
             else:
-                # the endpoint does not have a 200 response
+                # the endpoint does not have a 2xx response
                 continue
 
             if "description" in p_o["patch"].keys():
@@ -965,15 +981,80 @@ def set_metadata(
                 column_schema, schemas_details, canonical_schema, False, None, None
             )
             continue
+
+        elif column == "properties":
+            json_str = fields["properties"]
+            for c_k, c_o in json_str.items():
+                column_prop_name = c_k
+                try:
+                    format = c_o["format"]
+                except KeyError:
+                    format = None
+
+                try:
+                    description = c_o["description"]
+                except KeyError:
+                    description = ""
+
+                try:
+                    column_prop_type = c_o["type"]
+                except KeyError:
+                    try:
+                        column_prop_type = c_o["$ref"]
+                        prop_schema = column_prop_type.rsplit("/", 1)[1]
+                        canonical_schema = add_subschema(
+                            prop_schema, schemas_details, canonical_schema, False, None, column_prop_name
+                        )
+                        continue
+                    except KeyError:
+                        try:
+                            column_prop_type = f_v["oneOf"]
+                            if len(column_prop_type) > 0:
+                                item = column_prop_type[0]
+                                ft = item["$ref"]
+                                s_name = ft.rsplit("/", 1)[1]
+                                canonical_schema = add_subschema(
+                                    s_name,
+                                    schemas_details,
+                                    canonical_schema,
+                                    False,
+                                    None,
+                                    column_prop_name,
+                                )
+                                continue
+                        except KeyError:
+                            try:
+                                column_prop_type = f_v["allOf"]
+                                if len(column_prop_type) > 0:
+                                    item = column_prop_type[0]
+                                    ft = item["$ref"]
+                                    s_name = ft.rsplit("/", 1)[1]
+                                    canonical_schema = add_subschema(
+                                        s_name,
+                                        schemas_details,
+                                        canonical_schema,
+                                        False,
+                                        None,
+                                        column_prop_name,
+                                    )
+                                    continue
+                            except KeyError:
+                                column_prop_type = "String"
+                if format is None:
+                    format = column_prop_type
+                field = SchemaField(
+                    fieldPath=column_prop_name,
+                    nativeDataType=format,
+                    type=get_field_type(column_prop_type),
+                    description=description,
+                    recursive=False,
+                )
+                canonical_schema.append(field)
+
+            continue
+
         else:
-            field = SchemaField(
-                fieldPath=column,
-                nativeDataType="String",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                description="",
-                recursive=False,
-            )
-            canonical_schema.append(field)
+            continue
 
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
