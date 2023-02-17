@@ -316,7 +316,6 @@ class SnowflakeV2Source(
 
         except Exception as e:
             logger.error(f"Failed to test connection due to {e}", exc_info=e)
-
             if test_report.basic_connectivity is None:
                 test_report.basic_connectivity = CapabilityReport(
                     capable=False, failure_reason=f"{e}"
