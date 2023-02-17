@@ -135,7 +135,7 @@ public class DataFlowType implements SearchableEntityType<DataFlow, String>, Bro
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search("dataFlow", query, facetFilters, start, count,
-                context.getAuthentication(), true);
+                context.getAuthentication(), true, null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

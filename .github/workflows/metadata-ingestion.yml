@@ -52,10 +52,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
-        with:
-          spark-version: "3.0.3"
-          hadoop-version: "3.2"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Calculate pip install plan
@@ -72,7 +68,7 @@ jobs:
         id: cache-venv
         with:
           path: ./metadata-ingestion/venv/
-          key: ${{ runner.os }}-venv-${{ steps.packages_checksum.outputs.packages_checksum }}-${{ matrix.python-version }}-${{ matrix.command }}
+          key: ${{ runner.os }}-venv-${{ steps.packages_checksum.outputs.packages_checksum }}-${{ matrix.python-version }}
       - name: Run metadata-ingestion tests (extras ${{ matrix.extraPythonRequirement }})
         run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion:${{ matrix.command }}
       - name: pip freeze show list installed

@@ -10,6 +10,7 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
+import com.linkedin.metadata.Constants;
 import io.ebean.EbeanServer;
 import io.ebean.Expression;
 import io.ebean.ExpressionList;
@@ -31,8 +32,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 
 @Slf4j
@@ -62,7 +61,7 @@ public class EbeanRetentionService extends RetentionService {
         .where()
         .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .ne(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
+        .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION)
         .or();
 
     List<Expression> filterList = new ArrayList<>();
@@ -243,8 +242,8 @@ public class EbeanRetentionService extends RetentionService {
         .select(String.format("%s, %s, %s", EbeanAspectV2.URN_COLUMN, EbeanAspectV2.ASPECT_COLUMN,
             EbeanAspectV2.METADATA_COLUMN))
         .where()
-        .eq(EbeanAspectV2.ASPECT_COLUMN, DATAHUB_RETENTION_ASPECT)
-        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
+        .eq(EbeanAspectV2.ASPECT_COLUMN, Constants.DATAHUB_RETENTION_ASPECT)
+        .eq(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION)
         .findList()
         .stream()
         .collect(Collectors.toMap(EbeanAspectV2::getUrn,

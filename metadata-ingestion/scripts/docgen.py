@@ -676,7 +676,13 @@ def generate(
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
 
-    for platform_id, platform_docs in source_documentation.items():
+    i = 0
+    for platform_id, platform_docs in sorted(
+        source_documentation.items(),
+        key=lambda x: (x[1]['name'].casefold(), x[1]['name'])
+        if 'name' in x[1]
+        else (x[0].casefold(), x[0]),
+    ):
         if source and platform_id != source:
             continue
         metrics["source_platforms"]["discovered"] = (
@@ -691,11 +697,13 @@ def generate(
             continue
 
         with open(platform_doc_file, "w") as f:
-            if "name" in platform_docs:
-                f.write(
-                    f"import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n"
-                )
-                f.write(f"# {platform_docs['name']}\n")
+            i += 1
+            f.write(f"---\nsidebar_position: {i}\n---\n\n")
+            f.write(
+                f"import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n"
+            )
+            f.write(f"# {platform_docs['name']}\n")
+
             if len(platform_docs["plugins"].keys()) > 1:
                 # More than one plugin used to provide integration with this platform
                 f.write(
