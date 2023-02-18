@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import re
@@ -8,7 +7,6 @@ from typing import Dict, Iterable, List, Union
 import pytest
 
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
-from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NumberTypeClass,
@@ -34,67 +32,16 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE = {
     },
 }
 
-SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE_NULL_ISNT_FIRST_IN_UNION = """
-{
-  "type": "record",
-  "name": "TestRecord",
-  "namespace": "some.event.namespace",
-  "fields": [
-    {
-      "name": "my.field",
-      "type": ["string", "null"],
-      "doc": "some.doc"
-    }
-  ]
-}
-"""
-
-SCHEMA_WITH_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE = """
-{
-  "type": "record",
-  "name": "TestRecord",
-  "namespace": "some.event.namespace",
-  "fields": [
-    {
-      "name": "my.field",
-      "type": "null",
-      "doc": "some.doc"
-    }
-  ]
-}
-"""
-
-SCHEMA_WITH_OPTIONAL_FIELD_VIA_FIXED_TYPE: str = json.dumps(
-    {
-        "type": "record",
-        "name": "__struct_",
-        "fields": [
-            {
-                "name": "value",
-                "type": {
-                    "type": "fixed",
-                    "name": "__fixed_d9d2d051916045d9975d6c573aaabb89",
-                    "size": 4,
-                    "native_data_type": "fixed[4]",
-                    "_nullable": True,
-                },
-            },
-        ],
-    }
-)
-
 
 def log_field_paths(fields: Iterable[SchemaField]) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
 
 
 def assert_field_paths_are_unique(fields: Iterable[SchemaField]) -> None:
-    avro_fields_paths = [
-        f.fieldPath for f in fields if re.match(".*[^]]$", f.fieldPath)
-    ]
+    fields_paths = [f.fieldPath for f in fields if re.match(".*[^]]$", f.fieldPath)]
 
-    if avro_fields_paths:
-        assert len(avro_fields_paths) == len(set(avro_fields_paths))
+    if fields_paths:
+        assert len(fields_paths) == len(set(fields_paths))
 
 
 def assert_field_paths_match(
@@ -185,54 +132,6 @@ def test_json_schema_to_mce_fields_toplevel_isnt_a_record():
     assert_field_paths_match(fields, expected_field_paths)
 
 
-def test_avro_schema_namespacing():
-    schema = """
-{
-  "type": "record",
-  "name": "name",
-  "namespace": "should.not.show.up.namespace",
-  "fields": [
-    {
-      "name": "aStringField",
-      "type": "string",
-      "doc": "some docs",
-      "default": "this is custom, default value"
-    }
-  ]
-}
-"""
-    fields = avro_schema_to_mce_fields(schema)
-    expected_field_paths = [
-        "[version=2.0].[type=name].[type=string].aStringField",
-    ]
-    assert_field_paths_match(fields, expected_field_paths)
-
-
-def test_avro_schema_to_mce_fields_with_default():
-    schema = """
-{
-  "type": "record",
-  "name": "some.event.name",
-  "namespace": "not.relevant.namespace",
-  "fields": [
-    {
-      "name": "aStringField",
-      "type": "string",
-      "doc": "some docs",
-      "default": "this is custom, default value"
-    }
-  ]
-}
-"""
-    fields = avro_schema_to_mce_fields(schema)
-    expected_field_paths = [
-        "[version=2.0].[type=name].[type=string].aStringField",
-    ]
-    assert_field_paths_match(fields, expected_field_paths)
-    description = fields[0].description
-    assert description and "custom, default value" in description
-
-
 def test_json_schema_with_recursion():
     schema = {
         "type": "object",
@@ -256,66 +155,44 @@ def test_json_schema_with_recursion():
     assert_field_paths_match(fields, expected_field_paths)
 
 
-def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
-    schema = """
-{
-  "type": "record",
-  "name": "Payment",
-  "namespace": "some.event.namespace",
-  "fields": [
-    {"name": "id", "type": "string"},
-    {"name": "amount", "type": "double", "doc": "amountDoc"},
-    {"name": "name","type": "string","default": ""},
-    {"name": "phoneNumber",
-     "type": [{
-         "type": "record",
-         "name": "PhoneNumber",
-         "doc": "testDoc",
-         "fields": [{
-             "name": "areaCode",
-             "type": "string",
-             "doc": "areaCodeDoc",
-             "default": ""
-             }, {
-             "name": "countryCode",
-             "type": "string",
-             "default": ""
-             }, {
-             "name": "prefix",
-             "type": "string",
-             "default": ""
-             }, {
-             "name": "number",
-             "type": "string",
-             "default": ""
-             }]
-         },
-         "null"
-     ],
-     "default": "null"
-    },
-    {"name": "address",
-     "type": [{
-         "type": "record",
-         "name": "Address",
-         "fields": [{
-             "name": "street",
-             "type": "string",
-             "default": ""
-             }]
-         },
-         "null"
-     ],
-      "doc": "addressDoc",
-     "default": "null"
+def test_json_sample_payment_schema_to_schema_fields_with_nesting():
+    schema = {
+        "type": "object",
+        "title": "Payment",
+        "namespace": "some.event.namespace",
+        "properties": {
+            "id": {"type": "string"},
+            "amount": {"type": "number", "description": "amountDoc"},
+            "name": {"type": "string", "default": ""},
+            "phoneNumber": {
+                "type": "object",
+                "title": "PhoneNumber",
+                "description": "testDoc",
+                "properties": {
+                    "areaCode": {
+                        "type": "string",
+                        "description": "areaCodeDoc",
+                        "default": "",
+                    },
+                    "countryCode": {"type": "string", "default": ""},
+                    "prefix": {"type": "string", "default": ""},
+                    "number": {"type": "string", "default": ""},
+                },
+                "default": "null",
+            },
+            "address": {
+                "type": "object",
+                "title": "Address",
+                "properties": {"street": {"type": "string", "default": ""}},
+                "description": "addressDoc",
+                "default": "null",
+            },
+        },
     }
-  ]
-}
-"""
-    fields = avro_schema_to_mce_fields(schema)
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths = [
         "[version=2.0].[type=Payment].[type=string].id",
-        "[version=2.0].[type=Payment].[type=double].amount",
+        "[version=2.0].[type=Payment].[type=number].amount",
         "[version=2.0].[type=Payment].[type=string].name",
         "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber",
         "[version=2.0].[type=Payment].[type=PhoneNumber].phoneNumber.[type=string].areaCode",
@@ -332,36 +209,40 @@ def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
     assert fields[8].description == "addressDoc\nField default value: null"
 
 
-def test_avro_schema_to_mce_fields_with_nesting_across_records():
-    schema = """
-[
-    {
-        "type": "record",
-        "name": "Address",
-        "fields": [
-            {"name": "streetAddress", "type": "string"},
-            {"name": "city", "type": "string"}
-        ]
-    },
-    {
-        "type": "record",
-        "name": "Person",
-        "fields": [
-            {"name": "firstname", "type": "string"},
-            {"name": "lastname", "type": "string" },
-            {"name": "address", "type": "Address"}
-        ]
+def test_json_schema_to_schema_fields_with_nesting_across_records():
+    schema = {
+        "definitions": {
+            "Address": {
+                "type": "object",
+                "title": "Address",
+                "properties": {
+                    "streetAddress": {"type": "string"},
+                    "city": {"type": "string"},
+                },
+            }
+        },
+        "oneOf": [
+            {"$ref": "#/definitions/Address"},
+            {
+                "type": "object",
+                "title": "Person",
+                "properties": {
+                    "firstname": {"type": "string"},
+                    "lastname": {"type": "string"},
+                    "address": {"$ref": "#/definitions/Address"},
+                },
+            },
+        ],
     }
-]
-"""
-    fields = avro_schema_to_mce_fields(schema)
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths = [
-        "[version=2.0].[type=union]",
         "[version=2.0].[type=union].[type=Address].[type=string].streetAddress",
         "[version=2.0].[type=union].[type=Address].[type=string].city",
         "[version=2.0].[type=union].[type=Person].[type=string].firstname",
         "[version=2.0].[type=union].[type=Person].[type=string].lastname",
         "[version=2.0].[type=union].[type=Person].[type=Address].address",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].streetAddress",
+        "[version=2.0].[type=union].[type=Person].[type=Address].address.[type=string].city",
     ]
     assert_field_paths_match(fields, expected_field_paths)
 

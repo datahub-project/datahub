@@ -78,14 +78,23 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase):
     @validator("path")
     def download_http_url_to_temp_file(v):
         if isinstance(v, AnyHttpUrl):
-            with urllib.request.urlopen(v) as response:
-                schema_dict = json.load(response)
-                if not JsonSchemaTranslator._get_id_from_any_schema(schema_dict):
-                    schema_dict["$id"] = str(v)
-                with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
-                    tmp_file.write(json.dumps(schema_dict))
-                    tmp_file.flush()
-                    return tmp_file.name
+            try:
+                with urllib.request.urlopen(v) as response:
+                    schema_dict = json.load(response)
+                    if not JsonSchemaTranslator._get_id_from_any_schema(schema_dict):
+                        schema_dict["$id"] = str(v)
+                    with tempfile.NamedTemporaryFile(
+                        mode="w", delete=False
+                    ) as tmp_file:
+                        tmp_file.write(json.dumps(schema_dict))
+                        tmp_file.flush()
+                        return tmp_file.name
+            except Exception as e:
+                logger.error(
+                    f"Failed to localize url {v} due to {e}. Run with --debug to get full stacktrace"
+                )
+                logger.debug(f"Failed to localize url {v} due to {e}", exc_info=e)
+                raise
         return v
 
 
@@ -151,6 +160,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         }
         to
         {
+            "title": "MyDefinition",
             ... definition
 
             "definitions": {
@@ -167,13 +177,17 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 referred = schema_dict
                 for p in parts:
                     referred = referred[p]
+                # copy referred object into the top level
                 for k, v in referred.items():
                     schema_dict[k] = v
+                # remove object from definitions dict
                 deletable = schema_dict
                 for p in parts[:-1]:
                     deletable = deletable[p]
                 deletable.pop(parts[-1])
+                # remove the "$ref" key
                 schema_dict.pop("$ref")
+                # set the title to reflect the definition name
                 if "title" not in schema_dict:
                     schema_dict["title"] = parts[-1]
         return schema_dict
@@ -210,7 +224,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         back to :mod:`urllib`.
         """
         uri = uri.replace(match_string, replace_string)
-        # logger.info(f"Resolving ref to file {uri}")
+        logger.debug(f"Resolving ref to file {uri}")
         return jsonref.jsonloader(uri, **kwargs)
 
     def __init__(self, ctx: PipelineContext, config: JsonSchemaSourceConfig):
@@ -342,20 +356,34 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         if os.path.isdir(self.config.path):
             for root, dirs, files in os.walk(self.config.path, topdown=False):
                 for file_name in [f for f in files if f.endswith(".json")]:
-                    yield from self._load_one_file(
-                        ref_loader,
-                        browse_prefix=browse_prefix,
-                        root_dir=Path(root),
-                        file_name=file_name,
-                    )
+                    try:
+                        yield from self._load_one_file(
+                            ref_loader,
+                            browse_prefix=browse_prefix,
+                            root_dir=Path(root),
+                            file_name=file_name,
+                        )
+                    except Exception as e:
+                        self.report.report_failure(
+                            f"{root}/{file_name}", f"Failed to process due to {e}"
+                        )
+                        logger.error(
+                            f"Failed to process file {root}/{file_name}", exc_info=e
+                        )
 
         else:
-            yield from self._load_one_file(
-                ref_loader,
-                browse_prefix=browse_prefix,
-                root_dir=Path(os.path.dirname(Path(self.config.path))),
-                file_name=str(self.config.path),
-            )
+            try:
+                yield from self._load_one_file(
+                    ref_loader,
+                    browse_prefix=browse_prefix,
+                    root_dir=Path(os.path.dirname(Path(self.config.path))),
+                    file_name=str(self.config.path),
+                )
+            except Exception as e:
+                self.report.report_failure(
+                    str(self.config.path), f"Failed to process due to {e}"
+                )
+                logger.error(f"Failed to process file {self.config.path}", exc_info=e)
 
         # Clean up stale entities at the end
         yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()

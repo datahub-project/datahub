@@ -84,6 +84,7 @@ class FieldElement:
 
 @dataclass
 class FieldPath:
+    EMPTY_FIELD_NAME = " "
     path: List[FieldElement] = Field(default_factory=list)
     is_key_schema: bool = False
     use_v2_paths_always: bool = True
@@ -141,6 +142,17 @@ class FieldPath:
         else:
             fpath.path = [FieldElement(type=[type], schema_types=[str(type_schema)])]
         return fpath
+
+    def has_field_name(self) -> bool:
+        names = [f.name for f in self.path if f.name is not None]
+        return len(names) > 0
+
+    def ensure_field_name(self) -> bool:
+        if not self.has_field_name():
+            if not self.path:
+                self.path = [FieldElement(type=[], schema_types=[])]
+            self.path[-1].name = FieldPath.EMPTY_FIELD_NAME
+        return True
 
     def as_string(self) -> str:
         v2_format = self._needs_v2_path()
@@ -255,7 +267,13 @@ class JsonSchemaTranslator:
     @staticmethod
     def _get_description_from_any_schema(schema: Dict) -> str:
         # we do a redundant `if description in schema` check to guard against the scenario that schema is not a dictionary
-        return (schema.get("description") or "") if "description" in schema else ""
+        description = (
+            (schema.get("description") or "") if "description" in schema else ""
+        )
+        default = schema.get("default")
+        if default is not None:
+            description = f"{description}\nField default value: {default}"
+        return description
 
     @staticmethod
     def _get_jsonprops_for_any_schema(schema: Dict) -> Optional[str]:
@@ -308,7 +326,7 @@ class JsonSchemaTranslator:
                     recursive=True,
                 )
                 return  # important to break the traversal here
-            if field_path.path:
+            if field_path.has_field_name():
                 # generate a field for the struct if we have a field path
                 yield SchemaField(
                     fieldPath=field_path.expand_type(
@@ -379,7 +397,7 @@ class JsonSchemaTranslator:
             (union_category, union_category_schema) = [
                 (k, v) for k, v in union_category_map.items() if v
             ][0]
-            if field_path.path:
+            if field_path.has_field_name():
                 yield SchemaField(
                     fieldPath=field_path.expand_type("union", schema).as_string(),
                     type=type_override or SchemaFieldDataTypeClass(UnionTypeClass()),
