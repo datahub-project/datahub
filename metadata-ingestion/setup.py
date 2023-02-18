@@ -179,7 +179,8 @@ snowflake_common = {
     # because it may break Airflow users that need SQLAlchemy 1.3.x.
     "SQLAlchemy<1.4.42",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    "snowflake-connector-python!=2.8.2",
+    # Cannot upgrade to 3.0.0 because of dependency on pyarrow>=10.0.1, conflicts with feast
+    "snowflake-connector-python!=2.8.2, <3.0.0",
     "pandas",
     "cryptography",
     "msal",
