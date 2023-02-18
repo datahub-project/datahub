@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.MatchQueryBuilder;
+import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -195,7 +196,7 @@ public class SearchRequestHandlerTest {
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
     // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [bool] -> should -> [match]
-    List<MatchQueryBuilder> matchQueryBuilders = testQuery.must()
+    List<MultiMatchQueryBuilder> matchQueryBuilders = testQuery.must()
         .stream()
         .filter(or -> or instanceof BoolQueryBuilder)
         .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
@@ -205,16 +206,16 @@ public class SearchRequestHandlerTest {
         .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
         .filter(should -> should instanceof BoolQueryBuilder)
         .flatMap(should -> ((BoolQueryBuilder) should).should().stream())
-        .filter(should -> should instanceof MatchQueryBuilder)
-        .map(should -> (MatchQueryBuilder) should)
+        .filter(should -> should instanceof MultiMatchQueryBuilder)
+        .map(should -> (MultiMatchQueryBuilder) should)
         .collect(Collectors.toList());
 
     assertTrue(matchQueryBuilders.size() == 2, "Expected to find two match queries");
     Map<String, String> matchMap = new HashMap<>();
     matchQueryBuilders.forEach(matchQueryBuilder -> {
-      String field = matchQueryBuilder.fieldName();
+      Set<String> fields = matchQueryBuilder.fields().keySet();
       assertTrue(matchQueryBuilder.value() instanceof String);
-      matchMap.put(field, (String) matchQueryBuilder.value());
+      fields.forEach(field -> matchMap.put(field, (String) matchQueryBuilder.value()));
     });
 
     assertTrue(matchMap.containsKey("fieldTags.keyword"));
@@ -235,7 +236,7 @@ public class SearchRequestHandlerTest {
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
     // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [match]
-    List<MatchQueryBuilder> matchQueryBuilders = testQuery.must()
+    List<MultiMatchQueryBuilder> matchQueryBuilders = testQuery.must()
         .stream()
         .filter(or -> or instanceof BoolQueryBuilder)
         .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
@@ -243,13 +244,16 @@ public class SearchRequestHandlerTest {
         .flatMap(should -> ((BoolQueryBuilder) should).must().stream())
         .filter(must -> must instanceof BoolQueryBuilder)
         .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
-        .filter(should -> should instanceof MatchQueryBuilder)
-        .map(should -> (MatchQueryBuilder) should)
+        .filter(should -> should instanceof MultiMatchQueryBuilder)
+        .map(should -> (MultiMatchQueryBuilder) should)
         .collect(Collectors.toList());
 
     assertTrue(matchQueryBuilders.size() == 1, "Expected to find one match query");
-    MatchQueryBuilder matchQueryBuilder = matchQueryBuilders.get(0);
-    assertEquals(matchQueryBuilder.fieldName(), "platform");
+    MultiMatchQueryBuilder matchQueryBuilder = matchQueryBuilders.get(0);
+    assertEquals(matchQueryBuilder.fields(), Map.of(
+            "platform", 1.0f,
+            "platform.*", 1.0f)
+    );
     assertEquals(matchQueryBuilder.value(), "mysql");
   }
 
@@ -277,7 +281,7 @@ public class SearchRequestHandlerTest {
 
     assertTrue(termsQueryBuilders.size() == 1, "Expected to find one terms query");
     final TermsQueryBuilder termsQueryBuilder = termsQueryBuilders.get(0);
-    assertEquals(termsQueryBuilder.fieldName(), "platform");
+    assertEquals(termsQueryBuilder.fieldName(), "platform.keyword");
     Set<String> values = new HashSet<>();
     termsQueryBuilder.values().forEach(value -> {
       assertTrue(value instanceof String);

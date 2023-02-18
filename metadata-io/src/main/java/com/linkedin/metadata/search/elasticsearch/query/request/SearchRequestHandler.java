@@ -131,7 +131,7 @@ public class SearchRequestHandler {
   }
 
   public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
+    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false);
 
     boolean removedInOrFilter = false;
     if (filter != null) {
@@ -224,7 +224,7 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(0);
-    searchSourceBuilder.aggregation(AggregationBuilders.terms(field).field(field + ESUtils.KEYWORD_SUFFIX).size(limit));
+    searchSourceBuilder.aggregation(AggregationBuilders.terms(field).field(ESUtils.toKeywordField(field, false)).size(limit));
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -239,7 +239,7 @@ public class SearchRequestHandler {
     for (String facet : _facetFields) {
       // All facet fields must have subField keyword
       AggregationBuilder aggBuilder =
-          AggregationBuilders.terms(facet).field(facet + ESUtils.KEYWORD_SUFFIX).size(_configs.getMaxTermBucketSize());
+          AggregationBuilders.terms(facet).field(ESUtils.toKeywordField(facet, false)).size(_configs.getMaxTermBucketSize());
       aggregationBuilders.add(aggBuilder);
     }
     return aggregationBuilders;
