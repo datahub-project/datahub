@@ -77,6 +77,7 @@ export type Props = {
     onDeleted?: (urn) => void;
     onClickExpand?: () => void;
     onClickEdit?: () => void;
+    index?: number;
 };
 
 export default function QueryCardDetails({
@@ -89,6 +90,7 @@ export default function QueryCardDetails({
     onClickExpand,
     onClickEdit,
     onDeleted,
+    index,
 }: Props) {
     return (
         <Details>
@@ -99,12 +101,12 @@ export default function QueryCardDetails({
                 <Actions>
                     {showEdit && (
                         <EditQueryAction>
-                            <QueryCardEditButton onClickEdit={onClickEdit} />
+                            <QueryCardEditButton onClickEdit={onClickEdit} index={index} />
                         </EditQueryAction>
                     )}
                     {showDelete && urn && (
                         <EditQueryAction>
-                            <QueryCardDetailsMenu urn={urn} onDeleted={onDeleted} />
+                            <QueryCardDetailsMenu urn={urn} onDeleted={onDeleted} index={index} />
                         </EditQueryAction>
                     )}
                 </Actions>

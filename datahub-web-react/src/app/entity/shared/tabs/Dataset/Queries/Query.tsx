@@ -14,6 +14,7 @@ export type Props = {
     showDetails?: boolean;
     onDeleted?: () => void;
     onEdited?: (query) => void;
+    index?: number;
 };
 
 export default function Query({
@@ -27,6 +28,7 @@ export default function Query({
     showDetails = true,
     onDeleted,
     onEdited,
+    index,
 }: Props) {
     const [showQueryModal, setShowQueryModal] = useState(false);
     const [showEditQueryModal, setShowEditQueryModal] = useState(false);
@@ -50,6 +52,7 @@ export default function Query({
                 onClickEdit={() => setShowEditQueryModal(true)}
                 onClickExpand={() => setShowQueryModal(true)}
                 onDeleted={onDeleted}
+                index={index}
             />
             {showQueryModal && (
                 <QueryModal

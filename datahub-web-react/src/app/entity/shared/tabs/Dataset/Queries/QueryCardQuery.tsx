@@ -11,29 +11,29 @@ const Statement = styled.div<{ fullHeight?: boolean }>`
     :hover {
         cursor: pointer;
     }
+    overflow: hidden;
 `;
 
 const NestedSyntax = styled(SyntaxHighlighter)`
     background-color: transparent !important;
     border: none !important;
-    height: 100%;
-    margin: 0px;
+    margin: 0px !important;
+    height: 100% !important;
 `;
 
 export type Props = {
     query: string;
     showDetails: boolean;
     onClickExpand?: (newQuery) => void;
+    index?: number;
 };
 
-export default function QueryCardQuery({ query, showDetails, onClickExpand }: Props) {
+export default function QueryCardQuery({ query, showDetails, onClickExpand, index }: Props) {
     return (
-        <Statement fullHeight={!showDetails} onClick={onClickExpand}>
-            <pre>
-                <NestedSyntax showLineNumbers language="sql">
-                    {query}
-                </NestedSyntax>
-            </pre>
+        <Statement fullHeight={!showDetails} onClick={onClickExpand} data-testid={`query-content-${index}`}>
+            <NestedSyntax showLineNumbers language="sql">
+                {query}
+            </NestedSyntax>
         </Statement>
     );
 }

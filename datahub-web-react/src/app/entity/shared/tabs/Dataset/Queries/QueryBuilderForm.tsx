@@ -63,7 +63,7 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
                         defaultLanguage="sql"
                         value={state.query}
                         onChange={updateQuery}
-                        data-testid="query-builder-editor-input"
+                        className="query-builder-editor-input"
                     />
                 </EditorWrapper>
             </Form.Item>

@@ -77,7 +77,7 @@ export default function QueryModal({ query, title, description, showDetails = tr
             bodyStyle={MODAL_BODY_STYLE}
             data-testid="query-modal"
             footer={
-                <Button onClick={onClose} type="text">
+                <Button onClick={onClose} type="text" data-testid="query-modal-close-button">
                     Close
                 </Button>
             }

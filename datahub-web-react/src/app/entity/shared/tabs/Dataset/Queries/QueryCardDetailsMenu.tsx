@@ -11,9 +11,10 @@ const StyledMoreOutlined = styled(MoreOutlined)`
 export type Props = {
     urn: string;
     onDeleted?: (urn: string) => void;
+    index?: number;
 };
 
-export default function QueryCardDetailsMenu({ urn, onDeleted }: Props) {
+export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
     const [deleteQueryMutation] = useDeleteQueryMutation();
 
     const deleteQuery = () => {
@@ -51,14 +52,14 @@ export default function QueryCardDetailsMenu({ urn, onDeleted }: Props) {
         <Dropdown
             overlay={
                 <Menu>
-                    <Menu.Item key="0" onClick={confirmDeleteQuery} data-testid={`query-delete-button-${urn}`}>
+                    <Menu.Item key="0" onClick={confirmDeleteQuery} data-testid={`query-delete-button-${index}`}>
                         <DeleteOutlined /> &nbsp; Delete
                     </Menu.Item>
                 </Menu>
             }
             trigger={['click']}
         >
-            <StyledMoreOutlined data-testid={`query-more-button-${urn}`} />
+            <StyledMoreOutlined data-testid={`query-more-button-${index}`} />
         </Dropdown>
     );
 }

@@ -30,7 +30,7 @@ export default function QueriesList({
 }: Props) {
     return (
         <List>
-            {queries.map((query) => (
+            {queries.map((query, idx) => (
                 <Query
                     urn={query.urn}
                     title={query.title || undefined}
@@ -42,6 +42,7 @@ export default function QueriesList({
                     showDetails={showDetails}
                     onDeleted={() => onDeleted?.(query)}
                     onEdited={(newQuery) => onEdited?.(newQuery)}
+                    index={idx}
                 />
             ))}
         </List>

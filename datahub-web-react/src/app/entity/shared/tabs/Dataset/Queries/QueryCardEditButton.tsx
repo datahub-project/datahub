@@ -12,11 +12,12 @@ const EditQueryActionButton = styled(Button)`
 
 export type Props = {
     onClickEdit?: () => void;
+    index?: number;
 };
 
-export default function QueryCardEditButton({ onClickEdit }: Props) {
+export default function QueryCardEditButton({ onClickEdit, index }: Props) {
     return (
-        <EditQueryActionButton type="text" onClick={onClickEdit} data-testid="query-edit-button">
+        <EditQueryActionButton type="text" onClick={onClickEdit} data-testid={`query-edit-button-${index}`}>
             <EditOutlined />
         </EditQueryActionButton>
     );
