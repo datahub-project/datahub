@@ -10,6 +10,7 @@ import { PageRoutes } from '../../../../../../conf/Global';
 import { navigateToLineageUrl } from '../../../../../lineage/utils/navigateToLineageUrl';
 import useIsLineageMode from '../../../../../lineage/utils/useIsLineageMode';
 import { ANTD_GRAY, ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../../constants';
+import { useGetLineageTimeParams } from '../../../../../lineage/utils/useGetLineageTimeParams';
 
 type Props = {
     type: EntityType;
@@ -102,6 +103,7 @@ export const ProfileNavBrowsePath = ({
     const history = useHistory();
     const location = useLocation();
     const isLineageMode = useIsLineageMode();
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     const createPartialPath = (parts: Array<string>) => {
         return parts.join('/');
@@ -154,7 +156,13 @@ export const ProfileNavBrowsePath = ({
                         isSelected={!isLineageMode}
                         onClick={() => {
                             if (canNavigateToLineage) {
-                                navigateToLineageUrl({ location, history, isLineageMode: false });
+                                navigateToLineageUrl({
+                                    location,
+                                    history,
+                                    isLineageMode: false,
+                                    startTimeMillis,
+                                    endTimeMillis,
+                                });
                             }
                         }}
                     >
@@ -166,7 +174,13 @@ export const ProfileNavBrowsePath = ({
                         isSelected={isLineageMode}
                         onClick={() => {
                             if (canNavigateToLineage) {
-                                navigateToLineageUrl({ location, history, isLineageMode: true });
+                                navigateToLineageUrl({
+                                    location,
+                                    history,
+                                    isLineageMode: true,
+                                    startTimeMillis,
+                                    endTimeMillis,
+                                });
                             }
                         }}
                     >

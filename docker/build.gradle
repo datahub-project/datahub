@@ -39,6 +39,7 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',
             'datahub docker quickstart',
+            '--no-pull-images',
             '--standalone_consumers',
             '--version', "v${version}",
             '--dump-logs-on-failure'
@@ -66,6 +67,7 @@ task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',
             'datahub docker quickstart',
+            '--no-pull-images',
             '--version', "debug",
             '--dump-logs-on-failure'
     ] + debug_compose_args

@@ -42,7 +42,7 @@ The quickest way to try out `Metadata Audit Event Consumer Job` is running the [
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
 the application directly from command line after a successful [build](#build):
 ```
-./gradlew :metadata-jobs:mae-consumer-job:bootRun
+MCL_CONSUMER_ENABLED=true ./gradlew :metadata-jobs:mae-consumer-job:bootRun
 ```
 
 ## Endpoints

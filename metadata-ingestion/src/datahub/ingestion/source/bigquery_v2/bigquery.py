@@ -199,6 +199,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = BigQueryV2Report()
         self.platform: str = "bigquery"
+
         BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = (
             self.config.sharded_table_pattern
         )
@@ -725,6 +726,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=project_id,
             dataset_name=dataset_name,
             column_limit=self.config.column_limit,
+            run_optimized_column_query=self.config.run_optimized_column_query,
         )
 
         if self.config.include_tables:
@@ -736,7 +738,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 table_columns = columns.get(table.name, []) if columns else []
 
                 yield from self._process_table(
-                    conn, table, table_columns, project_id, dataset_name
+                    table=table,
+                    columns=table_columns,
+                    project_id=project_id,
+                    dataset_name=dataset_name,
                 )
 
         if self.config.include_views:
@@ -747,7 +752,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             for view in db_views[dataset_name]:
                 view_columns = columns.get(view.name, []) if columns else []
                 yield from self._process_view(
-                    view, view_columns, project_id, dataset_name
+                    view=view,
+                    columns=view_columns,
+                    project_id=project_id,
+                    dataset_name=dataset_name,
                 )
 
     # This method is used to generate the ignore list for datatypes the profiler doesn't support we have to do it here
@@ -764,13 +772,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _process_table(
         self,
-        conn: bigquery.Client,
         table: BigqueryTable,
         columns: List[BigqueryColumn],
         project_id: str,
-        schema_name: str,
+        dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        table_identifier = BigqueryTableIdentifier(project_id, schema_name, table.name)
+        table_identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
 
         self.report.report_entity_scanned(table_identifier.raw_table_name())
 
@@ -805,7 +812,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 None,
             )
         yield from self.gen_table_dataset_workunits(
-            table, columns, project_id, schema_name
+            table, columns, project_id, dataset_name
         )
 
     def _process_view(
@@ -1128,7 +1135,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
             bigquery_tables = []
-            table_count: int = 0
+            partitioned_table_count_in_this_batch: int = 0
             table_items: Dict[str, TableListItem] = {}
             # Dict to store sharded table and the last seen max shard id
             sharded_tables: Dict[str, TableListItem] = defaultdict()
@@ -1161,35 +1168,42 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         # When table is only a shard we use dataset_name as table_name
                         sharded_tables[table_name] = table
                         continue
-                    else:
-                        stored_table_identifier = BigqueryTableIdentifier(
-                            project_id=project_id,
-                            dataset=dataset_name,
-                            table=sharded_tables[table_name].table_id,
-                        )
-                        (
-                            _,
-                            stored_shard,
-                        ) = BigqueryTableIdentifier.get_table_and_shard(
-                            stored_table_identifier.raw_table_name()
-                        )
-                        # When table is none, we use dataset_name as table_name
-                        assert stored_shard
-                        if stored_shard < shard:
-                            sharded_tables[table_name] = table
-                        continue
-                else:
-                    table_count = table_count + 1
-                    table_items[table.table_id] = table
 
-                if str(table_identifier).startswith(
+                    stored_table_identifier = BigqueryTableIdentifier(
+                        project_id=project_id,
+                        dataset=dataset_name,
+                        table=sharded_tables[table_name].table_id,
+                    )
+                    _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
+                        stored_table_identifier.raw_table_name()
+                    )
+                    # When table is none, we use dataset_name as table_name
+                    assert stored_shard
+                    if stored_shard < shard:
+                        sharded_tables[table_name] = table
+                    continue
+                elif str(table_identifier).startswith(
                     self.config.temp_table_dataset_prefix
                 ):
                     logger.debug(f"Dropping temporary table {table_identifier.table}")
                     self.report.report_dropped(table_identifier.raw_table_name())
                     continue
+                else:
+                    if (
+                        table.time_partitioning
+                        or "range_partitioning" in table._properties
+                    ):
+                        partitioned_table_count_in_this_batch += 1
 
-                if table_count % self.config.number_of_datasets_process_in_batch == 0:
+                    table_items[table.table_id] = table
+
+                if (
+                    len(table_items) % self.config.number_of_datasets_process_in_batch
+                    == 0
+                ) or (
+                    partitioned_table_count_in_this_batch
+                    == self.config.number_of_partitioned_datasets_process_in_batch
+                ):
                     bigquery_tables.extend(
                         BigQueryDataDictionary.get_tables_for_dataset(
                             conn,
@@ -1199,6 +1213,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                             with_data_read_permission=self.config.profiling.enabled,
                         )
                     )
+                    partitioned_table_count_in_this_batch = 0
                     table_items.clear()
 
             # Sharded tables don't have partition keys, so it is safe to add to the list as

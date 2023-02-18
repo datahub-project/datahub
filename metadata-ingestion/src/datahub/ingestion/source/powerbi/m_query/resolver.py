@@ -171,9 +171,12 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             return None
 
-        first_argument: Tree = tree_function.flat_argument_list(first_arg_tree)[
-            0
-        ]  # take first argument only
+        flat_arg_list: List[Tree] = tree_function.flat_argument_list(first_arg_tree)
+        if len(flat_arg_list) == 0:
+            logger.debug("flat_arg_list is zero")
+            return None
+
+        first_argument: Tree = flat_arg_list[0]  # take first argument only
         expression: Optional[Tree] = tree_function.first_list_expression_func(
             first_argument
         )
