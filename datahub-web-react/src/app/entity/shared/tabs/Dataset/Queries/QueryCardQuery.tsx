@@ -11,7 +11,6 @@ const Statement = styled.div<{ fullHeight?: boolean }>`
     :hover {
         cursor: pointer;
     }
-    overflow: hidden;
 `;
 
 const NestedSyntax = styled(SyntaxHighlighter)`
@@ -19,6 +18,10 @@ const NestedSyntax = styled(SyntaxHighlighter)`
     border: none !important;
     margin: 0px !important;
     height: 100% !important;
+    overflow: auto !important;
+    ::-webkit-scrollbar {
+        display: none;
+    } !important;
 `;
 
 export type Props = {

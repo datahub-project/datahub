@@ -45,7 +45,7 @@ const EditQueryAction = styled.span`
 const Description = styled.div`
     margin-bottom: 16px;
     height: 52px;
-    overflow: scroll;
+    overflow: auto;
 `;
 
 const MoreButton = styled.span`

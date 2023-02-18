@@ -17,7 +17,7 @@ const MODAL_WIDTH = '80vw';
 
 const MODAL_BODY_STYLE = {
     height: '74vh',
-    overflow: 'scroll',
+    overflow: 'auto',
 };
 
 const PLACEHOLDER_QUERY = `-- SELECT sum(price)

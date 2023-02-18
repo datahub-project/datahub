@@ -16,7 +16,7 @@ const MODAL_WIDTH = '80vw';
 const MODAL_BODY_STYLE = {
     maxHeight: '84vh',
     padding: 0,
-    overflow: 'scroll',
+    overflow: 'auto',
 };
 
 const QueryActions = styled.div`
@@ -25,7 +25,7 @@ const QueryActions = styled.div`
     justify-content: end;
     width: 100%;
     height: 0px;
-    transform: translate(-16px, 32px);
+    transform: translate(-24px, 32px);
 `;
 
 const QueryDetails = styled.div`
