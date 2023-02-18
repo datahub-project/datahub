@@ -27,8 +27,8 @@ export const navigateToLineageUrl = ({
     let newSearch: any = {
         ...parsedSearch,
         is_lineage_mode: isLineageMode,
-        start_time_millis: startTimeMillis || undefined,
-        end_time_millis: endTimeMillis || undefined,
+        start_time_millis: startTimeMillis,
+        end_time_millis: endTimeMillis,
     };
     if (isHideSiblingMode !== undefined) {
         newSearch = {
@@ -44,6 +44,7 @@ export const navigateToLineageUrl = ({
     }
     const newSearchStringified = QueryString.stringify(newSearch, { arrayFormat: 'comma' });
 
+    console.log(location.pathname);
     history.push({
         pathname: location.pathname,
         search: newSearchStringified,
