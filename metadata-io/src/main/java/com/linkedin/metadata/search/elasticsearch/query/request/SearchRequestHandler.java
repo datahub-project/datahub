@@ -276,7 +276,8 @@ public class SearchRequestHandler {
   }
 
   @Nonnull
-  private List<MatchedField> extractMatchedFields(@Nonnull Map<String, HighlightField> highlightedFields) {
+  private List<MatchedField> extractMatchedFields(@Nonnull SearchHit hit) {
+    Map<String, HighlightField> highlightedFields = hit.getHighlightFields();
     // Keep track of unique field values that matched for a given field name
     Map<String, Set<String>> highlightedFieldNamesAndValues = new HashMap<>();
     for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
@@ -290,6 +291,12 @@ public class SearchRequestHandler {
       }
       for (Text fieldValue : entry.getValue().getFragments()) {
         highlightedFieldNamesAndValues.get(fieldName.get()).add(fieldValue.string());
+      }
+    }
+    // fallback matched query, non-analyzed field
+    for (String queryName : hit.getMatchedQueries()) {
+      if (!highlightedFieldNamesAndValues.containsKey(queryName)) {
+        highlightedFieldNamesAndValues.put(queryName, Set.of(""));
       }
     }
     return highlightedFieldNamesAndValues.entrySet()
@@ -310,7 +317,7 @@ public class SearchRequestHandler {
 
   private SearchEntity getResult(@Nonnull SearchHit hit) {
     return new SearchEntity().setEntity(getUrnFromSearchHit(hit))
-        .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit.getHighlightFields())))
+        .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
         .setScore(hit.getScore())
         .setFeatures(new DoubleMap(extractFeatures(hit)));
   }

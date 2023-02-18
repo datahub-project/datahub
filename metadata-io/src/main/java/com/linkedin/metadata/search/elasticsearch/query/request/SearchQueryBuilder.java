@@ -34,6 +34,7 @@ import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_
 public class SearchQueryBuilder {
 
   public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
+  public static final float EXACT_MATCH_BOOST_FACTOR = 10.0f;
   private static final Set<FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
       new HashSet<>(Arrays.asList(FieldType.TEXT, FieldType.TEXT_PARTIAL));
 
@@ -107,6 +108,11 @@ public class SearchQueryBuilder {
 
   private static Optional<QueryBuilder> getPrefixQuery(@Nonnull EntitySpec entitySpec, String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+    if (query.contains("\"")) {
+      finalQuery.should(QueryBuilders.termQuery("urn", query.replaceAll("\"", ""))
+              .boost(Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore")) * EXACT_MATCH_BOOST_FACTOR)
+              .queryName("urn"));
+    }
 
     entitySpec.getSearchableFieldSpecs().stream()
             .map(SearchableFieldSpec::getSearchableAnnotation)
@@ -115,9 +121,13 @@ public class SearchQueryBuilder {
             .filter(e -> TYPES_WITH_DELIMITED_SUBFIELD.contains(e.getFieldType()))
             .forEach(fieldSpec -> {
               finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldSpec.getFieldName() + ".delimited", query)
-                      .boost((float) fieldSpec.getBoostScore() * 0.75f)); // less than exact
-              finalQuery.should(QueryBuilders.termQuery(fieldSpec.getFieldName() + ".keyword", query)
-                      .boost((float) fieldSpec.getBoostScore()));
+                      .boost((float) fieldSpec.getBoostScore())
+                      .queryName(fieldSpec.getFieldName())); // less than exact
+              if (query.contains("\"")) {
+                finalQuery.should(QueryBuilders.termQuery(fieldSpec.getFieldName() + ".keyword", query.replaceAll("\"", ""))
+                        .boost(Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore")) * EXACT_MATCH_BOOST_FACTOR)
+                        .queryName(fieldSpec.getFieldName() + ".keyword"));
+              }
             });
     return finalQuery.should().size() > 0 ? Optional.of(finalQuery) : Optional.empty();
   }
