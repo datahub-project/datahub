@@ -1,5 +1,6 @@
 import json
 import logging
+import unittest
 from hashlib import md5
 from typing import Any, Callable, Dict, Iterable, List, Optional, Type
 
@@ -8,6 +9,7 @@ import jsonschema
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 
+from datahub.ingestion.extractor.json_ref_patch import title_swapping_callback
 from datahub.metadata.com.linkedin.pegasus2avro.schema import OtherSchema
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -484,32 +486,33 @@ class JsonSchemaTranslator:
         """Takes a json schema which can contain references and returns an iterator over schema fields.
         Preserves behavior similar to schema_util.avro_schema_to_mce which swallows exceptions by default
         """
-        try:
+        with unittest.mock.patch("jsonref.JsonRef.callback", title_swapping_callback):
             try:
-                schema_string = json.dumps(schema_dict)
-            except Exception:
-                # we assume that this is a jsonref schema to begin with
-                jsonref_schema_dict = schema_dict
-            else:
-                # first validate the schema using a json validator
-                jsonschema.Draft7Validator.check_schema(schema_dict)
-                # then apply jsonref
-                jsonref_schema_dict = jsonref.loads(schema_string)
-        except Exception as e:
-            if swallow_exceptions:
-                logger.error(
-                    "Failed to get fields from schema, continuing...", exc_info=e
-                )
-                return []
-            else:
-                raise
-        json_type = cls._get_type_from_schema(jsonref_schema_dict)
-        yield from JsonSchemaTranslator.get_fields(
-            json_type,
-            jsonref_schema_dict,
-            required=False,
-            base_field_path=FieldPath(is_key_schema=is_key_schema),
-        )
+                try:
+                    schema_string = json.dumps(schema_dict)
+                except Exception:
+                    # we assume that this is a jsonref schema to begin with
+                    jsonref_schema_dict = schema_dict
+                else:
+                    # first validate the schema using a json validator
+                    jsonschema.Draft7Validator.check_schema(schema_dict)
+                    # then apply jsonref
+                    jsonref_schema_dict = jsonref.loads(schema_string)
+            except Exception as e:
+                if swallow_exceptions:
+                    logger.error(
+                        "Failed to get fields from schema, continuing...", exc_info=e
+                    )
+                    return []
+                else:
+                    raise
+            json_type = cls._get_type_from_schema(jsonref_schema_dict)
+            yield from JsonSchemaTranslator.get_fields(
+                json_type,
+                jsonref_schema_dict,
+                required=False,
+                base_field_path=FieldPath(is_key_schema=is_key_schema),
+            )
 
     @staticmethod
     def _get_id_from_any_schema(schema_dict: Dict[Any, Any]) -> Optional[str]:
