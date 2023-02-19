@@ -498,8 +498,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         });
 
         Map<String, Integer> expectedStructuredMinimums = Map.of(
-                "sample", 1,
-                "covid", 0,
+                "sample", 3,
+                "covid", 2,
                 "\"raw_orders\"", 1
         );
 

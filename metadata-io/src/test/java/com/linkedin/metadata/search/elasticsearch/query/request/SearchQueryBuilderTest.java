@@ -69,7 +69,7 @@ public class SearchQueryBuilderTest {
                     false);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
-    assertEquals(shouldQueries.size(), 1);
+    assertEquals(shouldQueries.size(), 2);
 
     QueryStringQueryBuilder keywordQuery = (QueryStringQueryBuilder) shouldQueries.get(0);
     assertEquals(keywordQuery.queryString(), "testQuery");

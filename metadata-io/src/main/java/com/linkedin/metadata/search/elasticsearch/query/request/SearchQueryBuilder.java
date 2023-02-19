@@ -64,7 +64,6 @@ public class SearchQueryBuilder {
       simpleBuilder.defaultOperator(Operator.AND);
       getStandardFields(entitySpec).forEach(fieldBoost -> simpleBuilder.field(fieldBoost.getFirst(), fieldBoost.getSecond()));
       finalQuery.should(simpleBuilder);
-      getPrefixQuery(entitySpec, query).ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix = query.startsWith(STRUCTURED_QUERY_PREFIX) ? query.substring(STRUCTURED_QUERY_PREFIX.length()) : query;
 
@@ -73,6 +72,9 @@ public class SearchQueryBuilder {
       getStandardFields(entitySpec).forEach(fieldBoost -> queryBuilder.field(fieldBoost.getFirst(), fieldBoost.getSecond()));
       finalQuery.should(queryBuilder);
     }
+
+    // common prefix query
+    getPrefixQuery(entitySpec, query).ifPresent(finalQuery::should);
 
     return finalQuery;
   }
