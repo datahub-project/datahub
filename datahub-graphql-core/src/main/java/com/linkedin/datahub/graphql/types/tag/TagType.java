@@ -110,7 +110,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search("tag", query, facetFilters, start, count,
-                context.getAuthentication(), true);
+                context.getAuthentication(), true, null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

@@ -59,7 +59,8 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
               start,
               count,
               context.getAuthentication(),
-                  true);
+                  true,
+              null);
 
           // Now that we have entities we can bind this to a result.
           final ListTestsResult result = new ListTestsResult();

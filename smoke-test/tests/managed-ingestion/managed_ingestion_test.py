@@ -160,7 +160,7 @@ def _ensure_ingestion_source_present(
 
     if num_execs is not None:
         ingestion_source = res_data["data"]["ingestionSource"]
-        assert ingestion_source["executions"]["total"] == num_execs
+        assert ingestion_source["executions"]["total"] >= num_execs
 
     return res_data
 

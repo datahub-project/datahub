@@ -22,17 +22,17 @@ If you're using Airflow 1.x, use the Airflow lineage plugin with acryl-datahub-a
 
 1. You need to install the required dependency in your airflow.
 
-  ```shell
-  pip install acryl-datahub-airflow-plugin
-  ```
+```shell
+pip install acryl-datahub-airflow-plugin
+```
 
 2. Disable lazy plugin loading in your airflow.cfg.
    On MWAA you should add this config to your [Apache Airflow configuration options](https://docs.aws.amazon.com/mwaa/latest/userguide/configuring-env-variables.html#configuring-2.0-airflow-override).
 
-  ```ini title="airflow.cfg"
-  [core]
-  lazy_load_plugins = False
-  ```
+```ini title="airflow.cfg"
+[core]
+lazy_load_plugins = False
+```
 
 3. You must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
 
@@ -45,28 +45,28 @@ If you're using Airflow 1.x, use the Airflow lineage plugin with acryl-datahub-a
 
 4. Add your `datahub_conn_id` and/or `cluster` to your `airflow.cfg` file if it is not align with the default values. See configuration parameters below
 
-    **Configuration options:**
+   **Configuration options:**
 
-    |Name   | Default value   | Description   |
-    |---|---|---|
-    | datahub.enabled | true  | If the plugin should be enabled.  |
-    | datahub.conn_id | datahub_rest_default  | The name of the datahub connection you set in step 1.  |
-    | datahub.cluster |  prod | name of the airflow cluster  |
-    | datahub.capture_ownership_info | true  |  If true, the owners field of the DAG will be capture as a DataHub corpuser.   |
-    | datahub.capture_tags_info  | true   | If true, the tags field of the DAG will be captured as DataHub tags.  |
-    | datahub.graceful_exceptions  | true  | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.|
+   | Name                           | Default value        | Description                                                                                                                                                                            |
+   | ------------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | datahub.enabled                | true                 | If the plugin should be enabled.                                                                                                                                                       |
+   | datahub.conn_id                | datahub_rest_default | The name of the datahub connection you set in step 1.                                                                                                                                  |
+   | datahub.cluster                | prod                 | name of the airflow cluster                                                                                                                                                            |
+   | datahub.capture_ownership_info | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
+   | datahub.capture_tags_info      | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
+   | datahub.graceful_exceptions    | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
 
 5. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
 6. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.
 
 ### How to validate installation
 
-  1. Go and check in Airflow at Admin -> Plugins menu if you can see the Datahub plugin
-  2. Run an Airflow DAG. In the task logs, you should see Datahub related log messages like:
+1. Go and check in Airflow at Admin -> Plugins menu if you can see the Datahub plugin
+2. Run an Airflow DAG. In the task logs, you should see Datahub related log messages like:
 
-  ```
-  Emitting Datahub ...
-  ```
+```
+Emitting Datahub ...
+```
 
 ## Using Datahub's Airflow lineage backend (deprecated)
 
@@ -87,9 +87,9 @@ If you are looking to run Airflow and DataHub using docker locally, follow the g
 
 1. You need to install the required dependency in your airflow. See <https://registry.astronomer.io/providers/datahub/modules/datahublineagebackend>
 
-  ```shell
-  pip install acryl-datahub[airflow]
-  ```
+```shell
+pip install acryl-datahub[airflow]
+```
 
 2. You must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
 
@@ -116,6 +116,7 @@ If you are looking to run Airflow and DataHub using docker locally, follow the g
    ```
 
    **Configuration options:**
+
    - `datahub_conn_id` (required): Usually `datahub_rest_default` or `datahub_kafka_default`, depending on what you named the connection in step 1.
    - `cluster` (defaults to "prod"): The "cluster" to associate Airflow DAGs and tasks with.
    - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
@@ -137,5 +138,6 @@ In order to use this example, you must first configure the Datahub hook. Like in
 ## Additional references
 
 Related Datahub videos:
+
 - [Airflow Lineage](https://www.youtube.com/watch?v=3wiaqhb8UR0)
 - [Airflow Run History in DataHub](https://www.youtube.com/watch?v=YpUOqDU5ZYg)

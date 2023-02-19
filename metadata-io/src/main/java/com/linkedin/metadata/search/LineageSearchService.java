@@ -57,7 +57,6 @@ public class LineageSearchService {
           new FilterValue().setValue("2").setFacetCount(0), new FilterValue().setValue("3+").setFacetCount(0))));
   private static final int MAX_RELATIONSHIPS = 1000000;
   private static final int MAX_TERMS = 50000;
-  private static final SearchFlags SKIP_CACHE = new SearchFlags().setSkipCache(true);
   private static final long DAY_IN_MS = 24 * 60 * 60 * 1000;
 
   /**
@@ -79,10 +78,9 @@ public class LineageSearchService {
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable Long startTimeMillis,
-      @Nullable Long endTimeMillis) {
+      @Nullable Long endTimeMillis, @Nonnull SearchFlags searchFlags) {
     // Cache multihop result for faster performance
-    final EntityLineageResultCacheKey cacheKey =
-        new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis);
+    final EntityLineageResultCacheKey cacheKey = new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops);
     CachedEntityLineageResult cachedLineageResult = cacheEnabled
         ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;
@@ -111,7 +109,7 @@ public class LineageSearchService {
         filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
 
     return getSearchResultInBatches(lineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
-        from, size);
+        from, size, searchFlags);
   }
 
   // Necessary so we don't filter out schemaField entities and so that we search to get the parent reference entity
@@ -142,7 +140,8 @@ public class LineageSearchService {
 
   // Search service can only take up to 50K term filter, so query search service in batches
   private LineageSearchResult getSearchResultInBatches(List<LineageRelationship> lineageRelationships,
-      @Nonnull String input, @Nullable Filter inputFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nonnull String input, @Nullable Filter inputFilters, @Nullable SortCriterion sortCriterion, int from, int size,
+      @Nonnull SearchFlags searchFlags) {
     LineageSearchResult finalResult =
         new LineageSearchResult().setEntities(new LineageSearchEntityArray(Collections.emptyList()))
             .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()))
@@ -161,7 +160,7 @@ public class LineageSearchService {
       Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
       LineageSearchResult resultForBatch = buildLineageSearchResult(
           _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize,
-              SKIP_CACHE), urnToRelationship);
+              searchFlags), urnToRelationship);
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = merge(finalResult, resultForBatch);
