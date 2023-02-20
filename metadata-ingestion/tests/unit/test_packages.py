@@ -1,5 +1,6 @@
 import setuptools
 
+
 def test_package_list_match_inits():
     where = "./src"
     package_list = set(setuptools.find_packages(where))
