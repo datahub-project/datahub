@@ -42,8 +42,8 @@ export const EMPTY_MESSAGES = {
         description: 'Properties will appear here if they exist in your data source.',
     },
     queries: {
-        title: 'No queries',
-        description: 'Recent queries made to this dataset will appear here.',
+        title: 'No queries yet',
+        description: 'Create, view, and share commonly used queries for this dataset.',
     },
     domain: {
         title: 'No domain set',
