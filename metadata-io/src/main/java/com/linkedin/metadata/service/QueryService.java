@@ -161,7 +161,7 @@ public class QueryService extends BaseService {
         aspectsToIngest.add(AspectUtils.buildMetadataChangeProposal(urn, Constants.QUERY_SUBJECTS_ASPECT_NAME, new QuerySubjects()
             .setSubjects(new QuerySubjectArray(subjects))));
       }
-      this.entityClient.batchIngestProposals(aspectsToIngest, authentication,false);
+      this.entityClient.batchIngestProposals(aspectsToIngest, authentication, false);
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to update View with urn %s", urn), e);
     }
