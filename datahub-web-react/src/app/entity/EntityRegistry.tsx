@@ -123,7 +123,6 @@ export default class EntityRegistry {
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
-        console.log(data);
         return (
             ({
                 ...entity.getLineageVizConfig?.(data),
