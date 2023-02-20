@@ -1,9 +1,9 @@
 import json
 import os
+from datetime import datetime
 from typing import Dict
 from unittest.mock import patch
-from datetime import datetime
-from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
+
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.ingestion.api.common import PipelineContext
@@ -13,6 +13,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
 
 
 def test_bigquery_uri():

@@ -1,9 +1,8 @@
 import collections
 import logging
 import textwrap
-from datetime import datetime
-
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import humanfriendly
@@ -33,10 +32,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
     get_bigquery_client,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
-    AuditStampClass,
 )
 from datahub.utilities import memory_footprint
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
