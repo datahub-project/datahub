@@ -73,8 +73,8 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
 
     String bodyText = "";
     if (activeUsersLastRange > 0) {
-      double percentChange = (double) (activeUsersThisRange - activeUsersLastRange) /
-              (double) activeUsersLastRange * 100;
+      double percentChange = (double) (activeUsersThisRange - activeUsersLastRange) 
+        / (double) activeUsersLastRange * 100;
 
       String directionChange = percentChange > 0 ? "increase" : "decrease";
 
