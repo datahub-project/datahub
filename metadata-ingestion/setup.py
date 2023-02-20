@@ -55,6 +55,7 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
+    "jsonschema",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -311,7 +312,7 @@ plugins: Dict[str, Set[str]] = {
         "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
-    "json-schema": {"jsonschema", "jsonref"},
+    "json-schema": set(),
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
