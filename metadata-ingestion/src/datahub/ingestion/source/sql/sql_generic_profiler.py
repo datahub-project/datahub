@@ -74,7 +74,7 @@ class GenericProfiler:
         for request in table_level_profile_requests:
             profile = DatasetProfile(
                 timestampMillis=int(datetime.now().timestamp() * 1000),
-                columnCount=len(request.table.columns),
+                columnCount=request.table.column_count,
                 rowCount=request.table.rows_count,
                 sizeInBytes=request.table.size_in_bytes,
             )

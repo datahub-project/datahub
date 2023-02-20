@@ -29,11 +29,13 @@ from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -124,11 +126,19 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "For multiple Kafka clusters, use the platform_instance configuration",
+)
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported.",
+)
 class KafkaSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - Topics from the Kafka broker
-    - Schemas associated with each topic from the schema registry (only Avro schemas are currently supported)
+    - Schemas associated with each topic from the schema registry (Avro, Protobuf and JSON schemas are supported)
     """
 
     platform: str = "kafka"

@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
+import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 
 import javax.annotation.Nonnull;

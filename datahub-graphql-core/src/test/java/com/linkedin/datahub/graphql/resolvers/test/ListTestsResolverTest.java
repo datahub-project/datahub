@@ -41,8 +41,8 @@ public class ListTestsResolverTest {
         Mockito.eq(0),
         Mockito.eq(20),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE)
-    )).thenReturn(
+        Mockito.eq(Boolean.TRUE),
+        Mockito.eq(null))).thenReturn(
         new SearchResult()
             .setFrom(0)
             .setPageSize(1)
@@ -87,7 +87,8 @@ public class ListTestsResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE));
+        Mockito.eq(Boolean.TRUE),
+        Mockito.eq(null));
   }
 
   @Test
@@ -101,7 +102,8 @@ public class ListTestsResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.any(Authentication.class),
-        Mockito.eq(Boolean.TRUE));
+        Mockito.eq(Boolean.TRUE),
+        Mockito.eq(null));
     ListTestsResolver resolver = new ListTestsResolver(mockClient);
 
     // Execute resolver

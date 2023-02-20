@@ -194,7 +194,7 @@ class StaleEntityRemovalHandler(
         return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
 
     def _init_job_id(self) -> JobId:
-        platform: Optional[str] = getattr(self.source, "platform")
+        platform: Optional[str] = getattr(self.source, "platform", "default")
         return self.compute_job_id(platform)
 
     def _ignore_old_state(self) -> bool:

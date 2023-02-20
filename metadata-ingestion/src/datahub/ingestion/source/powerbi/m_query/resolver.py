@@ -12,7 +12,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
     IdentifierAccessor,
 )
-from datahub.ingestion.source.powerbi.proxy import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +61,14 @@ class AbstractTableFullNameCreator(ABC):
 
 
 class AbstractDataAccessMQueryResolver(ABC):
-    table: PowerBiAPI.Table
+    table: Table
     parse_tree: Tree
     reporter: PowerBiDashboardSourceReport
     data_access_functions: List[str]
 
     def __init__(
         self,
-        table: PowerBiAPI.Table,
+        table: Table,
         parse_tree: Tree,
         reporter: PowerBiDashboardSourceReport,
     ):
@@ -163,8 +163,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         if first_arg_tree is None:
             logger.debug(
-                "Function invocation without argument in expression = %s",
-                invoke_expression.pretty(),
+                f"Function invocation without argument in expression = {invoke_expression.pretty()}"
             )
             self.reporter.report_warning(
                 f"{self.table.full_name}-variable-statement",
@@ -172,20 +171,22 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             return None
 
-        first_argument: Tree = tree_function.flat_argument_list(first_arg_tree)[
-            0
-        ]  # take first argument only
+        flat_arg_list: List[Tree] = tree_function.flat_argument_list(first_arg_tree)
+        if len(flat_arg_list) == 0:
+            logger.debug("flat_arg_list is zero")
+            return None
+
+        first_argument: Tree = flat_arg_list[0]  # take first argument only
         expression: Optional[Tree] = tree_function.first_list_expression_func(
             first_argument
         )
 
-        logger.debug("Extracting token from tree %s", first_argument.pretty())
+        logger.debug(f"Extracting token from tree {first_argument.pretty()}")
         if expression is None:
             expression = tree_function.first_type_expression_func(first_argument)
             if expression is None:
                 logger.debug(
-                    "Either list_expression or type_expression is not found = %s",
-                    invoke_expression.pretty(),
+                    f"Either list_expression or type_expression is not found = {invoke_expression.pretty()}"
                 )
                 self.reporter.report_warning(
                     f"{self.table.full_name}-variable-statement",
@@ -197,7 +198,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             tree_function.token_values(expression)
         )
 
-        logger.debug("Tokens in invoke expression are %s", tokens)
+        logger.debug(f"Tokens in invoke expression are {tokens}")
         return tokens
 
     def _process_item_selector_expression(
@@ -341,8 +342,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             if supported_resolver is None:
                 logger.debug(
-                    "Resolver not found for the data-access-function %s",
-                    f_detail.data_access_function_name,
+                    f"Resolver not found for the data-access-function {f_detail.data_access_function_name}"
                 )
                 self.reporter.report_warning(
                     f"{self.table.full_name}-data-access-function",
@@ -384,8 +384,7 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
         full_table_names: List[str] = []
 
         logger.debug(
-            "Processing PostgreSQL data-access function detail %s",
-            data_access_func_detail,
+            f"Processing PostgreSQL data-access function detail {data_access_func_detail}"
         )
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
@@ -395,7 +394,7 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
         )
 
         if len(arguments) != 2:
-            logger.debug("Expected 2 arguments, but got {%s}", len(arguments))
+            logger.debug(f"Expected 2 arguments, but got {len(arguments)}")
             return full_table_names
 
         db_name: str = arguments[1]
@@ -411,9 +410,7 @@ class DefaultTwoStepDataAccessSources(AbstractTableFullNameCreator, ABC):
         full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
 
         logger.debug(
-            "Platform(%s) full-table-names = %s",
-            self.get_platform_pair().datahub_data_platform_name,
-            full_table_names,
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) full-table-names = {full_table_names}"
         )
 
         return full_table_names
@@ -492,7 +489,7 @@ class OracleTableFullNameCreator(AbstractTableFullNameCreator):
         full_table_names: List[str] = []
 
         logger.debug(
-            "Processing Oracle data-access function detail %s", data_access_func_detail
+            f"Processing Oracle data-access function detail {data_access_func_detail}"
         )
 
         arguments: List[str] = tree_function.remove_whitespaces_from_list(
@@ -525,7 +522,7 @@ class SnowflakeTableFullNameCreator(AbstractTableFullNameCreator):
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[str]:
 
-        logger.debug("Processing Snowflake function detail %s", data_access_func_detail)
+        logger.debug(f"Processing Snowflake function detail {data_access_func_detail}")
         # First is database name
         db_name: str = data_access_func_detail.identifier_accessor.items["Name"]  # type: ignore
         # Second is schema name
@@ -539,7 +536,7 @@ class SnowflakeTableFullNameCreator(AbstractTableFullNameCreator):
 
         full_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
-        logger.debug("Snowflake full-table-name %s", full_table_name)
+        logger.debug(f"Snowflake full-table-name {full_table_name}")
 
         return [full_table_name]
 
@@ -559,10 +556,9 @@ class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
 
         if len(flat_argument_list) != 2:
             logger.debug(
-                "Expecting 2 argument, actual argument count is %s",
-                len(flat_argument_list),
+                f"Expecting 2 argument, actual argument count is {len(flat_argument_list)}"
             )
-            logger.debug("Flat argument list = %s", flat_argument_list)
+            logger.debug(f"Flat argument list = {flat_argument_list}")
             return full_table_names
 
         data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
@@ -573,7 +569,7 @@ class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
             != SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
         ):
             logger.debug(
-                "Provided native-query data-platform = %s", data_access_tokens[0]
+                f"Provided native-query data-platform = {data_access_tokens[0]}"
             )
             logger.debug("Only Snowflake is supported in NativeQuery")
             return full_table_names
@@ -591,8 +587,7 @@ class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
         for table in native_sql_parser.get_tables(sql_query):
             if len(table.split(".")) != 3:
                 logger.debug(
-                    "Skipping table (%s) as it is not as per full_table_name format",
-                    table,
+                    f"Skipping table {table} as it is not as per full_table_name format"
                 )
                 continue
 
@@ -651,9 +646,9 @@ class SupportedResolver(Enum):
 
     @staticmethod
     def get_resolver(function_name: str) -> Optional["SupportedResolver"]:
-        logger.debug("Looking for resolver %s", function_name)
+        logger.debug(f"Looking for resolver {function_name}")
         for supported_resolver in SupportedResolver:
             if function_name == supported_resolver.get_function_name():
                 return supported_resolver
-        logger.debug("Looking not found for resolver %s", function_name)
+        logger.debug(f"Resolver not found for function_name {function_name}")
         return None

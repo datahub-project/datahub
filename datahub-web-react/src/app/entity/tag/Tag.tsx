@@ -18,20 +18,20 @@ const PreviewTagIcon = styled(TagOutlined)`
 export class TagEntity implements Entity<Tag> {
     type: EntityType = EntityType.Tag;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <TagFilled style={{ fontSize }} />;
+            return <TagFilled style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <TagFilled style={{ fontSize, color: '#B37FEB' }} />;
+            return <TagFilled style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         return (
             <TagOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );

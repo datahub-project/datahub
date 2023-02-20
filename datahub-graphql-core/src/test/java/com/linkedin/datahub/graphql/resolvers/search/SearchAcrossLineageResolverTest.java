@@ -97,6 +97,7 @@ public class SearchAcrossLineageResolverTest {
         eq(COUNT),
         eq(START_TIMESTAMP_MILLIS),
         eq(END_TIMESTAMP_MILLIS),
+        eq(null),
         eq(_authentication))).thenReturn(lineageSearchResult);
 
     final SearchAcrossLineageResults results = _resolver.get(_dataFetchingEnvironment).join();
