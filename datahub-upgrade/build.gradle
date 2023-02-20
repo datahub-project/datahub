@@ -27,6 +27,15 @@ dependencies {
     implementation(externalDependency.hadoopCommon3) {
       because("previous versions are vulnerable to CVE-2021-37404")
     }
+    implementation(externalDependency.snakeYaml) {
+      because("previous versions are vulnerable to CVE-2022-25857")
+    }
+    implementation(externalDependency.woodstoxCore) {
+      because("previous versions are vulnerable to CVE-2022-40151-2")
+    }
+    implementation(externalDependency.jettison) {
+      because("previous versions are vulnerable")
+    }
   }
 
   implementation externalDependency.slf4jApi
