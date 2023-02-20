@@ -944,6 +944,11 @@ type EntityLineageResult {
     total: Int
 
     """
+    The number of results that were filtered out of the page (soft-deleted or non-existent)
+    """
+    filtered: Int
+
+    """
     Relationships in the result set
     """
     relationships: [LineageRelationship!]!

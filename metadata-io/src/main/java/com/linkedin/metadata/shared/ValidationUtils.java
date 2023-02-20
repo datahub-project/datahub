@@ -119,8 +119,11 @@ public class ValidationUtils {
 
     final LineageRelationshipArray validatedRelationships = entityLineageResult.getRelationships().stream()
         .filter(relationship -> entityService.exists(relationship.getEntity()))
+        .filter(relationship -> !entityService.isSoftDeleted(relationship.getEntity()))
         .collect(Collectors.toCollection(LineageRelationshipArray::new));
 
+    validatedEntityLineageResult.setFiltered(
+        entityLineageResult.getRelationships().size() - validatedRelationships.size());
     validatedEntityLineageResult.setRelationships(validatedRelationships);
 
     return validatedEntityLineageResult;
