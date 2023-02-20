@@ -3557,5 +3557,29 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-query",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+      "value": "{\"name\":\"TestQuery\",\"description\":\"TestDescription\",\"source\":\"MANUAL\",\"statement\":{\"language\":\"SQL\",\"value\":\"SELECT * FROM db.SampleHiveDataset WHERE field_foo = 'foo_value'\"},\"created\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0},\"lastModified\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-query",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+      "value": "{\"subjects\":[{\"entity\":\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   }
 ]

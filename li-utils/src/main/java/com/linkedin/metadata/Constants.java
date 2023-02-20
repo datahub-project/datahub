@@ -54,6 +54,7 @@ public class Constants {
   public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
+  public static final String QUERY_ENTITY_NAME = "query";
 
   /**
    * Aspects
@@ -251,6 +252,10 @@ public class Constants {
   // Views
   public static final String DATAHUB_VIEW_KEY_ASPECT_NAME = "dataHubViewKey";
   public static final String DATAHUB_VIEW_INFO_ASPECT_NAME = "dataHubViewInfo";
+
+  // Query
+  public static final String QUERY_PROPERTIES_ASPECT_NAME = "queryProperties";
+  public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
