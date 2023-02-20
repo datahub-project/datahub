@@ -104,6 +104,11 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             "Monthly Active Users",
             DateInterval.MONTH,
             dateTime -> dateTime.minusMonths(12)
+                    .withDayOfMonth(1)
+                    .withHourOfDay(0)
+                    .withMinuteOfHour(0)
+                    .withSecondOfMinute(0)
+                    .withMillisOfDay(0)
     ));
 
     String searchesTitle = "Searches Last Week";
