@@ -2,8 +2,9 @@ import json
 import logging
 from dataclasses import dataclass
 from hashlib import md5
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
+import avro.schema
 import confluent_kafka
 import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
@@ -12,6 +13,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     SchemaReference,
 )
 
+from datahub.emitter import mce_builder
 from datahub.ingestion.extractor import protobuf_util, schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
@@ -22,6 +24,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
+from datahub.metadata.schema_classes import DatasetPropertiesClass
+from datahub.utilities.mapping import Constants, OperationProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +65,21 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         except Exception as e:
             logger.warning(f"Failed to get subjects from schema registry: {e}")
+
+        self.meta_processor = OperationProcessor(
+            self.source_config.meta_mapping,
+            self.source_config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.source_config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
+        self.field_meta_processor = OperationProcessor(
+            self.source_config.field_meta_mapping,
+            self.source_config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.source_config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
 
     @classmethod
     def create(
@@ -210,7 +229,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return all_schemas
 
     def _get_schema_and_fields(
-        self, topic: str, is_key_schema: bool
+        self,
+        topic: str,
+        is_key_schema: bool,
     ) -> Tuple[Optional[Schema], List[SchemaField]]:
         schema: Optional[Schema] = None
         schema_type_str: str = "key" if is_key_schema else "value"
@@ -250,7 +271,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         fields: List[SchemaField] = []
         if schema is not None:
             fields = self._get_schema_fields(
-                topic=topic, schema=schema, is_key_schema=is_key_schema
+                topic=topic,
+                schema=schema,
+                is_key_schema=is_key_schema,
             )
         return (schema, fields)
 
@@ -276,16 +299,26 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return jsonref_schema
 
     def _get_schema_fields(
-        self, topic: str, schema: Schema, is_key_schema: bool
+        self,
+        topic: str,
+        schema: Schema,
+        is_key_schema: bool,
     ) -> List[SchemaField]:
         # Parse the schema and convert it to SchemaFields.
         fields: List[SchemaField] = []
         if schema.schema_type == "AVRO":
             cleaned_str: str = self.get_schema_str_replace_confluent_ref_avro(schema)
+            avro_schema = avro.schema.parse(cleaned_str)
+
             # "value.id" or "value.[type=string]id"
             fields = schema_util.avro_schema_to_mce_fields(
-                cleaned_str, is_key_schema=is_key_schema
+                avro_schema,
+                is_key_schema=is_key_schema,
+                meta_mapping_processor=self.field_meta_processor,
+                schema_tags_field=self.source_config.schema_tags_field,
+                tag_prefix=self.source_config.tag_prefix,
             )
+
         elif schema.schema_type == "PROTOBUF":
             imported_schemas: List[
                 ProtobufSchema
@@ -323,12 +356,13 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         return fields
 
-    def _get_schema_metadata(
-        self, topic: str, platform_urn: str
-    ) -> Optional[SchemaMetadata]:
+    def get_aspects_from_schema(self, topic: str, platform_urn: str) -> List[Any]:
+        """Collect aspects from the topic Schema"""
+
         # Process the value schema
         schema, fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=False
+            topic=topic,
+            is_key_schema=False,
         )  # type: Tuple[Optional[Schema], List[SchemaField]]
 
         # Process the key schema
@@ -336,40 +370,45 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             topic=topic, is_key_schema=True
         )  # type:Tuple[Optional[Schema], List[SchemaField]]
 
-        # Create the schemaMetadata aspect.
-        if schema is not None or key_schema is not None:
-            # create a merged string for the combined schemas and compute an md5 hash across
-            schema_as_string = (schema.schema_str if schema is not None else "") + (
-                key_schema.schema_str if key_schema is not None else ""
-            )
-            md5_hash: str = md5(schema_as_string.encode()).hexdigest()
+        meta_aspects: Dict[str, Any] = {}
+        description = None
+        all_tags: List[str] = []
 
-            return SchemaMetadata(
-                schemaName=topic,
-                version=0,
-                hash=md5_hash,
-                platform=platform_urn,
-                platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
-                    keySchema=key_schema.schema_str if key_schema else None,
-                ),
-                fields=key_fields + fields,
-            )
-        return None
+        if schema is not None:
+            if schema.schema_type == "AVRO":
+                cleaned_str: str = self.get_schema_str_replace_confluent_ref_avro(
+                    schema
+                )
+                avro_schema = avro.schema.parse(cleaned_str)
+                meta_aspects = self.meta_processor.process(avro_schema.other_props)
+                description = avro_schema.doc
+                for tag in avro_schema.other_props.get(
+                    self.source_config.schema_tags_field, []
+                ):
+                    all_tags.append(self.source_config.tag_prefix + tag)
+            elif schema.schema_type == "PROTOBUF":
+                pass  # not implemented
 
-    def get_schema_metadata(
-        self, topic: str, platform_urn: str
-    ) -> Optional[SchemaMetadata]:
-        logger.debug(f"Inside _get_schema_metadata {topic} {platform_urn}")
-        # Process the value schema
-        schema, fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=False
-        )  # type: Tuple[Optional[Schema], List[SchemaField]]
+        aspects: List[Any] = []
+        aspects.append(DatasetPropertiesClass(description=description))
 
-        # Process the key schema
-        key_schema, key_fields = self._get_schema_and_fields(
-            topic=topic, is_key_schema=True
-        )  # type:Tuple[Optional[Schema], List[SchemaField]]
+        meta_owners_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+        if meta_owners_aspects:
+            aspects.append(meta_owners_aspects)
+
+        meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
+        if meta_terms_aspect:
+            aspects.append(meta_terms_aspect)
+
+        # Create the tags aspect
+        meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
+        if meta_tags_aspect:
+            all_tags += [
+                tag_association.tag[len("urn:li:tag:") :]
+                for tag_association in meta_tags_aspect.tags
+            ]
+        if all_tags:
+            aspects.append(mce_builder.make_global_tag_aspect_with_tag_list(all_tags))
 
         # Create the schemaMetadata aspect.
         if schema is not None or key_schema is not None:
@@ -379,15 +418,19 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
             md5_hash = md5(schema_as_string.encode()).hexdigest()
 
-            return SchemaMetadata(
-                schemaName=topic,
-                version=0,
-                hash=md5_hash,
-                platform=platform_urn,
-                platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema is not None else "",
-                    keySchema=key_schema.schema_str if key_schema else None,
-                ),
-                fields=key_fields + fields,
+            # Create SchemaMetadata aspect
+            aspects.append(
+                SchemaMetadata(
+                    schemaName=topic,
+                    version=0,
+                    hash=md5_hash,
+                    platform=platform_urn,
+                    platformSchema=KafkaSchema(
+                        documentSchema=schema.schema_str if schema is not None else "",
+                        keySchema=key_schema.schema_str if key_schema else None,
+                    ),
+                    fields=key_fields + fields,
+                )
             )
-        return None
+
+        return aspects

@@ -12,6 +12,8 @@ from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_glossary_terms_aspect_from_urn_list,
+    make_ownership_aspect_from_urn_list,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -20,6 +22,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     KafkaSchemaClass,
     SchemaMetadataClass,
 )
@@ -318,9 +321,13 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         i += 1
 
         if i < len(topic_subject_schema_map.keys()):
+
             # First 3 workunits (topics) must have schemaMetadata aspect
-            assert isinstance(mce.proposedSnapshot.aspects[1], SchemaMetadataClass)
-            schemaMetadataAspect: SchemaMetadataClass = mce.proposedSnapshot.aspects[1]
+            schemaMetadataAspect = [
+                asp
+                for asp in mce.proposedSnapshot.aspects
+                if isinstance(asp, SchemaMetadataClass)
+            ][0]
             assert isinstance(schemaMetadataAspect.platformSchema, KafkaSchemaClass)
             # Make sure the schema name is present in topic_subject_schema_map.
             assert schemaMetadataAspect.schemaName in topic_subject_schema_map
@@ -345,6 +352,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             # The schemaMetadata aspect should not be present for this.
             for aspect in mce.proposedSnapshot.aspects:
                 assert not isinstance(aspect, SchemaMetadataClass)
+
+        assert mce.proposedSnapshot.aspects[1]
 
 
 @pytest.mark.parametrize(
@@ -492,3 +501,52 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     mock_admin_client_instance.describe_configs.assert_called_once()
 
     assert len(workunits) == 2
+
+
+@patch("datahub.ingestion.source.kafka.KafkaSource.create_schema_registry")
+@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_uses_aspects_from_schema(mock_kafka, mock_create_schema_registry):
+    mock_kafka_instance = mock_kafka.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {"test": None, "foobar": None, "bazbaz": None}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    ctx = PipelineContext(run_id="test1")
+    kafka_source = KafkaSource.create(
+        {
+            "topic_patterns": {"allow": ["test"]},
+            "connection": {"bootstrap": "localhost:9092"},
+        },
+        ctx,
+    )
+
+    meta_aspects = [
+        make_ownership_aspect_from_urn_list(["urn:li:corpuser:test_user"], "AUDIT"),
+        make_glossary_terms_aspect_from_urn_list(["urn:li:glossaryTerm:testt"]),
+    ]
+
+    mock_create_schema_registry.return_value.get_aspects_from_schema.return_value = [
+        DatasetPropertiesClass(
+            description="test description",
+        ),
+        *meta_aspects,
+    ]
+
+    workunits = [w for w in kafka_source.get_workunits()]
+    assert len(workunits) == 2
+
+    assert isinstance(workunits[0].metadata, MetadataChangeEvent)
+    mce = workunits[0].metadata
+
+    # Assert the DatasetProperties aspect is present and contains proprties from from the topic and the schema
+    dataset_properties = [
+        asp
+        for asp in mce.proposedSnapshot.aspects
+        if isinstance(asp, DatasetPropertiesClass)
+    ][0]
+    assert dataset_properties.name == "test"
+    assert dataset_properties.description == "test description"
+
+    # Assert the other aspects from the schema are present
+    for aspect in meta_aspects:
+        assert aspect in mce.proposedSnapshot.aspects

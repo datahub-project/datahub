@@ -28,6 +28,7 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE = """
       "name": "my.field",
       "type": ["null", "string"],
       "doc": "some.doc"
+      "tags": ["t1"]
     }
   ]
 }

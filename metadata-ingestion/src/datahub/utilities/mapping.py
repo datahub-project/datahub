@@ -1,5 +1,7 @@
 import logging
+import operator
 import re
+from functools import reduce
 from typing import Any, Dict, List, Match, Optional, Union
 
 from datahub.emitter import mce_builder
@@ -69,11 +71,13 @@ class OperationProcessor:
         tag_prefix: str = "",
         owner_source_type: Optional[str] = None,
         strip_owner_email_id: bool = False,
+        match_nested_props: bool = False,
     ):
         self.operation_defs = operation_defs
         self.tag_prefix = tag_prefix
         self.strip_owner_email_id = strip_owner_email_id
         self.owner_source_type = owner_source_type
+        self.match_nested_props = match_nested_props
 
     def process(self, raw_props: Dict[str, Any]) -> Dict[str, Any]:
         # Defining the following local variables -
@@ -96,10 +100,21 @@ class OperationProcessor:
                 )
                 if not operation_type or not operation_config:
                     continue
+
+                raw_props_value = raw_props.get(operation_key)
+                if not raw_props_value and self.match_nested_props:
+                    try:
+                        raw_props_value = reduce(
+                            operator.getitem, operation_key.split("."), raw_props
+                        )
+                    except KeyError:
+                        pass
+
                 maybe_match = self.get_match(
                     self.operation_defs[operation_key][Constants.MATCH],
-                    raw_props.get(operation_key),
+                    raw_props_value,
                 )
+
                 if maybe_match is not None:
                     operation = self.get_operation_value(
                         operation_key, operation_type, operation_config, maybe_match
