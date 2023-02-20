@@ -1,7 +1,6 @@
 import json
 import tempfile
 import sys
-import csv
 from json import JSONDecodeError
 from typing import Dict, List
 
@@ -40,7 +39,7 @@ def datahub_delete(params: List[str]) -> None:
     assert delete_result.exit_code == 0
 
 
-def test_urn_csv_delete() -> None:
+def test_urn_file_delete() -> None:
     ingest_file_via_rest("tests/cli/cli_test_data.json")
     with tempfile.NamedTemporaryFile("w+t", newline='') as file:
         file.writelines([dataset_urn])
