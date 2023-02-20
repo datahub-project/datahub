@@ -376,7 +376,7 @@ def test_kafka_ignore_warnings_on_schema_type(
         schema_id="schema_id_2",
         schema=Schema(
             schema_str="{}",
-            schema_type="JSON",
+            schema_type="UNKNOWN_TYPE",
         ),
         subject="topic1-key",
         version=1,
@@ -385,7 +385,7 @@ def test_kafka_ignore_warnings_on_schema_type(
         schema_id="schema_id_1",
         schema=Schema(
             schema_str="{}",
-            schema_type="JSON",
+            schema_type="UNKNOWN_TYPE",
         ),
         subject="topic1-value",
         version=1,

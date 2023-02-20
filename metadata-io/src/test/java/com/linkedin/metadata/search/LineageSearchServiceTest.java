@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.TestEntityUtil;
@@ -40,6 +41,7 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
@@ -76,6 +78,7 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
   private static final Urn TEST_URN = TestEntityUtil.getTestEntityUrn();
   private static final String TEST = "test";
   private static final String TEST1 = "test1";
+  private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
 
   @BeforeClass
   public void disableAssert() {
@@ -218,6 +221,63 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache();
 
+    // Test Cache Behavior
+    Mockito.reset(_graphService);
+
+    // Case 1: Use the maxHops in the cache.
+    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        eq(1000), eq(null), eq(null))).thenReturn(mockResult(
+        ImmutableList.of(
+            new LineageRelationship().setDegree(3).setType("type").setEntity(urn)
+        )
+    ));
+
+    searchResult =
+        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
+            "test1", 1000, null, null, 0, 10, null, null,
+            new SearchFlags().setSkipCache(true));
+
+    assertEquals(searchResult.getNumEntities().intValue(), 1);
+    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        eq(1000), eq(null), eq(null));
+
+    // Hit the cache on second attempt
+    searchResult = _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
+        "test1", 1000, null, null, 0, 10, null, null,
+        new SearchFlags().setSkipCache(true));
+    assertEquals(searchResult.getNumEntities().intValue(), 1);
+    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        eq(1000), eq(null), eq(null));
+
+
+    // Case 2: Use the start and end time in the cache.
+    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        eq(1000), eq(0L), eq(1L))).thenReturn(mockResult(
+        ImmutableList.of(
+            new LineageRelationship().setDegree(3).setType("type").setEntity(urn)
+        )
+    ));
+
+    searchResult =
+        _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), "test1",
+            null, null, null, 0, 10, 0L, 1L,
+            new SearchFlags().setSkipCache(true));
+
+    assertEquals(searchResult.getNumEntities().intValue(), 1);
+    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        eq(1000), eq(0L), eq(1L));
+
+    // Hit the cache on second attempt
+    searchResult = _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(ENTITY_NAME),
+        "test1", null, null, null, 0, 10, 0L, 1L,
+        new SearchFlags().setSkipCache(true));
+    assertEquals(searchResult.getNumEntities().intValue(), 1);
+    Mockito.verify(_graphService, times(1)).getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        eq(1000), eq(0L), eq(1L));
+
+    clearCache();
+
+    // Cleanup
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(_bulkProcessor);
@@ -228,6 +288,7 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
     searchResult = searchAcrossLineage(null, TEST1);
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
+
   }
 
   // Convenience method to reduce spots where we're sending the same params
