@@ -35,7 +35,7 @@ jobs:
         id: packages_correct
         run: |
           cd metadata-ingestion
-          python -c ../.github/scripts/check_packages.py
+          python ../.github/scripts/check_packages.py
       - name: Compute Tag
         id: tag
         run: |
