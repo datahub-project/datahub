@@ -23,6 +23,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -81,6 +82,8 @@ public class Neo4jGraphService implements GraphService {
 
     final String sourceType = edge.getSource().getEntityType();
     final String destinationType = edge.getDestination().getEntityType();
+    final String sourceUrn = edge.getSource().toString();
+    final String destinationUrn = edge.getDestination().toString();
 
     final List<Statement> statements = new ArrayList<>();
 
@@ -90,37 +93,89 @@ public class Neo4jGraphService implements GraphService {
 
     // Add/Update relationship
     final String mergeRelationshipTemplate =
-        "MATCH (source:%s {urn: $sourceUrn}),(destination:%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties";
-    final String statement =
-        String.format(mergeRelationshipTemplate, sourceType, destinationType, edge.getRelationshipType());
+        "MATCH (source:%s {urn: '%s'}),(destination:%s {urn: '%s'}) MERGE (source)-[r:%s]->(destination) ";
+    String statement =
+        String.format(mergeRelationshipTemplate, sourceType, sourceUrn, destinationType, destinationUrn, edge.getRelationshipType());
 
-    final Map<String, Object> paramsMerge = new HashMap<>();
-    paramsMerge.put("sourceUrn", edge.getSource().toString());
-    paramsMerge.put("destinationUrn", edge.getDestination().toString());
-    paramsMerge.put("properties", new HashMap<>());
+    // Add/Update relationship properties
+    String setCreatedOnTemplate;
+    String setcreatedActorTemplate;
+    String setupdatedOnTemplate;
+    String setupdatedActorTemplate;
+    final StringJoiner propertiesTemplateJoiner = new StringJoiner(", ");
+    if (edge.getCreatedOn() != null) {
+      setCreatedOnTemplate = "r.createdOn = " + edge.getCreatedOn();
+      propertiesTemplateJoiner.add(setCreatedOnTemplate);
+    }
+    if (edge.getCreatedActor() != null) {
+      setcreatedActorTemplate = "r.createdActor = '" + edge.getCreatedActor() + "'";
+      propertiesTemplateJoiner.add(setcreatedActorTemplate);
+    }
+    if (edge.getUpdatedOn() != null) {
+      setupdatedOnTemplate = "r.updatedOn = " + edge.getUpdatedOn();
+      propertiesTemplateJoiner.add(setupdatedOnTemplate);
+    }
+    if (edge.getUpdatedActor() != null) {
+      setupdatedActorTemplate = "r.updatedActor = '" + edge.getUpdatedActor() + "'";
+      propertiesTemplateJoiner.add(setupdatedActorTemplate);
+    }
+    if (!StringUtils.isEmpty(propertiesTemplateJoiner.toString())) {
+      statement = statement + "SET " + propertiesTemplateJoiner;
+    }
 
-    statements.add(buildStatement(statement, paramsMerge));
+    statements.add(buildStatement(statement, new HashMap<>()));
 
     executeStatements(statements);
   }
 
   @Override
   public void upsertEdge(final Edge edge) {
-    throw new UnsupportedOperationException("Upsert edge not supported by Neo4JGraphService at this time.");
+    addEdge(edge);
   }
 
   @Override
   public void removeEdge(final Edge edge) {
-    throw new UnsupportedOperationException("Remove edge not supported by Neo4JGraphService at this time.");
+    log.debug(
+        String.format("Deleting Edge source: %s, destination: %s, type: %s", edge.getSource(), edge.getDestination(),
+            edge.getRelationshipType()));
+
+    final String sourceType = edge.getSource().getEntityType();
+    final String destinationType = edge.getDestination().getEntityType();
+
+    final List<Statement> statements = new ArrayList<>();
+
+    // DELETE relationship
+    final String mergeRelationshipTemplate =
+        "MATCH (source:%s {urn: $sourceUrn})-[r:%s]->(destination:%s {urn: $destinationUrn}) DELETE r";
+    final String statement =
+        String.format(mergeRelationshipTemplate, sourceType, edge.getRelationshipType(), destinationType);
+
+    final Map<String, Object> paramsMerge = new HashMap<>();
+    paramsMerge.put("sourceUrn", edge.getSource().toString());
+    paramsMerge.put("destinationUrn", edge.getDestination().toString());
+
+    statements.add(buildStatement(statement, paramsMerge));
+
+    executeStatements(statements);
+  }
+
+  @Nonnull
+  @WithSpan
+  @Override
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
+      GraphFilters graphFilters, int offset, int count, int maxHops) {
+    return getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null, null);
   }
 
   @Nonnull
   @Override
   public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
-      GraphFilters graphFilters, int offset, int count, int maxHops) {
+      GraphFilters graphFilters, int offset, int count, int maxHops, @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
 
-    final String statement = generateLineageStatement(entityUrn, direction, graphFilters, maxHops);
+    final String statement =
+        generateLineageStatement(entityUrn, direction, graphFilters, maxHops, startTimeMillis, endTimeMillis);
 
     List<Record> neo4jResult = statement != null ? runQuery(buildStatement(statement, new HashMap<>())).list() : new ArrayList<>();
 
@@ -161,9 +216,8 @@ public class Neo4jGraphService implements GraphService {
     return result;
   }
 
-  private String generateLineageStatement(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, GraphFilters graphFilters, int maxHops) {
-    final String multiHopTemplateDirect = "MATCH shortestPath((a {urn: '%s'})-[r:%s*1..%d]->(b)) WHERE (b:%s) AND b.urn <> '%s' RETURN a,r,b";
-    final String multiHopTemplateIndirect = "MATCH shortestPath((a {urn: '%s'})<-[r:%s*1..%d]-(b)) WHERE (b:%s) AND b.urn <> '%s' RETURN a,r,b";
+  private String generateLineageStatement(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
+      GraphFilters graphFilters, int maxHops, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
 
     List<LineageRegistry.EdgeInfo> edgesToFetch =
             getLineageRegistry().getLineageRelationships(entityUrn.getEntityType(), direction);
@@ -179,8 +233,94 @@ public class Neo4jGraphService implements GraphService {
 
     final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
 
-    final String statementDirect = String.format(multiHopTemplateDirect, entityUrn, upstreamRel, maxHops, allowedEntityTypes, entityUrn);
-    final String statementIndirect = String.format(multiHopTemplateIndirect, entityUrn, dowStreamRel, maxHops, allowedEntityTypes, entityUrn);
+    final String multiHopMatchTemplateDirect = "MATCH shortestPath((a {urn: '%s'})-[r:%s*1..%d]->(b)) ";
+    final String multiHopMatchTemplateIndirect = "MATCH shortestPath((a {urn: '%s'})<-[r:%s*1..%d]-(b)) ";
+    final String whereTemplate = "WHERE (b:%s) AND b.urn <> '%s' ";
+    final String returnTemplate = "RETURN a,r,b";
+
+    String statementDirect = "";
+    String statementIndirect = "";
+
+    if (startTimeMillis != null && endTimeMillis != null) {
+      final String withTimeTemplate = "WITH %d as startTimeMillis, %d as endTimeMillis ";
+      final String timeFilterConditionTemplate =
+          "WIth *, " + "((r[-1]).createdOn >= startTimeMillis OR (r[-1]).updatedOn >= startTimeMillis) as s_true, "
+              + "((r[0]).createdOn <= endTimeMillis OR (r[0]).updatedOn <= endTimeMillis) as e_true , "
+              + "ALL(i in range(0, size(r)-2) " + "WHERE " + "( "
+              + "((r[i]).createdOn >= startTimeMillis AND (r[i]).createdOn <= endTimeMillis) " + "OR "
+              + "((r[i]).updatedOn >= startTimeMillis AND (r[i]).updatedOn <= endTimeMillis) " + ") " + ") " + "as c "
+              + "WHERE s_true and e_true and c ";
+
+      final String multiHopTemplateDirect =
+          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+      statementDirect =
+          String.format(multiHopTemplateDirect, startTimeMillis, endTimeMillis, entityUrn, upstreamRel, maxHops,
+              allowedEntityTypes, entityUrn);
+
+      final String multiHopTemplateIndirect =
+          withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
+              + returnTemplate;
+      statementIndirect =
+          String.format(multiHopTemplateIndirect, startTimeMillis, endTimeMillis, entityUrn, dowStreamRel, maxHops,
+              allowedEntityTypes, entityUrn);
+    }
+
+    if (startTimeMillis != null && endTimeMillis == null) {
+      final String withTimeTemplate = "WITH %d as startTimeMillis ";
+      final String timeFilterConditionTemplate =
+          "WIth *, " + "((r[-1]).createdOn >= startTimeMillis OR (r[-1]).updatedOn >= startTimeMillis) as s_true, "
+              + "ALL(i in range(0, size(r)-2) " + "WHERE " + "( " + "(r[i]).createdOn >= startTimeMillis " + "OR "
+              + "(r[i]).updatedOn >= startTimeMillis " + ")" + ") " + "as c " + "WHERE s_true and c ";
+
+      final String multiHopTemplateDirect =
+          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+      statementDirect =
+          String.format(multiHopTemplateDirect, startTimeMillis, entityUrn, upstreamRel, maxHops, allowedEntityTypes,
+              entityUrn);
+
+      final String multiHopTemplateIndirect =
+          withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
+              + returnTemplate;
+      statementIndirect =
+          String.format(multiHopTemplateIndirect, startTimeMillis, entityUrn, dowStreamRel, maxHops, allowedEntityTypes,
+              entityUrn);
+    }
+
+    if (startTimeMillis == null && endTimeMillis != null) {
+      final String withTimeTemplate = "WITH %d as endTimeMillis ";
+      final String timeFilterConditionTemplate =
+          "WIth *, " + "((r[0]).createdOn <= endTimeMillis OR (r[0]).updatedOn <= endTimeMillis) as e_true , "
+              + "ALL(i in range(0, size(r)-2) " + "WHERE " + "( " + "(r[i]).createdOn <= endTimeMillis " + "OR "
+              + "(r[i]).updatedOn <= endTimeMillis " + ")" + ")" + "as c " + "WHERE e_true and c ";
+
+      final String multiHopTemplateDirect =
+          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+      statementDirect =
+          String.format(multiHopTemplateDirect, endTimeMillis, entityUrn, upstreamRel, maxHops, allowedEntityTypes,
+              entityUrn);
+      final String multiHopTemplateIndirect =
+          withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
+              + returnTemplate;
+      statementIndirect =
+          String.format(multiHopTemplateIndirect, endTimeMillis, entityUrn, dowStreamRel, maxHops, allowedEntityTypes,
+              entityUrn);
+    }
+
+    if (startTimeMillis == null && endTimeMillis == null) {
+      final String withTimeTemplate = "";
+      final String timeFilterConditionTemplate = "";
+
+      final String multiHopTemplateDirect =
+          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+      statementDirect =
+          String.format(multiHopTemplateDirect, entityUrn, upstreamRel, maxHops, allowedEntityTypes, entityUrn);
+
+      final String multiHopTemplateIndirect =
+          withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
+              + returnTemplate;
+      statementIndirect =
+          String.format(multiHopTemplateIndirect, entityUrn, dowStreamRel, maxHops, allowedEntityTypes, entityUrn);
+    }
 
     String statement = null;
     if (upstreamRel.length() > 0 && dowStreamRel.length() > 0) {

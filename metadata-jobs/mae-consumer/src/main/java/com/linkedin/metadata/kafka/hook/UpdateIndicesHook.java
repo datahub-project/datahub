@@ -22,6 +22,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -165,7 +166,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
 
     // Step 2. For all aspects, attempt to update Graph
-    if (_diffMode && _graphService instanceof ElasticSearchGraphService) {
+    if (_diffMode && (_graphService instanceof ElasticSearchGraphService || _graphService instanceof Neo4jGraphService)) {
       updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
     } else {
       updateGraphService(urn, aspectSpec, aspect, event);

@@ -1,12 +1,19 @@
 package com.linkedin.metadata.graph.neo4j;
 
+import com.linkedin.common.FabricType;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.TagUrn;
+import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import java.util.Collections;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.testng.SkipException;
@@ -20,6 +27,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 
+import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.testng.Assert.assertEquals;
 
 
@@ -28,6 +36,8 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   private Neo4jTestServerBuilder _serverBuilder;
   private Driver _driver;
   private Neo4jGraphService _client;
+
+  private static final String TAG_RELATIONSHIP = "SchemaFieldTaggedWith";
 
   @BeforeClass
   public void init() {
@@ -160,4 +170,24 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
     throw new SkipException("Neo4jGraphService produces duplicates");
   }
 
+  @Test
+  public void testRemoveEdge() throws Exception {
+    DatasetUrn datasetUrn = new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
+    TagUrn tagUrn = new TagUrn("newTag");
+    Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
+    getGraphService().addEdge(edge);
+
+    RelatedEntitiesResult result = getGraphService().findRelatedEntities(Collections.singletonList(datasetType),
+        newFilter(Collections.singletonMap("urn", datasetUrn.toString())), Collections.singletonList("tag"),
+        EMPTY_FILTER, Collections.singletonList(TAG_RELATIONSHIP),
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING), 0, 100);
+    assertEquals(result.getTotal(), 1);
+    getGraphService().removeEdge(edge);
+
+    result = getGraphService().findRelatedEntities(Collections.singletonList(datasetType),
+        newFilter(Collections.singletonMap("urn", datasetUrn.toString())), Collections.singletonList("tag"),
+        EMPTY_FILTER, Collections.singletonList(TAG_RELATIONSHIP),
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING), 0, 100);
+    assertEquals(result.getTotal(), 0);
+  }
 }
