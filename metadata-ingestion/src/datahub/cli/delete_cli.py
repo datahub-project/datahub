@@ -84,10 +84,10 @@ def delete_for_registry(
 @click.command()
 @click.option("--urn", required=False, type=str, help="the urn of the entity")
 @click.option(
-    "--csv",
+    "--urn-file",
     required=False,
     type=str,
-    help="file path of csv with a single urn column without header",
+    help="the filepath, file consist of urns seperated by linebreak",
 )
 @click.option(
     "-a",
@@ -143,7 +143,7 @@ def delete_for_registry(
 @telemetry.with_telemetry()
 def delete(
     urn: str,
-    csv: str,
+    urn_file: str,
     aspect_name: Optional[str],
     force: bool,
     soft: bool,
@@ -167,7 +167,7 @@ def delete(
         and not env
         and not query
         and not registry_id
-        and not csv
+        and not urn_file
     ):
         raise click.UsageError(
             "You must provide one of urn / csv / platform / env / query / registry_id in order to delete entities."
@@ -189,10 +189,10 @@ def delete(
             "This will permanently delete data from DataHub. Do you want to continue?",
             abort=True,
         )
-    if urn or csv:
-        if csv:
-            df = pd.read_csv(csv, header=None, names=["urn"])
-            urns = df["urn"].tolist()
+    if urn or urn_file:
+        if urn_file:
+            with open(urn_file) as f:
+                urns = f.read().split("\n")
         else:
             urns = [urn]
         # urn delete based on list

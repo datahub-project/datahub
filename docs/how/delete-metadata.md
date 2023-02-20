@@ -74,12 +74,12 @@ If you wish to hard-delete using a curl request you can use something like below
 ```
 curl "http://localhost:8080/entities?action=delete" -X POST --data '{"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"}'
 ```
-## Delete By Urn with CSV
+## Delete By Urn with file
 
-Use `--csv` instead of `--urn` , since we are using the same delete urn function under the hood, the flag that applies to `--urn` will work on `--csv` too.  
-**CSV should only contain a single column of urns without header**
+Use `--urn-file` instead of `--urn` , since we are using the same delete urn function under the hood, the flag that applies to `--urn` will work on `--urn-file` too.  
+**File is literally a list of urn seperated by line break \n**
 ```
-datahub delete --csv "<csv file path>"
+datahub delete --urn-file "<urn file path>"
 ```
 ## Delete using Broader Filters
 

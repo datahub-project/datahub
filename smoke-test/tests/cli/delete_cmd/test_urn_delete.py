@@ -42,14 +42,13 @@ def datahub_delete(params: List[str]) -> None:
 
 def test_urn_csv_delete() -> None:
     ingest_file_via_rest("tests/cli/cli_test_data.json")
-    with tempfile.NamedTemporaryFile("w+t", suffix=".csv", newline='') as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow([dataset_urn])
-        csv_file.seek(0)
+    with tempfile.NamedTemporaryFile("w+t", newline='') as file:
+        file.writelines([dataset_urn])
+        file.seek(0)
         datahub_delete(
             [
-                "--csv",
-                csv_file.name,
+                "--urn-file",
+                file.name,
             ],
         )
         datahub_get_and_verify(test_dataset_urn=dataset_urn)
