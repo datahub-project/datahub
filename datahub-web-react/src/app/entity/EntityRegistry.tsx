@@ -123,35 +123,34 @@ export default class EntityRegistry {
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
+        console.log(data);
         return (
             ({
                 ...entity.getLineageVizConfig?.(data),
                 downstreamChildren: genericEntityProperties?.downstream?.relationships
                     ?.filter((relationship) => relationship.entity)
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.filter((relationship) => !relationship.entity?.['status']?.removed)
                     ?.map((relationship) => ({
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
-                downstreamRelationships: genericEntityProperties?.downstream?.relationships
-                    ?.filter((relationship) => relationship.entity)
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.filter((relationship) => !relationship.entity?.['status']?.removed),
-                numDownstreamChildren: genericEntityProperties?.downstream?.total,
+                downstreamRelationships: genericEntityProperties?.downstream?.relationships?.filter(
+                    (relationship) => relationship.entity,
+                ),
+                numDownstreamChildren:
+                    (genericEntityProperties?.downstream?.total || 0) -
+                    (genericEntityProperties?.downstream?.filtered || 0),
                 upstreamChildren: genericEntityProperties?.upstream?.relationships
                     ?.filter((relationship) => relationship.entity)
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.filter((relationship) => !relationship.entity?.['status']?.removed)
                     ?.map((relationship) => ({
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
-                upstreamRelationships: genericEntityProperties?.upstream?.relationships
-                    ?.filter((relationship) => relationship.entity)
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.filter((relationship) => !relationship.entity?.['status']?.removed),
-                numUpstreamChildren: genericEntityProperties?.upstream?.total,
+                upstreamRelationships: genericEntityProperties?.upstream?.relationships?.filter(
+                    (relationship) => relationship.entity,
+                ),
+                numUpstreamChildren:
+                    (genericEntityProperties?.upstream?.total || 0) -
+                    (genericEntityProperties?.upstream?.filtered || 0),
                 status: genericEntityProperties?.status,
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
                 fineGrainedLineages: genericEntityProperties?.fineGrainedLineages,
