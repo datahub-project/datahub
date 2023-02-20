@@ -6,7 +6,6 @@ from random import choices
 from typing import Any, Dict, List, Optional, Tuple
 
 import click
-import pandas as pd
 import progressbar
 from requests import sessions
 from tabulate import tabulate
@@ -170,7 +169,7 @@ def delete(
         and not urn_file
     ):
         raise click.UsageError(
-            "You must provide one of urn / csv / platform / env / query / registry_id in order to delete entities."
+            "You must provide one of urn / urn-file / platform / env / query / registry_id in order to delete entities."
         )
 
     include_removed: bool
