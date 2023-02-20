@@ -55,6 +55,7 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
+    "jsonschema",
 }
 
 rest_common = {"requests", "requests_file"}
