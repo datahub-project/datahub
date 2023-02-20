@@ -150,6 +150,9 @@ def guess_person_ldap(
 ) -> Optional[str]:
     """Determine the user's LDAP based on the DN and attributes."""
     if config.user_attrs_map["urn"] in attrs:
+        if config.user_attrs_map["urn"] == "mail":
+            response = attrs[config.user_attrs_map["urn"]][0].decode().split('@')[0]
+            return response
         return attrs[config.user_attrs_map["urn"]][0].decode()
     else:  # for backward compatiblity
         if "sAMAccountName" in attrs:
