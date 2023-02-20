@@ -12,6 +12,7 @@ const RangePickerWrapper = styled.div`
     position: relative;
     &:hover {
         background-color: ${ANTD_GRAY[2]};
+        cursor: pointer;
     }
     .ant-picker-range {
         visibility: hidden;
