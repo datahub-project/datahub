@@ -3577,7 +3577,7 @@
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
-      "value": "{\"subjects\":[{\"entity\":\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\"]}",
+      "value": "{\"subjects\":[{\"entity\":\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\"}]}",
       "contentType": "application/json"
     },
     "systemMetadata": null
