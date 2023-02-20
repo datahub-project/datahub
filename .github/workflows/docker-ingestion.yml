@@ -31,6 +31,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: check packages are correct
+        id: packages_correct
+        run: |
+          cd metadata-ingestion
+          python -c ../.github/scripts/check_packages.py
       - name: Compute Tag
         id: tag
         run: |
