@@ -127,7 +127,7 @@ public class MostPopularSource implements RecommendationSource {
 
     // Find the entities with the most views
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.ENTITY_URN + ESUtils.KEYWORD_SUFFIX)
+        .field(ESUtils.toKeywordField(DataHubUsageEventConstants.ENTITY_URN, true))
         .size(MAX_CONTENT * 2);
     source.aggregation(aggregation);
     source.size(0);
