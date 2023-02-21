@@ -121,6 +121,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -134,6 +137,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
@@ -147,6 +153,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
@@ -160,6 +169,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -173,6 +185,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
@@ -186,6 +201,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
@@ -199,6 +217,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
@@ -212,6 +233,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
@@ -242,10 +266,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             },
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             }
                         ]
                     }
@@ -403,6 +427,9 @@
                                 },
                                 "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
                             },
@@ -416,6 +443,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
@@ -433,6 +463,9 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                             },
@@ -450,6 +483,9 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                             }
@@ -480,10 +516,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             },
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             }
                         ]
                     }
@@ -584,6 +620,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -597,6 +636,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -610,6 +652,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -623,6 +668,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -636,6 +684,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
@@ -666,10 +717,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             },
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             }
                         ]
                     }

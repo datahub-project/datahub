@@ -139,6 +139,9 @@
                                 },
                                 "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
                             },
@@ -152,6 +155,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
@@ -169,6 +175,9 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                             },
@@ -186,6 +195,9 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                             }
@@ -319,6 +331,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -332,6 +347,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -345,6 +363,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -358,6 +379,9 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
@@ -371,6 +395,9 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
                                 "isPartOfKey": false,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             }
@@ -437,8 +464,8 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -452,8 +479,8 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
