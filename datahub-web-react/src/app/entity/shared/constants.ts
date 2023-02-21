@@ -57,6 +57,14 @@ export const EMPTY_MESSAGES = {
         title: 'Does not inherit from any terms',
         description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
     },
+    'contained by': {
+        title: 'Does not contained by any terms',
+        description: 'Terms can be contained by other terms to represent an "Has A" style relationship.',
+    },
+    'inherited by': {
+        title: 'Does not inherited by any terms',
+        description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
+    },
 };
 
 export const ELASTIC_MAX_COUNT = 10000;
