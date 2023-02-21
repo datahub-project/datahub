@@ -22,7 +22,8 @@ import org.springframework.cache.CacheManager;
 
 import java.util.Optional;
 
-import static com.datahub.util.RecordUtils.*;
+import static com.datahub.util.RecordUtils.toJsonString;
+import static com.datahub.util.RecordUtils.toRecordTemplate;
 
 
 @RequiredArgsConstructor

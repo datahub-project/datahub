@@ -25,6 +25,16 @@ export const INTERVAL_TO_MS = {
     [DateInterval.Year]: 31536000000,
 };
 
+export const INTERVAL_TO_MOMENT_INTERVAL = {
+    [DateInterval.Second]: 'seconds',
+    [DateInterval.Minute]: 'minutes',
+    [DateInterval.Hour]: 'hours',
+    [DateInterval.Day]: 'days',
+    [DateInterval.Week]: 'weeks',
+    [DateInterval.Month]: 'months',
+    [DateInterval.Year]: 'years',
+};
+
 export type TimeWindowSize = {
     interval: DateInterval;
     count: number;
@@ -46,6 +56,12 @@ export type TimeWindow = {
  */
 export const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
     return INTERVAL_TO_SECONDS[windowSize.interval] * 1000 * windowSize.count;
+};
+
+export const addInterval = (interval_num: number, date: Date, interval: DateInterval): Date => {
+    return moment(date)
+        .add(interval_num, INTERVAL_TO_MOMENT_INTERVAL[interval] as moment.DurationInputArg2)
+        .toDate();
 };
 
 /**

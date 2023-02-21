@@ -136,6 +136,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
 
+    assertTrue(result.getCanEditQueries());
     assertTrue(result.getCanEditLineage());
   }
 
@@ -150,6 +151,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
 
+    assertFalse(result.getCanEditQueries());
     assertFalse(result.getCanEditLineage());
   }
 

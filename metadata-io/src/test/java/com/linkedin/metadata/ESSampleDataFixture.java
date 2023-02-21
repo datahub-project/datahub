@@ -3,6 +3,9 @@ package com.linkedin.metadata;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.ElasticSearchConfiguration;
+import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -40,6 +43,9 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 @TestConfiguration
@@ -163,8 +169,11 @@ public class ESSampleDataFixture {
                 1,
                 false);
 
+        AspectDao mockAspectDao = mock(AspectDao.class);
+        when(mockAspectDao.batchGet(anySet())).thenReturn(Map.of(mock(EntityAspectIdentifier.class), mock(EntityAspect.class)));
+
         return new JavaEntityClient(
-                new EntityService(null, null, entityRegistry),
+                new EntityService(mockAspectDao, null, entityRegistry),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,
