@@ -112,7 +112,7 @@ google-cloud-bigquery==3.5.0
 google-cloud-bigquery-storage==2.18.1
 google-cloud-core==2.3.2
 google-cloud-datacatalog-lineage==0.2.0
-google-cloud-logging==3.1.1
+google-cloud-logging==3.5.0
 google-crc32c==1.5.0
 google-resumable-media==2.4.1
 googleapis-common-protos==1.58.0
