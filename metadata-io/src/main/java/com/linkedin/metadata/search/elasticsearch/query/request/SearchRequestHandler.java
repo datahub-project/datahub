@@ -76,6 +76,7 @@ public class SearchRequestHandler {
   private final EntitySpec _entitySpec;
   private final Set<String> _facetFields;
   private final Set<String> _defaultQueryFieldNames;
+  private final HighlightBuilder _highlights;
   private final Map<String, String> _filtersToDisplayName;
   private final Configs _configs;
 
@@ -95,6 +96,7 @@ public class SearchRequestHandler {
     _entitySpec = entitySpec;
     _facetFields = getFacetFields();
     _defaultQueryFieldNames = getDefaultQueryFieldNames();
+    _highlights = getHighlights();
     _filtersToDisplayName = _entitySpec.getSearchableFieldSpecs()
         .stream()
         .filter(spec -> spec.getSearchableAnnotation().isAddToFilters())
@@ -131,7 +133,7 @@ public class SearchRequestHandler {
   }
 
   public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
-    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
+    BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false);
 
     boolean removedInOrFilter = false;
     if (filter != null) {
@@ -175,7 +177,7 @@ public class SearchRequestHandler {
             .must(getQuery(input, fulltext))
             .must(filterQuery));
     getAggregations().forEach(searchSourceBuilder::aggregation);
-    searchSourceBuilder.highlighter(getHighlights());
+    searchSourceBuilder.highlighter(_highlights);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest.toString());
@@ -224,7 +226,7 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(0);
-    searchSourceBuilder.aggregation(AggregationBuilders.terms(field).field(field + ESUtils.KEYWORD_SUFFIX).size(limit));
+    searchSourceBuilder.aggregation(AggregationBuilders.terms(field).field(ESUtils.toKeywordField(field, false)).size(limit));
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -239,7 +241,7 @@ public class SearchRequestHandler {
     for (String facet : _facetFields) {
       // All facet fields must have subField keyword
       AggregationBuilder aggBuilder =
-          AggregationBuilders.terms(facet).field(facet + ESUtils.KEYWORD_SUFFIX).size(_configs.getMaxTermBucketSize());
+          AggregationBuilders.terms(facet).field(ESUtils.toKeywordField(facet, false)).size(_configs.getMaxTermBucketSize());
       aggregationBuilders.add(aggBuilder);
     }
     return aggregationBuilders;
@@ -247,14 +249,16 @@ public class SearchRequestHandler {
 
   private HighlightBuilder getHighlights() {
     HighlightBuilder highlightBuilder = new HighlightBuilder();
+
     // Don't set tags to get the original field value
     highlightBuilder.preTags("");
     highlightBuilder.postTags("");
+
     // Check for each field name and any subfields
-    _defaultQueryFieldNames.forEach(fieldName -> highlightBuilder
-            .field(fieldName)
-            .field(fieldName + ".*"));
-    highlightBuilder.field("urn.delimited");
+    _defaultQueryFieldNames.stream()
+            .flatMap(fieldName -> Stream.of(fieldName, fieldName + ".*")).distinct()
+            .forEach(highlightBuilder::field);
+
     return highlightBuilder;
   }
 
@@ -272,7 +276,8 @@ public class SearchRequestHandler {
   }
 
   @Nonnull
-  private List<MatchedField> extractMatchedFields(@Nonnull Map<String, HighlightField> highlightedFields) {
+  private List<MatchedField> extractMatchedFields(@Nonnull SearchHit hit) {
+    Map<String, HighlightField> highlightedFields = hit.getHighlightFields();
     // Keep track of unique field values that matched for a given field name
     Map<String, Set<String>> highlightedFieldNamesAndValues = new HashMap<>();
     for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
@@ -286,6 +291,12 @@ public class SearchRequestHandler {
       }
       for (Text fieldValue : entry.getValue().getFragments()) {
         highlightedFieldNamesAndValues.get(fieldName.get()).add(fieldValue.string());
+      }
+    }
+    // fallback matched query, non-analyzed field
+    for (String queryName : hit.getMatchedQueries()) {
+      if (!highlightedFieldNamesAndValues.containsKey(queryName)) {
+        highlightedFieldNamesAndValues.put(queryName, Set.of(""));
       }
     }
     return highlightedFieldNamesAndValues.entrySet()
@@ -306,7 +317,7 @@ public class SearchRequestHandler {
 
   private SearchEntity getResult(@Nonnull SearchHit hit) {
     return new SearchEntity().setEntity(getUrnFromSearchHit(hit))
-        .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit.getHighlightFields())))
+        .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
         .setScore(hit.getScore())
         .setFeatures(new DoubleMap(extractFeatures(hit)));
   }

@@ -58,6 +58,9 @@ export enum EventType {
     ManuallyDeleteLineageEvent,
     LineageGraphTimeRangeSelectionEvent,
     LineageTabTimeRangeSelectionEvent,
+    CreateQueryEvent,
+    UpdateQueryEvent,
+    DeleteQueryEvent,
 }
 
 /**
@@ -455,6 +458,18 @@ export interface LineageTabTimeRangeSelectionEvent extends BaseEvent {
     relativeEndDate: string;
 }
 
+export interface CreateQueryEvent extends BaseEvent {
+    type: EventType.CreateQueryEvent;
+}
+
+export interface UpdateQueryEvent extends BaseEvent {
+    type: EventType.UpdateQueryEvent;
+}
+
+export interface DeleteQueryEvent extends BaseEvent {
+    type: EventType.DeleteQueryEvent;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -511,4 +526,7 @@ export type Event =
     | ManuallyCreateLineageEvent
     | ManuallyDeleteLineageEvent
     | LineageGraphTimeRangeSelectionEvent
-    | LineageTabTimeRangeSelectionEvent;
+    | LineageTabTimeRangeSelectionEvent
+    | CreateQueryEvent
+    | UpdateQueryEvent
+    | DeleteQueryEvent;

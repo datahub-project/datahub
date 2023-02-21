@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
@@ -110,6 +111,35 @@ public class AuthorizationUtils {
 
   public static boolean canManageGlobalViews(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOBAL_VIEWS);
+  }
+
+  public static boolean canEditEntityQueries(@Nonnull List<Urn> entityUrns, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
+        ImmutableList.of(ALL_PRIVILEGES_GROUP,
+            new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType()))));
+    return entityUrns.stream().allMatch(entityUrn ->
+        isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            entityUrn.getEntityType(),
+            entityUrn.toString(),
+            orPrivilegeGroups
+        ));
+  }
+
+  public static boolean canCreateQuery(@Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    // Currently - you only need permission to edit an entity's queries to create a query.
+    return canEditEntityQueries(subjectUrns, context);
+  }
+
+  public static boolean canUpdateQuery(@Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    // Currently - you only need permission to edit an entity's queries to update any query.
+    return canEditEntityQueries(subjectUrns, context);
+  }
+
+  public static boolean canDeleteQuery(@Nonnull Urn entityUrn, @Nonnull List<Urn> subjectUrns, @Nonnull QueryContext context) {
+    // Currently - you only need permission to edit an entity's queries to remove any query.
+    return canEditEntityQueries(subjectUrns, context);
   }
 
   public static boolean isAuthorized(
