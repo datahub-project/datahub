@@ -6,7 +6,7 @@ plugins {
 apply from: "../../gradle/versioning/versioning.gradle"
 
 ext {
-    docker_registry = 'acryldata'
+    docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
     docker_repo = 'datahub-mysql-setup'
     docker_dir = 'mysql-setup'
 }
@@ -18,6 +18,7 @@ docker {
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
     }
+    tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
     // platform('linux/arm64', 'linux/amd64')
     buildx(true)

@@ -41,14 +41,7 @@ public class AuthUtils {
      */
     public static final String SYSTEM_CLIENT_SECRET_CONFIG_PATH = "systemClientSecret";
 
-    public static final String SESSION_TTL_CONFIG_PATH = "auth.session.ttlInHours";
-    public static final Integer DEFAULT_SESSION_TTL_HOURS = 720;
     public static final CorpuserUrn DEFAULT_ACTOR_URN = new CorpuserUrn("datahub");
-
-    public static final String AUTH_COOKIE_SAME_SITE = "play.http.session.sameSite";
-    public static final String DEFAULT_AUTH_COOKIE_SAME_SITE = "LAX";
-    public static final String AUTH_COOKIE_SECURE = "play.http.session.secure";
-    public static final boolean DEFAULT_AUTH_COOKIE_SECURE = false;
 
     public static final String LOGIN_ROUTE = "/login";
     public static final String USER_NAME = "username";

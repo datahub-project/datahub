@@ -7,8 +7,10 @@ import com.linkedin.datahub.graphql.generated.ScrollAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnScrollResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
@@ -62,6 +64,11 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           : null;
 
       final Filter baseFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+      SearchFlags searchFlags = null;
+      com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
+      if (inputFlags != null) {
+        searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
+      }
 
       try {
         log.debug(
@@ -80,6 +87,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             scrollId,
             keepAlive,
             count,
+            searchFlags,
             ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error(

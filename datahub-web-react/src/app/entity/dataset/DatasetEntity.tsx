@@ -40,13 +40,13 @@ const SUBTYPES = {
 export class DatasetEntity implements Entity<Dataset> {
     type: EntityType = EntityType.Dataset;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <DatabaseOutlined style={{ fontSize }} />;
+            return <DatabaseOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DatabaseFilled style={{ fontSize, color: '#B37FEB' }} />;
+            return <DatabaseFilled style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -59,7 +59,7 @@ export class DatasetEntity implements Entity<Dataset> {
             <DatabaseOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -220,10 +220,10 @@ export class DatasetEntity implements Entity<Dataset> {
         const subTypes = dataset?.subTypes;
         const extendedProperties: DatasetProperties | undefined | null = dataset?.properties && {
             ...dataset?.properties,
-            qualifiedName: dataset?.properties?.qualifiedName || dataset?.name,
+            qualifiedName: dataset?.properties?.qualifiedName || this.displayName(dataset),
         };
         return {
-            name: dataset?.properties?.name || dataset?.name,
+            name: dataset && this.displayName(dataset),
             externalUrl: dataset?.properties?.externalUrl,
             entityTypeOverride: subTypes ? capitalizeFirstLetterOnly(subTypes.typeNames?.[0]) : '',
             properties: extendedProperties,

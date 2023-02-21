@@ -2,10 +2,15 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 from google.cloud import bigquery
-from google.cloud.bigquery.table import RowIterator, TableListItem, TimePartitioning
+from google.cloud.bigquery.table import (
+    RowIterator,
+    TableListItem,
+    TimePartitioning,
+    TimePartitioningType,
+)
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
@@ -19,6 +24,59 @@ class BigqueryColumn(BaseColumn):
     is_partition_column: bool
 
 
+RANGE_PARTITION_NAME: str = "RANGE"
+
+
+@dataclass
+class PartitionInfo:
+    field: str
+    # Data type is optional as we not have it when we set it from TimePartitioning
+    column: Optional[BigqueryColumn] = None
+    type: str = TimePartitioningType.DAY
+    expiration_ms: Optional[int] = None
+    require_partition_filter: bool = False
+
+    # TimePartitioning field doesn't provide data_type so we have to add it afterwards
+    @classmethod
+    def from_time_partitioning(
+        cls, time_partitioning: TimePartitioning
+    ) -> "PartitionInfo":
+        return cls(
+            field=time_partitioning.field
+            if time_partitioning.field
+            else "_PARTITIONTIME",
+            type=time_partitioning.type_,
+            expiration_ms=time_partitioning.expiration_ms,
+            require_partition_filter=time_partitioning.require_partition_filter,
+        )
+
+    @classmethod
+    def from_range_partitioning(
+        cls, range_partitioning: Dict[str, Any]
+    ) -> Optional["PartitionInfo"]:
+        field: Optional[str] = range_partitioning.get("field")
+        if not field:
+            return None
+
+        return cls(
+            field=field,
+            type="RANGE",
+        )
+
+    @classmethod
+    def from_table_info(cls, table_info: TableListItem) -> Optional["PartitionInfo"]:
+        RANGE_PARTITIONING_KEY: str = "rangePartitioning"
+
+        if table_info.time_partitioning:
+            return PartitionInfo.from_time_partitioning(table_info.time_partitioning)
+        elif RANGE_PARTITIONING_KEY in table_info._properties:
+            return PartitionInfo.from_range_partitioning(
+                table_info._properties[RANGE_PARTITIONING_KEY]
+            )
+        else:
+            return None
+
+
 @dataclass
 class BigqueryTable(BaseTable):
     expires: Optional[datetime] = None
@@ -29,8 +87,8 @@ class BigqueryTable(BaseTable):
     max_shard_id: Optional[str] = None
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
-    time_partitioning: Optional[TimePartitioning] = None
-    columns: List[BigqueryColumn] = field(default_factory=list)
+    partition_info: Optional[PartitionInfo] = None
+    columns_ignore_from_profiling: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -47,6 +105,7 @@ class BigqueryDataset:
     comment: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
+    columns: List[BigqueryColumn] = field(default_factory=list)
 
 
 @dataclass
@@ -221,6 +280,34 @@ from
 ORDER BY
   table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
+    optimized_columns_for_dataset: str = """
+select * from
+(select
+  c.table_catalog as table_catalog,
+  c.table_schema as table_schema,
+  c.table_name as table_name,
+  c.column_name as column_name,
+  c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
+  c.is_nullable as is_nullable,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
+  description as comment,
+  c.is_hidden as is_hidden,
+  c.is_partitioning_column as is_partitioning_column,
+  -- We count the columns to be able limit it later
+  row_number() over (partition by c.table_catalog, c.table_schema, c.table_name order by c.ordinal_position asc, c.data_type DESC) as column_num,
+  -- Getting the maximum shard for each table
+  row_number() over (partition by c.table_catalog, c.table_schema, ifnull(REGEXP_EXTRACT(c.table_name, r'(.*)_\\d{{8}}$'), c.table_name), cfp.field_path order by c.table_catalog, c.table_schema asc, c.table_name desc) as shard_num
+from
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMNS c
+  join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  and cfp.column_name = c.column_name
+  )
+-- We filter column limit + 1 to make sure we warn about the limit being reached but not reading too much data
+where column_num <= {column_limit} and shard_num = 1
+ORDER BY
+  table_catalog, table_schema, table_name, ordinal_position, column_num ASC, table_name, data_type DESC"""
+
     columns_for_table: str = """
 select
   c.table_catalog as table_catalog,
@@ -320,7 +407,6 @@ class BigQueryDataDictionary:
                     table_filter=f" and t.table_name in ({filter})" if filter else "",
                 ),
             )
-
         # Some property we want to capture only available from the TableListItem we get from an earlier query of
         # the list of tables.
         return [
@@ -338,7 +424,7 @@ class BigQueryDataDictionary:
                 ddl=table.ddl,
                 expires=tables[table.table_name].expires if tables else None,
                 labels=tables[table.table_name].labels if tables else None,
-                time_partitioning=tables[table.table_name].time_partitioning
+                partition_info=PartitionInfo.from_table_info(tables[table.table_name])
                 if tables
                 else None,
                 clustering_fields=tables[table.table_name].clustering_fields
@@ -398,7 +484,8 @@ class BigQueryDataDictionary:
         conn: bigquery.Client,
         project_id: str,
         dataset_name: str,
-        column_limit: Optional[int] = None,
+        column_limit: int,
+        run_optimized_column_query: bool = False,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         try:
@@ -406,6 +493,12 @@ class BigQueryDataDictionary:
                 conn,
                 BigqueryQuery.columns_for_dataset.format(
                     project_id=project_id, dataset_name=dataset_name
+                )
+                if not run_optimized_column_query
+                else BigqueryQuery.optimized_columns_for_dataset.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    column_limit=column_limit,
                 ),
             )
         except Exception as e:

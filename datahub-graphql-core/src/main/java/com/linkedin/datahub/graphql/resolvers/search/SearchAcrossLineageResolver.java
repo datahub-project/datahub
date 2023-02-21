@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -85,6 +86,14 @@ public class SearchAcrossLineageResolver
             ResolverUtils.buildFilter(
                 filters,
                 input.getOrFilters());
+        SearchFlags searchFlags = null;
+        final com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
+        if (inputFlags != null) {
+          searchFlags = new SearchFlags()
+              .setSkipCache(inputFlags.getSkipCache())
+              .setFulltext(inputFlags.getFulltext())
+              .setMaxAggValues(inputFlags.getMaxAggValues());
+        }
         return UrnSearchAcrossLineageResultsMapper.map(
             _entityClient.searchAcrossLineage(
                 urn,
@@ -98,6 +107,7 @@ public class SearchAcrossLineageResolver
                 count,
                 startTimeMillis,
                 endTimeMillis,
+                searchFlags,
                 ResolverUtils.getAuthentication(environment)));
       } catch (RemoteInvocationException e) {
         log.error(

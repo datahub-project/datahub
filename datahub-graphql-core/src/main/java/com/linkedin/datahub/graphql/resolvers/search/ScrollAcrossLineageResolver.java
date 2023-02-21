@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnScrollAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -80,10 +81,19 @@ public class ScrollAcrossLineageResolver
         log.debug(
             "Executing search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
             urn, resolvedDirection, input.getTypes(), input.getQuery(), filters, scrollId, count);
+
+        SearchFlags searchFlags = null;
+        final com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
+        if (inputFlags != null) {
+          searchFlags = new SearchFlags()
+              .setSkipCache(inputFlags.getSkipCache())
+              .setFulltext(inputFlags.getFulltext())
+              .setMaxAggValues(inputFlags.getMaxAggValues());
+        }
         return UrnScrollAcrossLineageResultsMapper.map(
             _entityClient.scrollAcrossLineage(urn, resolvedDirection, entityNames, sanitizedQuery,
                 maxHops, ResolverUtils.buildFilter(facetFilters, input.getOrFilters()), null, scrollId,
-                keepAlive, count, startTimeMillis, endTimeMillis, ResolverUtils.getAuthentication(environment)));
+                keepAlive, count, startTimeMillis, endTimeMillis, searchFlags, ResolverUtils.getAuthentication(environment)));
       } catch (RemoteInvocationException e) {
         log.error(
             "Failed to execute scroll across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",

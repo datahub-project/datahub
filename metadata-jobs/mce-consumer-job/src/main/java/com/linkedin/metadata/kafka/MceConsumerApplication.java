@@ -20,6 +20,7 @@ import org.springframework.context.annotation.PropertySource;
         SolrHealthContributorAutoConfiguration.class
 })
 @ComponentScan(basePackages = {
+        "com.linkedin.metadata.boot.kafka",
         "com.linkedin.gms.factory.auth",
         "com.linkedin.gms.factory.common",
         "com.linkedin.gms.factory.config",
