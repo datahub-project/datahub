@@ -8,7 +8,6 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     Schema,
 )
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
