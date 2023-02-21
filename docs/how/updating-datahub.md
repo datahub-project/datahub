@@ -5,6 +5,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #7016 Add `add_database_name_to_urn` flag to Oracle source which ensure that Dataset urns have the DB name as a prefix to prevent collision (.e.g. {database}.{schema}.{table}). ONLY breaking if you set this flag to true, otherwise behavior remains the same. 
 
 ### Potential Downtime
 
