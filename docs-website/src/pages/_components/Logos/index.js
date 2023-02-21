@@ -71,6 +71,11 @@ const companiesByIndustry = [
         imageUrl: "/img/logos/companies/razer.jpeg",
         imageSize: "large",
       },
+      {
+        name: "Airtel",
+        imageUrl: "/img/logos/companies/airtel.png",
+        imageSize: "large",
+      },
     ],
   },
   {
