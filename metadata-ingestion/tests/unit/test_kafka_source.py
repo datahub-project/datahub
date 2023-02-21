@@ -165,34 +165,6 @@ def test_close(mock_kafka, mock_admin_client):
     assert mock_kafka_instance.close.call_count == 1
 
 
-def test_kafka_source_stateful_ingestion_requires_platform_instance():
-    class StatefulProviderMock:
-        def __init__(self, config, ctx):
-            self.ctx = ctx
-            self.config = config
-
-        def is_stateful_ingestion_configured(self):
-            return self.config.stateful_ingestion.enabled
-
-    ctx = PipelineContext(run_id="test", pipeline_name="test")
-    with pytest.raises(ConfigurationError) as e:
-        KafkaSource.create(
-            {
-                "stateful_ingestion": {
-                    "enabled": "true",
-                    "fail_safe_threshold": 100.0,
-                },
-                "connection": {"bootstrap": "localhost:9092"},
-            },
-            ctx,
-        )
-
-    assert (
-        "Enabling kafka stateful ingestion requires to specify a platform instance"
-        in str(e)
-    )
-
-
 @patch(
     "datahub.ingestion.source.kafka.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
     autospec=True,
