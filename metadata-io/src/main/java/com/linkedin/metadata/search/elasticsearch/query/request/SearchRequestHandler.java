@@ -296,7 +296,13 @@ public class SearchRequestHandler {
     // fallback matched query, non-analyzed field
     for (String queryName : hit.getMatchedQueries()) {
       if (!highlightedFieldNamesAndValues.containsKey(queryName)) {
-        highlightedFieldNamesAndValues.put(queryName, Set.of(""));
+        if (hit.getFields().containsKey(queryName)) {
+          for (Object fieldValue : hit.getFields().get(queryName).getValues()) {
+            highlightedFieldNamesAndValues.computeIfAbsent(queryName, k -> new HashSet<>()).add(fieldValue.toString());
+          }
+        } else {
+          highlightedFieldNamesAndValues.put(queryName, Set.of(""));
+        }
       }
     }
     return highlightedFieldNamesAndValues.entrySet()
