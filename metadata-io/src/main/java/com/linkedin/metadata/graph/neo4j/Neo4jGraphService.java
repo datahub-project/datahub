@@ -5,6 +5,8 @@ import com.datahub.util.Statement;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
@@ -48,6 +50,8 @@ import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.exceptions.Neo4jException;
 import org.neo4j.driver.internal.InternalRelationship;
+import org.neo4j.driver.types.Node;
+
 
 @Slf4j
 public class Neo4jGraphService implements GraphService {
@@ -56,6 +60,9 @@ public class Neo4jGraphService implements GraphService {
   private final LineageRegistry _lineageRegistry;
   private final Driver _driver;
   private SessionConfig _sessionConfig;
+
+  private static final String SOURCE = "source";
+  private static final String UI = "UI";
 
   public Neo4jGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull Driver driver) {
     this(lineageRegistry, driver, SessionConfig.defaultConfig());
@@ -102,6 +109,7 @@ public class Neo4jGraphService implements GraphService {
     String setcreatedActorTemplate;
     String setupdatedOnTemplate;
     String setupdatedActorTemplate;
+    String setPropertyTemplate;
     final StringJoiner propertiesTemplateJoiner = new StringJoiner(", ");
     if (edge.getCreatedOn() != null) {
       setCreatedOnTemplate = "r.createdOn = " + edge.getCreatedOn();
@@ -118,6 +126,18 @@ public class Neo4jGraphService implements GraphService {
     if (edge.getUpdatedActor() != null) {
       setupdatedActorTemplate = "r.updatedActor = '" + edge.getUpdatedActor() + "'";
       propertiesTemplateJoiner.add(setupdatedActorTemplate);
+    }
+    if (edge.getProperties() != null) {
+      for (Map.Entry<String, Object> entry : edge.getProperties().entrySet()) {
+        if (entry.getValue() instanceof String) {
+          setPropertyTemplate = "r." + entry.getKey() + " = '" + entry.getValue() + "'";
+          propertiesTemplateJoiner.add(setPropertyTemplate);
+        } else {
+          throw new UnsupportedOperationException(String.format(
+              "Tried setting properties on graph edge but property value type is not supported. Key: %s, Value: %s ",
+              entry.getKey(), entry.getValue()));
+        }
+      }
     }
     if (!StringUtils.isEmpty(propertiesTemplateJoiner.toString())) {
       statement = statement + "SET " + propertiesTemplateJoiner;
@@ -177,7 +197,8 @@ public class Neo4jGraphService implements GraphService {
     final String statement =
         generateLineageStatement(entityUrn, direction, graphFilters, maxHops, startTimeMillis, endTimeMillis);
 
-    List<Record> neo4jResult = statement != null ? runQuery(buildStatement(statement, new HashMap<>())).list() : new ArrayList<>();
+    List<Record> neo4jResult =
+        statement != null ? runQuery(buildStatement(statement, new HashMap<>())).list() : new ArrayList<>();
 
     // It is possible to have more than 1 path from node A to node B in the graph and previous query returns all the paths.
     // We convert the List into Map with only the shortest paths. "item.get(i).size()" is the path size between two nodes in relation.
@@ -191,21 +212,29 @@ public class Neo4jGraphService implements GraphService {
             .collect(Collectors.toList());
 
     LineageRelationshipArray relations = new LineageRelationshipArray();
-    neo4jResult.stream()
-            .skip(offset).limit(count)
-            .forEach(item -> {
-              String urn = item.values().get(2).asNode().get("urn").asString();
-              String relationType = ((InternalRelationship) item.get(1).asList().get(0)).type();
-              int numHops = item.get(1).size();
-              try {
-                relations.add(new LineageRelationship()
-                        .setEntity(Urn.createFromString(urn))
-                        .setType(relationType)
-                        .setDegree(numHops));
-              } catch (URISyntaxException ignored) {
-                log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
-              }
-            });
+    neo4jResult.stream().skip(offset).limit(count).forEach(item -> {
+      String urn = item.values().get(2).asNode().get("urn").asString();
+      String relationType = ((InternalRelationship) item.get(1).asList().get(0)).type();
+      int numHops = item.get(1).size();
+      try {
+        relations.add(new LineageRelationship().setEntity(Urn.createFromString(urn))
+            .setType(relationType)
+            .setDegree(numHops)
+            .setPaths(new UrnArrayArray(new UrnArray(item.values()
+                .get(3)
+                .asList(Collections.singletonList(new ArrayList<Node>()))
+                .stream()
+                .map(t -> {
+                  try {
+                    return Urn.createFromString(((Node) t).get("urn").asString());
+                  } catch (URISyntaxException e) {
+                    throw new RuntimeException(e);
+                  }
+                }).collect(Collectors.toList())))));
+      } catch (URISyntaxException ignored) {
+        log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
+      }
+    });
 
     EntityLineageResult result = new EntityLineageResult().setStart(offset)
             .setCount(relations.size())
@@ -233,10 +262,11 @@ public class Neo4jGraphService implements GraphService {
 
     final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
 
-    final String multiHopMatchTemplateDirect = "MATCH shortestPath((a {urn: '%s'})-[r:%s*1..%d]->(b)) ";
-    final String multiHopMatchTemplateIndirect = "MATCH shortestPath((a {urn: '%s'})<-[r:%s*1..%d]-(b)) ";
+    final String multiHopMatchTemplateDirect = "MATCH p = shortestPath((a {urn: '%s'})-[r:%s*1..%d]->(b)) ";
+    final String multiHopMatchTemplateIndirect = "MATCH p = shortestPath((a {urn: '%s'})<-[r:%s*1..%d]-(b)) ";
     final String whereTemplate = "WHERE (b:%s) AND b.urn <> '%s' ";
-    final String returnTemplate = "RETURN a,r,b";
+    final String returnTemplateDirect = "RETURN a,r,b,REVERSE(NODES(p)) as pp";
+    final String returnTemplateIndirect = "RETURN a,r,b,NODES(p) as pp";
 
     String statementDirect = "";
     String statementIndirect = "";
@@ -244,22 +274,29 @@ public class Neo4jGraphService implements GraphService {
     if (startTimeMillis != null && endTimeMillis != null) {
       final String withTimeTemplate = "WITH %d as startTimeMillis, %d as endTimeMillis ";
       final String timeFilterConditionTemplate =
-          "WIth *, " + "((r[-1]).createdOn >= startTimeMillis OR (r[-1]).updatedOn >= startTimeMillis) as s_true, "
-              + "((r[0]).createdOn <= endTimeMillis OR (r[0]).updatedOn <= endTimeMillis) as e_true , "
-              + "ALL(i in range(0, size(r)-2) " + "WHERE " + "( "
+          "WIth *, " + String.format("(EXISTS((r[-1]).%s) AND (r[-1]).%s = '%s') ", SOURCE, SOURCE, UI)
+              + "OR (NOT EXISTS((r[-1]).createdOn) AND NOT EXISTS((r[-1]).updatedOn)) "
+              + "OR ((r[-1]).createdOn >= startTimeMillis OR (r[-1]).updatedOn >= startTimeMillis) as s_true, "
+
+              + String.format("(EXISTS((r[0]).%s) AND (r[0]).%s = '%s') ", SOURCE, SOURCE, UI)
+              + "OR (NOT EXISTS((r[0]).createdOn) AND NOT EXISTS((r[0]).updatedOn)) "
+              + "OR ((r[0]).createdOn <= endTimeMillis OR (r[0]).updatedOn <= endTimeMillis) as e_true , "
+
+              + "ALL(i in range(0, size(r)-2) " + "WHERE " + String.format("(EXISTS((r[i]).%s) AND (r[i]).%s = '%s') ",
+              SOURCE, SOURCE, UI) + "OR (NOT EXISTS((r[i]).createdOn) AND NOT EXISTS((r[i]).updatedOn)) OR " + "( "
               + "((r[i]).createdOn >= startTimeMillis AND (r[i]).createdOn <= endTimeMillis) " + "OR "
               + "((r[i]).updatedOn >= startTimeMillis AND (r[i]).updatedOn <= endTimeMillis) " + ") " + ") " + "as c "
               + "WHERE s_true and e_true and c ";
 
       final String multiHopTemplateDirect =
-          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplateDirect;
       statementDirect =
           String.format(multiHopTemplateDirect, startTimeMillis, endTimeMillis, entityUrn, upstreamRel, maxHops,
               allowedEntityTypes, entityUrn);
 
       final String multiHopTemplateIndirect =
           withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
-              + returnTemplate;
+              + returnTemplateIndirect;
       statementIndirect =
           String.format(multiHopTemplateIndirect, startTimeMillis, endTimeMillis, entityUrn, dowStreamRel, maxHops,
               allowedEntityTypes, entityUrn);
@@ -268,19 +305,24 @@ public class Neo4jGraphService implements GraphService {
     if (startTimeMillis != null && endTimeMillis == null) {
       final String withTimeTemplate = "WITH %d as startTimeMillis ";
       final String timeFilterConditionTemplate =
-          "WIth *, " + "((r[-1]).createdOn >= startTimeMillis OR (r[-1]).updatedOn >= startTimeMillis) as s_true, "
-              + "ALL(i in range(0, size(r)-2) " + "WHERE " + "( " + "(r[i]).createdOn >= startTimeMillis " + "OR "
-              + "(r[i]).updatedOn >= startTimeMillis " + ")" + ") " + "as c " + "WHERE s_true and c ";
+          "WIth *, " + String.format("(EXISTS((r[-1]).%s) AND (r[-1]).%s = '%s') ", SOURCE, SOURCE, UI)
+              + "OR (NOT EXISTS((r[-1]).createdOn) AND NOT EXISTS((r[-1]).updatedOn)) "
+              + "OR ((r[-1]).createdOn >= startTimeMillis OR (r[-1]).updatedOn >= startTimeMillis) as s_true, "
+
+              + "ALL(i in range(0, size(r)-2) " + "WHERE " + String.format("(EXISTS((r[i]).%s) AND (r[i]).%s = '%s') ",
+              SOURCE, SOURCE, UI) + "OR (NOT EXISTS((r[i]).createdOn) AND NOT EXISTS((r[i]).updatedOn)) OR " + "( "
+              + "(r[i]).createdOn >= startTimeMillis " + "OR " + "(r[i]).updatedOn >= startTimeMillis " + ")" + ") "
+              + "as c " + "WHERE s_true and c ";
 
       final String multiHopTemplateDirect =
-          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplateDirect;
       statementDirect =
           String.format(multiHopTemplateDirect, startTimeMillis, entityUrn, upstreamRel, maxHops, allowedEntityTypes,
               entityUrn);
 
       final String multiHopTemplateIndirect =
           withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
-              + returnTemplate;
+              + returnTemplateIndirect;
       statementIndirect =
           String.format(multiHopTemplateIndirect, startTimeMillis, entityUrn, dowStreamRel, maxHops, allowedEntityTypes,
               entityUrn);
@@ -289,18 +331,23 @@ public class Neo4jGraphService implements GraphService {
     if (startTimeMillis == null && endTimeMillis != null) {
       final String withTimeTemplate = "WITH %d as endTimeMillis ";
       final String timeFilterConditionTemplate =
-          "WIth *, " + "((r[0]).createdOn <= endTimeMillis OR (r[0]).updatedOn <= endTimeMillis) as e_true , "
-              + "ALL(i in range(0, size(r)-2) " + "WHERE " + "( " + "(r[i]).createdOn <= endTimeMillis " + "OR "
-              + "(r[i]).updatedOn <= endTimeMillis " + ")" + ")" + "as c " + "WHERE e_true and c ";
+          "WIth *, " + String.format("(EXISTS((r[0]).%s) AND (r[0]).%s = '%s') ", SOURCE, SOURCE, UI)
+              + "OR (NOT EXISTS((r[0]).createdOn) AND NOT EXISTS((r[0]).updatedOn)) "
+              + "OR ((r[0]).createdOn <= endTimeMillis OR (r[0]).updatedOn <= endTimeMillis) as e_true , "
+
+              + "ALL(i in range(0, size(r)-2) " + "WHERE " + String.format("(EXISTS((r[i]).%s) AND (r[i]).%s = '%s') ",
+              SOURCE, SOURCE, UI) + "OR (NOT EXISTS((r[i]).createdOn) AND NOT EXISTS((r[i]).updatedOn)) OR " + "( "
+              + "(r[i]).createdOn <= endTimeMillis " + "OR " + "(r[i]).updatedOn <= endTimeMillis " + ")" + ")"
+              + "as c " + "WHERE e_true and c ";
 
       final String multiHopTemplateDirect =
-          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplateDirect;
       statementDirect =
           String.format(multiHopTemplateDirect, endTimeMillis, entityUrn, upstreamRel, maxHops, allowedEntityTypes,
               entityUrn);
       final String multiHopTemplateIndirect =
           withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
-              + returnTemplate;
+              + returnTemplateIndirect;
       statementIndirect =
           String.format(multiHopTemplateIndirect, endTimeMillis, entityUrn, dowStreamRel, maxHops, allowedEntityTypes,
               entityUrn);
@@ -311,13 +358,13 @@ public class Neo4jGraphService implements GraphService {
       final String timeFilterConditionTemplate = "";
 
       final String multiHopTemplateDirect =
-          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplateDirect;
       statementDirect =
           String.format(multiHopTemplateDirect, entityUrn, upstreamRel, maxHops, allowedEntityTypes, entityUrn);
 
       final String multiHopTemplateIndirect =
           withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
-              + returnTemplate;
+              + returnTemplateIndirect;
       statementIndirect =
           String.format(multiHopTemplateIndirect, entityUrn, dowStreamRel, maxHops, allowedEntityTypes, entityUrn);
     }
@@ -334,26 +381,15 @@ public class Neo4jGraphService implements GraphService {
   }
 
   @Nonnull
-  public RelatedEntitiesResult findRelatedEntities(
-      @Nullable final List<String> sourceTypes,
-      @Nonnull final Filter sourceEntityFilter,
-      @Nullable final List<String> destinationTypes,
-      @Nonnull final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter,
-      final int offset,
-      final int count) {
+  public RelatedEntitiesResult findRelatedEntities(@Nullable final List<String> sourceTypes,
+      @Nonnull final Filter sourceEntityFilter, @Nullable final List<String> destinationTypes,
+      @Nonnull final Filter destinationEntityFilter, @Nonnull final List<String> relationshipTypes,
+      @Nonnull final RelationshipFilter relationshipFilter, final int offset, final int count) {
 
-    log.debug(
-        String.format("Finding related Neo4j nodes sourceType: %s, sourceEntityFilter: %s, destinationType: %s, ",
-            sourceTypes, sourceEntityFilter, destinationTypes)
-        + String.format(
-        "destinationEntityFilter: %s, relationshipTypes: %s, relationshipFilter: %s, ",
-            destinationEntityFilter, relationshipTypes, relationshipFilter)
-        + String.format(
-            "offset: %s, count: %s",
-            offset, count)
-    );
+    log.debug(String.format("Finding related Neo4j nodes sourceType: %s, sourceEntityFilter: %s, destinationType: %s, ",
+        sourceTypes, sourceEntityFilter, destinationTypes) + String.format(
+        "destinationEntityFilter: %s, relationshipTypes: %s, relationshipFilter: %s, ", destinationEntityFilter,
+        relationshipTypes, relationshipFilter) + String.format("offset: %s, count: %s", offset, count));
 
     if (sourceTypes != null && sourceTypes.isEmpty() || destinationTypes != null && destinationTypes.isEmpty()) {
       return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
