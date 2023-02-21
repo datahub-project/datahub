@@ -596,10 +596,10 @@ def avro_schema_to_mce_fields(
     :return: The list of MCE compatible SchemaFields.
     """
 
-    if isinstance(avro_schema, str):
-        avro_schema = avro.schema.parse(avro_schema)
-
     try:
+        if isinstance(avro_schema, str):
+            avro_schema = avro.schema.parse(avro_schema)
+
         return list(
             AvroToMceSchemaConverter.to_mce_fields(
                 avro_schema,
