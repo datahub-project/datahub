@@ -288,7 +288,7 @@ public class AuthServiceClient {
               TRACK_ENDPOINT));
 
       // Build JSON request to track event.
-      request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
+      request.setEntity(new StringEntity(event, StandardCharsets.UTF_8));
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
