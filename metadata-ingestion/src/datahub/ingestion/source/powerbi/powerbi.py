@@ -909,7 +909,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             run_id=ctx.run_id,
         )
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.source_config.platform_name
 
     @classmethod
