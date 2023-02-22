@@ -112,6 +112,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
     return result;
   }
 
