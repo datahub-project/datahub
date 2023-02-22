@@ -1805,5 +1805,5 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.config.platform_instance or self.platform

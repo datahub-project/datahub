@@ -416,7 +416,7 @@ class DBTCloudSource(DBTSourceBase):
         # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
         return f"https://cloud.getdbt.com/next/accounts/{self.config.account_id}/projects/{self.config.project_id}/develop"
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         """The DBT project identifier is used as platform instance."""
 
         return f"{self.platform}_{self.config.project_id}"
