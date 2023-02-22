@@ -3,7 +3,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM golang:1.17-alpine3.15 AS binary
+FROM golang:1-alpine3.17 AS binary
 
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
@@ -15,7 +15,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
 FROM alpine:3 AS base
-RUN apk add --no-cache curl jq tar bash coreutils
+RUN apk add --no-cache curl jq bash coreutils
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base AS prod-install
