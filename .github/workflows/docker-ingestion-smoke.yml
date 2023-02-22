@@ -6,7 +6,7 @@ on:
     branches:
       - master
     paths:
-      - "docker/datahub-ingestion/**"
+      - "docker/datahub-ingestion-base/**"
       - "smoke-test/**"
       - ".github/workflows/docker-ingestion-smoke.yml"
   workflow_dispatch:
@@ -63,5 +63,5 @@ jobs:
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
-          file: ./docker/datahub-ingestion/smoke.Dockerfile
+          file: ./docker/datahub-ingestion-base/smoke.Dockerfile
           platforms: linux/amd64,linux/arm64
