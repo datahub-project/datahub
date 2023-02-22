@@ -234,7 +234,7 @@ def tableau_ingest_common(
                     "sink": {
                         "type": "file",
                         "config": {
-                            "filename": f"{tmp_path}/{output_file_name}",
+                            "filename": f"/tmp/{output_file_name}",
                         },
                     },
                 }
