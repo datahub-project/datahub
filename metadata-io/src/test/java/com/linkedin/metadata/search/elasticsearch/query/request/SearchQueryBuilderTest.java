@@ -11,6 +11,7 @@ import org.elasticsearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.SimpleQueryStringBuilder;
+import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.testng.annotations.Test;
 
@@ -41,13 +42,21 @@ public class SearchQueryBuilderTest {
     BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(1);
     assertTrue(boolPrefixQuery.should().size() > 0);
 
-    List<Pair<String, Float>> fieldWeights = boolPrefixQuery.should().stream().map(prefixQuery -> {
-      MatchPhrasePrefixQueryBuilder builder = (MatchPhrasePrefixQueryBuilder) prefixQuery;
-      return Pair.of(builder.fieldName(), builder.boost());
+    List<Pair<String, Float>> prefixFieldWeights = boolPrefixQuery.should().stream().map(prefixQuery -> {
+      if (prefixQuery instanceof MatchPhrasePrefixQueryBuilder) {
+        MatchPhrasePrefixQueryBuilder builder = (MatchPhrasePrefixQueryBuilder) prefixQuery;
+        return Pair.of(builder.fieldName(), builder.boost());
+      } else {
+        // exact
+        TermQueryBuilder builder = (TermQueryBuilder) prefixQuery;
+        return Pair.of(builder.fieldName(), builder.boost());
+      }
     }).collect(Collectors.toList());
 
-    assertEquals(fieldWeights, List.of(
-            Pair.of("keyPart1.delimited", 10.0f)
+    assertEquals(prefixFieldWeights, List.of(
+            Pair.of("urn", 100.0f),
+            Pair.of("keyPart1.delimited", 10.0f),
+            Pair.of("keyPart1.keyword", 100.0f)
     ));
 
     // Validate scorer

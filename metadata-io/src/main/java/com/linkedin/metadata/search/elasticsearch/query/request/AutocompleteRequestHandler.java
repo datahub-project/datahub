@@ -65,7 +65,7 @@ public class AutocompleteRequestHandler {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(limit);
     searchSourceBuilder.query(getQuery(input, field));
-    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter));
+    searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter, false));
     searchSourceBuilder.highlighter(getHighlights(field));
     searchRequest.source(searchSourceBuilder);
     return searchRequest;

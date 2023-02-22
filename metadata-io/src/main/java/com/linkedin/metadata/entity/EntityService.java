@@ -76,6 +76,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1608,6 +1609,12 @@ public class EntityService {
     return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
   }
 
+  /**
+   * Returns true if the entity exists (has materialized aspects)
+   *
+   * @param urn the urn of the entity to check
+   * @return true if the entity exists, false otherwise
+   */
   public Boolean exists(Urn urn) {
     final Set<String> aspectsToFetch = getEntityAspectNames(urn);
     final List<EntityAspectIdentifier> dbKeys = aspectsToFetch.stream()
@@ -1616,6 +1623,18 @@ public class EntityService {
 
     Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
     return aspects.values().stream().anyMatch(aspect -> aspect != null);
+  }
+
+  /**
+   * Returns true if an entity is soft-deleted.
+   *
+   * @param urn the urn to check
+   * @return true is the entity is soft deleted, false otherwise.
+   */
+  public Boolean isSoftDeleted(@Nonnull final Urn urn) {
+    Objects.requireNonNull(urn, "urn is required");
+    final RecordTemplate statusAspect = getLatestAspect(urn, STATUS_ASPECT_NAME);
+    return statusAspect != null && ((Status) statusAspect).isRemoved();
   }
 
   @Nullable

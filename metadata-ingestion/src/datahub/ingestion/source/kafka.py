@@ -15,7 +15,7 @@ from confluent_kafka.admin import (
     TopicMetadata,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
@@ -120,19 +120,6 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
 
-    @pydantic.root_validator
-    def validate_platform_instance(cls: "KafkaSourceConfig", values: Dict) -> Dict:
-        stateful_ingestion = values.get("stateful_ingestion")
-        if (
-            stateful_ingestion
-            and stateful_ingestion.enabled
-            and not values.get("platform_instance")
-        ):
-            raise ConfigurationError(
-                "Enabling kafka stateful ingestion requires to specify a platform instance."
-            )
-        return values
-
 
 @dataclass
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
@@ -222,8 +209,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 f"Failed to create Kafka Admin Client due to error {e}.",
             )
 
-    def get_platform_instance_id(self) -> str:
-        assert self.source_config.platform_instance is not None
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.source_config.platform_instance
 
     @classmethod
