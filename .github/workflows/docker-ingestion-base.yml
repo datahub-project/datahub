@@ -6,12 +6,14 @@ on:
     branches:
       - master
     paths:
+      - ".github/workflows/docker-ingestion-base.yml"
       - "docker/datahub-ingestion/**"
       - "gradle*"
   pull_request:
     branches:
       - master
     paths:
+      - ".github/workflows/docker-ingestion-base.yml"
       - "docker/datahub-ingestion/**"
       - "gradle*"
   workflow_dispatch:
@@ -29,20 +31,47 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
+      - name: Build and Push image
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
+          images: |
+            acryldata/datahub-ingestion-base
+          tags: latest
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-      - name: Build and Push image
-        uses: docker/build-push-action@v3
-        with:
+          publish: ${{ github.ref == 'refs/heads/master' }}
           context: ./docker/datahub-ingestion
           file: ./docker/datahub-ingestion/base.Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: acryldata/datahub-ingestion-base:latest
-          push: true
+  ingestion-base_scan:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    name: "[Monitoring] Scan ingestion-base images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: [build-base]
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
+      - name: Download image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          image: acryldata/datahub-ingestion-base:latest
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+        with:
+          image-ref: acryldata/datahub-ingestion-base:latest
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"

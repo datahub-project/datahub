@@ -93,6 +93,7 @@ public class SiblingGraphServiceTest {
     mockResult.setStart(0);
     mockResult.setTotal(200);
     mockResult.setCount(3);
+    mockResult.setFiltered(0);
     mockResult.setRelationships(relationships);
 
     when(_graphService.getLineage(
@@ -137,6 +138,7 @@ public class SiblingGraphServiceTest {
     mockResult.setStart(0);
     mockResult.setTotal(200);
     mockResult.setCount(3);
+    mockResult.setFiltered(0);
     mockResult.setRelationships(relationships);
 
     when(_graphService.getLineage(
@@ -261,6 +263,7 @@ public class SiblingGraphServiceTest {
     EntityLineageResult expectedResult = mockResult.clone();
     expectedResult.setTotal(3);
     expectedResult.setCount(2);
+    expectedResult.setFiltered(0);
     expectedResult.setRelationships(new LineageRelationshipArray(relationship1, relationship2));
 
     EntityLineageResult upstreamLineage = service.getLineage(datasetFourUrn, LineageDirection.UPSTREAM, 0, 100, 1);
@@ -309,6 +312,7 @@ public class SiblingGraphServiceTest {
     expectedResult.setCount(3);
     expectedResult.setStart(0);
     expectedResult.setTotal(3);
+    expectedResult.setFiltered(0);
     expectedResult.setRelationships(expectedRelationships);
 
     mockResult.setStart(0);
@@ -406,6 +410,7 @@ public class SiblingGraphServiceTest {
     expectedResult.setCount(2);
     expectedResult.setStart(0);
     expectedResult.setTotal(3);
+    expectedResult.setFiltered(0);
     expectedResult.setRelationships(expectedRelationships);
 
     mockResult.setStart(0);
@@ -491,6 +496,7 @@ public class SiblingGraphServiceTest {
     expectedResult.setCount(1);
     expectedResult.setStart(0);
     expectedResult.setTotal(1);
+    expectedResult.setFiltered(0);
     expectedResult.setRelationships(expectedRelationships);
 
     mockResult.setStart(0);
