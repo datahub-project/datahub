@@ -738,19 +738,19 @@ timestamp < "{end_time}"
         view: Union[BigqueryView],
         lineage_metadata: Dict[str, Set[LineageEdge]],
     ) -> None:
-        for table_id in self.parse_view_lineage(
+        table_identifier = BigqueryTableIdentifier(project_id, dataset_name, view.name)
+        table_key = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+
+        parsed_view_upstreams = self.parse_view_lineage(
             project=project_id, dataset=dataset_name, view=view
-        ):
-            table_identifier = BigqueryTableIdentifier(
-                project_id=project_id, dataset=dataset_name, table=view.name
-            )
+        )
 
-            table_key = str(
-                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-            )
-            if table_identifier.get_table_name() not in lineage_metadata:
-                lineage_metadata[table_key] = set()
+        if parsed_view_upstreams:
+            # Override upstreams obtained by parsing audit logs
+            # as they may contain indirectly referenced tables
+            lineage_metadata[table_key] = set()
 
+        for table_id in parsed_view_upstreams:
             lineage_metadata[table_key].add(
                 LineageEdge(
                     table=str(BigQueryTableRef(table_id).get_sanitized_table_ref()),
