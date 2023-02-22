@@ -13,7 +13,7 @@ source:
       - provider: env
         path_key: POSTGRES_CONNECTION_URL
         value: jdbc:postgresql://test_postgres:5432/postgres
-    construct_lineage_workunits: true
+    convert_lineage_urns_to_lowercase: true
     platform_instance_map:   # optional
       mysql: mysql1      # optional
     connect_to_platform_map: # optional
