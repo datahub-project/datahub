@@ -620,6 +620,7 @@ timestamp < "{end_time}"
             config=self.config, report=self.report
         )
         lineage_metadata: Dict[str, Set[str]]
+
         try:
             if self.config.extract_lineage_from_catalog and self.config.include_tables:
                 lineage_metadata = (
@@ -711,21 +712,19 @@ timestamp < "{end_time}"
         lineage_metadata: Dict[str, Set[str]],
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
         table_identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
-
+        key = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         if self.config.lineage_parse_view_ddl and isinstance(table, BigqueryView):
-            for table_id in self.parse_view_lineage(project_id, dataset_name, table):
-                if table_identifier.get_table_name() in lineage_metadata:
-                    lineage_metadata[
-                        str(
-                            BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-                        )
-                    ].add(str(BigQueryTableRef(table_id).get_sanitized_table_ref()))
-                else:
-                    lineage_metadata[
-                        str(
-                            BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-                        )
-                    ] = {str(BigQueryTableRef(table_id).get_sanitized_table_ref())}
+            parsed_view_upstreams = self.parse_view_lineage(
+                project_id, dataset_name, table
+            )
+            if parsed_view_upstreams:
+                # Override upstreams obtained by parsing audit logs
+                # as they may contain indirectly referenced tables
+                lineage_metadata[key] = set()
+            for table_id in parsed_view_upstreams:
+                lineage_metadata[key].add(
+                    str(BigQueryTableRef(table_id).get_sanitized_table_ref())
+                )
 
         bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
         if str(bq_table) in lineage_metadata:

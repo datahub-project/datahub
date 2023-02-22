@@ -54,7 +54,9 @@ public class SearchQueryBuilderTest {
     }).collect(Collectors.toList());
 
     assertEquals(prefixFieldWeights, List.of(
-            Pair.of("keyPart1.delimited", 10.0f)
+            Pair.of("urn", 100.0f),
+            Pair.of("keyPart1.delimited", 10.0f),
+            Pair.of("keyPart1.keyword", 100.0f)
     ));
 
     // Validate scorer

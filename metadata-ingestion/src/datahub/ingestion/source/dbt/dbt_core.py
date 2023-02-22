@@ -483,7 +483,7 @@ class DBTCoreSource(DBTSourceBase):
             return self.config.git_info.get_url_for_file_path(node.dbt_file_path)
         return None
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         """The DBT project identifier is used as platform instance."""
 
         project_id = (
