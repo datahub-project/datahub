@@ -42,6 +42,18 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 }
             }
         }
+        containedBy: relationships(input: { types: ["HasA"], direction: INCOMING, start: $start, count: $count }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on GlossaryTerm {
+                        urn
+                    }
+                }
+            }
+        }
         parentNodes {
             ...parentNodesFields
         }
