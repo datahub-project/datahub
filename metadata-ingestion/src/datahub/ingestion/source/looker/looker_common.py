@@ -21,7 +21,7 @@ from typing import (
 
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.models import User, WriteQuery
+from looker_sdk.sdk.api40.models import User, WriteQuery
 from pydantic import Field
 from pydantic.class_validators import validator
 

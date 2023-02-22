@@ -19,7 +19,7 @@ from typing import (
 )
 
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.models import Dashboard, DashboardElement, FolderBase, Query
+from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase, Query
 from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder

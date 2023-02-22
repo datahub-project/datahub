@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
-from looker_sdk.sdk.api31.models import Dashboard, LookWithQuery
+from looker_sdk.sdk.api40.models import Dashboard, LookWithQuery
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import Aspect, AspectAbstract

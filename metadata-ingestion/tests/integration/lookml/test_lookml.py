@@ -6,7 +6,7 @@ from unittest import mock
 import pydantic
 import pytest
 from freezegun import freeze_time
-from looker_sdk.sdk.api31.models import DBConnection
+from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
@@ -248,7 +248,7 @@ def ingestion_test(
     mce_out_file = f"lookml_mces_api_{mock_connection.dialect_name}.json"
     mocked_client = mock.MagicMock()
     mock_model = mock.MagicMock(project_name="lkml_samples")
-    with mock.patch("looker_sdk.init31") as mock_sdk:
+    with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         # mock_connection = mock.MagicMock()
         mocked_client.connection.return_value = mock_connection
