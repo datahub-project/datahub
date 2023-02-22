@@ -62,7 +62,7 @@ export const EMPTY_MESSAGES = {
         description: 'Terms can be contained by other terms to represent a "Has A" style relationship.',
     },
     'inherited by': {
-        title: 'Is not inherited by an terms',
+        title: 'Is not inherited by any terms',
         description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
     },
 };
