@@ -171,7 +171,7 @@ public class ESSampleDataFixture {
         when(mockAspectDao.batchGet(anySet())).thenReturn(Map.of(mock(EntityAspectIdentifier.class), mock(EntityAspect.class)));
 
         return new JavaEntityClient(
-                new EntityService(mockAspectDao, null, entityRegistry),
+                new EntityService(mockAspectDao, null, entityRegistry, true),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,
