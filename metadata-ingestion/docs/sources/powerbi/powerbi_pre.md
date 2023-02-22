@@ -147,4 +147,3 @@ If you have added service principal as `member` in workspace then PowerBI Source
   - Reports 
   - Dashboard's Tiles
   - Report's Pages
->>>>>>> datahub/master
