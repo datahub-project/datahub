@@ -756,30 +756,6 @@ timestamp < "{end_time}"
                 )
             )
 
-    def get_upstream_lineage_info(
-        self,
-        project_id: str,
-        dataset_name: str,
-        table: Union[BigqueryTable, BigqueryView],
-        platform: str,
-        lineage_metadata: Dict[str, Set[LineageEdge]],
-    ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
-        table_identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
-
-        if self.config.lineage_parse_view_ddl and isinstance(table, BigqueryView):
-            # This method will add view lineage to the lineage_metadata based on the view DDL
-            self.get_view_lineage(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                view=table,
-                lineage_metadata=lineage_metadata,
-            )
-        bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
-        if str(bq_table) in lineage_metadata:
-            return self.get_lineage_for_table(bq_table, lineage_metadata, platform)
-
-        return None
-
     def get_lineage_for_table(
         self,
         bq_table: BigQueryTableRef,

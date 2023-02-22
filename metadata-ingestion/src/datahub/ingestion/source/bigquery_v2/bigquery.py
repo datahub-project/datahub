@@ -658,14 +658,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         logger.info(f"Generate lineage for {project_id}")
         lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
 
-        for dataset in db_views.keys():
-            for view in db_views[dataset]:
-                self.lineage_extractor.get_view_lineage(
-                    project_id=project_id,
-                    dataset_name=dataset,
-                    view=view,
-                    lineage_metadata=lineage,
-                )
+        if self.config.lineage_parse_view_ddl:
+            for dataset in db_views.keys():
+                for view in db_views[dataset]:
+                    self.lineage_extractor.get_view_lineage(
+                        project_id=project_id,
+                        dataset_name=dataset,
+                        view=view,
+                        lineage_metadata=lineage,
+                    )
 
         for lineage_key in lineage.keys():
             table_ref = BigQueryTableRef.from_string_name(lineage_key)
