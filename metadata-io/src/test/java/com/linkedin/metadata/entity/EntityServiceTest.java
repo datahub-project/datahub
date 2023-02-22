@@ -1021,7 +1021,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         return RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     }
-}
 
     @Nonnull
     protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
