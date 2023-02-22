@@ -298,6 +298,10 @@ public class Constants {
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME = "dataHubStepStateProperties";
 
+
+  // Authorization
+  public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
+
   // Metadata Change Event Parameter Names
 
   // Runs

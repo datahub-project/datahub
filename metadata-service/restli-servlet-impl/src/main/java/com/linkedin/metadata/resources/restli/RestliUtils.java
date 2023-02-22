@@ -1,10 +1,20 @@
 package com.linkedin.metadata.resources.restli;
 
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ResourceSpec;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -69,5 +79,24 @@ public class RestliUtils {
   @Nonnull
   public static RestLiServiceException invalidArgumentsException(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_412_PRECONDITION_FAILED, message);
+  }
+
+  public static boolean isAuthorized(@Nonnull Authentication authentication, @Nonnull Authorizer authorizer,
+      @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nonnull final List<java.util.Optional<ResourceSpec>> resources) {
+    DisjunctivePrivilegeGroup orGroup = convertPrivilegeGroup(privileges);
+    return AuthUtil.isAuthorizedForResources(authorizer, authentication.getActor().toUrnStr(), resources, orGroup);
+  }
+
+  public static boolean isAuthorized(@Nonnull Authentication authentication, @Nonnull Authorizer authorizer,
+      @Nonnull final List<PoliciesConfig.Privilege> privileges, @Nullable final ResourceSpec resource) {
+    DisjunctivePrivilegeGroup orGroup = convertPrivilegeGroup(privileges);
+    return AuthUtil.isAuthorized(authorizer, authentication.getActor().toUrnStr(), java.util.Optional.ofNullable(resource), orGroup);
+  }
+
+  private static DisjunctivePrivilegeGroup convertPrivilegeGroup(@Nonnull final List<PoliciesConfig.Privilege> privileges) {
+    return new DisjunctivePrivilegeGroup(
+        ImmutableList.of(new ConjunctivePrivilegeGroup(privileges.stream()
+            .map(PoliciesConfig.Privilege::getType)
+            .collect(Collectors.toList()))));
   }
 }
