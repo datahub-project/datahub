@@ -60,7 +60,7 @@ class Table:
 class PowerBIDataset:
     id: str
     name: Optional[str]
-    description: str
+    description: Optional[str]
     webUrl: Optional[str]
     workspace_id: str
     # Table in datasets
@@ -121,7 +121,7 @@ class Report:
     name: str
     webUrl: Optional[str]
     embedUrl: str
-    description: str
+    description: Optional[str]
     dataset: Optional["PowerBIDataset"]
     pages: List["Page"]
     users: List["User"]
@@ -155,7 +155,7 @@ class Tile:
 class Dashboard:
     id: str
     displayName: str
-    description: str
+    description: Optional[str]
     embedUrl: str
     webUrl: Optional[str]
     isReadOnly: Any
@@ -184,7 +184,7 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
     return PowerBIDataset(
         id=raw_instance["id"],
         name=raw_instance.get("name"),
-        description=raw_instance.get("description", ""),
+        description=raw_instance.get("description"),
         webUrl="{}/details".format(raw_instance.get("webUrl"))
         if raw_instance.get("webUrl") is not None
         else None,
@@ -192,3 +192,15 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
         tables=[],
         tags=[],
     )
+
+
+def formulate_description(
+    display_name: Optional[str], description: Optional[str]
+) -> str:
+    if display_name and description:
+        return f"{display_name}\n-----\n{description}"
+
+    if display_name:
+        return display_name
+
+    return ""

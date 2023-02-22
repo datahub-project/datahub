@@ -30,7 +30,6 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
-from datahub.ingestion.source.powerbi.powerbi_utils import formulate_description
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -237,7 +236,9 @@ class Mapper:
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(
                 name=table.name,
-                description=formulate_description(table.name, dataset.description),
+                description=powerbi_data_classes.formulate_description(
+                    table.name, dataset.description
+                ),
             )
 
             info_mcp = self.new_mcp(
@@ -410,7 +411,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=formulate_description(
+            description=powerbi_data_classes.formulate_description(
                 dashboard.displayName, dashboard.description
             ),
             title=dashboard.displayName or "",
@@ -745,7 +746,9 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=formulate_description(report.name, report.description),
+            description=powerbi_data_classes.formulate_description(
+                report.name, report.description
+            ),
             title=report.name or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
