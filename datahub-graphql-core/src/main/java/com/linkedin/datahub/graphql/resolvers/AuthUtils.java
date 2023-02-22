@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.List;
 import java.util.Optional;
