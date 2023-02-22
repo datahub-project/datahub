@@ -962,7 +962,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         return looker_dashboard
 
-    def _get_looker_user(self, user_id: Optional[int]) -> Optional[LookerUser]:
+    def _get_looker_user(self, user_id: Optional[str]) -> Optional[LookerUser]:
         user = (
             self.user_registry.get_by_id(
                 user_id,

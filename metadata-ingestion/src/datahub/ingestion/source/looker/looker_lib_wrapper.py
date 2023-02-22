@@ -108,7 +108,7 @@ class LookerAPI:
         return permissions
 
     @lru_cache(maxsize=2000)
-    def get_user(self, id_: int, user_fields: str) -> Optional[User]:
+    def get_user(self, id_: str, user_fields: str) -> Optional[User]:
         self.client_stats.user_calls += 1
         try:
             return self.client.user(

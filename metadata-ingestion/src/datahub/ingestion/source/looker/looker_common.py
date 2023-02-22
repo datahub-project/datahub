@@ -1017,7 +1017,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
 
 @dataclass
 class LookerUser:
-    id: int
+    id: str
     email: Optional[str]
     display_name: Optional[str]
     first_name: Optional[str]

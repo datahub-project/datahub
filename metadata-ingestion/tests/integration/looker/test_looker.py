@@ -260,7 +260,7 @@ def setup_mock_dashboard_with_usage(mocked_client):
                     dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
                 ),
             ),
-            DashboardElement(id="3", type="", look=LookWithQuery(id=3, view_count=30)),
+            DashboardElement(id="3", type="", look=LookWithQuery(id="3", view_count=30)),
         ],
     )
 
@@ -368,7 +368,7 @@ def setup_mock_explore(mocked_client):
 
 def setup_mock_user(mocked_client):
     def get_user(
-        id_: int,
+        id_: str,
         fields: Optional[str] = None,
         transport_options: Optional[transport.TransportOptions] = None,
     ) -> User:
