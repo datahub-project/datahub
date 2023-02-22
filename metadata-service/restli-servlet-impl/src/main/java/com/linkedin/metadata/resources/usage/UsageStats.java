@@ -1,9 +1,14 @@
 package com.linkedin.metadata.resources.usage;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.ResourceSpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
@@ -12,6 +17,7 @@ import com.linkedin.dataset.DatasetFieldUsageCountsArray;
 import com.linkedin.dataset.DatasetUsageStatistics;
 import com.linkedin.dataset.DatasetUserUsageCounts;
 import com.linkedin.dataset.DatasetUserUsageCountsArray;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
@@ -24,6 +30,8 @@ import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
@@ -56,6 +64,9 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 
 
 /**
@@ -90,6 +101,10 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @Named("entityRegistry")
   private EntityRegistry _entityRegistry;
 
+  @Inject
+  @Named("authorizerChain")
+  private Authorizer _authorizer;
+
   @Getter(lazy = true)
   private final AspectSpec usageStatsAspectSpec =
       _entityRegistry.getEntitySpec(USAGE_STATS_ENTITY_NAME).getAspectSpec(USAGE_STATS_ASPECT_NAME);
@@ -100,6 +115,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
     return RestliUtil.toTask(() -> {
+      Authentication auth = AuthenticationContext.getAuthentication();
+      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+          && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE), (ResourceSpec) null)) {
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+            "User is unauthorized to edit entities.");
+      }
       for (UsageAggregation agg : buckets) {
         this.ingest(agg);
       }
@@ -290,6 +311,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
       @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional Integer maxBuckets) {
     log.info("Attempting to query usage stats");
     return RestliUtil.toTask(() -> {
+      Authentication auth = AuthenticationContext.getAuthentication();
+      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+          && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE), (ResourceSpec) null)) {
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+            "User is unauthorized to query usage.");
+      }
       // 1. Populate the filter. This is common for all queries.
       Filter filter = new Filter();
       ArrayList<Criterion> criteria = new ArrayList<>();
@@ -342,6 +369,12 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @WithSpan
   public Task<UsageQueryResult> queryRange(@ActionParam(PARAM_RESOURCE) @Nonnull String resource,
       @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration, @ActionParam(PARAM_RANGE) UsageTimeRange range) {
+    Authentication auth = AuthenticationContext.getAuthentication();
+    if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE), (ResourceSpec) null)) {
+      throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
+          "User is unauthorized to query usage.");
+    }
     final long now = Instant.now().toEpochMilli();
     return this.query(resource, duration, convertRangeToStartTime(range, now), now, null);
   }
