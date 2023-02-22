@@ -65,7 +65,7 @@ EXEC sys.sp_addextendedproperty
 @level1type = N'TABLE', @level1name = 'Persons',   
 @level2type = N'COLUMN',@level2name = 'LastName';
 GO
-USE NewData ;
+USE msdb ;
 GO
 EXEC dbo.sp_add_job
     @job_name = N'Weekly Sales Data Backup' ;
@@ -89,5 +89,5 @@ EXEC sp_attach_schedule
 GO
 EXEC dbo.sp_add_jobserver
     @job_name = N'Weekly Sales Data Backup',
-    @servername = @@Servername;
+    @server_name = N'(LOCAL)';
 GO
