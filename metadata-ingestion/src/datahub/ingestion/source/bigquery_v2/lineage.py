@@ -715,9 +715,9 @@ timestamp < "{end_time}"
         if self.config.lineage_parse_view_ddl and isinstance(table, BigqueryView):
             lineage_metadata.setdefault(key, set())
             for table_id in self.parse_view_lineage(project_id, dataset_name, table):
-                lineage_metadata[key] = {
+                lineage_metadata[key].add(
                     str(BigQueryTableRef(table_id).get_sanitized_table_ref())
-                }
+                )
 
         bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
         if str(bq_table) in lineage_metadata:
