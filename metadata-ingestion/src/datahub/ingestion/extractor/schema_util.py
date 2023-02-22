@@ -341,19 +341,17 @@ class AvroToMceSchemaConverter:
                 if self._meta_mapping_processor:
                     meta_aspects = self._meta_mapping_processor.process(merged_props)
 
-                all_tags = []
+                tags = []
                 if self._schema_tags_field:
                     for tag in merged_props.get(self._schema_tags_field, []):
-                        all_tags.append(self._tag_prefix + tag)
+                        tags.append(self._tag_prefix + tag)
 
                 meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
                 if meta_tags_aspect:
-                    all_tags += [
+                    tags += [
                         tag_association.tag[len("urn:li:tag:") :]
                         for tag_association in meta_tags_aspect.tags
                     ]
-
-                meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
 
                 if "deprecated" in merged_props:
                     description = (
@@ -362,7 +360,13 @@ class AvroToMceSchemaConverter:
                         if description
                         else ""
                     )
-                    all_tags.append(TagAssociationClass(tag="urn:li:tag:Deprecated"))
+                    tags.append("Deprecated")
+
+                tags_aspect = None
+                if tags:
+                    tags_aspect = mce_builder.make_global_tag_aspect_with_tag_list(tags)
+
+                meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
 
                 logical_type_name: Optional[str] = (
                     # logicalType nested inside type
@@ -384,9 +388,7 @@ class AvroToMceSchemaConverter:
                     recursive=False,
                     nullable=self._converter._is_nullable(schema),
                     isPartOfKey=self._converter._is_key_schema,
-                    globalTags=mce_builder.make_global_tag_aspect_with_tag_list(
-                        all_tags
-                    ),
+                    globalTags=tags_aspect,
                     glossaryTerms=meta_terms_aspect,
                     jsonProps=json.dumps(merged_props) if merged_props else None,
                 )

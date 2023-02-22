@@ -334,11 +334,14 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
         ][0]
         assert schema_metadata_aspect.schemaName == "topic1"
         assert schema_metadata_aspect.platform == "urn:li:platform:test"
-        assert schema_metadata_aspect.hash == md5((value_schema_str + key_schema_str).encode()).hexdigest()
+        assert (
+            schema_metadata_aspect.hash
+            == md5((value_schema_str + key_schema_str).encode()).hexdigest()
+        )
         assert isinstance(schema_metadata_aspect.platformSchema, KafkaSchemaClass)
         assert schema_metadata_aspect.platformSchema.documentSchema == value_schema_str
         assert len(schema_metadata_aspect.fields) == 2
-        field = schema_metadata_aspect.fields[1] # the value field
+        field = schema_metadata_aspect.fields[1]  # the value field
         assert isinstance(field.globalTags, GlobalTagsClass)
         fieldTags = {tag_assoc.tag for tag_assoc in field.globalTags.tags}
         assert fieldTags == {
