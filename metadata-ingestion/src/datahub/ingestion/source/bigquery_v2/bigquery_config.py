@@ -185,12 +185,6 @@ class BigQueryV2Config(
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
-    multiproject_lineage_support: bool = Field(
-        hidden_from_schema=True,
-        default=False,
-        description="Whether to support emitting lineage which belongs to another project.",
-    )
-
     def __init__(self, **data: Any):
         super().__init__(**data)
 

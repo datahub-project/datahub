@@ -612,14 +612,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
             self.report.set_project_state(project_id, "Lineage Extraction")
-            if self.config.multiproject_lineage_support:
-                yield from self.generate_lineage(
-                    project_id, db_tables=db_tables, db_views=db_views
-                )
-            else:
-                yield from self.generate_lineage_single_project(
-                    project_id, db_tables=db_tables, db_views=db_views
-                )
+            yield from self.generate_lineage(
+                project_id, db_tables=db_tables, db_views=db_views
+            )
 
         if self.config.include_usage_statistics:
             if (
@@ -654,44 +649,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 tables=db_tables,
             )
 
-    def generate_lineage_single_project(
-        self,
-        project_id: str,
-        db_tables: Dict[str, List[BigqueryTable]],
-        db_views: Dict[str, List[BigqueryView]],
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Generate lineage for {project_id}")
-        lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
-
-        for dataset in db_tables.keys():
-            for table in db_tables[dataset]:
-                dataset_urn = self.gen_dataset_urn(
-                    project_id=project_id, dataset_name=dataset, table=table.name
-                )
-                lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                    project_id=project_id,
-                    dataset_name=dataset,
-                    table=table,
-                    platform=self.platform,
-                    lineage_metadata=lineage,
-                )
-                if lineage_info:
-                    yield from self.gen_lineage(dataset_urn, lineage_info)
-        for dataset in db_views.keys():
-            for view in db_views[dataset]:
-                dataset_urn = self.gen_dataset_urn(
-                    project_id=project_id, dataset_name=dataset, table=view.name
-                )
-                lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                    project_id=project_id,
-                    dataset_name=dataset,
-                    table=view,
-                    platform=self.platform,
-                    lineage_metadata=lineage,
-                )
-                if lineage_info:
-                    yield from self.gen_lineage(dataset_urn, lineage_info)
-
     def generate_lineage(
         self,
         project_id: str,
@@ -710,8 +667,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     lineage_metadata=lineage,
                 )
 
-        for table in lineage.keys():
-            table_ref = BigQueryTableRef.from_string_name(table)
+        for lineage_key in lineage.keys():
+            table_ref = BigQueryTableRef.from_string_name(lineage_key)
             dataset_urn = self.gen_dataset_urn(
                 project_id=table_ref.table_identifier.project_id,
                 dataset_name=table_ref.table_identifier.dataset,

@@ -688,7 +688,7 @@ timestamp < "{end_time}"
 
     def get_upstream_tables(
         self,
-        bq_table: str,
+        bq_table: BigQueryTableRef,
         lineage_metadata: Dict[str, Set[LineageEdge]],
         tables_seen: List[str] = [],
     ) -> Set[LineageEdge]:
@@ -709,7 +709,7 @@ timestamp < "{end_time}"
                 if ref_table in lineage_metadata:
                     upstreams = upstreams.union(
                         self.get_upstream_tables(
-                            ref_table,
+                            upstream_table,
                             lineage_metadata=lineage_metadata,
                             tables_seen=tables_seen,
                         )
@@ -745,24 +745,18 @@ timestamp < "{end_time}"
                 project_id=project_id, dataset=dataset_name, table=view.name
             )
 
-            if table_identifier.get_table_name() in lineage_metadata:
-                lineage_metadata[
-                    str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
-                ].add(
-                    LineageEdge(
-                        table=str(BigQueryTableRef(table_id).get_sanitized_table_ref()),
-                        created=datetime.now(),
-                    )
+            table_key = str(
+                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
+            )
+            if table_identifier.get_table_name() not in lineage_metadata:
+                lineage_metadata[table_key] = set()
+
+            lineage_metadata[table_key].add(
+                LineageEdge(
+                    table=str(BigQueryTableRef(table_id).get_sanitized_table_ref()),
+                    created=datetime.now(),
                 )
-            else:
-                lineage_metadata[
-                    str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
-                ] = {
-                    LineageEdge(
-                        table=str(BigQueryTableRef(table_id).get_sanitized_table_ref()),
-                        created=datetime.now(),
-                    )
-                }
+            )
 
     def get_upstream_lineage_info(
         self,
@@ -798,7 +792,7 @@ timestamp < "{end_time}"
         # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
         # even if the lineage is same but the order is different.
         for upstream in sorted(
-            self.get_upstream_tables(str(bq_table), lineage_metadata, tables_seen=[])
+            self.get_upstream_tables(bq_table, lineage_metadata, tables_seen=[])
         ):
             upstream_table = BigQueryTableRef.from_string_name(upstream.table)
             upstream_table_class = UpstreamClass(
