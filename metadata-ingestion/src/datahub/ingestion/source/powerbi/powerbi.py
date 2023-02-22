@@ -354,8 +354,14 @@ class Mapper:
             aspect_name=Constant.CHART_KEY,
             aspect=chart_key_instance,
         )
-
-        result_mcps = [info_mcp, status_mcp, chart_key_mcp]
+        browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+        browse_path_mcp = self.new_mcp(
+            entity_type=Constant.CHART,
+            entity_urn=chart_urn,
+            aspect_name=Constant.BROWSERPATH,
+            aspect=browse_path,
+        )
+        result_mcps = [info_mcp, status_mcp, chart_key_mcp, browse_path_mcp]
 
         self.append_container_mcp(
             result_mcps,
@@ -689,8 +695,14 @@ class Mapper:
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
-
-            list_of_mcps = [info_mcp, status_mcp]
+            browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+            browse_path_mcp = self.new_mcp(
+                entity_type=Constant.CHART,
+                entity_urn=chart_urn,
+                aspect_name=Constant.BROWSERPATH,
+                aspect=browse_path,
+            )
+            list_of_mcps = [info_mcp, status_mcp, browse_path_mcp]
 
             self.append_container_mcp(
                 list_of_mcps,

@@ -80,8 +80,7 @@ public class LineageSearchService {
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis, @Nonnull SearchFlags searchFlags) {
     // Cache multihop result for faster performance
-    final EntityLineageResultCacheKey cacheKey =
-        new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis);
+    final EntityLineageResultCacheKey cacheKey = new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops);
     CachedEntityLineageResult cachedLineageResult = cacheEnabled
         ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;

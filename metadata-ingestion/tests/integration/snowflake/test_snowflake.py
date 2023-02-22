@@ -1,6 +1,7 @@
 import random
 import string
 from datetime import datetime, timezone
+from typing import cast
 from unittest import mock
 
 import pandas as pd
@@ -24,6 +25,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
 from tests.test_helpers import mce_helpers
 
@@ -134,6 +136,12 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             golden_path=golden_file,
             ignore_paths=[],
         )
+        report = cast(SnowflakeV2Report, pipeline.source.get_report())
+        assert report.lru_cache_info["get_tables_for_database"]["misses"] == 1
+        assert report.lru_cache_info["get_views_for_database"]["misses"] == 1
+        assert report.lru_cache_info["get_columns_for_schema"]["misses"] == 1
+        assert report.lru_cache_info["get_pk_constraints_for_schema"]["misses"] == 1
+        assert report.lru_cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
 @freeze_time(FROZEN_TIME)
