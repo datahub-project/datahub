@@ -22,7 +22,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.schema_classes import TagAssociationClass
 from datahub.utilities.mapping import Constants, OperationProcessor
 
 """A helper file for Avro schema -> MCE schema transformations"""

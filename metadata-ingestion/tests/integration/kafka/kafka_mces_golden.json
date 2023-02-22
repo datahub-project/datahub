@@ -40,9 +40,6 @@
                                 },
                                 "nativeDataType": "id",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": true
                             },
                             {
@@ -55,9 +52,6 @@
                                 },
                                 "nativeDataType": "namespace",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": true
                             }
                         ]
@@ -152,9 +146,6 @@
                                 },
                                 "nativeDataType": "id",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": true
                             },
                             {
@@ -167,9 +158,6 @@
                                 },
                                 "nativeDataType": "namespace",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": true
                             },
                             {
@@ -182,9 +170,6 @@
                                 },
                                 "nativeDataType": "email",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -197,9 +182,6 @@
                                 },
                                 "nativeDataType": "firstName",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -212,9 +194,6 @@
                                 },
                                 "nativeDataType": "lastName",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             }
                         ]
@@ -326,9 +305,6 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": true
                             },
                             {
@@ -341,9 +317,6 @@
                                 },
                                 "nativeDataType": "email",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -356,9 +329,6 @@
                                 },
                                 "nativeDataType": "firstName",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -371,9 +341,6 @@
                                 },
                                 "nativeDataType": "lastName",
                                 "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
                                 "isPartOfKey": false
                             }
                         ]
