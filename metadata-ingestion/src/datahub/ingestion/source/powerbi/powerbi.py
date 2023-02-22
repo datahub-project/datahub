@@ -719,7 +719,7 @@ class Mapper:
         self,
         dashboard: powerbi_data_classes.Dashboard,
         workspace: powerbi_data_classes.Workspace,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> List[EquableMetadataWorkUnit]:
         mcps = []
 
         logger.info(
