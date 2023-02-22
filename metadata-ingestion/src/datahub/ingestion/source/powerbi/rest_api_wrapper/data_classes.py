@@ -51,18 +51,18 @@ class DataSource:
 
 @dataclass
 class Column:
-    name: str
-    description: str
-    data_type: str
+    name: Optional[str]
+    description: Optional[str]
+    data_type: Optional[str]
     is_hidden: bool
-    column_type: str
+    column_type: Optional[str]
 
 
 @dataclass
 class Measure:
-    name: str
-    description: str
-    expression: str
+    name: Optional[str]
+    description: Optional[str]
+    expression: Optional[str]
     is_hidden: bool
 
 

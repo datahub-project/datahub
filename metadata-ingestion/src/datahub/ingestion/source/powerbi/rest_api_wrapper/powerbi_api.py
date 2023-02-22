@@ -319,9 +319,9 @@ class PowerBiAPI:
         results = []
         for measure in measures:
             ms = Measure(
-                name=measure.get(Constant.NAME, ""),
-                description=measure.get(Constant.DESCRIPTION, ""),
-                expression=measure.get(Constant.EXPRESSION, ""),
+                name=measure.get(Constant.NAME),
+                description=measure.get(Constant.DESCRIPTION),
+                expression=measure.get(Constant.EXPRESSION),
                 is_hidden=measure.get(Constant.IS_HIDDEN, False),
             )
             results.append(ms)
@@ -333,10 +333,10 @@ class PowerBiAPI:
         results = []
         for column in columns:
             col = Column(
-                name=column.get(Constant.NAME, ""),
-                description=column.get(Constant.DESCRIPTION, ""),
-                data_type=column.get(Constant.DATA_TYPE, ""),
-                column_type=column.get(Constant.COLUMN_TYPE, ""),
+                name=column.get(Constant.NAME),
+                description=column.get(Constant.DESCRIPTION),
+                data_type=column.get(Constant.DATA_TYPE),
+                column_type=column.get(Constant.COLUMN_TYPE),
                 is_hidden=column.get(Constant.IS_HIDDEN, False),
             )
             results.append(col)

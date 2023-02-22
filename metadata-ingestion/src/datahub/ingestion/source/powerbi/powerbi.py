@@ -322,9 +322,7 @@ class Mapper:
                 *table.columns,
                 *table.measures,
             ]
-            fields = [
-                self.get_schema_field(field) for field in columns if not field.is_hidden
-            ]
+            fields = [field for field in self.get_schema_fields(columns)]
             schema_metadata = SchemaMetadata(
                 schemaName=dataset.name or "",
                 platform=builder.make_data_platform_urn(self.__config.platform_name),
@@ -338,22 +336,26 @@ class Mapper:
             dataset_mces.append(snapshot_mce)
 
     @staticmethod
-    def get_schema_field(
-        column: Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
-    ) -> SchemaField:
-        return SchemaField(
-            fieldPath=column.name,
-            type=SchemaFieldDataType(
-                type=powerbi_type_mapping.get(
-                    getattr(column, "data_type", ""), NullTypeClass
-                )()
-            ),
-            nativeDataType=getattr(column, "data_type", "Unknown"),
-            description=column.description,
-            nullable=False,
-            recursive=False,
-            globalTags=None,
-        )
+    def get_schema_fields(
+        columns: List[Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]]
+    ) -> Iterator[SchemaField]:
+        for column in columns:
+            if not column.name or column.is_hidden:
+                continue
+
+            yield SchemaField(
+                fieldPath=column.name,
+                type=SchemaFieldDataType(
+                    type=powerbi_type_mapping.get(
+                        getattr(column, "data_type", ""), NullTypeClass
+                    )()
+                ),
+                nativeDataType=getattr(column, "data_type", "Unknown"),
+                description=column.description or "",
+                nullable=False,
+                recursive=False,
+                globalTags=None,
+            )
 
     @staticmethod
     def transform_tags(tags: List[str]) -> GlobalTagsClass:
