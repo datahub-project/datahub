@@ -35,11 +35,11 @@ const MenuItem = styled.div`
 interface Props {
     urn: string;
     relationshipType: TermRelationshipType;
-    mutable: boolean;
+    isEditable: boolean;
 }
 
 function RelatedTerm(props: Props) {
-    const { urn, relationshipType, mutable } = props;
+    const { urn, relationshipType, isEditable } = props;
 
     const entityRegistry = useEntityRegistry();
     const { data, loading } = useGetGlossaryTermQuery({ variables: { urn } });
@@ -55,7 +55,7 @@ function RelatedTerm(props: Props) {
         <ListItem>
             <Profile>
                 {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
-                {mutable && (
+                {isEditable && (
                     <Dropdown
                         overlay={
                             <Menu>

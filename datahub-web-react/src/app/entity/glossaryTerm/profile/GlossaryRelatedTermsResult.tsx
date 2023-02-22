@@ -48,7 +48,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
         glossaryRelatedTermType === RelatedTermTypes.containedBy
             ? TermRelationshipType.HasA
             : TermRelationshipType.IsA;
-    const relatedTermsMutable =
+    const canEditRelatedTerms =
         glossaryRelatedTermType === RelatedTermTypes.isRelatedTerms ||
         glossaryRelatedTermType === RelatedTermTypes.hasRelatedTerms;
 
@@ -62,7 +62,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                         <Typography.Title style={{ margin: '0' }} level={3}>
                             {glossaryRelatedTermType}
                         </Typography.Title>
-                        {relatedTermsMutable && (
+                        {canEditRelatedTerms && (
                             <Button type="text" onClick={() => setIsShowingAddModal(true)}>
                                 <PlusOutlined /> Add Terms
                             </Button>
@@ -73,7 +73,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                             key={urn}
                             urn={urn}
                             relationshipType={relationshipType}
-                            mutable={relatedTermsMutable}
+                            isEditable={canEditRelatedTerms}
                         />
                     ))}
                     {glossaryRelatedTermUrns.length === 0 && (
