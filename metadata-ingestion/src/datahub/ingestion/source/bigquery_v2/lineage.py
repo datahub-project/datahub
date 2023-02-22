@@ -711,21 +711,13 @@ timestamp < "{end_time}"
         lineage_metadata: Dict[str, Set[str]],
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
         table_identifier = BigqueryTableIdentifier(project_id, dataset_name, table.name)
-
+        key = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         if self.config.lineage_parse_view_ddl and isinstance(table, BigqueryView):
+            lineage_metadata.setdefault(key, set())
             for table_id in self.parse_view_lineage(project_id, dataset_name, table):
-                if table_identifier.get_table_name() in lineage_metadata:
-                    lineage_metadata[
-                        str(
-                            BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-                        )
-                    ].add(str(BigQueryTableRef(table_id).get_sanitized_table_ref()))
-                else:
-                    lineage_metadata[
-                        str(
-                            BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-                        )
-                    ] = {str(BigQueryTableRef(table_id).get_sanitized_table_ref())}
+                lineage_metadata[key] = {
+                    str(BigQueryTableRef(table_id).get_sanitized_table_ref())
+                }
 
         bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
         if str(bq_table) in lineage_metadata:
