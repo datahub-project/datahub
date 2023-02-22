@@ -1746,7 +1746,7 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_report(self):
         return self.reporter
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.source_config.platform_instance or self.platform
 
     def close(self):

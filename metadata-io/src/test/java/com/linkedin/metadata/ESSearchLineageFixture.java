@@ -204,7 +204,7 @@ public class ESSearchLineageFixture {
                 false);
 
         return new JavaEntityClient(
-                new EntityService(null, null, entityRegistry),
+                new EntityService(null, null, entityRegistry, true),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,
