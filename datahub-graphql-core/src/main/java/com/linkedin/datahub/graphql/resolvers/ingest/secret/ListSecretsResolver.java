@@ -72,7 +72,8 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
                   start,
                   count,
                   context.getAuthentication(),
-                  true);
+                  true,
+              null);
 
           // Then, resolve all secrets
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(

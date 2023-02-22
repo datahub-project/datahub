@@ -3,8 +3,6 @@ import { Alert, Divider } from 'antd';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import dayjs from 'dayjs';
-
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
 import { getEntityPath, getOnboardingStepIdsForEntityType, useRoutedTab } from './utils';
@@ -192,14 +190,6 @@ export const EntityProfile = <T, U>({
             tabParams?: Record<string, any>;
             method?: 'push' | 'replace';
         }) => {
-            let modifiedTabParams = tabParams;
-            if (tabName === 'Lineage') {
-                modifiedTabParams = {
-                    ...tabParams,
-                    start_time_millis: dayjs().subtract(14, 'day').valueOf(),
-                    end_time_millis: dayjs().valueOf(),
-                };
-            }
             analytics.event({
                 type: EventType.EntitySectionViewEvent,
                 entityType,
@@ -207,7 +197,7 @@ export const EntityProfile = <T, U>({
                 section: tabName.toLowerCase(),
             });
             history[method](
-                getEntityPath(entityType, urn, entityRegistry, false, isHideSiblingMode, tabName, modifiedTabParams),
+                getEntityPath(entityType, urn, entityRegistry, false, isHideSiblingMode, tabName, tabParams),
             );
         },
         [history, entityType, urn, entityRegistry, isHideSiblingMode],

@@ -42,7 +42,8 @@ class EnvBasedSourceConfigBase(ConfigModel):
 
     _env_deprecation = pydantic_field_deprecated(
         "env",
-        "env is deprecated and will be removed in a future release. Please use platform_instance instead.",
+        new_field="platform_instance",
+        message="env is deprecated and will be removed in a future release. Please use platform_instance instead.",
     )
 
     @validator("env")
