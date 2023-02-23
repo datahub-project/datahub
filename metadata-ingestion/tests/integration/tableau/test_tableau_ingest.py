@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 from requests.adapters import ConnectionError
-from tableauserverclient.models import ViewItem, ProjectItem, DatasourceItem
+from tableauserverclient.models import DatasourceItem, ProjectItem, ViewItem
 
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext

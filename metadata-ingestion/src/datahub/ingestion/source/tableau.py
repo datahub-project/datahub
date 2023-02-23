@@ -1,12 +1,10 @@
 import json
 import logging
 import re
-
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
-from pydantic.class_validators import root_validator
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -23,9 +21,9 @@ from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
+    AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
-    AllowDenyPattern,
 )
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -172,7 +170,7 @@ class TableauConnectionConfig(ConfigModel):
     project_path_separator: str = Field(
         default="/",
         description="Projects path separator. project_pattern may contain path to nested project for ingestion, "
-                    "example A/B/C, here project C would get ingested",
+        "example A/B/C, here project C would get ingested",
     )
 
     @validator("connect_uri")
@@ -331,7 +329,8 @@ class TableauProject:
     name: str
     description: str
     parent_id: Optional[str]
-    path: []
+    path: List[str]
+
 
 @platform_name("Tableau")
 @config_class(TableauConfig)
@@ -429,6 +428,9 @@ class TableauSource(StatefulIngestionSourceBase):
         all_project_map: Dict[str, TableauProject] = {}
 
         def fetch_projects():
+            if self.server is None:
+                return all_project_map
+
             for project in TSC.Pager(self.server.projects):
                 all_project_map[project.id] = TableauProject(
                     id=project.id,
@@ -459,11 +461,9 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def _is_allowed_project(self, project: TableauProject) -> bool:
         # Either project name or project path should exist in allow
-        is_allowed: bool = (
-                self.config.project_pattern.allowed(project.name)
-                or
-                self.config.project_pattern.allowed(self._get_project_path(project))
-        )
+        is_allowed: bool = self.config.project_pattern.allowed(
+            project.name
+        ) or self.config.project_pattern.allowed(self._get_project_path(project))
         if is_allowed is False:
             logger.info(
                 f"project({project.name}) is not allowed as per project_pattern"
@@ -476,7 +476,11 @@ class TableauSource(StatefulIngestionSourceBase):
             # Either name or project path is denied
             if re.match(
                 deny_pattern, project.name, self.config.project_pattern.regex_flags
-            ) or re.match(deny_pattern, self._get_project_path(project), self.config.project_pattern.regex_flags):
+            ) or re.match(
+                deny_pattern,
+                self._get_project_path(project),
+                self.config.project_pattern.regex_flags,
+            ):
                 return True
         logger.info(f"project({project.name}) is not denied as per project_pattern")
         return False
@@ -511,15 +515,17 @@ class TableauSource(StatefulIngestionSourceBase):
 
             for project in list_of_skip_projects:
                 if (
-                    project.parent_id in self.tableau_project_registry.keys()
+                    project.parent_id in self.tableau_project_registry
                     and self._is_denied_project(project) is False
                 ):
                     self.tableau_project_registry[project.id] = project
 
         def init_datasource_registry():
-            project_keys: List[str] = self.tableau_project_registry.keys()
+            if self.server is None:
+                return
+
             for ds in TSC.Pager(self.server.datasources):
-                if ds.project_id not in project_keys:
+                if ds.project_id not in self.tableau_project_registry:
                     logger.debug(
                         f"project id ({ds.project_id}) of datasource {ds.name} is not present in project "
                         f"registry"
@@ -667,12 +673,14 @@ class TableauSource(StatefulIngestionSourceBase):
             # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
             # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
             if workbook.get("projectLuid") not in self.tableau_project_registry.keys():
-                wrk_name: str = workbook.get("name")
-                wrk_id: str = workbook.get("id")
-                prj_name: str = workbook.get("projectName")
-                prj_id: str = workbook.get("projectLuid")
-                logger.debug(f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({prj_id}) not "
-                             f"present in project registry")
+                wrk_name: Optional[str] = workbook.get("name")
+                wrk_id: Optional[str] = workbook.get("id")
+                prj_name: Optional[str] = workbook.get("projectName")
+                prj_id: Optional[str] = workbook.get("projectLuid")
+                logger.debug(
+                    f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({prj_id}) not "
+                    f"present in project registry"
+                )
                 continue
 
             for sheet in workbook.get("sheets", []):
@@ -1146,7 +1154,9 @@ class TableauSource(StatefulIngestionSourceBase):
                 and self.datasource_project_map[ds["luid"]]
                 in self.tableau_project_registry.keys()
             ):
-                return self._get_project_browse_path(self.datasource_project_map[ds["luid"]])
+                return self._get_project_browse_path(
+                    self.datasource_project_map[ds["luid"]]
+                )
             elif (
                 ds.get("__typename") == "EmbeddedDatasource"
                 and ds.get("workbook")
@@ -1581,8 +1591,9 @@ class TableauSource(StatefulIngestionSourceBase):
                 yield wu
 
         if (
-            workbook.get("projectLuid")
-            and workbook["projectLuid"] in self.tableau_project_registry.keys()
+            workbook is not None
+            and workbook.get("projectLuid")
+            and workbook["projectLuid"] in self.tableau_project_registry
             and workbook.get("name")
         ):
 
@@ -1640,7 +1651,9 @@ class TableauSource(StatefulIngestionSourceBase):
     def _get_project_browse_path(self, project_luid: str) -> str:
         assert project_luid
         project: TableauProject = self.tableau_project_registry[project_luid]
-        normalised_path: List[str] = [p.replace("/", REPLACE_SLASH_CHAR) for p in project.path]
+        normalised_path: List[str] = [
+            p.replace("/", REPLACE_SLASH_CHAR) for p in project.path
+        ]
         return "/".join(normalised_path)
 
     def _get_project_path(self, project: TableauProject) -> str:
@@ -1710,8 +1723,8 @@ class TableauSource(StatefulIngestionSourceBase):
         ):
             parent_key = self.gen_project_key(workbook["projectLuid"])
         else:
-            workbook_id: str = workbook.get("id")
-            workbook_name: str = workbook.get("name")
+            workbook_id: Optional[str] = workbook.get("id")
+            workbook_name: Optional[str] = workbook.get("name")
             logger.warning(
                 f"Could not load project hierarchy for workbook {workbook_name}({workbook_id}). Please check permissions."
             )
@@ -1896,8 +1909,9 @@ class TableauSource(StatefulIngestionSourceBase):
                 yield wu
 
         if (
-            workbook.get("projectLuid")
-            and workbook["projectLuid"] in self.tableau_project_registry.keys()
+            workbook is not None
+            and workbook.get("projectLuid")
+            and workbook["projectLuid"] in self.tableau_project_registry
             and workbook.get("name")
         ):
 
