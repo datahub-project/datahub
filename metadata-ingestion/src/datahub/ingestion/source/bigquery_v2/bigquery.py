@@ -105,9 +105,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
+    DatasetLineageTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
-    DatasetLineageTypeClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.hive_schema_to_avro import (
@@ -548,9 +548,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
-        projects: List[BigqueryProject]
-        if self.config.project_id or self.config.project_ids:
-            project_ids = self.config.project_ids or [self.config.project_id]
+        if self.config.project_ids or self.config.project_id:
+            project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
             return [
                 BigqueryProject(id=project_id, name=project_id)
                 for project_id in project_ids
