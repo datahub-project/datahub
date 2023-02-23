@@ -5,6 +5,7 @@
 # the CLI will try to use the same quickstart and docker tags
 # quickstart_mapping maps broken releases to fixed ones
 quickstart_version_mappings:
+  # default key is mandatory and is used if no version is specified
   default:
     composefile_git_ref: master
     docker_tag: latest

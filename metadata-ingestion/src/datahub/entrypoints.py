@@ -16,6 +16,7 @@ from datahub.cli.cli_utils import (
 )
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
+from datahub.cli.version_mapping import qs_test
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
@@ -139,6 +140,8 @@ def init() -> None:
 
 datahub.add_command(check)
 datahub.add_command(docker)
+datahub.add_command(qs_test)
+
 datahub.add_command(ingest)
 datahub.add_command(delete)
 datahub.add_command(get)
