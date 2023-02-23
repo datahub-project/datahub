@@ -5,7 +5,7 @@ import re
 import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
@@ -538,13 +538,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 return
 
+            if self.config.store_last_lineage_extraction_timestamp:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+
             for project in projects:
-                if self.config.store_last_lineage_extraction_timestamp:
-                    # Update the checkpoint state for this run.
-                    self.redundant_run_skip_handler.update_state(
-                        start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                        end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                    )
                 self.report.set_project_state(project.id, "Lineage Extraction")
                 yield from self.generate_lineage(project.id)
 
@@ -669,7 +670,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         for lineage_key in lineage.keys():
             table_ref = BigQueryTableRef.from_string_name(lineage_key)
-            if table_ref not in self.table_refs:
+            if str(table_ref) not in self.table_refs:
                 continue
 
             dataset_urn = self.gen_dataset_urn(
@@ -677,6 +678,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 dataset_name=table_ref.table_identifier.dataset,
                 table=table_ref.table_identifier.get_table_display_name(),
             )
+
             lineage_info = self.lineage_extractor.get_lineage_for_table(
                 bq_table=table_ref,
                 platform=self.platform,
@@ -741,11 +743,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
             for table in db_tables[dataset_name]:
-                identifier = BigqueryTableIdentifier(
-                    project_id, dataset_name, table.name
-                )
-                self.table_refs.add(str(BigQueryTableRef(identifier)))
-
                 table_columns = columns.get(table.name, []) if columns else []
                 yield from self._process_table(
                     table=table,
@@ -799,6 +796,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
+        self.table_refs.add(str(BigQueryTableRef(table_identifier)))
         table.column_count = len(columns)
 
         # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
@@ -844,6 +842,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
+        self.table_refs.add(str(BigQueryTableRef(table_identifier)))
         view.column_count = len(columns)
         if not view.column_count:
             logger.warning(
