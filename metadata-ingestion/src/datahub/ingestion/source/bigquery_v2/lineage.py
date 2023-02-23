@@ -21,7 +21,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryView
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
@@ -788,9 +787,9 @@ timestamp < "{end_time}"
                 self.report.upstream_lineage[str(bq_table)] = current_lineage_map
             upstream_list.append(upstream_table_class)
 
-            if upstream_list:
-                upstream_lineage = UpstreamLineageClass(upstreams=upstream_list)
-                return upstream_lineage, {}
+        if upstream_list:
+            upstream_lineage = UpstreamLineageClass(upstreams=upstream_list)
+            return upstream_lineage, {}
 
         return None
 
