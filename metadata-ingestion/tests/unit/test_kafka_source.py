@@ -8,9 +8,9 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     Schema,
 )
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
+    make_dataset_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.api.common import PipelineContext
@@ -144,10 +144,49 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
         asp for asp in proposed_snap.aspects if type(asp) == BrowsePathsClass
     ]
     assert len(browse_path_aspects) == 1
-    assert (
-        f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}/{TOPIC_NAME}"
-        in browse_path_aspects[0].paths
+    assert f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}" in browse_path_aspects[0].paths
+
+
+@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_client):
+    PLATFORM = "kafka"
+    TOPIC_NAME = "test"
+
+    mock_kafka_instance = mock_kafka.return_value
+    mock_cluster_metadata = MagicMock()
+    mock_cluster_metadata.topics = {TOPIC_NAME: None}
+    mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+    ctx = PipelineContext(run_id="test1")
+    kafka_source = KafkaSource.create(
+        {"connection": {"bootstrap": "localhost:9092"}},
+        ctx,
     )
+    workunits = [w for w in kafka_source.get_workunits()]
+
+    # We should only have 1 topic + sub-type wu.
+    assert len(workunits) == 2
+    assert isinstance(workunits[0], MetadataWorkUnit)
+    assert isinstance(workunits[0].metadata, MetadataChangeEvent)
+    proposed_snap = workunits[0].metadata.proposedSnapshot
+    assert proposed_snap.urn == make_dataset_urn(
+        platform=PLATFORM,
+        name=TOPIC_NAME,
+        env="PROD",
+    )
+
+    # DataPlatform aspect should be present when platform_instance is configured
+    data_platform_aspects = [
+        asp for asp in proposed_snap.aspects if type(asp) == DataPlatformInstanceClass
+    ]
+    assert len(data_platform_aspects) == 0
+
+    # The default browse path should include the platform_instance value
+    browse_path_aspects = [
+        asp for asp in proposed_snap.aspects if type(asp) == BrowsePathsClass
+    ]
+    assert len(browse_path_aspects) == 1
+    assert f"/prod/{PLATFORM}" in browse_path_aspects[0].paths
 
 
 @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
@@ -163,34 +202,6 @@ def test_close(mock_kafka, mock_admin_client):
     )
     kafka_source.close()
     assert mock_kafka_instance.close.call_count == 1
-
-
-def test_kafka_source_stateful_ingestion_requires_platform_instance():
-    class StatefulProviderMock:
-        def __init__(self, config, ctx):
-            self.ctx = ctx
-            self.config = config
-
-        def is_stateful_ingestion_configured(self):
-            return self.config.stateful_ingestion.enabled
-
-    ctx = PipelineContext(run_id="test", pipeline_name="test")
-    with pytest.raises(ConfigurationError) as e:
-        KafkaSource.create(
-            {
-                "stateful_ingestion": {
-                    "enabled": "true",
-                    "fail_safe_threshold": 100.0,
-                },
-                "connection": {"bootstrap": "localhost:9092"},
-            },
-            ctx,
-        )
-
-    assert (
-        "Enabling kafka stateful ingestion requires to specify a platform instance"
-        in str(e)
-    )
 
 
 @patch(

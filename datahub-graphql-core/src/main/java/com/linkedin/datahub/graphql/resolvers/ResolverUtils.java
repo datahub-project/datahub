@@ -142,7 +142,7 @@ public class ResolverUtils {
         if (skipKeywordSuffix) {
             result.setField(filter.getField());
         } else {
-            result.setField(getFilterField(filter.getField()));
+            result.setField(getFilterField(filter.getField(), skipKeywordSuffix));
         }
 
         // `value` is deprecated in place of `values`- this is to support old query patterns. If values is provided,
@@ -176,10 +176,10 @@ public class ResolverUtils {
         return result;
     }
 
-    private static String getFilterField(final String originalField) {
+    private static String getFilterField(final String originalField, final boolean skipKeywordSuffix) {
         if (KEYWORD_EXCLUDED_FILTERS.contains(originalField)) {
             return originalField;
         }
-        return originalField + ESUtils.KEYWORD_SUFFIX;
+        return ESUtils.toKeywordField(originalField, skipKeywordSuffix);
     }
 }

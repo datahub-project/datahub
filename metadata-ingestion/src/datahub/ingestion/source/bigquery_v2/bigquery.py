@@ -35,7 +35,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    BigqueryTableIdentifier,
+    BigQueryTableRef,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -413,7 +416,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         else:
             return None
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         """
         The source identifier such as the specific source host address required for stateful ingestion.
         Individual subclasses need to override this method appropriately.
@@ -655,30 +658,31 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         logger.info(f"Generate lineage for {project_id}")
         lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
 
-        for dataset in db_tables.keys():
-            for table in db_tables[dataset]:
-                dataset_urn = self.gen_dataset_urn(dataset, project_id, table.name)
-                lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                    project_id=project_id,
-                    dataset_name=dataset,
-                    table=table,
-                    platform=self.platform,
-                    lineage_metadata=lineage,
-                )
-                if lineage_info:
-                    yield from self.gen_lineage(dataset_urn, lineage_info)
-        for dataset in db_views.keys():
-            for view in db_views[dataset]:
-                dataset_urn = self.gen_dataset_urn(dataset, project_id, view.name)
-                lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                    project_id=project_id,
-                    dataset_name=dataset,
-                    table=view,
-                    platform=self.platform,
-                    lineage_metadata=lineage,
-                )
-                if lineage_info:
-                    yield from self.gen_lineage(dataset_urn, lineage_info)
+        if self.config.lineage_parse_view_ddl:
+            for dataset in db_views.keys():
+                for view in db_views[dataset]:
+                    self.lineage_extractor.get_view_lineage(
+                        project_id=project_id,
+                        dataset_name=dataset,
+                        view=view,
+                        lineage_metadata=lineage,
+                    )
+
+        for lineage_key in lineage.keys():
+            table_ref = BigQueryTableRef.from_string_name(lineage_key)
+            dataset_urn = self.gen_dataset_urn(
+                project_id=table_ref.table_identifier.project_id,
+                dataset_name=table_ref.table_identifier.dataset,
+                table=table_ref.table_identifier.get_table_display_name(),
+            )
+            lineage_info = self.lineage_extractor.get_lineage_for_table(
+                bq_table=table_ref,
+                platform=self.platform,
+                lineage_metadata=lineage,
+            )
+
+            if lineage_info:
+                yield from self.gen_lineage(dataset_urn, lineage_info)
 
     def generate_usage_statistics(
         self,
@@ -919,7 +923,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
         )
         yield MetadataChangeProposalWrapper(
-            entityUrn=self.gen_dataset_urn(dataset_name, project_id, table.name),
+            entityUrn=self.gen_dataset_urn(
+                project_id=project_id, dataset_name=dataset_name, table=table.name
+            ),
             aspect=view_properties_aspect,
         ).as_workunit()
 
@@ -933,7 +939,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         tags_to_add: Optional[List[str]] = None,
         custom_properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_urn = self.gen_dataset_urn(dataset_name, project_id, table.name)
+        dataset_urn = self.gen_dataset_urn(
+            project_id=project_id, dataset_name=dataset_name, table=table.name
+        )
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
@@ -1040,7 +1048,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=tags
         ).as_workunit()
 
-    def gen_dataset_urn(self, dataset_name: str, project_id: str, table: str) -> str:
+    def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,

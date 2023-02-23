@@ -51,7 +51,7 @@ public class SearchService {
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param searchFlags optional set of flags to control search behavior
-   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
+   * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
@@ -78,7 +78,7 @@ public class SearchService {
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @param searchFlags optional set of flags to control search behavior
-   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
+   * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
@@ -88,5 +88,28 @@ public class SearchService {
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
     return _cachingAllEntitiesSearchAggregator.getSearchResults(entities, input, postFilters, sortCriterion, from, size, searchFlags);
+  }
+
+  /**
+   * Gets a list of documents that match given search request across multiple entities. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * @param entities list of entities to search (If empty, searches across all entities)
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param scrollId opaque scroll identifier for passing to search backend
+   * @param size the number of search hits to return
+   * @param searchFlags optional set of flags to control search behavior
+   * @return a {@link ScrollResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  public ScrollResult scrollAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive,
+      int size, @Nullable SearchFlags searchFlags) {
+    log.debug(String.format(
+        "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+        entities, input, postFilters, sortCriterion, scrollId, size));
+    return _cachingEntitySearchService.scroll(entities, input, postFilters, sortCriterion, scrollId, keepAlive, size, searchFlags);
   }
 }

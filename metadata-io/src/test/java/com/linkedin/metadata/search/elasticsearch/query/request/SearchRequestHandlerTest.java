@@ -22,6 +22,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.MatchQueryBuilder;
+import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -51,7 +52,7 @@ public class SearchRequestHandlerTest {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
         highlightBuilder.fields().stream().map(HighlightBuilder.Field::name).collect(Collectors.toList());
-    assertEquals(fields.size(), 27);
+    assertEquals(fields.size(), 26);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
                 "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField", "keyPart2",
@@ -65,71 +66,116 @@ public class SearchRequestHandlerTest {
   @Test
   public void testFilteredSearch() {
 
-    final Criterion filterCriterion =  new Criterion()
-            .setField("keyword")
-            .setCondition(Condition.EQUAL)
-            .setValue("some value");
-
-    final Criterion removedCriterion =  new Criterion()
-            .setField("removed")
-            .setCondition(Condition.EQUAL)
-            .setValue(String.valueOf(false));
-
-    final Filter filterWithoutRemovedCondition = new Filter().setOr(
-            new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion().setAnd(
-                    new CriterionArray(ImmutableList.of(filterCriterion)))
-            ));
-
     final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
 
-    final BoolQueryBuilder testQuery = (BoolQueryBuilder) requestHandler
-            .getSearchRequest("testQuery", filterWithoutRemovedCondition, null, 0, 10, false)
-            .source()
-            .query();
+    final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
+    testFilterQuery(testQuery);
+
+    final BoolQueryBuilder queryWithRemoved = constructRemovedQuery(requestHandler, false);
+
+    testRemovedQuery(queryWithRemoved);
+
+
+    final BoolQueryBuilder testQueryScroll = constructFilterQuery(requestHandler, true);
+
+    testFilterQuery(testQueryScroll);
+
+    final BoolQueryBuilder queryWithRemovedScroll = constructRemovedQuery(requestHandler, true);
+
+    testRemovedQuery(queryWithRemovedScroll);
+  }
+
+  private BoolQueryBuilder constructFilterQuery(SearchRequestHandler requestHandler, boolean scroll) {
+    final Criterion filterCriterion =  new Criterion()
+        .setField("keyword")
+        .setCondition(Condition.EQUAL)
+        .setValue("some value");
+
+    final Filter filterWithoutRemovedCondition = new Filter().setOr(
+        new ConjunctiveCriterionArray(
+            new ConjunctiveCriterion().setAnd(
+                new CriterionArray(ImmutableList.of(filterCriterion)))
+        ));
+
+    final BoolQueryBuilder testQuery;
+    if (scroll) {
+      testQuery = (BoolQueryBuilder) requestHandler
+          .getSearchRequest("testQuery", filterWithoutRemovedCondition, null, null, null,
+              "5m", 10, false)
+          .source()
+          .query();
+    } else {
+      testQuery =
+          (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithoutRemovedCondition, null,
+              0, 10, false).source().query();
+    }
+    return testQuery;
+  }
+
+  private void testFilterQuery(BoolQueryBuilder testQuery) {
     Optional<MatchQueryBuilder> mustNotHaveRemovedCondition = testQuery.must()
-            .stream()
-            .filter(or -> or instanceof BoolQueryBuilder)
-            .map(or -> (BoolQueryBuilder) or)
-            .flatMap(or -> {
-              System.out.println("processing: " + or.mustNot());
-              return or.mustNot().stream();
-            })
-            .filter(and -> and instanceof MatchQueryBuilder)
-            .map(and -> (MatchQueryBuilder) and)
-            .filter(match -> match.fieldName().equals("removed"))
-            .findAny();
+        .stream()
+        .filter(or -> or instanceof BoolQueryBuilder)
+        .map(or -> (BoolQueryBuilder) or)
+        .flatMap(or -> {
+          System.out.println("processing: " + or.mustNot());
+          return or.mustNot().stream();
+        })
+        .filter(and -> and instanceof MatchQueryBuilder)
+        .map(and -> (MatchQueryBuilder) and)
+        .filter(match -> match.fieldName().equals("removed"))
+        .findAny();
 
     assertTrue(mustNotHaveRemovedCondition.isPresent(), "Expected must not have removed condition to exist"
-            + " if filter does not have it");
+        + " if filter does not have it");
+  }
+
+  private BoolQueryBuilder constructRemovedQuery(SearchRequestHandler requestHandler, boolean scroll) {
+    final Criterion filterCriterion =  new Criterion()
+        .setField("keyword")
+        .setCondition(Condition.EQUAL)
+        .setValue("some value");
+
+    final Criterion removedCriterion =  new Criterion()
+        .setField("removed")
+        .setCondition(Condition.EQUAL)
+        .setValue(String.valueOf(false));
 
     final Filter filterWithRemovedCondition = new Filter().setOr(
-            new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion().setAnd(
-                            new CriterionArray(ImmutableList.of(filterCriterion, removedCriterion)))
-            ));
+        new ConjunctiveCriterionArray(
+            new ConjunctiveCriterion().setAnd(
+                new CriterionArray(ImmutableList.of(filterCriterion, removedCriterion)))
+        ));
 
-    final BoolQueryBuilder queryWithRemoved = (BoolQueryBuilder) requestHandler
-            .getSearchRequest("testQuery", filterWithRemovedCondition, null, 0, 10, false)
-            .source()
-            .query();
+    final BoolQueryBuilder queryWithRemoved;
+    if (scroll) {
+      queryWithRemoved = (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithRemovedCondition,
+          null, null, null, "5m", 10, false).source().query();
+    } else {
+      queryWithRemoved =
+          (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithRemovedCondition,
+              null, 0, 10, false).source().query();
+    }
+    return queryWithRemoved;
+  }
 
-    mustNotHaveRemovedCondition = queryWithRemoved.must()
-            .stream()
-            .filter(or -> or instanceof BoolQueryBuilder)
-            .map(or -> (BoolQueryBuilder) or)
-            .flatMap(or -> {
-              System.out.println("processing: " + or.mustNot());
-              return or.mustNot().stream();
-            })
-            .filter(and -> and instanceof MatchQueryBuilder)
-            .map(and -> (MatchQueryBuilder) and)
-            .filter(match -> match.fieldName().equals("removed"))
-            .findAny();
+  private void testRemovedQuery(BoolQueryBuilder queryWithRemoved) {
+    Optional<MatchQueryBuilder> mustNotHaveRemovedCondition = queryWithRemoved.must()
+        .stream()
+        .filter(or -> or instanceof BoolQueryBuilder)
+        .map(or -> (BoolQueryBuilder) or)
+        .flatMap(or -> {
+          System.out.println("processing: " + or.mustNot());
+          return or.mustNot().stream();
+        })
+        .filter(and -> and instanceof MatchQueryBuilder)
+        .map(and -> (MatchQueryBuilder) and)
+        .filter(match -> match.fieldName().equals("removed"))
+        .findAny();
 
     assertFalse(mustNotHaveRemovedCondition.isPresent(), "Expect `must not have removed` condition to not"
-            + " exist because filter already has it a condition for the removed property");
+        + " exist because filter already has it a condition for the removed property");
   }
 
   // For fields that are one of EDITABLE_FIELD_TO_QUERY_PAIRS, we want to make sure
@@ -195,7 +241,7 @@ public class SearchRequestHandlerTest {
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
     // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [bool] -> should -> [match]
-    List<MatchQueryBuilder> matchQueryBuilders = testQuery.must()
+    List<MultiMatchQueryBuilder> matchQueryBuilders = testQuery.must()
         .stream()
         .filter(or -> or instanceof BoolQueryBuilder)
         .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
@@ -205,16 +251,16 @@ public class SearchRequestHandlerTest {
         .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
         .filter(should -> should instanceof BoolQueryBuilder)
         .flatMap(should -> ((BoolQueryBuilder) should).should().stream())
-        .filter(should -> should instanceof MatchQueryBuilder)
-        .map(should -> (MatchQueryBuilder) should)
+        .filter(should -> should instanceof MultiMatchQueryBuilder)
+        .map(should -> (MultiMatchQueryBuilder) should)
         .collect(Collectors.toList());
 
     assertTrue(matchQueryBuilders.size() == 2, "Expected to find two match queries");
     Map<String, String> matchMap = new HashMap<>();
     matchQueryBuilders.forEach(matchQueryBuilder -> {
-      String field = matchQueryBuilder.fieldName();
+      Set<String> fields = matchQueryBuilder.fields().keySet();
       assertTrue(matchQueryBuilder.value() instanceof String);
-      matchMap.put(field, (String) matchQueryBuilder.value());
+      fields.forEach(field -> matchMap.put(field, (String) matchQueryBuilder.value()));
     });
 
     assertTrue(matchMap.containsKey("fieldTags.keyword"));
@@ -235,7 +281,7 @@ public class SearchRequestHandlerTest {
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
     // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [match]
-    List<MatchQueryBuilder> matchQueryBuilders = testQuery.must()
+    List<MultiMatchQueryBuilder> matchQueryBuilders = testQuery.must()
         .stream()
         .filter(or -> or instanceof BoolQueryBuilder)
         .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
@@ -243,13 +289,16 @@ public class SearchRequestHandlerTest {
         .flatMap(should -> ((BoolQueryBuilder) should).must().stream())
         .filter(must -> must instanceof BoolQueryBuilder)
         .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
-        .filter(should -> should instanceof MatchQueryBuilder)
-        .map(should -> (MatchQueryBuilder) should)
+        .filter(should -> should instanceof MultiMatchQueryBuilder)
+        .map(should -> (MultiMatchQueryBuilder) should)
         .collect(Collectors.toList());
 
     assertTrue(matchQueryBuilders.size() == 1, "Expected to find one match query");
-    MatchQueryBuilder matchQueryBuilder = matchQueryBuilders.get(0);
-    assertEquals(matchQueryBuilder.fieldName(), "platform");
+    MultiMatchQueryBuilder matchQueryBuilder = matchQueryBuilders.get(0);
+    assertEquals(matchQueryBuilder.fields(), Map.of(
+            "platform", 1.0f,
+            "platform.*", 1.0f)
+    );
     assertEquals(matchQueryBuilder.value(), "mysql");
   }
 
@@ -277,7 +326,7 @@ public class SearchRequestHandlerTest {
 
     assertTrue(termsQueryBuilders.size() == 1, "Expected to find one terms query");
     final TermsQueryBuilder termsQueryBuilder = termsQueryBuilders.get(0);
-    assertEquals(termsQueryBuilder.fieldName(), "platform");
+    assertEquals(termsQueryBuilder.fieldName(), "platform.keyword");
     Set<String> values = new HashSet<>();
     termsQueryBuilder.values().forEach(value -> {
       assertTrue(value instanceof String);

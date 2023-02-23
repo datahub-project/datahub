@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 from typing import Dict
 from unittest.mock import patch
 
@@ -12,6 +13,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
 
 
 def test_bigquery_uri():
@@ -93,11 +95,11 @@ def test_simple_upstream_table_generation():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    lineage_metadata = {str(a): {str(b)}}
-    upstreams = source.lineage_extractor.get_upstream_tables(
-        str(a), lineage_metadata, []
-    )
-    assert list(upstreams) == [b]
+    lineage_metadata = {str(a): {LineageEdge(table=str(b), created=datetime.now())}}
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+
+    assert len(upstreams) == 1
+    assert list(upstreams)[0].table == str(b)
 
 
 def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
@@ -119,10 +121,8 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    lineage_metadata = {str(a): {str(b)}}
-    upstreams = source.lineage_extractor.get_upstream_tables(
-        str(a), lineage_metadata, []
-    )
+    lineage_metadata = {str(a): {LineageEdge(table=str(b), created=datetime.now())}}
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
     assert list(upstreams) == []
 
 
@@ -150,15 +150,15 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
             "project_id": "test-project",
         }
     )
+
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     lineage_metadata = {
-        str(a): {str(b)},
-        str(b): {str(c)},
+        str(a): {LineageEdge(table=str(b), created=datetime.now())},
+        str(b): {LineageEdge(table=str(c), created=datetime.now())},
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(
-        str(a), lineage_metadata, []
-    )
-    assert list(upstreams) == [c]
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    assert len(upstreams) == 1
+    assert list(upstreams)[0].table == str(c)
 
 
 def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream():
@@ -195,14 +195,18 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     lineage_metadata = {
-        str(a): {str(b)},
-        str(b): {str(c), str(d)},
-        str(d): {str(e)},
+        str(a): {LineageEdge(table=str(b), created=datetime.now())},
+        str(b): {
+            LineageEdge(table=str(c), created=datetime.now()),
+            LineageEdge(table=str(d), created=datetime.now()),
+        },
+        str(d): {LineageEdge(table=str(e), created=datetime.now())},
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(
-        str(a), lineage_metadata, []
-    )
-    assert list(upstreams).sort() == [c, e].sort()
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    sorted_list = list(upstreams)
+    sorted_list.sort()
+    assert sorted_list[0].table == str(c)
+    assert sorted_list[1].table == str(e)
 
 
 @patch(
