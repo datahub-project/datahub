@@ -173,7 +173,7 @@ lxml==4.9.2
 makefun==1.15.0
 Mako==1.2.4
 Markdown==3.4.1
-markdown-it-py==2.1.0
+markdown-it-py==2.2.0
 MarkupSafe==2.1.2
 marshmallow==3.19.0
 marshmallow-enum==1.5.1
