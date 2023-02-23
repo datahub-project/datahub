@@ -98,7 +98,12 @@ def side_effect_project_data(*arg, **kwargs):
 
     project3: ProjectItem = ProjectItem(name="Samples")
     project3._id = "910733aa-2e95-4ac3-a2e8-71570751099d"
-    return [project1, project2, project3], mock_pagination
+
+    project4: ProjectItem = ProjectItem(name="DenyProject")
+    project4._id = "79d02655-88e5-45a6-9f9b-eeaf5fe54903"
+    project4.parent_id = project1._id
+
+    return [project1, project2, project3, project4], mock_pagination
 
 
 def side_effect_datasource_data(*arg, **kwargs):
@@ -106,84 +111,34 @@ def side_effect_datasource_data(*arg, **kwargs):
     mock_pagination.total_available = None
 
     datasource1: DatasourceItem = DatasourceItem(
-        name="Customer Payment Query",
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
-    )
-
-    datasource1._id = "4644ccb1-2adc-cf26-c654-04ed1dcc7090"
-
-    datasource2: DatasourceItem = DatasourceItem(
-        name="Marketo",
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
-    )
-    datasource2._id = "678978a0-afab-5483-1a9a-536b77999ec1"
-
-    datasource3: DatasourceItem = DatasourceItem(
-        name="address",
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
-    )
-    datasource3._id = "5acb3a52-00b1-0e5c-b8b2-040445db9824"
-
-    datasource4: DatasourceItem = DatasourceItem(
-        name="actor",
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
-    )
-    datasource4._id = "985d7629-535b-9326-79bc-748e29e97949"
-
-    datasource5: DatasourceItem = DatasourceItem(
-        name="task",
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
-    )
-    datasource5._id = "57135afa-7602-93fe-0f9f-c7fe7c36dd5d"
-
-    datasource6: DatasourceItem = DatasourceItem(
-        name="activity10",
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
-    )
-    datasource6._id = "4aee37cd-e738-e5de-3c77-7a118964ac70"
-
-    datasource7: DatasourceItem = DatasourceItem(
-        name="activity7",
-        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
-    )
-    datasource7._id = "6a9da5b0-a1bc-ef1b-a154-59c2627f49b0"
-
-    datasource8: DatasourceItem = DatasourceItem(
         name="test publish datasource",
         project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
     )
-    datasource8._id = "ffd72f16-004a-4a7d-8f5b-a8fd18d4317d"
+    datasource1._id = "ffd72f16-004a-4a7d-8f5b-a8fd18d4317d"
 
-    datasource9: DatasourceItem = DatasourceItem(
+    datasource2: DatasourceItem = DatasourceItem(
         name="Superstore Datasource",
         project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
     )
-    datasource9._id = "db86f6cc-9c0e-400f-9fe0-0777f31c6ae2"
+    datasource2._id = "db86f6cc-9c0e-400f-9fe0-0777f31c6ae2"
 
-    datasource10: DatasourceItem = DatasourceItem(
+    datasource3: DatasourceItem = DatasourceItem(
         name="Customer Payment Query",
         project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
     )
-    datasource10._id = "1a4e81b9-1107-4b8c-a864-7009b6414858"
+    datasource3._id = "1a4e81b9-1107-4b8c-a864-7009b6414858"
 
-    datasource11: DatasourceItem = DatasourceItem(
+    datasource4: DatasourceItem = DatasourceItem(
         name="test publish datasource",
         project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
     )
-    datasource11._id = "aa10420e-73da-435c-b7c9-b0325a19849a"
+    datasource4._id = "aa10420e-73da-435c-b7c9-b0325a19849a"
 
     return [
         datasource1,
         datasource2,
         datasource3,
         datasource4,
-        datasource5,
-        datasource6,
-        datasource7,
-        datasource8,
-        datasource9,
-        datasource10,
-        datasource11,
     ], mock_pagination
 
 
@@ -281,6 +236,66 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
     )
 
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_mces.json"
+    golden_file_name: str = "tableau_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+
+    new_config["project_pattern"] = {
+        "allow": ["default", "Project 2", "Samples"]
+    }
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config
+    )
+
+
+# @freeze_time(FROZEN_TIME)
+# @pytest.mark.integration
+# def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
+#     output_file_name: str = "tableau_mces.json"
+#     golden_file_name: str = "tableau_mces_golden.json"
+#
+#     new_config = config_source_default.copy()
+#     new_config["project_pattern"] = {
+#         "allow": ["default", "Project 2", "Samples"]
+#     }
+#     new_config["extract_project_hierarchy"] = True
+#
+#     tableau_ingest_common(
+#         pytestconfig,
+#         tmp_path,
+#         [
+#             read_response(pytestconfig, "workbooksConnection_all.json"),
+#             read_response(pytestconfig, "sheetsConnection_all.json"),
+#             read_response(pytestconfig, "dashboardsConnection_all.json"),
+#             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+#             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+#             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+#         ],
+#         golden_file_name,
+#         output_file_name,
+#         mock_datahub_graph,
+#         pipeline_config=new_config
+#     )
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration

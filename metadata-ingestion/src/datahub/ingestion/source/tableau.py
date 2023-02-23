@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
-from pydantic import validator
+from pydantic import validator, root_validator
 from pydantic.fields import Field
 from requests.adapters import ConnectionError
 from tableauserverclient import (
@@ -309,6 +309,29 @@ class TableauConfig(
         description="Ingest a URL to render an embedded Preview of assets within Tableau.",
     )
 
+    @root_validator(pre=False)
+    def projects_backward_compatibility(cls, values: Dict) -> Dict:
+        projects = values.get("projects")
+        project_pattern = values.get("project_pattern")
+
+        if project_pattern == AllowDenyPattern.allow_all() and projects:
+            logger.warning(
+                "project_pattern is not set but projects is set. projects is deprecated, please use "
+                "project_pattern instead."
+            )
+            logger.info("Initializing project_pattern from projects")
+            values["project_pattern"] = AllowDenyPattern(
+                allow=[f"^{prj}$" for prj in projects]
+            )
+        elif project_pattern != AllowDenyPattern.allow_all() and projects:
+            logger.warning(
+                "projects will be ignored in favour of project_pattern. projects is deprecated, please use "
+                "project_pattern only."
+            )
+
+        values.pop("projects")
+
+        return values
 
 class WorkbookKey(PlatformKey):
     workbook_id: str
@@ -649,11 +672,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 yield obj
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
-        projects = (
-            f"projectNameWithin: {json.dumps(self.config.projects)}"
-            if self.config.projects
-            else ""
-        )
         if self.tableau_project_registry:
             project_names: List[str] = [
                 project.name for project in self.tableau_project_registry.values()
@@ -661,36 +679,37 @@ class TableauSource(StatefulIngestionSourceBase):
             project_names_str: str = json.dumps(project_names)
             projects = f"projectNameWithin: {project_names_str}"
 
-        for workbook in self.get_connection_objects(
-            workbook_graphql_query,
-            "workbooksConnection",
-            projects,
-            page_size_override=self.config.workbook_page_size,
-        ):
-            yield from self.emit_workbook_as_container(workbook)
-            # This check is needed as we are using projectNameWithin which return project as per project name so if
-            # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
-            # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
-            # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
-            if workbook.get("projectLuid") not in self.tableau_project_registry.keys():
-                wrk_name: Optional[str] = workbook.get("name")
-                wrk_id: Optional[str] = workbook.get("id")
-                prj_name: Optional[str] = workbook.get("projectName")
-                prj_id: Optional[str] = workbook.get("projectLuid")
-                logger.debug(
-                    f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({prj_id}) not "
-                    f"present in project registry"
-                )
-                continue
+            for workbook in self.get_connection_objects(
+                workbook_graphql_query,
+                "workbooksConnection",
+                projects,
+                page_size_override=self.config.workbook_page_size,
+            ):
+                # This check is needed as we are using projectNameWithin which return project as per project name so if
+                # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
+                # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
+                # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
+                if workbook.get("projectLuid") not in self.tableau_project_registry.keys():
+                    wrk_name: Optional[str] = workbook.get("name")
+                    wrk_id: Optional[str] = workbook.get("id")
+                    prj_name: Optional[str] = workbook.get("projectName")
+                    prj_id: Optional[str] = workbook.get("projectLuid")
+                    logger.debug(
+                        f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({prj_id}) not "
+                        f"present in project registry"
+                    )
+                    continue
 
-            for sheet in workbook.get("sheets", []):
-                self.sheet_ids.append(sheet["id"])
+                yield from self.emit_workbook_as_container(workbook)
 
-            for dashboard in workbook.get("dashboards", []):
-                self.dashboard_ids.append(dashboard["id"])
+                for sheet in workbook.get("sheets", []):
+                    self.sheet_ids.append(sheet["id"])
 
-            for ds in workbook.get("embeddedDatasources", []):
-                self.embedded_datasource_ids_being_used.append(ds["id"])
+                for dashboard in workbook.get("dashboards", []):
+                    self.dashboard_ids.append(dashboard["id"])
+
+                for ds in workbook.get("embeddedDatasources", []):
+                    self.embedded_datasource_ids_being_used.append(ds["id"])
 
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField's upstreamColumns.
