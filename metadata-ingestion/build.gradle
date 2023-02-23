@@ -1,5 +1,5 @@
 plugins {
-    id 'base'
+  id 'base'
 }
 
 ext {
@@ -90,7 +90,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 
-task testQuick(type: Exec, dependsOn: installDev) {
+task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
@@ -167,3 +167,10 @@ clean {
   delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache
+
+idea {
+  module {
+    sourceDirs += file('src')
+    testSourceDirs += file('tests')
+  }
+}

@@ -242,6 +242,11 @@ public class PoliciesConfig {
       "View Dataset Profile",
       "The ability to access dataset profile (snapshot statistics)");
 
+  public static final Privilege EDIT_QUERIES_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_QUERIES",
+      "Edit Dataset Queries",
+      "The ability to edit the Queries for a Dataset.");
+
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE = Privilege.of(
       "EDIT_TAG_COLOR",
@@ -278,6 +283,52 @@ public class PoliciesConfig {
     "Manage All Glossary Children",
     "The ability to create and delete everything underneath this entity.");
 
+  // REST API Specific Privileges (not adding to lists of privileges above as those affect GraphQL as well)
+  public static final Privilege GET_TIMELINE_PRIVILEGE = Privilege.of(
+      "GET_TIMELINE_PRIVILEGE",
+      "Get Timeline API",
+      "The ability to use the GET Timeline API.");
+
+  public static final Privilege GET_ENTITY_PRIVILEGE = Privilege.of(
+      "GET_ENTITY_PRIVILEGE",
+      "Get Entity API",
+      "The ability to use the GET Entity API.");
+
+  public static final Privilege GET_TIMESERIES_ASPECT_PRIVILEGE = Privilege.of(
+      "GET_TIMESERIES_ASPECT_PRIVILEGE",
+      "Get Timeseries Aspect API",
+      "The ability to use the GET Timeseries Aspect API.");
+
+  public static final Privilege GET_COUNTS_PRIVILEGE = Privilege.of(
+      "GET_COUNTS_PRIVILEGE",
+      "Get Aspect/Entity Count APIs",
+      "The ability to use the GET Aspect/Entity Count APIs.");
+
+  public static final Privilege RESTORE_INDICES_PRIVILEGE = Privilege.of(
+      "RESTORE_INDICES_PRIVILEGE",
+      "Restore Indicies API",
+      "The ability to use the Restore Indices API.");
+
+  public static final Privilege SEARCH_PRIVILEGE = Privilege.of(
+      "SEARCH_PRIVILEGE",
+      "Search API",
+      "The ability to access search APIs.");
+
+  public static final Privilege SET_WRITEABLE_PRIVILEGE = Privilege.of(
+     "SET_WRITEABLE_PRIVILEGE",
+     "Enable/Disable Writeability API",
+     "The ability to enable or disable GMS writeability for data migrations.");
+
+  public static final Privilege APPLY_RETENTION_PRIVILEGE = Privilege.of(
+      "APPLY_RETENTION_PRIVILEGE",
+      "Apply Retention API",
+      "The ability to apply retention using the API.");
+
+  public static final Privilege PRODUCE_PLATFORM_EVENT_PRIVILEGE = Privilege.of(
+      "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
+      "Produce Platform Event API",
+      "The ability to produce Platform Events using the API.");
+
   public static final ResourcePrivileges DATASET_PRIVILEGES = ResourcePrivileges.of(
       "dataset",
       "Datasets",
@@ -290,7 +341,9 @@ public class PoliciesConfig {
               EDIT_DATASET_COL_TAGS_PRIVILEGE,
               EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
               EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
-              EDIT_LINEAGE_PRIVILEGE, EDIT_ENTITY_EMBED_PRIVILEGE))
+              EDIT_LINEAGE_PRIVILEGE,
+              EDIT_ENTITY_EMBED_PRIVILEGE,
+              EDIT_QUERIES_PRIVILEGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );

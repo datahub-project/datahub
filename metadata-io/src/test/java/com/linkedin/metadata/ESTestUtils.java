@@ -87,7 +87,8 @@ public class ESTestUtils {
 
         return lineageSearchService.searchAcrossLineage(root, LineageDirection.DOWNSTREAM,
             SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList()),
-            "*", hops, ResolverUtils.buildFilter(filters, List.of()), null, 0, 100, null, null);
+            "*", hops, ResolverUtils.buildFilter(filters, List.of()), null, 0, 100, null,
+            null, new SearchFlags().setSkipCache(true));
     }
 
     public static AutoCompleteResults autocomplete(SearchableEntityType<?, String> searchableEntityType, String query) throws Exception {

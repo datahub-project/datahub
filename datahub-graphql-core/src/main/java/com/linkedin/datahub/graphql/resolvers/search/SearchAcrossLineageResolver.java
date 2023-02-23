@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -17,7 +18,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -86,6 +86,14 @@ public class SearchAcrossLineageResolver
             ResolverUtils.buildFilter(
                 filters,
                 input.getOrFilters());
+        SearchFlags searchFlags = null;
+        final com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
+        if (inputFlags != null) {
+          searchFlags = new SearchFlags()
+              .setSkipCache(inputFlags.getSkipCache())
+              .setFulltext(inputFlags.getFulltext())
+              .setMaxAggValues(inputFlags.getMaxAggValues());
+        }
         return UrnSearchAcrossLineageResultsMapper.map(
             _entityClient.searchAcrossLineage(
                 urn,
@@ -99,6 +107,7 @@ public class SearchAcrossLineageResolver
                 count,
                 startTimeMillis,
                 endTimeMillis,
+                searchFlags,
                 ResolverUtils.getAuthentication(environment)));
       } catch (RemoteInvocationException e) {
         log.error(
@@ -109,22 +118,5 @@ public class SearchAcrossLineageResolver
             resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count), e);
       }
     });
-  }
-
-//  Assumption is that filter values for degree are either null, 3+, 2, or 1.
-  private Integer getMaxHops(List<FacetFilterInput> filters) {
-    Set<String> degreeFilterValues = filters.stream()
-        .filter(filter -> filter.getField().equals("degree"))
-        .flatMap(filter -> filter.getValues().stream())
-        .collect(Collectors.toSet());
-    Integer maxHops = null;
-    if (!degreeFilterValues.contains("3+")) {
-      if (degreeFilterValues.contains("2")) {
-        maxHops = 2;
-      } else if (degreeFilterValues.contains("1")) {
-        maxHops = 1;
-      }
-    }
-    return maxHops;
   }
 }

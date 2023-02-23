@@ -44,7 +44,7 @@ public class CassandraAspectMigrationsDaoTest extends AspectMigrationsDaoTest<Ca
     CassandraAspectDao dao = new CassandraAspectDao(session);
     dao.setConnectionValidated(true);
     _mockProducer = mock(EventProducer.class);
-    _entityService = new EntityService(dao, _mockProducer, _testEntityRegistry);
+    _entityService = new EntityService(dao, _mockProducer, _testEntityRegistry, true);
     _retentionService = new CassandraRetentionService(_entityService, session, 1000);
     _entityService.setRetentionService(_retentionService);
 

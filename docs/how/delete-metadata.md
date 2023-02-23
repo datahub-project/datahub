@@ -83,7 +83,7 @@ datahub delete --urn-file "<urn file path>"
 ```
 ## Delete using Broader Filters
 
-_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). Additionally, as of v0.8.29 there is a new option: `--include-removed` that deletes softly deleted entities that match the provided filter.
+_Note: All these commands below support the soft-delete option (`-s/--soft`) as well as the dry-run option (`-n/--dry-run`). 
 
 
 ### Delete all datasets in the DEV environment
