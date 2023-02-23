@@ -856,9 +856,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_table_lineage:
             table_ref = str(BigQueryTableRef(table_identifier))
             self.table_refs.add(table_ref)
-            if self.config.lineage_parse_view_ddl and view.view_definition:
+            if self.config.lineage_parse_view_ddl:
                 upstream_tables = self.lineage_extractor.parse_view_lineage(
-                    project_id, dataset_name, view.name, view.view_definition
+                    project_id, dataset_name, view
                 )
                 if upstream_tables is not None:
                     self.view_upstream_tables[project_id][table_ref] = [

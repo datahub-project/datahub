@@ -21,6 +21,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryView
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
@@ -44,7 +45,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 class LineageEdge:
     table: str
     auditStamp: datetime
-    type: str  # From DatasetLineageTypeClass
+    type: str = DatasetLineageTypeClass.TRANSFORMED
 
 
 class BigqueryLineageExtractor:
@@ -296,7 +297,6 @@ timestamp < "{end_time}"
                                     )
                                 ),
                                 auditStamp=curr_date,
-                                type=DatasetLineageTypeClass.TRANSFORMED,
                             )
                             for source_table in upstreams
                         ]
@@ -538,7 +538,6 @@ timestamp < "{end_time}"
                         LineageEdge(
                             table=ref_table_str,
                             auditStamp=e.end_time if e.end_time else datetime.now(),
-                            type=DatasetLineageTypeClass.TRANSFORMED,
                         )
                     )
                     has_table = True
@@ -550,7 +549,6 @@ timestamp < "{end_time}"
                         LineageEdge(
                             table=ref_view_str,
                             auditStamp=e.end_time if e.end_time else datetime.now(),
-                            type=DatasetLineageTypeClass.TRANSFORMED,
                         )
                     )
                     has_view = True
@@ -595,19 +593,23 @@ timestamp < "{end_time}"
         return lineage_map
 
     def parse_view_lineage(
-        self, project: str, dataset: str, view_name: str, view_definition: str
+        self, project: str, dataset: str, view: BigqueryView
     ) -> Optional[List[BigqueryTableIdentifier]]:
+        if not view.view_definition:
+            return None
+
         parsed_tables = set()
         try:
             parser = BigQuerySQLParser(
-                view_definition,
+                view.view_definition,
                 self.config.sql_parser_use_external_process,
                 use_raw_names=self.config.lineage_sql_parser_use_raw_names,
             )
             tables = parser.get_tables()
         except Exception as ex:
             logger.debug(
-                f"View {view_name} definination sql parsing failed on query: {view_definition}. Edge from physical table to view won't be added. The error was {ex}."
+                f"View {view.name} definination sql parsing failed on query: {view.view_definition}. "
+                f"Edge from physical table to view won't be added. The error was {ex}."
             )
             return None
 
@@ -633,7 +635,7 @@ timestamp < "{end_time}"
                 )
             else:
                 logger.warning(
-                    f"Invalid table identifier {table} when parsing view lineage for view {view_name}"
+                    f"Invalid table identifier {table} when parsing view lineage for view {view.name}"
                 )
 
         return list(parsed_tables)
