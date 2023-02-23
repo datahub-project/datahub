@@ -4,11 +4,11 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPath;
+import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageResults;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
-import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResults;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntity;
-import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.stream.Collectors;
 
@@ -16,16 +16,16 @@ import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
 import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 
 
-public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E extends Entity> {
-  public static <T extends RecordTemplate, E extends Entity> SearchAcrossLineageResults map(
-      LineageSearchResult searchResult) {
-    return new UrnSearchAcrossLineageResultsMapper<T, E>().apply(searchResult);
+public class UrnScrollAcrossLineageResultsMapper<T extends RecordTemplate, E extends Entity> {
+  public static <T extends RecordTemplate, E extends Entity> ScrollAcrossLineageResults map(
+      LineageScrollResult searchResult) {
+    return new UrnScrollAcrossLineageResultsMapper<T, E>().apply(searchResult);
   }
 
-  public SearchAcrossLineageResults apply(LineageSearchResult input) {
-    final SearchAcrossLineageResults result = new SearchAcrossLineageResults();
+  public ScrollAcrossLineageResults apply(LineageScrollResult input) {
+    final ScrollAcrossLineageResults result = new ScrollAcrossLineageResults();
 
-    result.setStart(input.getFrom());
+    result.setNextScrollId(input.getScrollId());
     result.setCount(input.getPageSize());
     result.setTotal(input.getNumEntities());
 
