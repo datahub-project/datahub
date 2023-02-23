@@ -54,7 +54,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
     get_bigquery_client,
 )
-from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
+from datahub.ingestion.source.bigquery_v2.lineage import (
+    BigqueryLineageExtractor,
+    LineageEdge,
+)
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.sql.sql_utils import (
@@ -104,6 +107,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     GlobalTagsClass,
     TagAssociationClass,
+    DatasetLineageTypeClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.hive_schema_to_avro import (
@@ -251,8 +255,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
-        # Maps (dataset_name, view_name) -> view_definition, for view lineage
-        self.view_definitions: Dict[Tuple[str, str], str] = {}
+        # Maps project -> view_ref -> [upstream_table_ref], for view lineage
+        self.view_upstream_tables: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
 
         atexit.register(cleanup, config)
 
@@ -486,35 +490,20 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         conn: bigquery.Client = get_bigquery_client(self.config)
         self.add_config_to_report()
 
-        projects: List[BigqueryProject]
-        if self.config.project_id:
-            project = BigqueryProject(
-                id=self.config.project_id, name=self.config.project_id
+        projects = self._get_projects(conn)
+        if len(projects) == 0:
+            logger.error(
+                "Get projects didn't return any project. "
+                "Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account."
             )
-            projects = [project]
-        else:
-            try:
-                projects = BigQueryDataDictionary.get_projects(conn)
-                if len(projects) == 0:
-                    logger.error(
-                        "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
-                    )
-                    self.report.report_failure(
-                        "metadata-extraction",
-                        "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-                    )
-                    return
-            except Exception as e:
-                trace = traceback.format_exc()
-                logger.error(
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
-                )
-                logger.error(trace)
-                self.report.report_failure(
-                    "metadata-extraction",
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e} Stacktrace: {trace}",
-                )
-                return None
+            self.report.report_failure(
+                "metadata-extraction",
+                "Get projects didn't return any project. "
+                "Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+            return
 
         for project_id in projects:
             if not self.config.project_id_pattern.allowed(project_id.id):
@@ -557,6 +546,30 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 auto_status_aspect(self.get_workunits_internal()),
             ),
         )
+
+    def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
+        projects: List[BigqueryProject]
+        if self.config.project_id or self.config.project_ids:
+            project_ids = self.config.project_ids or [self.config.project_id]
+            return [
+                BigqueryProject(id=project_id, name=project_id)
+                for project_id in project_ids
+            ]
+        else:
+            try:
+                return BigQueryDataDictionary.get_projects(conn)
+            except Exception as e:
+                # TODO: Merge with error logging in `get_workunits_internal`
+                trace = traceback.format_exc()
+                logger.error(
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
+                )
+                logger.error(trace)
+                self.report.report_failure(
+                    "metadata-extraction",
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e} Stacktrace: {trace}",
+                )
+                return []
 
     def _process_project(
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
@@ -659,20 +672,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
 
         if self.config.lineage_parse_view_ddl:
-            for (dataset, view), view_definition in self.view_definitions.items():
-                self.lineage_extractor.get_view_lineage(
-                    project_id=project_id,
-                    dataset_name=dataset,
-                    view_name=view,
-                    view_definition=view_definition,
-                    lineage_metadata=lineage,
-                )
+            for view, upstream_tables in self.view_upstream_tables[project_id].items():
+                # Override upstreams obtained by parsing audit logs as they may contain indirectly referenced tables
+                lineage[view] = {
+                    LineageEdge(
+                        table=table,
+                        auditStamp=datetime.now(),
+                        type=DatasetLineageTypeClass.VIEW,
+                    )
+                    for table in upstream_tables
+                }
 
         for lineage_key in lineage.keys():
-            table_ref = BigQueryTableRef.from_string_name(lineage_key)
-            if str(table_ref) not in self.table_refs:
+            if lineage_key not in self.table_refs:
                 continue
 
+            table_ref = BigQueryTableRef.from_string_name(lineage_key)
             dataset_urn = self.gen_dataset_urn(
                 project_id=table_ref.table_identifier.project_id,
                 dataset_name=table_ref.table_identifier.dataset,
@@ -757,10 +772,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
             for view in db_views[dataset_name]:
-                if view.view_definition:
-                    self.view_definitions[
-                        (dataset_name, view.name)
-                    ] = view.view_definition
                 view_columns = columns.get(view.name, []) if columns else []
                 yield from self._process_view(
                     view=view,
@@ -796,7 +807,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        self.table_refs.add(str(BigQueryTableRef(table_identifier)))
+        if self.config.include_table_lineage:
+            self.table_refs.add(str(BigQueryTableRef(table_identifier)))
         table.column_count = len(columns)
 
         # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
@@ -842,7 +854,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        self.table_refs.add(str(BigQueryTableRef(table_identifier)))
+        if self.config.include_table_lineage:
+            table_ref = str(BigQueryTableRef(table_identifier))
+            self.table_refs.add(table_ref)
+            if self.config.lineage_parse_view_ddl and view.view_definition:
+                upstream_tables = self.lineage_extractor.parse_view_lineage(
+                    project_id, dataset_name, view.name, view.view_definition
+                )
+                if upstream_tables is not None:
+                    self.view_upstream_tables[project_id][table_ref] = [
+                        str(BigQueryTableRef(table_id).get_sanitized_table_ref())
+                        for table_id in upstream_tables
+                    ]
+
         view.column_count = len(columns)
         if not view.column_count:
             logger.warning(

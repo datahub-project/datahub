@@ -43,7 +43,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 @dataclass(order=True, eq=True, frozen=True)
 class LineageEdge:
     table: str
-    created: datetime
+    auditStamp: datetime
+    type: str  # From DatasetLineageTypeClass
 
 
 class BigqueryLineageExtractor:
@@ -287,14 +288,15 @@ timestamp < "{end_time}"
                     lineage_map[destination_table_str] = set(
                         [
                             LineageEdge(
-                                str(
+                                table=str(
                                     BigQueryTableRef(
                                         table_identifier=BigqueryTableIdentifier.from_string_name(
                                             source_table
                                         )
                                     )
                                 ),
-                                curr_date,
+                                auditStamp=curr_date,
+                                type=DatasetLineageTypeClass.TRANSFORMED,
                             )
                             for source_table in upstreams
                         ]
@@ -535,7 +537,8 @@ timestamp < "{end_time}"
                     lineage_map[destination_table_str].add(
                         LineageEdge(
                             table=ref_table_str,
-                            created=e.end_time if e.end_time else datetime.now(),
+                            auditStamp=e.end_time if e.end_time else datetime.now(),
+                            type=DatasetLineageTypeClass.TRANSFORMED,
                         )
                     )
                     has_table = True
@@ -546,7 +549,8 @@ timestamp < "{end_time}"
                     lineage_map[destination_table_str].add(
                         LineageEdge(
                             table=ref_view_str,
-                            created=e.end_time if e.end_time else datetime.now(),
+                            auditStamp=e.end_time if e.end_time else datetime.now(),
+                            type=DatasetLineageTypeClass.TRANSFORMED,
                         )
                     )
                     has_view = True
@@ -592,7 +596,7 @@ timestamp < "{end_time}"
 
     def parse_view_lineage(
         self, project: str, dataset: str, view_name: str, view_definition: str
-    ) -> List[BigqueryTableIdentifier]:
+    ) -> Optional[List[BigqueryTableIdentifier]]:
         parsed_tables = set()
         try:
             parser = BigQuerySQLParser(
@@ -605,7 +609,7 @@ timestamp < "{end_time}"
             logger.debug(
                 f"View {view_name} definination sql parsing failed on query: {view_definition}. Edge from physical table to view won't be added. The error was {ex}."
             )
-            return []
+            return None
 
         for table in tables:
             parts = table.split(".")
@@ -628,7 +632,9 @@ timestamp < "{end_time}"
                     )
                 )
             else:
-                continue
+                logger.warning(
+                    f"Invalid table identifier {table} when parsing view lineage for view {view_name}"
+                )
 
         return list(parsed_tables)
 
@@ -681,7 +687,7 @@ timestamp < "{end_time}"
         self,
         bq_table: BigQueryTableRef,
         lineage_metadata: Dict[str, Set[LineageEdge]],
-        tables_seen: List[str] = [],
+        tables_seen: List[str],
     ) -> Set[LineageEdge]:
         upstreams: Set[LineageEdge] = set()
         for ref_lineage in lineage_metadata[str(bq_table)]:
@@ -722,37 +728,6 @@ timestamp < "{end_time}"
 
         return lineage
 
-    def get_view_lineage(
-        self,
-        project_id: str,
-        dataset_name: str,
-        view_name: str,
-        view_definition: str,
-        lineage_metadata: Dict[str, Set[LineageEdge]],
-    ) -> None:
-        table_identifier = BigqueryTableIdentifier(project_id, dataset_name, view_name)
-        table_key = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
-
-        parsed_view_upstreams = self.parse_view_lineage(
-            project=project_id,
-            dataset=dataset_name,
-            view_name=view_name,
-            view_definition=view_definition,
-        )
-
-        if parsed_view_upstreams:
-            # Override upstreams obtained by parsing audit logs
-            # as they may contain indirectly referenced tables
-            lineage_metadata[table_key] = set()
-
-        for table_id in parsed_view_upstreams:
-            lineage_metadata[table_key].add(
-                LineageEdge(
-                    table=str(BigQueryTableRef(table_id).get_sanitized_table_ref()),
-                    created=datetime.now(),
-                )
-            )
-
     def get_lineage_for_table(
         self,
         bq_table: BigQueryTableRef,
@@ -769,12 +744,12 @@ timestamp < "{end_time}"
             upstream_table_class = UpstreamClass(
                 dataset=mce_builder.make_dataset_urn_with_platform_instance(
                     platform,
-                    f"{upstream_table.table_identifier.get_table_name()}",
+                    upstream_table.table_identifier.get_table_name(),
                     self.config.platform_instance,
                     self.config.env,
                 ),
                 type=DatasetLineageTypeClass.TRANSFORMED,
-                created=AuditStampClass(
+                auditStamp=AuditStampClass(
                     actor="urn:li:corpuser:datahub",
                     time=int(upstream.created.timestamp() * 1000),
                 ),
