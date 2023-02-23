@@ -242,7 +242,6 @@ class Mapper:
         """
 
         dataset_mcps: List[MetadataChangeProposalWrapper] = []
-
         if dataset is None:
             return dataset_mcps
 
@@ -664,8 +663,7 @@ class Mapper:
         tiles: List[powerbi_data_classes.Tile],
         workspace: powerbi_data_classes.Workspace,
     ) -> Tuple[
-        List[MetadataChangeProposalWrapper],
-        List[MetadataChangeProposalWrapper],
+        List[MetadataChangeProposalWrapper], List[MetadataChangeProposalWrapper]
     ]:
         ds_mcps = []
         chart_mcps = []
@@ -688,6 +686,7 @@ class Mapper:
             chart_mcps.extend(chart_mcp)
 
         # Return dataset and chart MCPs
+
         return ds_mcps, chart_mcps
 
     def to_datahub_work_units(
@@ -747,7 +746,7 @@ class Mapper:
         ds_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
 
-        chart_mcps: List[MetadataChangeProposalWrapper] = []
+        chart_mcps = []
 
         # Return empty list if input list is empty
         if not pages:
