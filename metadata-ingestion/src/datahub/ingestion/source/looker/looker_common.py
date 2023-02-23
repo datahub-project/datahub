@@ -1135,7 +1135,7 @@ class LookerUserRegistry:
     def __init__(self, looker_api: LookerAPI):
         self.looker_api_wrapper = looker_api
 
-    def get_by_id(self, id_: int) -> Optional[LookerUser]:
+    def get_by_id(self, id_: str) -> Optional[LookerUser]:
         logger.debug(f"Will get user {id_}")
 
         raw_user: Optional[User] = self.looker_api_wrapper.get_user(
