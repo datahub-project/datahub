@@ -37,8 +37,10 @@ import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -97,6 +99,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_LIST = "list";
   private static final String ACTION_SEARCH_ACROSS_ENTITIES = "searchAcrossEntities";
   private static final String ACTION_SEARCH_ACROSS_LINEAGE = "searchAcrossLineage";
+  private static final String ACTION_SCROLL_ACROSS_ENTITIES = "scrollAcrossEntities";
+  private static final String ACTION_SCROLL_ACROSS_LINEAGE = "scrollAcrossLineage";
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_APPLY_RETENTION = "applyRetention";
@@ -359,6 +363,22 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         _entityService), "searchAcrossEntities");
   }
 
+  @Action(name = ACTION_SCROLL_ACROSS_ENTITIES)
+  @Nonnull
+  @WithSpan
+  public Task<ScrollResult> scrollAcrossEntities(@ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
+      @ActionParam(PARAM_INPUT) @Nonnull String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_SCROLL_ID) String scrollId,
+      @ActionParam(PARAM_KEEP_ALIVE) String keepAlive, @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
+    List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
+    log.info("GET SCROLL RESULTS ACROSS ENTITIES for {} with query {} and scroll ID: {}", entityList, input, scrollId);
+    final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
+    return RestliUtil.toTask(() -> validateScrollResult(
+        _searchService.scrollAcrossEntities(entityList, input, filter, sortCriterion, scrollId, keepAlive, count, finalFlags),
+        _entityService), "scrollAcrossEntities");
+  }
+
   @Action(name = ACTION_SEARCH_ACROSS_LINEAGE)
   @Nonnull
   @WithSpan
@@ -370,6 +390,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
+      @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags) throws URISyntaxException {
     Authentication auth = AuthenticationContext.getAuthentication();
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
@@ -384,7 +406,35 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
     return RestliUtil.toTask(() -> validateLineageSearchResult(
         _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
-            filter, sortCriterion, start, count, null, null, finalFlags), _entityService), "searchAcrossRelationships");
+            filter, sortCriterion, start, count, startTimeMillis, endTimeMillis, finalFlags), _entityService),
+        "searchAcrossRelationships");
+  }
+
+  @Action(name = ACTION_SCROLL_ACROSS_LINEAGE)
+  @Nonnull
+  @WithSpan
+  public Task<LineageScrollResult> scrollAcrossLineage(@ActionParam(PARAM_URN) @Nonnull String urnStr,
+      @ActionParam(PARAM_DIRECTION) String direction,
+      @ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
+      @ActionParam(PARAM_INPUT) @Optional @Nullable String input,
+      @ActionParam(PARAM_MAX_HOPS) @Optional @Nullable Integer maxHops,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @ActionParam(PARAM_SCROLL_ID) String scrollId,
+      @ActionParam(PARAM_KEEP_ALIVE) String keepAlive,
+      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
+      @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
+      @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) throws URISyntaxException {
+    Urn urn = Urn.createFromString(urnStr);
+    List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
+    log.info("GET SCROLL RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
+        urnStr, direction, entityList, input);
+    final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
+    return RestliUtil.toTask(() -> validateLineageScrollResult(
+        _lineageSearchService.scrollAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
+            filter, sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags), _entityService),
+        "scrollAcrossLineage");
   }
 
   @Action(name = ACTION_LIST)

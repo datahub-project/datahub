@@ -241,6 +241,89 @@
       } ],
       "returns" : "com.linkedin.metadata.query.ListUrnsResult"
     }, {
+      "name" : "scrollAcrossEntities",
+      "parameters" : [ {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "scrollId",
+        "type" : "string"
+      }, {
+        "name" : "keepAlive",
+        "type" : "string"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.search.ScrollResult"
+    }, {
+      "name" : "scrollAcrossLineage",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "direction",
+        "type" : "string"
+      }, {
+        "name" : "entities",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "input",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "maxHops",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.filter.Filter",
+        "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+        "optional" : true
+      }, {
+        "name" : "scrollId",
+        "type" : "string"
+      }, {
+        "name" : "keepAlive",
+        "type" : "string"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "searchFlags",
+        "type" : "com.linkedin.metadata.query.SearchFlags",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.search.LineageScrollResult"
+    }, {
       "name" : "search",
       "parameters" : [ {
         "name" : "entity",
@@ -338,6 +421,14 @@
       }, {
         "name" : "count",
         "type" : "int"
+      }, {
+        "name" : "startTimeMillis",
+        "type" : "long",
+        "optional" : true
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long",
+        "optional" : true
       }, {
         "name" : "searchFlags",
         "type" : "com.linkedin.metadata.query.SearchFlags",

@@ -66,71 +66,116 @@ public class SearchRequestHandlerTest {
   @Test
   public void testFilteredSearch() {
 
-    final Criterion filterCriterion =  new Criterion()
-            .setField("keyword")
-            .setCondition(Condition.EQUAL)
-            .setValue("some value");
-
-    final Criterion removedCriterion =  new Criterion()
-            .setField("removed")
-            .setCondition(Condition.EQUAL)
-            .setValue(String.valueOf(false));
-
-    final Filter filterWithoutRemovedCondition = new Filter().setOr(
-            new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion().setAnd(
-                    new CriterionArray(ImmutableList.of(filterCriterion)))
-            ));
-
     final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
 
-    final BoolQueryBuilder testQuery = (BoolQueryBuilder) requestHandler
-            .getSearchRequest("testQuery", filterWithoutRemovedCondition, null, 0, 10, false)
-            .source()
-            .query();
+    final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
+    testFilterQuery(testQuery);
+
+    final BoolQueryBuilder queryWithRemoved = constructRemovedQuery(requestHandler, false);
+
+    testRemovedQuery(queryWithRemoved);
+
+
+    final BoolQueryBuilder testQueryScroll = constructFilterQuery(requestHandler, true);
+
+    testFilterQuery(testQueryScroll);
+
+    final BoolQueryBuilder queryWithRemovedScroll = constructRemovedQuery(requestHandler, true);
+
+    testRemovedQuery(queryWithRemovedScroll);
+  }
+
+  private BoolQueryBuilder constructFilterQuery(SearchRequestHandler requestHandler, boolean scroll) {
+    final Criterion filterCriterion =  new Criterion()
+        .setField("keyword")
+        .setCondition(Condition.EQUAL)
+        .setValue("some value");
+
+    final Filter filterWithoutRemovedCondition = new Filter().setOr(
+        new ConjunctiveCriterionArray(
+            new ConjunctiveCriterion().setAnd(
+                new CriterionArray(ImmutableList.of(filterCriterion)))
+        ));
+
+    final BoolQueryBuilder testQuery;
+    if (scroll) {
+      testQuery = (BoolQueryBuilder) requestHandler
+          .getSearchRequest("testQuery", filterWithoutRemovedCondition, null, null, null,
+              "5m", 10, false)
+          .source()
+          .query();
+    } else {
+      testQuery =
+          (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithoutRemovedCondition, null,
+              0, 10, false).source().query();
+    }
+    return testQuery;
+  }
+
+  private void testFilterQuery(BoolQueryBuilder testQuery) {
     Optional<MatchQueryBuilder> mustNotHaveRemovedCondition = testQuery.must()
-            .stream()
-            .filter(or -> or instanceof BoolQueryBuilder)
-            .map(or -> (BoolQueryBuilder) or)
-            .flatMap(or -> {
-              System.out.println("processing: " + or.mustNot());
-              return or.mustNot().stream();
-            })
-            .filter(and -> and instanceof MatchQueryBuilder)
-            .map(and -> (MatchQueryBuilder) and)
-            .filter(match -> match.fieldName().equals("removed"))
-            .findAny();
+        .stream()
+        .filter(or -> or instanceof BoolQueryBuilder)
+        .map(or -> (BoolQueryBuilder) or)
+        .flatMap(or -> {
+          System.out.println("processing: " + or.mustNot());
+          return or.mustNot().stream();
+        })
+        .filter(and -> and instanceof MatchQueryBuilder)
+        .map(and -> (MatchQueryBuilder) and)
+        .filter(match -> match.fieldName().equals("removed"))
+        .findAny();
 
     assertTrue(mustNotHaveRemovedCondition.isPresent(), "Expected must not have removed condition to exist"
-            + " if filter does not have it");
+        + " if filter does not have it");
+  }
+
+  private BoolQueryBuilder constructRemovedQuery(SearchRequestHandler requestHandler, boolean scroll) {
+    final Criterion filterCriterion =  new Criterion()
+        .setField("keyword")
+        .setCondition(Condition.EQUAL)
+        .setValue("some value");
+
+    final Criterion removedCriterion =  new Criterion()
+        .setField("removed")
+        .setCondition(Condition.EQUAL)
+        .setValue(String.valueOf(false));
 
     final Filter filterWithRemovedCondition = new Filter().setOr(
-            new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion().setAnd(
-                            new CriterionArray(ImmutableList.of(filterCriterion, removedCriterion)))
-            ));
+        new ConjunctiveCriterionArray(
+            new ConjunctiveCriterion().setAnd(
+                new CriterionArray(ImmutableList.of(filterCriterion, removedCriterion)))
+        ));
 
-    final BoolQueryBuilder queryWithRemoved = (BoolQueryBuilder) requestHandler
-            .getSearchRequest("testQuery", filterWithRemovedCondition, null, 0, 10, false)
-            .source()
-            .query();
+    final BoolQueryBuilder queryWithRemoved;
+    if (scroll) {
+      queryWithRemoved = (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithRemovedCondition,
+          null, null, null, "5m", 10, false).source().query();
+    } else {
+      queryWithRemoved =
+          (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithRemovedCondition,
+              null, 0, 10, false).source().query();
+    }
+    return queryWithRemoved;
+  }
 
-    mustNotHaveRemovedCondition = queryWithRemoved.must()
-            .stream()
-            .filter(or -> or instanceof BoolQueryBuilder)
-            .map(or -> (BoolQueryBuilder) or)
-            .flatMap(or -> {
-              System.out.println("processing: " + or.mustNot());
-              return or.mustNot().stream();
-            })
-            .filter(and -> and instanceof MatchQueryBuilder)
-            .map(and -> (MatchQueryBuilder) and)
-            .filter(match -> match.fieldName().equals("removed"))
-            .findAny();
+  private void testRemovedQuery(BoolQueryBuilder queryWithRemoved) {
+    Optional<MatchQueryBuilder> mustNotHaveRemovedCondition = queryWithRemoved.must()
+        .stream()
+        .filter(or -> or instanceof BoolQueryBuilder)
+        .map(or -> (BoolQueryBuilder) or)
+        .flatMap(or -> {
+          System.out.println("processing: " + or.mustNot());
+          return or.mustNot().stream();
+        })
+        .filter(and -> and instanceof MatchQueryBuilder)
+        .map(and -> (MatchQueryBuilder) and)
+        .filter(match -> match.fieldName().equals("removed"))
+        .findAny();
 
     assertFalse(mustNotHaveRemovedCondition.isPresent(), "Expect `must not have removed` condition to not"
-            + " exist because filter already has it a condition for the removed property");
+        + " exist because filter already has it a condition for the removed property");
   }
 
   // For fields that are one of EDITABLE_FIELD_TO_QUERY_PAIRS, we want to make sure
