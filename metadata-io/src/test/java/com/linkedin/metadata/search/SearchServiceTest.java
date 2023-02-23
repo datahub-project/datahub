@@ -45,6 +45,7 @@ import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.ESTestConfiguration.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
@@ -112,7 +113,8 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
     EntityIndexBuilders indexBuilders =
         new EntityIndexBuilders(_esIndexBuilder, _entityRegistry,
             _indexConvention, _settingsBuilder);
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
+    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention, false,
+        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
     ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention,
         _bulkProcessor, 1);
