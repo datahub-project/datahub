@@ -239,7 +239,7 @@ class BaseStatGenerator(ABC):
             * 1000
         )
 
-    def _get_user_identifier(self, row: Dict) -> int:
+    def _get_user_identifier(self, row: Dict) -> str:
         return row[UserViewField.USER_ID]
 
     def _process_entity_timeseries_rows(
