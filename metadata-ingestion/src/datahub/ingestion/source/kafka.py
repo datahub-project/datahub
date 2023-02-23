@@ -243,14 +243,10 @@ class KafkaSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(schema_metadata)
 
         # 3. Attach browsePaths aspect
-        browse_path_suffix = (
-            f"{self.source_config.platform_instance}/{topic}"
-            if self.source_config.platform_instance
-            else topic
-        )
-        browse_path = BrowsePathsClass(
-            [f"/{self.source_config.env.lower()}/{self.platform}/{browse_path_suffix}"]
-        )
+        browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
+        if self.source_config.platform_instance:
+            browse_path_str += f"/{self.source_config.platform_instance}"
+        browse_path = BrowsePathsClass([browse_path_str])
         dataset_snapshot.aspects.append(browse_path)
 
         custom_props = self.build_custom_properties(
