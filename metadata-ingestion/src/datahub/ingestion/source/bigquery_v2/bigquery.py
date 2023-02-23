@@ -5,7 +5,7 @@ import re
 import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
+from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast, Set
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
@@ -248,6 +248,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.profiler = BigqueryProfiler(
             config, self.report, self.profiling_state_handler
         )
+
+        # Global store of table identifiers for lineage filtering
+        self.table_refs: Set[str] = set()
+        # Maps (dataset_name, view_name) -> view_definition, for view lineage
+        self.view_definitions: Dict[Tuple[str, str], str] = {}
 
         atexit.register(cleanup, config)
 
@@ -519,6 +524,30 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.set_project_state(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
+        if self.config.include_table_lineage:
+            if (
+                self.config.store_last_lineage_extraction_timestamp
+                and self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                )
+            ):
+                # Skip this run
+                self.report.report_warning(
+                    "lineage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return
+
+            for project in projects:
+                if self.config.store_last_lineage_extraction_timestamp:
+                    # Update the checkpoint state for this run.
+                    self.redundant_run_skip_handler.update_state(
+                        start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                        end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                    )
+                self.report.set_project_state(project.id, "Lineage Extraction")
+                yield from self.generate_lineage(project.id)
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
@@ -591,31 +620,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-        if self.config.include_table_lineage:
-            if (
-                self.config.store_last_lineage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                # Skip this run
-                self.report.report_warning(
-                    "lineage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
-
-            if self.config.store_last_lineage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-            self.report.set_project_state(project_id, "Lineage Extraction")
-            yield from self.generate_lineage(
-                project_id, db_tables=db_tables, db_views=db_views
-            )
-
         if self.config.include_usage_statistics:
             if (
                 self.config.store_last_usage_extraction_timestamp
@@ -649,27 +653,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 tables=db_tables,
             )
 
-    def generate_lineage(
-        self,
-        project_id: str,
-        db_tables: Dict[str, List[BigqueryTable]],
-        db_views: Dict[str, List[BigqueryView]],
-    ) -> Iterable[MetadataWorkUnit]:
+    def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
         lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
 
         if self.config.lineage_parse_view_ddl:
-            for dataset in db_views.keys():
-                for view in db_views[dataset]:
-                    self.lineage_extractor.get_view_lineage(
-                        project_id=project_id,
-                        dataset_name=dataset,
-                        view=view,
-                        lineage_metadata=lineage,
-                    )
+            for (dataset, view), view_definition in self.view_definitions.items():
+                self.lineage_extractor.get_view_lineage(
+                    project_id=project_id,
+                    dataset_name=dataset,
+                    view_name=view,
+                    view_definition=view_definition,
+                    lineage_metadata=lineage,
+                )
 
         for lineage_key in lineage.keys():
             table_ref = BigQueryTableRef.from_string_name(lineage_key)
+            if table_ref not in self.table_refs:
+                continue
+
             dataset_urn = self.gen_dataset_urn(
                 project_id=table_ref.table_identifier.project_id,
                 dataset_name=table_ref.table_identifier.dataset,
@@ -739,8 +741,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
             for table in db_tables[dataset_name]:
-                table_columns = columns.get(table.name, []) if columns else []
+                identifier = BigqueryTableIdentifier(
+                    project_id, dataset_name, table.name
+                )
+                self.table_refs.add(str(BigQueryTableRef(identifier)))
 
+                table_columns = columns.get(table.name, []) if columns else []
                 yield from self._process_table(
                     table=table,
                     columns=table_columns,
@@ -754,6 +760,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
             for view in db_views[dataset_name]:
+                if view.view_definition:
+                    self.view_definitions[
+                        (dataset_name, view.name)
+                    ] = view.view_definition
                 view_columns = columns.get(view.name, []) if columns else []
                 yield from self._process_view(
                     view=view,
