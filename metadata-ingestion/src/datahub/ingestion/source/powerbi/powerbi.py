@@ -5,18 +5,7 @@
 #########################################################
 
 import logging
-from typing import (
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
-    cast,
-)
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple, Type, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -52,8 +41,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     SchemaField,
@@ -171,21 +158,16 @@ class Mapper:
         )
 
     def _to_work_unit(
-        self, mcp: Union[MetadataChangeProposalWrapper, MetadataChangeEvent]
+        self, mcp: MetadataChangeProposalWrapper
     ) -> EquableMetadataWorkUnit:
-        if isinstance(mcp, MetadataChangeEvent):
-            return Mapper.EquableMetadataWorkUnit(
-                id=f"{self.__config.platform_name}-{mcp.proposedSnapshot.urn}", mce=mcp
-            )
-        elif isinstance(mcp, MetadataChangeProposalWrapper):
-            return Mapper.EquableMetadataWorkUnit(
-                id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
-                    PLATFORM=self.__config.platform_name,
-                    ENTITY_URN=mcp.entityUrn,
-                    ASPECT_NAME=mcp.aspectName,
-                ),
-                mcp=mcp,
-            )
+        return Mapper.EquableMetadataWorkUnit(
+            id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
+                PLATFORM=self.__config.platform_name,
+                ENTITY_URN=mcp.entityUrn,
+                ASPECT_NAME=mcp.aspectName,
+            ),
+            mcp=mcp,
+        )
 
     def extract_lineage(
         self, table: powerbi_data_classes.Table, ds_urn: str
@@ -253,15 +235,13 @@ class Mapper:
         self,
         dataset: Optional[powerbi_data_classes.PowerBIDataset],
         workspace: powerbi_data_classes.Workspace,
-    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]]:
+    ) -> List[MetadataChangeProposalWrapper]:
         """
         Map PowerBi dataset to datahub dataset. Here we are mapping each table of PowerBi Dataset to Datahub dataset.
         In PowerBi Tile would be having single dataset, However corresponding Datahub's chart might have many input sources.
         """
 
-        dataset_mcps: List[
-            Union[MetadataChangeProposalWrapper, MetadataChangeEvent]
-        ] = []
+        dataset_mcps: List[MetadataChangeProposalWrapper] = []
 
         if dataset is None:
             return dataset_mcps
@@ -322,16 +302,12 @@ class Mapper:
 
     def extract_schema(
         self,
-        dataset_mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]],
+        dataset_mcps: List[MetadataChangeProposalWrapper],
         dataset: powerbi_data_classes.PowerBIDataset,
         table: powerbi_data_classes.Table,
         ds_urn: str,
     ) -> None:
         if table.columns or table.measures:
-            dataset_snapshot = DatasetSnapshot(
-                urn=ds_urn,
-                aspects=[StatusClass(removed=False)],
-            )
             columns: List[
                 Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
             ] = [
@@ -347,9 +323,13 @@ class Mapper:
                 platformSchema=MySqlDDL(tableSchema=""),
                 fields=fields,
             )
-            dataset_snapshot.aspects.append(schema_metadata)
-            snapshot_mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            dataset_mcps.append(snapshot_mce)
+            schema_metadata_mcp = self.new_mcp(
+                entity_type=Constant.DATASET,
+                entity_urn=ds_urn,
+                aspect_name=Constant.SCHEMA_METADATA,
+                aspect=schema_metadata,
+            )
+            dataset_mcps.append(schema_metadata_mcp)
 
     @staticmethod
     def get_schema_fields(
@@ -385,7 +365,7 @@ class Mapper:
     def to_datahub_chart_mcp(
         self,
         tile: powerbi_data_classes.Tile,
-        ds_mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]],
+        ds_mcps: List[MetadataChangeProposalWrapper],
         workspace: powerbi_data_classes.Workspace,
     ) -> List[MetadataChangeProposalWrapper]:
         """
@@ -473,16 +453,12 @@ class Mapper:
         return result_mcps
 
     # written in this style to fix linter error
-    def to_urn_set(
-        self, mcps: Sequence[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]]
-    ) -> List[str]:
+    def to_urn_set(self, mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
         return deduplicate_list(
             [
                 mcp.entityUrn
                 for mcp in mcps
-                if mcp is not None
-                and isinstance(mcp, MetadataChangeProposalWrapper)
-                and mcp.entityUrn is not None
+                if mcp is not None and mcp.entityUrn is not None
             ]
         )
 
@@ -606,7 +582,7 @@ class Mapper:
 
     def append_container_mcp(
         self,
-        list_of_mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]],
+        list_of_mcps: List[MetadataChangeProposalWrapper],
         workspace: powerbi_data_classes.Workspace,
         entity_urn: str,
     ) -> None:
@@ -636,7 +612,7 @@ class Mapper:
 
     def append_tag_mcp(
         self,
-        list_of_mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]],
+        list_of_mcps: List[MetadataChangeProposalWrapper],
         entity_urn: str,
         entity_type: str,
         tags: List[str],
@@ -688,7 +664,7 @@ class Mapper:
         tiles: List[powerbi_data_classes.Tile],
         workspace: powerbi_data_classes.Workspace,
     ) -> Tuple[
-        List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]],
+        List[MetadataChangeProposalWrapper],
         List[MetadataChangeProposalWrapper],
     ]:
         ds_mcps = []
@@ -768,10 +744,10 @@ class Mapper:
         self,
         pages: List[powerbi_data_classes.Page],
         workspace: powerbi_data_classes.Workspace,
-        ds_mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]],
-    ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]]:
+        ds_mcps: List[MetadataChangeProposalWrapper],
+    ) -> List[MetadataChangeProposalWrapper]:
 
-        chart_mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]] = []
+        chart_mcps: List[MetadataChangeProposalWrapper] = []
 
         # Return empty list if input list is empty
         if not pages:
@@ -781,8 +757,8 @@ class Mapper:
 
         def to_chart_mcps(
             page: powerbi_data_classes.Page,
-            ds_mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]],
-        ) -> List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]]:
+            ds_mcps: List[MetadataChangeProposalWrapper],
+        ) -> List[MetadataChangeProposalWrapper]:
             logger.debug(f"Converting page {page.displayName} to chart")
             # Create a URN for chart
             chart_urn = builder.make_chart_urn(
@@ -847,7 +823,7 @@ class Mapper:
         self,
         workspace: powerbi_data_classes.Workspace,
         report: powerbi_data_classes.Report,
-        chart_mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]],
+        chart_mcps: List[MetadataChangeProposalWrapper],
         user_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
         """
@@ -965,7 +941,7 @@ class Mapper:
         report: powerbi_data_classes.Report,
         workspace: powerbi_data_classes.Workspace,
     ) -> Iterable[MetadataWorkUnit]:
-        mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeEvent]] = []
+        mcps: List[MetadataChangeProposalWrapper] = []
 
         logger.debug(f"Converting dashboard={report.name} to datahub dashboard")
 

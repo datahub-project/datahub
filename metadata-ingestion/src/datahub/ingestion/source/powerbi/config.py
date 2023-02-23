@@ -98,6 +98,7 @@ class Constant:
     ENDORSEMENT_DETAIL = "endorsementDetails"
     TABLES = "tables"
     EXPRESSION = "expression"
+    SCHEMA_METADATA = "schemaMetadata"
     SOURCE = "source"
     PLATFORM_NAME = "powerbi"
     REPORT_TYPE_NAME = "Report"
