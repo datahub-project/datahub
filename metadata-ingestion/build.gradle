@@ -1,5 +1,5 @@
 plugins {
-    id 'base'
+  id 'base'
 }
 
 ext {
@@ -167,3 +167,10 @@ clean {
   delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache
+
+idea {
+  module {
+    sourceDirs += file('src')
+    testSourceDirs += file('tests')
+  }
+}

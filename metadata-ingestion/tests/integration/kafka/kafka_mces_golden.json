@@ -84,7 +84,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/kafka/value_topic"
+                            "/prod/kafka"
                         ]
                     }
                 },
@@ -187,7 +187,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/kafka/key_topic"
+                            "/prod/kafka"
                         ]
                     }
                 },
@@ -326,7 +326,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/kafka/key_value_topic"
+                            "/prod/kafka"
                         ]
                     }
                 },

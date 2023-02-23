@@ -148,8 +148,7 @@ public class SettingsBuilder {
   public static final List<String> PARTIAL_AUTOCOMPLETE_TOKEN_FILTERS = ImmutableList.of(
           ASCII_FOLDING,
           AUTOCOMPLETE_CUSTOM_DELIMITER,
-          LOWERCASE,
-          DATAHUB_STOP_WORDS);
+          LOWERCASE);
 
   public final Map<String, Object> settings;
 

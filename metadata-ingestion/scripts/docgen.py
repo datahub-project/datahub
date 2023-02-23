@@ -679,8 +679,8 @@ def generate(
     i = 0
     for platform_id, platform_docs in sorted(
         source_documentation.items(),
-        key=lambda x: (x[1]['name'].casefold(), x[1]['name'])
-        if 'name' in x[1]
+        key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
+        if "name" in x[1]
         else (x[0].casefold(), x[0]),
     ):
         if source and platform_id != source:

@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine3.15 AS binary
+FROM golang:1-alpine3.17 AS binary
 
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
@@ -12,7 +12,7 @@ RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 FROM alpine:3
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
-RUN apk add --no-cache mysql-client curl tar bash
+RUN apk add --no-cache mysql-client bash
 
 COPY docker/mysql-setup/init.sql /init.sql
 COPY docker/mysql-setup/init.sh /init.sh

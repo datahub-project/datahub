@@ -7,4 +7,6 @@ import lombok.Data;
 public class FeatureFlags {
   private boolean showSimplifiedHomepageByDefault = false;
   private boolean lineageSearchCacheEnabled = false;
+  private boolean pointInTimeCreationEnabled = false;
+  private boolean alwaysEmitChangeLog = false;
 }
