@@ -1083,8 +1083,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                         dataset, workspace
                     )
                     for workunit in workunits:
-                        # Add workunit to report
-                        self.reporter.report_workunit(workunit)
                         # Return workunit to Datahub Ingestion framework
                         yield workunit
 
