@@ -574,7 +574,6 @@ def default_source_config():
         "workspace_id": "64ED5CAD-7C10-4684-8180-826122881108",
         "extract_lineage": False,
         "extract_reports": False,
-        "extract_workspaces_to_containers": False,
         "extract_ownership": True,
         "convert_lineage_urns_to_lowercase": False,
         "workspace_id_pattern": {"allow": ["64ED5CAD-7C10-4684-8180-826122881108"]},
@@ -583,7 +582,8 @@ def default_source_config():
             "Oracle": "oracle",
         },
         "env": "DEV",
-    }.copy()
+        "extract_workspaces_to_containers": False,
+    }
 
 
 @freeze_time(FROZEN_TIME)
