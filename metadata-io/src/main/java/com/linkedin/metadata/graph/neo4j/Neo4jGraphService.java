@@ -32,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -92,6 +93,27 @@ public class Neo4jGraphService implements GraphService {
     final String sourceUrn = edge.getSource().toString();
     final String destinationUrn = edge.getDestination().toString();
 
+    // Introduce startUrn, endUrn for real source node and destination node without consider direct or indirect pattern match
+    String endUrn = destinationUrn;
+    String startUrn = sourceUrn;
+
+    // Get startUrn, endUrn by check INCOMING/OUTGOING direction and RelationshipType
+    try {
+      LineageRegistry.LineageSpec sourceLineageSpec = getLineageRegistry().getLineageSpec(sourceType);
+      List<LineageRegistry.EdgeInfo> upstreamCheck = sourceLineageSpec.getUpstreamEdges()
+          .stream()
+          .filter(
+              t -> t.getDirection() == RelationshipDirection.OUTGOING && t.getType().equals(edge.getRelationshipType()))
+          .collect(Collectors.toList());
+      if (upstreamCheck.size() > 0 || sourceType.equals("schemaField")) {
+        endUrn = sourceUrn;
+        startUrn = destinationUrn;
+      }
+    } catch (NullPointerException ignored) {
+      log.warn(
+          String.format("Can't get UpstreamEdges for relationType = %s, Error = %s", sourceType, ignored.getMessage()));
+    }
+
     final List<Statement> statements = new ArrayList<>();
 
     // Add/Update source & destination node first
@@ -112,25 +134,33 @@ public class Neo4jGraphService implements GraphService {
     String setPropertyTemplate;
     final StringJoiner propertiesTemplateJoiner = new StringJoiner(", ");
     if (edge.getCreatedOn() != null) {
-      setCreatedOnTemplate = "r.createdOn = " + edge.getCreatedOn();
+      setCreatedOnTemplate = String.format("r.createdOn = %s", edge.getCreatedOn());
       propertiesTemplateJoiner.add(setCreatedOnTemplate);
     }
     if (edge.getCreatedActor() != null) {
-      setcreatedActorTemplate = "r.createdActor = '" + edge.getCreatedActor() + "'";
+      setcreatedActorTemplate = String.format("r.createdActor = '%s'", edge.getCreatedActor());
       propertiesTemplateJoiner.add(setcreatedActorTemplate);
     }
     if (edge.getUpdatedOn() != null) {
-      setupdatedOnTemplate = "r.updatedOn = " + edge.getUpdatedOn();
+      setupdatedOnTemplate = String.format("r.updatedOn = %s", edge.getUpdatedOn());
       propertiesTemplateJoiner.add(setupdatedOnTemplate);
     }
     if (edge.getUpdatedActor() != null) {
-      setupdatedActorTemplate = "r.updatedActor = '" + edge.getUpdatedActor() + "'";
+      setupdatedActorTemplate = String.format("r.updatedActor = '%s'", edge.getUpdatedActor());
       propertiesTemplateJoiner.add(setupdatedActorTemplate);
     }
     if (edge.getProperties() != null) {
       for (Map.Entry<String, Object> entry : edge.getProperties().entrySet()) {
+        // Make sure extra keys in properties are not preserved
+        final Set<String> preservedKeySet =
+            Set.of("createdOn", "createdActor", "updatedOn", "updatedActor", "source", "startUrn", "endUrn");
+        if (preservedKeySet.contains(entry.getKey())) {
+          throw new UnsupportedOperationException(
+              String.format("Tried setting properties on graph edge but property key is preserved. Key: %s",
+                  entry.getKey()));
+        }
         if (entry.getValue() instanceof String) {
-          setPropertyTemplate = "r." + entry.getKey() + " = '" + entry.getValue() + "'";
+          setPropertyTemplate = String.format("r.%s = '%s'", entry.getKey(), entry.getValue());
           propertiesTemplateJoiner.add(setPropertyTemplate);
         } else {
           throw new UnsupportedOperationException(String.format(
@@ -139,8 +169,10 @@ public class Neo4jGraphService implements GraphService {
         }
       }
     }
+    final String setStartEndUrnTemplate = String.format("r.startUrn = '%s', r.endUrn = '%s'", startUrn, endUrn);
+    propertiesTemplateJoiner.add(setStartEndUrnTemplate);
     if (!StringUtils.isEmpty(propertiesTemplateJoiner.toString())) {
-      statement = statement + "SET " + propertiesTemplateJoiner;
+      statement = String.format("%s SET %s", statement, propertiesTemplateJoiner);
     }
 
     statements.add(buildStatement(statement, new HashMap<>()));
@@ -204,12 +236,11 @@ public class Neo4jGraphService implements GraphService {
     // We convert the List into Map with only the shortest paths. "item.get(i).size()" is the path size between two nodes in relation.
     // The key for mapping is the destination node as the source node is always the same, and it is defined by parameter.
     neo4jResult = neo4jResult.stream()
-            .collect(Collectors.toMap(item -> item.values().get(2).asNode().get("urn").asString(),
-                    Function.identity(),
-                    (item1, item2) -> item1.get(1).size() < item2.get(1).size() ? item1 : item2))
-            .values()
-            .stream()
-            .collect(Collectors.toList());
+        .collect(Collectors.toMap(item -> item.values().get(2).asNode().get("urn").asString(), Function.identity(),
+            (item1, item2) -> item1.get(1).size() < item2.get(1).size() ? item1 : item2))
+        .values()
+        .stream()
+        .collect(Collectors.toList());
 
     LineageRelationshipArray relations = new LineageRelationshipArray();
     neo4jResult.stream().skip(offset).limit(count).forEach(item -> {
@@ -217,20 +248,33 @@ public class Neo4jGraphService implements GraphService {
       String relationType = ((InternalRelationship) item.get(1).asList().get(0)).type();
       int numHops = item.get(1).size();
       try {
+        // Generate path from r in neo4jResult
+        List<Urn> pathFromRelationships =
+            item.values().get(1).asList(Collections.singletonList(new ArrayList<Node>())).stream().map(t -> {
+              try {
+                return Urn.createFromString(
+                    // Get real upstream node/downstream node by direction
+                    ((InternalRelationship) t).get(direction == LineageDirection.UPSTREAM ? "startUrn" : "endUrn")
+                        .asString());
+              } catch (URISyntaxException ignored) {
+                log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
+                return null;
+              }
+            }).collect(Collectors.toList());
+        if (direction == LineageDirection.UPSTREAM) {
+          // For ui to show path correctly, reverse path for UPSTREAM direction
+          Collections.reverse(pathFromRelationships);
+          // Add missing original node to the end since we generate path from relationships
+          pathFromRelationships.add(Urn.createFromString(item.values().get(0).asNode().get("urn").asString()));
+        } else {
+          // Add missing original node to the beginning since we generate path from relationships
+          pathFromRelationships.add(0, Urn.createFromString(item.values().get(0).asNode().get("urn").asString()));
+        }
+
         relations.add(new LineageRelationship().setEntity(Urn.createFromString(urn))
             .setType(relationType)
             .setDegree(numHops)
-            .setPaths(new UrnArrayArray(new UrnArray(item.values()
-                .get(3)
-                .asList(Collections.singletonList(new ArrayList<Node>()))
-                .stream()
-                .map(t -> {
-                  try {
-                    return Urn.createFromString(((Node) t).get("urn").asString());
-                  } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
-                  }
-                }).collect(Collectors.toList())))));
+            .setPaths(new UrnArrayArray(new UrnArray(pathFromRelationships))));
       } catch (URISyntaxException ignored) {
         log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
       }
@@ -248,135 +292,83 @@ public class Neo4jGraphService implements GraphService {
   private String generateLineageStatement(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
       GraphFilters graphFilters, int maxHops, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
 
-    List<LineageRegistry.EdgeInfo> edgesToFetch =
-            getLineageRegistry().getLineageRelationships(entityUrn.getEntityType(), direction);
-
-    String upstreamRel = edgesToFetch.stream()
-            .filter(item -> item.getDirection() == RelationshipDirection.OUTGOING)
-            .map(item -> item.getType())
-            .collect(Collectors.joining("|"));
-    String dowStreamRel = edgesToFetch.stream()
-            .filter(item -> item.getDirection() == RelationshipDirection.INCOMING)
-            .map(item -> item.getType())
-            .collect(Collectors.joining("|"));
-
     final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
 
-    final String multiHopMatchTemplateDirect = "MATCH p = shortestPath((a {urn: '%s'})-[r:%s*1..%d]->(b)) ";
-    final String multiHopMatchTemplateIndirect = "MATCH p = shortestPath((a {urn: '%s'})<-[r:%s*1..%d]-(b)) ";
+    // Since we have real startUrn and endUrn, we can use undirected pattern matching to find all paths.
+    // For UPSTREAM lineages, compare each (a)-[r]-(b) a.urn should equal r.endUrn.
+    // For DOWNSTREAM lineages, a.urn should equal r.startUrn.
+    final String multiHopMatchTemplate = "MATCH p = shortestPath((a {urn: '%s'})-[r*1..%d]-(b)) ";
     final String whereTemplate = "WHERE (b:%s) AND b.urn <> '%s' ";
-    final String returnTemplateDirect = "RETURN a,r,b,REVERSE(NODES(p)) as pp";
-    final String returnTemplateIndirect = "RETURN a,r,b,NODES(p) as pp";
+    final String sourceUiCheck = String.format("(EXISTS((r[i]).%s) AND (r[i]).%s = '%s') ", SOURCE, SOURCE, UI);
+    final String timePropCheck = "(NOT EXISTS((r[i]).createdOn) AND NOT EXISTS((r[i]).updatedOn))";
+    // directionFilterTemplate should apply to all condition.
+    final String directionFilterTemplate =
+        direction == LineageDirection.UPSTREAM ? "nodes(p)[i].urn = r[i].endUrn " : "nodes(p)[i].urn = r[i].startUrn ";
+    final String returnTemplate = "RETURN a,r,b";
 
-    String statementDirect = "";
-    String statementIndirect = "";
+    String statement = "";
+    String withTimeTemplate;
+    String timeFilterConditionTemplate;
 
     if (startTimeMillis != null && endTimeMillis != null) {
-      final String withTimeTemplate = "WITH %d as startTimeMillis, %d as endTimeMillis ";
-      final String timeFilterConditionTemplate =
-          "WIth *, " + String.format("(EXISTS((r[-1]).%s) AND (r[-1]).%s = '%s') ", SOURCE, SOURCE, UI)
-              + "OR (NOT EXISTS((r[-1]).createdOn) AND NOT EXISTS((r[-1]).updatedOn)) "
-              + "OR ((r[-1]).createdOn >= startTimeMillis OR (r[-1]).updatedOn >= startTimeMillis) as s_true, "
+      withTimeTemplate = "WITH %d as startTimeMillis, %d as endTimeMillis ";
+      timeFilterConditionTemplate =
+          "WIth *, " + "ALL(i in range(0, size(r)-1) WHERE " + sourceUiCheck + "OR " + timePropCheck + " OR "
+              + "(((r[i]).createdOn >= startTimeMillis AND (r[i]).createdOn <= endTimeMillis) OR "
+              + "((r[i]).updatedOn >= startTimeMillis AND (r[i]).updatedOn <= endTimeMillis))) "
+              + "as all_nodes_time_true, "
 
-              + String.format("(EXISTS((r[0]).%s) AND (r[0]).%s = '%s') ", SOURCE, SOURCE, UI)
-              + "OR (NOT EXISTS((r[0]).createdOn) AND NOT EXISTS((r[0]).updatedOn)) "
-              + "OR ((r[0]).createdOn <= endTimeMillis OR (r[0]).updatedOn <= endTimeMillis) as e_true , "
+              + "ALL(i in range(0, size(r)-1) WHERE " + directionFilterTemplate + ") as rel_direction_true "
+              + "WHERE all_nodes_time_true and rel_direction_true ";
 
-              + "ALL(i in range(0, size(r)-2) " + "WHERE " + String.format("(EXISTS((r[i]).%s) AND (r[i]).%s = '%s') ",
-              SOURCE, SOURCE, UI) + "OR (NOT EXISTS((r[i]).createdOn) AND NOT EXISTS((r[i]).updatedOn)) OR " + "( "
-              + "((r[i]).createdOn >= startTimeMillis AND (r[i]).createdOn <= endTimeMillis) " + "OR "
-              + "((r[i]).updatedOn >= startTimeMillis AND (r[i]).updatedOn <= endTimeMillis) " + ") " + ") " + "as c "
-              + "WHERE s_true and e_true and c ";
-
-      final String multiHopTemplateDirect =
-          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplateDirect;
-      statementDirect =
-          String.format(multiHopTemplateDirect, startTimeMillis, endTimeMillis, entityUrn, upstreamRel, maxHops,
-              allowedEntityTypes, entityUrn);
-
-      final String multiHopTemplateIndirect =
-          withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
-              + returnTemplateIndirect;
-      statementIndirect =
-          String.format(multiHopTemplateIndirect, startTimeMillis, endTimeMillis, entityUrn, dowStreamRel, maxHops,
-              allowedEntityTypes, entityUrn);
+      final String fullQueryTemplate =
+          withTimeTemplate + multiHopMatchTemplate + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+      statement =
+          String.format(fullQueryTemplate, startTimeMillis, endTimeMillis, entityUrn, maxHops, allowedEntityTypes,
+              entityUrn);
     }
 
     if (startTimeMillis != null && endTimeMillis == null) {
-      final String withTimeTemplate = "WITH %d as startTimeMillis ";
-      final String timeFilterConditionTemplate =
-          "WIth *, " + String.format("(EXISTS((r[-1]).%s) AND (r[-1]).%s = '%s') ", SOURCE, SOURCE, UI)
-              + "OR (NOT EXISTS((r[-1]).createdOn) AND NOT EXISTS((r[-1]).updatedOn)) "
-              + "OR ((r[-1]).createdOn >= startTimeMillis OR (r[-1]).updatedOn >= startTimeMillis) as s_true, "
+      withTimeTemplate = "WITH %d as startTimeMillis ";
+      timeFilterConditionTemplate =
+          "WIth *, " + "ALL(i in range(0, size(r)-1) WHERE " + sourceUiCheck + "OR " + timePropCheck + " OR "
+              + "((r[i]).createdOn >= startTimeMillis OR (r[i]).updatedOn >= startTimeMillis)) "
+              + "as all_nodes_time_true, "
 
-              + "ALL(i in range(0, size(r)-2) " + "WHERE " + String.format("(EXISTS((r[i]).%s) AND (r[i]).%s = '%s') ",
-              SOURCE, SOURCE, UI) + "OR (NOT EXISTS((r[i]).createdOn) AND NOT EXISTS((r[i]).updatedOn)) OR " + "( "
-              + "(r[i]).createdOn >= startTimeMillis " + "OR " + "(r[i]).updatedOn >= startTimeMillis " + ")" + ") "
-              + "as c " + "WHERE s_true and c ";
+              + "ALL(i in range(0, size(r)-1) WHERE " + directionFilterTemplate + ") as rel_direction_true "
+              + "WHERE all_nodes_time_true and rel_direction_true ";
 
-      final String multiHopTemplateDirect =
-          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplateDirect;
-      statementDirect =
-          String.format(multiHopTemplateDirect, startTimeMillis, entityUrn, upstreamRel, maxHops, allowedEntityTypes,
-              entityUrn);
-
-      final String multiHopTemplateIndirect =
-          withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
-              + returnTemplateIndirect;
-      statementIndirect =
-          String.format(multiHopTemplateIndirect, startTimeMillis, entityUrn, dowStreamRel, maxHops, allowedEntityTypes,
-              entityUrn);
+      final String fullQueryTemplate =
+          withTimeTemplate + multiHopMatchTemplate + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+      statement = String.format(fullQueryTemplate, startTimeMillis, entityUrn, maxHops, allowedEntityTypes, entityUrn);
     }
 
     if (startTimeMillis == null && endTimeMillis != null) {
-      final String withTimeTemplate = "WITH %d as endTimeMillis ";
-      final String timeFilterConditionTemplate =
-          "WIth *, " + String.format("(EXISTS((r[0]).%s) AND (r[0]).%s = '%s') ", SOURCE, SOURCE, UI)
-              + "OR (NOT EXISTS((r[0]).createdOn) AND NOT EXISTS((r[0]).updatedOn)) "
-              + "OR ((r[0]).createdOn <= endTimeMillis OR (r[0]).updatedOn <= endTimeMillis) as e_true , "
+      withTimeTemplate = "WITH %d as endTimeMillis ";
+      timeFilterConditionTemplate =
+          "WIth *, " + "ALL(i in range(0, size(r)-1) WHERE " + sourceUiCheck + "OR " + timePropCheck + " OR "
+              + "((r[i]).createdOn <= endTimeMillis OR (r[i]).updatedOn <= endTimeMillis)) "
+              + "as all_nodes_time_true, "
 
-              + "ALL(i in range(0, size(r)-2) " + "WHERE " + String.format("(EXISTS((r[i]).%s) AND (r[i]).%s = '%s') ",
-              SOURCE, SOURCE, UI) + "OR (NOT EXISTS((r[i]).createdOn) AND NOT EXISTS((r[i]).updatedOn)) OR " + "( "
-              + "(r[i]).createdOn <= endTimeMillis " + "OR " + "(r[i]).updatedOn <= endTimeMillis " + ")" + ")"
-              + "as c " + "WHERE e_true and c ";
+              + "ALL(i in range(0, size(r)-1) WHERE " + directionFilterTemplate + ") as rel_direction_true "
+              + "WHERE all_nodes_time_true and rel_direction_true ";
 
-      final String multiHopTemplateDirect =
-          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplateDirect;
-      statementDirect =
-          String.format(multiHopTemplateDirect, endTimeMillis, entityUrn, upstreamRel, maxHops, allowedEntityTypes,
-              entityUrn);
-      final String multiHopTemplateIndirect =
-          withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
-              + returnTemplateIndirect;
-      statementIndirect =
-          String.format(multiHopTemplateIndirect, endTimeMillis, entityUrn, dowStreamRel, maxHops, allowedEntityTypes,
-              entityUrn);
+      final String fullQueryTemplate =
+          withTimeTemplate + multiHopMatchTemplate + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+      statement = String.format(fullQueryTemplate, endTimeMillis, entityUrn, maxHops, allowedEntityTypes, entityUrn);
     }
 
     if (startTimeMillis == null && endTimeMillis == null) {
-      final String withTimeTemplate = "";
-      final String timeFilterConditionTemplate = "";
+      withTimeTemplate = "";
+      timeFilterConditionTemplate =
+          "WIth *, " + "ALL(i in range(0, size(r)-1) WHERE " + directionFilterTemplate + ") as rel_direction_true "
+              + "WHERE rel_direction_true ";
 
-      final String multiHopTemplateDirect =
-          withTimeTemplate + multiHopMatchTemplateDirect + whereTemplate + timeFilterConditionTemplate + returnTemplateDirect;
-      statementDirect =
-          String.format(multiHopTemplateDirect, entityUrn, upstreamRel, maxHops, allowedEntityTypes, entityUrn);
-
-      final String multiHopTemplateIndirect =
-          withTimeTemplate + multiHopMatchTemplateIndirect + whereTemplate + timeFilterConditionTemplate
-              + returnTemplateIndirect;
-      statementIndirect =
-          String.format(multiHopTemplateIndirect, entityUrn, dowStreamRel, maxHops, allowedEntityTypes, entityUrn);
+      final String fullQueryTemplate =
+          withTimeTemplate + multiHopMatchTemplate + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+      statement = String.format(fullQueryTemplate, entityUrn, maxHops, allowedEntityTypes, entityUrn);
     }
 
-    String statement = null;
-    if (upstreamRel.length() > 0 && dowStreamRel.length() > 0) {
-      statement = statementDirect + " UNION " + statementIndirect;
-    } else if (upstreamRel.length() > 0) {
-      statement = statementDirect;
-    } else if (dowStreamRel.length() > 0) {
-      statement = statementIndirect;
-    }
     return statement;
   }
 
