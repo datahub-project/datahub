@@ -1,7 +1,9 @@
 # Defining environment
 ARG APP_ENV=prod
-ARG RELEASE_VERSION
+ARG DOCKER_VERSION=latest
 
-FROM acryldata/datahub-ingestion:$RELEASE_VERSION as base
+FROM acryldata/datahub-ingestion:$DOCKER_VERSION as base
 
-RUN pip uninstall pyspark
+USER 0
+RUN pip uninstall -y pyspark
+USER datahub

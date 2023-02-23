@@ -17,18 +17,18 @@ docker {
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
-        include "metadata-ingestion/*"
-        include "metadata-events/*"
-        include "metadata-models/*"
-        include "docs/*"
+        include "metadata-ingestion/**"
+        include "metadata-events/**"
+        include "metadata-models/**"
+        include "li-utils/**"
+        include "docs/**"
+        include "gradle/**"
+        include "buildSrc/**"
+        include "*"
     }
-
-    // platform('linux/arm64', 'linux/amd64')
-    buildx(true)
-    load(true)
-    push(false)
+    buildArgs([DOCKER_VERSION: version])
 }
-tasks.getByPath('docker').dependsOn(['build', ':docker:datahub-ingestion-base:dockerTag', ':metadata-ingestion:build'])
+tasks.getByPath('docker').dependsOn(['build', ':docker:datahub-ingestion-base:docker'])
 
 task mkdirBuildDocker {
     doFirst {

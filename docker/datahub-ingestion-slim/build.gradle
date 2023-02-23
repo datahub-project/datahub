@@ -13,19 +13,16 @@ ext {
 
 docker {
     name "${docker_registry}/${docker_repo}:v${version}"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     version "v${version}"
+    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
     }
-    buildArgs([RELEASE_VERSION: "v${version}"])
+    buildArgs([DOCKER_VERSION: version])
 
-    // platform('linux/arm64', 'linux/amd64')
-    buildx(true)
-    load(true)
-    push(false)
+    buildx(false)
 }
-tasks.getByPath('docker').dependsOn(['build', ':docker:datahub-ingestion:dockerTag'])
+tasks.getByPath('docker').dependsOn(['build', ':docker:datahub-ingestion:docker'])
 
 task mkdirBuildDocker {
     doFirst {
