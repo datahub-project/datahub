@@ -1,0 +1,68 @@
+# quickstart versioned by git sha/tag
+# docker is version by release tag and head 
+# 
+# if --version is specified during CLI run 
+# the CLI will try to use the same quickstart and docker tags
+# quickstart_mapping maps broken releases to fixed ones
+quickstart_mapping:
+  default:
+    composefile_git_ref: master
+    docker_tag: latest
+  # v0.9.6 images contain security vulnerabilities 
+  v0.9.6: 
+    compose_git_ref: v0.9.6.1
+    docker_tag: v0.9.6.1
+
+stable_versions:
+  force: false 
+  composefile_git_ref: v0.10.0
+  docker_tag: v0.10.0
+
+# needs to be extended only if there is a breaking change 
+# to extend:
+# copy the HEAD section, set the valid_until to the current version
+# and modify the checks in the copied section
+#
+# ! ORDERING: this will be read from top to buttom, so newer versions must 
+# be above older ones.
+cli_checks:
+  - valid_until_git_ref: master
+    required_containers:
+      - elasticsearch-setup
+      - elasticsearch
+      - datahub-gms
+      - datahub-frontend-react
+      - datahub-upgrade
+      - schema-registry
+      - broker
+      - zookeeper
+    ensure_exit_success:
+      - elasticsearch-setup
+      - mysql-setup
+      - datahub-upgrade
+  - valid_until_git_ref: v0.9.6.1
+    required_containers:
+      - elasticsearch-setup
+      - elasticsearch
+      - datahub-gms
+      - datahub-frontend-react
+      - schema-registry
+      - broker
+      - zookeeper
+    ensure_exit_success:
+      - elasticsearch-setup
+      - mysql-setup
+  - valid_until_git_ref: v0.9.5
+    required_containers:
+      - elasticsearch-setup
+      - elasticsearch
+      - datahub-gms
+      - datahub-frontend-react
+      - schema-registry
+      - broker
+      - zookeeper
+    ensure_exit_success:
+      - kafka-setup
+      - elasticsearch-setup
+      - mysql-setup
+    
