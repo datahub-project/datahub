@@ -748,10 +748,10 @@ timestamp < "{end_time}"
                     self.config.platform_instance,
                     self.config.env,
                 ),
-                type=DatasetLineageTypeClass.TRANSFORMED,
+                type=upstream.type,
                 auditStamp=AuditStampClass(
                     actor="urn:li:corpuser:datahub",
-                    time=int(upstream.created.timestamp() * 1000),
+                    time=int(upstream.auditStamp.timestamp() * 1000),
                 ),
             )
             if self.config.upstream_lineage_in_report:
