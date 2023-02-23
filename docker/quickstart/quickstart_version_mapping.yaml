@@ -4,13 +4,13 @@
 # if --version is specified during CLI run 
 # the CLI will try to use the same quickstart and docker tags
 # quickstart_mapping maps broken releases to fixed ones
-quickstart_mapping:
+quickstart_version_mappings:
   default:
     composefile_git_ref: master
     docker_tag: latest
   # v0.9.6 images contain security vulnerabilities 
   v0.9.6: 
-    compose_git_ref: v0.9.6.1
+    composefile_git_ref: v0.9.6.1
     docker_tag: v0.9.6.1
 
 stable_versions:
@@ -25,7 +25,7 @@ stable_versions:
 #
 # ! ORDERING: this will be read from top to buttom, so newer versions must 
 # be above older ones.
-cli_checks:
+quickstart_checks:
   - valid_until_git_ref: master
     required_containers:
       - elasticsearch-setup
