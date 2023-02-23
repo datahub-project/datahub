@@ -10,11 +10,23 @@ extend type Query {
   searchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResults
 
   """
+  Search DataHub entities by providing a pointer reference for scrolling through results.
+  """
+  scrollAcrossEntities(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+  """
   Search across the results of a graph query on a node
   """
   searchAcrossLineage(
     input: SearchAcrossLineageInput!
   ): SearchAcrossLineageResults
+
+  """
+  Search across the results of a graph query on a node, uses scroll API
+  """
+  scrollAcrossLineage(
+    input: ScrollAcrossLineageInput!
+  ): ScrollAcrossLineageResults
 
   """
   Autocomplete a search query against a specific DataHub Entity Type
@@ -148,6 +160,51 @@ input SearchAcrossEntitiesInput {
 }
 
 """
+Input arguments for a full text search query across entities, specifying a starting pointer. Allows paging beyond 10k results
+"""
+input ScrollAcrossEntitiesInput {
+  """
+  Entity types to be searched. If this is not provided, all entities will be searched.
+  """
+  types: [EntityType!]
+
+  """
+  The query string
+  """
+  query: String!
+
+  """
+  The starting point of paginated results, an opaque ID the backend understands as a pointer
+  """
+  scrollId: String
+
+  """
+  The amount of time to keep the point in time snapshot alive, takes a time unit based string ex: 5m or 30s
+  """
+  keepAlive: String
+
+  """
+  The number of elements included in the results
+  """
+  count: Int
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
+}
+
+"""
 Input arguments for a search query over the results of a multi-hop graph query
 """
 input SearchAcrossLineageInput {
@@ -195,6 +252,66 @@ input SearchAcrossLineageInput {
   An optional starting time to filter on
   """
   startTimeMillis: Long
+  """
+  An optional ending time to filter on
+  """
+  endTimeMillis: Long
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
+}
+
+"""
+Input arguments for a search query over the results of a multi-hop graph query, uses scroll API
+"""
+input ScrollAcrossLineageInput {
+  """
+  Urn of the source node
+  """
+  urn: String
+
+  """
+  The direction of the relationship, either incoming or outgoing from the source entity
+  """
+  direction: LineageDirection!
+
+  """
+  Entity types to be searched. If this is not provided, all entities will be searched.
+  """
+  types: [EntityType!]
+
+  """
+  The query string
+  """
+  query: String
+
+  """
+  The starting point of paginated results, an opaque ID the backend understands as a pointer
+  """
+  scrollId: String
+
+  """
+  The amount of time to keep the point in time snapshot alive, takes a time unit based string ex: 5m or 30s
+  """
+  keepAlive: String
+
+  """
+  The number of elements included in the results
+  """
+  count: Int
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  An optional starting time to filter on
+  """
+  startTimeMillis: Long
+
   """
   An optional ending time to filter on
   """
@@ -315,6 +432,37 @@ type SearchResult {
 }
 
 """
+Results returned by issuing a search query
+"""
+type ScrollResults {
+
+  """
+  Opaque ID to pass to the next request to the server
+  """
+  nextScrollId: String
+
+  """
+  The number of entities included in the result set
+  """
+  count: Int!
+
+  """
+  The total number of search results matching the query and filters
+  """
+  total: Int!
+
+  """
+  The search result entities for a scroll request
+  """
+  searchResults: [SearchResult!]!
+
+  """
+  Candidate facet aggregations used for search filtering
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
 Results returned by issueing a search across relationships query
 """
 type SearchAcrossLineageResults {
@@ -322,6 +470,36 @@ type SearchAcrossLineageResults {
   The offset of the result set
   """
   start: Int!
+
+  """
+  The number of entities included in the result set
+  """
+  count: Int!
+
+  """
+  The total number of search results matching the query and filters
+  """
+  total: Int!
+
+  """
+  The search result entities
+  """
+  searchResults: [SearchAcrossLineageResult!]!
+
+  """
+  Candidate facet aggregations used for search filtering
+  """
+  facets: [FacetMetadata!]
+}
+
+"""
+Results returned by issueing a search across relationships query using scroll API
+"""
+type ScrollAcrossLineageResults {
+  """
+  Opaque ID to pass to the next request to the server
+  """
+  nextScrollId: String
 
   """
   The number of entities included in the result set
