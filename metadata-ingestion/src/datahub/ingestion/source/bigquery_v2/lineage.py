@@ -592,49 +592,46 @@ timestamp < "{end_time}"
         return lineage_map
 
     def parse_view_lineage(
-        self, project: str, dataset: str, view: BigqueryView
+        self, project: str, dataset: str, view_name: str, view_definition: str
     ) -> List[BigqueryTableIdentifier]:
         parsed_tables = set()
-        if view.view_definition:
-            try:
-                parser = BigQuerySQLParser(
-                    view.view_definition,
-                    self.config.sql_parser_use_external_process,
-                    use_raw_names=self.config.lineage_sql_parser_use_raw_names,
-                )
-                tables = parser.get_tables()
-            except Exception as ex:
-                logger.debug(
-                    f"View {view.name} definination sql parsing failed on query: {view.view_definition}. Edge from physical table to view won't be added. The error was {ex}."
-                )
-                return []
-
-            for table in tables:
-                parts = table.split(".")
-                if len(parts) == 1:
-                    parsed_tables.add(
-                        BigqueryTableIdentifier(
-                            project_id=project, dataset=dataset, table=table
-                        )
-                    )
-                elif len(parts) == 2:
-                    parsed_tables.add(
-                        BigqueryTableIdentifier(
-                            project_id=project, dataset=parts[0], table=parts[1]
-                        )
-                    )
-                elif len(parts) == 3:
-                    parsed_tables.add(
-                        BigqueryTableIdentifier(
-                            project_id=parts[0], dataset=parts[1], table=parts[2]
-                        )
-                    )
-                else:
-                    continue
-
-            return list(parsed_tables)
-        else:
+        try:
+            parser = BigQuerySQLParser(
+                view_definition,
+                self.config.sql_parser_use_external_process,
+                use_raw_names=self.config.lineage_sql_parser_use_raw_names,
+            )
+            tables = parser.get_tables()
+        except Exception as ex:
+            logger.debug(
+                f"View {view_name} definination sql parsing failed on query: {view_definition}. Edge from physical table to view won't be added. The error was {ex}."
+            )
             return []
+
+        for table in tables:
+            parts = table.split(".")
+            if len(parts) == 1:
+                parsed_tables.add(
+                    BigqueryTableIdentifier(
+                        project_id=project, dataset=dataset, table=table
+                    )
+                )
+            elif len(parts) == 2:
+                parsed_tables.add(
+                    BigqueryTableIdentifier(
+                        project_id=project, dataset=parts[0], table=parts[1]
+                    )
+                )
+            elif len(parts) == 3:
+                parsed_tables.add(
+                    BigqueryTableIdentifier(
+                        project_id=parts[0], dataset=parts[1], table=parts[2]
+                    )
+                )
+            else:
+                continue
+
+        return list(parsed_tables)
 
     def _compute_bigquery_lineage(self, project_id: str) -> Dict[str, Set[LineageEdge]]:
         lineage_extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
@@ -730,14 +727,18 @@ timestamp < "{end_time}"
         self,
         project_id: str,
         dataset_name: str,
-        view: Union[BigqueryView],
+        view_name: str,
+        view_definition: str,
         lineage_metadata: Dict[str, Set[LineageEdge]],
     ) -> None:
-        table_identifier = BigqueryTableIdentifier(project_id, dataset_name, view.name)
+        table_identifier = BigqueryTableIdentifier(project_id, dataset_name, view_name)
         table_key = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
 
         parsed_view_upstreams = self.parse_view_lineage(
-            project=project_id, dataset=dataset_name, view=view
+            project=project_id,
+            dataset=dataset_name,
+            view_name=view_name,
+            view_definition=view_definition,
         )
 
         if parsed_view_upstreams:
