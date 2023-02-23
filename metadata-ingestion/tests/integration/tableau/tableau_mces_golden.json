@@ -1,6 +1,204 @@
 [
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "project_id": "190a6a5c-63ed-4de1-8045-faeae5df5b01"
+            },
+            "name": "default"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:252a054d4dd93cd657735aa46dd71370",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "project_id": "c30aafe5-44f4-4f28-80d3-d181010a263c"
+            },
+            "name": "Project 2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:252a054d4dd93cd657735aa46dd71370",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:252a054d4dd93cd657735aa46dd71370",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:252a054d4dd93cd657735aa46dd71370",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d2dcd6bd1bb954d62f1cfc68332ee873",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "project_id": "910733aa-2e95-4ac3-a2e8-71570751099d"
+            },
+            "name": "Samples"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d2dcd6bd1bb954d62f1cfc68332ee873",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d2dcd6bd1bb954d62f1cfc68332ee873",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d2dcd6bd1bb954d62f1cfc68332ee873",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -84,6 +282,361 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea"
+            },
+            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15619",
+            "name": "Dvdrental Workbook",
+            "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:TagSheet3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf"
+            },
+            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15605",
+            "name": "Executive Dashboard",
+            "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c"
+            },
+            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
+            "name": "Workbook published ds",
+            "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
         }
     },
     "systemMetadata": {
@@ -182,10 +735,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Timeline - Sent",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Timeline - Sent' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Timeline - Sent"
         }
     },
     "systemMetadata": {
@@ -451,10 +1001,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Campaign List",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Campaign List' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Campaign List"
         }
     },
     "systemMetadata": {
@@ -1006,10 +1553,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Summary",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Summary' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Summary"
         }
     },
     "systemMetadata": {
@@ -1613,10 +2157,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Mobile - Sent by Campaign",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Mobile - Sent by Campaign' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/EmailPerformancebyCampaign/EmailPerformancebyCampaign/Mobile - Sent by Campaign"
         }
     },
     "systemMetadata": {
@@ -2046,236 +2587,6 @@
     }
 },
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardUsageStatistics",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1638860400000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "viewsCount": 3
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:tableau"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {
-                            "luid": "fc9ea488-f810-4fa8-ac19-aa96018b5d66"
-                        },
-                        "title": "Email Performance by Campaign",
-                        "description": "",
-                        "charts": [
-                            "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
-                            "urn:li:chart:(tableau,38130558-4194-2e2a-3046-c0d887829cb4)",
-                            "urn:li:chart:(tableau,692a2da4-2a82-32c1-f713-63b8e4325d86)",
-                            "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)"
-                        ],
-                        "datasets": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1640200234000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            },
-                            "lastModified": {
-                                "time": 1640200234000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            }
-                        },
-                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/tableau/default/Email Performance by Campaign"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
-    "changeType": "UPSERT",
-    "aspectName": "embed",
-    "aspect": {
-        "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "tableau",
-                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea"
-            },
-            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15619",
-            "name": "Dvdrental Workbook",
-            "description": ""
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:tableau"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Workbook"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:TagSheet3"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)",
@@ -2346,10 +2657,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet1",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/dvdrental/Sheet1' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet1"
         }
     },
     "systemMetadata": {
@@ -2485,10 +2793,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet2",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/dvdrental/Sheet2' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet2"
         }
     },
     "systemMetadata": {
@@ -2801,10 +3106,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet3",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/dvdrental/Sheet3' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Sheet3"
         }
     },
     "systemMetadata": {
@@ -2914,288 +3216,6 @@
 },
 {
     "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:tableau"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {
-                            "luid": ""
-                        },
-                        "title": "dvd Rental Dashboard",
-                        "description": "",
-                        "charts": [
-                            "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)"
-                        ],
-                        "datasets": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1639773866000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            },
-                            "lastModified": {
-                                "time": 1642199995000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            }
-                        },
-                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/dvdRentalDashboard"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/tableau/default/Dvdrental Workbook"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
-    "changeType": "UPSERT",
-    "aspectName": "embed",
-    "aspect": {
-        "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/dvdRentalDashboard",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/dvdrental/dvdRentalDashboard' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:tableau"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {
-                            "luid": ""
-                        },
-                        "title": "Story 1",
-                        "description": "",
-                        "charts": [],
-                        "datasets": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1639773866000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            },
-                            "lastModified": {
-                                "time": 1642199995000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            }
-                        },
-                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Story1"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/tableau/default/Dvdrental Workbook"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
-    "changeType": "UPSERT",
-    "aspectName": "embed",
-    "aspect": {
-        "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Story1",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/dvdrental/Story1' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "tableau",
-                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf"
-            },
-            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15605",
-            "name": "Executive Dashboard",
-            "description": ""
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:tableau"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Workbook"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,20fc5eb7-81eb-aa18-8c39-af501c62d085)",
             "aspects": [
@@ -3268,10 +3288,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Requests",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Requests' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Requests"
         }
     },
     "systemMetadata": {
@@ -3763,10 +3780,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Top 10 Items by Requests and YoY Change",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Top 10 Items by Requests and YoY Change' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Top 10 Items by Requests and YoY Change"
         }
     },
     "systemMetadata": {
@@ -4226,10 +4240,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Problems",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Problems' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Problems"
         }
     },
     "systemMetadata": {
@@ -4718,10 +4729,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue"
         }
     },
     "systemMetadata": {
@@ -5097,10 +5105,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/High and Critical Priority Problems",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/High and Critical Priority Problems' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/High and Critical Priority Problems"
         }
     },
     "systemMetadata": {
@@ -5450,10 +5455,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Total Incidents by Category and YoY Change",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Total Incidents by Category and YoY Change' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Total Incidents by Category and YoY Change"
         }
     },
     "systemMetadata": {
@@ -5832,10 +5834,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Known Errors",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Known Errors' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Known Errors"
         }
     },
     "systemMetadata": {
@@ -6266,10 +6265,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Requests",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Requests' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Requests"
         }
     },
     "systemMetadata": {
@@ -6671,10 +6667,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/AVG Time to Solve an Incident",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/AVG Time to Solve an Incident' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/AVG Time to Solve an Incident"
         }
     },
     "systemMetadata": {
@@ -6998,10 +6991,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Made SLA?",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Made SLA?' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Made SLA?"
         }
     },
     "systemMetadata": {
@@ -7351,10 +7341,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-IncidentBreakdownbyPriority",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-IncidentBreakdownbyPriority' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-IncidentBreakdownbyPriority"
         }
     },
     "systemMetadata": {
@@ -7600,10 +7587,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Problems",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Problems' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Overdue Problems"
         }
     },
     "systemMetadata": {
@@ -8034,10 +8018,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-ProblemBreakdownbyPriority",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-ProblemBreakdownbyPriority' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-ProblemBreakdownbyPriority"
         }
     },
     "systemMetadata": {
@@ -8364,10 +8345,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-RequestBreakdownbyPriority",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-RequestBreakdownbyPriority' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/Tooltip-RequestBreakdownbyPriority"
         }
     },
     "systemMetadata": {
@@ -8720,10 +8698,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Age of Active Problems",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Age of Active Problems' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Age of Active Problems"
         }
     },
     "systemMetadata": {
@@ -9099,10 +9074,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Incidents",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Incidents' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/t/acryl/authoring/ExecutiveDashboard/ExecutiveDashboard/Opened Incidents"
         }
     },
     "systemMetadata": {
@@ -9464,206 +9436,6 @@
 },
 {
     "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:tableau"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
-                        "customProperties": {
-                            "luid": ""
-                        },
-                        "title": "Executive Dashboard",
-                        "description": "",
-                        "charts": [
-                            "urn:li:chart:(tableau,20fc5eb7-81eb-aa18-8c39-af501c62d085)",
-                            "urn:li:chart:(tableau,2b5351c1-535d-4a4a-1339-c51ddd6abf8a)",
-                            "urn:li:chart:(tableau,2b73b9dd-4ec7-75ca-f2e9-fa1984ca8b72)",
-                            "urn:li:chart:(tableau,373c6466-bb0c-b319-8752-632456349261)",
-                            "urn:li:chart:(tableau,53b8dc2f-8ada-51f7-7422-fe82e9b803cc)",
-                            "urn:li:chart:(tableau,58af9ecf-b839-da50-65e1-2e1fa20e3362)",
-                            "urn:li:chart:(tableau,618b3e76-75c1-cb31-0c61-3f4890b72c31)",
-                            "urn:li:chart:(tableau,721c3c41-7a2b-16a8-3281-6f948a44be96)",
-                            "urn:li:chart:(tableau,7ef184c1-5a41-5ec8-723e-ae44c20aa335)",
-                            "urn:li:chart:(tableau,7fbc77ba-0ab6-3727-0db3-d8402a804da5)",
-                            "urn:li:chart:(tableau,b207c2f2-b675-32e3-2663-17bb836a018b)",
-                            "urn:li:chart:(tableau,e70a540d-55ed-b9cc-5a3c-01ebe81a1274)",
-                            "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)"
-                        ],
-                        "datasets": [],
-                        "lastModified": {
-                            "created": {
-                                "time": 1639768450000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            },
-                            "lastModified": {
-                                "time": 1639768502000,
-                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
-                            }
-                        },
-                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/tableau/default/Executive Dashboard"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
-    "changeType": "UPSERT",
-    "aspectName": "embed",
-    "aspect": {
-        "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "tableau",
-                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c"
-            },
-            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
-            "name": "Workbook published ds",
-            "description": ""
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:tableau"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Workbook"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:94e6e84b66f9ee8c70c22f06cfbad6a9",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(tableau,130496dc-29ca-8a89-e32b-d73c4d8b65ff)",
             "aspects": [
@@ -9733,10 +9505,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://do-not-connect/#/site/acryl/views/Workbookpublishedds/Sheet1",
-            "properties": {
-                "embedCode": "<script type='module' src='https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js'></script><tableau-viz id='tableau-viz' src='https://do-not-connect/#/site/acryl/views/Workbookpublishedds/Sheet1' width='1920' height='889' toolbar='bottom' ></tableau-viz>"
-            }
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/Workbookpublishedds/Sheet1"
         }
     },
     "systemMetadata": {
@@ -9837,6 +9606,411 @@
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1638860400000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "viewsCount": 3
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {
+                            "luid": "fc9ea488-f810-4fa8-ac19-aa96018b5d66"
+                        },
+                        "title": "Email Performance by Campaign",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(tableau,222d1406-de0e-cd8d-0b94-9b45a0007e59)",
+                            "urn:li:chart:(tableau,38130558-4194-2e2a-3046-c0d887829cb4)",
+                            "urn:li:chart:(tableau,692a2da4-2a82-32c1-f713-63b8e4325d86)",
+                            "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1640200234000,
+                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
+                            },
+                            "lastModified": {
+                                "time": 1640200234000,
+                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
+                            }
+                        },
+                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/tableau/default/Email Performance by Campaign"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
+    "changeType": "UPSERT",
+    "aspectName": "embed",
+    "aspect": {
+        "json": {
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,8f7dd564-36b6-593f-3c6f-687ad06cd40b)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {
+                            "luid": ""
+                        },
+                        "title": "dvd Rental Dashboard",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1639773866000,
+                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
+                            },
+                            "lastModified": {
+                                "time": 1642199995000,
+                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
+                            }
+                        },
+                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/dvdRentalDashboard"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/tableau/default/Dvdrental Workbook"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
+    "changeType": "UPSERT",
+    "aspectName": "embed",
+    "aspect": {
+        "json": {
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/dvdRentalDashboard"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,20e44c22-1ccd-301a-220c-7b6837d09a52)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {
+                            "luid": ""
+                        },
+                        "title": "Story 1",
+                        "description": "",
+                        "charts": [],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1639773866000,
+                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
+                            },
+                            "lastModified": {
+                                "time": 1642199995000,
+                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
+                            }
+                        },
+                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Story1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/tableau/default/Dvdrental Workbook"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
+    "changeType": "UPSERT",
+    "aspectName": "embed",
+    "aspect": {
+        "json": {
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Story1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,39b7a1de-6276-cfc7-9b59-1d22f3bbb06b)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fad3de4b86519c3edeb685215fe0bab1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {
+                            "luid": ""
+                        },
+                        "title": "Executive Dashboard",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(tableau,20fc5eb7-81eb-aa18-8c39-af501c62d085)",
+                            "urn:li:chart:(tableau,2b5351c1-535d-4a4a-1339-c51ddd6abf8a)",
+                            "urn:li:chart:(tableau,2b73b9dd-4ec7-75ca-f2e9-fa1984ca8b72)",
+                            "urn:li:chart:(tableau,373c6466-bb0c-b319-8752-632456349261)",
+                            "urn:li:chart:(tableau,53b8dc2f-8ada-51f7-7422-fe82e9b803cc)",
+                            "urn:li:chart:(tableau,58af9ecf-b839-da50-65e1-2e1fa20e3362)",
+                            "urn:li:chart:(tableau,618b3e76-75c1-cb31-0c61-3f4890b72c31)",
+                            "urn:li:chart:(tableau,721c3c41-7a2b-16a8-3281-6f948a44be96)",
+                            "urn:li:chart:(tableau,7ef184c1-5a41-5ec8-723e-ae44c20aa335)",
+                            "urn:li:chart:(tableau,7fbc77ba-0ab6-3727-0db3-d8402a804da5)",
+                            "urn:li:chart:(tableau,b207c2f2-b675-32e3-2663-17bb836a018b)",
+                            "urn:li:chart:(tableau,e70a540d-55ed-b9cc-5a3c-01ebe81a1274)",
+                            "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1639768450000,
+                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
+                            },
+                            "lastModified": {
+                                "time": 1639768502000,
+                                "actor": "urn:li:corpuser:jawadqu@gmail.com"
+                            }
+                        },
+                        "dashboardUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/tableau/default/Executive Dashboard"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
+    "changeType": "UPSERT",
+    "aspectName": "embed",
+    "aspect": {
+        "json": {
+            "renderUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(tableau,5dcaaf46-e6fb-2548-e763-272a7ab2c9b1)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:047691e9c16bec8fb08e1df0f5d71c4d"
         }
     },
     "systemMetadata": {
@@ -10200,7 +10374,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default"
+                            "/prod/tableau/default/Email Performance by Campaign"
                         ]
                     }
                 },
@@ -12116,7 +12290,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default"
+                            "/prod/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -12428,7 +12602,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default"
+                            "/prod/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -13314,7 +13488,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default"
+                            "/prod/tableau/default/Dvdrental Workbook"
                         ]
                     }
                 },
@@ -14246,7 +14420,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default"
+                            "/prod/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -21085,7 +21259,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default"
+                            "/prod/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -25172,7 +25346,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default"
+                            "/prod/tableau/default/Executive Dashboard"
                         ]
                     }
                 },
@@ -30493,7 +30667,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default"
+                            "/prod/tableau/default/Workbook published ds"
                         ]
                     }
                 },
@@ -31141,6 +31315,21 @@
             "typeNames": [
                 "Published Data Source"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,00cce29f-b561-bb41-3557-8e19660bb5dd,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
         }
     },
     "systemMetadata": {
@@ -32185,6 +32374,21 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:d2dcd6bd1bb954d62f1cfc68332ee873"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -32594,7 +32798,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo"
+                            "/prod/tableau/default/Email Performance by Campaign/Marketo"
                         ]
                     }
                 },
@@ -32767,7 +32971,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo"
+                            "/prod/tableau/default/Email Performance by Campaign/Marketo"
                         ]
                     }
                 },
@@ -33018,7 +33222,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo"
+                            "/prod/tableau/default/Email Performance by Campaign/Marketo"
                         ]
                     }
                 },
@@ -33243,7 +33447,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo"
+                            "/prod/tableau/default/Email Performance by Campaign/Marketo"
                         ]
                     }
                 },
@@ -33416,7 +33620,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Marketo"
+                            "/prod/tableau/default/Email Performance by Campaign/Marketo"
                         ]
                     }
                 },
@@ -33576,7 +33780,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/actor+ (dvdrental)"
+                            "/prod/tableau/default/Dvdrental Workbook/actor+ (dvdrental)"
                         ]
                     }
                 },
@@ -33723,7 +33927,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/actor+ (dvdrental)"
+                            "/prod/tableau/default/Dvdrental Workbook/actor+ (dvdrental)"
                         ]
                     }
                 },
@@ -33818,7 +34022,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents"
+                            "/prod/tableau/default/Executive Dashboard/Incidents"
                         ]
                     }
                 },
@@ -34667,7 +34871,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests"
+                            "/prod/tableau/default/Executive Dashboard/Requests"
                         ]
                     }
                 },
@@ -35620,7 +35824,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests"
+                            "/prod/tableau/default/Executive Dashboard/Requests"
                         ]
                     }
                 },
@@ -36651,7 +36855,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Requests"
+                            "/prod/tableau/default/Executive Dashboard/Requests"
                         ]
                     }
                 },
@@ -37539,7 +37743,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Problems"
+                            "/prod/tableau/default/Executive Dashboard/Problems"
                         ]
                     }
                 },
@@ -37868,7 +38072,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Problems"
+                            "/prod/tableau/default/Executive Dashboard/Problems"
                         ]
                     }
                 },
@@ -38782,7 +38986,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents"
+                            "/prod/tableau/default/Executive Dashboard/Incidents"
                         ]
                     }
                 },
@@ -39852,7 +40056,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/default/Incidents"
+                            "/prod/tableau/default/Executive Dashboard/Incidents"
                         ]
                     }
                 },

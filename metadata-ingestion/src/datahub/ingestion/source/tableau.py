@@ -169,6 +169,12 @@ class TableauConnectionConfig(ConfigModel):
         description="Whether to extract entire project hierarchy for nested projects.",
     )
 
+    project_path_separator: str = Field(
+        default="/",
+        description="Projects path separator. project_pattern may contain path to nested project for ingestion, "
+                    "example A/B/C, here project C would get ingested",
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -327,7 +333,6 @@ class TableauProject:
     parent_id: Optional[str]
     path: []
 
-
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -422,18 +427,43 @@ class TableauSource(StatefulIngestionSourceBase):
 
     def _get_all_project(self) -> Dict[str, TableauProject]:
         all_project_map: Dict[str, TableauProject] = {}
-        for project in TSC.Pager(self.server.projects):
-            all_project_map[project.id] = TableauProject(
-                id=project.id,
-                name=project.name,
-                parent_id=project.parent_id,
-                description=project.description,
-                path=[project.name],
-            )
+
+        def fetch_projects():
+            for project in TSC.Pager(self.server.projects):
+                all_project_map[project.id] = TableauProject(
+                    id=project.id,
+                    name=project.name,
+                    parent_id=project.parent_id,
+                    description=project.description,
+                    path=[],
+                )
+
+        def set_project_path():
+            def form_path(project_id: str) -> List[str]:
+                cur_proj = all_project_map[project_id]
+                ancestors = [cur_proj.name]
+                while cur_proj.parent_id is not None:
+                    cur_proj = all_project_map[cur_proj.parent_id]
+                    ancestors.insert(0, cur_proj.name)
+                return ancestors
+
+            for project in all_project_map.values():
+                project.path = form_path(project_id=project.id)
+                logger.debug(f"Project {project.name}({project.id})")
+                logger.debug(f"Project path = {project.path}")
+
+        fetch_projects()
+        set_project_path()
+
         return all_project_map
 
     def _is_allowed_project(self, project: TableauProject) -> bool:
-        is_allowed: bool = self.config.project_pattern.allowed(project.name)
+        # Either project name or project path should exist in allow
+        is_allowed: bool = (
+                self.config.project_pattern.allowed(project.name)
+                or
+                self.config.project_pattern.allowed(self._get_project_path(project))
+        )
         if is_allowed is False:
             logger.info(
                 f"project({project.name}) is not allowed as per project_pattern"
@@ -441,10 +471,12 @@ class TableauSource(StatefulIngestionSourceBase):
         return is_allowed
 
     def _is_denied_project(self, project: TableauProject) -> bool:
+        # Either project name or project path should exist in deny
         for deny_pattern in self.config.project_pattern.deny:
+            # Either name or project path is denied
             if re.match(
                 deny_pattern, project.name, self.config.project_pattern.regex_flags
-            ):
+            ) or re.match(deny_pattern, self._get_project_path(project), self.config.project_pattern.regex_flags):
                 return True
         logger.info(f"project({project.name}) is not denied as per project_pattern")
         return False
@@ -455,7 +487,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         logger.info("Populating site project registry")
 
-        all_project_map = self._get_all_project()
+        all_project_map: Dict[str, TableauProject] = self._get_all_project()
 
         def init_tableau_project_registry():
             list_of_skip_projects: List[TableauProject] = []
@@ -497,7 +529,6 @@ class TableauSource(StatefulIngestionSourceBase):
 
         init_tableau_project_registry()
         init_datasource_registry()
-
         logger.debug(f"All site projects {all_project_map}")
         logger.debug(f"Projects selected for ingestion {self.tableau_project_registry}")
         logger.debug(
@@ -631,6 +662,19 @@ class TableauSource(StatefulIngestionSourceBase):
             page_size_override=self.config.workbook_page_size,
         ):
             yield from self.emit_workbook_as_container(workbook)
+            # This check is needed as we are using projectNameWithin which return project as per project name so if
+            # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
+            # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
+            # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
+            if workbook.get("projectLuid") not in self.tableau_project_registry.keys():
+                wrk_name: str = workbook.get("name")
+                wrk_id: str = workbook.get("id")
+                prj_name: str = workbook.get("projectName")
+                prj_id: str = workbook.get("projectLuid")
+                logger.debug(f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({prj_id}) not "
+                             f"present in project registry")
+                continue
+
             for sheet in workbook.get("sheets", []):
                 self.sheet_ids.append(sheet["id"])
 
@@ -1102,7 +1146,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 and self.datasource_project_map[ds["luid"]]
                 in self.tableau_project_registry.keys()
             ):
-                return self._get_project_path(self.datasource_project_map[ds["luid"]])
+                return self._get_project_browse_path(self.datasource_project_map[ds["luid"]])
             elif (
                 ds.get("__typename") == "EmbeddedDatasource"
                 and ds.get("workbook")
@@ -1110,7 +1154,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 and ds["workbook"]["projectLuid"]
                 in self.tableau_project_registry.keys()
             ):
-                return self._get_project_path(ds["workbook"]["projectLuid"])
+                return self._get_project_browse_path(ds["workbook"]["projectLuid"])
 
             datasource_name: str = ds.get("name")
             logger.warning(
@@ -1544,7 +1588,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._get_project_path(workbook['projectLuid'])}"
+                    f"/{self.platform}/{self._get_project_browse_path(workbook['projectLuid'])}"
                     f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
@@ -1593,14 +1637,14 @@ class TableauSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-    def _get_project_path(self, project_luid: str) -> str:
+    def _get_project_browse_path(self, project_luid: str) -> str:
         assert project_luid
-        cur_proj = self.tableau_project_registry[project_luid]
-        ancestors = [cur_proj.name.replace("/", REPLACE_SLASH_CHAR)]
-        while cur_proj.parent_id is not None:
-            cur_proj = self.tableau_project_registry[cur_proj.parent_id]
-            ancestors.insert(0, cur_proj.name.replace("/", REPLACE_SLASH_CHAR))
-        return "/".join(ancestors)
+        project: TableauProject = self.tableau_project_registry[project_luid]
+        normalised_path: List[str] = [p.replace("/", REPLACE_SLASH_CHAR) for p in project.path]
+        return "/".join(normalised_path)
+
+    def _get_project_path(self, project: TableauProject) -> str:
+        return self.config.project_path_separator.join(project.path)
 
     def populate_sheet_upstream_fields(
         self, sheet: dict, input_fields: List[InputField]
@@ -1859,7 +1903,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._get_project_path(workbook['projectLuid'])}"
+                    f"/{self.platform}/{self._get_project_browse_path(workbook['projectLuid'])}"
                     f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
