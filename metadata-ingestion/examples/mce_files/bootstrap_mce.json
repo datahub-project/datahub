@@ -510,7 +510,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,PetProfiles,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.Status": {
@@ -570,7 +570,7 @@
           },
           {
             "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "PetProfiles",
+              "schemaName": "SampleHiveSchema",
               "platform": "urn:li:dataPlatform:hive",
               "version": 0,
               "created": {
@@ -587,18 +587,22 @@
               "dataset": null,
               "cluster": null,
               "hash": "",
-              "platformSchema": null,
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
               "fields": [
                 {
-                  "fieldPath": "pet_id",
+                  "fieldPath": "field_foo",
                   "jsonPath": null,
                   "nullable": false,
                   "description": {
-                    "string": "The id for the pet"
+                    "string": "Foo field description"
                   },
                   "type": {
                     "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
                     }
                   },
                   "nativeDataType": "varchar(100)",
@@ -606,60 +610,15 @@
                   "isPartOfKey": true
                 },
                 {
-                  "fieldPath": "pet_type",
+                  "fieldPath": "field_bar",
                   "jsonPath": null,
                   "nullable": false,
                   "description": {
-                    "string": "The type of the pet"
-                  },
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.StringType": {}
-                    }
-                  },
-                  "nativeDataType": "boolean",
-                  "recursive": false
-                },
-                {
-                  "fieldPath": "is_adopted",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": {
-                    "string": "Whether the pet was adopted"
+                    "string": "Bar field description"
                   },
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                    }
-                  },
-                  "nativeDataType": "boolean",
-                  "recursive": false
-                },
-                {
-                  "fieldPath": "created_at",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": {
-                    "string": "Created at time of the pet"
-                  },
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
-                    }
-                  },
-                  "nativeDataType": "boolean",
-                  "recursive": false
-                },
-                {
-                  "fieldPath": "last_modified_at",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": {
-                    "string": "Created at time of the pet"
-                  },
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.NumberType": {}
                     }
                   },
                   "nativeDataType": "boolean",
@@ -3424,7 +3383,7 @@
   {
     "auditHeader":null,
     "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,PetProfiles,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
@@ -3436,7 +3395,7 @@
   {
     "auditHeader":null,
     "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,PetProfiles,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
@@ -3448,12 +3407,12 @@
   {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,PetProfiles,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetUsageStatistics",
     "aspect": {
-      "value": "{\"timestampMillis\": 1677108615462, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"uniqueUserCount\": 1, \"totalSqlQueries\": 2, \"topSqlQueries\": [\"SELECT * FROM pet_db.PetProfiles WHERE is_adopted = false`\", \"select pet_type, pet_id, is_adopted from pet_db.db.PetProfiles\"], \"userCounts\": [{\"user\": \"urn:li:corpuser:unknown\", \"count\": 2, \"userEmail\": \"test_user@datahubproject.io\"}], \"fieldCounts\": [{\"fieldPath\": \"pet_type\", \"count\": 45}, {\"fieldPath\": \"pet_id\", \"count\": 10}]}",
+      "value": "{\"timestampMillis\": 1674291843000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"uniqueUserCount\": 1, \"totalSqlQueries\": 2, \"topSqlQueries\": [\"select * from `SampleHiveDataset`\", \"select field_foo, field_bar from `SampleHiveDataset`\"], \"userCounts\": [{\"user\": \"urn:li:corpuser:unknown\", \"count\": 2, \"userEmail\": \"test_user@datahubproject.io\"}], \"fieldCounts\": [{\"fieldPath\": \"field_foo\", \"count\": 45}, {\"fieldPath\": \"field_bar\", \"count\": 10}]}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -3507,7 +3466,7 @@
     "changeType":"UPSERT",
     "aspectName":"containerProperties",
     "aspect":{
-      "value":"{\"name\": \"pet_db\", \"description\": \"The Root DataHub Schema\" }",
+      "value":"{\"name\": \"datahub_schema\", \"description\": \"The Root DataHub Schema\" }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3539,7 +3498,7 @@
   {
     "auditHeader":null,
     "entityType":"dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,PetProfiles,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
     "changeType":"UPSERT",
     "aspectName":"container",
     "aspect":{
@@ -3568,7 +3527,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
-      "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:snowflake,PetProfiles,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),field_foo)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"true\", \"type\": \"UNKNOWN\"} }, \"nativeType\": \"expect_column_values_to_equal\", \"nativeParameters\": {\"column\": \"field_foo\", \"value\": \"true\"}}}",
+      "value": "{\"customProperties\": {\"expectation_suite_name\": \"test_suite\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD),field_foo)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"true\", \"type\": \"UNKNOWN\"} }, \"nativeType\": \"expect_column_values_to_equal\", \"nativeParameters\": {\"column\": \"field_foo\", \"value\": \"true\"}}}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -3606,7 +3565,7 @@
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
-      "value": "{\"name\":\"TestQuery\",\"description\":\"TestDescription\",\"source\":\"MANUAL\",\"statement\":{\"language\":\"SQL\",\"value\":\"SELECT * FROM PetProfiles WHERE field_foo = 'foo_value'\"},\"created\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0},\"lastModified\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0}}",
+      "value": "{\"name\":\"TestQuery\",\"description\":\"TestDescription\",\"source\":\"MANUAL\",\"statement\":{\"language\":\"SQL\",\"value\":\"SELECT * FROM db.SampleHiveDataset WHERE field_foo = 'foo_value'\"},\"created\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0},\"lastModified\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0}}",
       "contentType": "application/json"
     },
     "systemMetadata": null
@@ -3618,7 +3577,7 @@
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
-      "value": "{\"subjects\":[{\"entity\":\"urn:li:dataset:(urn:li:dataPlatform:snowflake,PetProfiles,PROD)\"}]}",
+      "value": "{\"subjects\":[{\"entity\":\"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\"}]}",
       "contentType": "application/json"
     },
     "systemMetadata": null
