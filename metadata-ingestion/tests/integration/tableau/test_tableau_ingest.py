@@ -136,7 +136,6 @@ def side_effect_datasource_data(*arg, **kwargs):
     )
     datasource3._id = "1a4e81b9-1107-4b8c-a864-7009b6414858"
 
-
     return [
         datasource1,
         datasource2,
@@ -153,6 +152,7 @@ def tableau_ingest_common(
     mock_datahub_graph,
     pipeline_config=config_source_default,
     sign_out_side_effect=lambda: None,
+    pipeline_name="tableau-test-pipeline",
 ):
     test_resources_dir = pathlib.Path(
         pytestconfig.rootpath / "tests/integration/tableau"
@@ -183,7 +183,7 @@ def tableau_ingest_common(
             pipeline = Pipeline.create(
                 {
                     "run_id": "tableau-test",
-                    "pipeline_name": "tableau-test-pipeline",
+                    "pipeline_name": pipeline_name,
                     "source": {
                         "type": "tableau",
                         "config": pipeline_config,
@@ -236,6 +236,7 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
+        pipeline_name="test_tableau_ingest",
     )
 
 
@@ -267,7 +268,41 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
-        pipeline_config=new_config
+        pipeline_config=new_config,
+        pipeline_name="test_project_pattern",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_project_path_mces.json"
+    golden_file_name: str = "tableau_project_path_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+
+    new_config["project_pattern"] = {
+        "allow": ["^default/DenyProject$"]
+    }
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_project_path_pattern",
     )
 
 
@@ -299,8 +334,10 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
-        pipeline_config=new_config
+        pipeline_config=new_config,
+        pipeline_name="test_project_hierarchy",
     )
+
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
@@ -355,6 +392,7 @@ def test_tableau_ingest_with_platform_instance(
         output_file_name,
         mock_datahub_graph,
         config_source,
+        pipeline_name="test_tableau_ingest_with_platform_instance"
     )
 
 
@@ -429,6 +467,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         golden_file_name,
         output_file_name,
         mock_datahub_graph,
+        pipeline_name="test_tableau_stateful",
     )
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
     assert checkpoint1
@@ -441,6 +480,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         golden_file_deleted_name,
         output_file_deleted_name,
         mock_datahub_graph,
+        pipeline_name="test_tableau_stateful",
     )
     checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
 
@@ -569,4 +609,5 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
         output_file_name,
         mock_datahub_graph,
         sign_out_side_effect=ConnectionError,
+        pipeline_name="test_tableau_signout_timeout"
     )
