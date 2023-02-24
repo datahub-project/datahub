@@ -1175,104 +1175,43 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
             bigquery_tables = []
-            partitioned_table_count_in_this_batch: int = 0
-            table_items: Dict[str, TableListItem] = {}
-            # Dict to store sharded table and the last seen max shard id
-            sharded_tables: Dict[str, TableListItem] = defaultdict()
             # Partitions view throw exception if we try to query partition info for too many tables
             # so we have to limit the number of tables we query partition info.
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
             # way we can merge that info with the queried one.
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
-            for table in conn.list_tables(f"{project_id}.{dataset_name}"):
-                table_identifier = BigqueryTableIdentifier(
-                    project_id=project_id,
-                    dataset=dataset_name,
-                    table=table.table_id,
-                )
+            max_batch_size: int = (
+                self.config.number_of_datasets_process_in_batch
+                if not self.config.profiling.enabled
+                else self.config.number_of_datasets_process_in_batch_if_profiling_enabled
+            )
 
-                _, shard = BigqueryTableIdentifier.get_table_and_shard(
-                    table_identifier.raw_table_name()
-                )
-                table_name = table_identifier.get_table_name().split(".")[-1]
+            # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
+            # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
+            table_items = self.get_core_table_details(conn, dataset_name, project_id)
 
-                # Sharded tables look like: table_20220120
-                # For sharded tables we only process the latest shard and ignore the rest
-                # to find the latest shard we iterate over the list of tables and store the maximum shard id
-                # We only has one special case where the table name is a date `20220110`
-                # in this case we merge all these tables under dataset name as table name.
-                # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
-                # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
-                if shard:
-                    if not sharded_tables.get(table_name):
-                        # When table is only a shard we use dataset_name as table_name
-                        sharded_tables[table_name] = table
-                        continue
-
-                    stored_table_identifier = BigqueryTableIdentifier(
-                        project_id=project_id,
-                        dataset=dataset_name,
-                        table=sharded_tables[table_name].table_id,
-                    )
-                    _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
-                        stored_table_identifier.raw_table_name()
-                    )
-                    # When table is none, we use dataset_name as table_name
-                    assert stored_shard
-                    if stored_shard < shard:
-                        sharded_tables[table_name] = table
-                    continue
-                elif str(table_identifier).startswith(
-                    self.config.temp_table_dataset_prefix
-                ):
-                    logger.debug(f"Dropping temporary table {table_identifier.table}")
-                    self.report.report_dropped(table_identifier.raw_table_name())
-                    continue
-                else:
-                    if (
-                        table.time_partitioning
-                        or "range_partitioning" in table._properties
-                    ):
-                        partitioned_table_count_in_this_batch += 1
-
-                    table_items[table.table_id] = table
-
-                if (
-                    len(table_items) % self.config.number_of_datasets_process_in_batch
-                    == 0
-                ) or (
-                    partitioned_table_count_in_this_batch
-                    == self.config.number_of_partitioned_datasets_process_in_batch
-                ):
+            items_to_get: Dict[str, TableListItem] = {}
+            for table_item in table_items.keys():
+                items_to_get[table_item] = table_items[table_item]
+                if len(items_to_get) % max_batch_size == 0:
                     bigquery_tables.extend(
                         BigQueryDataDictionary.get_tables_for_dataset(
                             conn,
                             project_id,
                             dataset_name,
-                            table_items,
+                            items_to_get,
                             with_data_read_permission=self.config.profiling.enabled,
                         )
                     )
-                    partitioned_table_count_in_this_batch = 0
-                    table_items.clear()
+                    items_to_get.clear()
 
-            # Sharded tables don't have partition keys, so it is safe to add to the list as
-            # it should not affect the number of tables will be touched in the partitions system view.
-            # Because we have the batched query of get_tables_for_dataset to makes sure
-            # we won't hit too many tables queried with partitions system view.
-            # The key in the map is the actual underlying table name and not the friendly name and
-            # that's why we need to get the actual table names and not the normalized ones.
-            table_items.update(
-                {value.table_id: value for value in sharded_tables.values()}
-            )
-
-            if table_items:
+            if items_to_get:
                 bigquery_tables.extend(
                     BigQueryDataDictionary.get_tables_for_dataset(
                         conn,
                         project_id,
                         dataset_name,
-                        table_items,
+                        items_to_get,
                         with_data_read_permission=self.config.profiling.enabled,
                     )
                 )
@@ -1282,6 +1221,64 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         return bigquery_tables
+
+    def get_core_table_details(
+        self, conn: bigquery.Client, dataset_name: str, project_id: str
+    ) -> Dict[str, TableListItem]:
+        table_items: Dict[str, TableListItem] = {}
+        # Dict to store sharded table and the last seen max shard id
+        sharded_tables: Dict[str, TableListItem] = defaultdict()
+
+        for table in conn.list_tables(f"{project_id}.{dataset_name}"):
+            table_identifier = BigqueryTableIdentifier(
+                project_id=project_id,
+                dataset=dataset_name,
+                table=table.table_id,
+            )
+
+            _, shard = BigqueryTableIdentifier.get_table_and_shard(
+                table_identifier.raw_table_name()
+            )
+            table_name = table_identifier.get_table_name().split(".")[-1]
+
+            # Sharded tables look like: table_20220120
+            # For sharded tables we only process the latest shard and ignore the rest
+            # to find the latest shard we iterate over the list of tables and store the maximum shard id
+            # We only has one special case where the table name is a date `20220110`
+            # in this case we merge all these tables under dataset name as table name.
+            # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
+            # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
+            if shard:
+                if not sharded_tables.get(table_name):
+                    # When table is only a shard we use dataset_name as table_name
+                    sharded_tables[table_name] = table
+                    continue
+
+                stored_table_identifier = BigqueryTableIdentifier(
+                    project_id=project_id,
+                    dataset=dataset_name,
+                    table=sharded_tables[table_name].table_id,
+                )
+                _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
+                    stored_table_identifier.raw_table_name()
+                )
+                # When table is none, we use dataset_name as table_name
+                assert stored_shard
+                if stored_shard < shard:
+                    sharded_tables[table_name] = table
+                continue
+            elif str(table_identifier).startswith(
+                self.config.temp_table_dataset_prefix
+            ):
+                logger.debug(f"Dropping temporary table {table_identifier.table}")
+                self.report.report_dropped(table_identifier.raw_table_name())
+                continue
+
+            table_items[table.table_id] = table
+        # Adding maximum shards to the list of tables
+        table_items.update({value.table_id: value for value in sharded_tables.values()})
+
+        return table_items
 
     def get_views_for_dataset(
         self,
