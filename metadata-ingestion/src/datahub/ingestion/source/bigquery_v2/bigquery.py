@@ -1227,7 +1227,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> Dict[str, TableListItem]:
         table_items: Dict[str, TableListItem] = {}
         # Dict to store sharded table and the last seen max shard id
-        sharded_tables: Dict[str, TableListItem] = defaultdict()
+        sharded_tables: Dict[str, TableListItem] = {}
 
         for table in conn.list_tables(f"{project_id}.{dataset_name}"):
             table_identifier = BigqueryTableIdentifier(
@@ -1249,7 +1249,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
             # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
             if shard:
-                if not sharded_tables.get(table_name):
+                if table_name in sharded_tables:
                     # When table is only a shard we use dataset_name as table_name
                     sharded_tables[table_name] = table
                     continue
