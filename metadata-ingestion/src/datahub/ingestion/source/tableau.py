@@ -162,16 +162,6 @@ class TableauConnectionConfig(ConfigModel):
         description="When enabled, extracts column-level lineage from Tableau Datasources",
     )
 
-    extract_project_hierarchy: bool = Field(
-        default=True,
-        description="Whether to extract entire project hierarchy for nested projects.",
-    )
-
-    project_path_separator: str = Field(
-        default="/",
-        description="Projects path separator. project_pattern may contain path to nested project for ingestion, "
-        "example A/B/C, here project C would get ingested",
-    )
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -245,8 +235,15 @@ class TableauConfig(
     # Tableau project pattern
     project_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter tableau projects in ingestion",
+        description="Regex patterns to filter tableau projects in ingestion. project_pattern may contain path to "
+                    "nested project for ingestion, example A/B/C, here project C would get ingested",
     )
+
+    project_path_separator: str = Field(
+        default="/",
+        description="Projects path separator.",
+    )
+
     default_schema_map: dict = Field(
         default={}, description="Default schema to use when schema is not found."
     )
@@ -309,11 +306,16 @@ class TableauConfig(
         description="Ingest a URL to render an embedded Preview of assets within Tableau.",
     )
 
+    extract_project_hierarchy: bool = Field(
+        default=True,
+        description="Whether to extract entire project hierarchy for nested projects.",
+    )
+
+
     @root_validator(pre=False)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         projects = values.get("projects")
         project_pattern = values.get("project_pattern")
-
         if project_pattern == AllowDenyPattern.allow_all() and projects:
             logger.warning(
                 "project_pattern is not set but projects is set. projects is deprecated, please use "
