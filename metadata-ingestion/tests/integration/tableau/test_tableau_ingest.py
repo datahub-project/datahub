@@ -243,7 +243,7 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 @pytest.mark.integration
 def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
-    output_file_name: str = "tableau_mces.json"
+    output_file_name: str = "tableau_project_pattern_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
 
     new_config = config_source_default.copy()
@@ -307,6 +307,7 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
 def test_tableau_ingest_with_platform_instance(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
+    enable_logging()
     output_file_name: str = "tableau_with_platform_instance_mces.json"
     golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
 
@@ -358,6 +359,7 @@ def test_tableau_ingest_with_platform_instance(
 
 
 def test_lineage_overrides():
+    enable_logging()
     # Simple - specify platform instance to presto table
     assert (
         make_table_urn(
@@ -407,7 +409,8 @@ def test_lineage_overrides():
 
 @freeze_time(FROZEN_TIME)
 def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-    output_file_name: str = "tableau_mces.json"
+    enable_logging()
+    output_file_name: str = "tableau_stateful_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     output_file_deleted_name: str = "tableau_mces_deleted_stateful.json"
     golden_file_deleted_name: str = "tableau_mces_golden_deleted_stateful.json"
@@ -523,6 +526,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
 
 
 def test_tableau_no_verify():
+    enable_logging()
     # This test ensures that we can connect to a self-signed certificate
     # when ssl_verify is set to False.
 
@@ -547,8 +551,9 @@ def test_tableau_no_verify():
 @freeze_time(FROZEN_TIME)
 @pytest.mark.slow_unit
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
-    output_file_name: str = "tableau_mces.json"
-    golden_file_name: str = "tableau_mces_golden.json"
+    enable_logging()
+    output_file_name: str = "tableau_signout_timeout_mces.json"
+    golden_file_name: str = "tableau_signout_timeout_mces_golden.json"
     tableau_ingest_common(
         pytestconfig,
         tmp_path,
