@@ -166,7 +166,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
 
     // Step 2. For all aspects, attempt to update Graph
-    if (_diffMode && (_graphService instanceof ElasticSearchGraphService || _graphService instanceof Neo4jGraphService)) {
+    if (_diffMode) {
       updateGraphServiceDiff(urn, aspectSpec, previousAspect, aspect, event);
     } else {
       updateGraphService(urn, aspectSpec, aspect, event);

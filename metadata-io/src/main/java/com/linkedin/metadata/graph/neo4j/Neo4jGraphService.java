@@ -98,8 +98,8 @@ public class Neo4jGraphService implements GraphService {
     String startUrn = sourceUrn;
 
     // Get startUrn, endUrn by check INCOMING/OUTGOING direction and RelationshipType
-    try {
-      LineageRegistry.LineageSpec sourceLineageSpec = getLineageRegistry().getLineageSpec(sourceType);
+    LineageRegistry.LineageSpec sourceLineageSpec = getLineageRegistry().getLineageSpec(sourceType);
+    if (sourceLineageSpec != null) {
       List<LineageRegistry.EdgeInfo> upstreamCheck = sourceLineageSpec.getUpstreamEdges()
           .stream()
           .filter(
@@ -109,9 +109,6 @@ public class Neo4jGraphService implements GraphService {
         endUrn = sourceUrn;
         startUrn = destinationUrn;
       }
-    } catch (NullPointerException ignored) {
-      log.warn(
-          String.format("Can't get UpstreamEdges for relationType = %s, Error = %s", sourceType, ignored.getMessage()));
     }
 
     final List<Statement> statements = new ArrayList<>();
@@ -153,7 +150,7 @@ public class Neo4jGraphService implements GraphService {
       for (Map.Entry<String, Object> entry : edge.getProperties().entrySet()) {
         // Make sure extra keys in properties are not preserved
         final Set<String> preservedKeySet =
-            Set.of("createdOn", "createdActor", "updatedOn", "updatedActor", "source", "startUrn", "endUrn");
+            Set.of("createdOn", "createdActor", "updatedOn", "updatedActor", "startUrn", "endUrn");
         if (preservedKeySet.contains(entry.getKey())) {
           throw new UnsupportedOperationException(
               String.format("Tried setting properties on graph edge but property key is preserved. Key: %s",
