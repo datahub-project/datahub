@@ -124,7 +124,7 @@ def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
             sa.select(
                 [
                     sa.text(  # type:ignore
-                        f"APPROX_COUNT_DISTINCT(`{sa.column(column)}`)"
+                        f"APPROX_COUNT_DISTINCT(`{column}`)"
                     )
                 ]
             ).select_from(self._table)
