@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Any, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
 import pydantic
@@ -511,35 +511,34 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
 
     base_pipeline_config = {
-                "run_id": "lookml-test",
-                "pipeline_name": "lookml_stateful",
-                "source": {
-                    "type": "lookml",
-                    "config": {
-                        "base_folder": str(test_resources_dir / "lkml_samples"),
-                        "connection_to_platform_map": {"my_connection": "conn"},
-                        "parse_table_names_from_sql": True,
-                        "tag_measures_and_dimensions": False,
-                        "project_name": "lkml_samples",
-                        "model_pattern": {"deny": ["data2"]},
-                        "emit_reachable_views_only": False,
-                        "stateful_ingestion": {
-                            "enabled": True,
-                            "remove_stale_metadata": True,
-                            "fail_safe_threshold": 100.0,
-                            "state_provider": {
-                                "type": "datahub",
-                                "config": {"datahub_api": {"server": GMS_SERVER}},
-                            },
-                        },
+        "run_id": "lookml-test",
+        "pipeline_name": "lookml_stateful",
+        "source": {
+            "type": "lookml",
+            "config": {
+                "base_folder": str(test_resources_dir / "lkml_samples"),
+                "connection_to_platform_map": {"my_connection": "conn"},
+                "parse_table_names_from_sql": True,
+                "tag_measures_and_dimensions": False,
+                "project_name": "lkml_samples",
+                "model_pattern": {"deny": ["data2"]},
+                "emit_reachable_views_only": False,
+                "stateful_ingestion": {
+                    "enabled": True,
+                    "remove_stale_metadata": True,
+                    "fail_safe_threshold": 100.0,
+                    "state_provider": {
+                        "type": "datahub",
+                        "config": {"datahub_api": {"server": GMS_SERVER}},
                     },
                 },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                    },
-                },
-            }
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {},
+        },
+    }
 
     pipeline_run1 = None
     with mock.patch(
@@ -547,10 +546,14 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         mock_datahub_graph,
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
-        pipeline_run1_config = dict(base_pipeline_config)
+        pipeline_run1_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(  # type: ignore
+            base_pipeline_config  # type: ignore
+        )
         # Set the special properties for this run
         pipeline_run1_config["source"]["config"]["emit_reachable_views_only"] = False
-        pipeline_run1_config["sink"]["config"]["filename"] = f"{tmp_path}/{output_file_name}"
+        pipeline_run1_config["sink"]["config"][
+            "filename"
+        ] = f"{tmp_path}/{output_file_name}"
         pipeline_run1 = Pipeline.create(pipeline_run1_config)
         pipeline_run1.run()
         pipeline_run1.raise_from_status()
@@ -572,10 +575,12 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         mock_datahub_graph,
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
-        pipeline_run2_config = dict(base_pipeline_config)
+        pipeline_run2_config: Dict[str, Dict[str, Dict[str, Any]]] = dict(base_pipeline_config)  # type: ignore
         # Set the special properties for this run
         pipeline_run2_config["source"]["config"]["emit_reachable_views_only"] = True
-        pipeline_run2_config["sink"]["config"]["filename"] = f"{tmp_path}/{output_file_deleted_name}"
+        pipeline_run2_config["sink"]["config"][
+            "filename"
+        ] = f"{tmp_path}/{output_file_deleted_name}"
         pipeline_run2 = Pipeline.create(pipeline_run2_config)
         pipeline_run2.run()
         pipeline_run2.raise_from_status()
