@@ -9,6 +9,9 @@ import requests
 import os
 import re
 
+DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
+DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
+
 class QuickstartVersionMapping(BaseModel):
     composefile_git_ref: str
     docker_tag: str
@@ -125,9 +128,6 @@ class QuickstartVersionMappingConfig(BaseModel):
             ensure_exit_success=checks_to_run.ensure_exit_success
         )
 
-DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
-DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
-
 def save_quickstart_config(config: QuickstartVersionMappingConfig, path: str = DEFAULT_LOCAL_CONFIG_PATH):
     # create directory if it doesn't exist
     path = os.path.expanduser(path)
@@ -135,19 +135,3 @@ def save_quickstart_config(config: QuickstartVersionMappingConfig, path: str = D
     with open(path, "w") as f:
         yaml.dump(config.dict(), f)
     click.echo(f"Saved quickstart config to {path}.")
-
-
-
-
-
-@click.group()
-def test():
-    pass
-
-@test.command()
-@click.option("--version", default=None, help="The version of the quickstart to use.")
-def qs_test(version):
-    config = QuickstartVersionMappingConfig.fetch_quickstart_config()
-    plan = config.get_quickstart_execution_plan(version)
-    print(plan)
-
