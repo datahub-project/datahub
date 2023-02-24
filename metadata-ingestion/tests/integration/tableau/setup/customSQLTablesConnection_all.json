@@ -50,7 +50,8 @@
                                         "workbook": {
                                             "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                                             "name": "Dvdrental Workbook",
-                                            "projectName": "default"
+                                            "projectName": "default",
+                                            "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01"
                                         }
                                     }
                                 }
@@ -99,7 +100,8 @@
                                         "workbook": {
                                             "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                                             "name": "Dvdrental Workbook",
-                                            "projectName": "default"
+                                            "projectName": "default",
+                                            "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01"
                                         }
                                     }
                                 }
@@ -148,7 +150,8 @@
                                         "workbook": {
                                             "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                                             "name": "Dvdrental Workbook",
-                                            "projectName": "default"
+                                            "projectName": "default",
+                                            "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01"
                                         }
                                     }
                                 }
@@ -197,7 +200,8 @@
                                         "workbook": {
                                             "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                                             "name": "Dvdrental Workbook",
-                                            "projectName": "default"
+                                            "projectName": "default",
+                                            "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01"
                                         }
                                     }
                                 }
@@ -246,7 +250,8 @@
                                         "workbook": {
                                             "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                                             "name": "Dvdrental Workbook",
-                                            "projectName": "default"
+                                            "projectName": "default",
+                                            "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01"
                                         }
                                     }
                                 }
@@ -295,7 +300,8 @@
                                         "workbook": {
                                             "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
                                             "name": "Dvdrental Workbook",
-                                            "projectName": "default"
+                                            "projectName": "default",
+                                            "projectLuid": "190a6a5c-63ed-4de1-8045-faeae5df5b01"
                                         }
                                     }
                                 }
@@ -341,7 +347,7 @@
                                         "__typename": "PublishedDatasource",
                                         "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
                                         "name": "test publish datasource",
-                                        "luid": "aa10420e-73da-435c-b7c9-b0325a19849a",
+                                        "luid": "ffd72f16-004a-4a7d-8f5b-a8fd18d4317d",
                                         "upstreamDatabases": [
                                             {
                                                 "id": "a7825692-7de9-113d-5377-ae113331a9ec",

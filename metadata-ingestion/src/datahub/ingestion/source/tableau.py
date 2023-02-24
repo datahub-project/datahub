@@ -1291,6 +1291,7 @@ class TableauSource(StatefulIngestionSourceBase):
             datasource_info = datasource
 
         browse_path = self._get_project(datasource)
+        logger.debug(f"datasource {datasource.get('name')} browse-path {browse_path}")
         datasource_id = datasource["id"]
         datasource_urn = builder.make_dataset_urn_with_platform_instance(
             self.platform, datasource_id, self.config.platform_instance, self.config.env

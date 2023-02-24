@@ -132,21 +132,15 @@ def side_effect_datasource_data(*arg, **kwargs):
 
     datasource3: DatasourceItem = DatasourceItem(
         name="Customer Payment Query",
-        project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
+        project_id="190a6a5c-63ed-4de1-8045-faeae5df5b01",
     )
     datasource3._id = "1a4e81b9-1107-4b8c-a864-7009b6414858"
 
-    datasource4: DatasourceItem = DatasourceItem(
-        name="test publish datasource",
-        project_id="910733aa-2e95-4ac3-a2e8-71570751099d",
-    )
-    datasource4._id = "aa10420e-73da-435c-b7c9-b0325a19849a"
 
     return [
         datasource1,
         datasource2,
         datasource3,
-        datasource4,
     ], mock_pagination
 
 
@@ -226,7 +220,6 @@ def get_current_checkpoint_from_pipeline(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     tableau_ingest_common(
@@ -277,34 +270,36 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-# @freeze_time(FROZEN_TIME)
-# @pytest.mark.integration
-# def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
-#     output_file_name: str = "tableau_mces.json"
-#     golden_file_name: str = "tableau_mces_golden.json"
-#
-#     new_config = config_source_default.copy()
-#     new_config["project_pattern"] = {
-#         "allow": ["default", "Project 2", "Samples"]
-#     }
-#     new_config["extract_project_hierarchy"] = True
-#
-#     tableau_ingest_common(
-#         pytestconfig,
-#         tmp_path,
-#         [
-#             read_response(pytestconfig, "workbooksConnection_all.json"),
-#             read_response(pytestconfig, "sheetsConnection_all.json"),
-#             read_response(pytestconfig, "dashboardsConnection_all.json"),
-#             read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
-#             read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
-#             read_response(pytestconfig, "customSQLTablesConnection_all.json"),
-#         ],
-#         golden_file_name,
-#         output_file_name,
-#         mock_datahub_graph,
-#         pipeline_config=new_config
-#     )
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+
+    output_file_name: str = "tableau_nested_project_mces.json"
+    golden_file_name: str = "tableau_nested_project_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["project_pattern"] = {
+        "allow": ["default", "Project 2", "Samples"]
+    }
+    new_config["extract_project_hierarchy"] = True
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config
+    )
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
