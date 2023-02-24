@@ -31,11 +31,8 @@ from datahub.cli.docker_check import (
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities.sample_data import (
-    BOOTSTRAP_MCES_FILE,
-    DOCKER_COMPOSE_BASE,
-    download_sample_data,
-)
+from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
+from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig, QuickstartExecutionPlan
 
 logger = logging.getLogger(__name__)
 
@@ -59,18 +56,6 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
 )
 KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.kafka-setup.quickstart.yml"
-)
-NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-ELASTIC_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
-)
-NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-)
-ELASTIC_M1_QUICKSTART_COMPOSE_URL = (
-    f"{DOCKER_COMPOSE_BASE}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
 )
 
 
@@ -593,6 +578,13 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     required=False,
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
 )
+@click.option(
+    "--stable",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Use this flag to use the latest stable version. Takes precedent over--version.",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry(
     capture_kwargs=[
@@ -606,6 +598,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "standalone_consumers",
         "kafka_setup",
         "arch",
+        "stable",
     ]
 )
 def quickstart(
@@ -630,6 +623,7 @@ def quickstart(
     standalone_consumers: bool,
     kafka_setup: bool,
     arch: Optional[str],
+    stable: bool,
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -658,6 +652,8 @@ def quickstart(
         return
 
     quickstart_arch = detect_quickstart_arch(arch)
+    quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
+    quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(version, stable)
 
     # Run pre-flight checks.
     with get_docker_client() as client:
@@ -683,6 +679,7 @@ def quickstart(
             kafka_setup,
             quickstart_arch,
             standalone_consumers,
+            quickstart_execution_plan.composefile_git_ref,
         )
 
     # set version
@@ -803,6 +800,30 @@ def quickstart(
     )
 
 
+def get_docker_compose_base_url(version_tag: Optional[str]) -> str:
+    if os.environ.get("DOCKER_COMPOSE_BASE"):
+        return os.environ["DOCKER_COMPOSE_BASE"]
+    if version_tag is None:
+        version_tag = "master"
+    return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
+
+
+def get_github_file_url(neo4j, is_m1, release_version_tag: Optional[str] = "master"):
+    base_url = get_docker_compose_base_url(release_version_tag)
+    if neo4j:
+        github_file = (
+            f"{base_url}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
+            if not is_m1
+            else f"{base_url}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+        )
+    else:
+        github_file = (
+            f"{base_url}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
+            if not is_m1
+            else f"{base_url}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
+        )
+    return github_file
+
 def download_compose_files(
     quickstart_compose_file_name,
     quickstart_compose_file_list,
@@ -810,21 +831,12 @@ def download_compose_files(
     kafka_setup,
     quickstart_arch,
     standalone_consumers,
+    compose_git_ref,
 ):
     # download appropriate quickstart file
     should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
-    if should_use_neo4j:
-        github_file = (
-            NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL
-            if not is_arch_m1(quickstart_arch)
-            else NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_URL
-        )
-    else:
-        github_file = (
-            ELASTIC_QUICKSTART_COMPOSE_URL
-            if not is_arch_m1(quickstart_arch)
-            else ELASTIC_M1_QUICKSTART_COMPOSE_URL
-        )
+    is_m1 = is_arch_m1(quickstart_arch)
+    github_file = get_github_file_url(should_use_neo4j, is_m1, compose_git_ref)
     # also allow local files
     request_session = requests.Session()
     request_session.mount("file://", FileAdapter())
@@ -842,10 +854,11 @@ def download_compose_files(
         tmp_file.write(quickstart_download_response.content)
         logger.debug(f"Copied to {path}")
     if standalone_consumers:
+        base_url = get_docker_compose_base_url(compose_git_ref)
         consumer_github_file = (
-            f"{DOCKER_COMPOSE_BASE}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            f"{base_url}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
             if should_use_neo4j
-            else f"{DOCKER_COMPOSE_BASE}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
+            else f"{base_url}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
         )
 
         default_consumer_compose_file = (
