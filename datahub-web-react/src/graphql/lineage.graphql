@@ -251,6 +251,7 @@ fragment fullLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
     relationships {
         type
         createdOn
@@ -308,6 +309,7 @@ fragment leafLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
     relationships {
         type
         entity {
@@ -321,6 +323,7 @@ fragment partialLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
 }
 
 query getEntityLineage(

@@ -2,7 +2,7 @@ import re
 from typing import Dict, List, Optional, Union
 from urllib.parse import urlparse
 
-from pydantic import Field, root_validator, validator
+from pydantic import Field, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigBase
@@ -132,16 +132,3 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
             )
 
         return config_clean.remove_trailing_slashes(val)
-
-    @root_validator
-    def validate_platform_instance(cls: "PulsarSourceConfig", values: Dict) -> Dict:
-        stateful_ingestion = values.get("stateful_ingestion")
-        if (
-            stateful_ingestion
-            and stateful_ingestion.enabled
-            and not values.get("platform_instance")
-        ):
-            raise ConfigurationError(
-                "Enabling Pulsar stateful ingestion requires to specify a platform instance."
-            )
-        return values

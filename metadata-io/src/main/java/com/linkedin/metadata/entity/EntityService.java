@@ -76,6 +76,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -157,7 +158,7 @@ public class EntityService {
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
   private RetentionService _retentionService;
-  private final Boolean _alwaysEmitAuditEvent = false;
+  private final Boolean _alwaysEmitChangeLog;
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
@@ -166,12 +167,14 @@ public class EntityService {
   public EntityService(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
-      @Nonnull final EntityRegistry entityRegistry) {
+      @Nonnull final EntityRegistry entityRegistry,
+      final boolean alwaysEmitChangeLog) {
 
     _aspectDao = aspectDao;
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
+    _alwaysEmitChangeLog = alwaysEmitChangeLog;
   }
 
   /**
@@ -775,27 +778,34 @@ public class EntityService {
               Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
 
-    log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
-    String entityName = urnToEntityName(urn);
-    EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-    if (aspectSpec == null) {
-      throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
-    }
+    // Produce MCL after a successful update
+    boolean isNoOp = oldValue == updatedValue;
+    if (!isNoOp || _alwaysEmitChangeLog) {
+      log.debug(String.format("Producing MetadataChangeLog for ingested aspect %s, urn %s", aspectName, urn));
+      String entityName = urnToEntityName(urn);
+      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+      AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+      if (aspectSpec == null) {
+        throw new RuntimeException(String.format("Unknown aspect %s for entity %s", aspectName, entityName));
+      }
 
-    Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
-    produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
-        updatedSystemMetadata, result.getAuditStamp(), ChangeType.UPSERT);
-    produceMCLTimer.stop();
+      Timer.Context produceMCLTimer = MetricUtils.timer(this.getClass(), "produceMCL").time();
+      produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, updatedValue, oldSystemMetadata,
+          updatedSystemMetadata, result.getAuditStamp(), isNoOp ? ChangeType.RESTATE : ChangeType.UPSERT);
+      produceMCLTimer.stop();
 
-    // For legacy reasons, keep producing to the MAE event stream without blocking ingest
-    try {
-      Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
-      produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
-          result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
-      produceMAETimer.stop();
-    } catch (Exception e) {
-      log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema.", e);
+      // For legacy reasons, keep producing to the MAE event stream without blocking ingest
+      try {
+        Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
+        produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
+            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+        produceMAETimer.stop();
+      } catch (Exception e) {
+        log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema.", e);
+      }
+    } else {
+      log.debug("Skipped producing MetadataAuditEvent for ingested aspect {}, urn {}. Aspect has not changed.",
+          aspectName, urn);
     }
     return updatedValue;
   }
@@ -1608,6 +1618,12 @@ public class EntityService {
     return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
   }
 
+  /**
+   * Returns true if the entity exists (has materialized aspects)
+   *
+   * @param urn the urn of the entity to check
+   * @return true if the entity exists, false otherwise
+   */
   public Boolean exists(Urn urn) {
     final Set<String> aspectsToFetch = getEntityAspectNames(urn);
     final List<EntityAspectIdentifier> dbKeys = aspectsToFetch.stream()
@@ -1616,6 +1632,18 @@ public class EntityService {
 
     Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
     return aspects.values().stream().anyMatch(aspect -> aspect != null);
+  }
+
+  /**
+   * Returns true if an entity is soft-deleted.
+   *
+   * @param urn the urn to check
+   * @return true is the entity is soft deleted, false otherwise.
+   */
+  public Boolean isSoftDeleted(@Nonnull final Urn urn) {
+    Objects.requireNonNull(urn, "urn is required");
+    final RecordTemplate statusAspect = getLatestAspect(urn, STATUS_ASPECT_NAME);
+    return statusAspect != null && ((Status) statusAspect).isRemoved();
   }
 
   @Nullable

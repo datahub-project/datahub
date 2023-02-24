@@ -122,7 +122,7 @@ public class RecentlyViewedSource implements RecommendationSource {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
     query.must(
-        QueryBuilders.termQuery(DataHubUsageEventConstants.ACTOR_URN + ESUtils.KEYWORD_SUFFIX, userUrn.toString()));
+        QueryBuilders.termQuery(ESUtils.toKeywordField(DataHubUsageEventConstants.ACTOR_URN, true), userUrn.toString()));
     query.must(
         QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
     source.query(query);
@@ -130,7 +130,7 @@ public class RecentlyViewedSource implements RecommendationSource {
     // Find the entity with the largest last viewed timestamp
     String lastViewed = "last_viewed";
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(DataHubUsageEventConstants.ENTITY_URN + ESUtils.KEYWORD_SUFFIX)
+        .field(ESUtils.toKeywordField(DataHubUsageEventConstants.ENTITY_URN, true))
         .size(MAX_CONTENT)
         .order(BucketOrder.aggregation(lastViewed, false))
         .subAggregation(AggregationBuilders.max(lastViewed).field(DataHubUsageEventConstants.TIMESTAMP));

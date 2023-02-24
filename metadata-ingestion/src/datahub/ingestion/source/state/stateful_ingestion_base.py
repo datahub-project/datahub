@@ -281,7 +281,7 @@ class StatefulIngestionSourceBase(Source):
             raise ValueError(f"No use-case handler for job_id{job_id}")
         return self._usecase_handlers[job_id].is_checkpointing_enabled()
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         # This method is retained for backwards compatibility, but it is not
         # required that new sources implement it. We mainly need it for the
         # fallback logic in _get_last_checkpoint.

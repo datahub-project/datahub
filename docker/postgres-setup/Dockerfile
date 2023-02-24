@@ -1,8 +1,18 @@
-FROM alpine:3
+FROM golang:1-alpine3.17 AS binary
 
 ENV DOCKERIZE_VERSION v0.6.1
-RUN apk add --no-cache postgresql-client curl tar \
-    && curl -sSL https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
+WORKDIR /go/src/github.com/jwilder
+
+RUN apk --no-cache --update add openssl git tar curl
+
+WORKDIR /go/src/github.com/jwilder/dockerize
+
+RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
+
+FROM alpine:3
+
+RUN apk add --no-cache postgresql-client
+COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 COPY docker/postgres-setup/init.sql /init.sql
 COPY docker/postgres-setup/init.sh /init.sh
