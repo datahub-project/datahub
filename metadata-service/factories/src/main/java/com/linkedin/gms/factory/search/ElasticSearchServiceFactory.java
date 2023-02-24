@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -36,9 +37,11 @@ public class ElasticSearchServiceFactory {
 
   @Bean(name = "elasticSearchService")
   @Nonnull
-  protected ElasticSearchService getInstance() {
+  protected ElasticSearchService getInstance(ConfigurationProvider configurationProvider) {
     ESSearchDAO esSearchDAO =
-        new ESSearchDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention());
+        new ESSearchDAO(entityRegistry, components.getSearchClient(), components.getIndexConvention(),
+            configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
+            configurationProvider.getElasticSearch().getImplementation());
     return new ElasticSearchService(
         new EntityIndexBuilders(components.getIndexBuilder(), entityRegistry, components.getIndexConvention(),
             settingsBuilder), esSearchDAO,

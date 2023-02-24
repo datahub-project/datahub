@@ -298,6 +298,10 @@ public class Constants {
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME = "dataHubStepStateProperties";
 
+
+  // Authorization
+  public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
+
   // Metadata Change Event Parameter Names
 
   // Runs
@@ -309,6 +313,10 @@ public class Constants {
   public static final String PARENT_INSTANCE_URN_KEY = "parentInstanceUrn";
   public static final String DATA_FLOW_URN_KEY = "dataFlowUrn";
   public static final String DATA_JOB_URN_KEY = "dataJobUrn";
+
+  // Config
+  public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
+  public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
 
   private Constants() {
   }
