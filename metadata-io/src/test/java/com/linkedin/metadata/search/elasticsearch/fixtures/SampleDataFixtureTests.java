@@ -1,5 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.fixtures;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
@@ -10,12 +13,18 @@ import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
-import java.util.HashMap;
 
+import com.linkedin.r2.RemoteInvocationException;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.indices.AnalyzeRequest;
@@ -28,10 +37,13 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.linkedin.metadata.ESTestUtils.autocomplete;
@@ -46,6 +58,8 @@ import static org.testng.Assert.assertTrue;
 
 @Import(ESSampleDataFixture.class)
 public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
+    private static final Authentication AUTHENTICATION =
+            new Authentication(new Actor(ActorType.USER, "test"), "");
 
     @Autowired
     private RestHighLevelClient _searchClient;
@@ -665,6 +679,59 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
+    public void testPlatformTest() {
+        List<String> testFields = List.of("platform.keyword", "platform");
+        final String testPlatform = "urn:li:dataPlatform:dbt";
+
+        // Ensure backend code path works as expected
+        List<SearchResult> results = testFields.stream()
+                .map(fieldName -> {
+                    final String query = String.format("%s:%s", fieldName, testPlatform.replaceAll(":", "\\\\:"));
+                    SearchResult result = searchStructured(searchService, query);
+                    assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+                            String.format("%s - Expected search results", query));
+                    assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
+                            String.format("%s - Expected search results to include matched fields", query));
+                    return result;
+                })
+                .collect(Collectors.toList());
+
+        IntStream.range(0, testFields.size()).forEach(idx -> {
+            assertEquals(results.get(idx).getEntities().size(), 9,
+                    String.format("Search results for fields `%s` != 9", testFields.get(idx)));
+        });
+
+        // Construct problematic search entity query
+        List<Filter> testFilters = testFields.stream()
+                .map(fieldName -> {
+                    Filter filter = new Filter();
+                    ArrayList<Criterion> criteria = new ArrayList<>();
+                    Criterion hasPlatformCriterion = new Criterion().setField(fieldName).setCondition(Condition.EQUAL).setValue(testPlatform);
+                    criteria.add(hasPlatformCriterion);
+                    filter.setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria))));
+                    return filter;
+                }).collect(Collectors.toList());
+
+        // Test variations of fulltext flags
+        for (Boolean fulltextFlag : List.of(true, false)) {
+
+            // Test field variations with/without .keyword
+            List<SearchResult> entityClientResults = testFilters.stream().map(filter -> {
+                try {
+                    return entityClient.search("dataset", "*", filter, null, 0, 100,
+                            AUTHENTICATION, fulltextFlag, null);
+                } catch (RemoteInvocationException e) {
+                    throw new RuntimeException(e);
+                }
+            }).collect(Collectors.toList());
+
+            IntStream.range(0, testFields.size()).forEach(idx -> {
+                assertEquals(entityClientResults.get(idx).getEntities().size(), 9,
+                        String.format("Search results for entityClient fields (fulltextFlag: %s): `%s` != 9", fulltextFlag, testFields.get(idx)));
+            });
+        }
+    }
+
     public void testStructQueryFieldMatch() {
         String query = STRUCTURED_QUERY_PREFIX + "name: customers";
         SearchResult result = search(searchService, query);

@@ -96,12 +96,16 @@ class BigQueryV2Config(
     # The inheritance hierarchy is wonky here, but these options need modifications.
     project_id: Optional[str] = Field(
         default=None,
-        description="[deprecated] Use project_id_pattern instead. You can use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account",
+        description="[deprecated] Use project_id_pattern or project_ids instead.",
+    )
+    project_ids: List[str] = Field(
+        default_factory=list,
+        description="Ingests specified project_ids. Use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account.",
     )
 
     project_on_behalf: Optional[str] = Field(
         default=None,
-        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account..",
+        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
     )
 
     storage_project_id: None = Field(default=None, hidden_from_schema=True)

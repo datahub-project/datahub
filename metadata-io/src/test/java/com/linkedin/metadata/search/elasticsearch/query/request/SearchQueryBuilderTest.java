@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +23,7 @@ public class SearchQueryBuilderTest {
   @Test
   public void testQueryBuilderFulltext() {
     FunctionScoreQueryBuilder result =
-        (FunctionScoreQueryBuilder) SearchQueryBuilder.buildQuery(TestEntitySpecBuilder.getSpec(), "testQuery",
+        (FunctionScoreQueryBuilder) SearchQueryBuilder.buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()), "testQuery",
                 true);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
@@ -54,7 +55,9 @@ public class SearchQueryBuilderTest {
     }).collect(Collectors.toList());
 
     assertEquals(prefixFieldWeights, List.of(
-            Pair.of("keyPart1.delimited", 10.0f)
+            Pair.of("urn", 100.0f),
+            Pair.of("keyPart1.delimited", 10.0f),
+            Pair.of("keyPart1.keyword", 100.0f)
     ));
 
     // Validate scorer
@@ -65,8 +68,8 @@ public class SearchQueryBuilderTest {
   @Test
   public void testQueryBuilderStructured() {
     FunctionScoreQueryBuilder result =
-            (FunctionScoreQueryBuilder) SearchQueryBuilder.buildQuery(TestEntitySpecBuilder.getSpec(), "testQuery",
-                    false);
+        (FunctionScoreQueryBuilder) SearchQueryBuilder.buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()),
+            "testQuery", false);
     BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);

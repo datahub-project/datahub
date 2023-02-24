@@ -39,7 +39,7 @@ services:
       - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
 
   elasticsearch:
-    image: elasticsearch:7.10.1
+    image: elasticsearch:7.10.2
     env_file: elasticsearch/env/docker.env
     container_name: elasticsearch
     hostname: elasticsearch

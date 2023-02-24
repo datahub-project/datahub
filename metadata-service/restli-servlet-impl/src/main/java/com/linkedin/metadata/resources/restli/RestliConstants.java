@@ -30,6 +30,8 @@ public final class RestliConstants {
   public static final String PARAM_START = "start";
   public static final String PARAM_COUNT = "count";
   public static final String PARAM_LIMIT = "limit";
+  public static final String PARAM_SCROLL_ID = "scrollId";
+  public static final String PARAM_KEEP_ALIVE = "keepAlive";
   public static final String PARAM_SNAPSHOT = "snapshot";
   public static final String PARAM_URN = "urn";
   public static final String PARAM_URN_LIKE = "urnLike";

@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.authorization;
+package com.datahub.authorization;
 
 import java.util.List;
 

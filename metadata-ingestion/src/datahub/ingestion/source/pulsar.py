@@ -223,8 +223,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"An ambiguous exception occurred while handling the request: {e}"
             )
 
-    def get_platform_instance_id(self) -> str:
-        assert self.config.platform_instance is not None
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.config.platform_instance
 
     @classmethod

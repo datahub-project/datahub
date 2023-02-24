@@ -51,6 +51,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.ESTestConfiguration.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -128,7 +129,8 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
     EntityIndexBuilders indexBuilders =
         new EntityIndexBuilders(_esIndexBuilder, _entityRegistry,
             _indexConvention, _settingsBuilder);
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
+    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention, false,
+        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
     ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, _bulkProcessor, 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
