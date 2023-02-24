@@ -10,22 +10,6 @@ import docker.models.containers
 
 from datahub.configuration.common import ExceptionWithProps
 
-REQUIRED_CONTAINERS = [
-    "elasticsearch",
-    "datahub-gms",
-    "datahub-frontend-react",
-    "broker",
-]
-
-# We expect these containers to exit 0, while all other containers
-# are expected to be running and healthy.
-ENSURE_EXIT_SUCCESS = [
-    "kafka-setup",
-    "elasticsearch-setup",
-    "mysql-setup",
-    "datahub-upgrade",
-]
-
 # If present, we check that the container is ok. If it exists
 # in ENSURE_EXIT_SUCCESS, we check that it exited 0. Otherwise,
 # we check that it is running and healthy.
@@ -187,7 +171,7 @@ class QuickstartStatus:
         )
 
 
-def check_docker_quickstart() -> QuickstartStatus:
+def check_docker_quickstart(containers_ensure_exits: List[str], containers_required: List[str]) -> QuickstartStatus:
     container_statuses: List[DockerContainerStatus] = []
 
     with get_docker_client() as client:
@@ -203,14 +187,14 @@ def check_docker_quickstart() -> QuickstartStatus:
             status = ContainerStatus.OK
 
             if container.name not in (
-                REQUIRED_CONTAINERS + CONTAINERS_TO_CHECK_IF_PRESENT
+                containers_required + CONTAINERS_TO_CHECK_IF_PRESENT
             ):
                 # Ignores things like "datahub-frontend" which are no longer used.
                 # This way, we only check required containers like "datahub-frontend-react"
                 # even if there are some old containers lying around.
                 continue
 
-            if container.name in ENSURE_EXIT_SUCCESS:
+            if container.name in containers_ensure_exits:
                 if container.status != "exited":
                     status = ContainerStatus.STILL_RUNNING
                 elif container.attrs["State"]["ExitCode"] != 0:
@@ -228,7 +212,7 @@ def check_docker_quickstart() -> QuickstartStatus:
 
         # Check for missing containers.
         existing_containers = {container.name for container in containers}
-        missing_containers = set(REQUIRED_CONTAINERS) - existing_containers
+        missing_containers = set(containers_required) - existing_containers
         for missing in missing_containers:
             container_statuses.append(
                 DockerContainerStatus(missing, ContainerStatus.MISSING)
