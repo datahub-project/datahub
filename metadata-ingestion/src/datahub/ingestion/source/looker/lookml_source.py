@@ -363,6 +363,22 @@ class LookerModel:
         logger.debug(f"{path} has resolved_includes: {resolved_includes}")
         explores = looker_model_dict.get("explores", [])
 
+        explore_files = [
+            x.include for x in resolved_includes if x.include.endswith(".explore.lkml")
+        ]
+        for included_file in explore_files:
+            try:
+                with open(included_file, "r") as file:
+                    parsed = lkml.load(file)
+                    included_explores = parsed.get("explores", [])
+                    explores.extend(included_explores)
+            except Exception as e:
+                reporter.report_warning(
+                    path, f"Failed to load {included_file} due to {e}"
+                )
+                # continue in this case, as it might be better to load and resolve whatever we can
+                pass
+
         return LookerModel(
             connection=connection,
             includes=includes,
@@ -573,7 +589,7 @@ class LookerViewFileLoader:
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
-        if not path.endswith(".view.lkml"):
+        if not path.endswith(".view.lkml") and not path.endswith(".explore.lkml"):
             # not a view file
             logger.debug(
                 f"Skipping file {path} because it doesn't appear to be a view file"
@@ -1600,6 +1616,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             explore_reachable_views: Set[ProjectInclude] = set()
             if self.source_config.emit_reachable_views_only:
+                model_explores_map = {d["name"]: d for d in model.explores}
                 for explore_dict in model.explores:
                     try:
                         explore: LookerExplore = LookerExplore.from_dict(
@@ -1608,6 +1625,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                             model.resolved_includes,
                             viewfile_loader,
                             self.reporter,
+                            model_explores_map,
                         )
                         if explore.upstream_views:
                             for view_name in explore.upstream_views:

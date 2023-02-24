@@ -433,14 +433,18 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
     )
 
     entity_urns = mce_helpers.get_entity_urns(tmp_path / mce_out)
-    # we should only have two views discoverable
-    assert len(entity_urns) == 2
+    # we should only have three views discoverable
+    assert len(entity_urns) == 3
     assert (
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)"
         in entity_urns
     )
     assert (
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view2,PROD)"
+        in entity_urns
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.owners,PROD)"
         in entity_urns
     )
 
@@ -629,7 +633,7 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
-    assert len(difference_dataset_urns) == 9
+    assert len(difference_dataset_urns) == 10
     deleted_dataset_urns: List[str] = [
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
@@ -640,6 +644,7 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.owners,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 

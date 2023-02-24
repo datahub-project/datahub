@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import dataclasses
 import datetime
+import itertools
 import logging
 import re
 from dataclasses import dataclass, field as dataclasses_field
@@ -536,11 +537,13 @@ class LookerExplore:
         resolved_includes: List[ProjectInclude],
         looker_viewfile_loader: "LookerViewFileLoader",
         reporter: "LookMLSourceReport",
+        model_explores_map: Dict[str, dict],
     ) -> "LookerExplore":
-        view_names = set()
+
+        view_names: Set[str] = set()
         joins = None
         # always add the explore's name or the name from the from clause as the view on which this explore is built
-        view_names.add(dict.get("from", dict.get("name")))
+        view_names.add(dict.get("view_name") or dict.get("from") or dict["name"])
 
         if dict.get("joins", {}) != {}:
             # additionally for join-based explores, pull in the linked views
@@ -559,23 +562,46 @@ class LookerExplore:
             _find_view_from_resolved_includes,
         )
 
-        upstream_views = []
-        for view_name in view_names:
-            info = _find_view_from_resolved_includes(
-                None,
-                resolved_includes,
-                looker_viewfile_loader,
-                view_name,
-                reporter,
+        upstream_views: List[ProjectInclude] = []
+
+        extends = list(
+            itertools.chain.from_iterable(
+                dict.get("extends", dict.get("extends__all", []))
             )
-            if not info:
-                logger.warning(
-                    f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+        )
+        if extends:
+            for extended_explore in extends:
+                if extended_explore in model_explores_map:
+                    parsed_explore = LookerExplore.from_dict(
+                        model_name,
+                        model_explores_map[extended_explore],
+                        resolved_includes,
+                        looker_viewfile_loader,
+                        reporter,
+                        model_explores_map,
+                    )
+                    upstream_views.extend(parsed_explore.upstream_views or [])
+                else:
+                    logger.warning(
+                        f'Could not find extended explore {extended_explore} for explore {dict["name"]} in model {model_name}'
+                    )
+        else:
+            for view_name in view_names:
+                info = _find_view_from_resolved_includes(
+                    None,
+                    resolved_includes,
+                    looker_viewfile_loader,
+                    view_name,
+                    reporter,
                 )
-            else:
-                upstream_views.append(
-                    ProjectInclude(project=info[0].project, include=view_name)
-                )
+                if not info:
+                    logger.warning(
+                        f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+                    )
+                else:
+                    upstream_views.append(
+                        ProjectInclude(project=info[0].project, include=view_name)
+                    )
 
         return LookerExplore(
             model_name=model_name,
