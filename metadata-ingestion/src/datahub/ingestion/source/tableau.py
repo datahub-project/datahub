@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
-from pydantic import validator, root_validator
+from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import ConnectionError
 from tableauserverclient import (
@@ -162,7 +162,6 @@ class TableauConnectionConfig(ConfigModel):
         description="When enabled, extracts column-level lineage from Tableau Datasources",
     )
 
-
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -236,7 +235,7 @@ class TableauConfig(
     project_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter tableau projects in ingestion. project_pattern may contain path to "
-                    "nested project for ingestion, example A/B/C, here project C would get ingested",
+        "nested project for ingestion, example A/B/C, here project C would get ingested",
     )
 
     project_path_separator: str = Field(
@@ -311,7 +310,6 @@ class TableauConfig(
         description="Whether to extract entire project hierarchy for nested projects.",
     )
 
-
     @root_validator(pre=False)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         projects = values.get("projects")
@@ -334,6 +332,7 @@ class TableauConfig(
         values.pop("projects")
 
         return values
+
 
 class WorkbookKey(PlatformKey):
     workbook_id: str
@@ -693,7 +692,10 @@ class TableauSource(StatefulIngestionSourceBase):
                 # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
                 # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
                 # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
-                if workbook.get("projectLuid") not in self.tableau_project_registry.keys():
+                if (
+                    workbook.get("projectLuid")
+                    not in self.tableau_project_registry.keys()
+                ):
                     wrk_name: Optional[str] = workbook.get("name")
                     wrk_id: Optional[str] = workbook.get("id")
                     prj_name: Optional[str] = workbook.get("projectName")

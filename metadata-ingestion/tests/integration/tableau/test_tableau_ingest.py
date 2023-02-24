@@ -250,9 +250,7 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     new_config = config_source_default.copy()
     del new_config["projects"]
 
-    new_config["project_pattern"] = {
-        "allow": ["^default$", "^Project 2$", "^Samples$"]
-    }
+    new_config["project_pattern"] = {"allow": ["^default$", "^Project 2$", "^Samples$"]}
 
     tableau_ingest_common(
         pytestconfig,
@@ -283,9 +281,7 @@ def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     new_config = config_source_default.copy()
     del new_config["projects"]
 
-    new_config["project_pattern"] = {
-        "allow": ["^default/DenyProject$"]
-    }
+    new_config["project_pattern"] = {"allow": ["^default/DenyProject$"]}
 
     tableau_ingest_common(
         pytestconfig,
@@ -315,9 +311,7 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
     golden_file_name: str = "tableau_nested_project_mces_golden.json"
 
     new_config = config_source_default.copy()
-    new_config["project_pattern"] = {
-        "allow": ["^default$", "^Project 2$", "^Samples$"]
-    }
+    new_config["project_pattern"] = {"allow": ["^default$", "^Project 2$", "^Samples$"]}
     new_config["extract_project_hierarchy"] = True
 
     tableau_ingest_common(
@@ -392,7 +386,7 @@ def test_tableau_ingest_with_platform_instance(
         output_file_name,
         mock_datahub_graph,
         config_source,
-        pipeline_name="test_tableau_ingest_with_platform_instance"
+        pipeline_name="test_tableau_ingest_with_platform_instance",
     )
 
 
@@ -609,5 +603,5 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
         output_file_name,
         mock_datahub_graph,
         sign_out_side_effect=ConnectionError,
-        pipeline_name="test_tableau_signout_timeout"
+        pipeline_name="test_tableau_signout_timeout",
     )
