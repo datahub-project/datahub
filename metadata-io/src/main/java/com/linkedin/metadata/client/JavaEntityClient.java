@@ -306,8 +306,8 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull Authentication authentication,
         @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
-        if ((searchFlags != null
-                && (Boolean.TRUE.equals(searchFlags.isFulltext())) || Boolean.TRUE.equals(searchFlags.isAutocomplete()))) {
+        if (searchFlags != null
+                && (Boolean.TRUE.equals(searchFlags.isFulltext()) || Boolean.TRUE.equals(searchFlags.isAutocomplete()))) {
             return ValidationUtils.validateSearchResult(
                     _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count, searchFlags),
                     _entityService);
