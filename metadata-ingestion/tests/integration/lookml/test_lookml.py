@@ -510,14 +510,7 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
 
-    pipeline_run1 = None
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
-        mock_checkpoint.return_value = mock_datahub_graph
-        pipeline_run1 = Pipeline.create(
-            {
+    base_pipeline_config = {
                 "run_id": "lookml-test",
                 "pipeline_name": "lookml_stateful",
                 "source": {
@@ -544,11 +537,21 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/{output_file_name}",
                     },
                 },
             }
-        )
+
+    pipeline_run1 = None
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+        pipeline_run1_config = dict(base_pipeline_config)
+        # Set the special properties for this run
+        pipeline_run1_config["source"]["config"]["emit_reachable_views_only"] = False
+        pipeline_run1_config["sink"]["config"]["filename"] = f"{tmp_path}/{output_file_name}"
+        pipeline_run1 = Pipeline.create(pipeline_run1_config)
         pipeline_run1.run()
         pipeline_run1.raise_from_status()
         pipeline_run1.pretty_print_summary()
@@ -569,40 +572,11 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         mock_datahub_graph,
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
-
-        pipeline_run2 = Pipeline.create(
-            {
-                "run_id": "lookml-test",
-                "pipeline_name": "lookml_stateful",
-                "source": {
-                    "type": "lookml",
-                    "config": {
-                        "base_folder": str(test_resources_dir / "lkml_samples"),
-                        "connection_to_platform_map": {"my_connection": "conn"},
-                        "parse_table_names_from_sql": True,
-                        "tag_measures_and_dimensions": False,
-                        "project_name": "lkml_samples",
-                        "model_pattern": {"deny": ["data2"]},
-                        "emit_reachable_views_only": True,
-                        "stateful_ingestion": {
-                            "enabled": True,
-                            "remove_stale_metadata": True,
-                            "fail_safe_threshold": 100.0,
-                            "state_provider": {
-                                "type": "datahub",
-                                "config": {"datahub_api": {"server": GMS_SERVER}},
-                            },
-                        },
-                    },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                        "filename": f"{tmp_path}/{output_file_deleted_name}",
-                    },
-                },
-            }
-        )
+        pipeline_run2_config = dict(base_pipeline_config)
+        # Set the special properties for this run
+        pipeline_run2_config["source"]["config"]["emit_reachable_views_only"] = True
+        pipeline_run2_config["sink"]["config"]["filename"] = f"{tmp_path}/{output_file_deleted_name}"
+        pipeline_run2 = Pipeline.create(pipeline_run2_config)
         pipeline_run2.run()
         pipeline_run2.raise_from_status()
         pipeline_run2.pretty_print_summary()
@@ -612,7 +586,6 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
             output_path=tmp_path / output_file_deleted_name,
             golden_path=f"{test_resources_dir}/{golden_file_deleted_name}",
         )
-
     checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
     assert checkpoint2
     assert checkpoint2.state
@@ -633,7 +606,8 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
-    assert len(difference_dataset_urns) == 10
+    # the difference in dataset urns are all the views that are not reachable from the model file
+    assert len(difference_dataset_urns) == 9
     deleted_dataset_urns: List[str] = [
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.fragment_derived_view,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_derived_view,PROD)",
@@ -644,7 +618,6 @@ def test_lookml_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.ability,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.owners,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 

@@ -542,7 +542,11 @@ class LookerExplore:
 
         view_names: Set[str] = set()
         joins = None
-        # always add the explore's name or the name from the from clause as the view on which this explore is built
+        assert "name" in dict, "Explore doesn't have a name field, this isn't allowed"
+        # The view name that the explore refers to is resolved in the following order of priority:
+        # 1. view_name: https://cloud.google.com/looker/docs/reference/param-explore-view-name
+        # 2. from: https://cloud.google.com/looker/docs/reference/param-explore-from
+        # 3. default to the name of the explore
         view_names.add(dict.get("view_name") or dict.get("from") or dict["name"])
 
         if dict.get("joins", {}) != {}:
@@ -563,7 +567,7 @@ class LookerExplore:
         )
 
         upstream_views: List[ProjectInclude] = []
-
+        # create the list of extended explores
         extends = list(
             itertools.chain.from_iterable(
                 dict.get("extends", dict.get("extends__all", []))
@@ -586,6 +590,7 @@ class LookerExplore:
                         f'Could not find extended explore {extended_explore} for explore {dict["name"]} in model {model_name}'
                     )
         else:
+            # we only fallback to the view_names list if this is not an extended explore
             for view_name in view_names:
                 info = _find_view_from_resolved_includes(
                     None,
