@@ -185,8 +185,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -199,8 +202,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"SELECT\\n          is_latest,\\n          country,\\n          city,\\n          timestamp,\\n          measurement\\n        FROM\\n          my_table\", \"viewLanguage\": \"sql\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n          is_latest,\n          country,\n          city,\n          timestamp,\n          measurement\n        FROM\n          my_table",
+            "viewLanguage": "sql"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -393,8 +399,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "view"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -407,8 +416,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"SELECT\\n          is_latest,\\n          country,\\n          city,\\n          timestamp,\\n          measurement\\n        FROM\\n          my_table\", \"viewLanguage\": \"sql\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT\n          is_latest,\n          country,\n          city,\n          timestamp,\n          measurement\n        FROM\n          my_table",
+            "viewLanguage": "sql"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -520,8 +532,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -534,8 +547,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -548,8 +562,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
