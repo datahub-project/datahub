@@ -93,6 +93,9 @@ lkml.simple.PLURAL_KEYS = (
     "remote_dependency",
 )
 
+_EXPLORE_FILE_EXTENSION = ".explore.lkml"
+_VIEW_FILE_EXTENSION = ".view.lkml"
+_MODEL_FILE_EXTENSION = ".model.lkml"
 
 def _get_bigquery_definition(
     looker_connection: DBConnection,
@@ -364,7 +367,7 @@ class LookerModel:
         explores = looker_model_dict.get("explores", [])
 
         explore_files = [
-            x.include for x in resolved_includes if x.include.endswith(".explore.lkml")
+            x.include for x in resolved_includes if x.include.endswith(_EXPLORE_FILE_EXTENSION)
         ]
         for included_file in explore_files:
             try:
@@ -589,10 +592,12 @@ class LookerViewFileLoader:
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
-        if not path.endswith(".view.lkml") and not path.endswith(".explore.lkml"):
+        allowed_extensions = [_VIEW_FILE_EXTENSION, _EXPLORE_FILE_EXTENSION]
+        matched_any_extension = [match for match in [ path.endswith(x) for x in allowed_extensions ] if match]
+        if not matched_any_extension:
             # not a view file
             logger.debug(
-                f"Skipping file {path} because it doesn't appear to be a view file"
+                f"Skipping file {path} because it doesn't appear to be a view file. Matched extensions {allowed_extensions}"
             )
             return None
 
@@ -1582,7 +1587,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
-        model_files = sorted(self.source_config.base_folder.glob("**/*.model.lkml"))
+        model_files = sorted(self.source_config.base_folder.glob(f"**/*{_MODEL_FILE_EXTENSION}"))
         model_suffix_len = len(".model")
 
         for file_path in model_files:
