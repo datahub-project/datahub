@@ -128,7 +128,7 @@ public class RecentlyEditedSource implements RecommendationSource {
     // Find the entity with the largest last viewed timestamp
     String lastViewed = "last_viewed";
     AggregationBuilder aggregation = AggregationBuilders.terms(ENTITY_AGG_NAME)
-        .field(ESUtils.toKeywordField(DataHubUsageEventConstants.ENTITY_URN, true))
+        .field(ESUtils.toKeywordField(DataHubUsageEventConstants.ENTITY_URN, false))
         .size(MAX_CONTENT)
         .order(BucketOrder.aggregation(lastViewed, false))
         .subAggregation(AggregationBuilders.max(lastViewed).field(DataHubUsageEventConstants.TIMESTAMP));
