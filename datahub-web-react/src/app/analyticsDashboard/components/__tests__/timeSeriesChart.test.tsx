@@ -37,7 +37,6 @@ describe('timeUtils', () => {
                     { x: '2023-02-20T00:00:00.000Z', y: 1 },
                 ],
             });
-            expect(false).toEqual(true);
         });
     });
 });
