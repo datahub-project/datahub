@@ -137,157 +137,6 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:9c5b048daabc67182eb6ae5877164316",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "tableau",
-                "instance": "acryl_site1",
-                "project_id": "910733aa-2e95-4ac3-a2e8-71570751099d"
-            },
-            "name": "Samples"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9c5b048daabc67182eb6ae5877164316",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9c5b048daabc67182eb6ae5877164316",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:tableau",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9c5b048daabc67182eb6ae5877164316",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Project"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8d8e72266b567e156ab2525b2232b3b5",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "tableau",
-                "instance": "acryl_site1",
-                "project_id": "79d02655-88e5-45a6-9f9b-eeaf5fe54903"
-            },
-            "name": "DenyProject"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8d8e72266b567e156ab2525b2232b3b5",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8d8e72266b567e156ab2525b2232b3b5",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:tableau",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8d8e72266b567e156ab2525b2232b3b5",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Project"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:8d8e72266b567e156ab2525b2232b3b5",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:66fa1e14620418276c85f3b552c7ec65"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
     "entityUrn": "urn:li:container:8533f62e6c2cd132ff69f1ff5a9ce1f5",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -734,115 +583,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:66fa1e14620418276c85f3b552c7ec65"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:60c72ae9fc8be927d424c895df23d741",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "tableau",
-                "instance": "acryl_site1",
-                "workbook_id": "ee012e36-d916-4c21-94ab-f0d66736af4e"
-            },
-            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
-            "name": "Deny Pattern WorkBook",
-            "description": ""
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:60c72ae9fc8be927d424c895df23d741",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:60c72ae9fc8be927d424c895df23d741",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:tableau",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:tableau,acryl_site1)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:60c72ae9fc8be927d424c895df23d741",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Workbook"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:60c72ae9fc8be927d424c895df23d741",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:60c72ae9fc8be927d424c895df23d741",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:8d8e72266b567e156ab2525b2232b3b5"
         }
     },
     "systemMetadata": {
@@ -32618,21 +32358,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,acryl_site1.6cbbeeb2-9f3a-00f6-2342-17139d6e97ae,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:9c5b048daabc67182eb6ae5877164316"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:tableau,acryl_site1.22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -32781,6 +32506,13 @@
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/tableau/default/Customer Payment Query"
                         ]
                     }
                 },
@@ -32985,7 +32717,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/test publish datasource"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 },
@@ -41676,7 +41408,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/test publish datasource"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }
@@ -41696,7 +41428,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/test publish datasource"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }
@@ -41716,7 +41448,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/tableau/Samples/test publish datasource"
+                            "/prod/tableau/default/test publish datasource"
                         ]
                     }
                 }

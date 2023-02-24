@@ -523,10 +523,12 @@ class TableauSource(StatefulIngestionSourceBase):
 
             for project in all_project_map.values():
                 # Skip project if it is not allowed
+                logger.debug(f"Evaluating project pattern for {project.name}")
                 if self._is_allowed_project(project) is False:
                     list_of_skip_projects.append(project)
+                    logger.debug(f"Project {project.name} is skipped")
                     continue
-
+                logger.debug(f"Project {project.name} is added in project registry")
                 self.tableau_project_registry[project.id] = project
 
             if self.config.extract_project_hierarchy is False:

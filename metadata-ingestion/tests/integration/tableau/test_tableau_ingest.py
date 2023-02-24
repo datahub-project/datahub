@@ -242,6 +242,7 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
 
@@ -249,7 +250,7 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     del new_config["projects"]
 
     new_config["project_pattern"] = {
-        "allow": ["default", "Project 2", "Samples"]
+        "allow": ["^default$", "^Project 2$", "^Samples$"]
     }
 
     tableau_ingest_common(
@@ -280,7 +281,7 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
 
     new_config = config_source_default.copy()
     new_config["project_pattern"] = {
-        "allow": ["default", "Project 2", "Samples"]
+        "allow": ["^default$", "^Project 2$", "^Samples$"]
     }
     new_config["extract_project_hierarchy"] = True
 
@@ -326,6 +327,7 @@ def test_tableau_ingest_with_platform_instance(
         },
         "platform_instance_map": {"postgres": "demo_postgres_instance"},
         "extract_usage_stats": True,
+        "extract_project_hierarchy": False,
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
