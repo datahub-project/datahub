@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Dict
 from unittest.mock import patch
 
@@ -13,6 +14,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryProject
 from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
 
 
@@ -77,6 +79,63 @@ def test_bigquery_uri_with_credential():
         raise e
 
 
+@patch("google.cloud.bigquery.client.Client")
+def test_get_projects_with_project_ids(client_mock):
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_ids": ["test-1", "test-2"],
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
+    assert source._get_projects(client_mock) == [
+        BigqueryProject("test-1", "test-1"),
+        BigqueryProject("test-2", "test-2"),
+    ]
+    assert client_mock.list_projects.call_count == 0
+
+    config = BigQueryV2Config.parse_obj(
+        {"project_ids": ["test-1", "test-2"], "project_id": "test-3"}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test2"))
+    assert source._get_projects(client_mock) == [
+        BigqueryProject("test-1", "test-1"),
+        BigqueryProject("test-2", "test-2"),
+    ]
+    assert client_mock.list_projects.call_count == 0
+
+
+@patch("google.cloud.bigquery.client.Client")
+def test_get_projects_with_single_project_id(client_mock):
+    config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
+    assert source._get_projects(client_mock) == [
+        BigqueryProject("test-3", "test-3"),
+    ]
+    assert client_mock.list_projects.call_count == 0
+
+
+@patch("google.cloud.bigquery.client.Client")
+def test_get_projects(client_mock):
+    client_mock.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="test-1",
+            friendly_name="one",
+        ),
+        SimpleNamespace(
+            project_id="test-2",
+            friendly_name="two",
+        ),
+    ]
+
+    config = BigQueryV2Config.parse_obj({})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
+    assert source._get_projects(client_mock) == [
+        BigqueryProject("test-1", "one"),
+        BigqueryProject("test-2", "two"),
+    ]
+    assert client_mock.list_projects.call_count == 1
+
+
 def test_simple_upstream_table_generation():
     a: BigQueryTableRef = BigQueryTableRef(
         BigqueryTableIdentifier(
@@ -95,7 +154,7 @@ def test_simple_upstream_table_generation():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    lineage_metadata = {str(a): {LineageEdge(table=str(b), created=datetime.now())}}
+    lineage_metadata = {str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())}}
     upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
 
     assert len(upstreams) == 1
@@ -121,7 +180,7 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    lineage_metadata = {str(a): {LineageEdge(table=str(b), created=datetime.now())}}
+    lineage_metadata = {str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())}}
     upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
     assert list(upstreams) == []
 
@@ -153,8 +212,8 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     lineage_metadata = {
-        str(a): {LineageEdge(table=str(b), created=datetime.now())},
-        str(b): {LineageEdge(table=str(c), created=datetime.now())},
+        str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())},
+        str(b): {LineageEdge(table=str(c), auditStamp=datetime.now())},
     }
     upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
     assert len(upstreams) == 1
@@ -195,12 +254,12 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     lineage_metadata = {
-        str(a): {LineageEdge(table=str(b), created=datetime.now())},
+        str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())},
         str(b): {
-            LineageEdge(table=str(c), created=datetime.now()),
-            LineageEdge(table=str(d), created=datetime.now()),
+            LineageEdge(table=str(c), auditStamp=datetime.now()),
+            LineageEdge(table=str(d), auditStamp=datetime.now()),
         },
-        str(d): {LineageEdge(table=str(e), created=datetime.now())},
+        str(d): {LineageEdge(table=str(e), auditStamp=datetime.now())},
     }
     upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
     sorted_list = list(upstreams)
