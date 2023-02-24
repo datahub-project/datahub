@@ -18,7 +18,9 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -190,6 +192,24 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Searches for entities matching to a given query and filters across multiple entity types
+   *
+   * @param entities entity types to search (if empty, searches all entities)
+   * @param input search query
+   * @param filter search filters
+   * @param scrollId opaque scroll ID indicating offset
+   * @param keepAlive string representation of time to keep point in time alive, ex: 5m
+   * @param count max number of search results requested
+   * @return Snapshot key
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  ScrollResult scrollAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter filter, @Nullable String scrollId, @Nonnull String keepAlive, int count, @Nullable SearchFlags searchFlags,
+      @Nonnull Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
    * Gets a list of documents that match given search request that is related to the input entity
    *
    * @param sourceUrn Urn of the source entity
@@ -239,6 +259,31 @@ public interface EntityClient {
       @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
           @Nullable SortCriterion sortCriterion, int start, int count, @Nullable final Long startTimeMillis,
           @Nullable final Long endTimeMillis, @Nullable SearchFlags searchFlags, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
+   * Gets a list of documents that match given search request that is related to the input entity
+   *
+   * @param sourceUrn Urn of the source entity
+   * @param direction Direction of the relationship
+   * @param entities list of entities to search (If empty, searches across all entities)
+   * @param input the search input text
+   * @param maxHops the max number of hops away to search for. If null, searches all hops.
+   * @param filter the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param scrollId opaque scroll ID indicating offset
+   * @param keepAlive string representation of time to keep point in time alive, ex: 5m
+   * @param endTimeMillis   end time to filter to
+   * @param startTimeMillis start time to filter from
+   * @param count the number of search hits to return
+   * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  LineageScrollResult scrollAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int count,
+      @Nullable final Long startTimeMillis, @Nullable final Long endTimeMillis, @Nullable SearchFlags searchFlags,
+      @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
   /**

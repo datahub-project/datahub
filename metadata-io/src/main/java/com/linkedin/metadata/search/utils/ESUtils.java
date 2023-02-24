@@ -14,9 +14,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.RequestOptions;
+import org.apache.commons.lang.StringUtils;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.PointInTimeBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
@@ -281,5 +284,17 @@ public class ESUtils {
 
   public static String extractTargetIndex(String id) {
     return id.split("[" + HEADER_VALUE_DELIMITER + "]", 3)[2];
+  }
+
+  public static void setSearchAfter(SearchSourceBuilder searchSourceBuilder, @Nullable Object[] sort,
+      @Nullable String pitId, String keepAlive) {
+    if (sort != null && sort.length > 0) {
+      searchSourceBuilder.searchAfter(sort);
+    }
+    if (StringUtils.isNotBlank(pitId)) {
+      PointInTimeBuilder pointInTimeBuilder = new PointInTimeBuilder(pitId);
+      pointInTimeBuilder.setKeepAlive(TimeValue.parseTimeValue(keepAlive, "keepAlive"));
+      searchSourceBuilder.pointInTimeBuilder(pointInTimeBuilder);
+    }
   }
 }
