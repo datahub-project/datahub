@@ -171,8 +171,9 @@ public class SearchRequestHandler {
 
     boolean removedInOrFilter = false;
     if (filter != null) {
-      removedInOrFilter = filter.getOr().stream().anyMatch(
-              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED) || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX))
+      removedInOrFilter = filter.getOr().stream()
+              .anyMatch(or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED)
+                      || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX))
       );
     }
     // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
@@ -226,7 +227,7 @@ public class SearchRequestHandler {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
-    //searchSourceBuilder.from(from);
+    searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
     searchSourceBuilder.fetchSource("urn", null);
 
@@ -236,6 +237,7 @@ public class SearchRequestHandler {
             .must(filterQuery));
 
     searchSourceBuilder.highlighter(_highlights);
+    ESUtils.buildSortOrder(searchSourceBuilder, null);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest.toString());
 

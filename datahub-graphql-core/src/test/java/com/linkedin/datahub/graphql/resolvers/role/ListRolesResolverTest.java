@@ -20,7 +20,6 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.policy.DataHubRoleInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Map;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
