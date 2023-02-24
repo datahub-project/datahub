@@ -274,8 +274,8 @@ public class CachingEntitySearchService {
       final int start,
       final int count,
       final SearchFlags searchFlags) {
-    if (Boolean.TRUE.equals(searchFlags.isFulltext()) ||
-            Boolean.TRUE.equals(searchFlags.isAutocomplete())) {
+    if (Boolean.TRUE.equals(searchFlags.isFulltext())
+            || Boolean.TRUE.equals(searchFlags.isAutocomplete())) {
       return entitySearchService.fullTextSearch(
               entityName,
               input,

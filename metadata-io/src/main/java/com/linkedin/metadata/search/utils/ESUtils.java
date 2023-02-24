@@ -77,7 +77,10 @@ public class ESUtils {
     }
     if (filter.getOr() != null) {
       // If caller is using the new Filters API, build boolean query from that.
-      filter.getOr().forEach(or -> finalQueryBuilder.should(ESUtils.buildConjunctiveFilterQuery(or, isTimeseries)));
+      filter.getOr().stream()
+              .map(or -> ESUtils.buildConjunctiveFilterQuery(or, isTimeseries))
+              .filter(BoolQueryBuilder::hasClauses)
+              .forEach(finalQueryBuilder::should);
     } else if (filter.getCriteria() != null) {
       // Otherwise, build boolean query from the deprecated "criteria" field.
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");

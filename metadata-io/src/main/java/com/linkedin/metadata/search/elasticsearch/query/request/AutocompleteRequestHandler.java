@@ -28,6 +28,7 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
@@ -67,6 +68,7 @@ public class AutocompleteRequestHandler {
     searchSourceBuilder.query(getQuery(input, field));
     searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(filter, false));
     searchSourceBuilder.highlighter(getHighlights(field));
+    ESUtils.buildSortOrder(searchSourceBuilder, null);
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
   }
@@ -77,28 +79,32 @@ public class AutocompleteRequestHandler {
 
   public static QueryBuilder getQuery(List<String> autocompleteFields, @Nonnull String query) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    // Search for exact matches with higher boost and ngram matches
-    MultiMatchQueryBuilder autocompleteQueryBuilder = QueryBuilders.multiMatchQuery(query)
-            .type(MultiMatchQueryBuilder.Type.BOOL_PREFIX);
 
-    final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
-    autocompleteFields.forEach(fieldName -> {
-      if ("urn".equals(fieldName)) {
-        autocompleteQueryBuilder.field(fieldName + ".ngram", urnBoost);
-        autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", urnBoost);
-        autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", urnBoost);
-        autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", urnBoost);
-      } else {
-        autocompleteQueryBuilder.field(fieldName + ".ngram");
-        autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
-        autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
-        autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
-      }
+    if (!"*".equals(query)) {
+      // Search for exact matches with higher boost and ngram matches
+      MultiMatchQueryBuilder autocompleteQueryBuilder = QueryBuilders.multiMatchQuery(query)
+              .type(MultiMatchQueryBuilder.Type.BOOL_PREFIX)
+              .operator(Operator.AND);
 
-      finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
-    });
+      final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
+      autocompleteFields.forEach(fieldName -> {
+        if ("urn".equals(fieldName)) {
+          autocompleteQueryBuilder.field(fieldName + ".ngram", urnBoost);
+          autocompleteQueryBuilder.field(fieldName + ".ngram._2gram", urnBoost);
+          autocompleteQueryBuilder.field(fieldName + ".ngram._3gram", urnBoost);
+          autocompleteQueryBuilder.field(fieldName + ".ngram._4gram", urnBoost);
+        } else {
+          autocompleteQueryBuilder.field(fieldName + ".ngram");
+          autocompleteQueryBuilder.field(fieldName + ".ngram._2gram");
+          autocompleteQueryBuilder.field(fieldName + ".ngram._3gram");
+          autocompleteQueryBuilder.field(fieldName + ".ngram._4gram");
+        }
 
-    finalQuery.should(autocompleteQueryBuilder);
+        finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(fieldName + ".delimited", query));
+      });
+
+      finalQuery.should(autocompleteQueryBuilder);
+    }
 
     finalQuery.mustNot(QueryBuilders.matchQuery("removed", true));
     return finalQuery;
