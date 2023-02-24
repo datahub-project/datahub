@@ -5,7 +5,9 @@ import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generat
 import { GlossaryNode } from '../../../types.generated';
 import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
+import { useGlossaryEntityData } from '../../entity/shared/GlossaryEntityContext';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { ROOT_NODES, ROOT_TERMS } from '../utils';
 import NodeItem from './NodeItem';
 import TermItem from './TermItem';
 
@@ -42,6 +44,8 @@ function GlossaryBrowser(props: Props) {
         selectNode,
     } = props;
 
+    const { updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
+
     const { data: nodesData, refetch: refetchNodes } = useGetRootGlossaryNodesQuery({ skip: !!rootNodes });
     const { data: termsData, refetch: refetchTerms } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
 
@@ -58,6 +62,17 @@ function GlossaryBrowser(props: Props) {
             refetchTerms();
         }
     }, [refreshBrowser, refetchNodes, refetchTerms]);
+
+    useEffect(() => {
+        if (updatedUrns.includes(ROOT_NODES)) {
+            refetchNodes();
+            setUpdatedUrns(updatedUrns.filter((urn) => urn !== ROOT_NODES));
+        }
+        if (updatedUrns.includes(ROOT_TERMS)) {
+            refetchTerms();
+            setUpdatedUrns(updatedUrns.filter((urn) => urn !== ROOT_TERMS));
+        }
+    });
 
     return (
         <BrowserWrapper>

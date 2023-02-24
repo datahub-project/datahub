@@ -2,8 +2,10 @@ import { message, Typography } from 'antd';
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { useUpdateNameMutation } from '../../../../../../graphql/mutations.generated';
+import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../../../glossary/utils';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../../EntityContext';
+import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 
 const EntityTitle = styled(Typography.Title)`
     margin-right: 10px;
@@ -27,6 +29,7 @@ function EntityName(props: Props) {
     const { isNameEditable } = props;
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
+    const { isInGlossaryContext, updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
     const { urn, entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
     const [updatedName, setUpdatedName] = useState(entityName);
@@ -43,6 +46,10 @@ function EntityName(props: Props) {
             .then(() => {
                 message.success({ content: 'Name Updated', duration: 2 });
                 refetch();
+                if (isInGlossaryContext) {
+                    const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
+                    updateGlossarySidebar([parentNodeToUpdate], updatedUrns, setUpdatedUrns);
+                }
             })
             .catch((e: unknown) => {
                 message.destroy();

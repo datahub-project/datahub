@@ -5,6 +5,8 @@ import { useEntityData, useRefetch } from '../EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
 import NodeParentSelect from './NodeParentSelect';
+import { useGlossaryEntityData } from '../GlossaryEntityContext';
+import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -16,12 +18,12 @@ const OptionalWrapper = styled.span`
 
 interface Props {
     onClose: () => void;
-    refetchData?: () => void;
 }
 
 function MoveGlossaryEntityModal(props: Props) {
-    const { onClose, refetchData } = props;
-    const { urn: entityDataUrn, entityType } = useEntityData();
+    const { onClose } = props;
+    const { urn: entityDataUrn, entityData, entityType } = useEntityData();
+    const { isInGlossaryContext, updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
@@ -46,8 +48,10 @@ function MoveGlossaryEntityModal(props: Props) {
                         duration: 2,
                     });
                     refetch();
-                    if (refetchData) {
-                        refetchData();
+                    if (isInGlossaryContext) {
+                        const oldParentToUpdate = getParentNodeToUpdate(entityData, entityType);
+                        const newParentToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
+                        updateGlossarySidebar([oldParentToUpdate, newParentToUpdate], updatedUrns, setUpdatedUrns);
                     }
                 }, 2000);
             })
