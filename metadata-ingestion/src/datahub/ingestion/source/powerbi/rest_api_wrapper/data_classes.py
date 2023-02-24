@@ -196,11 +196,11 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
 
 def formulate_description(
     display_name: Optional[str], description: Optional[str]
-) -> str:
+) -> Optional[str]:
     if display_name and description:
         return f"{display_name}\n-----\n{description}"
 
     if display_name:
         return display_name
 
-    return ""
+    return None
