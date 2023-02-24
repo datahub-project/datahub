@@ -69,7 +69,7 @@ public class ListQueriesResolverTest {
         Mockito.eq(input.getStart()),
         Mockito.eq(input.getCount()),
         Mockito.any(Authentication.class),
-        Mockito.eq(new SearchFlags().setAutocomplete(true))
+        Mockito.eq(new SearchFlags().setFulltext(true))
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
