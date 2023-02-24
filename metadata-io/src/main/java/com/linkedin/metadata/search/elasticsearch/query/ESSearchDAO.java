@@ -136,6 +136,30 @@ public class ESSearchDAO {
     }
   }
 
+  @Nonnull
+  public SearchResult autoComplete(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+                                   int from, int size) {
+    try {
+      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+      AutocompleteRequestHandler autocompleteRequestHandler = AutocompleteRequestHandler.getBuilder(entitySpec);
+
+      final String finalInput = input.isEmpty() ? "*" : input;
+      Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "autocompleteSearchRequest").time();
+
+      // Step 1: construct the query
+      final SearchRequest searchRequest = SearchRequestHandler.getBuilder(entitySpec)
+              .getAutoCompleteSearchRequest(finalInput, postFilters, from, size, autocompleteRequestHandler);
+      searchRequest.indices(indexConvention.getIndexName(entitySpec));
+      searchRequestTimer.stop();
+      // Step 2: execute the query and extract results, validated against document model as well
+      return executeAndExtract(entitySpec, searchRequest, postFilters, from, size);
+
+    } catch (Exception e) {
+      log.error("Auto complete query failed:" + e.getMessage());
+      throw new ESQueryException("Auto complete query failed:", e);
+    }
+  }
+
   /**
    * Returns number of documents per field value given the field and filters
    *

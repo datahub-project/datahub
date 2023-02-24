@@ -71,7 +71,7 @@ public class AutocompleteRequestHandler {
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
+  QueryBuilder getQuery(@Nonnull String query, @Nullable String field) {
     return getQuery(getAutocompleteFields(field), query);
   }
 

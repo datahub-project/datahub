@@ -3,6 +3,7 @@ package com.linkedin.metadata.search;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import java.util.List;
@@ -12,7 +13,6 @@ import javax.annotation.Nullable;
 
 
 public interface EntitySearchService {
-
   void configure();
 
   /**
@@ -71,7 +71,7 @@ public interface EntitySearchService {
    */
   @Nonnull
   SearchResult fullTextSearch(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-                              @Nullable SortCriterion sortCriterion, int from, int size);
+                              @Nullable SortCriterion sortCriterion, int from, int size, @Nonnull SearchFlags searchFlags);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the

@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -719,7 +720,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
             List<SearchResult> entityClientResults = testFilters.stream().map(filter -> {
                 try {
                     return entityClient.search("dataset", "*", filter, null, 0, 100,
-                            AUTHENTICATION, fulltextFlag, null);
+                            AUTHENTICATION, new SearchFlags().setFulltext(fulltextFlag));
                 } catch (RemoteInvocationException e) {
                     throw new RuntimeException(e);
                 }

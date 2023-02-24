@@ -263,13 +263,6 @@
         "name" : "count",
         "type" : "int"
       }, {
-        "annotations" : {
-          "deprecated" : { }
-        },
-        "name" : "fulltext",
-        "type" : "boolean",
-        "optional" : true
-      }, {
         "name" : "searchFlags",
         "type" : "com.linkedin.metadata.query.SearchFlags",
         "optional" : true

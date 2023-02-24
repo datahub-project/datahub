@@ -63,7 +63,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
 
         // First, get all Query Urns.
         final SearchResult gmsResult = _entityClient.search(QUERY_ENTITY_NAME, query, buildFilters(input), sortCriterion, start, count,
-            context.getAuthentication(), true, new SearchFlags().setFulltext(true));
+            context.getAuthentication(), new SearchFlags().setAutocomplete(true));
 
         final ListQueriesResult result = new ListQueriesResult();
         result.setStart(gmsResult.getFrom());

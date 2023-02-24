@@ -99,6 +99,11 @@ input  SearchFlags {
   Structured or unstructured fulltext query
   """
   fulltext: Boolean
+
+  """
+  Autocomplete: Optimized for prefix matching, 1 or more characters, and primary identifier fields
+  """
+  autocomplete: Boolean
 }
 
 """

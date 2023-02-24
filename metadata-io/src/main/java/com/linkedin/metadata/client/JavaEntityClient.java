@@ -244,13 +244,13 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public SearchResult search(@Nonnull String entity, @Nonnull String input,
         @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull Authentication authentication,
-        @Nullable Boolean fulltext, @Nullable SearchFlags searchFlags)
+        @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
 
-        if (Optional.ofNullable(fulltext).orElse(false)
-            || (searchFlags != null && Boolean.TRUE.equals(searchFlags.isFulltext()))) {
+        if (searchFlags != null
+                && (Boolean.TRUE.equals(searchFlags.isFulltext()) || Boolean.TRUE.equals(searchFlags.isAutocomplete()))) {
             return ValidationUtils.validateSearchResult(
-                    _entitySearchService.fullTextSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
+                    _entitySearchService.fullTextSearch(entity, input, newFilter(requestFilters), null, start, count, searchFlags), _entityService);
         } else {
             return ValidationUtils.validateSearchResult(
                     _entitySearchService.structuredSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
@@ -302,13 +302,12 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull Authentication authentication,
-        @Nullable Boolean fulltext,
         @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
-        if (Optional.ofNullable(fulltext).orElse(false)
-            || (searchFlags != null && Boolean.TRUE.equals(searchFlags.isFulltext()))) {
+        if ((searchFlags != null
+                && (Boolean.TRUE.equals(searchFlags.isFulltext())) || Boolean.TRUE.equals(searchFlags.isAutocomplete()))) {
             return ValidationUtils.validateSearchResult(
-                    _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count),
+                    _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count, searchFlags),
                     _entityService);
         } else {
             return ValidationUtils.validateSearchResult(

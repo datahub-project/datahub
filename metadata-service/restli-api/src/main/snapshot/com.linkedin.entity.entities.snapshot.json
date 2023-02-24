@@ -2358,7 +2358,10 @@
                     "type" : "string",
                     "doc" : "The URL-encoded name of the AD/LDAP group. Serves as a globally unique identifier within DataHub.",
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL"
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : true
                     }
                   } ],
                   "Aspect" : {
@@ -2376,6 +2379,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -2523,6 +2527,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -2585,6 +2590,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -5588,6 +5594,11 @@
       "type" : "boolean",
       "doc" : "Structured or unstructured fulltext query",
       "optional" : true
+    }, {
+      "name" : "autocomplete",
+      "type" : "boolean",
+      "doc" : "Search using autocomplete fields and query",
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
@@ -6305,13 +6316,6 @@
         }, {
           "name" : "count",
           "type" : "int"
-        }, {
-          "annotations" : {
-            "deprecated" : { }
-          },
-          "name" : "fulltext",
-          "type" : "boolean",
-          "optional" : true
         }, {
           "name" : "searchFlags",
           "type" : "com.linkedin.metadata.query.SearchFlags",

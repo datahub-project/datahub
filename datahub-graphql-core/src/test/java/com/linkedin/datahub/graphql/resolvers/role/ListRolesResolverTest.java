@@ -12,6 +12,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -88,8 +89,8 @@ public class ListRolesResolverTest {
         ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(ADMIN_ROLE_URN_STRING)),
             new SearchEntity().setEntity(Urn.createFromString(EDITOR_ROLE_URN_STRING)))));
 
-    when(_entityClient.search(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt(), any(), eq(Boolean.TRUE),
-        Mockito.eq(null))).thenReturn(roleSearchResult);
+    when(_entityClient.search(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt(), any(),
+            eq(new SearchFlags().setFulltext(true)))).thenReturn(roleSearchResult);
     when(_entityClient.batchGetV2(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), any())).thenReturn(_entityResponseMap);
 
     ListRolesResult result = _resolver.get(_dataFetchingEnvironment).join();

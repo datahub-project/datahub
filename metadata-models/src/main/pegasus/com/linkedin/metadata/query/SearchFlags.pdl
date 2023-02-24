@@ -17,5 +17,10 @@ record SearchFlags {
   /**
    * Structured or unstructured fulltext query
    */
-  fulltext:optional boolean
+  fulltext: optional boolean
+
+  /**
+   * Search using autocomplete fields and query
+  */
+  autocomplete: optional boolean
 }

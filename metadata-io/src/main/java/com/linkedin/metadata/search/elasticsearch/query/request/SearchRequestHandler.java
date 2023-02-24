@@ -185,6 +185,29 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
+  @Nonnull
+  @WithSpan
+  public SearchRequest getAutoCompleteSearchRequest(@Nonnull String input, @Nullable Filter filter, int from, int size,
+                                                    AutocompleteRequestHandler autocompleteRequestHandler) {
+    SearchRequest searchRequest = new SearchRequest();
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    //searchSourceBuilder.from(from);
+    searchSourceBuilder.size(size);
+    searchSourceBuilder.fetchSource("urn", null);
+
+    BoolQueryBuilder filterQuery = getFilterQuery(filter);
+    searchSourceBuilder.query(QueryBuilders.boolQuery()
+            .must(autocompleteRequestHandler.getQuery(input, null))
+            .must(filterQuery));
+
+    searchSourceBuilder.highlighter(_highlights);
+    searchRequest.source(searchSourceBuilder);
+    log.debug("Search request is: " + searchRequest.toString());
+
+    return searchRequest;
+  }
+
   /**
    * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion to be applied to
    * search results.

@@ -1,8 +1,11 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -11,6 +14,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
@@ -24,6 +28,9 @@ import javax.annotation.Nullable;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
 
 
 @Slf4j
@@ -104,11 +111,16 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Nonnull
   @Override
   public SearchResult fullTextSearch(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nonnull SearchFlags searchFlags) {
     log.debug(String.format(
         "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entityName, input, postFilters, sortCriterion, from, size));
-    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, true);
+
+    if (Boolean.TRUE.equals(searchFlags.isAutocomplete())) {
+      return esSearchDAO.autoComplete(entityName, input, postFilters, from, size);
+    } else {
+      return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, true);
+    }
   }
 
   @Nonnull
