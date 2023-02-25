@@ -1,14 +1,14 @@
 {
   "type" : "record",
   "name" : "MetadataChangeProposal",
-  "namespace" : "com.linkedin.mxe",
+  "namespace" : "com.linkedin.pegasus2avro.mxe",
   "doc" : "Kafka event for proposing a metadata change for an entity. A corresponding MetadataChangeLog is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeProposal will be emitted instead.",
   "fields" : [ {
     "name" : "auditHeader",
     "type" : [ "null", {
       "type" : "record",
       "name" : "KafkaAuditHeader",
-      "namespace" : "com.linkedin.avro2pegasus.events",
+      "namespace" : "com.linkedin.events",
       "doc" : "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader",
       "fields" : [ {
         "name" : "time",
@@ -74,7 +74,7 @@
     "doc" : "Urn of the entity being written",
     "default" : null,
     "java" : {
-      "class" : "com.linkedin.common.urn.Urn"
+      "class" : "com.linkedin.pegasus2avro.common.urn.Urn"
     }
   }, {
     "name" : "entityKeyAspect",
@@ -99,7 +99,7 @@
     "type" : {
       "type" : "enum",
       "name" : "ChangeType",
-      "namespace" : "com.linkedin.events.metadata",
+      "namespace" : "com.linkedin.pegasus2avro.events.metadata",
       "doc" : "Descriptor for a change action",
       "symbols" : [ "UPSERT", "CREATE", "UPDATE", "DELETE", "PATCH", "RESTATE" ],
       "symbolDocs" : {
