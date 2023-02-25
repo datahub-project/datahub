@@ -31,6 +31,7 @@ import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeConstants;
 
 
 /**
@@ -88,19 +89,25 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
    */
   private List<AnalyticsChart> getProductAnalyticsCharts(Authentication authentication) throws Exception {
     final List<AnalyticsChart> charts = new ArrayList<>();
-    final DateTime now = DateTime.now();
-    final DateTime aWeekAgo = now.minusWeeks(1);
+    final DateTime endOfWeek = DateTime.now()
+            .plusDays(1)
+            .withDayOfWeek(DateTimeConstants.SUNDAY)
+            .withHourOfDay(0)
+            .withMinuteOfHour(0)
+            .withSecondOfMinute(0)
+            .withMillisOfDay(0);
+    final DateTime startOfWeek = endOfWeek.minusWeeks(1);
     final DateRange lastWeekDateRange =
-            new DateRange(String.valueOf(aWeekAgo.getMillis()), String.valueOf(now.getMillis()));
+            new DateRange(String.valueOf(startOfWeek.getMillis()), String.valueOf(endOfWeek.getMillis()));
 
     charts.add(getActiveUsersTimeSeriesChart(
-            now,
+            endOfWeek,
             "Weekly Active Users",
             DateInterval.WEEK,
             dateTime -> dateTime.minusMonths(2)
     ));
     charts.add(getActiveUsersTimeSeriesChart(
-            now,
+            endOfWeek,
             "Monthly Active Users",
             DateInterval.MONTH,
             dateTime -> dateTime.minusMonths(12)

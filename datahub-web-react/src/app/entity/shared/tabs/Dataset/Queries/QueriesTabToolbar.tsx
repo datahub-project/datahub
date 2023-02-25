@@ -19,7 +19,10 @@ type Props = {
 export default function QueriesTabToolbar({ addQueryDisabled, onAddQuery, onChangeSearch }: Props) {
     return (
         <TabToolbar>
-            <Tooltip title={(addQueryDisabled && ADD_UNAUTHORIZED_MESSAGE) || undefined}>
+            <Tooltip
+                placement="right"
+                title={(addQueryDisabled && ADD_UNAUTHORIZED_MESSAGE) || 'Add a highlighted query'}
+            >
                 <Button disabled={addQueryDisabled} type="text" onClick={onAddQuery} data-testid="add-query-button">
                     <PlusOutlined /> Add Query
                 </Button>
