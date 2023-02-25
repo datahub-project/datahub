@@ -10,11 +10,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-import com.linkedin.util.Pair;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
@@ -59,14 +60,26 @@ public class SearchQueryBuilder {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
-      SimpleQueryStringBuilder simpleBuilder = QueryBuilders.simpleQueryStringQuery(query.replaceFirst("^:+", ""));
-      simpleBuilder.defaultOperator(Operator.AND);
-      entitySpecs.stream()
-          .map(SearchQueryBuilder::getStandardFields)
-          .flatMap(Set::stream)
-          .distinct()
-          .forEach(fieldBoost -> simpleBuilder.field(fieldBoost.getFirst(), fieldBoost.getSecond()));
-      finalQuery.should(simpleBuilder);
+      final String sanitizedQuery = query.replaceFirst("^:+", "");
+      BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
+
+      // Simple query string does not use per field analyzers
+      // Group the fields by analyzer
+      Map<String, List<SearchFieldConfig>> analyzerGroup = entitySpecs.stream()
+              .map(SearchQueryBuilder::getStandardFields)
+              .flatMap(Set::stream)
+              .collect(Collectors.groupingBy(SearchFieldConfig::getAnalyzer));
+
+      analyzerGroup.keySet().stream().sorted().forEach(analyzer -> {
+        List<SearchFieldConfig> fieldConfigs = analyzerGroup.get(analyzer);
+        SimpleQueryStringBuilder simpleBuilder = QueryBuilders.simpleQueryStringQuery(sanitizedQuery);
+        simpleBuilder.analyzer(analyzer);
+        simpleBuilder.defaultOperator(Operator.AND);
+        fieldConfigs.forEach(cfg -> simpleBuilder.field(cfg.getFieldName(), cfg.getBoost()));
+        simplePerField.should(simpleBuilder);
+      });
+
+      finalQuery.should(simplePerField);
     } else {
       final String withoutQueryPrefix = query.startsWith(STRUCTURED_QUERY_PREFIX) ? query.substring(STRUCTURED_QUERY_PREFIX.length()) : query;
 
@@ -76,7 +89,7 @@ public class SearchQueryBuilder {
           .map(SearchQueryBuilder::getStandardFields)
           .flatMap(Set::stream)
           .distinct()
-          .forEach(fieldBoost -> queryBuilder.field(fieldBoost.getFirst(), fieldBoost.getSecond()));
+          .forEach(cfg -> queryBuilder.field(cfg.getFieldName(), cfg.getBoost()));
       finalQuery.should(queryBuilder);
     }
 
@@ -86,12 +99,12 @@ public class SearchQueryBuilder {
     return finalQuery;
   }
 
-  private static Set<Pair<String, Float>> getStandardFields(@Nonnull EntitySpec entitySpec) {
-    Set<Pair<String, Float>> fields = new HashSet<>();
+  private static Set<SearchFieldConfig> getStandardFields(@Nonnull EntitySpec entitySpec) {
+    Set<SearchFieldConfig> fields = new HashSet<>();
 
     // Always present
     final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
-    List.of("urn", "urn.delimited").forEach(urnField -> fields.add(Pair.of(urnField, urnBoost)));
+    List.of("urn", "urn.delimited").forEach(urnField -> fields.add(SearchFieldConfig.autodetect(urnField, urnBoost)));
 
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
@@ -101,14 +114,14 @@ public class SearchQueryBuilder {
 
       String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
       double boostScore = fieldSpec.getSearchableAnnotation().getBoostScore();
-      fields.add(Pair.of(fieldName, (float) boostScore));
+      fields.add(SearchFieldConfig.autodetect(fieldName, (float) boostScore));
 
       FieldType fieldType = fieldSpec.getSearchableAnnotation().getFieldType();
       if (TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType)) {
-        fields.add(Pair.of(fieldName + ".delimited", ((float) boostScore) * 0.4f));
+        fields.add(SearchFieldConfig.autodetect(fieldName + ".delimited", ((float) boostScore) * 0.4f));
       }
       if (FieldType.URN_PARTIAL.equals(fieldType)) {
-        fields.add(Pair.of(fieldName + ".delimited", ((float) boostScore) * 0.4f));
+        fields.add(SearchFieldConfig.autodetect(fieldName + ".delimited", ((float) boostScore) * 0.4f));
       }
     }
 
