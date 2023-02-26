@@ -227,7 +227,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },
@@ -412,7 +412,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     },

@@ -36,6 +36,7 @@ from datahub.ingestion.extractor.json_schema_util import (
     JsonSchemaTranslator,
     get_schema_metadata,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -314,7 +315,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
             yield self._report_and_return(
                 MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
-                    aspect=models.SubTypesClass(typeNames=["schema"]),
+                    aspect=models.SubTypesClass(typeNames=[DatasetSubTypes.SCHEMA]),
                 ).as_workunit()
             )
 

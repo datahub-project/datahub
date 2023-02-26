@@ -586,7 +586,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                                 )
                             )
 
-            explores = list(set(explores))  # dedup the list of views
+            explores = sorted(list(set(explores)))  # dedup the list of views
 
             return LookerDashboardElement(
                 id=element.id,

@@ -52,6 +52,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -900,7 +904,7 @@ class GlueSource(StatefulIngestionSourceBase):
         container_workunits = gen_containers(
             container_key=database_container_key,
             name=database["Name"],
-            sub_types=["Database"],
+            sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
             description=database.get("Description"),
             qualified_name=self.get_glue_arn(
@@ -984,7 +988,7 @@ class GlueSource(StatefulIngestionSourceBase):
             # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
             workunit = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspect=SubTypes(typeNames=["table"]),
+                aspect=SubTypes(typeNames=[DatasetSubTypes.TABLE]),
             ).as_workunit()
             self.report.report_workunit(workunit)
             yield workunit
@@ -1166,9 +1170,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 logger.warning(
                     "Could not connect to DatahubApi. No current tags to maintain"
                 )
-
             # Remove duplicate tags
-            tags_to_add = list(set(tags_to_add))
+            tags_to_add = sorted(list(set(tags_to_add)))
             new_tags = GlobalTagsClass(
                 tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
             )

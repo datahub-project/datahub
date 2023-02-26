@@ -20,10 +20,8 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemySource,
-    SqlContainerSubTypes,
-)
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import (
     SQLAlchemyConfig,
     make_sqlalchemy_uri,
@@ -207,7 +205,7 @@ class AthenaSource(SQLAlchemySource):
         yield from gen_database_container(
             database=database,
             database_container_key=database_container_key,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+            sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
