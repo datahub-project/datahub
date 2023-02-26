@@ -48,7 +48,7 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,
         ge=0.0,
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
 
 
