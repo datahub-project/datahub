@@ -62,12 +62,12 @@ class StatefulIngestionConfig(ConfigModel):
     max_checkpoint_state_size: pydantic.PositiveInt = Field(
         default=2**24,  # 16 MB
         description="The maximum size of the checkpoint state in bytes. Default is 16MB",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
     state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
         default=None,
         description="The ingestion state provider configuration.",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
     ignore_old_state: bool = Field(
         default=False,
