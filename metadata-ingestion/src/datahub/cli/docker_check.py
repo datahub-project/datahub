@@ -7,7 +7,7 @@ from typing import Any, Dict, Iterator, List, Optional
 import docker
 import docker.errors
 import docker.models.containers
-
+import requests
 from datahub.configuration.common import ExceptionWithProps
 
 # If present, we check that the container is ok. If it exists
@@ -23,7 +23,6 @@ CONTAINERS_TO_CHECK_IF_PRESENT = [
     "schema-registry",
     "zookeeper",
     "datahub-upgrade",
-    "kafka-setup",
     # "datahub-mce-consumer",
     # "datahub-mae-consumer",
 ]
@@ -170,10 +169,37 @@ class QuickstartStatus:
             },
         )
 
+def check_gms_health():
+    """
+    Checks if GMS is healthy by making a request to the health endpoint
+    """
+    try:
+        response = requests.get("http://localhost:8080/health")
+        return response.status_code == 200
+    except:
+        return False
+
+def get_running_gms_version() -> Optional[str]:
+    """
+    Returns the docker tag of GMS that is currently running.
+    """
+    with get_docker_client() as client:
+        containers = client.containers.list(
+            all=True,
+            filters=DATAHUB_COMPOSE_PROJECT_FILTER,
+        )
+        gms = [container for container in containers if container.name == "datahub-gms"]
+        # get gms container tag 
+        if len(gms) > 0:
+            container = gms[0]
+            image = container.attrs['Config']['Image']
+            return image.split(":")[1]
+        else:
+            return None
 
 def check_docker_quickstart(containers_ensure_exits: List[str], containers_required: List[str]) -> QuickstartStatus:
     container_statuses: List[DockerContainerStatus] = []
-
+    get_running_gms_version()
     with get_docker_client() as client:
         containers = client.containers.list(
             all=True,
@@ -219,3 +245,10 @@ def check_docker_quickstart(containers_ensure_exits: List[str], containers_requi
             )
 
     return QuickstartStatus(container_statuses)
+
+
+def check_qucikstart_health() -> bool:
+    """
+    Checks the health of GMS and frontend containers.
+    """
+    get("http://localhost:8080/healthcheck")

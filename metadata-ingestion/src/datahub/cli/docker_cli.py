@@ -27,6 +27,8 @@ from datahub.cli.docker_check import (
     check_docker_quickstart,
     get_docker_client,
     run_quickstart_preflight_checks,
+    get_running_gms_version,
+    check_gms_health,
 )
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
@@ -100,26 +102,15 @@ def _print_issue_list_and_exit(
 
 
 @docker.command()
-@click.option(
-    "--version",
-    type=str,
-    default=None,
-    required=False,
-    help="Datahub version that is running. If not specified, the latest version will be used.",
-)
-@click.option(
-    "--stable",
-    required=False,
-    is_flag=True,
-    default=False,
-    help="Use this flag, if you used --stable to run quickstart previously.",
-)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def check(version: Optional[str], stable: Optional[bool]) -> None:
+def check() -> None:
     """Check that the Docker containers are healthy"""
     quickstart_version_mapping = QuickstartVersionMappingConfig.fetch_quickstart_config()
-    quickstart_execution_plan = quickstart_version_mapping.get_quickstart_execution_plan(version, stable)
+    version = get_running_gms_version()
+    if version is None:
+        raise Exception("No running GMS version found")
+    quickstart_execution_plan = quickstart_version_mapping.get_quickstart_execution_plan(version)
     status = check_docker_quickstart(quickstart_execution_plan.ensure_exit_success, quickstart_execution_plan.required_containers)
     if status.is_ok():
         click.secho("✔ No issues detected", fg="green")
@@ -932,34 +923,18 @@ def valid_restore_options(
     default=None,
     help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
 )
-@click.option(
-    "--version",
-    type=str,
-    default=None,
-    required=False,
-    help="Datahub version that is running. If not specified, the latest version will be used.",
-)
-@click.option(
-    "--stable",
-    required=False,
-    is_flag=True,
-    default=False,
-    help="Use this flag, if you used --stable to run quickstart previously.",
-)
 @telemetry.with_telemetry()
-def ingest_sample_data(path: Optional[str], token: Optional[str], version: Optional[str], stable: Optional[bool]) -> None:
+def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 
     if path is None:
         click.echo("Downloading sample data...")
         path = str(download_sample_data())
-    quickstart_version_mapping = QuickstartVersionMappingConfig.fetch_quickstart_config()
-    quickstart_execution_plan = quickstart_version_mapping.get_quickstart_execution_plan(version, stable)
-    status = check_docker_quickstart(quickstart_execution_plan.ensure_exit_success, quickstart_execution_plan.required_containers)
+
     # Verify that docker is up.
-    if not status.is_ok():
+    if not check_gms_health():
         raise status.to_exception(
-            header="Docker is not ready:",
+            header="GMS is not healthy:",
             footer="Try running `datahub docker quickstart` first.",
         )
 
