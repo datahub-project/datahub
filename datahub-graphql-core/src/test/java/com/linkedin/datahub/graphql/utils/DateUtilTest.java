@@ -23,7 +23,7 @@ public class DateUtilTest extends TestCase {
 
     private void assertEqualStartOfNextWeek(DateUtil dateUtil, int dayOfMonth) {
         assertEquals(
-                setTimeParts( dayOfMonth, true).getMillis(),
+                setTimeParts(dayOfMonth, true).getMillis(),
                 dateUtil.getStartOfNextWeek().getMillis()
         );
     }
@@ -32,25 +32,25 @@ public class DateUtilTest extends TestCase {
     public void testStartOfNextWeek() {
         DateUtil dateUtil = Mockito.spy(DateUtil.class);
 
-        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts( 2, false));
+        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(2, false));
         assertEqualStartOfNextWeek(dateUtil, 9);
 
-        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts( 3, false));
+        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(3, false));
         assertEqualStartOfNextWeek(dateUtil, 9);
 
-        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts( 4, false));
+        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(4, false));
         assertEqualStartOfNextWeek(dateUtil, 9);
 
-        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts( 5, false));
+        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(5, false));
         assertEqualStartOfNextWeek(dateUtil, 9);
 
-        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts( 6, false));
+        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(6, false));
         assertEqualStartOfNextWeek(dateUtil, 9);
 
-        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts( 7, false));
+        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(7, false));
         assertEqualStartOfNextWeek(dateUtil, 9);
 
-        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts( 8, false));
+        Mockito.when(dateUtil.getNow()).thenReturn(setTimeParts(8, false));
         assertEqualStartOfNextWeek(dateUtil, 9);
     }
 }
