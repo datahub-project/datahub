@@ -25,7 +25,7 @@ type Props = {
 const MARGIN_SIZE = 40;
 
 function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
-    const dateString = new Date(ts).toString();
+    const dateString = new Date(ts).toISOString();
     for (let i = 0; i < newLine.length; i++) {
         if (new Date(newLine[i].x).getTime() > ts) {
             newLine.splice(i, 0, { x: dateString, y: 0 });
@@ -35,7 +35,7 @@ function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
     newLine.push({ x: dateString, y: 0 });
 }
 
-function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: boolean) {
+export function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: boolean) {
     if (!insertBlankPoints) {
         return chartData.lines;
     }
