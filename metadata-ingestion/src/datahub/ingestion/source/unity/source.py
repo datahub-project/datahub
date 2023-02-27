@@ -177,7 +177,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if assigned_metastore:
             metastores.append(assigned_metastore)
         for metastore in self.unity_catalog_api_proxy.metastores():
-            if assigned_metastore and metastore.metastore_id != assigned_metastore.metastore_id:
+            if (
+                assigned_metastore
+                and metastore.metastore_id != assigned_metastore.metastore_id
+            ):
                 metastores.append(metastore)
 
         for metastore in metastores:
