@@ -7,7 +7,7 @@ import { AutoCompleteResultForEntity, Entity, EntityType } from '../../../../../
 import { useEntityRegistry } from '../../../../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../../../../constants';
 import { useDataHubMentions } from './useDataHubMentions';
-import { renderEntitySuggestion } from '../../../../../../../../search/SearchBar';
+import AutoCompleteItem from '../../../../../../../../search/autoComplete/AutoCompleteItem';
 
 const HeaderItem = styled(Typography.Text)`
     display: block;
@@ -105,7 +105,7 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
 
                 return (
                     <OptionItem active={highlight} key={entity.urn} onMouseDown={onMouseDown} role="option">
-                        {renderEntitySuggestion(filter ?? '', entity, entityRegistry)}
+                        <AutoCompleteItem query={filter || ''} entity={entity} />
                     </OptionItem>
                 );
             })}
