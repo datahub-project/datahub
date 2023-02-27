@@ -179,8 +179,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         for metastore in self.unity_catalog_api_proxy.metastores():
             metastores[metastore.metastore_id] = metastore
 
-        for id in metastores.keys():
-            metastore = metastores[id]
+        for metastore in metastores.values():
             if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):
                 self.report.metastores.dropped(metastore.metastore_id)
                 continue
