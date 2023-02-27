@@ -1672,7 +1672,7 @@ type GlossaryTerm implements Entity {
     schemaMetadata(version: Long): SchemaMetadata
 
     """
-    Recursively get the lineage of glossary nodes for this entity.
+    Recursively get the lineage of glossary nodes for this entity
     """
     parentNodes: ParentNodesResult
 
@@ -1825,7 +1825,7 @@ type GlossaryNode implements Entity {
 }
 
 """
-All of the parent nodes for GlossaryTerms and GlossaryNodes.
+All of the parent nodes for GlossaryTerms and GlossaryNodes
 """
 type ParentNodesResult {
     """

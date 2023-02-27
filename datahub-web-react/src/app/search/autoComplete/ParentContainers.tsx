@@ -20,7 +20,7 @@ const ParentContainer = styled(Typography.Text)`
     margin-left: 4px;
 `;
 
-const ArrowWrapper = styled.span`
+export const ArrowWrapper = styled.span`
     margin: 0 3px;
 `;
 
