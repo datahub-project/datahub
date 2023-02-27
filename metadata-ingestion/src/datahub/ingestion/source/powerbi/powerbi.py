@@ -238,8 +238,7 @@ class Mapper:
                 name=table.name,
                 description=powerbi_data_classes.formulate_description(
                     table.name, dataset.description
-                )
-                or str(),
+                ),
             )
 
             info_mcp = self.new_mcp(
@@ -414,8 +413,7 @@ class Mapper:
         dashboard_info_cls = DashboardInfoClass(
             description=powerbi_data_classes.formulate_description(
                 dashboard.displayName, dashboard.description
-            )
-            or str(),
+            ),
             title=dashboard.displayName or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
@@ -750,8 +748,7 @@ class Mapper:
         dashboard_info_cls = DashboardInfoClass(
             description=powerbi_data_classes.formulate_description(
                 report.name, report.description
-            )
-            or str(),
+            ),
             title=report.name or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
