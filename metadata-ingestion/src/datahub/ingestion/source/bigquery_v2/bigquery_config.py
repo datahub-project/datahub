@@ -78,13 +78,12 @@ class BigQueryV2Config(
     )
 
     number_of_datasets_process_in_batch: int = Field(
-        hidden_from_schema=True,
+        hidden_from_docs=True,
         default=500,
-        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
+        description="Number of table queried in batch when getting metadata. This is a low level config property which should be touched with care.",
     )
 
-    number_of_partitioned_datasets_process_in_batch: int = Field(
-        hidden_from_schema=True,
+    number_of_datasets_process_in_batch_if_profiling_enabled: int = Field(
         default=80,
         description="Number of partitioned table queried in batch when getting metadata. This is a low level config property which should be touched with care. This restriction is needed because we query partitions system view which throws error if we try to touch too many tables.",
     )
@@ -108,7 +107,7 @@ class BigQueryV2Config(
         description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
     )
 
-    storage_project_id: None = Field(default=None, hidden_from_schema=True)
+    storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
         default=False,
@@ -184,7 +183,7 @@ class BigQueryV2Config(
     )
 
     run_optimized_column_query: bool = Field(
-        hidden_from_schema=True,
+        hidden_from_docs=True,
         default=False,
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
