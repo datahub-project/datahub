@@ -8,6 +8,7 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
+import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -44,6 +45,7 @@ import org.testng.annotations.Test;
 
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.ESTestConfiguration.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
@@ -82,8 +84,11 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
         _elasticSearchService,
         100,
         true);
+
+    EntityDocCountCacheConfiguration entityDocCountCacheConfiguration = new EntityDocCountCacheConfiguration();
+    entityDocCountCacheConfiguration.setTtlSeconds(600L);
     _searchService = new SearchService(
-      new EntityDocCountCache(_entityRegistry, _elasticSearchService),
+      new EntityDocCountCache(_entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
       cachingEntitySearchService,
       new CachingAllEntitiesSearchAggregator(
           _cacheManager,
@@ -91,7 +96,7 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
               _entityRegistry,
               _elasticSearchService,
               cachingEntitySearchService,
-              new SimpleRanker()),
+              new SimpleRanker(), entityDocCountCacheConfiguration),
           100,
           true),
       new SimpleRanker());
@@ -108,7 +113,8 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
     EntityIndexBuilders indexBuilders =
         new EntityIndexBuilders(_esIndexBuilder, _entityRegistry,
             _indexConvention, _settingsBuilder);
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
+    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention, false,
+        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
     ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
     ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention,
         _bulkProcessor, 1);
@@ -160,6 +166,9 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
     clearCache();
+
+    long docCount = _elasticSearchService.docCount(ENTITY_NAME);
+    assertEquals(docCount, 2L);
 
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());

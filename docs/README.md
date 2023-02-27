@@ -6,7 +6,7 @@ DataHub's project documentation is hosted at [datahubproject.io](https://datahub
 
 ### Feature Guide
 
-A Feature Guide should follow the [Feature Guide Template](/_feature-guide-template.md), and should provide the following value:
+A Feature Guide should follow the [Feature Guide Template](_feature-guide-template.md), and should provide the following value:
 
 * At a high level, what is the concept/feature within DataHub?
 * Why is the feature useful?

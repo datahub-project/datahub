@@ -105,6 +105,16 @@ class MetadataChangeProposalWrapper:
     ) -> List["MetadataChangeProposalWrapper"]:
         return [cls(entityUrn=entityUrn, aspect=aspect) for aspect in aspects if aspect]
 
+    def _make_mcp_without_aspects(self) -> MetadataChangeProposalClass:
+        return MetadataChangeProposalClass(
+            entityType=self.entityType,
+            entityUrn=self.entityUrn,
+            changeType=self.changeType,
+            auditHeader=self.auditHeader,
+            aspectName=self.aspectName,
+            systemMetadata=self.systemMetadata,
+        )
+
     def make_mcp(self) -> MetadataChangeProposalClass:
         serializedEntityKeyAspect: Union[None, GenericAspectClass] = None
         if isinstance(self.entityKeyAspect, DictWrapper):
@@ -114,16 +124,10 @@ class MetadataChangeProposalWrapper:
         if self.aspect is not None:
             serializedAspect = _make_generic_aspect(self.aspect)
 
-        return MetadataChangeProposalClass(
-            entityType=self.entityType,
-            entityUrn=self.entityUrn,
-            entityKeyAspect=serializedEntityKeyAspect,
-            changeType=self.changeType,
-            auditHeader=self.auditHeader,
-            aspectName=self.aspectName,
-            aspect=serializedAspect,
-            systemMetadata=self.systemMetadata,
-        )
+        mcp = self._make_mcp_without_aspects()
+        mcp.entityKeyAspect = serializedEntityKeyAspect
+        mcp.aspect = serializedAspect
+        return mcp
 
     def validate(self) -> bool:
         if self.entityUrn is None and self.entityKeyAspect is None:
@@ -134,7 +138,10 @@ class MetadataChangeProposalWrapper:
             return False
         if self.aspect and not self.aspect.validate():
             return False
-        if not self.make_mcp().validate():
+        if not self._make_mcp_without_aspects().validate():
+            # PERF: Because we've already validated the aspects above, we can skip
+            # re-validating them by using _make_mcp_without_aspects() instead of
+            # make_mcp(). This way, we avoid doing unnecessary JSON serialization.
             return False
         return True
 

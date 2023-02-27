@@ -1,5 +1,11 @@
 import json
 import os
+from datetime import datetime
+from types import SimpleNamespace
+from typing import Dict
+from unittest.mock import patch
+
+from google.cloud.bigquery.table import TableListItem
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
@@ -8,6 +14,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryProject
+from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
 
 
 def test_bigquery_uri():
@@ -71,6 +79,63 @@ def test_bigquery_uri_with_credential():
         raise e
 
 
+@patch("google.cloud.bigquery.client.Client")
+def test_get_projects_with_project_ids(client_mock):
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_ids": ["test-1", "test-2"],
+        }
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
+    assert source._get_projects(client_mock) == [
+        BigqueryProject("test-1", "test-1"),
+        BigqueryProject("test-2", "test-2"),
+    ]
+    assert client_mock.list_projects.call_count == 0
+
+    config = BigQueryV2Config.parse_obj(
+        {"project_ids": ["test-1", "test-2"], "project_id": "test-3"}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test2"))
+    assert source._get_projects(client_mock) == [
+        BigqueryProject("test-1", "test-1"),
+        BigqueryProject("test-2", "test-2"),
+    ]
+    assert client_mock.list_projects.call_count == 0
+
+
+@patch("google.cloud.bigquery.client.Client")
+def test_get_projects_with_single_project_id(client_mock):
+    config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
+    assert source._get_projects(client_mock) == [
+        BigqueryProject("test-3", "test-3"),
+    ]
+    assert client_mock.list_projects.call_count == 0
+
+
+@patch("google.cloud.bigquery.client.Client")
+def test_get_projects(client_mock):
+    client_mock.list_projects.return_value = [
+        SimpleNamespace(
+            project_id="test-1",
+            friendly_name="one",
+        ),
+        SimpleNamespace(
+            project_id="test-2",
+            friendly_name="two",
+        ),
+    ]
+
+    config = BigQueryV2Config.parse_obj({})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
+    assert source._get_projects(client_mock) == [
+        BigqueryProject("test-1", "one"),
+        BigqueryProject("test-2", "two"),
+    ]
+    assert client_mock.list_projects.call_count == 1
+
+
 def test_simple_upstream_table_generation():
     a: BigQueryTableRef = BigQueryTableRef(
         BigqueryTableIdentifier(
@@ -89,9 +154,11 @@ def test_simple_upstream_table_generation():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {str(a): set([str(b)])}
-    upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
-    assert list(upstreams) == [b]
+    lineage_metadata = {str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())}}
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+
+    assert len(upstreams) == 1
+    assert list(upstreams)[0].table == str(b)
 
 
 def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
@@ -112,8 +179,9 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {str(a): set([str(b)])}
-    upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
+
+    lineage_metadata = {str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())}}
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
     assert list(upstreams) == []
 
 
@@ -141,13 +209,15 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
             "project_id": "test-project",
         }
     )
+
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {
-        str(a): set([str(b)]),
-        str(b): set([str(c)]),
+    lineage_metadata = {
+        str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())},
+        str(b): {LineageEdge(table=str(c), auditStamp=datetime.now())},
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
-    assert list(upstreams) == [c]
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    assert len(upstreams) == 1
+    assert list(upstreams)[0].table == str(c)
 
 
 def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream():
@@ -183,10 +253,85 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    source.lineage_extractor.lineage_metadata = {
-        str(a): set([str(b)]),
-        str(b): set([str(c), str(d)]),
-        str(d): set([str(e)]),
+    lineage_metadata = {
+        str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())},
+        str(b): {
+            LineageEdge(table=str(c), auditStamp=datetime.now()),
+            LineageEdge(table=str(d), auditStamp=datetime.now()),
+        },
+        str(d): {LineageEdge(table=str(e), auditStamp=datetime.now())},
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(str(a), [])
-    assert list(upstreams).sort() == [c, e].sort()
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    sorted_list = list(upstreams)
+    sorted_list.sort()
+    assert sorted_list[0].table == str(c)
+    assert sorted_list[1].table == str(e)
+
+
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_schema.BigQueryDataDictionary.get_tables_for_dataset"
+)
+@patch("google.cloud.bigquery.client.Client")
+def test_table_processing_logic(client_mock, data_dictionary_mock):
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": "test-project",
+        }
+    )
+
+    tableListItems = [
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-table",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-sharded-table_20220102",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-sharded-table_20210101",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-sharded-table_20220101",
+                }
+            }
+        ),
+    ]
+
+    client_mock.list_tables.return_value = tableListItems
+    data_dictionary_mock.get_tables_for_dataset.return_value = None
+
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    _ = source.get_tables_for_dataset(
+        conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+    )
+
+    assert data_dictionary_mock.call_count == 1
+
+    # args only available from python 3.8 and that's why call_args_list is sooo ugly
+    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
+        3
+    ]  # alternatively
+    for table in tables.keys():
+        assert table in ["test-table", "test-sharded-table_20220102"]

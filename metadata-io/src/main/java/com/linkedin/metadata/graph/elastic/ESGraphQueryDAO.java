@@ -19,6 +19,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -116,6 +117,29 @@ public class ESGraphQueryDAO {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
     }
+  }
+
+  private SearchResponse executeSearchQuery(@Nonnull final QueryBuilder query, @Nullable Object[] sort, @Nullable String pitId,
+      @Nonnull String keepAlive, final int count) {
+    SearchRequest searchRequest = new SearchRequest();
+
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    searchSourceBuilder.size(count);
+    searchSourceBuilder.query(query);
+
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esQuery").time()) {
+      MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+      return client.search(searchRequest, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error("Search query failed", e);
+      throw new ESQueryException("Search query failed:", e);
+    }
+
   }
 
   public SearchResponse getSearchResponse(@Nullable final List<String> sourceTypes, @Nonnull final Filter sourceEntityFilter,

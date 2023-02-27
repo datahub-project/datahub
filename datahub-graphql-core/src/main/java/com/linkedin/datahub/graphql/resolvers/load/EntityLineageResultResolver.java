@@ -79,6 +79,7 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     result.setStart(entityLineageResult.getStart());
     result.setCount(entityLineageResult.getCount());
     result.setTotal(entityLineageResult.getTotal());
+    result.setFiltered(entityLineageResult.getFiltered());
     result.setRelationships(entityLineageResult.getRelationships()
         .stream()
         .map(this::mapEntityRelationship)
