@@ -26,9 +26,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeConstants;
 
 
 /**
@@ -60,35 +63,61 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     }
   }
 
+  private TimeSeriesChart getActiveUsersTimeSeriesChart(
+          final DateTime endDateTime,
+          final String title,
+          final DateInterval interval,
+          final Function<DateTime, DateTime> convertToBegin
+  ) {
+    final DateTime beginning = convertToBegin.apply(endDateTime);
+    final DateRange dateRange =
+            new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(endDateTime.getMillis()));
+
+    final List<NamedLine> timeSeriesLines =
+            _analyticsService.getTimeseriesChart(_analyticsService.getUsageIndexName(), dateRange, interval,
+                    Optional.empty(), ImmutableMap.of(), Collections.emptyMap(), Optional.of("browserId"));
+    return TimeSeriesChart.builder()
+            .setTitle(title)
+            .setDateRange(dateRange)
+            .setInterval(interval)
+            .setLines(timeSeriesLines)
+            .build();
+  }
+
   /**
    * TODO: Config Driven Charts Instead of Hardcoded.
    */
   private List<AnalyticsChart> getProductAnalyticsCharts(Authentication authentication) throws Exception {
     final List<AnalyticsChart> charts = new ArrayList<>();
-    final DateTime now = DateTime.now();
-    final DateTime aWeekAgo = now.minusWeeks(1);
+    final DateTime endOfWeek = DateTime.now()
+            .plusDays(1)
+            .withDayOfWeek(DateTimeConstants.SUNDAY)
+            .withHourOfDay(0)
+            .withMinuteOfHour(0)
+            .withSecondOfMinute(0)
+            .withMillisOfDay(0);
+    final DateTime startOfWeek = endOfWeek.minusWeeks(1);
     final DateRange lastWeekDateRange =
-        new DateRange(String.valueOf(aWeekAgo.getMillis()), String.valueOf(now.getMillis()));
+            new DateRange(String.valueOf(startOfWeek.getMillis()), String.valueOf(endOfWeek.getMillis()));
 
-    final DateTime twoMonthsAgo = now.minusMonths(2);
-    final DateRange twoMonthsDateRange =
-        new DateRange(String.valueOf(twoMonthsAgo.getMillis()), String.valueOf(now.getMillis()));
+    charts.add(getActiveUsersTimeSeriesChart(
+            endOfWeek,
+            "Weekly Active Users",
+            DateInterval.WEEK,
+            dateTime -> dateTime.minusMonths(2)
+    ));
+    charts.add(getActiveUsersTimeSeriesChart(
+            endOfWeek,
+            "Monthly Active Users",
+            DateInterval.MONTH,
+            dateTime -> dateTime.minusMonths(12)
+                    .withDayOfMonth(1)
+                    .withHourOfDay(0)
+                    .withMinuteOfHour(0)
+                    .withSecondOfMinute(0)
+                    .withMillisOfDay(0)
+    ));
 
-    // Chart 1:  Time Series Chart
-    String wauTitle = "Weekly Active Users";
-    DateInterval weeklyInterval = DateInterval.WEEK;
-
-    final List<NamedLine> wauTimeseries =
-        _analyticsService.getTimeseriesChart(_analyticsService.getUsageIndexName(), twoMonthsDateRange, weeklyInterval,
-            Optional.empty(), ImmutableMap.of(), Collections.emptyMap(), Optional.of("browserId"));
-    charts.add(TimeSeriesChart.builder()
-        .setTitle(wauTitle)
-        .setDateRange(twoMonthsDateRange)
-        .setInterval(weeklyInterval)
-        .setLines(wauTimeseries)
-        .build());
-
-    // Chart 2:  Time Series Chart
     String searchesTitle = "Searches Last Week";
     DateInterval dailyInterval = DateInterval.DAY;
     String searchEventType = "SearchEvent";
@@ -104,7 +133,6 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
         .setLines(searchesTimeseries)
         .build());
 
-    // Chart 3: Table Chart
     final String topSearchTitle = "Top Search Queries";
     final List<String> columns = ImmutableList.of("Query", "Count");
 
@@ -114,7 +142,6 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             Optional.empty(), 10, AnalyticsUtil::buildCellWithSearchLandingPage);
     charts.add(TableChart.builder().setTitle(topSearchTitle).setColumns(columns).setRows(topSearchQueries).build());
 
-    // Chart 4: Bar Graph Chart
     final String sectionViewsTitle = "Section Views across Entity Types";
     final List<NamedBar> sectionViewsPerEntityType =
         _analyticsService.getBarChart(_analyticsService.getUsageIndexName(), Optional.of(lastWeekDateRange),
@@ -123,7 +150,6 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             Optional.empty(), true);
     charts.add(BarChart.builder().setTitle(sectionViewsTitle).setBars(sectionViewsPerEntityType).build());
 
-    // Chart 5: Bar Graph Chart
     final String actionsByTypeTitle = "Actions by Entity Type";
     final List<NamedBar> eventsByEventType =
         _analyticsService.getBarChart(_analyticsService.getUsageIndexName(), Optional.of(lastWeekDateRange),
@@ -132,7 +158,6 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             true);
     charts.add(BarChart.builder().setTitle(actionsByTypeTitle).setBars(eventsByEventType).build());
 
-    // Chart 6: Table Chart
     final String topViewedTitle = "Top Viewed Dataset";
     final List<String> columns5 = ImmutableList.of("Dataset", "#Views");
 

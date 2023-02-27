@@ -22,9 +22,9 @@ const companiesByIndustry = [
         imageSize: "medium",
       },
       {
-        name: "ClassDojo",
-        imageUrl: "/img/logos/companies/classdojo.png",
-        imageSize: "medium",
+        name: "Airtel",
+        imageUrl: "/img/logos/companies/airtel.png",
+        imageSize: "large",
       },
       {
         name: "Coursera",
@@ -70,6 +70,11 @@ const companiesByIndustry = [
         name: "Razer",
         imageUrl: "/img/logos/companies/razer.jpeg",
         imageSize: "large",
+      },
+      {
+        name: "ClassDojo",
+        imageUrl: "/img/logos/companies/classdojo.png",
+        imageSize: "medium",
       },
     ],
   },
@@ -120,6 +125,11 @@ const companiesByIndustry = [
         name: "Adevinta",
         imageUrl: "/img/logos/companies/adevinta.png",
         imageSize: "medium",
+      },
+      {
+        name: "VanMoof",
+        imageUrl: "/img/logos/companies/vanmoof.png",
+        imageSize: "small",
       },
       {
         name: "Grofers",

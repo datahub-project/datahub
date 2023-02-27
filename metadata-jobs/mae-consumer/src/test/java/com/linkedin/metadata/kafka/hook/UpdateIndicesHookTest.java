@@ -111,6 +111,22 @@ public class UpdateIndicesHookTest {
   }
 
   @Test
+  public void testFineGrainedLineageEdgesAreAddedRestate() throws Exception {
+    Urn upstreamUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
+    Urn downstreamUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
+    MetadataChangeLog event = createUpstreamLineageMCL(upstreamUrn, downstreamUrn, ChangeType.RESTATE);
+    _updateIndicesHook.invoke(event);
+
+    Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
+    Mockito.verify(_mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(_mockGraphService, Mockito.times(1)).removeEdgesFromNode(
+        Mockito.eq(downstreamUrn),
+        Mockito.eq(new ArrayList<>(Collections.singleton(DOWNSTREAM_OF))),
+        Mockito.eq(newRelationshipFilter(new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING))
+    );
+  }
+
+  @Test
   public void testInputFieldsEdgesAreAdded() throws Exception {
     Urn upstreamUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,thelook.explore.order_items,PROD),users.count)");
     String downstreamFieldPath = "users.count";
@@ -160,10 +176,14 @@ public class UpdateIndicesHookTest {
   }
 
   private MetadataChangeLog createUpstreamLineageMCL(Urn upstreamUrn, Urn downstreamUrn) throws Exception {
+    return createUpstreamLineageMCL(upstreamUrn, downstreamUrn, ChangeType.UPSERT);
+  }
+
+  private MetadataChangeLog createUpstreamLineageMCL(Urn upstreamUrn, Urn downstreamUrn, ChangeType changeType) throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(Constants.DATASET_ENTITY_NAME);
     event.setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
-    event.setChangeType(ChangeType.UPSERT);
+    event.setChangeType(changeType);
 
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();

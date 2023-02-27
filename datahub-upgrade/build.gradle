@@ -21,6 +21,8 @@ dependencies {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
     exclude group: "org.apache.htrace", module: "htrace-core4"
+    exclude group: "org.eclipse.jetty", module: "jetty-util"
+    exclude group: "org.apache.hadoop.thirdparty", module: "hadoop-shaded-protobuf_3_7"
   }
 
   constraints {
