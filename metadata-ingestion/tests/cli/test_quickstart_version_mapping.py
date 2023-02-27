@@ -76,3 +76,20 @@ def test_quickstart_forced_stable():
         ensure_exit_success= ["datahub-gms"]
     )
     assert execution_plan == excepted
+
+def test_quickstart_forced_not_a_version_tag():
+    """
+    If the user specifies a version that is not in the version mapping, we should still use the default version for checking.
+
+    This is because the user may be using a version of datahub that is not in the version mapping. Which is most likely
+    a recent change, otherwise it should be on an older version of datahub.
+    """
+    example_version_mapper.stable_versions.force = True
+    execution_plan = example_version_mapper.get_quickstart_execution_plan("NOT A VERSION")
+    excepted = QuickstartExecutionPlan(
+        docker_tag="latest",
+        composefile_git_ref="v1.0.1",
+        required_containers=["datahub-gms", "datahub-mae-consumer"],
+        ensure_exit_success= ["datahub-gms"]
+    )
+    assert execution_plan == excepted
