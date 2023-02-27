@@ -245,10 +245,3 @@ def check_docker_quickstart(containers_ensure_exits: List[str], containers_requi
             )
 
     return QuickstartStatus(container_statuses)
-
-
-def check_qucikstart_health() -> bool:
-    """
-    Checks the health of GMS and frontend containers.
-    """
-    get("http://localhost:8080/healthcheck")
