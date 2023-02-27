@@ -1,14 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pagination, Typography } from 'antd';
+import { Pagination, Tooltip, Typography } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import QueriesList from './QueriesList';
 import { Query } from './types';
 import { DEFAULT_PAGE_SIZE } from './utils/constants';
 import { getQueriesForPage } from './utils/getCurrentPage';
+import { ANTD_GRAY } from '../../../constants';
+
+const QueriesTitleSection = styled.div`
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+`;
 
 const QueriesTitle = styled(Typography.Title)`
     && {
-        margin-bottom: 20px;
+        margin: 0px;
     }
 `;
 
@@ -20,9 +28,16 @@ const StyledPagination = styled(Pagination)`
     justify-content: center;
 `;
 
+const StyledInfoOutlined = styled(InfoCircleOutlined)`
+    margin-left: 8px;
+    font-size: 12px;
+    color: ${ANTD_GRAY[7]};
+`;
+
 type Props = {
     title: string;
     queries: Query[];
+    tooltip?: string;
     initialPage?: number;
     initialPageSize?: number;
     showDetails?: boolean;
@@ -34,6 +49,7 @@ type Props = {
 
 export default function QueriesListSection({
     title,
+    tooltip,
     queries,
     initialPage = 1,
     initialPageSize = DEFAULT_PAGE_SIZE,
@@ -55,18 +71,27 @@ export default function QueriesListSection({
      */
     const headerRef = useRef(null);
     useEffect(() => {
-        (headerRef?.current as any)?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start',
-            inline: 'nearest',
-        });
+        if (page !== 1) {
+            (headerRef?.current as any)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+                inline: 'nearest',
+            });
+        }
     }, [page]);
 
     return (
         <>
-            <QueriesTitle ref={headerRef} level={4}>
-                {title}
-            </QueriesTitle>
+            <QueriesTitleSection>
+                <QueriesTitle ref={headerRef} level={4}>
+                    {title}
+                </QueriesTitle>
+                {tooltip && (
+                    <Tooltip title={tooltip}>
+                        <StyledInfoOutlined />
+                    </Tooltip>
+                )}
+            </QueriesTitleSection>
             <QueriesList
                 queries={paginatedQueries}
                 showDelete={showDelete}

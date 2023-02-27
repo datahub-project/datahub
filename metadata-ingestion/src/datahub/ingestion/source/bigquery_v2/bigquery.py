@@ -5,7 +5,7 @@ import re
 import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
@@ -54,7 +54,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
     get_bigquery_client,
 )
-from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
+from datahub.ingestion.source.bigquery_v2.lineage import (
+    BigqueryLineageExtractor,
+    LineageEdge,
+)
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.sql.sql_utils import (
@@ -102,6 +105,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
+    DatasetLineageTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
 )
@@ -248,6 +252,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.profiler = BigqueryProfiler(
             config, self.report, self.profiling_state_handler
         )
+
+        # Global store of table identifiers for lineage filtering
+        self.table_refs: Set[str] = set()
+        # Maps project -> view_ref -> [upstream_table_ref], for view lineage
+        self.view_upstream_tables: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
 
         atexit.register(cleanup, config)
 
@@ -481,35 +490,20 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         conn: bigquery.Client = get_bigquery_client(self.config)
         self.add_config_to_report()
 
-        projects: List[BigqueryProject]
-        if self.config.project_id:
-            project = BigqueryProject(
-                id=self.config.project_id, name=self.config.project_id
+        projects = self._get_projects(conn)
+        if len(projects) == 0:
+            logger.error(
+                "Get projects didn't return any project. "
+                "Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account."
             )
-            projects = [project]
-        else:
-            try:
-                projects = BigQueryDataDictionary.get_projects(conn)
-                if len(projects) == 0:
-                    logger.error(
-                        "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account."
-                    )
-                    self.report.report_failure(
-                        "metadata-extraction",
-                        "Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account.",
-                    )
-                    return
-            except Exception as e:
-                trace = traceback.format_exc()
-                logger.error(
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
-                )
-                logger.error(trace)
-                self.report.report_failure(
-                    "metadata-extraction",
-                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e} Stacktrace: {trace}",
-                )
-                return None
+            self.report.report_failure(
+                "metadata-extraction",
+                "Get projects didn't return any project. "
+                "Maybe resourcemanager.projects.get permission is missing for the service account. "
+                "You can assign predefined roles/bigquery.metadataViewer role to your service account.",
+            )
+            return
 
         for project_id in projects:
             if not self.config.project_id_pattern.allowed(project_id.id):
@@ -519,6 +513,31 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.set_project_state(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
+        if self.config.include_table_lineage:
+            if (
+                self.config.store_last_lineage_extraction_timestamp
+                and self.redundant_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                )
+            ):
+                # Skip this run
+                self.report.report_warning(
+                    "lineage-extraction",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                )
+                return
+
+            if self.config.store_last_lineage_extraction_timestamp:
+                # Update the checkpoint state for this run.
+                self.redundant_run_skip_handler.update_state(
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+
+            for project in projects:
+                self.report.set_project_state(project.id, "Lineage Extraction")
+                yield from self.generate_lineage(project.id)
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
@@ -527,6 +546,29 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 auto_status_aspect(self.get_workunits_internal()),
             ),
         )
+
+    def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
+        if self.config.project_ids or self.config.project_id:
+            project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
+            return [
+                BigqueryProject(id=project_id, name=project_id)
+                for project_id in project_ids
+            ]
+        else:
+            try:
+                return BigQueryDataDictionary.get_projects(conn)
+            except Exception as e:
+                # TODO: Merge with error logging in `get_workunits_internal`
+                trace = traceback.format_exc()
+                logger.error(
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e}"
+                )
+                logger.error(trace)
+                self.report.report_failure(
+                    "metadata-extraction",
+                    f"Get projects didn't return any project. Maybe resourcemanager.projects.get permission is missing for the service account. You can assign predefined roles/bigquery.metadataViewer role to your service account. The error was: {e} Stacktrace: {trace}",
+                )
+                return []
 
     def _process_project(
         self, conn: bigquery.Client, bigquery_project: BigqueryProject
@@ -591,31 +633,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-        if self.config.include_table_lineage:
-            if (
-                self.config.store_last_lineage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                # Skip this run
-                self.report.report_warning(
-                    "lineage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
-
-            if self.config.store_last_lineage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-            self.report.set_project_state(project_id, "Lineage Extraction")
-            yield from self.generate_lineage(
-                project_id, db_tables=db_tables, db_views=db_views
-            )
-
         if self.config.include_usage_statistics:
             if (
                 self.config.store_last_usage_extraction_timestamp
@@ -649,32 +666,33 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 tables=db_tables,
             )
 
-    def generate_lineage(
-        self,
-        project_id: str,
-        db_tables: Dict[str, List[BigqueryTable]],
-        db_views: Dict[str, List[BigqueryView]],
-    ) -> Iterable[MetadataWorkUnit]:
+    def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
         lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
 
         if self.config.lineage_parse_view_ddl:
-            for dataset in db_views.keys():
-                for view in db_views[dataset]:
-                    self.lineage_extractor.get_view_lineage(
-                        project_id=project_id,
-                        dataset_name=dataset,
-                        view=view,
-                        lineage_metadata=lineage,
+            for view, upstream_tables in self.view_upstream_tables[project_id].items():
+                # Override upstreams obtained by parsing audit logs as they may contain indirectly referenced tables
+                lineage[view] = {
+                    LineageEdge(
+                        table=table,
+                        auditStamp=datetime.now(),
+                        type=DatasetLineageTypeClass.VIEW,
                     )
+                    for table in upstream_tables
+                }
 
         for lineage_key in lineage.keys():
+            if lineage_key not in self.table_refs:
+                continue
+
             table_ref = BigQueryTableRef.from_string_name(lineage_key)
             dataset_urn = self.gen_dataset_urn(
                 project_id=table_ref.table_identifier.project_id,
                 dataset_name=table_ref.table_identifier.dataset,
                 table=table_ref.table_identifier.get_table_display_name(),
             )
+
             lineage_info = self.lineage_extractor.get_lineage_for_table(
                 bq_table=table_ref,
                 platform=self.platform,
@@ -740,7 +758,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             for table in db_tables[dataset_name]:
                 table_columns = columns.get(table.name, []) if columns else []
-
                 yield from self._process_table(
                     table=table,
                     columns=table_columns,
@@ -789,6 +806,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
+        if self.config.include_table_lineage:
+            self.table_refs.add(str(BigQueryTableRef(table_identifier)))
         table.column_count = len(columns)
 
         # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
@@ -833,6 +852,19 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not self.config.view_pattern.allowed(table_identifier.raw_table_name()):
             self.report.report_dropped(table_identifier.raw_table_name())
             return
+
+        if self.config.include_table_lineage:
+            table_ref = str(BigQueryTableRef(table_identifier))
+            self.table_refs.add(table_ref)
+            if self.config.lineage_parse_view_ddl:
+                upstream_tables = self.lineage_extractor.parse_view_lineage(
+                    project_id, dataset_name, view
+                )
+                if upstream_tables is not None:
+                    self.view_upstream_tables[project_id][table_ref] = [
+                        str(BigQueryTableRef(table_id).get_sanitized_table_ref())
+                        for table_id in upstream_tables
+                    ]
 
         view.column_count = len(columns)
         if not view.column_count:
@@ -1143,104 +1175,43 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
             bigquery_tables = []
-            partitioned_table_count_in_this_batch: int = 0
-            table_items: Dict[str, TableListItem] = {}
-            # Dict to store sharded table and the last seen max shard id
-            sharded_tables: Dict[str, TableListItem] = defaultdict()
             # Partitions view throw exception if we try to query partition info for too many tables
             # so we have to limit the number of tables we query partition info.
             # The conn.list_tables returns table infos that information_schema doesn't contain and this
             # way we can merge that info with the queried one.
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
-            for table in conn.list_tables(f"{project_id}.{dataset_name}"):
-                table_identifier = BigqueryTableIdentifier(
-                    project_id=project_id,
-                    dataset=dataset_name,
-                    table=table.table_id,
-                )
+            max_batch_size: int = (
+                self.config.number_of_datasets_process_in_batch
+                if not self.config.profiling.enabled
+                else self.config.number_of_datasets_process_in_batch_if_profiling_enabled
+            )
 
-                _, shard = BigqueryTableIdentifier.get_table_and_shard(
-                    table_identifier.raw_table_name()
-                )
-                table_name = table_identifier.get_table_name().split(".")[-1]
+            # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
+            # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
+            table_items = self.get_core_table_details(conn, dataset_name, project_id)
 
-                # Sharded tables look like: table_20220120
-                # For sharded tables we only process the latest shard and ignore the rest
-                # to find the latest shard we iterate over the list of tables and store the maximum shard id
-                # We only has one special case where the table name is a date `20220110`
-                # in this case we merge all these tables under dataset name as table name.
-                # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
-                # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
-                if shard:
-                    if not sharded_tables.get(table_name):
-                        # When table is only a shard we use dataset_name as table_name
-                        sharded_tables[table_name] = table
-                        continue
-
-                    stored_table_identifier = BigqueryTableIdentifier(
-                        project_id=project_id,
-                        dataset=dataset_name,
-                        table=sharded_tables[table_name].table_id,
-                    )
-                    _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
-                        stored_table_identifier.raw_table_name()
-                    )
-                    # When table is none, we use dataset_name as table_name
-                    assert stored_shard
-                    if stored_shard < shard:
-                        sharded_tables[table_name] = table
-                    continue
-                elif str(table_identifier).startswith(
-                    self.config.temp_table_dataset_prefix
-                ):
-                    logger.debug(f"Dropping temporary table {table_identifier.table}")
-                    self.report.report_dropped(table_identifier.raw_table_name())
-                    continue
-                else:
-                    if (
-                        table.time_partitioning
-                        or "range_partitioning" in table._properties
-                    ):
-                        partitioned_table_count_in_this_batch += 1
-
-                    table_items[table.table_id] = table
-
-                if (
-                    len(table_items) % self.config.number_of_datasets_process_in_batch
-                    == 0
-                ) or (
-                    partitioned_table_count_in_this_batch
-                    == self.config.number_of_partitioned_datasets_process_in_batch
-                ):
+            items_to_get: Dict[str, TableListItem] = {}
+            for table_item in table_items.keys():
+                items_to_get[table_item] = table_items[table_item]
+                if len(items_to_get) % max_batch_size == 0:
                     bigquery_tables.extend(
                         BigQueryDataDictionary.get_tables_for_dataset(
                             conn,
                             project_id,
                             dataset_name,
-                            table_items,
+                            items_to_get,
                             with_data_read_permission=self.config.profiling.enabled,
                         )
                     )
-                    partitioned_table_count_in_this_batch = 0
-                    table_items.clear()
+                    items_to_get.clear()
 
-            # Sharded tables don't have partition keys, so it is safe to add to the list as
-            # it should not affect the number of tables will be touched in the partitions system view.
-            # Because we have the batched query of get_tables_for_dataset to makes sure
-            # we won't hit too many tables queried with partitions system view.
-            # The key in the map is the actual underlying table name and not the friendly name and
-            # that's why we need to get the actual table names and not the normalized ones.
-            table_items.update(
-                {value.table_id: value for value in sharded_tables.values()}
-            )
-
-            if table_items:
+            if items_to_get:
                 bigquery_tables.extend(
                     BigQueryDataDictionary.get_tables_for_dataset(
                         conn,
                         project_id,
                         dataset_name,
-                        table_items,
+                        items_to_get,
                         with_data_read_permission=self.config.profiling.enabled,
                     )
                 )
@@ -1250,6 +1221,63 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         return bigquery_tables
+
+    def get_core_table_details(
+        self, conn: bigquery.Client, dataset_name: str, project_id: str
+    ) -> Dict[str, TableListItem]:
+        table_items: Dict[str, TableListItem] = {}
+        # Dict to store sharded table and the last seen max shard id
+        sharded_tables: Dict[str, TableListItem] = {}
+
+        for table in conn.list_tables(f"{project_id}.{dataset_name}"):
+            table_identifier = BigqueryTableIdentifier(
+                project_id=project_id,
+                dataset=dataset_name,
+                table=table.table_id,
+            )
+
+            _, shard = BigqueryTableIdentifier.get_table_and_shard(
+                table_identifier.raw_table_name()
+            )
+            table_name = table_identifier.get_table_name().split(".")[-1]
+
+            # Sharded tables look like: table_20220120
+            # For sharded tables we only process the latest shard and ignore the rest
+            # to find the latest shard we iterate over the list of tables and store the maximum shard id
+            # We only have one special case where the table name is a date `20220110`
+            # in this case we merge all these tables under dataset name as table name.
+            # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
+            # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
+            if shard:
+                if table_name not in sharded_tables:
+                    sharded_tables[table_name] = table
+                    continue
+
+                stored_table_identifier = BigqueryTableIdentifier(
+                    project_id=project_id,
+                    dataset=dataset_name,
+                    table=sharded_tables[table_name].table_id,
+                )
+                _, stored_shard = BigqueryTableIdentifier.get_table_and_shard(
+                    stored_table_identifier.raw_table_name()
+                )
+                # When table is none, we use dataset_name as table_name
+                assert stored_shard
+                if stored_shard < shard:
+                    sharded_tables[table_name] = table
+                continue
+            elif str(table_identifier).startswith(
+                self.config.temp_table_dataset_prefix
+            ):
+                logger.debug(f"Dropping temporary table {table_identifier.table}")
+                self.report.report_dropped(table_identifier.raw_table_name())
+                continue
+
+            table_items[table.table_id] = table
+        # Adding maximum shards to the list of tables
+        table_items.update({value.table_id: value for value in sharded_tables.values()})
+
+        return table_items
 
     def get_views_for_dataset(
         self,
