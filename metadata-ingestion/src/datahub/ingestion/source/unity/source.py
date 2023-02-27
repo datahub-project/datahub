@@ -172,7 +172,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from self.process_metastores()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
+        metastores: List[Metastore] = []
+        assigned_metastore = self.unity_catalog_api_proxy.assigned_metastore()
+        if assigned_metastore:
+            metastores.append(assigned_metastore)
         for metastore in self.unity_catalog_api_proxy.metastores():
+            if assigned_metastore and metastore.metastore_id != assigned_metastore.metastore_id:
+                metastores.append(metastore)
+
+        for metastore in metastores:
             if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):
                 self.report.metastores.dropped(metastore.metastore_id)
                 continue
