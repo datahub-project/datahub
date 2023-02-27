@@ -1244,13 +1244,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             # Sharded tables look like: table_20220120
             # For sharded tables we only process the latest shard and ignore the rest
             # to find the latest shard we iterate over the list of tables and store the maximum shard id
-            # We only has one special case where the table name is a date `20220110`
+            # We only have one special case where the table name is a date `20220110`
             # in this case we merge all these tables under dataset name as table name.
             # For example some_dataset.20220110 will be turned to some_dataset.some_dataset
             # It seems like there are some bigquery user who uses this non-standard way of sharding the tables.
             if shard:
-                if table_name in sharded_tables:
-                    # When table is only a shard we use dataset_name as table_name
+                if table_name not in sharded_tables:
                     sharded_tables[table_name] = table
                     continue
 
