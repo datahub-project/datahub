@@ -16,8 +16,9 @@ quickstart_version_mappings:
 
 stable_versions:
   force: false 
-  composefile_git_ref: v0.10.0
-  docker_tag: v0.10.0
+  # if not specified, the latest release version will be used
+  #composefile_git_ref: v0.10.0
+  #docker_tag: v0.10.0
 
 # needs to be extended only if there is a breaking change 
 # to extend:

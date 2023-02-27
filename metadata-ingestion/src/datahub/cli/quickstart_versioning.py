@@ -18,8 +18,8 @@ class QuickstartVersionMapping(BaseModel):
 
 class StableVersions(BaseModel):
     force: bool
-    composefile_git_ref: str
-    docker_tag: str
+    composefile_git_ref: Optional[str]
+    docker_tag: Optional[str]
 
 class QuickstartChecks(BaseModel):
     valid_until_git_ref: str
@@ -39,6 +39,16 @@ class QuickstartVersionMappingConfig(BaseModel):
     quickstart_checks: List[QuickstartChecks]
 
     @classmethod
+    def _fetch_latest_version(cls) -> str:
+        """
+        Fetches the latest version from github.
+        :return: The latest version.
+        """
+        response = requests.get("https://api.github.com/repos/datahub-project/datahub/releases/latest")
+        response.raise_for_status()
+        return json.loads(response.text)["tag_name"]
+
+    @classmethod
     def fetch_quickstart_config(cls):
         response = None
         config_raw = None
@@ -51,6 +61,11 @@ class QuickstartVersionMappingConfig(BaseModel):
             with open(path, "r") as f:
                 config_raw = yaml.safe_load(f)
         config = cls.parse_obj(config_raw)
+        stable_version = cls._fetch_latest_version()
+        if config.stable_versions.docker_tag is None:
+            config.stable_versions.docker_tag = stable_version
+        if config.stable_versions.composefile_git_ref is None:
+            config.stable_versions.composefile_git_ref = stable_version 
         save_quickstart_config(config)
         return config
 
