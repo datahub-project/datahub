@@ -396,6 +396,10 @@ class TableauSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
         self.server = None
+        self.upstream_tables = {}
+        self.tableau_stat_registry = {}
+        self.tableau_project_registry = {}
+        self.datasource_project_map = {}
 
         # This list keeps track of sheets in workbooks so that we retrieve those
         # when emitting sheets.
