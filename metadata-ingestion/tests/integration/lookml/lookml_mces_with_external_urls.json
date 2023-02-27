@@ -1420,7 +1420,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
