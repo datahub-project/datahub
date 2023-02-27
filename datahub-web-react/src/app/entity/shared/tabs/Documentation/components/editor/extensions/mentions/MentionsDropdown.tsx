@@ -105,7 +105,7 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
 
                 return (
                     <OptionItem active={highlight} key={entity.urn} onMouseDown={onMouseDown} role="option">
-                        <AutoCompleteItem query={filter || ''} entity={entity} />
+                        <AutoCompleteItem query={filter ?? ''} entity={entity} />
                     </OptionItem>
                 );
             })}
