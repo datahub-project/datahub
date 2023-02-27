@@ -20,6 +20,11 @@ record EntityLineageResult {
   total: int
 
   /**
+   * The number of results that were filtered out of the page (soft-deleted or non-existent)
+   */
+  filtered: optional int = 0
+
+  /**
    * Relationships in the result set
    */
   relationships: array[LineageRelationship]

@@ -4,6 +4,7 @@ import pydantic
 import pytest
 
 from datahub.configuration.common import ConfigModel, redact_raw_config
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
 
 def test_extras_not_allowed():
@@ -72,3 +73,12 @@ def test_config_redaction():
         },
         "options": "********",
     }
+
+
+def test_shared_defaults():
+    c1 = UnityCatalogSourceConfig(token="s", workspace_url="s")
+    c2 = UnityCatalogSourceConfig(token="s", workspace_url="s")
+
+    assert c2.catalog_pattern.allow == [".*"]
+    c1.catalog_pattern.allow += ["foo"]
+    assert c2.catalog_pattern.allow == [".*"]

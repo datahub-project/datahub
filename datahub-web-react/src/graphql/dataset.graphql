@@ -4,6 +4,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
         datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             rowCount
             columnCount
+            sizeInBytes
             timestampMillis
             fieldProfiles {
                 fieldPath
@@ -24,6 +25,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
+        exists
         ...nonSiblingDatasetFields
         siblings {
             isPrimary
@@ -74,48 +76,17 @@ fragment nonSiblingDatasetFields on Dataset {
     parentContainers {
         ...parentContainersFields
     }
-    usageStats(range: MONTH) {
+    usageStats(range: WEEK) {
         buckets {
-            bucket
-            duration
-            resource
             metrics {
-                uniqueUserCount
                 totalSqlQueries
-                topSqlQueries
-            }
-        }
-        aggregations {
-            uniqueUserCount
-            totalSqlQueries
-            users {
-                user {
-                    urn
-                    type
-                    username
-                    properties {
-                        displayName
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableProperties {
-                        displayName
-                        pictureLink
-                    }
-                }
-                count
-                userEmail
-            }
-            fields {
-                fieldName
-                count
             }
         }
     }
     datasetProfiles(limit: 1) {
         rowCount
         columnCount
+        sizeInBytes
         timestampMillis
         fieldProfiles {
             fieldPath
@@ -212,6 +183,54 @@ fragment nonSiblingDatasetFields on Dataset {
     privileges {
         canEditLineage
         canEditEmbed
+        canEditQueries
+    }
+}
+
+query getRecentQueries($urn: String!) {
+    dataset(urn: $urn) {
+        usageStats(range: MONTH) {
+            buckets {
+                bucket
+                metrics {
+                    topSqlQueries
+                }
+            }
+        }
+    }
+}
+
+query getLastMonthUsageAggregations($urn: String!) {
+    dataset(urn: $urn) {
+        usageStats(range: MONTH) {
+            aggregations {
+                uniqueUserCount
+                totalSqlQueries
+                users {
+                    user {
+                        urn
+                        type
+                        username
+                        properties {
+                            displayName
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableProperties {
+                            displayName
+                            pictureLink
+                        }
+                    }
+                    count
+                    userEmail
+                }
+                fields {
+                    fieldName
+                    count
+                }
+            }
+        }
     }
 }
 
@@ -230,7 +249,7 @@ fragment viewProperties on Dataset {
 }
 
 fragment assertionsQuery on Dataset {
-    assertions(start: 0, count: 100) {
+    assertions(start: 0, count: 1000) {
         start
         count
         total

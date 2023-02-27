@@ -12,11 +12,10 @@ from confluent_kafka.admin import (
     AdminClient,
     ConfigEntry,
     ConfigResource,
-    ResourceType,
     TopicMetadata,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mce_builder import (
@@ -30,11 +29,13 @@ from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -57,6 +58,10 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,19 +97,6 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
 
-    @pydantic.root_validator
-    def validate_platform_instance(cls: "KafkaSourceConfig", values: Dict) -> Dict:
-        stateful_ingestion = values.get("stateful_ingestion")
-        if (
-            stateful_ingestion
-            and stateful_ingestion.enabled
-            and not values.get("platform_instance")
-        ):
-            raise ConfigurationError(
-                "Enabling kafka stateful ingestion requires to specify a platform instance."
-            )
-        return values
-
 
 @dataclass
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
@@ -121,11 +113,19 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "For multiple Kafka clusters, use the platform_instance configuration",
+)
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported.",
+)
 class KafkaSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
     - Topics from the Kafka broker
-    - Schemas associated with each topic from the schema registry (only Avro schemas are currently supported)
+    - Schemas associated with each topic from the schema registry (Avro, Protobuf and JSON schemas are supported)
     """
 
     platform: str = "kafka"
@@ -186,8 +186,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 f"Failed to create Kafka Admin Client due to error {e}.",
             )
 
-    def get_platform_instance_id(self) -> str:
-        assert self.source_config.platform_instance is not None
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.source_config.platform_instance
 
     @classmethod
@@ -196,6 +195,12 @@ class KafkaSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics(
             timeout=self.source_config.connection.client_timeout_seconds
         ).topics
@@ -205,20 +210,8 @@ class KafkaSource(StatefulIngestionSourceBase):
             self.report.report_topic_scanned(t)
             if self.source_config.topic_patterns.allowed(t):
                 yield from self._extract_record(t, t_detail, extra_topic_details.get(t))
-                # add topic to checkpoint
-                topic_urn = make_dataset_urn_with_platform_instance(
-                    platform=self.platform,
-                    name=t,
-                    platform_instance=self.source_config.platform_instance,
-                    env=self.source_config.env,
-                )
-                self.stale_entity_removal_handler.add_entity_to_state(
-                    type="topic", urn=topic_urn
-                )
             else:
                 self.report.report_dropped(t)
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _extract_record(
         self,
@@ -250,14 +243,10 @@ class KafkaSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(schema_metadata)
 
         # 3. Attach browsePaths aspect
-        browse_path_suffix = (
-            f"{self.source_config.platform_instance}/{topic}"
-            if self.source_config.platform_instance
-            else topic
-        )
-        browse_path = BrowsePathsClass(
-            [f"/{self.source_config.env.lower()}/{self.platform}/{browse_path_suffix}"]
-        )
+        browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
+        if self.source_config.platform_instance:
+            browse_path_str += f"/{self.source_config.platform_instance}"
+        browse_path = BrowsePathsClass([browse_path_str])
         dataset_snapshot.aspects.append(browse_path)
 
         custom_props = self.build_custom_properties(
@@ -404,11 +393,10 @@ class KafkaSource(StatefulIngestionSourceBase):
 
     def fetch_topic_configurations(self, topics: List[str]) -> Dict[str, dict]:
         logger.info("Fetching config details for all topics")
-
         configs: Dict[
             ConfigResource, concurrent.futures.Future
         ] = self.admin_client.describe_configs(
-            resources=[ConfigResource(ResourceType.TOPIC, t) for t in topics],
+            resources=[ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics],
             request_timeout=self.source_config.connection.client_timeout_seconds,
         )
         logger.debug("Waiting for config details futures to complete")

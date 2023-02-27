@@ -10,7 +10,7 @@ import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
@@ -21,20 +21,20 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
     type: EntityType = EntityType.MlprimaryKey;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <DotChartOutlined style={{ fontSize }} />;
+            return <DotChartOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DotChartOutlined style={{ fontSize, color: '#9633b9' }} />;
+            return <DotChartOutlined style={{ fontSize, color: color || '#9633b9' }} />;
         }
 
         return (
             <DotChartOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );

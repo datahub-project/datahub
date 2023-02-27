@@ -4,14 +4,19 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.query.ListResult;
+import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 public class ValidationUtils {
@@ -36,6 +41,30 @@ public class ValidationUtils {
     validatedSearchResult.setEntities(validatedEntities);
 
     return validatedSearchResult;
+  }
+
+  public static ScrollResult validateScrollResult(final ScrollResult scrollResult,
+      @Nonnull final EntityService entityService) {
+    if (scrollResult == null) {
+      return null;
+    }
+    Objects.requireNonNull(entityService, "entityService must not be null");
+
+    ScrollResult validatedScrollResult = new ScrollResult()
+        .setMetadata(scrollResult.getMetadata())
+        .setPageSize(scrollResult.getPageSize())
+        .setNumEntities(scrollResult.getNumEntities());
+    if (scrollResult.getScrollId() != null) {
+      validatedScrollResult.setScrollId(scrollResult.getScrollId());
+    }
+
+    SearchEntityArray validatedEntities = scrollResult.getEntities()
+        .stream()
+        .filter(searchEntity -> entityService.exists(searchEntity.getEntity()))
+        .collect(Collectors.toCollection(SearchEntityArray::new));
+    validatedScrollResult.setEntities(validatedEntities);
+
+    return validatedScrollResult;
   }
 
   public static BrowseResult validateBrowseResult(final BrowseResult browseResult,
@@ -100,6 +129,55 @@ public class ValidationUtils {
     validatedLineageSearchResult.setEntities(validatedEntities);
 
     return validatedLineageSearchResult;
+  }
+
+  public static EntityLineageResult validateEntityLineageResult(@Nullable final EntityLineageResult entityLineageResult,
+      @Nonnull final EntityService entityService) {
+    if (entityLineageResult == null) {
+      return null;
+    }
+    Objects.requireNonNull(entityService, "entityService must not be null");
+
+    final EntityLineageResult validatedEntityLineageResult = new EntityLineageResult()
+        .setStart(entityLineageResult.getStart())
+        .setCount(entityLineageResult.getCount())
+        .setTotal(entityLineageResult.getTotal());
+
+    final LineageRelationshipArray validatedRelationships = entityLineageResult.getRelationships().stream()
+        .filter(relationship -> entityService.exists(relationship.getEntity()))
+        .filter(relationship -> !entityService.isSoftDeleted(relationship.getEntity()))
+        .collect(Collectors.toCollection(LineageRelationshipArray::new));
+
+    validatedEntityLineageResult.setFiltered(
+        entityLineageResult.getRelationships().size() - validatedRelationships.size());
+    validatedEntityLineageResult.setRelationships(validatedRelationships);
+
+    return validatedEntityLineageResult;
+  }
+
+  public static LineageScrollResult validateLineageScrollResult(final LineageScrollResult lineageScrollResult,
+      @Nonnull final EntityService entityService) {
+    if (lineageScrollResult == null) {
+      return null;
+    }
+    Objects.requireNonNull(entityService, "entityService must not be null");
+
+    LineageScrollResult validatedLineageScrollResult =
+        new LineageScrollResult()
+            .setMetadata(lineageScrollResult.getMetadata())
+            .setPageSize(lineageScrollResult.getPageSize())
+            .setNumEntities(lineageScrollResult.getNumEntities());
+    if (lineageScrollResult.getScrollId() != null) {
+      validatedLineageScrollResult.setScrollId(lineageScrollResult.getScrollId());
+    }
+
+    LineageSearchEntityArray validatedEntities = lineageScrollResult.getEntities()
+        .stream()
+        .filter(entity -> entityService.exists(entity.getEntity()))
+        .collect(Collectors.toCollection(LineageSearchEntityArray::new));
+    validatedLineageScrollResult.setEntities(validatedEntities);
+
+    return validatedLineageScrollResult;
   }
 
   private ValidationUtils() {

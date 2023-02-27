@@ -7,7 +7,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
 import { Direction, VizNode, EntitySelectParams, EntityAndType, UpdatedLineages } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { capitalizeFirstLetter } from '../shared/textUtil';
+import { capitalizeFirstLetterOnly } from '../shared/textUtil';
 import { getShortenedTitle, nodeHeightFromTitleLength } from './utils/titleUtils';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
@@ -109,12 +109,11 @@ export default function LineageEntityNode({
         [],
     );
 
-    let platformDisplayText = capitalizeFirstLetter(
-        node.data.platform?.properties?.displayName || node.data.platform?.name,
-    );
+    let platformDisplayText =
+        node.data.platform?.properties?.displayName || capitalizeFirstLetterOnly(node.data.platform?.name);
     if (node.data.siblingPlatforms && !isHideSiblingMode) {
         platformDisplayText = node.data.siblingPlatforms
-            .map((platform) => platform.properties?.displayName || platform.name)
+            .map((platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name))
             .join(' & ');
     }
 
@@ -323,9 +322,8 @@ export default function LineageEntityNode({
                             |{' '}
                         </tspan>
                         <tspan dx=".25em" dy="-2px">
-                            {capitalizeFirstLetter(
-                                node.data.subtype || (node.data.type && entityRegistry.getEntityName(node.data.type)),
-                            )}
+                            {capitalizeFirstLetterOnly(node.data.subtype) ||
+                                (node.data.type && entityRegistry.getEntityName(node.data.type))}
                         </tspan>
                     </UnselectableText>
                     {expandTitles ? (

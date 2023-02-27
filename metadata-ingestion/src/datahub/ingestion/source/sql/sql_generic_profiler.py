@@ -11,7 +11,8 @@ from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
 )
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig, SQLSourceReport
+from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
@@ -73,7 +74,7 @@ class GenericProfiler:
         for request in table_level_profile_requests:
             profile = DatasetProfile(
                 timestampMillis=int(datetime.now().timestamp() * 1000),
-                columnCount=len(request.table.columns),
+                columnCount=request.table.column_count,
                 rowCount=request.table.rows_count,
                 sizeInBytes=request.table.size_in_bytes,
             )

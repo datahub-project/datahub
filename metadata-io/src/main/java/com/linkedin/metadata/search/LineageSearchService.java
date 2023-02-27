@@ -37,7 +37,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.cache.Cache;
 
 
@@ -58,7 +57,6 @@ public class LineageSearchService {
           new FilterValue().setValue("2").setFacetCount(0), new FilterValue().setValue("3+").setFacetCount(0))));
   private static final int MAX_RELATIONSHIPS = 1000000;
   private static final int MAX_TERMS = 50000;
-  private static final SearchFlags SKIP_CACHE = new SearchFlags().setSkipCache(true);
   private static final long DAY_IN_MS = 24 * 60 * 60 * 1000;
 
   /**
@@ -79,16 +77,21 @@ public class LineageSearchService {
   @WithSpan
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
       @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis, @Nonnull SearchFlags searchFlags) {
     // Cache multihop result for faster performance
+    final EntityLineageResultCacheKey cacheKey = new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops);
     CachedEntityLineageResult cachedLineageResult = cacheEnabled
-        ? cache.get(Pair.of(sourceUrn, direction), CachedEntityLineageResult.class) : null;
+        ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;
     if (cachedLineageResult == null) {
       maxHops = maxHops != null ? maxHops : 1000;
-      lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
+      lineageResult =
+          _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops, startTimeMillis,
+              endTimeMillis);
       if (cacheEnabled) {
-        cache.put(Pair.of(sourceUrn, direction), new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+        cache.put(cacheKey,
+            new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
       }
     } else {
       lineageResult = cachedLineageResult.getEntityLineageResult();
@@ -106,7 +109,7 @@ public class LineageSearchService {
         filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
 
     return getSearchResultInBatches(lineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
-        from, size);
+        from, size, searchFlags);
   }
 
   // Necessary so we don't filter out schemaField entities and so that we search to get the parent reference entity
@@ -137,7 +140,8 @@ public class LineageSearchService {
 
   // Search service can only take up to 50K term filter, so query search service in batches
   private LineageSearchResult getSearchResultInBatches(List<LineageRelationship> lineageRelationships,
-      @Nonnull String input, @Nullable Filter inputFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
+      @Nonnull String input, @Nullable Filter inputFilters, @Nullable SortCriterion sortCriterion, int from, int size,
+      @Nonnull SearchFlags searchFlags) {
     LineageSearchResult finalResult =
         new LineageSearchResult().setEntities(new LineageSearchEntityArray(Collections.emptyList()))
             .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()))
@@ -156,7 +160,7 @@ public class LineageSearchService {
       Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
       LineageSearchResult resultForBatch = buildLineageSearchResult(
           _searchService.searchAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, queryFrom, querySize,
-              SKIP_CACHE), urnToRelationship);
+              searchFlags), urnToRelationship);
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = merge(finalResult, resultForBatch);
@@ -263,9 +267,9 @@ public class LineageSearchService {
       Map<Urn, LineageRelationship> urnToRelationship) {
     AggregationMetadataArray aggregations = new AggregationMetadataArray(searchResult.getMetadata().getAggregations());
     return new LineageSearchResult().setEntities(new LineageSearchEntityArray(searchResult.getEntities()
-        .stream()
-        .map(searchEntity -> buildLineageSearchEntity(searchEntity, urnToRelationship.get(searchEntity.getEntity())))
-        .collect(Collectors.toList())))
+            .stream()
+            .map(searchEntity -> buildLineageSearchEntity(searchEntity, urnToRelationship.get(searchEntity.getEntity())))
+            .collect(Collectors.toList())))
         .setMetadata(new SearchResultMetadata().setAggregations(aggregations))
         .setFrom(searchResult.getFrom())
         .setPageSize(searchResult.getPageSize())
@@ -280,5 +284,128 @@ public class LineageSearchService {
       entity.setDegree(lineageRelationship.getDegree());
     }
     return entity;
+  }
+
+  /**
+   * Gets a list of documents that match given search request that is related to the input entity
+   *
+   * @param sourceUrn Urn of the source entity
+   * @param direction Direction of the relationship
+   * @param entities list of entities to search (If empty, searches across all entities)
+   * @param input the search input text
+   * @param maxHops the maximum number of hops away to search for. If null, defaults to 1000
+   * @param inputFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param scrollId opaque scroll identifier to pass to search service
+   * @param size the number of search hits to return
+   * @return a {@link LineageSearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  @WithSpan
+  public LineageScrollResult scrollAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+      @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis, @Nonnull SearchFlags searchFlags) {
+    // Cache multihop result for faster performance
+    final EntityLineageResultCacheKey cacheKey =
+        new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops);
+    CachedEntityLineageResult cachedLineageResult = cacheEnabled
+        ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
+    EntityLineageResult lineageResult;
+    if (cachedLineageResult == null) {
+      maxHops = maxHops != null ? maxHops : 1000;
+      lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops,
+          startTimeMillis, endTimeMillis);
+      if (cacheEnabled) {
+        cache.put(cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+      }
+    } else {
+      lineageResult = cachedLineageResult.getEntityLineageResult();
+      if (System.currentTimeMillis() - cachedLineageResult.getTimestamp() > DAY_IN_MS) {
+        log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
+      }
+    }
+
+    // set schemaField relationship entity to be its reference urn
+    LineageRelationshipArray updatedRelationships = convertSchemaFieldRelationships(lineageResult);
+    lineageResult.setRelationships(updatedRelationships);
+
+    // Filter hopped result based on the set of entities to return and inputFilters before sending to search
+    List<LineageRelationship> lineageRelationships =
+        filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
+
+    return getScrollResultInBatches(lineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
+        scrollId, keepAlive, size, searchFlags);
+  }
+
+  // Search service can only take up to 50K term filter, so query search service in batches
+  private LineageScrollResult getScrollResultInBatches(List<LineageRelationship> lineageRelationships,
+      @Nonnull String input, @Nullable Filter inputFilters, @Nullable SortCriterion sortCriterion, @Nullable String scrollId,
+      @Nonnull String keepAlive, int size, @Nonnull SearchFlags searchFlags) {
+    LineageScrollResult finalResult =
+        new LineageScrollResult().setEntities(new LineageSearchEntityArray(Collections.emptyList()))
+            .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()))
+            .setPageSize(size)
+            .setNumEntities(0);
+    List<List<LineageRelationship>> batchedRelationships = Lists.partition(lineageRelationships, MAX_TERMS);
+    int querySize = size;
+    for (List<LineageRelationship> batch : batchedRelationships) {
+      List<String> entitiesToQuery = batch.stream()
+          .map(relationship -> relationship.getEntity().getEntityType())
+          .distinct()
+          .collect(Collectors.toList());
+      Map<Urn, LineageRelationship> urnToRelationship = generateUrnToRelationshipMap(batch);
+      Filter finalFilter = buildFilter(urnToRelationship.keySet(), inputFilters);
+
+      LineageScrollResult resultForBatch = buildLineageScrollResult(
+          _searchService.scrollAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, scrollId, keepAlive, querySize,
+              searchFlags), urnToRelationship);
+      querySize = Math.max(0, size - resultForBatch.getEntities().size());
+      finalResult = mergeScrollResult(finalResult, resultForBatch);
+    }
+
+    finalResult.getMetadata().getAggregations().add(0, DEGREE_FILTER_GROUP);
+    return finalResult.setPageSize(size);
+  }
+
+  private LineageScrollResult buildLineageScrollResult(@Nonnull ScrollResult scrollResult,
+      Map<Urn, LineageRelationship> urnToRelationship) {
+    AggregationMetadataArray aggregations = new AggregationMetadataArray(scrollResult.getMetadata().getAggregations());
+    LineageScrollResult lineageScrollResult = new LineageScrollResult().setEntities(new LineageSearchEntityArray(scrollResult.getEntities()
+            .stream()
+            .map(searchEntity -> buildLineageSearchEntity(searchEntity, urnToRelationship.get(searchEntity.getEntity())))
+            .collect(Collectors.toList())))
+        .setMetadata(new SearchResultMetadata().setAggregations(aggregations))
+        .setPageSize(scrollResult.getPageSize())
+        .setNumEntities(scrollResult.getNumEntities());
+
+    if (scrollResult.getScrollId() != null) {
+      lineageScrollResult.setScrollId(scrollResult.getScrollId());
+    }
+    return lineageScrollResult;
+  }
+
+  @SneakyThrows
+  public static LineageScrollResult mergeScrollResult(LineageScrollResult one, LineageScrollResult two) {
+    LineageScrollResult finalResult = one.clone();
+    finalResult.getEntities().addAll(two.getEntities());
+    finalResult.setNumEntities(one.getNumEntities() + two.getNumEntities());
+
+    Map<String, AggregationMetadata> aggregations = one.getMetadata()
+        .getAggregations()
+        .stream()
+        .collect(Collectors.toMap(AggregationMetadata::getName, Function.identity()));
+    two.getMetadata().getAggregations().forEach(metadata -> {
+      if (aggregations.containsKey(metadata.getName())) {
+        aggregations.put(metadata.getName(), SearchUtils.merge(aggregations.get(metadata.getName()), metadata));
+      } else {
+        aggregations.put(metadata.getName(), metadata);
+      }
+    });
+    finalResult.getMetadata().setAggregations(new AggregationMetadataArray(FilterUtils.rankFilterGroups(aggregations)));
+    if (two.getScrollId() != null) {
+      finalResult.setScrollId(two.getScrollId());
+    }
+    return finalResult;
   }
 }

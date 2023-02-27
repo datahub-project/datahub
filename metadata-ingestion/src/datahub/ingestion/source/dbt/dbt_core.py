@@ -9,7 +9,8 @@ import dateutil.parser
 import requests
 from pydantic import BaseModel, Field, validator
 
-from datahub.configuration.github import GitHubReference
+from datahub.configuration.git import GitReference
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -53,10 +54,12 @@ class DBTCoreConfig(DBTCommonConfig):
         description="When fetching manifest files from s3, configuration for aws connection details",
     )
 
-    github_info: Optional[GitHubReference] = Field(
+    git_info: Optional[GitReference] = Field(
         None,
-        description="Reference to your github location to enable easy navigation from DataHub to your dbt files.",
+        description="Reference to your git location to enable easy navigation from DataHub to your dbt files.",
     )
+
+    _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
     @property
     def s3_client(self):
@@ -94,8 +97,12 @@ def get_columns(
     catalog_columns = catalog_node["columns"]
     manifest_columns = manifest_node.get("columns", {})
 
+    manifest_columns_lower = {k.lower(): v for k, v in manifest_columns.items()}
+
     for key, catalog_column in catalog_columns.items():
-        manifest_column = manifest_columns.get(key.lower(), {})
+        manifest_column = manifest_columns.get(
+            key, manifest_columns_lower.get(key.lower(), {})
+        )
 
         meta = manifest_column.get("meta", {})
 
@@ -103,7 +110,7 @@ def get_columns(
         tags = [tag_prefix + tag for tag in tags]
 
         dbtCol = DBTColumn(
-            name=catalog_column["name"].lower(),
+            name=catalog_column["name"],
             comment=catalog_column.get("comment", ""),
             description=manifest_column.get("description", ""),
             data_type=catalog_column["type"],
@@ -130,7 +137,7 @@ def extract_dbt_entities(
     for key, manifest_node in all_manifest_entities.items():
         name = manifest_node["name"]
 
-        if "identifier" in manifest_node and use_identifiers:
+        if use_identifiers and manifest_node.get("identifier"):
             name = manifest_node["identifier"]
 
         if (
@@ -389,11 +396,6 @@ class DBTCoreSource(DBTSourceBase):
 
     def loadManifestAndCatalog(
         self,
-        manifest_path: str,
-        catalog_path: str,
-        sources_path: Optional[str],
-        use_identifiers: bool,
-        tag_prefix: str,
     ) -> Tuple[
         List[DBTNode],
         Optional[str],
@@ -402,12 +404,12 @@ class DBTCoreSource(DBTSourceBase):
         Optional[str],
         Optional[str],
     ]:
-        dbt_manifest_json = self.load_file_as_json(manifest_path)
+        dbt_manifest_json = self.load_file_as_json(self.config.manifest_path)
 
-        dbt_catalog_json = self.load_file_as_json(catalog_path)
+        dbt_catalog_json = self.load_file_as_json(self.config.catalog_path)
 
-        if sources_path is not None:
-            dbt_sources_json = self.load_file_as_json(sources_path)
+        if self.config.sources_path is not None:
+            dbt_sources_json = self.load_file_as_json(self.config.sources_path)
             sources_results = dbt_sources_json["results"]
         else:
             sources_results = {}
@@ -434,8 +436,8 @@ class DBTCoreSource(DBTSourceBase):
             all_catalog_entities,
             sources_results,
             manifest_adapter,
-            use_identifiers,
-            tag_prefix,
+            self.config.use_identifiers,
+            self.config.tag_prefix,
             self.report,
         )
 
@@ -456,13 +458,8 @@ class DBTCoreSource(DBTSourceBase):
             manifest_adapter,
             catalog_schema,
             catalog_version,
-        ) = self.loadManifestAndCatalog(
-            self.config.manifest_path,
-            self.config.catalog_path,
-            self.config.sources_path,
-            self.config.use_identifiers,
-            self.config.tag_prefix,
-        )
+        ) = self.loadManifestAndCatalog()
+
         additional_custom_props = {
             "manifest_schema": manifest_schema,
             "manifest_version": manifest_version,
@@ -482,11 +479,11 @@ class DBTCoreSource(DBTSourceBase):
         return all_nodes, additional_custom_props
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
-        if self.config.github_info and node.dbt_file_path:
-            return self.config.github_info.get_url_for_file_path(node.dbt_file_path)
+        if self.config.git_info and node.dbt_file_path:
+            return self.config.git_info.get_url_for_file_path(node.dbt_file_path)
         return None
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         """The DBT project identifier is used as platform instance."""
 
         project_id = (

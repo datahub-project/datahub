@@ -23,10 +23,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
     SQLAlchemySource,
-    make_sqlalchemy_uri,
     register_custom_type,
+)
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    make_sqlalchemy_uri,
 )
 from datahub.metadata.schema_classes import BooleanTypeClass, UnionTypeClass
 
@@ -39,7 +41,7 @@ register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
-    scheme: str = Field(default="mssql+pytds", description="", hidden_from_schema=True)
+    scheme: str = Field(default="mssql+pytds", description="", hidden_from_docs=True)
     use_odbc: bool = Field(
         default=False,
         description="See https://docs.sqlalchemy.org/en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc.",

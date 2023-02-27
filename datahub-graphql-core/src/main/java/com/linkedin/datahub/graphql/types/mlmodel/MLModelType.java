@@ -96,7 +96,8 @@ public class MLModelType implements SearchableEntityType<MLModel, String>, Brows
                                 int count,
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
-        final SearchResult searchResult = _entityClient.search("mlModel", query, facetFilters, start, count, context.getAuthentication());
+        final SearchResult searchResult = _entityClient.search("mlModel", query, facetFilters, start, count,
+                context.getAuthentication(), true, null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

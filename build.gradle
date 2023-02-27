@@ -9,7 +9,8 @@ buildscript {
   ext.neo4jVersion = '4.4.9'
   ext.graphQLJavaVersion = '19.0'
   ext.testContainersVersion = '1.17.4'
-  ext.jacksonVersion = '2.13.4'
+  ext.elasticsearchVersion = '7.10.2'
+  ext.jacksonVersion = '2.13.5'
   ext.jettyVersion = '9.4.46.v20220331'
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
@@ -85,8 +86,8 @@ project.ext.externalDependency = [
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
     'ebean': 'io.ebean:ebean:11.33.3',
     'ebeanAgent': 'io.ebean:ebean-agent:11.27.1',
-    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.9.3',
-    'elasticSearchTransport': 'org.elasticsearch.client:transport:7.9.3',
+    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:' + elasticsearchVersion,
+    'elasticSearchTransport': 'org.elasticsearch.client:transport:' + elasticsearchVersion,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:' + graphQLJavaVersion,
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:' + graphQLJavaVersion,
@@ -94,10 +95,13 @@ project.ext.externalDependency = [
     'guice': 'com.google.inject:guice:4.2.3',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:2.1.214',
-    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.1',
+    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.4',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     'hadoopCommon3':'org.apache.hadoop:hadoop-common:3.3.4',
+    'hazelcast':'com.hazelcast:hazelcast:5.2.1',
+    'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
+    'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
@@ -105,7 +109,7 @@ project.ext.externalDependency = [
     'jacksonJDK8': "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion",
     'jacksonDataPropertyFormat': "com.fasterxml.jackson.dataformat:jackson-dataformat-properties:$jacksonVersion",
     'jacksonCore': "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
-    'jacksonDataBind': "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion.2",
+    'jacksonDataBind': "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
     'jacksonDataFormatYaml': "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion",
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
@@ -153,7 +157,6 @@ project.ext.externalDependency = [
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_2.12:$playVersion",
-    'playEhcache': "com.typesafe.play:play-ehcache_2.12:$playVersion",
     'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.1.10',
     'playDocs': "com.typesafe.play:play-docs_2.12:$playVersion",
     'playGuice': "com.typesafe.play:play-guice_2.12:$playVersion",
@@ -242,11 +245,11 @@ subprojects {
     dependencies {
       testCompile externalDependency.testng
       constraints {
-        implementation('io.netty:netty-all:4.1.85.Final')
+        implementation('io.netty:netty-all:4.1.86.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
-        implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion.2")
+        implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
       }
     }

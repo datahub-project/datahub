@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import dataclasses
 import datetime
+import itertools
 import logging
 import re
 from dataclasses import dataclass, field as dataclasses_field
@@ -30,6 +31,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -82,6 +84,7 @@ from datahub.metadata.schema_classes import (
     TagSnapshotClass,
 )
 from datahub.utilities.lossy_collections import LossyList, LossySet
+from datahub.utilities.url_util import remove_port_from_url
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.looker.lookml_source import (
@@ -163,12 +166,10 @@ class LookerCommonConfig(DatasetSourceConfigBase):
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="{model}.explore.{name}"),
     )
-
     explore_browse_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
     )
-
     view_naming_pattern: LookerNamingPattern = Field(
         LookerNamingPattern(pattern="{project}.view.{name}"),
         description=f"Pattern for providing dataset names to views. {LookerNamingPattern.allowed_docstring()}",
@@ -177,7 +178,6 @@ class LookerCommonConfig(DatasetSourceConfigBase):
         LookerNamingPattern(pattern="/{env}/{platform}/{project}/views"),
         description=f"Pattern for providing browse paths to views. {LookerNamingPattern.allowed_docstring()}",
     )
-
     tag_measures_and_dimensions: bool = Field(
         True,
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more discoverable. When disabled, adds this information to the description of the column.",
@@ -537,11 +537,17 @@ class LookerExplore:
         resolved_includes: List[ProjectInclude],
         looker_viewfile_loader: "LookerViewFileLoader",
         reporter: "LookMLSourceReport",
+        model_explores_map: Dict[str, dict],
     ) -> "LookerExplore":
-        view_names = set()
+
+        view_names: Set[str] = set()
         joins = None
-        # always add the explore's name or the name from the from clause as the view on which this explore is built
-        view_names.add(dict.get("from", dict.get("name")))
+        assert "name" in dict, "Explore doesn't have a name field, this isn't allowed"
+        # The view name that the explore refers to is resolved in the following order of priority:
+        # 1. view_name: https://cloud.google.com/looker/docs/reference/param-explore-view-name
+        # 2. from: https://cloud.google.com/looker/docs/reference/param-explore-from
+        # 3. default to the name of the explore
+        view_names.add(dict.get("view_name") or dict.get("from") or dict["name"])
 
         if dict.get("joins", {}) != {}:
             # additionally for join-based explores, pull in the linked views
@@ -560,23 +566,47 @@ class LookerExplore:
             _find_view_from_resolved_includes,
         )
 
-        upstream_views = []
-        for view_name in view_names:
-            info = _find_view_from_resolved_includes(
-                None,
-                resolved_includes,
-                looker_viewfile_loader,
-                view_name,
-                reporter,
+        upstream_views: List[ProjectInclude] = []
+        # create the list of extended explores
+        extends = list(
+            itertools.chain.from_iterable(
+                dict.get("extends", dict.get("extends__all", []))
             )
-            if not info:
-                logger.warning(
-                    f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+        )
+        if extends:
+            for extended_explore in extends:
+                if extended_explore in model_explores_map:
+                    parsed_explore = LookerExplore.from_dict(
+                        model_name,
+                        model_explores_map[extended_explore],
+                        resolved_includes,
+                        looker_viewfile_loader,
+                        reporter,
+                        model_explores_map,
+                    )
+                    upstream_views.extend(parsed_explore.upstream_views or [])
+                else:
+                    logger.warning(
+                        f'Could not find extended explore {extended_explore} for explore {dict["name"]} in model {model_name}'
+                    )
+        else:
+            # we only fallback to the view_names list if this is not an extended explore
+            for view_name in view_names:
+                info = _find_view_from_resolved_includes(
+                    None,
+                    resolved_includes,
+                    looker_viewfile_loader,
+                    view_name,
+                    reporter,
                 )
-            else:
-                upstream_views.append(
-                    ProjectInclude(project=info[0].project, include=view_name)
-                )
+                if not info:
+                    logger.warning(
+                        f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+                    )
+                else:
+                    upstream_views.append(
+                        ProjectInclude(project=info[0].project, include=view_name)
+                    )
 
         return LookerExplore(
             model_name=model_name,
@@ -756,14 +786,19 @@ class LookerExplore:
         return browse_path
 
     def _get_url(self, base_url):
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = remove_port_from_url(base_url)
         return f"{base_url}/explore/{self.model_name}/{self.name}"
 
+    def _get_embed_url(self, base_url: str) -> str:
+        base_url = remove_port_from_url(base_url)
+        return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
+
     def _to_metadata_events(  # noqa: C901
-        self, config: LookerCommonConfig, reporter: SourceReport, base_url: str
+        self,
+        config: LookerCommonConfig,
+        reporter: SourceReport,
+        base_url: str,
+        extract_embed_urls: bool,
     ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
         # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
         # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
@@ -862,7 +897,19 @@ class LookerExplore:
             aspect=SubTypesClass(typeNames=["explore"]),
         )
 
-        return [mce, mcp]
+        proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
+            mce,
+            mcp,
+        ]
+
+        # If extracting embeds is enabled, produce an MCP for embed URL.
+        if extract_embed_urls:
+            embed_mcp = create_embed_mcp(
+                dataset_snapshot.urn, self._get_embed_url(base_url)
+            )
+            proposals.append(embed_mcp)
+
+        return proposals
 
 
 class LookerExploreRegistry:
@@ -1048,14 +1095,20 @@ class LookerDashboardElement:
 
     def url(self, base_url: str) -> str:
         # A dashboard element can use a look or just a raw query against an explore
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = remove_port_from_url(base_url)
         if self.look_id is not None:
             return f"{base_url}/looks/{self.look_id}"
         else:
             return f"{base_url}/x/{self.query_slug}"
+
+    def embed_url(self, base_url: str) -> Optional[str]:
+        # A dashboard element can use a look or just a raw query against an explore
+        base_url = remove_port_from_url(base_url)
+        if self.look_id is not None:
+            return f"{base_url}/embed/looks/{self.look_id}"
+        else:
+            # No embeddable URL
+            return None
 
     def get_urn_element_id(self):
         # A dashboard element can use a look or just a raw query against an explore
@@ -1095,11 +1148,12 @@ class LookerDashboard:
     last_viewed_at: Optional[datetime.datetime] = None
 
     def url(self, base_url):
-        # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
-        m = re.match("^(.*):([0-9]+)$", base_url)
-        if m is not None:
-            base_url = m[1]
+        base_url = remove_port_from_url(base_url)
         return f"{base_url}/dashboards/{self.id}"
+
+    def embed_url(self, base_url: str) -> str:
+        base_url = remove_port_from_url(base_url)
+        return f"{base_url}/embed/dashboards/{self.id}"
 
     def get_urn_dashboard_id(self):
         return get_urn_looker_dashboard_id(self.id)

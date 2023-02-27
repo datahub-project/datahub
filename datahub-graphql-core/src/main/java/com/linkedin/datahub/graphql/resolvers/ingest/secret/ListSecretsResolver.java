@@ -65,13 +65,15 @@ public class ListSecretsResolver implements DataFetcher<CompletableFuture<ListSe
         try {
           // First, get all secrets
           final SearchResult gmsResult = _entityClient.search(
-              Constants.SECRETS_ENTITY_NAME,
-              query,
-              null,
-              new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
-              start,
-              count,
-              context.getAuthentication());
+                  Constants.SECRETS_ENTITY_NAME,
+                  query,
+                  null,
+                  new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING),
+                  start,
+                  count,
+                  context.getAuthentication(),
+                  true,
+              null);
 
           // Then, resolve all secrets
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(

@@ -641,7 +641,16 @@
           } ]
         }
       },
-      "doc" : "Tags associated with a given entity"
+      "doc" : "Tags associated with a given entity",
+      "Searchable" : {
+        "/*/tag" : {
+          "addToFilters" : true,
+          "boostScore" : 0.5,
+          "fieldName" : "tags",
+          "fieldType" : "URN",
+          "queryByDefault" : true
+        }
+      }
     } ],
     "Aspect" : {
       "name" : "globalTags"
@@ -786,19 +795,19 @@
     "symbols" : [ "USELESS", "NOMINAL", "ORDINAL", "BINARY", "COUNT", "TIME", "INTERVAL", "IMAGE", "VIDEO", "AUDIO", "TEXT", "MAP", "SEQUENCE", "SET", "CONTINUOUS", "BYTE", "UNKNOWN" ],
     "symbolDocs" : {
       "AUDIO" : "Audio Data",
-      "BINARY" : "Binary data is discrete data that can be in only one of two categories — either yes or no, 1 or 0, off or on, etc",
+      "BINARY" : "Binary data is discrete data that can be in only one of two categories - either yes or no, 1 or 0, off or on, etc",
       "BYTE" : "Bytes data are binary-encoded values that can represent complex objects.",
       "CONTINUOUS" : "Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.",
-      "COUNT" : "Count data is discrete whole number data — no negative numbers here.\nCount data often has many small values, such as zero and one.",
+      "COUNT" : "Count data is discrete whole number data - no negative numbers here.\nCount data often has many small values, such as zero and one.",
       "IMAGE" : "Image Data",
       "INTERVAL" : "Interval data has equal spaces between the numbers and does not represent a temporal pattern.\nExamples include percentages, temperatures, and income.",
       "MAP" : "Mapping Data Type ex: dict, map",
-      "NOMINAL" : "Nominal data is made of discrete values with no numerical relationship between the different categories — mean and median are meaningless.\nAnimal species is one example. For example, pig is not higher than bird and lower than fish.",
+      "NOMINAL" : "Nominal data is made of discrete values with no numerical relationship between the different categories - mean and median are meaningless.\nAnimal species is one example. For example, pig is not higher than bird and lower than fish.",
       "ORDINAL" : "Ordinal data are discrete integers that can be ranked or sorted.\nFor example, the distance between first and second may not be the same as the distance between second and third.",
       "SEQUENCE" : "Sequence Data Type ex: list, tuple, range",
       "SET" : "Set Data Type ex: set, frozenset",
       "TEXT" : "Text Data",
-      "TIME" : "Time data is a cyclical, repeating continuous form of data.\nThe relevant time features can be any period— daily, weekly, monthly, annual, etc.",
+      "TIME" : "Time data is a cyclical, repeating continuous form of data.\nThe relevant time features can be any period- daily, weekly, monthly, annual, etc.",
       "UNKNOWN" : "Unknown data are data that we don't know the type for.",
       "USELESS" : "Useless data is unique, discrete data with no potential relationship with the outcome variable.\nA useless feature has high cardinality. An example would be bank account numbers that were generated randomly.",
       "VIDEO" : "Video Data"
@@ -1615,7 +1624,8 @@
       "name" : "uri",
       "type" : "com.linkedin.common.Uri",
       "doc" : "The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
-      "optional" : true
+      "optional" : true,
+      "deprecated" : "Use ExternalReference.externalUrl field instead."
     }, {
       "name" : "created",
       "type" : "com.linkedin.common.TimeStamp",
@@ -1874,7 +1884,9 @@
       "doc" : "The name of the group.",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT_PARTIAL"
+        "boostScore" : 10.0,
+        "fieldType" : "TEXT_PARTIAL",
+        "queryByDefault" : true
       }
     }, {
       "name" : "email",
@@ -2033,6 +2045,7 @@
     "name" : "CorpUserInfo",
     "namespace" : "com.linkedin.identity",
     "doc" : "Linkedin corp user information",
+    "include" : [ "com.linkedin.common.CustomProperties" ],
     "fields" : [ {
       "name" : "active",
       "type" : "boolean",
@@ -2047,7 +2060,12 @@
       "name" : "displayName",
       "type" : "string",
       "doc" : "displayName of this user ,  e.g.  Hang Zhang(DataHQ)",
-      "optional" : true
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "fieldType" : "TEXT_PARTIAL",
+        "queryByDefault" : true
+      }
     }, {
       "name" : "email",
       "type" : "com.linkedin.common.EmailAddress",
@@ -2921,7 +2939,11 @@
         "name" : "description",
         "type" : "string",
         "doc" : "Documentation of the MLFeature",
-        "optional" : true
+        "optional" : true,
+        "Searchable" : {
+          "fieldType" : "TEXT",
+          "hasValuesFieldName" : "hasDescription"
+        }
       }, {
         "name" : "dataType",
         "type" : "com.linkedin.common.MLFeatureDataType",
@@ -3052,7 +3074,7 @@
           "type" : "array",
           "items" : "string"
         },
-        "doc" : " Is the MLModel intended to inform decisions about matters central to human life or flourishing – e.g., health or safety? Or could it be used in such a way?",
+        "doc" : " Is the MLModel intended to inform decisions about matters central to human life or flourishing - e.g., health or safety? Or could it be used in such a way?",
         "optional" : true
       }, {
         "name" : "mitigations",
@@ -3209,7 +3231,7 @@
                 "type" : "array",
                 "items" : "string"
               },
-              "doc" : "The performance of a MLModel can vary depending on what instruments were used to capture the input to the MLModel.\nFor example, a face detection model may perform differently depending on the camera’s hardware and software,\nincluding lens, image stabilization, high dynamic range techniques, and background blurring for portrait mode.",
+              "doc" : "The performance of a MLModel can vary depending on what instruments were used to capture the input to the MLModel.\nFor example, a face detection model may perform differently depending on the camera's hardware and software,\nincluding lens, image stabilization, high dynamic range techniques, and background blurring for portrait mode.",
               "optional" : true
             }, {
               "name" : "environment",
@@ -3423,6 +3445,8 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "dataJob" ],
+            "isLineage" : true,
+            "isUpstream" : false,
             "name" : "UsedBy"
           }
         }

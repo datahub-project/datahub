@@ -56,6 +56,11 @@ export enum EventType {
     SetUserDefaultViewEvent,
     ManuallyCreateLineageEvent,
     ManuallyDeleteLineageEvent,
+    LineageGraphTimeRangeSelectionEvent,
+    LineageTabTimeRangeSelectionEvent,
+    CreateQueryEvent,
+    UpdateQueryEvent,
+    DeleteQueryEvent,
 }
 
 /**
@@ -441,6 +446,30 @@ export interface SetGlobalDefaultViewEvent extends BaseEvent {
     urn: string | null;
 }
 
+export interface LineageGraphTimeRangeSelectionEvent extends BaseEvent {
+    type: EventType.LineageGraphTimeRangeSelectionEvent;
+    relativeStartDate: string;
+    relativeEndDate: string;
+}
+
+export interface LineageTabTimeRangeSelectionEvent extends BaseEvent {
+    type: EventType.LineageTabTimeRangeSelectionEvent;
+    relativeStartDate: string;
+    relativeEndDate: string;
+}
+
+export interface CreateQueryEvent extends BaseEvent {
+    type: EventType.CreateQueryEvent;
+}
+
+export interface UpdateQueryEvent extends BaseEvent {
+    type: EventType.UpdateQueryEvent;
+}
+
+export interface DeleteQueryEvent extends BaseEvent {
+    type: EventType.DeleteQueryEvent;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -495,4 +524,9 @@ export type Event =
     | SetUserDefaultViewEvent
     | SetGlobalDefaultViewEvent
     | ManuallyCreateLineageEvent
-    | ManuallyDeleteLineageEvent;
+    | ManuallyDeleteLineageEvent
+    | LineageGraphTimeRangeSelectionEvent
+    | LineageTabTimeRangeSelectionEvent
+    | CreateQueryEvent
+    | UpdateQueryEvent
+    | DeleteQueryEvent;

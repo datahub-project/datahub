@@ -7,7 +7,7 @@ import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../graphql/dataFlow.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
@@ -15,6 +15,7 @@ import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -22,20 +23,20 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 export class DataFlowEntity implements Entity<DataFlow> {
     type: EntityType = EntityType.DataFlow;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <ShareAltOutlined style={{ fontSize }} />;
+            return <ShareAltOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ShareAltOutlined style={{ fontSize, color: '#d6246c' }} />;
+            return <ShareAltOutlined style={{ fontSize, color: color || '#d6246c' }} />;
         }
 
         return (
             <ShareAltOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -117,7 +118,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 urn={data.urn}
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformName={
+                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                }
                 platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
@@ -135,7 +138,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 name={data.properties?.name || ''}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description || ''}
-                platformName={data.platform.properties?.displayName || data.platform.name}
+                platformName={
+                    data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
+                }
                 platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}

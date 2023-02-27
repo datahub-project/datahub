@@ -41,7 +41,6 @@ framework_common = {
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
-    "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
     "termcolor>=1.0.0",
@@ -55,11 +54,11 @@ framework_common = {
     "ijson",
     "click-spinner",
     "requests_file",
+    "jsonref",
+    "jsonschema",
 }
 
-rest_common = {
-    "requests",
-}
+rest_common = {"requests", "requests_file"}
 
 kafka_common = {
     # The confluent_kafka package provides a number of pre-built wheels for
@@ -122,6 +121,8 @@ sql_common = {
     "greenlet",
 }
 
+sqllineage_lib = "sqllineage==1.3.6"
+
 aws_common = {
     # AWS Python SDK
     "boto3",
@@ -143,14 +144,14 @@ looker_common = {
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.0b5",
     "sql-metadata==2.2.2",
-    "sqllineage==1.3.6",
+    sqllineage_lib,
     "GitPython>2",
 }
 
 bigquery_common = {
     "google-api-python-client",
     # Google cloud logging library
-    "google-cloud-logging<3.1.2",
+    "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
 }
@@ -165,7 +166,7 @@ redshift_common = {
     "sqlalchemy-redshift",
     "psycopg2-binary",
     "GeoAlchemy2",
-    "sqllineage==1.3.6",
+    sqllineage_lib,
     *path_spec_common,
 }
 
@@ -180,7 +181,8 @@ snowflake_common = {
     # because it may break Airflow users that need SQLAlchemy 1.3.x.
     "SQLAlchemy<1.4.42",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    "snowflake-connector-python!=2.8.2",
+    # Cannot upgrade to 3.0.0 because of dependency on pyarrow>=10.0.1, conflicts with feast
+    "snowflake-connector-python!=2.8.2, <3.0.0",
     "pandas",
     "cryptography",
     "msal",
@@ -240,6 +242,11 @@ plugins: Dict[str, Set[str]] = {
     # Sink plugins.
     "datahub-kafka": kafka_common,
     "datahub-rest": rest_common,
+    "datahub-lite": {
+        "duckdb",
+        "fastapi",
+        "uvicorn",
+    },
     # Integrations.
     "airflow": {
         "apache-airflow >= 2.0.2",
@@ -250,18 +257,23 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.6"},
+    "great-expectations": sql_common | {sqllineage_lib},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {"sqllineage==1.3.6", "sql_metadata", "sqlalchemy-bigquery>=1.4.1"},
+    | {
+        sqllineage_lib,
+        "sql_metadata",
+        "sqlalchemy-bigquery>=1.4.1",
+        "google-cloud-datacatalog-lineage==0.2.0",
+    },
     "bigquery-beta": sql_common
     | bigquery_common
     | {
-        "sqllineage==1.3.6",
+        sqllineage_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility
@@ -278,7 +290,7 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
-    "feast": {"feast~=0.26.0", "flask-openid>=1.3.0"},
+    "feast": {"feast~=0.29.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -300,13 +312,14 @@ plugins: Dict[str, Set[str]] = {
         "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
+    "json-schema": set(),
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common,
-    "metabase": {"requests", "sqllineage==1.3.6"},
-    "mode": {"requests", "sqllineage==1.3.6", "tenacity>=8.0.1"},
+    "metabase": {"requests", sqllineage_lib},
+    "mode": {"requests", sqllineage_lib, "tenacity>=8.0.1"},
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -320,7 +333,7 @@ plugins: Dict[str, Set[str]] = {
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.6"},
+    "redash": {"redash-toolbelt", "sql-metadata", sqllineage_lib},
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},
@@ -343,14 +356,18 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"sqlalchemy-vertica-dialect[vertica-python]==0.1.4"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
     "unity-catalog": databricks_cli | {"requests"},
 }
 
+# This is mainly used to exclude plugins from the Docker image.
 all_exclude_plugins: Set[str] = {
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
+    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
+    # simply exclude it.
+    "datahub-lite",
 }
 
 mypy_stubs = {
@@ -390,7 +407,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy==0.991",
+    "mypy==1.0.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",
@@ -415,6 +432,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
             "iceberg",
+            "json-schema",
             "ldap",
             "looker",
             "lookml",
@@ -426,6 +444,7 @@ base_dev_requirements = {
             "sagemaker",
             "kafka",
             "datahub-rest",
+            "datahub-lite",
             "presto",
             "redash",
             "redshift",
@@ -438,7 +457,6 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "powerbi-report-server",
-            "vertica",
             "salesforce",
             "unity-catalog"
             # airflow is added below
@@ -474,7 +492,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            "vertica",
+            # "vertica",
         ]
         for dependency in plugins[plugin]
     ),
@@ -502,6 +520,7 @@ entry_points = {
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
+        "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
@@ -563,8 +582,10 @@ entry_points = {
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
         "console = datahub.ingestion.sink.console:ConsoleSink",
+        "blackhole = datahub.ingestion.sink.blackhole:BlackHoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
+        "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
     ],
     "datahub.ingestion.checkpointing_provider.plugins": [
         "datahub = datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider:DatahubIngestionCheckpointingProvider",
@@ -620,7 +641,6 @@ setuptools.setup(
         "datahub": ["py.typed"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
-        "datahub.ingestion.source.feast_image": ["Dockerfile", "requirements.txt"],
         "datahub.ingestion.source.powerbi": ["powerbi-lexical-grammar.rule"],
     },
     entry_points=entry_points,

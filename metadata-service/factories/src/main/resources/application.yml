@@ -32,6 +32,8 @@ authorization:
   defaultAuthorizer:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
+  # Enables authorization of reads, writes, and deletes on REST APIs. Defaults to false for backwards compatibility, but should become true down the road
+  restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:false}
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
@@ -44,7 +46,7 @@ telemetry:
   enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
 
 secretService:
-  encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
+  encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
@@ -81,6 +83,10 @@ graphService:
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
+  cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}
+  cache:
+    hazelcast:
+      serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
@@ -137,6 +143,7 @@ elasticsearch:
   useSSL: ${ELASTICSEARCH_USE_SSL:false}
   opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
   region: ${AWS_REGION:#{null}}
+  implementation: ${ELASTICSEARCH_IMPLEMENTATION:elasticsearch} # elasticsearch or opensearch, for handling divergent cases
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}
     secureRandomImplementation: ${ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL:#{null}}
@@ -163,9 +170,15 @@ elasticsearch:
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
+    enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
+  buildIndices:
+    allowDocCountMismatch: ${ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH:false} # when cloneIndices is also enabled
+    cloneIndices: ${ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES:true}
+    retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
+    retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
 
 # TODO: Kafka topic convention
 kafka:
@@ -221,10 +234,18 @@ bootstrap:
   upgradeDefaultBrowsePaths:
     enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
 
+systemUpdate:
+  initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
+  maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
+  backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
+  waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
+
 featureFlags:
   showSimplifiedHomepageByDefault: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
   lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:false} # Enables in-memory cache for searchAcrossLineage query, disabled by default to prevent unexpected update delays
   graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
+  pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with main line ElasticSearch releases after 7.10. OpenSearch is unsupported, plans to eventually target OpenSearch 2.4+ with a divergent client
+  alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -239,3 +260,11 @@ entityClient:
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
   numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}
+
+cache:
+  primary:
+    ttlSeconds: ${CACHE_TTL_SECONDS:600}
+    maxSize: ${CACHE_MAX_SIZE:10000}
+  homepage:
+    entityCounts:
+      ttlSeconds: ${CACHE_ENTITY_COUNTS_TTL_SECONDS:600}

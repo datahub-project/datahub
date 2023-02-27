@@ -1,7 +1,18 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, cast
+from typing import (
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    cast,
+)
 
 import pydantic
 
@@ -37,7 +48,7 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,
         ge=0.0,
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
 
 
@@ -161,6 +172,7 @@ class StaleEntityRemovalHandler(
             else False
         )
         self._job_id = self._init_job_id()
+        self._urns_to_skip: Set[str] = set()
         self.source.register_stateful_ingestion_usecase_handler(self)
 
     @classmethod
@@ -182,7 +194,7 @@ class StaleEntityRemovalHandler(
         return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
 
     def _init_job_id(self) -> JobId:
-        platform: Optional[str] = getattr(self.source, "platform")
+        platform: Optional[str] = getattr(self.source, "platform", "default")
         return self.compute_job_id(platform)
 
     def _ignore_old_state(self) -> bool:
@@ -233,6 +245,21 @@ class StaleEntityRemovalHandler(
         report.report_stale_entity_soft_deleted(urn)
         return wu
 
+    def add_urn_to_skip(self, urn: str) -> None:
+        # We previously had bugs where sources (e.g. dbt) would add non-primary entity urns
+        # to the state object. While we've (hopefully) fixed those bugs, we still have
+        # old urns lingering in the previous state objects. To avoid accidentally removing
+        # those, the source should call this method to track any urns that it previously was
+        # erroneously adding to the state object, so that we can skip them when issuing
+        # soft-deletions.
+        #
+        # Note that this isn't foolproof: if someone were to update acryl-datahub at the
+        # same time as a non-primary entity disappeared from their ingestion, we'd
+        # still issue a soft-delete for that entity. However, this shouldn't be a frequent
+        # occurrence and can be fixed by re-running the primary ingestion.
+
+        self._urns_to_skip.add(urn)
+
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
         if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return
@@ -279,6 +306,11 @@ class StaleEntityRemovalHandler(
             for urn in last_checkpoint_state.get_urns_not_in(
                 type=type, other_checkpoint_state=cur_checkpoint_state
             ):
+                if urn in self._urns_to_skip:
+                    logger.debug(
+                        f"Not soft-deleting entity {urn} since it is in urns_to_skip"
+                    )
+                    continue
                 yield self._create_soft_delete_workunit(urn, type)
 
     def add_entity_to_state(self, type: str, urn: str) -> None:

@@ -98,7 +98,7 @@ def ingest() -> None:
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
 @click.pass_context
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 @memory_leak_detector.with_leak_detection
 def run(
     ctx: click.Context,
@@ -158,8 +158,6 @@ def run(
                 logger.debug(
                     f"timed out with {e} waiting for version stats to be computed... skipping ahead."
                 )
-
-        sys.exit(ret)
 
     # main function begins
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
@@ -235,7 +233,7 @@ def parse_restli_response(response):
     help="If enabled, will list ingestion runs which have been soft deleted",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
@@ -283,7 +281,7 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
@@ -327,7 +325,7 @@ def show(
     help="Path to directory where rollback reports will be saved to",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry
+@telemetry.with_telemetry()
 def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
@@ -393,5 +391,5 @@ def rollback(
                     writer.writerow([row.get("urn")])
 
         except IOError as e:
-            print(e)
+            logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")

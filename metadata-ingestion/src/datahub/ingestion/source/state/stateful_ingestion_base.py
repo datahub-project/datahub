@@ -62,12 +62,12 @@ class StatefulIngestionConfig(ConfigModel):
     max_checkpoint_state_size: pydantic.PositiveInt = Field(
         default=2**24,  # 16 MB
         description="The maximum size of the checkpoint state in bytes. Default is 16MB",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
     state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
         default=None,
         description="The ingestion state provider configuration.",
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
     ignore_old_state: bool = Field(
         default=False,
@@ -281,7 +281,7 @@ class StatefulIngestionSourceBase(Source):
             raise ValueError(f"No use-case handler for job_id{job_id}")
         return self._usecase_handlers[job_id].is_checkpointing_enabled()
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         # This method is retained for backwards compatibility, but it is not
         # required that new sources implement it. We mainly need it for the
         # fallback logic in _get_last_checkpoint.

@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, Optional, TypeVar
 
 from pydantic.fields import Field
 
@@ -13,7 +13,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig, SQLAlchemySource
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 
 
 @dataclass
@@ -36,7 +37,7 @@ class BaseTable(Generic[SqlTableColumn]):
     last_altered: Optional[datetime]
     size_in_bytes: Optional[int]
     rows_count: Optional[int]
-    columns: List[SqlTableColumn] = field(default_factory=list)
+    column_count: Optional[int] = None
     ddl: Optional[str] = None
 
 
@@ -49,7 +50,7 @@ class BaseView(Generic[SqlTableColumn]):
     view_definition: str
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
-    columns: List[SqlTableColumn] = field(default_factory=list)
+    column_count: Optional[int] = None
 
 
 class SQLAlchemyGenericConfig(SQLAlchemyConfig):
@@ -64,7 +65,7 @@ class SQLAlchemyGenericConfig(SQLAlchemyConfig):
         return self.connect_uri
 
 
-@platform_name("Other SQLAlchemy databases", id="sqlalchemy")
+@platform_name("SQLAlchemy", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")

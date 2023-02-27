@@ -28,7 +28,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
-    SourceReport,
     TestableSource,
     TestConnectionReport,
 )
@@ -99,7 +98,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: str
 
-    def get_report(self) -> SourceReport:
+    def get_report(self) -> UnityCatalogReport:
         return self.report
 
     def __init__(self, ctx: PipelineContext, config: UnityCatalogSourceConfig):
@@ -157,7 +156,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         config = UnityCatalogSourceConfig.parse_obj(config_dict)
         return cls(ctx=ctx, config=config)
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.config.platform_instance or self.platform
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -175,100 +174,99 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         for metastore in self.unity_catalog_api_proxy.metastores():
             if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):
-                self.report.report_dropped(f"{metastore.metastore_id}.*.*.*")
+                self.report.metastores.dropped(metastore.metastore_id)
                 continue
-            logger.info(
-                f"Started to process metastore: {metastore.metastore_id} ({metastore.name})"
-            )
+
+            logger.info(f"Started to process metastore: {metastore.metastore_id}")
             yield from self.gen_metastore_containers(metastore)
             yield from self.process_catalogs(metastore)
-            self.report.increment_scanned_metastore(1)
-            logger.info(
-                f"Finished to process metastore: {metastore.metastore_id} ({metastore.name})"
-            )
+
+            self.report.metastores.processed(metastore.metastore_id)
 
     def process_catalogs(
         self, metastore: proxy.Metastore
     ) -> Iterable[MetadataWorkUnit]:
         for catalog in self.unity_catalog_api_proxy.catalogs(metastore=metastore):
             if not self.config.catalog_pattern.allowed(catalog.name):
-                self.report.report_dropped(f"{catalog.name}.*.*")
+                self.report.catalogs.dropped(catalog.id)
                 continue
+
             yield from self.gen_catalog_containers(catalog)
-            self.report.increment_scanned_catalog(1)
             yield from self.process_schemas(catalog)
+
+            self.report.catalogs.processed(catalog.id)
 
     def process_schemas(self, catalog: proxy.Catalog) -> Iterable[MetadataWorkUnit]:
         for schema in self.unity_catalog_api_proxy.schemas(catalog=catalog):
             if not self.config.schema_pattern.allowed(schema.name):
-                self.report.report_dropped(f"{catalog.name}.{schema.name}.*")
+                self.report.schemas.dropped(schema.id)
                 continue
 
             yield from self.gen_schema_containers(schema)
-            self.report.increment_scanned_schema(1)
-
             yield from self.process_tables(schema)
+
+            self.report.schemas.processed(schema.id)
 
     def process_tables(self, schema: proxy.Schema) -> Iterable[MetadataWorkUnit]:
         for table in self.unity_catalog_api_proxy.tables(schema=schema):
-            if not self.config.table_pattern.allowed(
+            filter_table_name = (
                 f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
-            ):
-                self.report.report_dropped(
-                    f"{schema.catalog.name}.{schema.name}.{table.name}"
-                )
+            )
+
+            if not self.config.table_pattern.allowed(filter_table_name):
+                self.report.tables.dropped(table.id, type=table.type)
                 continue
 
-            dataset_urn: str = make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                platform_instance=self.platform_instance_name,
-                name=table.id,
+            yield from self.process_table(table, schema)
+
+            self.report.tables.processed(table.id, type=table.type)
+
+    def process_table(
+        self, table: proxy.Table, schema: proxy.Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_urn: str = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=self.platform_instance_name,
+            name=table.id,
+        )
+        yield from self.add_table_to_dataset_container(dataset_urn, schema)
+
+        table_props = self._create_table_property_aspect(table)
+
+        view_props = None
+        if table.view_definition:
+            view_props = self._create_view_property_aspect(table)
+
+        sub_type = self._create_table_sub_type_aspect(table)
+        schema_metadata = self._create_schema_metadata_aspect(table)
+
+        domain = self._get_domain_aspect(
+            dataset_name=str(
+                f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
             )
-            yield from self.add_table_to_dataset_container(dataset_urn, schema)
+        )
 
-            table_props = self._create_table_property_aspect(table)
+        if self.config.include_column_lineage:
+            self.unity_catalog_api_proxy.get_column_lineage(table)
+            lineage = self._generate_column_lineage_aspect(dataset_urn, table)
+        else:
+            self.unity_catalog_api_proxy.table_lineage(table)
+            lineage = self._generate_lineage_aspect(dataset_urn, table)
 
-            view_props = None
-            if table.view_definition:
-                view_props = self._create_view_property_aspect(table)
-
-            sub_type = self._create_table_sub_type_aspect(table)
-            schema_metadata = self._create_schema_metadata_aspect(table)
-
-            domain = self._get_domain_aspect(
-                dataset_name=str(
-                    f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
-                )
+        yield from [
+            mcp.as_workunit()
+            for mcp in MetadataChangeProposalWrapper.construct_many(
+                entityUrn=dataset_urn,
+                aspects=[
+                    table_props,
+                    view_props,
+                    sub_type,
+                    schema_metadata,
+                    domain,
+                    lineage,
+                ],
             )
-
-            if self.config.include_column_lineage:
-                self.unity_catalog_api_proxy.get_column_lineage(table)
-                lineage = self._generate_column_lineage_aspect(dataset_urn, table)
-            else:
-                self.unity_catalog_api_proxy.table_lineage(table)
-                lineage = self._generate_lineage_aspect(dataset_urn, table)
-
-            yield from [
-                mcp.as_workunit()
-                for mcp in MetadataChangeProposalWrapper.construct_many(
-                    entityUrn=dataset_urn,
-                    aspects=[
-                        table_props,
-                        view_props,
-                        sub_type,
-                        schema_metadata,
-                        domain,
-                        lineage,
-                    ],
-                )
-            ]
-
-            self.report.report_entity_scanned(
-                f"{table.schema.catalog.name}.{table.schema.name}.{table.name}",
-                table.type,
-            )
-
-            self.report.increment_scanned_table(1)
+        ]
 
     def _generate_column_lineage_aspect(
         self, dataset_urn: str, table: proxy.Table

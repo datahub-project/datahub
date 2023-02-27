@@ -48,6 +48,10 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     SubTypesClass,
 )
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -219,8 +223,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"An ambiguous exception occurred while handling the request: {e}"
             )
 
-    def get_platform_instance_id(self) -> str:
-        assert self.config.platform_instance is not None
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.config.platform_instance
 
     @classmethod
@@ -234,6 +237,12 @@ class PulsarSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
         Interacts with the Pulsar Admin Api and loops over tenants, namespaces and topics. For every topic
         the schema information is retrieved if available.
@@ -302,24 +311,12 @@ class PulsarSource(StatefulIngestionSourceBase):
                             self.report.topics_scanned += 1
                             if self.config.topic_patterns.allowed(topic):
                                 yield from self._extract_record(topic, is_partitioned)
-                                # Add topic to checkpoint if stateful ingestion is enabled
-                                topic_urn = make_dataset_urn_with_platform_instance(
-                                    platform=self.platform,
-                                    name=topic,
-                                    platform_instance=self.config.platform_instance,
-                                    env=self.config.env,
-                                )
-                                self.stale_entity_removal_handler.add_entity_to_state(
-                                    type="topic", urn=topic_urn
-                                )
                             else:
                                 self.report.report_topics_dropped(topic)
                     else:
                         self.report.report_namespaces_dropped(namespace)
             else:
                 self.report.report_tenants_dropped(tenant)
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def _is_token_authentication_configured(self) -> bool:
         return self.config.token is not None

@@ -29,13 +29,16 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
-    SQLAlchemyConfig,
     SQLAlchemySource,
     SQLSourceReport,
     SqlWorkUnit,
     get_schema_metadata,
 )
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    SQLAlchemyConfig,
+)
+from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
@@ -161,14 +164,21 @@ class VerticaSource(SQLAlchemySource):
 
             db_name = self.get_db_name(inspector)
             yield from self.gen_database_containers(
-                inspector=inspector, database=db_name
+                database=db_name,
+                extra_properties=self.get_database_properties(
+                    inspector=inspector, database=db_name
+                ),
             )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
                 yield from self.gen_schema_containers(
-                    inspector=inspector, schema=schema, db_name=db_name
+                    schema=schema,
+                    database=db_name,
+                    extra_properties=self.get_schema_properties(
+                        inspector=inspector, schema=schema, database=db_name
+                    ),
                 )
 
                 if sql_config.include_tables:
@@ -194,9 +204,6 @@ class VerticaSource(SQLAlchemySource):
             oauth_schema = "Entities"
             if sql_config.include_oauth:
                 yield from self.loop_oauth(inspector, oauth_schema, sql_config)
-
-        # Clean up stale entities.
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def get_database_properties(
         self, inspector: Inspector, database: str
@@ -492,8 +499,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("table", dataset_urn)
         description, properties, location_urn = self.get_projection_properties(
             inspector, schema, projection
         )
@@ -578,11 +583,15 @@ class VerticaSource(SQLAlchemySource):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            sql_config=sql_config,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_projection_properties(
         self, inspector: Inspector, schema: str, projection: str
@@ -715,8 +724,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("model", dataset_urn)
         description, properties, location = self.get_model_properties(
             inspector, schema, table
         )
@@ -771,11 +778,15 @@ class VerticaSource(SQLAlchemySource):
         )
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            sql_config=sql_config,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_model_properties(
         self, inspector: Inspector, schema: str, model: str
@@ -897,8 +908,6 @@ class VerticaSource(SQLAlchemySource):
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-        # Add table to the checkpoint state
-        self.stale_entity_removal_handler.add_entity_to_state("oauth", dataset_urn)
         description, properties, location_urn = self.get_oauth_properties(
             inspector, schema, oauth
         )
@@ -950,11 +959,15 @@ class VerticaSource(SQLAlchemySource):
         self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
-        yield from self._get_domain_wu(
-            dataset_name=dataset_name,
-            entity_urn=dataset_urn,
-            sql_config=sql_config,
-        )
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+                report=self.report,
+            )
 
     def get_oauth_properties(
         self, inspector: Inspector, schema: str, model: str

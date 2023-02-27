@@ -36,11 +36,6 @@ def test_trino_usage_config():
     assert config.include_tables
 
 
-def yield_function(li):
-    for i in li:
-        yield i
-
-
 @freeze_time(FROZEN_TIME)
 def test_trino_usage_source(pytestconfig, tmp_path):
     test_resources_dir = pathlib.Path(

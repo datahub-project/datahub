@@ -46,7 +46,9 @@ public class ListSecretsResolverTest {
         Mockito.any(SortCriterion.class),
         Mockito.eq(0),
         Mockito.eq(20),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(Boolean.TRUE),
+        Mockito.eq(null)
     )).thenReturn(
         new SearchResult()
             .setFrom(0)
@@ -114,7 +116,9 @@ public class ListSecretsResolverTest {
         Mockito.any(SortCriterion.class),
         Mockito.anyInt(),
         Mockito.anyInt(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class),
+        Mockito.eq(Boolean.TRUE),
+        Mockito.eq(null));
   }
 
   @Test

@@ -9,6 +9,7 @@ import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import validator
 from pydantic.fields import Field
+from requests.adapters import ConnectionError
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -53,11 +54,13 @@ from datahub.ingestion.source.tableau_common import (
     TableauLineageOverrides,
     clean_query,
     custom_sql_graphql_query,
+    dashboard_graphql_query,
     embedded_datasource_graphql_query,
     get_unique_custom_sql,
     make_table_urn,
     published_datasource_graphql_query,
     query_metadata,
+    sheet_graphql_query,
     tableau_field_to_schema_field,
     workbook_graphql_query,
 )
@@ -97,6 +100,7 @@ from datahub.metadata.schema_classes import (
     DashboardUsageStatisticsClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    EmbedClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -196,8 +200,15 @@ class TableauConnectionConfig(ConfigModel):
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
+            if isinstance(authentication, PersonalAccessTokenAuth):
+                # Docs on token expiry in Tableau:
+                # https://help.tableau.com/current/server/en-us/security_personal_access_tokens.htm#token-expiry
+                logger.info(
+                    "Error authenticating with Tableau. Note that Tableau personal access tokens "
+                    "expire if not used for 15 days or if over 1 year old"
+                )
             raise ValueError(
-                f"Unable to login (invalid credentials or missing permissions): {str(e)}"
+                f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
             ) from e
         except Exception as e:
             raise ValueError(
@@ -231,7 +242,24 @@ class TableauConfig(
 
     page_size: int = Field(
         default=10,
-        description="Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using Tableau api.",
+        description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
+    )
+    # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
+    # returns warnings like this:
+    # {
+    # 	'message': 'Showing partial results. The request exceeded the 20000 node limit. Use pagination, additional filtering, or both in the query to adjust results.',
+    # 	'extensions': {
+    # 		'severity': 'WARNING',
+    # 		'code': 'NODE_LIMIT_EXCEEDED',
+    # 		'properties': {
+    # 			'nodeLimit': 20000
+    # 		}
+    # 	}
+    # }
+    # Reducing the page size for the workbook queries helps to avoid this.
+    workbook_page_size: int = Field(
+        default=1,
+        description="[advanced] Number of workbooks to query at a time using the Tableau API.",
     )
 
     env: str = Field(
@@ -251,6 +279,11 @@ class TableauConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
+    )
+
+    ingest_embed_url: Optional[bool] = Field(
+        default=True,
+        description="Ingest a URL to render an embedded Preview of assets within Tableau.",
     )
 
 
@@ -302,6 +335,12 @@ class TableauSource(StatefulIngestionSourceBase):
         self.report = StaleEntityRemovalSourceReport()
         self.server = None
 
+        # This list keeps track of sheets in workbooks so that we retrieve those
+        # when emitting sheets.
+        self.sheet_ids: List[str] = []
+        # This list keeps track of dashboards in workbooks so that we retrieve those
+        # when emitting dashboards.
+        self.dashboard_ids: List[str] = []
         # This list keeps track of embedded datasources in workbooks so that we retrieve those
         # when emitting embedded data sources.
         self.embedded_datasource_ids_being_used: List[str] = []
@@ -324,21 +363,33 @@ class TableauSource(StatefulIngestionSourceBase):
         self._authenticate()
 
     def close(self) -> None:
-        if self.server is not None:
-            self.server.auth.sign_out()
+        try:
+            if self.server is not None:
+                self.server.auth.sign_out()
+        except ConnectionError as err:
+            logger.warning(
+                "During graceful closing of Tableau source a sign-out call was tried but ended up with"
+                " a ConnectionError (%s). Continuing closing of the source",
+                err,
+            )
+            self.server = None
         super().close()
 
     def _populate_usage_stat_registry(self):
         if self.server is None:
             return
 
+        view: TSC.ViewItem
         for view in TSC.Pager(self.server.views, usage=True):
+            if not view.id:
+                continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _authenticate(self):
         try:
             self.server = self.config.make_tableau_client()
+            logger.info("Authenticated to Tableau server")
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.report_failure(
@@ -411,20 +462,19 @@ class TableauSource(StatefulIngestionSourceBase):
         query: str,
         connection_type: str,
         query_filter: str,
+        page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.
 
-        count_on_query = self.config.page_size
+        page_size = page_size_override or self.config.page_size
 
-        total_count = count_on_query
+        total_count = page_size
         has_next_page = 1
         offset = 0
         while has_next_page:
             count = (
-                count_on_query
-                if offset + count_on_query < total_count
-                else total_count - offset
+                page_size if offset + page_size < total_count else total_count - offset
             )
             (
                 connection_objects,
@@ -451,11 +501,18 @@ class TableauSource(StatefulIngestionSourceBase):
         )
 
         for workbook in self.get_connection_objects(
-            workbook_graphql_query, "workbooksConnection", projects
+            workbook_graphql_query,
+            "workbooksConnection",
+            projects,
+            page_size_override=self.config.workbook_page_size,
         ):
             yield from self.emit_workbook_as_container(workbook)
-            yield from self.emit_sheets_as_charts(workbook)
-            yield from self.emit_dashboards(workbook)
+            for sheet in workbook.get("sheets", []):
+                self.sheet_ids.append(sheet["id"])
+
+            for dashboard in workbook.get("dashboards", []):
+                self.dashboard_ids.append(dashboard["id"])
+
             for ds in workbook.get("embeddedDatasources", []):
                 self.embedded_datasource_ids_being_used.append(ds["id"])
 
@@ -872,7 +929,7 @@ class TableauSource(StatefulIngestionSourceBase):
             view_properties = ViewPropertiesClass(
                 materialized=False,
                 viewLanguage="SQL",
-                viewLogic=clean_query(csql.get("query", "")),
+                viewLogic=clean_query(csql.get("query") or ""),
             )
             dataset_snapshot.aspects.append(view_properties)
 
@@ -1110,7 +1167,7 @@ class TableauSource(StatefulIngestionSourceBase):
             ),
         )
 
-        if is_embedded_ds:
+        if is_embedded_ds and workbook is not None:
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "dataset", dataset_snapshot.urn
             )
@@ -1233,110 +1290,139 @@ class TableauSource(StatefulIngestionSourceBase):
             entityUrn=sheet_urn,
         ).as_workunit()
 
-    def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
-        for sheet in workbook.get("sheets", []):
-            sheet_urn: str = builder.make_chart_urn(
-                self.platform, sheet.get("id"), self.config.platform_instance
+    def emit_sheets(self) -> Iterable[MetadataWorkUnit]:
+        sheets_filter = f"idWithin: {json.dumps(self.sheet_ids)}"
+
+        for sheet in self.get_connection_objects(
+            sheet_graphql_query,
+            "sheetsConnection",
+            sheets_filter,
+        ):
+            yield from self.emit_sheets_as_charts(sheet, sheet.get("workbook"))
+
+    def emit_sheets_as_charts(
+        self, sheet: dict, workbook: Optional[Dict]
+    ) -> Iterable[MetadataWorkUnit]:
+
+        sheet_urn: str = builder.make_chart_urn(
+            self.platform, sheet["id"], self.config.platform_instance
+        )
+        chart_snapshot = ChartSnapshot(
+            urn=sheet_urn,
+            aspects=[self.get_data_platform_instance()],
+        )
+
+        creator: Optional[str] = None
+        if workbook is not None and workbook.get("owner") is not None:
+            creator = workbook["owner"].get("username")
+        created_at = sheet.get("createdAt", datetime.now())
+        updated_at = sheet.get("updatedAt", datetime.now())
+        last_modified = self.get_last_modified(creator, created_at, updated_at)
+
+        if sheet.get("path"):
+            site_part = f"/site/{self.config.site}" if self.config.site else ""
+            sheet_external_url = (
+                f"{self.config.connect_uri}/#{site_part}/views/{sheet.get('path')}"
             )
-            chart_snapshot = ChartSnapshot(
-                urn=sheet_urn,
-                aspects=[self.get_data_platform_instance()],
+        elif (
+            sheet.get("containedInDashboards") is not None
+            and len(sheet["containedInDashboards"]) > 0
+            and sheet["containedInDashboards"][0] is not None
+        ):
+            # sheet contained in dashboard
+            site_part = f"/t/{self.config.site}" if self.config.site else ""
+            dashboard_path = sheet["containedInDashboards"][0].get("path", "")
+            sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{sheet.get('name', '')}"
+        else:
+            # hidden or viz-in-tooltip sheet
+            sheet_external_url = None
+        input_fields: List[InputField] = []
+        if sheet.get("datasourceFields"):
+            self.populate_sheet_upstream_fields(sheet, input_fields)
+
+        # datasource urn
+        datasource_urn = []
+        data_sources = self.get_sheetwise_upstream_datasources(sheet)
+
+        for ds_id in data_sources:
+            ds_urn = builder.make_dataset_urn_with_platform_instance(
+                self.platform, ds_id, self.config.platform_instance, self.config.env
             )
+            datasource_urn.append(ds_urn)
+            if ds_id not in self.datasource_ids_being_used:
+                self.datasource_ids_being_used.append(ds_id)
 
-            creator: Optional[str] = workbook["owner"].get("username")
-            created_at = sheet.get("createdAt", datetime.now())
-            updated_at = sheet.get("updatedAt", datetime.now())
-            last_modified = self.get_last_modified(creator, created_at, updated_at)
+        # Chart Info
+        chart_info = ChartInfoClass(
+            description="",
+            title=sheet.get("name", ""),
+            lastModified=last_modified,
+            externalUrl=sheet_external_url,
+            inputs=sorted(datasource_urn),
+            customProperties={"luid": sheet.get("luid") or ""},
+        )
+        chart_snapshot.aspects.append(chart_info)
+        # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
 
-            if sheet.get("path"):
-                site_part = f"/site/{self.config.site}" if self.config.site else ""
-                sheet_external_url = (
-                    f"{self.config.connect_uri}/#{site_part}/views/{sheet.get('path')}"
-                )
-            elif sheet.get("containedInDashboards"):
-                # sheet contained in dashboard
-                site_part = f"/t/{self.config.site}" if self.config.site else ""
-                dashboard_path = sheet.get("containedInDashboards")[0].get("path", "")
-                sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{sheet.get('name', '')}"
-            else:
-                # hidden or viz-in-tooltip sheet
-                sheet_external_url = None
-            input_fields: List[InputField] = []
-            if sheet.get("datasourceFields"):
-                self.populate_sheet_upstream_fields(sheet, input_fields)
+        if self.config.extract_usage_stats:
+            wu = self._get_chart_stat_wu(sheet, sheet_urn)
+            if wu is not None:
+                self.report.report_workunit(wu)
+                yield wu
 
-            # datasource urn
-            datasource_urn = []
-            data_sources = self.get_sheetwise_upstream_datasources(sheet)
-
-            for ds_id in data_sources:
-                ds_urn = builder.make_dataset_urn_with_platform_instance(
-                    self.platform, ds_id, self.config.platform_instance, self.config.env
-                )
-                datasource_urn.append(ds_urn)
-                if ds_id not in self.datasource_ids_being_used:
-                    self.datasource_ids_being_used.append(ds_id)
-
-            # Chart Info
-            chart_info = ChartInfoClass(
-                description="",
-                title=sheet.get("name", ""),
-                lastModified=last_modified,
-                externalUrl=sheet_external_url,
-                inputs=sorted(datasource_urn),
-                customProperties={"luid": sheet.get("luid") or ""},
+        if (
+            workbook is not None
+            and workbook.get("projectName")
+            and workbook.get("name")
+        ):
+            # Browse path
+            browse_path = BrowsePathsClass(
+                paths=[
+                    f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
+                    f"/{workbook['name']}"
+                ]
             )
-            chart_snapshot.aspects.append(chart_info)
-            # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
+            chart_snapshot.aspects.append(browse_path)
+        else:
+            logger.debug(f"Browse path not set for sheet {sheet['id']}")
+        # Ownership
+        owner = self._get_ownership(creator)
+        if owner is not None:
+            chart_snapshot.aspects.append(owner)
 
-            if self.config.extract_usage_stats:
-                wu = self._get_chart_stat_wu(sheet, sheet_urn)
-                if wu is not None:
-                    self.report.report_workunit(wu)
-                    yield wu
-
-            if workbook.get("projectName") and workbook.get("name"):
-                # Browse path
-                browse_path = BrowsePathsClass(
-                    paths=[
-                        f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
-                        f"/{workbook['name']}"
-                    ]
+        #  Tags
+        tag_list = sheet.get("tags", [])
+        if tag_list and self.config.ingest_tags:
+            tag_list_str = [t.get("name", "") for t in tag_list if t is not None]
+            chart_snapshot.aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(tag_list_str)
+            )
+        yield self.get_metadata_change_event(chart_snapshot)
+        if sheet_external_url is not None and self.config.ingest_embed_url is True:
+            yield self.new_work_unit(
+                self.new_embed_aspect_mcp(
+                    entity_urn=sheet_urn,
+                    embed_url=sheet_external_url,
                 )
-                chart_snapshot.aspects.append(browse_path)
-            else:
-                logger.debug(f"Browse path not set for sheet {sheet['id']}")
-            # Ownership
-            owner = self._get_ownership(creator)
-            if owner is not None:
-                chart_snapshot.aspects.append(owner)
-
-            #  Tags
-            tag_list = sheet.get("tags", [])
-            if tag_list and self.config.ingest_tags:
-                tag_list_str = [t.get("name", "") for t in tag_list if t is not None]
-                chart_snapshot.aspects.append(
-                    builder.make_global_tag_aspect_with_tag_list(tag_list_str)
-                )
-            yield self.get_metadata_change_event(chart_snapshot)
-
+            )
+        if workbook is not None:
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "chart", chart_snapshot.urn
             )
 
-            for wu in workunits:
-                self.report.report_workunit(wu)
-                yield wu
+        for wu in workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
-            if input_fields:
-                wu = MetadataChangeProposalWrapper(
-                    entityUrn=sheet_urn,
-                    aspect=InputFields(
-                        fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
-                    ),
-                ).as_workunit()
-                self.report.report_workunit(wu)
-                yield wu
+        if input_fields:
+            wu = MetadataChangeProposalWrapper(
+                entityUrn=sheet_urn,
+                aspect=InputFields(
+                    fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
+                ),
+            ).as_workunit()
+            self.report.report_workunit(wu)
+            yield wu
 
     def populate_sheet_upstream_fields(
         self, sheet: dict, input_fields: List[InputField]
@@ -1410,7 +1496,7 @@ class TableauSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-    def gen_workbook_key(self, workbook):
+    def gen_workbook_key(self, workbook: Dict) -> WorkbookKey:
         return WorkbookKey(
             platform=self.platform,
             instance=self.config.platform_instance,
@@ -1463,83 +1549,148 @@ class TableauSource(StatefulIngestionSourceBase):
             entityUrn=dashboard_urn,
         ).as_workunit()
 
-    def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
-        for dashboard in workbook.get("dashboards", []):
-            dashboard_urn: str = builder.make_dashboard_urn(
-                self.platform, dashboard["id"], self.config.platform_instance
+    @staticmethod
+    def new_mcp(
+        entity_urn: str,
+        aspect_name: str,
+        aspect: builder.Aspect,
+        change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
+    ) -> MetadataChangeProposalWrapper:
+        """
+        Create MCP
+        """
+        return MetadataChangeProposalWrapper(
+            changeType=change_type,
+            entityUrn=entity_urn,
+            aspectName=aspect_name,
+            aspect=aspect,
+        )
+
+    @staticmethod
+    def new_embed_aspect_mcp(
+        entity_urn: str, embed_url: str
+    ) -> MetadataChangeProposalWrapper:
+        return TableauSource.new_mcp(
+            entity_urn=entity_urn,
+            aspect_name=EmbedClass.ASPECT_NAME,
+            aspect=EmbedClass(renderUrl=embed_url),
+        )
+
+    def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
+        return MetadataWorkUnit(
+            id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
+                PLATFORM=self.config.platform,
+                ENTITY_URN=mcp.entityUrn,
+                ASPECT_NAME=mcp.aspectName,
+            ),
+            mcp=mcp,
+        )
+
+    def emit_dashboards(self) -> Iterable[MetadataWorkUnit]:
+        dashboards_filter = f"idWithin: {json.dumps(self.dashboard_ids)}"
+
+        for dashboard in self.get_connection_objects(
+            dashboard_graphql_query,
+            "dashboardsConnection",
+            dashboards_filter,
+        ):
+            yield from self.emit_dashboard(dashboard, dashboard.get("workbook"))
+
+    def emit_dashboard(
+        self, dashboard: dict, workbook: Optional[Dict]
+    ) -> Iterable[MetadataWorkUnit]:
+        dashboard_urn: str = builder.make_dashboard_urn(
+            self.platform, dashboard["id"], self.config.platform_instance
+        )
+        dashboard_snapshot = DashboardSnapshot(
+            urn=dashboard_urn,
+            aspects=[self.get_data_platform_instance()],
+        )
+
+        creator: Optional[str] = None
+        if workbook is not None and workbook.get("owner") is not None:
+            creator = workbook["owner"].get("username")
+        created_at = dashboard.get("createdAt", datetime.now())
+        updated_at = dashboard.get("updatedAt", datetime.now())
+        last_modified = self.get_last_modified(creator, created_at, updated_at)
+
+        site_part = f"/site/{self.config.site}" if self.config.site else ""
+        dashboard_external_url = (
+            f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get('path', '')}"
+        )
+        title = (
+            dashboard["name"].replace("/", REPLACE_SLASH_CHAR)
+            if dashboard.get("name")
+            else ""
+        )
+        chart_urns = [
+            builder.make_chart_urn(
+                self.platform, sheet.get("id"), self.config.platform_instance
             )
-            dashboard_snapshot = DashboardSnapshot(
-                urn=dashboard_urn,
-                aspects=[self.get_data_platform_instance()],
+            for sheet in dashboard.get("sheets", [])
+        ]
+        dashboard_info_class = DashboardInfoClass(
+            description="",
+            title=title,
+            charts=chart_urns,
+            lastModified=last_modified,
+            dashboardUrl=dashboard_external_url,
+            customProperties={"luid": dashboard.get("luid") or ""},
+        )
+        dashboard_snapshot.aspects.append(dashboard_info_class)
+
+        tag_list = dashboard.get("tags", [])
+        if tag_list and self.config.ingest_tags:
+            tag_list_str = [t.get("name", "") for t in tag_list if t is not None]
+            dashboard_snapshot.aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(tag_list_str)
             )
 
-            creator = workbook.get("owner", {}).get("username", "")
-            created_at = dashboard.get("createdAt", datetime.now())
-            updated_at = dashboard.get("updatedAt", datetime.now())
-            last_modified = self.get_last_modified(creator, created_at, updated_at)
+        if self.config.extract_usage_stats:
+            # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
+            wu = self._get_dashboard_stat_wu(dashboard, dashboard_urn)
+            if wu is not None:
+                self.report.report_workunit(wu)
+                yield wu
 
-            site_part = f"/site/{self.config.site}" if self.config.site else ""
-            dashboard_external_url = f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get('path', '')}"
-            title = (
-                dashboard["name"].replace("/", REPLACE_SLASH_CHAR)
-                if dashboard.get("name")
-                else ""
+        if (
+            workbook is not None
+            and workbook.get("projectName")
+            and workbook.get("name")
+        ):
+            # browse path
+            browse_paths = BrowsePathsClass(
+                paths=[
+                    f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
+                    f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
+                ]
             )
-            chart_urns = [
-                builder.make_chart_urn(
-                    self.platform, sheet.get("id"), self.config.platform_instance
+            dashboard_snapshot.aspects.append(browse_paths)
+        else:
+            logger.debug(f"Browse path not set for dashboard {dashboard['id']}")
+
+        # Ownership
+        owner = self._get_ownership(creator)
+        if owner is not None:
+            dashboard_snapshot.aspects.append(owner)
+
+        yield self.get_metadata_change_event(dashboard_snapshot)
+        # Yield embed MCP
+        if self.config.ingest_embed_url is True:
+            yield self.new_work_unit(
+                self.new_embed_aspect_mcp(
+                    entity_urn=dashboard_urn,
+                    embed_url=dashboard_external_url,
                 )
-                for sheet in dashboard.get("sheets", [])
-            ]
-            dashboard_info_class = DashboardInfoClass(
-                description="",
-                title=title,
-                charts=chart_urns,
-                lastModified=last_modified,
-                dashboardUrl=dashboard_external_url,
-                customProperties={"luid": dashboard.get("luid") or ""},
             )
-            dashboard_snapshot.aspects.append(dashboard_info_class)
 
-            tag_list = dashboard.get("tags", [])
-            if tag_list and self.config.ingest_tags:
-                tag_list_str = [t.get("name", "") for t in tag_list if t is not None]
-                dashboard_snapshot.aspects.append(
-                    builder.make_global_tag_aspect_with_tag_list(tag_list_str)
-                )
-
-            if self.config.extract_usage_stats:
-                # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
-                wu = self._get_dashboard_stat_wu(dashboard, dashboard_urn)
-                if wu is not None:
-                    self.report.report_workunit(wu)
-                    yield wu
-
-            if workbook.get("projectName") and workbook.get("name"):
-                # browse path
-                browse_paths = BrowsePathsClass(
-                    paths=[
-                        f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
-                        f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
-                    ]
-                )
-                dashboard_snapshot.aspects.append(browse_paths)
-            else:
-                logger.debug(f"Browse path not set for dashboard {dashboard['id']}")
-
-            # Ownership
-            owner = self._get_ownership(creator)
-            if owner is not None:
-                dashboard_snapshot.aspects.append(owner)
-
-            yield self.get_metadata_change_event(dashboard_snapshot)
-
+        if workbook is not None:
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook), "dashboard", dashboard_snapshot.urn
             )
-            for wu in workunits:
-                self.report.report_workunit(wu)
-                yield wu
+        for wu in workunits:
+            self.report.report_workunit(wu)
+            yield wu
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = (
@@ -1634,6 +1785,10 @@ class TableauSource(StatefulIngestionSourceBase):
             if self.config.extract_usage_stats:
                 self._populate_usage_stat_registry()
             yield from self.emit_workbooks()
+            if self.sheet_ids:
+                yield from self.emit_sheets()
+            if self.dashboard_ids:
+                yield from self.emit_dashboards()
             if self.embedded_datasource_ids_being_used:
                 yield from self.emit_embedded_datasources()
             if self.datasource_ids_being_used:
@@ -1650,5 +1805,5 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.config.platform_instance or self.platform

@@ -58,6 +58,9 @@ public interface EntitySearchService {
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
    * search hits and not the aggregation results.
    *
+   * Safe for non-structured, user input, queries with an attempt to provide some advanced features
+   * <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html">Impl</a>
+   *
    * @param entityName name of the entity
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search hits
@@ -67,8 +70,28 @@ public interface EntitySearchService {
    * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size);
+  SearchResult fullTextSearch(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+                              @Nullable SortCriterion sortCriterion, int from, int size);
+
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * Used for internally generated structured search queries, typically with advanced boolean logic and exact field matches
+   *
+   * <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html">Impl</a>
+   *
+   * @param entityName name of the entity
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  SearchResult structuredSearch(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+                                @Nullable SortCriterion sortCriterion, int from, int size);
 
   /**
    * Gets a list of documents after applying the input filters.
@@ -78,7 +101,7 @@ public interface EntitySearchService {
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size number of search hits to return
-   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of filtered documents and related search result metadata
+   * @return a {@link SearchResult} that contains a list of filtered documents and related search result metadata
    */
   @Nonnull
   SearchResult filter(@Nonnull String entityName, @Nullable Filter filters, @Nullable SortCriterion sortCriterion,
@@ -136,6 +159,38 @@ public interface EntitySearchService {
    */
   @Nonnull
   List<String> getBrowsePaths(@Nonnull String entityName, @Nonnull Urn urn);
+
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * @param entities name of the entities to scroll across
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param scrollId opaque scroll identifier to pass to search service
+   * @param size the number of search hits to return
+   * @return a {@link ScrollResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  ScrollResult fullTextScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size);
+
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * @param entities name of the entities to scroll across
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param scrollId opaque scroll identifier to pass to search service
+   * @param size the number of search hits to return
+   * @return a {@link ScrollResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  ScrollResult structuredScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size);
 
   /**
    * Max result size returned by the underlying search backend

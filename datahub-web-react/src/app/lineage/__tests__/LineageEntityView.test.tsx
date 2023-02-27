@@ -32,7 +32,7 @@ describe('LineageEntityView', () => {
     it('should not render a divider if there is no platform name', () => {
         const datasetNoPlatformName = {
             ...dataset1,
-            platform: { ...dataset1.platform, properties: { displayName: '' } },
+            platform: { ...dataset1.platform, name: '', properties: { displayName: '' } },
         };
         const { queryByTestId } = render(<LineageEntityView entity={datasetNoPlatformName} />);
 

@@ -1,17 +1,23 @@
 # Using as a base image because to get the needed jars for confluent utils
-FROM confluentinc/cp-base-new:6.1.4 as confluent_base
+FROM confluentinc/cp-base-new@sha256:ac4e0f9bcaecdab728740529f37452231fa40760fcf561759fc3b219f46d2cc9 as confluent_base
+
+ARG MAVEN_REPO="https://repo1.maven.org/maven2"
+ARG SNAKEYAML_VERSION="1.33"
+
+RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
+    && wget -P /usr/share/java/cp-base-new $MAVEN_REPO/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
 
 # Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
 
-ENV KAFKA_VERSION 2.8.2
+ENV KAFKA_VERSION 3.4.0
 ENV SCALA_VERSION 2.13
 
 # Set the classpath for JARs required by `cub`
 ENV CUB_CLASSPATH='"/usr/share/java/cp-base-new/*"'
 
 # Confluent Docker Utils Version (Namely the tag or branch to grab from git to install)
-ARG PYTHON_CONFLUENT_DOCKER_UTILS_VERSION="v0.0.49"
+ARG PYTHON_CONFLUENT_DOCKER_UTILS_VERSION="v0.0.58"
 
 # This can be overriden for an offline/air-gapped builds
 ARG PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC="git+https://github.com/confluentinc/confluent-docker-utils@${PYTHON_CONFLUENT_DOCKER_UTILS_VERSION}"
@@ -32,8 +38,6 @@ RUN mkdir -p /opt \
   && echo "===> Installing python packages ..."  \
   && pip install --no-cache-dir jinja2 requests \
   && pip install --prefer-binary --prefix=/usr/local --upgrade "${PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC}" \
-  && echo "===> Applying log4j log4shell fix based on https://www.slf4j.org/log4shell.html ..." \
-  && zip -d /opt/kafka/libs/log4j-1.2.17.jar org/apache/log4j/net/JMSAppender.class \
   && rm -rf /tmp/* \
   && apk del --purge .build-deps
 
@@ -43,19 +47,21 @@ WORKDIR /opt/kafka
 
 RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
+COPY --from=confluent_base /etc/cp-base-new/log4j.properties /etc/cp-base-new/log4j.properties
 
-ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /usr/share/java/cp-base-new
-ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar /opt/kafka/libs
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.6/aws-msk-iam-auth-1.1.6-all.jar /usr/share/java/cp-base-new
+ADD --chown=kafka:kafka https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.6/aws-msk-iam-auth-1.1.6-all.jar /opt/kafka/libs
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"
 ENV FAILED_METADATA_CHANGE_EVENT_NAME="FailedMetadataChangeEvent_v4"
 ENV DATAHUB_USAGE_EVENT_NAME="DataHubUsageEvent_v1"
-ENV METADATA_CHANGE_LOG_VERSIONED_TOPIC="MetadataChangeLog_Versioned_v1"
-ENV METADATA_CHANGE_LOG_TIMESERIES_TOPIC="MetadataChangeLog_Timeseries_v1"
-ENV METADATA_CHANGE_PROPOSAL_TOPIC="MetadataChangeProposal_v1"
-ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC="FailedMetadataChangeProposal_v1"
+ENV METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME="MetadataChangeLog_Versioned_v1"
+ENV METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME="MetadataChangeLog_Timeseries_v1"
+ENV METADATA_CHANGE_PROPOSAL_TOPIC_NAME="MetadataChangeProposal_v1"
+ENV FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME="FailedMetadataChangeProposal_v1"
 ENV PLATFORM_EVENT_TOPIC_NAME="PlatformEvent_v1"
+ENV DATAHUB_UPGRADE_HISTORY_TOPIC_NAME="DataHubUpgradeHistory_v1"
 
 COPY docker/kafka-setup/kafka-setup.sh ./kafka-setup.sh
 COPY docker/kafka-setup/kafka-config.sh ./kafka-config.sh

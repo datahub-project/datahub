@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.policy.DataHubRoleInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Map;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -87,8 +88,8 @@ public class ListRolesResolverTest {
         ImmutableList.of(new SearchEntity().setEntity(Urn.createFromString(ADMIN_ROLE_URN_STRING)),
             new SearchEntity().setEntity(Urn.createFromString(EDITOR_ROLE_URN_STRING)))));
 
-    when(_entityClient.search(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt(), any())).thenReturn(
-        roleSearchResult);
+    when(_entityClient.search(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), anyInt(), anyInt(), any(), eq(Boolean.TRUE),
+        Mockito.eq(null))).thenReturn(roleSearchResult);
     when(_entityClient.batchGetV2(eq(DATAHUB_ROLE_ENTITY_NAME), any(), any(), any())).thenReturn(_entityResponseMap);
 
     ListRolesResult result = _resolver.get(_dataFetchingEnvironment).join();

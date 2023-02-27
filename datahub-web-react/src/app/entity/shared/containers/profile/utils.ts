@@ -104,6 +104,14 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     return routedTab;
 }
 
+export function useIsOnTab(tabName: string): boolean {
+    const { pathname } = useLocation();
+    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
+    const splitPathName = trimmedPathName.split('/');
+    const lastTokenInPath = splitPathName[splitPathName.length - 1];
+    return lastTokenInPath === tabName;
+}
+
 export function formatDateString(time: number) {
     const date = new Date(time);
     return date.toLocaleDateString('en-US');
@@ -145,8 +153,8 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
             return [
                 ENTITY_PROFILE_SCHEMA_ID,
                 ENTITY_PROFILE_DOCUMENTATION_ID,
-                ENTITY_PROFILE_PROPERTIES_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
+                ENTITY_PROFILE_PROPERTIES_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,

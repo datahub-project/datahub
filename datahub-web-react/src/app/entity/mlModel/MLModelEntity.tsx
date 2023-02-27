@@ -10,7 +10,7 @@ import { GenericEntityProperties } from '../shared/types';
 import MLModelSummary from './profile/MLModelSummary';
 import MLModelGroupsTab from './profile/MLModelGroupsTab';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -24,20 +24,20 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 export class MLModelEntity implements Entity<MlModel> {
     type: EntityType = EntityType.Mlmodel;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <CodeSandboxOutlined style={{ fontSize }} />;
+            return <CodeSandboxOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <CodeSandboxOutlined style={{ fontSize, color: '#9633b9' }} />;
+            return <CodeSandboxOutlined style={{ fontSize, color: color || '#9633b9' }} />;
         }
 
         return (
             <CodeSandboxOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );

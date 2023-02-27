@@ -6,6 +6,7 @@ services:
   datahub-mae-consumer:
     container_name: datahub-mae-consumer
     environment:
+    - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-mcl
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - MAE_CONSUMER_ENABLED=true
@@ -24,27 +25,28 @@ services:
   datahub-mce-consumer:
     container_name: datahub-mce-consumer
     environment:
-    - MCE_CONSUMER_ENABLED=true
-    - KAFKA_BOOTSTRAP_SERVER=broker:29092
-    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
+    - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-    - EBEAN_DATASOURCE_USERNAME=datahub
-    - EBEAN_DATASOURCE_PASSWORD=datahub
-    - EBEAN_DATASOURCE_HOST=mysql:3306
-    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+    - DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID=generic-duhe-consumer-job-client-mcp
     - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+    - EBEAN_DATASOURCE_HOST=mysql:3306
+    - EBEAN_DATASOURCE_PASSWORD=datahub
+    - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+    - EBEAN_DATASOURCE_USERNAME=datahub
     - ELASTICSEARCH_HOST=elasticsearch
     - ELASTICSEARCH_PORT=9200
+    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mce-consumer/resources/entity-registry.yml
+    - ENTITY_SERVICE_ENABLE_RETENTION=true
     - ES_BULK_REFRESH_POLICY=WAIT_UNTIL
     - GRAPH_SERVICE_DIFF_MODE_ENABLED=true
     - GRAPH_SERVICE_IMPL=elasticsearch
     - JAVA_OPTS=-Xms1g -Xmx1g
-    - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-mce-consumer/resources/entity-registry.yml
-    - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
-    - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
-    - ENTITY_SERVICE_ENABLE_RETENTION=true
+    - KAFKA_BOOTSTRAP_SERVER=broker:29092
+    - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
     - MAE_CONSUMER_ENABLED=false
+    - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=false
     - UI_INGESTION_ENABLED=false
     hostname: datahub-mce-consumer

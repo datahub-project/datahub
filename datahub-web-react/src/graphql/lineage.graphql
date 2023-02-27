@@ -251,6 +251,7 @@ fragment fullLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
     relationships {
         type
         createdOn
@@ -270,10 +271,28 @@ fragment fullLineageResults on EntityLineageResult {
                 }
             }
         }
+        updatedOn
+        updatedActor {
+            urn
+            type
+            ... on CorpUser {
+                username
+                info {
+                    displayName
+                }
+                properties {
+                    displayName
+                }
+                editableProperties {
+                    displayName
+                }
+            }
+        }
+        isManual
         entity {
             ...lineageFields
             ... on Dataset {
-                schemaMetadata(version: 0)@include(if: $showColumns) {
+                schemaMetadata(version: 0) @include(if: $showColumns) {
                     ...schemaMetadataFields
                 }
             }
@@ -290,6 +309,7 @@ fragment leafLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
     relationships {
         type
         entity {
@@ -303,16 +323,25 @@ fragment partialLineageResults on EntityLineageResult {
     start
     count
     total
+    filtered
 }
 
-query getEntityLineage($urn: String!, $separateSiblings: Boolean, $showColumns: Boolean!, $excludeUpstream: Boolean = false, $excludeDownstream: Boolean = false) {
+query getEntityLineage(
+    $urn: String!
+    $separateSiblings: Boolean
+    $showColumns: Boolean!
+    $startTimeMillis: Long
+    $endTimeMillis: Long
+    $excludeUpstream: Boolean = false
+    $excludeDownstream: Boolean = false
+) {
     entity(urn: $urn) {
         urn
         type
         ...lineageNodeProperties
         ...canEditLineageFragment
         ... on Dataset {
-            schemaMetadata(version: 0)@include(if: $showColumns) {
+            schemaMetadata(version: 0) @include(if: $showColumns) {
                 ...schemaMetadataFields
             }
             siblings {
@@ -331,12 +360,26 @@ query getEntityLineage($urn: String!, $separateSiblings: Boolean, $showColumns: 
         }
         ... on EntityWithRelationships {
             upstream: lineage(
-                input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }
+                input: {
+                    direction: UPSTREAM
+                    start: 0
+                    count: 100
+                    separateSiblings: $separateSiblings
+                    startTimeMillis: $startTimeMillis
+                    endTimeMillis: $endTimeMillis
+                }
             ) @skip(if: $excludeUpstream) {
                 ...fullLineageResults
             }
             downstream: lineage(
-                input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }
+                input: {
+                    direction: DOWNSTREAM
+                    start: 0
+                    count: 100
+                    separateSiblings: $separateSiblings
+                    startTimeMillis: $startTimeMillis
+                    endTimeMillis: $endTimeMillis
+                }
             ) @skip(if: $excludeDownstream) {
                 ...fullLineageResults
             }

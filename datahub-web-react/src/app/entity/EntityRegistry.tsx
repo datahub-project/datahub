@@ -54,9 +54,9 @@ export default class EntityRegistry {
         return this.entities.filter((entity) => entity.isLineageEnabled()).map((entity) => entity.type);
     }
 
-    getIcon(type: EntityType, fontSize: number, styleType: IconStyleType): JSX.Element {
+    getIcon(type: EntityType, fontSize: number, styleType: IconStyleType, color?: string): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
-        return entity.icon(fontSize, styleType);
+        return entity.icon(fontSize, styleType, color);
     }
 
     getCollectionName(type: EntityType): string {
@@ -114,6 +114,12 @@ export default class EntityRegistry {
         return entity.renderPreview(PreviewType.BROWSE, data);
     }
 
+    // render the regular profile if embedded profile doesn't exist. Compact context should be set to true.
+    renderEmbeddedProfile(type: EntityType, urn: string): JSX.Element {
+        const entity = validatedGet(type, this.entityTypeToEntity);
+        return entity.renderEmbeddedProfile ? entity.renderEmbeddedProfile(urn) : entity.renderProfile(urn);
+    }
+
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
@@ -122,30 +128,28 @@ export default class EntityRegistry {
                 ...entity.getLineageVizConfig?.(data),
                 downstreamChildren: genericEntityProperties?.downstream?.relationships
                     ?.filter((relationship) => relationship.entity)
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.filter((relationship) => !relationship.entity?.['status']?.removed)
                     ?.map((relationship) => ({
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
-                downstreamRelationships: genericEntityProperties?.downstream?.relationships
-                    ?.filter((relationship) => relationship.entity)
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.filter((relationship) => !relationship.entity?.['status']?.removed),
-                numDownstreamChildren: genericEntityProperties?.downstream?.total,
+                downstreamRelationships: genericEntityProperties?.downstream?.relationships?.filter(
+                    (relationship) => relationship.entity,
+                ),
+                numDownstreamChildren:
+                    (genericEntityProperties?.downstream?.total || 0) -
+                    (genericEntityProperties?.downstream?.filtered || 0),
                 upstreamChildren: genericEntityProperties?.upstream?.relationships
                     ?.filter((relationship) => relationship.entity)
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.filter((relationship) => !relationship.entity?.['status']?.removed)
                     ?.map((relationship) => ({
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
-                upstreamRelationships: genericEntityProperties?.upstream?.relationships
-                    ?.filter((relationship) => relationship.entity)
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.filter((relationship) => !relationship.entity?.['status']?.removed),
-                numUpstreamChildren: genericEntityProperties?.upstream?.total,
+                upstreamRelationships: genericEntityProperties?.upstream?.relationships?.filter(
+                    (relationship) => relationship.entity,
+                ),
+                numUpstreamChildren:
+                    (genericEntityProperties?.upstream?.total || 0) -
+                    (genericEntityProperties?.upstream?.filtered || 0),
                 status: genericEntityProperties?.status,
                 siblingPlatforms: genericEntityProperties?.siblingPlatforms,
                 fineGrainedLineages: genericEntityProperties?.fineGrainedLineages,

@@ -9,7 +9,3 @@ ingestion_checkpoint_provider_registry = PluginRegistry[
 ingestion_checkpoint_provider_registry.register_from_entrypoint(
     "datahub.ingestion.checkpointing_provider.plugins"
 )
-
-
-# These providers are always enabled
-assert ingestion_checkpoint_provider_registry.get("datahub")

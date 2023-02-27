@@ -1,5 +1,5 @@
 import merge from 'deepmerge';
-import { unionBy } from 'lodash';
+import { unionBy, keyBy, values } from 'lodash';
 import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
 import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
@@ -51,6 +51,11 @@ const combineMerge = (target, source, options) => {
     return destination;
 };
 
+// use when you want to merge and array of objects by key in the object as opposed to by index of array
+const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], key: string) => {
+    return values(merge(keyBy(destinationArray, key), keyBy(sourceArray, key)));
+};
+
 const mergeTags = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'tag.urn');
 };
@@ -71,6 +76,10 @@ const mergeOwners = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'owner.urn');
 };
 
+const mergeFields = (destinationArray, sourceArray, _options) => {
+    return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath');
+};
+
 function getArrayMergeFunction(key) {
     switch (key) {
         case 'tags':
@@ -83,6 +92,10 @@ function getArrayMergeFunction(key) {
             return mergeProperties;
         case 'owners':
             return mergeOwners;
+        case 'fields':
+            return mergeFields;
+        case 'editableSchemaFieldInfo':
+            return mergeFields;
         default:
             return undefined;
     }
@@ -96,7 +109,15 @@ const customMerge = (isPrimary, key) => {
     if (key === 'platform' || key === 'siblings') {
         return (secondary, primary) => (isPrimary ? primary : secondary);
     }
-    if (key === 'tags' || key === 'terms' || key === 'assertions' || key === 'customProperties' || key === 'owners') {
+    if (
+        key === 'tags' ||
+        key === 'terms' ||
+        key === 'assertions' ||
+        key === 'customProperties' ||
+        key === 'owners' ||
+        key === 'fields' ||
+        key === 'editableSchemaFieldInfo'
+    ) {
         return (secondary, primary) => {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),

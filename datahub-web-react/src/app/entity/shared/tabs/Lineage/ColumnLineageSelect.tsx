@@ -1,5 +1,6 @@
-import { Button, Select, Tooltip } from 'antd';
 import * as React from 'react';
+import { Button, Select, Tooltip } from 'antd';
+import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { blue } from '@ant-design/colors';
 import { useHistory, useLocation } from 'react-router';
@@ -94,7 +95,10 @@ export default function ColumnsLineageSelect({
                     isSelected={isColumnLevelLineage}
                 >
                     <ImpactAnalysisIcon />
-                    <TextWrapper>Column Lineage</TextWrapper>
+                    <TextWrapper>
+                        <b>Column Lineage</b>
+                        <CaretDownOutlined style={{ fontSize: '10px', marginLeft: 4 }} />
+                    </TextWrapper>
                 </StyledButton>
             </Tooltip>
         </>

@@ -1,0 +1,153 @@
+{
+    "data": {
+        "dashboardsConnection": {
+            "nodes": [
+                {
+                    "id": "8f7dd564-36b6-593f-3c6f-687ad06cd40b",
+                    "name": "Email Performance by Campaign",
+                    "path": "EmailPerformancebyCampaign/EmailPerformancebyCampaign",
+                    "createdAt": "2021-12-22T19:10:34Z",
+                    "updatedAt": "2021-12-22T19:10:34Z",
+                    "luid": "fc9ea488-f810-4fa8-ac19-aa96018b5d66",
+                    "workbook": {
+                        "id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
+                        "name": "Email Performance by Campaign",
+                        "projectName": "default",
+                        "owner": {
+                            "username": "jawadqu@gmail.com"
+                        }
+                    },
+                    "sheets": [
+                        {
+                            "id": "222d1406-de0e-cd8d-0b94-9b45a0007e59",
+                            "name": "Timeline - Sent"
+                        },
+                        {
+                            "id": "38130558-4194-2e2a-3046-c0d887829cb4",
+                            "name": "Campaign List"
+                        },
+                        {
+                            "id": "692a2da4-2a82-32c1-f713-63b8e4325d86",
+                            "name": "Summary"
+                        },
+                        {
+                            "id": "f4317efd-c3e6-6ace-8fe6-e71b590bbbcc",
+                            "name": "Mobile - Sent by Campaign"
+                        }
+                    ]
+                },
+                {
+                    "id": "20e44c22-1ccd-301a-220c-7b6837d09a52",
+                    "name": "dvd Rental Dashboard",
+                    "path": "dvdrental/dvdRentalDashboard",
+                    "createdAt": "2021-12-17T20:44:26Z",
+                    "updatedAt": "2022-01-14T22:39:55Z",
+                    "workbook": {
+                        "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
+                        "name": "Dvdrental Workbook",
+                        "projectName": "default",
+                        "owner": {
+                            "username": "jawadqu@gmail.com"
+                        }
+                    },
+                    "sheets": [
+                        {
+                            "id": "8a6a269a-d6de-fae4-5050-513255b40ffc",
+                            "name": "Sheet 1"
+                        }
+                    ]
+                },
+                {
+                    "id": "39b7a1de-6276-cfc7-9b59-1d22f3bbb06b",
+                    "name": "Story 1",
+                    "path": "dvdrental/Story1",
+                    "createdAt": "2021-12-17T20:44:26Z",
+                    "updatedAt": "2022-01-14T22:39:55Z",
+                    "workbook": {
+                        "id": "661fabd0-bed6-8610-e066-0694a81a6cea",
+                        "name": "Dvdrental Workbook",
+                        "projectName": "default",
+                        "owner": {
+                            "username": "jawadqu@gmail.com"
+                        }
+                    },
+                    "sheets": []
+                },
+                {
+                    "id": "5dcaaf46-e6fb-2548-e763-272a7ab2c9b1",
+                    "name": "Executive Dashboard",
+                    "path": "ExecutiveDashboard/ExecutiveDashboard",
+                    "createdAt": "2021-12-17T19:14:10Z",
+                    "updatedAt": "2021-12-17T19:15:02Z",
+                    "workbook": {
+                        "id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
+                        "name": "Executive Dashboard",
+                        "projectName": "default",
+                        "owner": {
+                            "username": "jawadqu@gmail.com"
+                        }
+                    },
+                    "sheets": [
+                        {
+                            "id": "20fc5eb7-81eb-aa18-8c39-af501c62d085",
+                            "name": "Opened Requests"
+                        },
+                        {
+                            "id": "2b5351c1-535d-4a4a-1339-c51ddd6abf8a",
+                            "name": "Top 10 Items by Requests and YoY Change"
+                        },
+                        {
+                            "id": "2b73b9dd-4ec7-75ca-f2e9-fa1984ca8b72",
+                            "name": "Opened Problems"
+                        },
+                        {
+                            "id": "373c6466-bb0c-b319-8752-632456349261",
+                            "name": "Overdue"
+                        },
+                        {
+                            "id": "53b8dc2f-8ada-51f7-7422-fe82e9b803cc",
+                            "name": "High and Critical Priority Problems"
+                        },
+                        {
+                            "id": "58af9ecf-b839-da50-65e1-2e1fa20e3362",
+                            "name": "Total Incidents by Category and YoY Change"
+                        },
+                        {
+                            "id": "618b3e76-75c1-cb31-0c61-3f4890b72c31",
+                            "name": "Known Errors"
+                        },
+                        {
+                            "id": "721c3c41-7a2b-16a8-3281-6f948a44be96",
+                            "name": "Overdue Requests"
+                        },
+                        {
+                            "id": "7ef184c1-5a41-5ec8-723e-ae44c20aa335",
+                            "name": "AVG Time to Solve an Incident"
+                        },
+                        {
+                            "id": "7fbc77ba-0ab6-3727-0db3-d8402a804da5",
+                            "name": "Made SLA?"
+                        },
+                        {
+                            "id": "b207c2f2-b675-32e3-2663-17bb836a018b",
+                            "name": "Overdue Problems"
+                        },
+                        {
+                            "id": "e70a540d-55ed-b9cc-5a3c-01ebe81a1274",
+                            "name": "Age of Active Problems"
+                        },
+                        {
+                            "id": "f76d3570-23b8-f74b-d85c-cc5484c2079c",
+                            "name": "Opened Incidents"
+                        }
+                    ]
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 4
+        }
+    }
+}

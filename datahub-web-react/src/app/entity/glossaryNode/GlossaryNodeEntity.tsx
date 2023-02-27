@@ -6,7 +6,7 @@ import GlossaryEntitiesPath from '../../glossary/GlossaryEntitiesPath';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -16,20 +16,20 @@ import { Preview } from './preview/Preview';
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined style={{ fontSize }} />;
+            return <FolderOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderFilled style={{ fontSize, color: '#B37FEB' }} />;
+            return <FolderFilled style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         return (
             <FolderOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
