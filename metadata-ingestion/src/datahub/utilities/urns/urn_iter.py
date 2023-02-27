@@ -1,8 +1,10 @@
-from typing import List, Tuple, Union
+from typing import Callable, List, Tuple, Union
 
 from avro.schema import Field, RecordSchema
 
 from datahub.metadata.schema_classes import DictWrapper
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 _Path = List[Union[str, int]]
 
@@ -33,3 +35,53 @@ def list_urns_with_path(model: DictWrapper) -> List[Tuple[str, _Path]]:
             urns.append((value, [key]))
 
     return urns
+
+
+def transform_urns(model: DictWrapper, func: Callable[[str], str]) -> None:
+    """
+    Rewrites all URNs in the given object according to the given function.
+    """
+
+    for old_urn, path in list_urns_with_path(model):
+        new_urn = func(old_urn)
+        if old_urn != new_urn:
+            _modify_at_path(model, path, new_urn)
+
+
+def _modify_at_path(
+    model: Union[DictWrapper, list], path: _Path, new_value: str
+) -> None:
+    assert len(path) > 0
+
+    if len(path) == 1:
+        if isinstance(path[0], int):
+            assert isinstance(model, list)
+            model[path[0]] = new_value
+        else:
+            assert isinstance(model, DictWrapper)
+            model._inner_dict[path[0]] = new_value
+    elif isinstance(path[0], int):
+        assert isinstance(model, list)
+        return _modify_at_path(model[path[0]], path[1:], new_value)
+    else:
+        assert isinstance(model, DictWrapper)
+        return _modify_at_path(model._inner_dict[path[0]], path[1:], new_value)
+
+
+def _lowercase_dataset_urn(dataset_urn: str) -> str:
+    cur_urn = DatasetUrn.create_from_string(dataset_urn)
+    cur_urn._entity_id[1] = cur_urn._entity_id[1].lower()
+    return str(cur_urn)
+
+
+def lowercase_dataset_urns(model: DictWrapper) -> None:
+    def modify_urn(urn: str) -> str:
+        if guess_entity_type(urn) == "dataset":
+            return _lowercase_dataset_urn(urn)
+        elif guess_entity_type(urn) == "schemaField":
+            cur_urn = Urn.create_from_string(urn)
+            cur_urn._entity_id[0] = _lowercase_dataset_urn(cur_urn._entity_id[0])
+            return str(cur_urn)
+        return urn
+
+    transform_urns(model, modify_urn)

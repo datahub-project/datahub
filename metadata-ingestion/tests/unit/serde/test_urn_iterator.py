@@ -7,7 +7,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     Upstream,
     UpstreamLineage,
 )
-from datahub.utilities.urns.urn_iter import list_urns_with_path
+from datahub.utilities.urns.urn_iter import list_urns_with_path, lowercase_dataset_urns
 
 
 def _datasetUrn(tbl):
@@ -90,5 +90,31 @@ def test_upstream_lineage_urn_iterator():
     ]
 
 
-# TODO chartInfo urns
-# TODO mcpw urns
+def _make_test_lineage_obj(upstream: str, downstream: str) -> UpstreamLineage:
+    return UpstreamLineage(
+        upstreams=[
+            Upstream(
+                dataset=_datasetUrn(upstream),
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineage(
+                upstreamType=FineGrainedLineageUpstreamType.DATASET,
+                upstreams=[_datasetUrn(upstream)],
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=[_fldUrn(downstream, "c5")],
+            ),
+        ],
+    )
+
+
+def test_dataset_urn_lowercase_transformer():
+    original = _make_test_lineage_obj("upstreamTable", "downstreamTable")
+
+    expected = _make_test_lineage_obj("upstreamtable", "downstreamtable")
+
+    assert original != expected  # sanity check
+
+    lowercase_dataset_urns(original)
+    assert original == expected
