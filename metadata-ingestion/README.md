@@ -197,4 +197,4 @@ See the guides on [developing](./developing.md), [adding a source](./adding-sour
 DataHub server uses a 3 digit versioning scheme, while the CLI uses a 4 digit scheme. For example, if you're using DataHub server version 0.10.0, you should use CLI version 0.10.0.x, where x is a patch version.
 We do this because we do CLI releases at a much higher frequency than server releases, usually every few days vs twice a month.
 
-For ingestion sources, any breaking changes will be highlighted in the release notes. When fields are deprecated or otherwise changed, we will try to maintain backwards compatibility for two server releases, which is about 4-6 weeks. The CLI will also print warnings whenever deprecated options are used.
+For ingestion sources, any breaking changes will be highlighted in the [release notes](../docs/how/updating-datahub.md). When fields are deprecated or otherwise changed, we will try to maintain backwards compatibility for two server releases, which is about 4-6 weeks. The CLI will also print warnings whenever deprecated options are used.
