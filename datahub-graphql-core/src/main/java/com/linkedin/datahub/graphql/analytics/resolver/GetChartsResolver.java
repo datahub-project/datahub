@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.generated.TableChart;
 import com.linkedin.datahub.graphql.generated.TimeSeriesChart;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.util.DateUtil;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
@@ -26,12 +27,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeConstants;
 
 
 /**
@@ -64,14 +63,13 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   }
 
   private TimeSeriesChart getActiveUsersTimeSeriesChart(
-          final DateTime endDateTime,
+          final DateTime beginning,
+          final DateTime end,
           final String title,
-          final DateInterval interval,
-          final Function<DateTime, DateTime> convertToBegin
+          final DateInterval interval
   ) {
-    final DateTime beginning = convertToBegin.apply(endDateTime);
     final DateRange dateRange =
-            new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(endDateTime.getMillis()));
+            new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(end.getMillis()));
 
     final List<NamedLine> timeSeriesLines =
             _analyticsService.getTimeseriesChart(_analyticsService.getUsageIndexName(), dateRange, interval,
@@ -89,33 +87,22 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
    */
   private List<AnalyticsChart> getProductAnalyticsCharts(Authentication authentication) throws Exception {
     final List<AnalyticsChart> charts = new ArrayList<>();
-    final DateTime endOfWeek = DateTime.now()
-            .plusDays(1)
-            .withDayOfWeek(DateTimeConstants.SUNDAY)
-            .withHourOfDay(0)
-            .withMinuteOfHour(0)
-            .withSecondOfMinute(0)
-            .withMillisOfDay(0);
-    final DateTime startOfWeek = endOfWeek.minusWeeks(1);
-    final DateRange lastWeekDateRange =
-            new DateRange(String.valueOf(startOfWeek.getMillis()), String.valueOf(endOfWeek.getMillis()));
+    DateUtil dateUtil = new DateUtil();
+    final DateTime startOfNextWeek = dateUtil.getStartOfNextWeek();
+    final DateTime startOfNextMonth = dateUtil.getStartOfNextMonth();
+    final DateRange trailingWeekDateRange = dateUtil.getTrailingWeekDateRange();
 
     charts.add(getActiveUsersTimeSeriesChart(
-            endOfWeek,
+            startOfNextWeek.minusWeeks(10),
+            startOfNextWeek.minusMillis(1),
             "Weekly Active Users",
-            DateInterval.WEEK,
-            dateTime -> dateTime.minusMonths(2)
+            DateInterval.WEEK
     ));
     charts.add(getActiveUsersTimeSeriesChart(
-            endOfWeek,
+            startOfNextMonth.minusMonths(12),
+            startOfNextMonth.minusMillis(1),
             "Monthly Active Users",
-            DateInterval.MONTH,
-            dateTime -> dateTime.minusMonths(12)
-                    .withDayOfMonth(1)
-                    .withHourOfDay(0)
-                    .withMinuteOfHour(0)
-                    .withSecondOfMinute(0)
-                    .withMillisOfDay(0)
+            DateInterval.MONTH
     ));
 
     String searchesTitle = "Searches Last Week";
@@ -123,12 +110,12 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     String searchEventType = "SearchEvent";
 
     final List<NamedLine> searchesTimeseries =
-        _analyticsService.getTimeseriesChart(_analyticsService.getUsageIndexName(), lastWeekDateRange, dailyInterval,
+        _analyticsService.getTimeseriesChart(_analyticsService.getUsageIndexName(), trailingWeekDateRange, dailyInterval,
             Optional.empty(), ImmutableMap.of("type", ImmutableList.of(searchEventType)), Collections.emptyMap(),
             Optional.empty());
     charts.add(TimeSeriesChart.builder()
         .setTitle(searchesTitle)
-        .setDateRange(lastWeekDateRange)
+        .setDateRange(trailingWeekDateRange)
         .setInterval(dailyInterval)
         .setLines(searchesTimeseries)
         .build());
@@ -137,14 +124,14 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<String> columns = ImmutableList.of("Query", "Count");
 
     final List<Row> topSearchQueries =
-        _analyticsService.getTopNTableChart(_analyticsService.getUsageIndexName(), Optional.of(lastWeekDateRange),
+        _analyticsService.getTopNTableChart(_analyticsService.getUsageIndexName(), Optional.of(trailingWeekDateRange),
             "query.keyword", ImmutableMap.of("type", ImmutableList.of(searchEventType)), Collections.emptyMap(),
             Optional.empty(), 10, AnalyticsUtil::buildCellWithSearchLandingPage);
     charts.add(TableChart.builder().setTitle(topSearchTitle).setColumns(columns).setRows(topSearchQueries).build());
 
     final String sectionViewsTitle = "Section Views across Entity Types";
     final List<NamedBar> sectionViewsPerEntityType =
-        _analyticsService.getBarChart(_analyticsService.getUsageIndexName(), Optional.of(lastWeekDateRange),
+        _analyticsService.getBarChart(_analyticsService.getUsageIndexName(), Optional.of(trailingWeekDateRange),
             ImmutableList.of("entityType.keyword", "section.keyword"),
             ImmutableMap.of("type", ImmutableList.of("EntitySectionViewEvent")), Collections.emptyMap(),
             Optional.empty(), true);
@@ -152,7 +139,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
 
     final String actionsByTypeTitle = "Actions by Entity Type";
     final List<NamedBar> eventsByEventType =
-        _analyticsService.getBarChart(_analyticsService.getUsageIndexName(), Optional.of(lastWeekDateRange),
+        _analyticsService.getBarChart(_analyticsService.getUsageIndexName(), Optional.of(trailingWeekDateRange),
             ImmutableList.of("entityType.keyword", "actionType.keyword"),
             ImmutableMap.of("type", ImmutableList.of("EntityActionEvent")), Collections.emptyMap(), Optional.empty(),
             true);
@@ -162,7 +149,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     final List<String> columns5 = ImmutableList.of("Dataset", "#Views");
 
     final List<Row> topViewedDatasets =
-        _analyticsService.getTopNTableChart(_analyticsService.getUsageIndexName(), Optional.of(lastWeekDateRange),
+        _analyticsService.getTopNTableChart(_analyticsService.getUsageIndexName(), Optional.of(trailingWeekDateRange),
             "entityUrn.keyword", ImmutableMap.of("type", ImmutableList.of("EntityViewEvent"), "entityType.keyword",
                 ImmutableList.of(EntityType.DATASET.name())), Collections.emptyMap(), Optional.empty(), 10,
             AnalyticsUtil::buildCellWithEntityLandingPage);
