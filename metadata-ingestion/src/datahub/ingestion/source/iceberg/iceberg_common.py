@@ -81,19 +81,6 @@ class IcebergSourceConfig(StatefulIngestionConfigBase):
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
 
-    @pydantic.root_validator
-    def validate_platform_instance(cls: "IcebergSourceConfig", values: Dict) -> Dict:
-        stateful_ingestion = values.get("stateful_ingestion")
-        if (
-            stateful_ingestion
-            and stateful_ingestion.enabled
-            and not values.get("platform_instance")
-        ):
-            raise ConfigurationError(
-                "Enabling Iceberg stateful ingestion requires to specify a platform instance."
-            )
-        return values
-
     @root_validator()
     def _ensure_one_filesystem_is_configured(
         cls: "IcebergSourceConfig", values: Dict

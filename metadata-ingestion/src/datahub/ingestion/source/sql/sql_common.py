@@ -394,7 +394,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         """
         The source identifier such as the specific source host address required for stateful ingestion.
         Individual subclasses need to override this method appropriately.

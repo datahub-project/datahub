@@ -375,7 +375,7 @@ function markdown_rewrite_urls(
     )
     .replace(
       // Also look for the [text]: url syntax.
-      /^\[(.+?)\]\s*:\s*(.+?)\s*$/gm,
+      /^\[([^^\n\r]+?)\]\s*:\s*(.+?)\s*$/gm,
       (_, text, url) => {
         const updated = new_url(url, filepath);
         return `[${text}]: ${updated}`;

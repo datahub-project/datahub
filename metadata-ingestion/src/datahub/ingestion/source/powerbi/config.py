@@ -145,12 +145,12 @@ class PlatformDetail:
 
 class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
     platform_name: str = pydantic.Field(
-        default=Constant.PLATFORM_NAME, hidden_from_schema=True
+        default=Constant.PLATFORM_NAME, hidden_from_docs=True
     )
 
     platform_urn: str = pydantic.Field(
         default=builder.make_data_platform_urn(platform=Constant.PLATFORM_NAME),
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
 
     # Organisation Identifier

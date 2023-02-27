@@ -342,7 +342,7 @@ public class ESAggregatedStatsDAO {
       @Nullable GroupingBucket[] groupingBuckets) {
 
     // Setup the filter query builder using the input filter provided.
-    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter);
+    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter, true);
     // Create the high-level aggregation builder with the filter.
     final AggregationBuilder filteredAggBuilder = AggregationBuilders.filter(ES_FILTERED_STATS, filterQueryBuilder);
 
@@ -428,7 +428,8 @@ public class ESAggregatedStatsDAO {
             .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
       } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
         // Process the string grouping bucket using the 'terms' aggregation.
-        String fieldName = curGroupingBucket.getKey();
+        // The field can be Keyword, Numeric, ip, boolean, or binary.
+        String fieldName = ESUtils.toKeywordField(curGroupingBucket.getKey(), true);
         DataSchema.Type fieldType = getGroupingBucketKeyType(aspectSpec, curGroupingBucket);
         curAggregationBuilder = AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))
             .field(fieldName)

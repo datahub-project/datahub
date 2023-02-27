@@ -5863,86 +5863,85 @@
     } ]
   }, "com.linkedin.metadata.search.FilterValue", {
     "type" : "record",
-    "name" : "LineageSearchEntity",
-    "namespace" : "com.linkedin.metadata.search",
-    "doc" : "The model for each entity returned by the lineage search query",
-    "include" : [ {
-      "type" : "record",
-      "name" : "SearchEntity",
-      "doc" : "The model for each entity returned by the search query",
-      "fields" : [ {
-        "name" : "entity",
-        "type" : "com.linkedin.common.Urn",
-        "doc" : "Urn of the entity being returned"
-      }, {
-        "name" : "matchedFields",
-        "type" : {
-          "type" : "array",
-          "items" : {
-            "type" : "record",
-            "name" : "MatchedField",
-            "fields" : [ {
-              "name" : "name",
-              "type" : "string",
-              "doc" : "Matched field name"
-            }, {
-              "name" : "value",
-              "type" : "string",
-              "doc" : "Matched field value"
-            } ]
-          }
-        },
-        "doc" : "Matched field name and values",
-        "default" : [ ]
-      }, {
-        "name" : "features",
-        "type" : {
-          "type" : "map",
-          "values" : "double"
-        },
-        "optional" : true
-      }, {
-        "name" : "score",
-        "type" : "double",
-        "optional" : true
-      } ]
-    } ],
-    "fields" : [ {
-      "name" : "paths",
-      "type" : {
-        "type" : "array",
-        "items" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        }
-      },
-      "doc" : "Optional list of entities between the source and destination node.\nThere can be multiple paths from the source to the destination.",
-      "default" : [ ]
-    }, {
-      "name" : "path",
-      "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.common.Urn"
-      },
-      "doc" : "Optional list of entities between the source and destination node",
-      "default" : [ ],
-      "deprecated" : true
-    }, {
-      "name" : "degree",
-      "type" : "int",
-      "doc" : "Degree of relationship (number of hops to get to entity)",
-      "default" : 1
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "LineageSearchResult",
+    "name" : "LineageScrollResult",
     "namespace" : "com.linkedin.metadata.search",
     "doc" : "The model for the result of a lineage search query",
     "fields" : [ {
       "name" : "entities",
       "type" : {
         "type" : "array",
-        "items" : "LineageSearchEntity"
+        "items" : {
+          "type" : "record",
+          "name" : "LineageSearchEntity",
+          "doc" : "The model for each entity returned by the lineage search query",
+          "include" : [ {
+            "type" : "record",
+            "name" : "SearchEntity",
+            "doc" : "The model for each entity returned by the search query",
+            "fields" : [ {
+              "name" : "entity",
+              "type" : "com.linkedin.common.Urn",
+              "doc" : "Urn of the entity being returned"
+            }, {
+              "name" : "matchedFields",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "MatchedField",
+                  "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Matched field name"
+                  }, {
+                    "name" : "value",
+                    "type" : "string",
+                    "doc" : "Matched field value"
+                  } ]
+                }
+              },
+              "doc" : "Matched field name and values",
+              "default" : [ ]
+            }, {
+              "name" : "features",
+              "type" : {
+                "type" : "map",
+                "values" : "double"
+              },
+              "optional" : true
+            }, {
+              "name" : "score",
+              "type" : "double",
+              "optional" : true
+            } ]
+          } ],
+          "fields" : [ {
+            "name" : "paths",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              }
+            },
+            "doc" : "Optional list of entities between the source and destination node.\nThere can be multiple paths from the source to the destination.",
+            "default" : [ ]
+          }, {
+            "name" : "path",
+            "type" : {
+              "type" : "array",
+              "items" : "com.linkedin.common.Urn"
+            },
+            "doc" : "Optional list of entities between the source and destination node",
+            "default" : [ ],
+            "deprecated" : true
+          }, {
+            "name" : "degree",
+            "type" : "int",
+            "doc" : "Degree of relationship (number of hops to get to entity)",
+            "default" : 1
+          } ]
+        }
       },
       "doc" : "A list of entities returned from the search results"
     }, {
@@ -5963,6 +5962,36 @@
       },
       "doc" : "Metadata specific to the browse result of the queried path"
     }, {
+      "name" : "scrollId",
+      "type" : "string",
+      "doc" : "Scroll Identifier for subsequent requests, if not present then no further results to fetch",
+      "optional" : true
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
+    } ]
+  }, "com.linkedin.metadata.search.LineageSearchEntity", {
+    "type" : "record",
+    "name" : "LineageSearchResult",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The model for the result of a lineage search query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : "LineageSearchEntity"
+      },
+      "doc" : "A list of entities returned from the search results"
+    }, {
+      "name" : "metadata",
+      "type" : "SearchResultMetadata",
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
       "name" : "from",
       "type" : "int",
       "doc" : "Offset of the first entity in the result"
@@ -5975,7 +6004,37 @@
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
     } ]
-  }, "com.linkedin.metadata.search.MatchedField", "com.linkedin.metadata.search.SearchEntity", {
+  }, "com.linkedin.metadata.search.MatchedField", {
+    "type" : "record",
+    "name" : "ScrollResult",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The model for the result of a search query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : "SearchEntity"
+      },
+      "doc" : "A list of entities returned from the search results"
+    }, {
+      "name" : "metadata",
+      "type" : "SearchResultMetadata",
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
+      "name" : "scrollId",
+      "type" : "string",
+      "doc" : "Scroll Identifier for subsequent requests, if not present then no further results to fetch",
+      "optional" : true
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
+    } ]
+  }, "com.linkedin.metadata.search.SearchEntity", {
     "type" : "record",
     "name" : "SearchResult",
     "namespace" : "com.linkedin.metadata.search",
@@ -6284,6 +6343,89 @@
         } ],
         "returns" : "com.linkedin.metadata.query.ListUrnsResult"
       }, {
+        "name" : "scrollAcrossEntities",
+        "parameters" : [ {
+          "name" : "entities",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "input",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "scrollId",
+          "type" : "string"
+        }, {
+          "name" : "keepAlive",
+          "type" : "string"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.search.ScrollResult"
+      }, {
+        "name" : "scrollAcrossLineage",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "direction",
+          "type" : "string"
+        }, {
+          "name" : "entities",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "input",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "maxHops",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "scrollId",
+          "type" : "string"
+        }, {
+          "name" : "keepAlive",
+          "type" : "string"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        }, {
+          "name" : "startTimeMillis",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "endTimeMillis",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.search.LineageScrollResult"
+      }, {
         "name" : "search",
         "parameters" : [ {
           "name" : "entity",
@@ -6381,6 +6523,14 @@
         }, {
           "name" : "count",
           "type" : "int"
+        }, {
+          "name" : "startTimeMillis",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "endTimeMillis",
+          "type" : "long",
+          "optional" : true
         }, {
           "name" : "searchFlags",
           "type" : "com.linkedin.metadata.query.SearchFlags",

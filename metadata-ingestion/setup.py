@@ -55,6 +55,7 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
+    "jsonschema",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -150,7 +151,7 @@ looker_common = {
 bigquery_common = {
     "google-api-python-client",
     # Google cloud logging library
-    "google-cloud-logging<3.1.2",
+    "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
 }

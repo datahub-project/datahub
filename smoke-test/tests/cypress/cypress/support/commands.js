@@ -20,8 +20,8 @@ Cypress.Commands.add('login', () => {
       method: 'POST',
       url: '/logIn',
       body: {
-         username: Cypress.env('ADMIN_USERNAME'),
-         password: Cypress.env('ADMIN_PASSWORD'),
+         username: 'datahub',
+         password: 'datahub',
       },
       retryOnStatusCodeFailure: true,
     });
