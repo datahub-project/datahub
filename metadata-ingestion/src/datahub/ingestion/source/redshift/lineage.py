@@ -205,7 +205,7 @@ class RedshiftLineageExtractor:
         try:
             raw_db_name = self.config.database
             alias_db_name = get_db_name(self.config)
-            db_name = alias_db_name
+
             for lineage_row in RedshiftDataDictionary.get_lineage_rows(
                 conn=connection, query=query
             ):
@@ -217,7 +217,7 @@ class RedshiftLineageExtractor:
                     if not self.config.schema_pattern.allowed(
                         lineage_row.target_schema
                     ) or not self.config.table_pattern.allowed(
-                        f"{db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
+                        f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
                     ):
                         continue
 
@@ -232,7 +232,7 @@ class RedshiftLineageExtractor:
                         continue
                 else:
                     target_platform = LineageDatasetPlatform.REDSHIFT
-                    target_path = f"{db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
+                    target_path = f"{alias_db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
 
                 target = LineageItem(
                     dataset=LineageDataset(platform=target_platform, path=target_path),
@@ -242,7 +242,7 @@ class RedshiftLineageExtractor:
 
                 sources = self._get_sources(
                     lineage_type,
-                    db_name,
+                    alias_db_name,
                     source_schema=lineage_row.source_schema,
                     source_table=lineage_row.source_table,
                     ddl=lineage_row.ddl,
@@ -301,87 +301,69 @@ class RedshiftLineageExtractor:
         connection: redshift_connector.Connection,
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> None:
+        populate_calls: List[Tuple[str, LineageCollectorType]] = []
+
         if self.config.table_lineage_mode == LineageMode.STL_SCAN_BASED:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
-            self._populate_lineage_map(
-                query=RedshiftQuery.stl_scan_based_lineage_query(
-                    self.config.database, self.config.start_time, self.config.end_time
-                ),
-                lineage_type=LineageCollectorType.QUERY_SCAN,
-                connection=connection,
-                all_tables=all_tables,
+            query = RedshiftQuery.stl_scan_based_lineage_query(
+                self.config.database, self.config.start_time, self.config.end_time
             )
+            populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
         elif self.config.table_lineage_mode == LineageMode.SQL_BASED:
             # Populate table level lineage by parsing table creating sqls
-            self._populate_lineage_map(
-                query=RedshiftQuery.list_insert_create_queries_sql(
-                    db_name=self.config.database,
-                    start_time=self.config.start_time,
-                    end_time=self.config.end_time,
-                ),
-                lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
-                connection=connection,
-                all_tables=all_tables,
+            query = RedshiftQuery.list_insert_create_queries_sql(
+                db_name=self.config.database,
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
             )
+            populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
         elif self.config.table_lineage_mode == LineageMode.MIXED:
             # Populate table level lineage by parsing table creating sqls
-            self._populate_lineage_map(
-                query=RedshiftQuery.list_insert_create_queries_sql(
-                    db_name=self.config.database,
-                    start_time=self.config.start_time,
-                    end_time=self.config.end_time,
-                ),
-                lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
-                connection=connection,
-                all_tables=all_tables,
+            query = RedshiftQuery.list_insert_create_queries_sql(
+                db_name=self.config.database,
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
             )
+            populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
+
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
-            self._populate_lineage_map(
-                query=RedshiftQuery.stl_scan_based_lineage_query(
-                    db_name=self.config.database,
-                    start_time=self.config.start_time,
-                    end_time=self.config.end_time,
-                ),
-                lineage_type=LineageCollectorType.QUERY_SCAN,
-                connection=connection,
-                all_tables=all_tables,
+            query = RedshiftQuery.stl_scan_based_lineage_query(
+                db_name=self.config.database,
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
             )
+            populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
 
         if self.config.include_views:
             # Populate table level lineage for views
-            self._populate_lineage_map(
-                query=RedshiftQuery.view_lineage_query(),
-                lineage_type=LineageCollectorType.VIEW,
-                connection=connection,
-                all_tables=all_tables,
-            )
+            query = RedshiftQuery.view_lineage_query()
+            populate_calls.append((query, LineageCollectorType.VIEW))
 
             # Populate table level lineage for late binding views
-            self._populate_lineage_map(
-                query=RedshiftQuery.list_late_view_ddls_query(),
-                lineage_type=LineageCollectorType.VIEW_DDL_SQL_PARSING,
-                connection=connection,
-                all_tables=all_tables,
-            )
+            query = RedshiftQuery.list_late_view_ddls_query()
+            populate_calls.append((query, LineageCollectorType.VIEW_DDL_SQL_PARSING))
+
         if self.config.include_copy_lineage:
-            self._populate_lineage_map(
-                query=RedshiftQuery.list_copy_commands_sql(
-                    db_name=self.config.database,
-                    start_time=self.config.start_time,
-                    end_time=self.config.end_time,
-                ),
-                lineage_type=LineageCollectorType.COPY,
-                connection=connection,
-                all_tables=all_tables,
+            query = RedshiftQuery.list_copy_commands_sql(
+                db_name=self.config.database,
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
             )
+            populate_calls.append((query, LineageCollectorType.COPY))
+
         if self.config.include_unload_lineage:
+            query = RedshiftQuery.list_unload_commands_sql(
+                db_name=self.config.database,
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
+            )
+
+            populate_calls.append((query, LineageCollectorType.UNLOAD))
+
+        for query, lineage_type in populate_calls:
             self._populate_lineage_map(
-                query=RedshiftQuery.list_unload_commands_sql(
-                    db_name=self.config.database,
-                    start_time=self.config.start_time,
-                    end_time=self.config.end_time,
-                ),
-                lineage_type=LineageCollectorType.UNLOAD,
+                query=query,
+                lineage_type=lineage_type,
                 connection=connection,
                 all_tables=all_tables,
             )
