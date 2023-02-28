@@ -553,7 +553,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     sql_config=sql_config,
                     inspector=inspector,
                     schema=schema,
-                    database=db_name,
+                    extra_properties=self.get_schema_properties(
+                        inspector=inspector, schema=schema, database=db_name
+                    ),
                 )
 
                 if profiler:
