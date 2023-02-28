@@ -2,6 +2,7 @@ package com.linkedin.metadata.graph.elastic;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.linkedin.common.UrnArray;
@@ -69,16 +70,16 @@ public class ESGraphQueryDAO {
   private static final int MAX_ELASTIC_RESULT = 10000;
   private static final int BATCH_SIZE = 1000;
   private static final int TIMEOUT_SECS = 10;
-  private static final String SOURCE = "source";
-  private static final String DESTINATION = "destination";
-  private static final String RELATIONSHIP_TYPE = "relationshipType";
-  private static final String SEARCH_EXECUTIONS_METRIC = "num_elasticSearch_reads";
-  private static final String CREATED_ON = "createdOn";
-  private static final String CREATED_ACTOR = "createdActor";
-  private static final String UPDATED_ON = "updatedOn";
-  private static final String UPDATED_ACTOR = "updatedActor";
-  private static final String PROPERTIES = "properties";
-  private static final String UI = "UI";
+  static final String SOURCE = "source";
+  static final String DESTINATION = "destination";
+  static final String RELATIONSHIP_TYPE = "relationshipType";
+  static final String SEARCH_EXECUTIONS_METRIC = "num_elasticSearch_reads";
+  static final String CREATED_ON = "createdOn";
+  static final String CREATED_ACTOR = "createdActor";
+  static final String UPDATED_ON = "updatedOn";
+  static final String UPDATED_ACTOR = "updatedActor";
+  static final String PROPERTIES = "properties";
+  static final String UI = "UI";
 
   @Nonnull
   public static void addFilterToQueryBuilder(@Nonnull Filter filter, String node, BoolQueryBuilder rootQuery) {
@@ -435,26 +436,12 @@ public class ESGraphQueryDAO {
     return relationship;
   }
 
-  BoolQueryBuilder getOutGoingEdgeQuery(List<Urn> urns, List<EdgeInfo> outgoingEdges, GraphFilters graphFilters) {
-    BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
-    outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
-    outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
-    outgoingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    outgoingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
-    return outgoingEdgeQuery;
-  }
-
-  BoolQueryBuilder getIncomingEdgeQuery(List<Urn> urns, List<EdgeInfo> incomingEdges, GraphFilters graphFilters) {
-    BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
-    incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
-    incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
-    incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
-    return incomingEdgeQuery;
-  }
-
   // Get search query for given list of edges and source urns
-  public QueryBuilder getQueryForLineage(List<Urn> urns, List<EdgeInfo> lineageEdges, GraphFilters graphFilters,
+  @VisibleForTesting
+  static QueryBuilder getQueryForLineage(
+      @Nonnull List<Urn> urns,
+      @Nonnull List<EdgeInfo> lineageEdges,
+      @Nonnull GraphFilters graphFilters,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
@@ -476,61 +463,55 @@ public class ESGraphQueryDAO {
       query.should(getIncomingEdgeQuery(urns, incomingEdges, graphFilters));
     }
 
-    // Add time range filters
-    if (startTimeMillis != null) {
-      query.must(buildStartTimeFilter(startTimeMillis));
-    }
-    if (endTimeMillis != null) {
-      query.must(buildEndTimeFilter(endTimeMillis));
+    /*
+     * Optional - Add edge filtering based on time windows.
+     */
+    if (startTimeMillis != null && endTimeMillis != null) {
+      query.must(TimeFilterUtils.getEdgeTimeFilterQuery(startTimeMillis, endTimeMillis));
+    } else {
+      log.debug(String.format(
+          "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
+          startTimeMillis,
+          endTimeMillis));
     }
 
     return query;
   }
 
-  public QueryBuilder buildEntityTypesFilter(List<String> entityTypes, String prefix) {
+  private static BoolQueryBuilder getOutGoingEdgeQuery(
+      @Nonnull List<Urn> urns,
+      @Nonnull List<EdgeInfo> outgoingEdges,
+      @Nonnull GraphFilters graphFilters) {
+    BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
+    outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
+    outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
+    outgoingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
+    outgoingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
+    return outgoingEdgeQuery;
+  }
+
+  private static BoolQueryBuilder getIncomingEdgeQuery(
+      @Nonnull List<Urn> urns, List<EdgeInfo> incomingEdges,
+      @Nonnull GraphFilters graphFilters) {
+    BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
+    incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
+    incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
+    incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
+    incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
+    return incomingEdgeQuery;
+  }
+
+  private static QueryBuilder buildEntityTypesFilter(@Nonnull List<String> entityTypes, @Nonnull String prefix) {
     return QueryBuilders.termsQuery(prefix + ".entityType", entityTypes.stream().map(Object::toString).collect(Collectors.toList()));
   }
 
-  public QueryBuilder buildUrnFilters(List<Urn> urns, String prefix) {
+  private static QueryBuilder buildUrnFilters(@Nonnull List<Urn> urns, @Nonnull String prefix) {
     return QueryBuilders.termsQuery(prefix + ".urn", urns.stream().map(Object::toString).collect(Collectors.toList()));
   }
 
-  public QueryBuilder buildEdgeFilters(List<EdgeInfo> edgeInfos) {
+  private static QueryBuilder buildEdgeFilters(@Nonnull List<EdgeInfo> edgeInfos) {
     return QueryBuilders.termsQuery("relationshipType",
         edgeInfos.stream().map(EdgeInfo::getType).distinct().collect(Collectors.toList()));
-  }
-
-  public QueryBuilder buildExistenceFilter() {
-    final BoolQueryBuilder boolExistenceBuilder = QueryBuilders.boolQuery();
-    boolExistenceBuilder.mustNot(QueryBuilders.existsQuery(CREATED_ON));
-    boolExistenceBuilder.mustNot(QueryBuilders.existsQuery(UPDATED_ON));
-    return boolExistenceBuilder;
-  }
-
-  public QueryBuilder buildManualLineageFilter() {
-    return QueryBuilders.termQuery(String.format("%s.%s", PROPERTIES, SOURCE), UI);
-  }
-
-  public QueryBuilder buildStartTimeFilter(@Nonnull final Long startTimeMillis) {
-    final BoolQueryBuilder startTimeQuery = QueryBuilders.boolQuery();
-    startTimeQuery.should(QueryBuilders.rangeQuery(UPDATED_ON).gte(startTimeMillis));
-    // Secondary check in case we only have createdOn
-    startTimeQuery.should(QueryBuilders.rangeQuery(CREATED_ON).gte(startTimeMillis));
-    // If both createdOn and updatedOn are not present, then we should include the edge
-    startTimeQuery.should(buildExistenceFilter());
-    // If the edge is a manual lineage edge, then we should include the edge
-    startTimeQuery.should(buildManualLineageFilter());
-    return startTimeQuery;
-  }
-
-  public QueryBuilder buildEndTimeFilter(@Nonnull final Long endTimeMillis) {
-    final BoolQueryBuilder endTimeQuery = QueryBuilders.boolQuery();
-    endTimeQuery.should(QueryBuilders.rangeQuery(CREATED_ON).lte(endTimeMillis));
-    // If both createdOn and updatedOn are not present, then we should include the edge
-    endTimeQuery.should(buildExistenceFilter());
-    // If the edge is a manual lineage edge, then we should include the edge
-    endTimeQuery.should(buildManualLineageFilter());
-    return endTimeQuery;
   }
 
   @Value
