@@ -3,7 +3,7 @@ import traceback
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 import humanfriendly
@@ -17,6 +17,7 @@ from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import LineageMode, RedshiftConfig
 from datahub.ingestion.source.redshift.query import RedshiftQuery
 from datahub.ingestion.source.redshift.redshift_schema import (
+    RedshiftDataDictionary,
     RedshiftSchema,
     RedshiftTable,
     RedshiftView,
@@ -118,8 +119,8 @@ class RedshiftLineageExtractor:
 
         return sources
 
-    def _build_s3_path_from_row(self, field_names: List[str], db_row: List[Any]) -> str:
-        path = db_row[field_names.index("filename")].strip()
+    def _build_s3_path_from_row(self, filename: str) -> str:
+        path = filename.strip()
         if urlparse(path).scheme != "s3":
             raise ValueError(
                 f"Only s3 source supported with copy/unload. The source was: {path}"
@@ -202,119 +203,92 @@ class RedshiftLineageExtractor:
         :rtype: None
         """
         try:
-            cursor = connection.cursor()
             raw_db_name = self.config.database
             alias_db_name = get_db_name(self.config)
             db_name = alias_db_name
-            cursor.execute(query)
-            field_names = [i[0] for i in cursor.description]
+            for lineage_row in RedshiftDataDictionary.get_lineage_rows(
+                conn=connection, query=query
+            ):
+                if (
+                    lineage_type != LineageCollectorType.UNLOAD
+                    and lineage_row.target_schema
+                    and lineage_row.target_table
+                ):
+                    if not self.config.schema_pattern.allowed(
+                        lineage_row.target_schema
+                    ) or not self.config.table_pattern.allowed(
+                        f"{db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
+                    ):
+                        continue
 
-            rows = cursor.fetchmany()
-            while rows:
-                for db_row in rows:
-                    source_schema: Optional[str] = (
-                        db_row[field_names.index("source_schema")]
-                        if "source_schema" in field_names
-                        else None
-                    )
-                    source_table: Optional[str] = (
-                        db_row[field_names.index("source_table")]
-                        if "source_table" in field_names
-                        else None
-                    )
+                # Target
+                if lineage_type == LineageCollectorType.UNLOAD and lineage_row.filename:
+                    try:
+                        target_platform = LineageDatasetPlatform.S3
+                        # Following call requires 'filename' key in lineage_row
+                        target_path = self._build_s3_path_from_row(lineage_row.filename)
+                    except ValueError as e:
+                        self.warn(logger, "non-s3-lineage", str(e))
+                        continue
+                else:
+                    target_platform = LineageDatasetPlatform.REDSHIFT
+                    target_path = f"{db_name}.{lineage_row.target_schema}.{lineage_row.target_table}"
 
-                    target_schema = db_row[field_names.index("target_schema")]
-                    target_table = db_row[field_names.index("target_table")]
+                target = LineageItem(
+                    dataset=LineageDataset(platform=target_platform, path=target_path),
+                    upstreams=set(),
+                    collector_type=lineage_type,
+                )
 
-                    if lineage_type != LineageCollectorType.UNLOAD:
-                        if not self.config.schema_pattern.allowed(
-                            target_schema
-                        ) or not self.config.table_pattern.allowed(
-                            f"{db_name}.{target_schema}.{target_table}"
+                sources = self._get_sources(
+                    lineage_type,
+                    db_name,
+                    source_schema=lineage_row.source_schema,
+                    source_table=lineage_row.source_table,
+                    ddl=lineage_row.ddl,
+                    filename=lineage_row.filename,
+                )
+
+                for source in sources:
+                    if source.platform == LineageDatasetPlatform.REDSHIFT:
+                        db, schema, table = source.path.split(".")
+                        if db == raw_db_name:
+                            db = alias_db_name
+                            path = f"{db}.{schema}.{table}"
+                            source = LineageDataset(platform=source.platform, path=path)
+
+                        # Filtering out tables which does not exist in Redshift
+                        # It was deleted in the meantime or query parser did not capture well the table name
+                        if (
+                            db not in all_tables
+                            or schema not in all_tables[db]
+                            or not any(table == t.name for t in all_tables[db][schema])
                         ):
-                            continue
-
-                    # Target
-                    if lineage_type == LineageCollectorType.UNLOAD:
-                        try:
-                            target_platform = LineageDatasetPlatform.S3
-                            # Following call requires 'filename' key in db_row
-                            target_path = self._build_s3_path_from_row(
-                                field_names, db_row
+                            self.warn(
+                                logger,
+                                "missing-table",
+                                f"{source.path} missing table",
                             )
-                        except ValueError as e:
-                            self.warn(logger, "non-s3-lineage", str(e))
                             continue
-                    else:
-                        target_platform = LineageDatasetPlatform.REDSHIFT
-                        target_path = f"{db_name}.{target_schema}.{target_table}"
 
-                    target = LineageItem(
-                        dataset=LineageDataset(
-                            platform=target_platform, path=target_path
-                        ),
-                        upstreams=set(),
-                        collector_type=lineage_type,
+                    target.upstreams.add(source)
+
+                # Merging downstreams if dataset already exists and has downstreams
+                if target.dataset.path in self._lineage_map:
+                    self._lineage_map[
+                        target.dataset.path
+                    ].upstreams = self._lineage_map[
+                        target.dataset.path
+                    ].upstreams.union(
+                        target.upstreams
                     )
 
-                    sources = self._get_sources(
-                        lineage_type,
-                        db_name,
-                        source_schema=source_schema,
-                        source_table=source_table,
-                        ddl=db_row[field_names.index("ddl")]
-                        if "ddl" in field_names
-                        else None,
-                        filename=db_row[field_names.index("filename")]
-                        if "filename" in field_names
-                        else None,
-                    )
+                else:
+                    self._lineage_map[target.dataset.path] = target
 
-                    for source in sources:
-                        if source.platform == LineageDatasetPlatform.REDSHIFT:
-                            db, schema, table = source.path.split(".")
-                            if db == raw_db_name:
-                                db = alias_db_name
-                                path = f"{db}.{schema}.{table}"
-                                source = LineageDataset(
-                                    platform=source.platform, path=path
-                                )
-
-                            # Filtering out tables which does not exist in Redshift
-                            # It was deleted in the meantime or query parser did not capture well the table name
-                            if (
-                                db not in all_tables
-                                or schema not in all_tables[db]
-                                or not any(
-                                    table == t.name for t in all_tables[db][schema]
-                                )
-                            ):
-                                self.warn(
-                                    logger,
-                                    "missing-table",
-                                    f"{source.path} missing table",
-                                )
-                                continue
-
-                        target.upstreams.add(source)
-
-                    # Merging downstreams if dataset already exists and has downstreams
-                    if target.dataset.path in self._lineage_map:
-                        self._lineage_map[
-                            target.dataset.path
-                        ].upstreams = self._lineage_map[
-                            target.dataset.path
-                        ].upstreams.union(
-                            target.upstreams
-                        )
-
-                    else:
-                        self._lineage_map[target.dataset.path] = target
-
-                    logger.debug(
-                        f"Lineage[{target}]:{self._lineage_map[target.dataset.path]}"
-                    )
-                rows = cursor.fetchmany()
+                logger.debug(
+                    f"Lineage[{target}]:{self._lineage_map[target.dataset.path]}"
+                )
         except Exception as e:
             self.warn(
                 logger,

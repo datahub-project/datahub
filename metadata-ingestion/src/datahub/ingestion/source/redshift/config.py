@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
+# The lineage modes are documented in the Redshift source's docstring.
 class LineageMode(Enum):
     SQL_BASED = "sql_based"
     STL_SCAN_BASED = "stl_scan_based"
@@ -39,7 +40,7 @@ class S3LineageProviderConfig(ConfigModel):
     )
 
 
-class DatasetS3LineageProviderConfigBase(ConfigModel):
+class S3DatasetLineageProviderConfigBase(ConfigModel):
     """
     Any source that produces s3 lineage from/to Datasets should inherit this class.
     This is needeed to group all lineage related configs under `s3_lineage_config` config property.
@@ -61,7 +62,7 @@ class RedshiftUsageConfig(BaseUsageConfig, UsageStatefulIngestionConfig):
 class RedshiftConfig(
     PostgresConfig,
     DatasetLineageProviderConfigBase,
-    DatasetS3LineageProviderConfigBase,
+    S3DatasetLineageProviderConfigBase,
     RedshiftUsageConfig,
     LineageStatefulIngestionConfig,
     ProfilingStatefulIngestionConfig,

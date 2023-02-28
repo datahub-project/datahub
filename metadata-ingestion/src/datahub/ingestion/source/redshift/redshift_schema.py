@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import redshift_connector
 
@@ -68,6 +68,17 @@ class RedshiftExtraTableMeta:
     last_accessed: Optional[datetime] = None
 
 
+@dataclass
+class LineageRow:
+    source_schema: Optional[str]
+    source_table: Optional[str]
+    target_schema: Optional[str]
+    target_table: Optional[str]
+    ddl: Optional[str]
+    filename: Optional[str]
+
+
+# this is a class to be a proxy to query Redshift
 class RedshiftDataDictionary:
     @staticmethod
     def get_query_result(
@@ -139,7 +150,7 @@ class RedshiftDataDictionary:
                 last_accessed=meta[field_names.index("last_accessed")],
             )
             if table_meta.schema not in table_enrich:
-                table_enrich[table_meta.schema] = {}
+                table_enrich.setdefault(table_meta.schema, {})
 
             table_enrich[table_meta.schema][table_meta.table] = table_meta
 
@@ -154,7 +165,7 @@ class RedshiftDataDictionary:
 
         # This query needs to run separately as we can't join witht the main query because it works with
         # driver only functions.
-        enrich_metada = RedshiftDataDictionary.enrich_tables(conn)
+        enriched_table = RedshiftDataDictionary.enrich_tables(conn)
 
         cur = RedshiftDataDictionary.get_query_result(conn, RedshiftQuery.list_tables)
         field_names = [i[0] for i in cur.description]
@@ -167,7 +178,7 @@ class RedshiftDataDictionary:
                 "VIEW",
             ]:
                 if schema not in tables:
-                    tables[schema] = []
+                    tables.setdefault(schema, [])
                 table_name = table[field_names.index("relname")]
 
                 creation_time: Optional[datetime] = None
@@ -179,23 +190,23 @@ class RedshiftDataDictionary:
                 last_altered: Optional[datetime] = None
                 size_in_bytes: Optional[int] = None
                 rows_count: Optional[int] = None
-                if schema in enrich_metada and table_name in enrich_metada[schema]:
-                    if enrich_metada[schema][table_name].last_accessed:
+                if schema in enriched_table and table_name in enriched_table[schema]:
+                    if enriched_table[schema][table_name].last_accessed:
                         # Mypy seems to be not clever enough to understand the above check
-                        last_accessed = enrich_metada[schema][table_name].last_accessed
+                        last_accessed = enriched_table[schema][table_name].last_accessed
                         assert last_accessed
                         last_altered = last_accessed.replace(tzinfo=timezone.utc)
                     elif creation_time:
                         last_altered = creation_time
 
-                    if enrich_metada[schema][table_name].size:
+                    if enriched_table[schema][table_name].size:
                         # Mypy seems to be not clever enough to understand the above check
-                        size = enrich_metada[schema][table_name].size
-                        assert size
-                        size_in_bytes = size * 1024 * 1024
+                        size = enriched_table[schema][table_name].size
+                        if size:
+                            size_in_bytes = size * 1024 * 1024
 
-                    if enrich_metada[schema][table_name].estimated_visible_rows:
-                        rows = enrich_metada[schema][table_name].estimated_visible_rows
+                    if enriched_table[schema][table_name].estimated_visible_rows:
+                        rows = enriched_table[schema][table_name].estimated_visible_rows
                         assert rows
                         rows_count = int(rows)
 
@@ -261,7 +272,7 @@ class RedshiftDataDictionary:
             for column in columns:
                 table = column[field_names.index("table_name")]
                 if table not in table_columns:
-                    table_columns[table] = []
+                    table_columns.setdefault(table, [])
 
                 column = RedshiftColumn(
                     name=column[field_names.index("name")],
@@ -278,3 +289,35 @@ class RedshiftDataDictionary:
             columns = cursor.fetchmany()
 
         return table_columns
+
+    @staticmethod
+    def get_lineage_rows(
+        conn: redshift_connector.Connection,
+        query: str,
+    ) -> Iterable[LineageRow]:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        field_names = [i[0] for i in cursor.description]
+
+        rows = cursor.fetchmany()
+        while rows:
+            for row in rows:
+                yield LineageRow(
+                    source_schema=row[field_names.index("source_schema")]
+                    if "source_schema" in field_names
+                    else None,
+                    source_table=row[field_names.index("source_table")]
+                    if "source_table" in field_names
+                    else None,
+                    target_schema=row[field_names.index("target_schema")]
+                    if "target_schema" in field_names
+                    else None,
+                    target_table=row[field_names.index("target_table")]
+                    if "target_table" in field_names
+                    else None,
+                    ddl=row[field_names.index("ddl")] if "ddl" in field_names else None,
+                    filename=row[field_names.index("filename")]
+                    if "filename" in field_names
+                    else None,
+                )
+            rows = cursor.fetchmany()

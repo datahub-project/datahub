@@ -354,6 +354,86 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             **client_options,
         )
 
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
+
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        connection = RedshiftSource.get_redshift_connection(self.config)
+        database = get_db_name(self.config)
+        logger.info(f"Processing db {self.config.database} with name {database}")
+        # self.add_config_to_report()
+        self.db_tables[database] = defaultdict()
+        self.db_views[database] = defaultdict()
+
+        database_container_key = gen_database_key(
+            database=database,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        yield from gen_database_container(
+            database_container_key=database_container_key,
+            database=database,
+            domain_config=self.config.domain,
+            domain_registry=self.domain_registry,
+            report=self.report,
+            sub_types=[SqlContainerSubTypes.DATABASE],
+        )
+        self.cache_tables_and_views(connection, database)
+
+        self.report.tables_in_mem_size[database] = humanfriendly.format_size(
+            memory_footprint.total_size(self.db_tables)
+        )
+        self.report.views_in_mem_size[database] = humanfriendly.format_size(
+            memory_footprint.total_size(self.db_views)
+        )
+
+        for schema in RedshiftDataDictionary.get_schemas(
+            conn=connection, database=database
+        ):
+            logger.info(f"Schema: {database}.{schema.name}")
+            if not self.config.schema_pattern.allowed(schema.name):
+                self.report.report_dropped(f"{database}.{schema.name}")
+                continue
+            if database not in self.db_schemas:
+                self.db_schemas.setdefault(database, {})
+            self.db_schemas[database][schema.name] = schema
+            yield from self.process_schema(connection, database, schema)
+
+        all_tables = self.get_all_tables()
+
+        if (
+            self.config.store_last_lineage_extraction_timestamp
+            or self.config.store_last_usage_extraction_timestamp
+        ):
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )
+
+        if self.config.include_table_lineage or self.config.include_copy_lineage:
+            yield from self.extract_lineage(
+                connection=connection, all_tables=all_tables, database=database
+            )
+
+        if self.config.include_usage_statistics:
+            yield from self.extract_usage(
+                connection=connection, all_tables=all_tables, database=database
+            )
+
+        if self.config.profiling.enabled:
+            profiler = RedshiftProfiler(
+                config=self.config,
+                report=self.report,
+                state_handler=self.profiling_state_handler,
+            )
+            yield from profiler.get_workunits(self.db_tables)
+
     def process_schema(
         self,
         connection: redshift_connector.Connection,
@@ -686,80 +766,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 report=self.report,
             )
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        connection = RedshiftSource.get_redshift_connection(self.config)
-        database = get_db_name(self.config)
-        logger.info(f"Processing db {self.config.database} with name {database}")
-        # self.add_config_to_report()
-        self.db_tables[database] = defaultdict()
-        self.db_views[database] = defaultdict()
-
-        database_container_key = gen_database_key(
-            database=database,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
-        yield from gen_database_container(
-            database_container_key=database_container_key,
-            database=database,
-            domain_config=self.config.domain,
-            domain_registry=self.domain_registry,
-            report=self.report,
-            sub_types=[SqlContainerSubTypes.DATABASE],
-        )
-        self.cache_tables_and_views(connection, database)
-
-        self.report.tables_in_mem_size[database] = humanfriendly.format_size(
-            memory_footprint.total_size(self.db_tables)
-        )
-        self.report.views_in_mem_size[database] = humanfriendly.format_size(
-            memory_footprint.total_size(self.db_views)
-        )
-
-        for schema in RedshiftDataDictionary.get_schemas(
-            conn=connection, database=database
-        ):
-            logger.info(f"Schema: {database}.{schema.name}")
-            if not self.config.schema_pattern.allowed(schema.name):
-                self.report.report_dropped(f"{database}.{schema.name}")
-                continue
-            if database not in self.db_schemas:
-                self.db_schemas[database] = {}
-            self.db_schemas[database][schema.name] = schema
-            yield from self.process_schema(connection, database, schema)
-
-        all_tables = self.get_all_tables()
-
-        if (
-            self.config.store_last_lineage_extraction_timestamp
-            or self.config.store_last_usage_extraction_timestamp
-        ):
-            # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
-                start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )
-
-        if self.config.include_table_lineage or self.config.include_copy_lineage:
-            yield from self.extract_lineage(
-                connection=connection, all_tables=all_tables, database=database
-            )
-
-        if self.config.include_usage_statistics:
-            yield from self.extract_usage(
-                connection=connection, all_tables=all_tables, database=database
-            )
-
-        if self.config.profiling.enabled:
-            profiler = RedshiftProfiler(
-                config=self.config,
-                report=self.report,
-                state_handler=self.profiling_state_handler,
-            )
-            yield from profiler.get_workunits(self.db_tables)
-
     def cache_tables_and_views(self, connection, database):
         tables, views = RedshiftDataDictionary.get_tables_and_views(conn=connection)
         for schema in tables:
@@ -914,9 +920,3 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     ):
                         self.report.report_workunit(wu)
                         yield wu
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )

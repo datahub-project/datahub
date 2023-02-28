@@ -192,7 +192,7 @@ class RedshiftUsageExtractor:
                     self.connection, all_tables
                 )
                 self.report.operational_metadata_extraction_sec[
-                    f"{self.config.database}"
+                    self.config.database
                 ] = round(timer.elapsed_seconds(), 2)
 
         # Generate aggregate events
@@ -245,15 +245,13 @@ class RedshiftUsageExtractor:
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> bool:
         # Check schema/table allow/deny patterns
-        if (
+        return not (
             event.database not in all_tables
             or event.schema_ not in all_tables[event.database]
             or not any(
                 event.table == t.name for t in all_tables[event.database][event.schema_]
             )
-        ):
-            return False
-        return True
+        )
 
     def _gen_access_events_from_history_query(
         self,
@@ -261,7 +259,6 @@ class RedshiftUsageExtractor:
         connection: redshift_connector.Connection,
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[RedshiftAccessEvent]:
-        access_events = []
         cursor = connection.cursor()
         cursor.execute(query)
         results = cursor.fetchmany()
@@ -298,15 +295,11 @@ class RedshiftUsageExtractor:
                     access_event.database = self.config.database_alias
 
                 if not self._should_process_event(access_event, all_tables=all_tables):
-                    # TODO: Add to report number of skipped event
                     self.report.num_usage_stat_skipped += 1
                     continue
 
-                # yield access_event
-                access_events.append(access_event)
-
+                yield access_event
             results = cursor.fetchmany()
-        return access_events
 
     def _gen_operation_aspect_workunits_from_access_events(
         self,
