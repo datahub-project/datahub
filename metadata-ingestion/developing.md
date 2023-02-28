@@ -104,6 +104,12 @@ Some other notes:
 - Write type annotations wherever possible.
 - Use `typing.Protocol` to make implicit interfaces explicit.
 - If you ever find yourself copying and pasting large chunks of code, there's probably a better way to do it.
+- Prefer a standalone helper method over a `@staticmethod`.
+- You probably should not be defining a `__hash__` method yourself. Using `@dataclass(frozen=True)` is a good way to get a hashable class.
+- Avoid global state. In sources, this includes instance variables that effectively function as "global" state for the source.
+- Avoid pinning version dependencies. The `acryl-datahub` package is frequently used as a library and hence installed alongside other tools. If we keep our dependencies pinned or too restrictive, we break such workflows.
+- Avoid defining functions within other functions. This makes it harder to read and test the code.
+- When interacting with external APIs, parse the responses into a dataclass rather than operating directly on the response object.
 
 ## Guidelines for Ingestion Configs
 
