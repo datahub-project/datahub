@@ -1,6 +1,6 @@
 ### Prerequisites
 
-In order to ingest metadata from tableau, you will need:
+In order to ingest metadata from Tableau, you will need:
 
 - Tableau Server Version 2021.1.10 and above. It may also work for older versions.
 - [Enable the Tableau Metadata API](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_start.html#enable-the-tableau-metadata-api-for-tableau-server) for Tableau Server, if its not already enabled.
@@ -37,8 +37,7 @@ The following video shows you how to get started with ingesting Tableau metadata
 ### Integration Details
 
 This plugin extracts Sheets, Dashboards, Embedded and Published Data sources metadata within Workbooks in a given project
-on a Tableau site. This plugin is in beta and has only been tested on PostgreSQL database and sample workbooks
-on Tableau online. Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
+on a Tableau site. Tableau's GraphQL interface is used to extract metadata information. Queries used to extract metadata are located
 in `metadata-ingestion/src/datahub/ingestion/source/tableau_common.py`
 
 #### Concept Mapping
@@ -55,20 +54,20 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Embedded or External Tables | [Dataset](../../metamodel/entities/dataset.md)                |                                   |
 | Sheet                       | [Chart](../../metamodel/entities/chart.md)                    |                                   |
 | Dashboard                   | [Dashboard](../../metamodel/entities/dashboard.md)            |                                   |
-| User                        | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) |                                   |
+| User                        | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | Optionally Extracted              |
 | Workbook                    | [Container](../../metamodel/entities/container.md)            | SubType `"Workbook"`              |
-| Tag                         | [Tag](../../metamodel/entities/tag.md)                        |                                   |
+| Tag                         | [Tag](../../metamodel/entities/tag.md)                        | Optionally Extracted              |
 
 #### Lineage
 
 Lineage is emitted as received from Tableau's metadata API for
 
-- Sheets contained in Dashboard
-- Embedded or Published datasources upstream to Sheet
-- Published datasources upstream to Embedded datasource
-- Tables upstream to Embedded or Published datasource
-- Custom SQL datasources upstream to Embedded or Published datasource
-- Tables upstream to Custom SQL datasource
+- Sheets contained within a Dashboard
+- Embedded or Published Data Sources depended on by a Sheet
+- Published Data Sources upstream to Embedded datasource
+- Tables upstream to Embedded or Published Data Source
+- Custom SQL datasources upstream to Embedded or Published Data Source
+- Tables upstream to Custom SQL Data Source
 
 #### Caveats
 
