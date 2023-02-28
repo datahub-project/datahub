@@ -865,7 +865,9 @@
       "doc" : "Tags associated with a given entity",
       "Searchable" : {
         "/*/tag" : {
+          "addToFilters" : true,
           "boostScore" : 0.5,
+          "fieldName" : "tags",
           "fieldType" : "URN",
           "queryByDefault" : true
         }
@@ -964,15 +966,7 @@
         "type" : "array",
         "items" : "GlossaryTermAssociation"
       },
-      "doc" : "The related business terms",
-      "Searchable" : {
-        "/*/urn" : {
-          "boostScore" : 0.5,
-          "fieldName" : "glossaryTerms",
-          "fieldType" : "URN",
-          "queryByDefault" : true
-        }
-      }
+      "doc" : "The related business terms"
     }, {
       "name" : "auditStamp",
       "type" : "AuditStamp",
@@ -1022,19 +1016,19 @@
     "symbols" : [ "USELESS", "NOMINAL", "ORDINAL", "BINARY", "COUNT", "TIME", "INTERVAL", "IMAGE", "VIDEO", "AUDIO", "TEXT", "MAP", "SEQUENCE", "SET", "CONTINUOUS", "BYTE", "UNKNOWN" ],
     "symbolDocs" : {
       "AUDIO" : "Audio Data",
-      "BINARY" : "Binary data is discrete data that can be in only one of two categories — either yes or no, 1 or 0, off or on, etc",
+      "BINARY" : "Binary data is discrete data that can be in only one of two categories - either yes or no, 1 or 0, off or on, etc",
       "BYTE" : "Bytes data are binary-encoded values that can represent complex objects.",
       "CONTINUOUS" : "Continuous data are made of uncountable values, often the result of a measurement such as height, weight, age etc.",
-      "COUNT" : "Count data is discrete whole number data — no negative numbers here.\nCount data often has many small values, such as zero and one.",
+      "COUNT" : "Count data is discrete whole number data - no negative numbers here.\nCount data often has many small values, such as zero and one.",
       "IMAGE" : "Image Data",
       "INTERVAL" : "Interval data has equal spaces between the numbers and does not represent a temporal pattern.\nExamples include percentages, temperatures, and income.",
       "MAP" : "Mapping Data Type ex: dict, map",
-      "NOMINAL" : "Nominal data is made of discrete values with no numerical relationship between the different categories — mean and median are meaningless.\nAnimal species is one example. For example, pig is not higher than bird and lower than fish.",
+      "NOMINAL" : "Nominal data is made of discrete values with no numerical relationship between the different categories - mean and median are meaningless.\nAnimal species is one example. For example, pig is not higher than bird and lower than fish.",
       "ORDINAL" : "Ordinal data are discrete integers that can be ranked or sorted.\nFor example, the distance between first and second may not be the same as the distance between second and third.",
       "SEQUENCE" : "Sequence Data Type ex: list, tuple, range",
       "SET" : "Set Data Type ex: set, frozenset",
       "TEXT" : "Text Data",
-      "TIME" : "Time data is a cyclical, repeating continuous form of data.\nThe relevant time features can be any period— daily, weekly, monthly, annual, etc.",
+      "TIME" : "Time data is a cyclical, repeating continuous form of data.\nThe relevant time features can be any period- daily, weekly, monthly, annual, etc.",
       "UNKNOWN" : "Unknown data are data that we don't know the type for.",
       "USELESS" : "Useless data is unique, discrete data with no potential relationship with the outcome variable.\nA useless feature has high cardinality. An example would be bank account numbers that were generated randomly.",
       "VIDEO" : "Video Data"
@@ -2086,7 +2080,8 @@
       "name" : "uri",
       "type" : "com.linkedin.common.Uri",
       "doc" : "The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
-      "optional" : true
+      "optional" : true,
+      "deprecated" : "Use ExternalReference.externalUrl field instead."
     }, {
       "name" : "created",
       "type" : "com.linkedin.common.TimeStamp",
@@ -2380,7 +2375,9 @@
                     "doc" : "The name of the group.",
                     "optional" : true,
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL"
+                      "boostScore" : 10.0,
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "email",
@@ -2523,7 +2520,12 @@
                     "name" : "displayName",
                     "type" : "string",
                     "doc" : "displayName of this user ,  e.g.  Hang Zhang(DataHQ)",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "fieldType" : "TEXT_PARTIAL",
+                      "queryByDefault" : true
+                    }
                   }, {
                     "name" : "email",
                     "type" : "com.linkedin.common.EmailAddress",
@@ -3830,6 +3832,8 @@
                     "Relationship" : {
                       "/*" : {
                         "entityTypes" : [ "dataJob" ],
+                        "isLineage" : true,
+                        "isUpstream" : false,
                         "name" : "UsedBy"
                       }
                     }
@@ -3917,7 +3921,7 @@
                             "type" : "array",
                             "items" : "string"
                           },
-                          "doc" : "The performance of a MLModel can vary depending on what instruments were used to capture the input to the MLModel.\nFor example, a face detection model may perform differently depending on the camera’s hardware and software,\nincluding lens, image stabilization, high dynamic range techniques, and background blurring for portrait mode.",
+                          "doc" : "The performance of a MLModel can vary depending on what instruments were used to capture the input to the MLModel.\nFor example, a face detection model may perform differently depending on the camera's hardware and software,\nincluding lens, image stabilization, high dynamic range techniques, and background blurring for portrait mode.",
                           "optional" : true
                         }, {
                           "name" : "environment",
@@ -4066,7 +4070,7 @@
                       "type" : "array",
                       "items" : "string"
                     },
-                    "doc" : " Is the MLModel intended to inform decisions about matters central to human life or flourishing – e.g., health or safety? Or could it be used in such a way?",
+                    "doc" : " Is the MLModel intended to inform decisions about matters central to human life or flourishing - e.g., health or safety? Or could it be used in such a way?",
                     "optional" : true
                   }, {
                     "name" : "mitigations",
@@ -4326,7 +4330,11 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLFeature",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription"
+                    }
                   }, {
                     "name" : "dataType",
                     "type" : "com.linkedin.common.MLFeatureDataType",
@@ -4417,7 +4425,11 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLFeatureTable",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription"
+                    }
                   }, {
                     "name" : "mlFeatures",
                     "type" : {
@@ -5557,6 +5569,27 @@
       "doc" : "The total number of entities directly under searched path"
     } ]
   }, {
+    "type" : "record",
+    "name" : "SearchFlags",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "Set of flags to control search behavior",
+    "fields" : [ {
+      "name" : "skipCache",
+      "type" : "boolean",
+      "doc" : "Whether to skip cache",
+      "default" : false
+    }, {
+      "name" : "maxAggValues",
+      "type" : "int",
+      "doc" : "The maximum number of values in an facet aggregation",
+      "default" : 20
+    }, {
+      "name" : "fulltext",
+      "type" : "boolean",
+      "doc" : "Structured or unstructured fulltext query",
+      "optional" : true
+    } ]
+  }, {
     "type" : "enum",
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query.filter",
@@ -5830,86 +5863,85 @@
     } ]
   }, "com.linkedin.metadata.search.FilterValue", {
     "type" : "record",
-    "name" : "LineageSearchEntity",
-    "namespace" : "com.linkedin.metadata.search",
-    "doc" : "The model for each entity returned by the lineage search query",
-    "include" : [ {
-      "type" : "record",
-      "name" : "SearchEntity",
-      "doc" : "The model for each entity returned by the search query",
-      "fields" : [ {
-        "name" : "entity",
-        "type" : "com.linkedin.common.Urn",
-        "doc" : "Urn of the entity being returned"
-      }, {
-        "name" : "matchedFields",
-        "type" : {
-          "type" : "array",
-          "items" : {
-            "type" : "record",
-            "name" : "MatchedField",
-            "fields" : [ {
-              "name" : "name",
-              "type" : "string",
-              "doc" : "Matched field name"
-            }, {
-              "name" : "value",
-              "type" : "string",
-              "doc" : "Matched field value"
-            } ]
-          }
-        },
-        "doc" : "Matched field name and values",
-        "default" : [ ]
-      }, {
-        "name" : "features",
-        "type" : {
-          "type" : "map",
-          "values" : "double"
-        },
-        "optional" : true
-      }, {
-        "name" : "score",
-        "type" : "double",
-        "optional" : true
-      } ]
-    } ],
-    "fields" : [ {
-      "name" : "paths",
-      "type" : {
-        "type" : "array",
-        "items" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        }
-      },
-      "doc" : "Optional list of entities between the source and destination node.\nThere can be multiple paths from the source to the destination.",
-      "default" : [ ]
-    }, {
-      "name" : "path",
-      "type" : {
-        "type" : "array",
-        "items" : "com.linkedin.common.Urn"
-      },
-      "doc" : "Optional list of entities between the source and destination node",
-      "default" : [ ],
-      "deprecated" : true
-    }, {
-      "name" : "degree",
-      "type" : "int",
-      "doc" : "Degree of relationship (number of hops to get to entity)",
-      "default" : 1
-    } ]
-  }, {
-    "type" : "record",
-    "name" : "LineageSearchResult",
+    "name" : "LineageScrollResult",
     "namespace" : "com.linkedin.metadata.search",
     "doc" : "The model for the result of a lineage search query",
     "fields" : [ {
       "name" : "entities",
       "type" : {
         "type" : "array",
-        "items" : "LineageSearchEntity"
+        "items" : {
+          "type" : "record",
+          "name" : "LineageSearchEntity",
+          "doc" : "The model for each entity returned by the lineage search query",
+          "include" : [ {
+            "type" : "record",
+            "name" : "SearchEntity",
+            "doc" : "The model for each entity returned by the search query",
+            "fields" : [ {
+              "name" : "entity",
+              "type" : "com.linkedin.common.Urn",
+              "doc" : "Urn of the entity being returned"
+            }, {
+              "name" : "matchedFields",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "MatchedField",
+                  "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Matched field name"
+                  }, {
+                    "name" : "value",
+                    "type" : "string",
+                    "doc" : "Matched field value"
+                  } ]
+                }
+              },
+              "doc" : "Matched field name and values",
+              "default" : [ ]
+            }, {
+              "name" : "features",
+              "type" : {
+                "type" : "map",
+                "values" : "double"
+              },
+              "optional" : true
+            }, {
+              "name" : "score",
+              "type" : "double",
+              "optional" : true
+            } ]
+          } ],
+          "fields" : [ {
+            "name" : "paths",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              }
+            },
+            "doc" : "Optional list of entities between the source and destination node.\nThere can be multiple paths from the source to the destination.",
+            "default" : [ ]
+          }, {
+            "name" : "path",
+            "type" : {
+              "type" : "array",
+              "items" : "com.linkedin.common.Urn"
+            },
+            "doc" : "Optional list of entities between the source and destination node",
+            "default" : [ ],
+            "deprecated" : true
+          }, {
+            "name" : "degree",
+            "type" : "int",
+            "doc" : "Degree of relationship (number of hops to get to entity)",
+            "default" : 1
+          } ]
+        }
       },
       "doc" : "A list of entities returned from the search results"
     }, {
@@ -5930,6 +5962,36 @@
       },
       "doc" : "Metadata specific to the browse result of the queried path"
     }, {
+      "name" : "scrollId",
+      "type" : "string",
+      "doc" : "Scroll Identifier for subsequent requests, if not present then no further results to fetch",
+      "optional" : true
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
+    } ]
+  }, "com.linkedin.metadata.search.LineageSearchEntity", {
+    "type" : "record",
+    "name" : "LineageSearchResult",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The model for the result of a lineage search query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : "LineageSearchEntity"
+      },
+      "doc" : "A list of entities returned from the search results"
+    }, {
+      "name" : "metadata",
+      "type" : "SearchResultMetadata",
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
       "name" : "from",
       "type" : "int",
       "doc" : "Offset of the first entity in the result"
@@ -5942,7 +6004,37 @@
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
     } ]
-  }, "com.linkedin.metadata.search.MatchedField", "com.linkedin.metadata.search.SearchEntity", {
+  }, "com.linkedin.metadata.search.MatchedField", {
+    "type" : "record",
+    "name" : "ScrollResult",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The model for the result of a search query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : "SearchEntity"
+      },
+      "doc" : "A list of entities returned from the search results"
+    }, {
+      "name" : "metadata",
+      "type" : "SearchResultMetadata",
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
+      "name" : "scrollId",
+      "type" : "string",
+      "doc" : "Scroll Identifier for subsequent requests, if not present then no further results to fetch",
+      "optional" : true
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under searched path"
+    } ]
+  }, "com.linkedin.metadata.search.SearchEntity", {
     "type" : "record",
     "name" : "SearchResult",
     "namespace" : "com.linkedin.metadata.search",
@@ -6251,6 +6343,89 @@
         } ],
         "returns" : "com.linkedin.metadata.query.ListUrnsResult"
       }, {
+        "name" : "scrollAcrossEntities",
+        "parameters" : [ {
+          "name" : "entities",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "input",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "scrollId",
+          "type" : "string"
+        }, {
+          "name" : "keepAlive",
+          "type" : "string"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.search.ScrollResult"
+      }, {
+        "name" : "scrollAcrossLineage",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "direction",
+          "type" : "string"
+        }, {
+          "name" : "entities",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "input",
+          "type" : "string",
+          "optional" : true
+        }, {
+          "name" : "maxHops",
+          "type" : "int",
+          "optional" : true
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.filter.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.filter.SortCriterion",
+          "optional" : true
+        }, {
+          "name" : "scrollId",
+          "type" : "string"
+        }, {
+          "name" : "keepAlive",
+          "type" : "string"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        }, {
+          "name" : "startTimeMillis",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "endTimeMillis",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.search.LineageScrollResult"
+      }, {
         "name" : "search",
         "parameters" : [ {
           "name" : "entity",
@@ -6273,9 +6448,15 @@
           "name" : "count",
           "type" : "int"
         }, {
+          "annotations" : {
+            "deprecated" : { }
+          },
           "name" : "fulltext",
           "type" : "boolean",
-          "default" : "true",
+          "optional" : true
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
           "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.search.SearchResult"
@@ -6302,6 +6483,10 @@
         }, {
           "name" : "count",
           "type" : "int"
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.search.SearchResult"
       }, {
@@ -6338,6 +6523,18 @@
         }, {
           "name" : "count",
           "type" : "int"
+        }, {
+          "name" : "startTimeMillis",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "endTimeMillis",
+          "type" : "long",
+          "optional" : true
+        }, {
+          "name" : "searchFlags",
+          "type" : "com.linkedin.metadata.query.SearchFlags",
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.search.LineageSearchResult"
       }, {

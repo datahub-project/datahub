@@ -1,0 +1,158 @@
+{
+  "bool" : {
+    "should" : [
+      {
+        "bool" : {
+          "should" : [
+            {
+              "bool" : {
+                "must" : [
+                  {
+                    "exists" : {
+                      "field" : "createdOn",
+                      "boost" : 1.0
+                    }
+                  },
+                  {
+                    "range" : {
+                      "createdOn" : {
+                        "from" : 1,
+                        "to" : 2,
+                        "include_lower" : true,
+                        "include_upper" : true,
+                        "boost" : 1.0
+                      }
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "boost" : 1.0
+              }
+            },
+            {
+              "bool" : {
+                "must" : [
+                  {
+                    "exists" : {
+                      "field" : "updatedOn",
+                      "boost" : 1.0
+                    }
+                  },
+                  {
+                    "range" : {
+                      "updatedOn" : {
+                        "from" : 1,
+                        "to" : 2,
+                        "include_lower" : true,
+                        "include_upper" : true,
+                        "boost" : 1.0
+                      }
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "boost" : 1.0
+              }
+            }
+          ],
+          "adjust_pure_negative" : true,
+          "boost" : 1.0
+        }
+      },
+      {
+        "bool" : {
+          "must" : [
+            {
+              "bool" : {
+                "should" : [
+                  {
+                    "bool" : {
+                      "must_not" : [
+                        {
+                          "exists" : {
+                            "field" : "createdOn",
+                            "boost" : 1.0
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  },
+                  {
+                    "bool" : {
+                      "must" : [
+                        {
+                          "term" : {
+                            "createdOn" : {
+                              "value" : 0,
+                              "boost" : 1.0
+                            }
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "boost" : 1.0
+              }
+            },
+            {
+              "bool" : {
+                "should" : [
+                  {
+                    "bool" : {
+                      "must_not" : [
+                        {
+                          "exists" : {
+                            "field" : "updatedOn",
+                            "boost" : 1.0
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  },
+                  {
+                    "bool" : {
+                      "must" : [
+                        {
+                          "term" : {
+                            "updatedOn" : {
+                              "value" : 0,
+                              "boost" : 1.0
+                            }
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "boost" : 1.0
+              }
+            }
+          ],
+          "adjust_pure_negative" : true,
+          "boost" : 1.0
+        }
+      },
+      {
+        "term" : {
+          "properties.source" : {
+            "value" : "UI",
+            "boost" : 1.0
+          }
+        }
+      }
+    ],
+    "adjust_pure_negative" : true,
+    "boost" : 1.0
+  }
+}

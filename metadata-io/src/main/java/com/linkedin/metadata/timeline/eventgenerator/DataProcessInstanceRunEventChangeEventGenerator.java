@@ -82,7 +82,10 @@ public class DataProcessInstanceRunEventChangeEventGenerator
       parameters.put(RUN_RESULT_KEY, runEvent.getResult().getType().toString());
     }
 
-    DataProcessInstanceRelationships relationships = getRelationships(entityUrnString);
+    final DataProcessInstanceRelationships relationships = getRelationships(entityUrnString);
+    if (relationships == null) {
+      return parameters;
+    }
 
     if (relationships.hasParentInstance()) {
       parameters.put(PARENT_INSTANCE_URN_KEY, relationships.getParentInstance().toString());

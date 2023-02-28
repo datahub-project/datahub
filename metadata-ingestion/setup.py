@@ -41,7 +41,6 @@ framework_common = {
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
-    "stackprinter>=0.2.6",
     "tabulate",
     "progressbar2",
     "termcolor>=1.0.0",
@@ -55,6 +54,8 @@ framework_common = {
     "ijson",
     "click-spinner",
     "requests_file",
+    "jsonref",
+    "jsonschema",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -150,7 +151,7 @@ looker_common = {
 bigquery_common = {
     "google-api-python-client",
     # Google cloud logging library
-    "google-cloud-logging<3.1.2",
+    "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
 }
@@ -180,7 +181,8 @@ snowflake_common = {
     # because it may break Airflow users that need SQLAlchemy 1.3.x.
     "SQLAlchemy<1.4.42",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    "snowflake-connector-python!=2.8.2",
+    # Cannot upgrade to 3.0.0 because of dependency on pyarrow>=10.0.1, conflicts with feast
+    "snowflake-connector-python!=2.8.2, <3.0.0",
     "pandas",
     "cryptography",
     "msal",
@@ -310,6 +312,7 @@ plugins: Dict[str, Set[str]] = {
         "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
+    "json-schema": set(),
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
@@ -409,7 +412,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy==0.991",
+    "mypy==1.0.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",
@@ -434,6 +437,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
             "iceberg",
+            "json-schema",
             "ldap",
             "looker",
             "lookml",
@@ -523,6 +527,7 @@ entry_points = {
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
+        "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
@@ -586,6 +591,7 @@ entry_points = {
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
         "console = datahub.ingestion.sink.console:ConsoleSink",
+        "blackhole = datahub.ingestion.sink.blackhole:BlackHoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",

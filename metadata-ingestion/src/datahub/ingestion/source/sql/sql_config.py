@@ -109,6 +109,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
 
     _database_alias_deprecation = pydantic_field_deprecated(
         "database_alias",
+        new_field="platform_instance",
         message="database_alias is deprecated. Use platform_instance instead.",
     )
 

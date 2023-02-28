@@ -1,0 +1,53 @@
+fragment query on QueryEntity {
+    urn
+    properties {
+        description
+        name
+        source
+        statement {
+            value
+            language
+        }
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+    }
+    subjects {
+        dataset {
+            urn
+            name
+        }
+    }
+}
+
+query listQueries($input: ListQueriesInput!) {
+    listQueries(input: $input) {
+        start
+        total
+        count
+        queries {
+            ...query
+        }
+    }
+}
+
+mutation createQuery($input: CreateQueryInput!) {
+    createQuery(input: $input) {
+        ...query
+    }
+}
+
+mutation updateQuery($urn: String!, $input: UpdateQueryInput!) {
+    updateQuery(urn: $urn, input: $input) {
+        ...query
+    }
+}
+
+mutation deleteQuery($urn: String!) {
+    deleteQuery(urn: $urn)
+}

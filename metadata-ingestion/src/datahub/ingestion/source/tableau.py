@@ -9,6 +9,7 @@ import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import validator
 from pydantic.fields import Field
+from requests.adapters import ConnectionError
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -362,8 +363,16 @@ class TableauSource(StatefulIngestionSourceBase):
         self._authenticate()
 
     def close(self) -> None:
-        if self.server is not None:
-            self.server.auth.sign_out()
+        try:
+            if self.server is not None:
+                self.server.auth.sign_out()
+        except ConnectionError as err:
+            logger.warning(
+                "During graceful closing of Tableau source a sign-out call was tried but ended up with"
+                " a ConnectionError (%s). Continuing closing of the source",
+                err,
+            )
+            self.server = None
         super().close()
 
     def _populate_usage_stat_registry(self):
@@ -920,7 +929,7 @@ class TableauSource(StatefulIngestionSourceBase):
             view_properties = ViewPropertiesClass(
                 materialized=False,
                 viewLanguage="SQL",
-                viewLogic=clean_query(csql.get("query", "")),
+                viewLogic=clean_query(csql.get("query") or ""),
             )
             dataset_snapshot.aspects.append(view_properties)
 
@@ -1796,5 +1805,5 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.config.platform_instance or self.platform

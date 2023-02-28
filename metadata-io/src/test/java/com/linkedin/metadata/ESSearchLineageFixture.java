@@ -3,6 +3,7 @@ package com.linkedin.metadata;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
@@ -42,6 +43,8 @@ import org.springframework.context.annotation.Import;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Map;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 @TestConfiguration
@@ -88,7 +91,8 @@ public class ESSearchLineageFixture {
             @Qualifier("searchLineageEntityIndexBuilders") EntityIndexBuilders indexBuilders,
             @Qualifier("searchLineageIndexConvention") IndexConvention indexConvention
     ) {
-        ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention);
+        ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
         ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
@@ -149,9 +153,11 @@ public class ESSearchLineageFixture {
         int batchSize = 100;
         SearchRanker<Double> ranker = new SimpleRanker();
         CacheManager cacheManager = new ConcurrentMapCacheManager();
+        EntityDocCountCacheConfiguration entityDocCountCacheConfiguration = new EntityDocCountCacheConfiguration();
+        entityDocCountCacheConfiguration.setTtlSeconds(600L);
 
         SearchService service = new SearchService(
-                new EntityDocCountCache(entityRegistry, entitySearchService),
+                new EntityDocCountCache(entityRegistry, entitySearchService, entityDocCountCacheConfiguration),
                 new CachingEntitySearchService(
                         cacheManager,
                         entitySearchService,
@@ -169,7 +175,8 @@ public class ESSearchLineageFixture {
                                         batchSize,
                                         false
                                 ),
-                                ranker
+                                ranker,
+                                entityDocCountCacheConfiguration
                         ),
                         batchSize,
                         false
@@ -197,7 +204,7 @@ public class ESSearchLineageFixture {
                 false);
 
         return new JavaEntityClient(
-                new EntityService(null, null, entityRegistry),
+                new EntityService(null, null, entityRegistry, true),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,

@@ -166,7 +166,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
             )
             return True
 
-        click.echo(
+        logger.debug(
             "No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
             "To use neo4j as a graph backend, run \n"
             "`datahub docker quickstart --graph-service-impl neo4j`"
@@ -709,7 +709,9 @@ def quickstart(
     # Pull and possibly build the latest containers.
     try:
         if pull_images:
-            click.echo("Pulling docker images...")
+            click.echo(
+                "Pulling docker images...This may take a while depending on your network bandwidth."
+            )
             with click_spinner.spinner():
                 subprocess.run(
                     [*base_command, "pull", "-q"],

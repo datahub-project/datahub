@@ -1,0 +1,23 @@
+namespace com.linkedin.query
+
+import com.linkedin.common.Urn
+
+/**
+ * A single subject of a particular query.
+ * In the future, we may evolve this model to include richer details
+ * about the Query Subject in relation to the query.
+ */
+record QuerySubject {
+  /**
+   * An entity which is the subject of a query.
+   */
+  @Relationship = {
+    "name": "IsAssociatedWith",
+    "entityTypes": [ "dataset", "schemaField" ]
+  }
+  @Searchable = {
+    "fieldName": "entities",
+    "fieldType": "URN",
+  }
+  entity: Urn
+}
