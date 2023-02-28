@@ -33,7 +33,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.common import get_db_name
 from datahub.ingestion.source.redshift.config import RedshiftConfig
-from datahub.ingestion.source.redshift.lineage import LineageExtractor
+from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftColumn,
@@ -253,7 +253,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         The source identifier such as the specific source host address required for stateful ingestion.
         Individual subclasses need to override this method appropriately.
         """
-        return f"{self.platform}"
+        return str(self.platform)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -268,13 +268,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 RedshiftSource.get_redshift_connection(config)
             )
             cur = connection.cursor()
-            try:
-                cur.execute("select 1")
-                test_report.basic_connectivity = CapabilityReport(capable=True)
-            except Exception as e:
-                test_report.basic_connectivity = CapabilityReport(
-                    capable=False, failure_reason=str(e)
-                )
+            cur.execute("select 1")
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+
             test_report.capability_report = {}
             try:
                 RedshiftDataDictionary.get_schemas(connection, database=config.database)
@@ -288,7 +284,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=f"{e}"
+                capable=False, failure_reason=str(e)
             )
         return test_report
 
@@ -299,7 +295,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def __init__(self, config: RedshiftConfig, ctx: PipelineContext):
         super(RedshiftSource, self).__init__(config, ctx)
-        self.lineage_extractor: Optional[LineageExtractor] = None
+        self.lineage_extractor: Optional[RedshiftLineageExtractor] = None
         self.catalog_metadata: Dict = {}
         self.config: RedshiftConfig = config
         self.report: RedshiftReport = RedshiftReport()
@@ -315,7 +311,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.domain_registry = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
-                cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
+                cached_domains=list(self.config.domain.keys()), graph=self.ctx.graph
             )
 
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
@@ -353,7 +349,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             host=host,
             port=int(port),
             user=config.username,
-            database=config.database if config.database else "dev",
+            database=config.database,
             password=config.password.get_secret_value() if config.password else None,
             **client_options,
         )
@@ -364,6 +360,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database: str,
         schema: RedshiftSchema,
     ) -> Iterable[MetadataWorkUnit]:
+        report_key = f"{database}.{schema.name}"
         with PerfTimer() as timer:
             schema_container_key = gen_schema_key(
                 db_name=database,
@@ -403,13 +400,9 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
                 if schema.name in self.db_tables[schema.database]:
                     for table in self.db_tables[schema.database][schema.name]:
-                        table.columns = (
-                            schema_columns[schema.name][table.name]
-                            if table.name in schema_columns[schema.name]
-                            else []
-                        )
+                        table.columns = schema_columns[schema.name].get(table.name, [])
                         yield from self._process_table(table, database=database)
-                        self.report.table_processed[f"{database}.{schema.name}"] = (
+                        self.report.table_processed[report_key] = (
                             self.report.table_processed.get(
                                 f"{database}.{schema.name}", 0
                             )
@@ -421,23 +414,19 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 if schema.name in self.db_views[schema.database]:
                     for view in self.db_views[schema.database][schema.name]:
                         logger.info(f"View: {view}")
-                        view.columns = (
-                            schema_columns[schema.name][view.name]
-                            if view.name in schema_columns[schema.name]
-                            else []
-                        )
+                        view.columns = schema_columns[schema.name].get(view.name, [])
                         yield from self._process_view(
-                            table=view, database=get_db_name(self.config), schema=schema
+                            table=view, database=database, schema=schema
                         )
 
-                        self.report.view_processed[f"{database}.{schema.name}"] = (
+                        self.report.view_processed[report_key] = (
                             self.report.view_processed.get(
                                 f"{database}.{schema.name}", 0
                             )
                             + 1
                         )
 
-            self.report.metadata_extraction_sec[f"{database}.{schema.name}"] = round(
+            self.report.metadata_extraction_sec[report_key] = round(
                 timer.elapsed_seconds(), 2
             )
 
@@ -446,9 +435,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         table: RedshiftTable,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        datahub_dataset_name = (
-            f"{get_db_name(config=self.config)}.{table.schema}.{table.name}"
-        )
+        datahub_dataset_name = f"{database}.{table.schema}.{table.name}"
 
         self.report.report_entity_scanned(datahub_dataset_name)
 
@@ -859,7 +846,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
-        self.lineage_extractor = LineageExtractor(
+        self.lineage_extractor = RedshiftLineageExtractor(
             config=self.config,
             report=self.report,
         )
@@ -888,7 +875,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     or schema not in self.db_schemas[database]
                 ):
                     continue
-                datahub_dataset_name = f"{database}.{table.schema}.{table.name}"
+                datahub_dataset_name = f"{database}.{schema}.{table.name}"
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
                     name=datahub_dataset_name,

@@ -23,15 +23,6 @@ class LineageMode(Enum):
     MIXED = "mixed"
 
 
-class LineageCollectorType(Enum):
-    QUERY_SCAN = "query_scan"
-    QUERY_SQL_PARSER = "query_sql_parser"
-    VIEW = "view"
-    NON_BINDING_VIEW = "non-binding-view"
-    COPY = "copy"
-    UNLOAD = "unload"
-
-
 class S3LineageProviderConfig(ConfigModel):
     """
     Any source that produces s3 lineage from/to Datasets should inherit this class.
@@ -51,6 +42,7 @@ class S3LineageProviderConfig(ConfigModel):
 class DatasetS3LineageProviderConfigBase(ConfigModel):
     """
     Any source that produces s3 lineage from/to Datasets should inherit this class.
+    This is needeed to group all lineage related configs under `s3_lineage_config` config property.
     """
 
     s3_lineage_config: S3LineageProviderConfig = Field(
@@ -114,8 +106,9 @@ class RedshiftConfig(
     )
 
     capture_lineage_query_parser_failures: Optional[bool] = Field(
+        hide_from_schema=True,
         default=False,
-        description="Whether to capture lineage query parser errors with dataset properties for debuggings",
+        description="Whether to capture lineage query parser errors with dataset properties for debugging",
     )
 
     table_lineage_mode: Optional[LineageMode] = Field(

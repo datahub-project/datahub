@@ -16,7 +16,7 @@
     include_usage_statistics: true
     # The following options are only used when include_usage_statistics is true
     # it appends the domain after the resdhift username which is extracted from the Redshift audit history
-    # in the format username@emiail_domain
+    # in the format username@email_domain
     email_domain: mydomain.com
 
     profiling:
