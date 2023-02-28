@@ -68,13 +68,14 @@ GO
 USE msdb ;
 GO
 EXEC dbo.sp_add_job
-    @job_name = N'Weekly Sales Data Backup' ;
+    @job_name = N'Weekly Demo Data Backup' ;
 GO
 EXEC sp_add_jobstep
-    @job_name = N'Weekly Sales Data Backup',
+    @job_name = N'Weekly Demo Data Backup',
     @step_name = N'Set database to read only',
+    @database_name = N'DemoData',
     @subsystem = N'TSQL',
-    @command = N'ALTER DATABASE SALES SET READ_ONLY',
+    @command = N'ALTER DATABASE DemoData SET READ_ONLY',
     @retry_attempts = 5,
     @retry_interval = 5 ;
 GO
@@ -84,10 +85,9 @@ EXEC dbo.sp_add_schedule
     @active_start_time = 233000 ;
 GO
 EXEC sp_attach_schedule
-   @job_name = N'Weekly Sales Data Backup',
+   @job_name = N'Weekly Demo Data Backup',
    @schedule_name = N'RunOnce';
 GO
 EXEC dbo.sp_add_jobserver
-    @job_name = N'Weekly Sales Data Backup',
-    @server_name = N'(LOCAL)';
+    @job_name = N'Weekly Demo Data Backup'
 GO
