@@ -140,11 +140,11 @@ class JobStep:
     source: str = "mssql"
 
     @property
-    def formatted_step_name(self) -> str:
+    def formatted_step(self) -> str:
         return self.step_name.replace(",", "-").replace(" ", "_").lower()
 
     @property
-    def formatted_job_name(self) -> str:
+    def formatted_name(self) -> str:
         return self.job_name.replace(",", "-")
 
     @property
@@ -153,7 +153,7 @@ class JobStep:
 
     @property
     def full_name(self) -> str:
-        return f"{self.formatted_job_name}.{self.formatted_step_name}"
+        return f"{self.formatted_name}.{self.formatted_name}"
 
 
 @dataclass
