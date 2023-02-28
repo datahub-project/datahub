@@ -15,7 +15,7 @@ ALL_ENV_TYPES: Set[str] = set(
 )
 
 
-class PlatformSourceConfigBase(ConfigModel):
+class PlatformInstanceConfigMixin(ConfigModel):
     """
     Any source that connects to a platform should inherit this class
     """
@@ -30,7 +30,7 @@ class PlatformSourceConfigBase(ConfigModel):
     )
 
 
-class EnvBasedSourceConfigBase(ConfigModel):
+class EnvConfigMixin(ConfigModel):
     """
     Any source that produces dataset urns in a single environment should inherit this class
     """
@@ -53,13 +53,13 @@ class EnvBasedSourceConfigBase(ConfigModel):
         return v.upper()
 
 
-class DatasetSourceConfigBase(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
+class DatasetSourceConfigBase(PlatformInstanceConfigMixin, EnvConfigMixin):
     """
     Any source that is a primary producer of Dataset metadata should inherit this class
     """
 
 
-class DatasetLineageProviderConfigBase(EnvBasedSourceConfigBase):
+class DatasetLineageProviderConfigBase(EnvConfigMixin):
     """
     Any non-Dataset source that produces lineage to Datasets should inherit this class.
     e.g. Orchestrators, Pipelines, BI Tools etc.

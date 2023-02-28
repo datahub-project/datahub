@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -145,7 +145,7 @@ class RedshiftAccessEvent(BaseModel):
     endtime: datetime
 
 
-class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig, EnvBasedSourceConfigBase):
+class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig, EnvConfigMixin):
     email_domain: str = Field(
         description="Email domain of your organisation so users can be displayed on UI appropriately."
     )

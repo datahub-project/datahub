@@ -6,8 +6,8 @@ from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
-    EnvBasedSourceConfigBase,
-    PlatformSourceConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
@@ -20,7 +20,7 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
+class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     path_specs: List[PathSpec] = Field(
         description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
     )

@@ -13,7 +13,10 @@ from datahub.configuration.common import (
     DynamicTypedConfig,
     LineageConfig,
 )
-from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
