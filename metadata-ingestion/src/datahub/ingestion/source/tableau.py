@@ -234,9 +234,11 @@ class TableauConfig(
     # Tableau project pattern
     project_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter for Tableau projects to be ingested. "
+        description="Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
+        "By default, all Projects nested inside a matching Project will be included in ingestion. "
         "You can both allow and deny projects based on their name using their name, or a Regex pattern. "
-        "Deny patterns always take precedence over allow patterns. By default, all projects will be ingested.",
+        "Deny patterns always take precedence over allow patterns. "
+        "By default, all projects will be ingested.",
     )
 
     project_path_separator: str = Field(
