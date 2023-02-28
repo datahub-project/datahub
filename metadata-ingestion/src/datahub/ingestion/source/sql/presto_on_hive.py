@@ -27,6 +27,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -61,17 +65,6 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 logger: logging.Logger = logging.getLogger(__name__)
 
 TableKey = namedtuple("TableKey", ["schema", "table"])
-
-
-class PrestoOnHiveContainerSubTypes(str, Enum):
-    DATABASE = "Database"
-    CATALOG = "Catalog"
-    SCHEMA = "Schema"
-
-
-class PrestoOnHiveDatasetSubTypes(str, Enum):
-    VIEW = "View"
-    TABLE = "Table"
 
 
 class PrestoOnHiveConfigMode(str, Enum):
@@ -292,19 +285,19 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self.config: PrestoOnHiveConfig = config
         self._alchemy_client = SQLAlchemyClient(config)
         self.database_container_subtype = (
-            PrestoOnHiveContainerSubTypes.CATALOG
+            DatasetContainerSubTypes.PRESTO_CATALOG
             if config.use_catalog_subtype
-            else PrestoOnHiveContainerSubTypes.DATABASE
+            else DatasetContainerSubTypes.DATABASE
         )
         self.view_subtype = (
-            PrestoOnHiveDatasetSubTypes.VIEW
+            DatasetSubTypes.VIEW.title()
             if config.use_dataset_pascalcase_subtype
-            else PrestoOnHiveDatasetSubTypes.VIEW.lower()
+            else DatasetSubTypes.VIEW.lower()
         )
         self.table_subtype = (
-            PrestoOnHiveDatasetSubTypes.TABLE
+            DatasetSubTypes.TABLE.title()
             if config.use_dataset_pascalcase_subtype
-            else PrestoOnHiveDatasetSubTypes.TABLE.lower()
+            else DatasetSubTypes.TABLE.lower()
         )
 
     def get_db_name(self, inspector: Inspector) -> str:
@@ -389,7 +382,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             yield from gen_schema_container(
                 database=database,
                 schema=schema,
-                sub_types=["Schema"],
+                sub_types=[DatasetContainerSubTypes.SCHEMA],
                 database_container_key=database_container_key,
                 schema_container_key=schema_container_key,
                 domain_registry=self.domain_registry,
