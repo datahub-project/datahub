@@ -214,7 +214,6 @@ class RedshiftUsageExtractor:
         for time_bucket in aggregated_events.values():
             for aggregate in time_bucket.values():
                 wu: MetadataWorkUnit = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
                 self.report.num_usage_workunits_emitted += 1
                 yield wu
 
@@ -354,7 +353,6 @@ class RedshiftUsageExtractor:
                 id=f"operation-aspect-{event.table}-{event.endtime.isoformat()}",
                 mcp=mcp,
             )
-            self.report.report_workunit(wu)
             self.report.num_operational_stats_workunits_emitted += 1
             yield wu
 

@@ -100,6 +100,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.source_helpers import (
     auto_stale_entity_removal,
     auto_status_aspect,
+    auto_workunit_reporter,
 )
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -357,7 +358,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         return auto_stale_entity_removal(
             self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
+            auto_workunit_reporter(
+                self.report,
+                auto_status_aspect(self.get_workunits_internal()),
+            ),
         )
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
@@ -527,7 +531,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             table, database=database, dataset_name=datahub_dataset_name
         )
         for wu in table_workunits:
-            self.report.report_workunit(wu)
             yield wu
 
     def _process_view(
@@ -548,7 +551,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         for wu in table_workunits:
-            self.report.report_workunit(wu)
             yield wu
 
     def gen_table_dataset_workunits(
@@ -625,7 +627,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 view_properties_aspect,
             )
             yield wu
-            self.report.report_workunit(wu)
 
     # TODO: Remove to common?
     def gen_schema_fields(self, columns: List[RedshiftColumn]) -> List[SchemaField]:
@@ -667,7 +668,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn: str,
         table: Union[RedshiftTable, RedshiftView],
         dataset_name: str,
-    ) -> MetadataWorkUnit:
+    ) -> Iterable[MetadataWorkUnit]:
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.platform),
@@ -679,8 +680,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         wu = wrap_aspect_as_workunit(
             "dataset", dataset_urn, "schemaMetadata", schema_metadata
         )
-        self.report.report_workunit(wu)
-        return wu
+        yield wu
 
     # TODO: Move to common
     def gen_dataset_workunits(
@@ -701,9 +701,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         status = Status(removed=False)
         wu = wrap_aspect_as_workunit("dataset", dataset_urn, "status", status)
         yield wu
-        self.report.report_workunit(wu)
 
-        yield self.gen_schema_metadata(dataset_urn, table, str(datahub_dataset_name))
+        yield from self.gen_schema_metadata(
+            dataset_urn, table, str(datahub_dataset_name)
+        )
 
         dataset_properties = DatasetProperties(
             name=table.name,
@@ -749,7 +750,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
         )
         if dpi_aspect:
-            self.report.report_workunit(dpi_aspect)
             yield dpi_aspect
 
         subTypes = SubTypes(typeNames=[sub_type])
@@ -868,7 +868,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             wus = self.generate_lineage(database)
             for wu in wus:
                 yield wu
-                self.report.report_workunit(wu)
 
     def generate_lineage(self, database: str) -> Iterable[MetadataWorkUnit]:
         assert self.lineage_extractor
@@ -897,7 +896,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     for wu in gen_lineage(
                         dataset_urn, lineage_info, self.config.incremental_lineage
                     ):
-                        self.report.report_workunit(wu)
                         yield wu
 
         for schema in self.db_views[database]:
@@ -918,5 +916,4 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     for wu in gen_lineage(
                         dataset_urn, lineage_info, self.config.incremental_lineage
                     ):
-                        self.report.report_workunit(wu)
                         yield wu
