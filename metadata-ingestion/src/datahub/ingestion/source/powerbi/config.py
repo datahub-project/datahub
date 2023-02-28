@@ -9,6 +9,7 @@ from pydantic.class_validators import root_validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DEFAULT_ENV
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -97,7 +98,7 @@ class Constant:
     EXPRESSION = "expression"
     SOURCE = "source"
     PLATFORM_NAME = "powerbi"
-    REPORT_TYPE_NAME = "Report"
+    REPORT_TYPE_NAME = BIAssetSubTypes.REPORT
     CHART_COUNT = "chartCount"
     WORKSPACE_NAME = "workspaceName"
     DATASET_WEB_URL = "datasetWebUrl"
