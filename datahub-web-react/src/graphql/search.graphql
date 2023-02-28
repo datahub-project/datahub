@@ -13,6 +13,9 @@ fragment autoCompleteFields on Entity {
             name
             qualifiedName
         }
+        parentContainers {
+            ...parentContainersFields
+        }
     }
     ... on CorpUser {
         username
@@ -43,6 +46,9 @@ fragment autoCompleteFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        parentContainers {
+            ...parentContainersFields
+        }
     }
     ... on Chart {
         chartId
@@ -54,6 +60,9 @@ fragment autoCompleteFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
         }
     }
     ... on DataFlow {

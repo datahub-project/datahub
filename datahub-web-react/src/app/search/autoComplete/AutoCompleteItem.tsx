@@ -1,8 +1,10 @@
+import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { CorpUser, Entity, EntityType, Tag } from '../../../types.generated';
 import AutoCompleteEntity from './AutoCompleteEntity';
 import AutoCompleteTag from './AutoCompleteTag';
+import AutoCompleteTooltipContent from './AutoCompleteTooltipContent';
 import AutoCompleteUser from './AutoCompleteUser';
 
 export const SuggestionContainer = styled.div`
@@ -31,5 +33,14 @@ export default function AutoCompleteItem({ query, entity }: Props) {
             break;
     }
 
-    return <SuggestionContainer>{componentToRender}</SuggestionContainer>;
+    return (
+        <Tooltip
+            overlayStyle={{ maxWidth: 500 }}
+            style={{ width: '100%' }}
+            title={<AutoCompleteTooltipContent entity={entity} />}
+            placement="bottomLeft"
+        >
+            <SuggestionContainer>{componentToRender}</SuggestionContainer>
+        </Tooltip>
+    );
 }

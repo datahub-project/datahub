@@ -15,7 +15,17 @@ import AutoCompleteItem, { SuggestionContainer } from './autoComplete/AutoComple
 
 const ExploreForEntity = styled.span`
     font-weight: light;
-    font-size: 11px;
+    font-size: 14px;
+`;
+
+const ExploreForEntityText = styled.span`
+    margin-left: 10px;
+`;
+
+const EntityTypeLabel = styled.div`
+    font-size: 12px;
+    color: ${ANTD_GRAY[8]};
+    border-bottom: 1px solid ${ANTD_GRAY[4]};
 `;
 
 const StyledAutoComplete = styled(AutoComplete)`
@@ -48,7 +58,7 @@ const renderItem = (query: string, entity: Entity) => {
         value: entity.urn,
         label: <AutoCompleteItem query={query} entity={entity} />,
         type: entity.type,
-        style: { paddingLeft: 16 },
+        style: { padding: '12px 12px 12px 16px' },
     };
 };
 
@@ -142,7 +152,10 @@ export const SearchBar = ({
                         label: (
                             <SuggestionContainer key={EXACT_AUTOCOMPLETE_OPTION_TYPE}>
                                 <ExploreForEntity>
-                                    View all results for <Typography.Text strong>{effectiveQuery}</Typography.Text>
+                                    <SearchOutlined />
+                                    <ExploreForEntityText>
+                                        View all results for <Typography.Text strong>{effectiveQuery}</Typography.Text>
+                                    </ExploreForEntityText>
                                 </ExploreForEntity>
                             </SuggestionContainer>
                         ),
@@ -156,7 +169,7 @@ export const SearchBar = ({
     const autoCompleteEntityOptions = useMemo(
         () =>
             suggestions.map((entity: AutoCompleteResultForEntity) => ({
-                label: entityRegistry.getCollectionName(entity.type),
+                label: <EntityTypeLabel>{entityRegistry.getCollectionName(entity.type)}</EntityTypeLabel>,
                 options: [...entity.entities.map((e: Entity) => renderItem(effectiveQuery, e))],
             })),
         [effectiveQuery, suggestions, entityRegistry],
@@ -224,6 +237,7 @@ export const SearchBar = ({
                     overflowY: 'visible',
                     position: (fixAutoComplete && 'fixed') || 'relative',
                 }}
+                listHeight={400}
             >
                 <StyledSearchBar
                     placeholder={placeholderText}

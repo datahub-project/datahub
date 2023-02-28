@@ -1332,7 +1332,7 @@ type SiblingProperties {
 }
 
 """
-All of the parent containers for a given entity
+All of the parent containers for a given entity. Returns parents with direct parent first followed by the parent's parent etc.
 """
 type ParentContainersResult {
     """

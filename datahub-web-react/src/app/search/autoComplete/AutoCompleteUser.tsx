@@ -7,11 +7,13 @@ import { CustomAvatar } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getAutoCompleteEntityText } from './utils';
 
-export const SuggestionText = styled.span`
-    margin-left: 8px;
+export const SuggestionText = styled.div`
+    margin-left: 12px;
     margin-top: 2px;
     margin-bottom: 2px;
     color: ${ANTD_GRAY[9]};
+    font-size: 16px;
+    overflow: hidden;
 `;
 
 interface Props {
