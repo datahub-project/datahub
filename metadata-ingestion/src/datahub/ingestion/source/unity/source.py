@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -176,7 +176,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from self.process_metastores()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
+        metastores: Dict[str, Metastore] = {}
+        assigned_metastore = self.unity_catalog_api_proxy.assigned_metastore()
+        if assigned_metastore:
+            metastores[assigned_metastore.metastore_id] = assigned_metastore
         for metastore in self.unity_catalog_api_proxy.metastores():
+            metastores[metastore.metastore_id] = metastore
+
+        for metastore in metastores.values():
             if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):
                 self.report.metastores.dropped(metastore.metastore_id)
                 continue
