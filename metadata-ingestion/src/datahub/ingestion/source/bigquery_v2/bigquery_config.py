@@ -272,6 +272,7 @@ class BigQueryV2Config(
 
     @validator("platform_instance")
     def bigquery_doesnt_need_platform_instance(cls, v):
+        # TODO: remove the flag from config
         if v is not None:
             raise ConfigurationError(
                 "BigQuery project ids are globally unique. You do not need to specify a platform instance."
