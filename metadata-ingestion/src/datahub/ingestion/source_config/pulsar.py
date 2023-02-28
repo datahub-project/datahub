@@ -5,7 +5,10 @@ from urllib.parse import urlparse
 from pydantic import Field, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -29,7 +32,9 @@ def _is_valid_hostname(hostname: str) -> bool:
     return all(allowed.match(x) for x in hostname.split("."))
 
 
-class PulsarSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
+class PulsarSourceConfig(
+    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+):
     web_service_url: str = Field(
         default="http://localhost:8080", description="The web URL for the cluster."
     )

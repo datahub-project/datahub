@@ -113,6 +113,11 @@ VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 class GlueSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
 ):
+    platform: str = Field(
+        default=DEFAULT_PLATFORM,
+        description=f"The platform to use for the dataset URNs. Must be one of {VALID_PLATFORMS}.",
+    )
+
     extract_owners: Optional[bool] = Field(
         default=True,
         description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",

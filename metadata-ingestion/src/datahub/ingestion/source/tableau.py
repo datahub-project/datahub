@@ -1583,7 +1583,7 @@ class TableauSource(StatefulIngestionSourceBase):
     def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
         return MetadataWorkUnit(
             id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
-                PLATFORM=self.config.platform,
+                PLATFORM=self.platform,
                 ENTITY_URN=mcp.entityUrn,
                 ASPECT_NAME=mcp.aspectName,
             ),

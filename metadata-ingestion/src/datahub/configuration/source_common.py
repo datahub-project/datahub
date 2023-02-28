@@ -20,10 +20,6 @@ class PlatformInstanceConfigMixin(ConfigModel):
     Any source that connects to a platform should inherit this class
     """
 
-    platform: Optional[str] = Field(
-        default=None, description="The platform that this source connects to"
-    )
-
     platform_instance: Optional[str] = Field(
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
