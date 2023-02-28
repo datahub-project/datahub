@@ -25,7 +25,6 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
     )
     platform: str = Field(
-        # The platform field already exists, but we want to override the type/default/docs.
         default="",
         description="The platform that this source connects to (either 's3' or 'file'). "
         "If not specified, the platform will be inferred from the path_specs.",
@@ -121,6 +120,16 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
             values["platform"] = guessed_platform
 
         return path_specs
+
+    @pydantic.validator("platform", always=True)
+    def platform_not_empty(cls, platform: str, values: dict) -> str:
+        inferred_platform = values.get(
+            "platform", None
+        )  # we may have inferred it above
+        platform = platform or inferred_platform
+        if not platform:
+            raise ValueError("platform must not be empty")
+        return platform
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(
