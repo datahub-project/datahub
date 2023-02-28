@@ -79,9 +79,6 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
 
       try {
         SearchResult searchResult = getSearchResults(environment, input);
-        System.out.println("~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~");
-        System.out.println(searchResult);
-        System.out.println("~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~");
         AggregationMetadataArray aggregations = searchResult.getMetadata().getAggregations();
 
         quickFilters.addAll(getPlatformQuickFilters(aggregations));
