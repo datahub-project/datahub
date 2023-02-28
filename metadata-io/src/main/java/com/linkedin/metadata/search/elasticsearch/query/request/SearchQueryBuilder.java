@@ -104,7 +104,7 @@ public class SearchQueryBuilder {
 
     // Always present
     final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
-    List.of("urn", "urn.delimited").forEach(urnField -> fields.add(SearchFieldConfig.autodetect(urnField, urnBoost)));
+    List.of("urn", "urn.delimited").forEach(urnField -> fields.add(SearchFieldConfig.detectSubFieldType(urnField, urnBoost)));
 
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
@@ -114,14 +114,14 @@ public class SearchQueryBuilder {
 
       String fieldName = fieldSpec.getSearchableAnnotation().getFieldName();
       double boostScore = fieldSpec.getSearchableAnnotation().getBoostScore();
-      fields.add(SearchFieldConfig.autodetect(fieldName, (float) boostScore));
+      fields.add(SearchFieldConfig.detectSubFieldType(fieldName, (float) boostScore));
 
       FieldType fieldType = fieldSpec.getSearchableAnnotation().getFieldType();
       if (TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType)) {
-        fields.add(SearchFieldConfig.autodetect(fieldName + ".delimited", ((float) boostScore) * 0.4f));
+        fields.add(SearchFieldConfig.detectSubFieldType(fieldName + ".delimited", ((float) boostScore) * 0.4f));
       }
       if (FieldType.URN_PARTIAL.equals(fieldType)) {
-        fields.add(SearchFieldConfig.autodetect(fieldName + ".delimited", ((float) boostScore) * 0.4f));
+        fields.add(SearchFieldConfig.detectSubFieldType(fieldName + ".delimited", ((float) boostScore) * 0.4f));
       }
     }
 

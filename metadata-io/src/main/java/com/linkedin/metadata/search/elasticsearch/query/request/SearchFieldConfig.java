@@ -21,7 +21,7 @@ public class SearchFieldConfig {
     @Builder.Default
     private final String analyzer = TEXT_SEARCH_ANALYZER;
 
-    public static SearchFieldConfig autodetect(String fieldName, Float boost) {
+    public static SearchFieldConfig detectSubFieldType(String fieldName, Float boost) {
         if (fieldName.endsWith(".keyword") || KEYWORD_FIELDS.contains(fieldName)) {
             return SearchFieldConfig.builder()
                     .fieldName(fieldName)
