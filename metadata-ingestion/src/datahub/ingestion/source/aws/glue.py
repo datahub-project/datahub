@@ -290,10 +290,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     @property
     def platform(self) -> str:
-        """
-        Returns the config platform, or defaults to "glue".
-        """
-        return self.source_config.platform or DEFAULT_PLATFORM
+        return self.source_config.platform
 
     def get_all_jobs(self):
         """
