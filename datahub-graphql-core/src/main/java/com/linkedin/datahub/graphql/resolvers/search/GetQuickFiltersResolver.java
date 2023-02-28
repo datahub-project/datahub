@@ -74,12 +74,12 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
     final GetQuickFiltersInput input =  bindArgument(environment.getArgument("input"), GetQuickFiltersInput.class);
 
     return CompletableFuture.supplyAsync(() -> {
-      GetQuickFiltersResult result = new GetQuickFiltersResult();
-      List<QuickFilter> quickFilters = new ArrayList<>();
+      final GetQuickFiltersResult result = new GetQuickFiltersResult();
+      final List<QuickFilter> quickFilters = new ArrayList<>();
 
       try {
-        SearchResult searchResult = getSearchResults(environment, input);
-        AggregationMetadataArray aggregations = searchResult.getMetadata().getAggregations();
+        final SearchResult searchResult = getSearchResults(environment, input);
+        final AggregationMetadataArray aggregations = searchResult.getMetadata().getAggregations();
 
         quickFilters.addAll(getPlatformQuickFilters(aggregations));
         quickFilters.addAll(getEntityTypeQuickFilters(aggregations));
@@ -121,10 +121,10 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
    * Get platforms and their count from an aggregations array, sorts by entity count, and map the top 5 to quick filters
    */
   private List<QuickFilter> getPlatformQuickFilters(@Nonnull final AggregationMetadataArray aggregations) {
-    List<QuickFilter> platforms = new ArrayList<>();
-    Optional<AggregationMetadata> platformAggregations = aggregations.stream().filter(agg -> agg.getName().equals(PLATFORM)).findFirst();
+    final List<QuickFilter> platforms = new ArrayList<>();
+    final Optional<AggregationMetadata> platformAggregations = aggregations.stream().filter(agg -> agg.getName().equals(PLATFORM)).findFirst();
     if (platformAggregations.isPresent()) {
-      List<FilterValue> sortedPlatforms =
+      final List<FilterValue> sortedPlatforms =
           platformAggregations.get().getFilterValues().stream().sorted(Comparator.comparingLong(val -> -val.getFacetCount())).collect(Collectors.toList());
       sortedPlatforms.forEach(platformFilter -> {
         if (platforms.size() < PLATFORM_COUNT && platformFilter.getFacetCount() > 0) {
@@ -141,14 +141,14 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
    * from a prioritized list. Do the same for datathub entity types.
    */
   private List<QuickFilter> getEntityTypeQuickFilters(@Nonnull final AggregationMetadataArray aggregations) {
-    List<QuickFilter> entityTypes = new ArrayList<>();
-    Optional<AggregationMetadata> entityAggregations = aggregations.stream().filter(agg -> agg.getName().equals(ENTITY)).findFirst();
+    final List<QuickFilter> entityTypes = new ArrayList<>();
+    final Optional<AggregationMetadata> entityAggregations = aggregations.stream().filter(agg -> agg.getName().equals(ENTITY)).findFirst();
 
     if (entityAggregations.isPresent()) {
-      List<QuickFilter> sourceEntityTypeFilters = getQuickFiltersFromList(PRIORITIZED_SOURCE_ENTITY_TYPES, SOURCE_ENTITY_COUNT, entityAggregations.get());
+      final List<QuickFilter> sourceEntityTypeFilters = getQuickFiltersFromList(PRIORITIZED_SOURCE_ENTITY_TYPES, SOURCE_ENTITY_COUNT, entityAggregations.get());
       entityTypes.addAll(sourceEntityTypeFilters);
 
-      List<QuickFilter> dataHubEntityTypeFilters = getQuickFiltersFromList(PRIORITIZED_DATAHUB_ENTITY_TYPES, DATAHUB_ENTITY_COUNT, entityAggregations.get());
+      final List<QuickFilter> dataHubEntityTypeFilters = getQuickFiltersFromList(PRIORITIZED_DATAHUB_ENTITY_TYPES, DATAHUB_ENTITY_COUNT, entityAggregations.get());
       entityTypes.addAll(dataHubEntityTypeFilters);
     }
     return entityTypes;
@@ -162,10 +162,10 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
       final int maxListSize,
       @Nonnull final AggregationMetadata entityAggregations
   ) {
-    List<QuickFilter> entityTypes = new ArrayList<>();
+    final List<QuickFilter> entityTypes = new ArrayList<>();
     prioritizedList.forEach(entityType -> {
       if (entityTypes.size() < maxListSize) {
-        Optional<FilterValue> entityFilter = entityAggregations.getFilterValues().stream().filter(val -> val.getValue().equals(entityType)).findFirst();
+        final Optional<FilterValue> entityFilter = entityAggregations.getFilterValues().stream().filter(val -> val.getValue().equals(entityType)).findFirst();
         if (entityFilter.isPresent() && entityFilter.get().getFacetCount() > 0) {
           entityTypes.add(mapQuickFilter(ENTITY, entityFilter.get()));
         }
@@ -176,12 +176,12 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
   }
 
   private QuickFilter mapQuickFilter(@Nonnull final String field, @Nonnull final FilterValue filterValue) {
-    boolean isEntityTypeFilter = field.equals(ENTITY);
-    QuickFilter quickFilter = new QuickFilter();
+    final boolean isEntityTypeFilter = field.equals(ENTITY);
+    final QuickFilter quickFilter = new QuickFilter();
     quickFilter.setField(field);
     quickFilter.setValue(convertFilterValue(filterValue.getValue(), isEntityTypeFilter));
     if (filterValue.getEntity() != null) {
-      Entity entity = UrnToEntityMapper.map(filterValue.getEntity());
+      final Entity entity = UrnToEntityMapper.map(filterValue.getEntity());
       quickFilter.setEntity(entity);
     }
     return quickFilter;
