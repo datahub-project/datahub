@@ -365,7 +365,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         schema: RedshiftSchema,
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
-
             schema_container_key = gen_schema_key(
                 db_name=database,
                 schema=schema.name,
@@ -428,7 +427,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             else []
                         )
                         yield from self._process_view(
-                            view, get_db_name(self.config), schema
+                            table=view, database=get_db_name(self.config), schema=schema
                         )
 
                         self.report.view_processed[f"{database}.{schema.name}"] = (
@@ -447,7 +446,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         table: RedshiftTable,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         datahub_dataset_name = (
             f"{get_db_name(config=self.config)}.{table.schema}.{table.name}"
         )
@@ -468,8 +466,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _process_view(
         self, table: RedshiftView, database: str, schema: RedshiftSchema
     ) -> Iterable[MetadataWorkUnit]:
-
-        datahub_dataset_name = f"{database}.{table.schema}.{table.name}"
+        datahub_dataset_name = f"{database}.{schema.name}.{table.name}"
 
         self.report.report_entity_scanned(datahub_dataset_name)
 
@@ -480,7 +477,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         table_workunits = self.gen_view_dataset_workunits(
             table=table,
             database=database,
-            schema=table.schema,
+            schema=schema.name,
         )
 
         for wu in table_workunits:
@@ -493,7 +490,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         custom_properties = {}
 
         if table.location:
@@ -532,38 +528,37 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database: str,
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
-
         view = cast(RedshiftView, table)
 
         yield from self.gen_dataset_workunits(
             table=table,
             database=get_db_name(self.config),
-            schema=table.schema,
-            sub_type=table.type,
+            schema=schema,
+            sub_type=table.type if table.type else "VIEW",
             tags_to_add=[],
             custom_properties={},
         )
 
-        view_definition_string = view.ddl
-        view_properties_aspect = ViewProperties(
-            materialized=table.type == "VIEW_MATERIALIZED",
-            viewLanguage="SQL",
-            viewLogic=view_definition_string,
-        )
         datahub_dataset_name = f"{database}.{schema}.{table.name}"
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=datahub_dataset_name,
             platform_instance=self.config.platform_instance,
         )
-        wu = wrap_aspect_as_workunit(
-            "dataset",
-            dataset_urn,
-            "viewProperties",
-            view_properties_aspect,
-        )
-        yield wu
-        self.report.report_workunit(wu)
+        if view.ddl:
+            view_properties_aspect = ViewProperties(
+                materialized=table.type == "VIEW_MATERIALIZED",
+                viewLanguage="SQL",
+                viewLogic=view.ddl,
+            )
+            wu = wrap_aspect_as_workunit(
+                "dataset",
+                dataset_urn,
+                "viewProperties",
+                view_properties_aspect,
+            )
+            yield wu
+            self.report.report_workunit(wu)
 
     # TODO: Remove to common?
     def gen_schema_fields(self, columns: List[RedshiftColumn]) -> List[SchemaField]:
@@ -606,7 +601,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         table: Union[RedshiftTable, RedshiftView],
         dataset_name: str,
     ) -> MetadataWorkUnit:
-
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.platform),
@@ -654,7 +648,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             else TimeStamp(time=int(table.created.timestamp() * 1000))
             if table.created
             else None,
-            description=table.description,
+            description=table.comment,
             qualifiedName=str(datahub_dataset_name),
         )
 
@@ -915,7 +909,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         for schema in self.db_views[database]:
             for view in self.db_views[database][schema]:
-                datahub_dataset_name = f"{database}.{view.schema}.{view.name}"
+                datahub_dataset_name = f"{database}.{schema}.{view.name}"
                 dataset_urn = make_dataset_urn_with_platform_instance(
                     self.platform,
                     datahub_dataset_name,

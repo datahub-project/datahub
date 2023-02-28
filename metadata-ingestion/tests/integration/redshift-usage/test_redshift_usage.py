@@ -104,6 +104,7 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
                     schema="schema1",
                     type="BASE TABLE",
                     created=None,
+                    comment="",
                 ),
             ]
         },
@@ -114,12 +115,14 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
                     schema="public",
                     type="BASE TABLE",
                     created=None,
+                    comment="",
                 ),
                 RedshiftTable(
                     name="orders",
                     schema="public",
                     type="BASE TABLE",
                     created=None,
+                    comment="",
                 ),
             ]
         },
@@ -207,6 +210,7 @@ def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tm
                     schema="public",
                     type="BASE TABLE",
                     created=None,
+                    comment="",
                 ),
             ]
         },

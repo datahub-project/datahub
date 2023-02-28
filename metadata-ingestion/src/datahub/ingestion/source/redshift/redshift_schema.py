@@ -26,7 +26,6 @@ class RedshiftTable(BaseTable):
     type: Optional[str] = None
     schema: Optional[str] = None
     dist_style: Optional[str] = None
-    description: Optional[str] = None
     columns: List[RedshiftColumn] = field(default_factory=list)
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
@@ -39,14 +38,9 @@ class RedshiftTable(BaseTable):
 
 
 @dataclass
-class RedshiftView:
-    type: str
-    name: str
-    schema: str
-    ddl: str
+class RedshiftView(BaseTable):
+    type: Optional[str] = None
     columns: List[RedshiftColumn] = field(default_factory=list)
-    description: Optional[str] = None
-    created: Optional[datetime] = None
     last_altered: Optional[datetime] = None
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
@@ -87,7 +81,6 @@ class RedshiftDataDictionary:
 
     @staticmethod
     def get_databases(conn: redshift_connector.Connection) -> List[str]:
-
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
             RedshiftQuery.list_databases,
@@ -101,7 +94,6 @@ class RedshiftDataDictionary:
     def get_schemas(
         conn: redshift_connector.Connection, database: str
     ) -> List[RedshiftSchema]:
-
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
             RedshiftQuery.list_schemas.format(database_name=database),
@@ -125,8 +117,7 @@ class RedshiftDataDictionary:
     @staticmethod
     def enrich_tables(
         conn: redshift_connector.Connection,
-    ) -> (Dict[str, Dict[str, RedshiftExtraTableMeta]]):
-
+    ) -> Dict[str, Dict[str, RedshiftExtraTableMeta]]:
         cur = RedshiftDataDictionary.get_query_result(
             conn, RedshiftQuery.additional_table_metadata
         )
@@ -189,7 +180,6 @@ class RedshiftDataDictionary:
                 size_in_bytes: Optional[int] = None
                 rows_count: Optional[int] = None
                 if schema in enrich_metada and table_name in enrich_metada[schema]:
-
                     if enrich_metada[schema][table_name].last_accessed:
                         # Mypy seems to be not clever enough to understand the above check
                         last_accessed = enrich_metada[schema][table_name].last_accessed
@@ -224,7 +214,7 @@ class RedshiftDataDictionary:
                         input_parameters=table[field_names.index("input_format")],
                         output_parameters=table[field_names.index("output_format")],
                         serde_parameters=table[field_names.index("serde_parameters")],
-                        description=table[field_names.index("table_description")],
+                        comment=table[field_names.index("table_description")],
                     )
                 )
             else:
@@ -235,10 +225,9 @@ class RedshiftDataDictionary:
                     RedshiftView(
                         type=table[field_names.index("tabletype")],
                         name=table[field_names.index("relname")],
-                        schema=table[field_names.index("schema")],
                         ddl=table[field_names.index("view_definition")],
                         created=table[field_names.index("creation_time")],
-                        description=table[field_names.index("table_description")],
+                        comment=table[field_names.index("table_description")],
                     )
                 )
 
@@ -259,7 +248,6 @@ class RedshiftDataDictionary:
     def get_columns_for_schema(
         conn: redshift_connector.Connection, schema: RedshiftSchema
     ) -> Dict[str, List[RedshiftColumn]]:
-
         cursor = RedshiftDataDictionary.get_query_result(
             conn,
             RedshiftQuery.list_columns.format(schema_name=schema.name),
