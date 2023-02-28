@@ -1,9 +1,8 @@
 import json
 import logging
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type
 
-import pydantic
 from avro.schema import RecordSchema
 from deprecated import deprecated
 from requests.adapters import Response
@@ -48,15 +47,13 @@ class DatahubClientConfig(ConfigModel):
     disable_ssl_verification: bool = False
 
 
-class DataHubGraphConfig(DatahubClientConfig):
-    class Config:
-        extra = (
-            pydantic.Extra.allow
-        )  # lossy to allow interop with DataHubRestSinkConfig
+# Alias for backwards compatibility.
+# DEPRECATION: Remove in v0.10.2.
+DataHubGraphConfig = DatahubClientConfig
 
 
 class DataHubGraph(DatahubRestEmitter):
-    def __init__(self, config: Union[DatahubClientConfig, DataHubGraphConfig]) -> None:
+    def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
         super().__init__(
             gms_server=self.config.server,
@@ -456,4 +453,4 @@ class DataHubGraph(DatahubRestEmitter):
 
 def get_default_graph() -> DataHubGraph:
     (url, token) = get_url_and_token()
-    return DataHubGraph(DataHubGraphConfig(server=url, token=token))
+    return DataHubGraph(DatahubClientConfig(server=url, token=token))
