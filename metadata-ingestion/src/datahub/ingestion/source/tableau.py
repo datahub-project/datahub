@@ -478,7 +478,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
                     cur_proj = all_project_map[cur_proj.parent_id]
-                    ancestors.insert(0, cur_proj.name)
+                    ancestors = [cur_proj.name, *ancestors]
                 return ancestors
 
             for project in all_project_map.values():
@@ -539,7 +539,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 self.tableau_project_registry[project.id] = project
 
             if self.config.extract_project_hierarchy is False:
-                logger.info(
+                logger.debug(
                     "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
                     "disabled"
                 )
@@ -1179,6 +1179,10 @@ class TableauSource(StatefulIngestionSourceBase):
         return schema_metadata
 
     def _get_project(self, ds):
+        # For PublishedDatasource the GraphQL API doesn't return the projectLuid and hence we need to fetch
+        # the projectLuid from datasource_project_map
+        # For EmbeddedDatasource the GraphQL API returns the projectLuid in resposne and
+        # hence it is available at ds["workbook"]["projectLuid"]
         if self.config.extract_project_hierarchy:
             if (
                 ds.get("__typename") == "PublishedDatasource"
