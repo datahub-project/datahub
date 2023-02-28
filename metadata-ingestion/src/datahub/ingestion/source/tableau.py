@@ -228,19 +228,21 @@ class TableauConfig(
 ):
     projects: Optional[List[str]] = Field(
         default=["default"],
-        description="[deprecated] Use project_pattern instead of projects. List of tableau "
+        description="[deprecated] Use project_pattern instead. List of tableau "
         "projects ",
     )
     # Tableau project pattern
     project_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter tableau projects in ingestion. project_pattern may contain path to "
-        "nested project for ingestion, example A/B/C, here project C would get ingested",
+        description="Regex patterns to filter for Tableau projects to be ingested. "
+        "You can both allow and deny projects based on their name using their name, or a Regex pattern. "
+        "Deny patterns always take precedence over allow patterns. By default, all projects will be ingested.",
     )
 
     project_path_separator: str = Field(
         default="/",
-        description="Projects path separator.",
+        description="The separator used for the project_pattern field between project names. By default, we use a slash. "
+        "You can change this if your Tableau projects contain slashes in their names, and you'd like to filter by project.",
     )
 
     default_schema_map: dict = Field(
