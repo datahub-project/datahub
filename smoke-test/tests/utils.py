@@ -8,6 +8,7 @@ from joblib import Parallel, delayed
 import requests_wrapper as requests
 
 from datahub.cli import cli_utils
+from datahub.cli.cli_utils import get_system_auth
 from datahub.ingestion.run.pipeline import Pipeline
 
 TIME: int = 1581407189000
@@ -19,10 +20,16 @@ def get_frontend_session():
     headers = {
         "Content-Type": "application/json",
     }
-    username, password = get_admin_credentials()
-    data = '{"username":"' + username + '", "password":"' + password + '"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
+    system_auth = get_system_auth()
+    if system_auth is not None:
+        session.headers.update({"Authorization": system_auth})
+    else:
+        username, password = get_admin_credentials()
+        data = '{"username":"' + username + '", "password":"' + password + '"}'
+        response = session.post(
+            f"{get_frontend_url()}/logIn", headers=headers, data=data
+        )
+        response.raise_for_status()
 
     return session
 
@@ -36,6 +43,10 @@ def get_admin_credentials():
         os.getenv("ADMIN_USERNAME", "datahub"),
         os.getenv("ADMIN_PASSWORD", "datahub"),
     )
+
+
+def get_root_urn():
+    return "urn:li:corpuser:datahub"
 
 
 def get_gms_url():

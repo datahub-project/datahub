@@ -1,6 +1,12 @@
 import pytest
 import tenacity
-from tests.utils import get_frontend_url, wait_for_healthcheck_util, get_frontend_session, get_sleep_info
+from tests.utils import (
+    get_frontend_url,
+    wait_for_healthcheck_util,
+    get_frontend_session,
+    get_sleep_info,
+    get_root_urn,
+)
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
@@ -25,7 +31,7 @@ def frontend_session(wait_for_healthchecks):
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-@pytest.fixture(scope='class', autouse=True)
+@pytest.fixture(scope="class", autouse=True)
 def test_frontend_list_policies(frontend_session):
     """Fixture to execute setup before and tear down after all tests are run"""
     res_data = listPolicies(frontend_session)
@@ -73,9 +79,11 @@ def _ensure_policy_present(frontend_session, new_urn):
     assert res_data["data"]["listPolicies"]
 
     # Verify that the updated policy appears in the list and has the appropriate changes
-    result = list(filter(
-        lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"]
-    ))
+    result = list(
+        filter(
+            lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"]
+        )
+    )
     print(result)
 
     assert len(result) == 1
@@ -99,7 +107,7 @@ def test_frontend_policy_operations(frontend_session):
                 "resources": {"type": "dataset", "allResources": True},
                 "privileges": ["EDIT_ENTITY_TAGS"],
                 "actors": {
-                    "users": ["urn:li:corpuser:datahub"],
+                    "users": [get_root_urn()],
                     "resourceOwners": False,
                     "allUsers": False,
                     "allGroups": False,
@@ -138,7 +146,9 @@ def test_frontend_policy_operations(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=update_json)
+    response = frontend_session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=update_json
+    )
     response.raise_for_status()
     res_data = response.json()
 
