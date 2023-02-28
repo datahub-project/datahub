@@ -22,6 +22,7 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -109,7 +110,9 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueSourceConfig(AwsSourceConfig, StatefulIngestionConfigBase):
+class GlueSourceConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
+):
     extract_owners: Optional[bool] = Field(
         default=True,
         description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",

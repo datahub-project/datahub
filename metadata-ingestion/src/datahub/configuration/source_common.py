@@ -53,7 +53,7 @@ class EnvConfigMixin(ConfigModel):
         return v.upper()
 
 
-class DatasetSourceConfigBase(PlatformInstanceConfigMixin, EnvConfigMixin):
+class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
     """
     Any source that is a primary producer of Dataset metadata should inherit this class
     """

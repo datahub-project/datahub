@@ -8,9 +8,9 @@ from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    LineageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
+    StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
@@ -34,9 +34,9 @@ class BigQueryUsageConfig(BaseUsageConfig):
 class BigQueryV2Config(
     BigQueryBaseConfig,
     SQLAlchemyConfig,
-    LineageStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
+    StatefulUsageConfigMixin,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
 ):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),

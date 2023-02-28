@@ -8,7 +8,7 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DEFAULT_ENV
+from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -139,7 +139,9 @@ class PlatformDetail:
     )
 
 
-class PowerBiDashboardSourceConfig(StatefulIngestionConfigBase):
+class PowerBiDashboardSourceConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin
+):
     platform_name: str = pydantic.Field(
         default=Constant.PLATFORM_NAME, hidden_from_docs=True
     )

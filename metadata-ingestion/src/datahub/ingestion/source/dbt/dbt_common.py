@@ -19,6 +19,7 @@ from datahub.configuration.common import (
     LineageConfig,
 )
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -194,7 +195,9 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.test_results == EmitDirective.YES
 
 
-class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
+class DBTCommonConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, LineageConfig
+):
     env: str = Field(
         default=mce_builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",

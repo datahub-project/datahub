@@ -24,6 +24,7 @@ from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
@@ -102,7 +103,10 @@ logger = logging.getLogger(__name__)
 
 
 class LookerDashboardSourceConfig(
-    LookerAPIConfig, LookerCommonConfig, StatefulIngestionConfigBase
+    LookerAPIConfig,
+    LookerCommonConfig,
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
 ):
     _removed_github_info = pydantic_removed_field("github_info")
 
