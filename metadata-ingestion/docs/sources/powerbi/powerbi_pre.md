@@ -105,11 +105,6 @@ By default, extracting endorsement information to tags is disabled. The feature 
 
 Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
 
-## Extract orphan datasets
-
-When `extract_orphan_datasets` is enabled, dataset which is not used in any Dashboard or Report, will be ingested to Datahub. This is useful if certain PowerBI workspace
-is only used for sharing datasets to other users. This feature is disabled by default.
-
 ## Admin Ingestion vs. Basic Ingestion
 PowerBI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/). 
 

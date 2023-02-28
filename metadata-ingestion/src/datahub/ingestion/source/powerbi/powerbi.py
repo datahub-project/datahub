@@ -722,23 +722,6 @@ class Mapper:
         # Return set of work_unit
         return deduplicate_list([wu for wu in work_units if wu is not None])
 
-    def dataset_to_datahub_work_units(
-        self,
-        dataset: powerbi_data_classes.PowerBIDataset,
-        workspace: powerbi_data_classes.Workspace,
-    ) -> Iterable[MetadataWorkUnit]:
-        mcps = []
-
-        logger.info(f"Converting dataset={dataset.name} to datahub dataset")
-
-        dataset_mpcs = self.to_datahub_dataset(dataset, workspace)
-        mcps.extend(dataset_mpcs)
-
-        # Convert MCP to work_units
-        work_units = map(self._to_work_unit, mcps)
-        # Return set of work_unit
-        return deduplicate_list([wu for wu in work_units if wu is not None])
-
     def pages_to_chart(
         self,
         pages: List[powerbi_data_classes.Page],
@@ -1050,15 +1033,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         for workspace in self.get_allowed_workspaces():
             logger.info(f"Scanning workspace id: {workspace.id}")
             self.powerbi_client.fill_workspace(workspace, self.reporter)
-
-            if self.source_config.extract_orphan_datasets:
-                for dataset in workspace.datasets.values():
-                    workunits = self.mapper.dataset_to_datahub_work_units(
-                        dataset, workspace
-                    )
-                    for workunit in workunits:
-                        # Return workunit to Datahub Ingestion framework
-                        yield workunit
 
             if self.source_config.extract_workspaces_to_containers:
                 workspace_workunits = self.mapper.generate_container_for_workspace(

@@ -16,8 +16,6 @@ source:
     client_secret: bar
     # Enable / Disable ingestion of user information for dashboards
     extract_ownership: true
-    # Enable / Disable ingestion of orphan datasets
-    extract_orphan_datasets: false
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: true
     # Enable / Disable ingestion of endorsements.

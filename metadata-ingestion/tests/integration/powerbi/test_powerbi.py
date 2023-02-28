@@ -209,15 +209,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "id": "05169CD2-E7E4-41E6-9600-1D8066D95445",
-                "name": "library-dataset",
-                "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445",
-            },
-        },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445": {
             "method": "GET",
             "status_code": 200,
@@ -247,21 +238,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "connectionDetails": {
                             "database": "library_db",
                             "server": "foo",
-                        },
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E7E4-41E6-9600-1D8066D95445/datasources": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasourceId": "DCE90B40-84D6-467A-9A5C-EEEE830E72D3",
-                        "datasourceType": "ODBC",
-                        "connectionDetails": {
-                            "connectionString": "dsn=datawarehouse_prod",
                         },
                     },
                 ]
@@ -839,49 +815,6 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
         pytestconfig,
         output_path=f"{tmp_path}/powerbi_lineage_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
-    )
-
-
-@freeze_time(FROZEN_TIME)
-@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-@pytest.mark.integration
-def test_extract_odbc_tables(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
-
-    register_mock_api(request_mock=requests_mock)
-
-    source_config = default_source_config()
-    source_config["dataset_type_mapping"]["ODBC"] = "odbc"
-
-    pipeline_config = {
-        "run_id": "powerbi-test",
-        "source": {
-            "type": "powerbi",
-            "config": {
-                **source_config,
-                "extract_orphan_datasets": True,
-            },
-        },
-        "sink": {
-            "type": "file",
-            "config": {
-                "filename": f"{tmp_path}/powerbi_odbc_mces.json",
-            },
-        },
-    }
-
-    pipeline = Pipeline.create(pipeline_config)
-
-    pipeline.run()
-    pipeline.raise_from_status()
-    mce_out_file = "golden_test_odbc.json"
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=tmp_path / "powerbi_odbc_mces.json",
-        golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
 
 
