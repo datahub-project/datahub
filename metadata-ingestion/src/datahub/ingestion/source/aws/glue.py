@@ -117,10 +117,6 @@ class GlueSourceConfig(AwsSourceConfig, StatefulIngestionConfigBase):
     extract_transforms: Optional[bool] = Field(
         default=True, description="Whether to extract Glue transform jobs."
     )
-    underlying_platform: Optional[str] = Field(
-        default=None,
-        description="@deprecated(Use `platform`) Override for platform name. Allowed values - `glue`, `athena`",
-    )
     ignore_unsupported_connectors: Optional[bool] = Field(
         default=True,
         description="Whether to ignore unsupported connectors. If disabled, an error will be raised.",
@@ -168,26 +164,17 @@ class GlueSourceConfig(AwsSourceConfig, StatefulIngestionConfigBase):
     @validator("glue_s3_lineage_direction")
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "glue_s3_lineage_direction must be either upstream or downstream"
             )
         return v.lower()
-
-    @validator("underlying_platform")
-    def underlying_platform_validator(cls, v: str) -> str:
-        if not v or v in VALID_PLATFORMS:
-            return v
-        else:
-            raise ConfigurationError(
-                f"'underlying_platform' can only take following values: {VALID_PLATFORMS}"
-            )
 
     @validator("platform")
     def platform_validator(cls, v: str) -> str:
         if not v or v in VALID_PLATFORMS:
             return v
         else:
-            raise ConfigurationError(
+            raise ValueError(
                 f"'platform' can only take following values: {VALID_PLATFORMS}"
             )
 
@@ -296,15 +283,9 @@ class GlueSource(StatefulIngestionSourceBase):
     @property
     def platform(self) -> str:
         """
-        This deprecates "underlying_platform" field in favour of the standard "platform" one, which has
-        more priority when both are defined.
-        :return: platform, otherwise underlying_platform, otherwise "glue"
+        Returns the config platform, or defaults to "glue".
         """
-        return (
-            self.source_config.platform
-            or self.source_config.underlying_platform
-            or DEFAULT_PLATFORM
-        )
+        return self.source_config.platform or DEFAULT_PLATFORM
 
     def get_all_jobs(self):
         """
