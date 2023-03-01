@@ -222,7 +222,7 @@ class BigQueryUsageExtractor:
                             yield operational_wu
                             self.report.num_operational_stats_workunits_emitted += 1
                     if event.read_event:
-                        aggregated_info = self._aggregate_enriched_read_events(
+                        self._aggregate_enriched_read_events(
                             aggregated_info, event, tables
                         )
                         num_aggregated += 1
@@ -752,9 +752,9 @@ class BigQueryUsageExtractor:
         datasets: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]],
         event: AuditEvent,
         tables: Dict[str, List[str]],
-    ) -> Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]:
+    ) -> None:
         if not event.read_event:
-            return datasets
+            return
 
         floored_ts = get_time_bucket(
             event.read_event.timestamp, self.config.bucket_duration
@@ -768,7 +768,7 @@ class BigQueryUsageExtractor:
                 not in tables[resource.table_identifier.dataset]
             ):
                 logger.debug(f"Skipping non existing {resource} from usage")
-                return datasets
+                return
         except Exception as e:
             self.report.report_warning(
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
@@ -776,12 +776,12 @@ class BigQueryUsageExtractor:
             logger.warning(
                 f"Failed to process event {str(event.read_event.resource)} - {e}"
             )
-            return datasets
+            return
 
         if resource.is_temporary_table([self.config.temp_table_dataset_prefix]):
             logger.debug(f"Dropping temporary table {resource}")
             self.report.report_dropped(str(resource))
-            return datasets
+            return
 
         agg_bucket = datasets[floored_ts].setdefault(
             resource,
@@ -797,8 +797,6 @@ class BigQueryUsageExtractor:
             event.query_event.query if event.query_event else None,
             event.read_event.fieldsRead,
         )
-
-        return datasets
 
     def get_workunits(
         self, aggregated_info: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
