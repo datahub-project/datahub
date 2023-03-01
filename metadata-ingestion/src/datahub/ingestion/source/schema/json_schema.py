@@ -30,7 +30,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     support_status,
 )
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.json_ref_patch import title_swapping_callback
 from datahub.ingestion.extractor.json_schema_util import (
     JsonSchemaTranslator,
@@ -46,6 +46,10 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
+)
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
 )
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 
@@ -343,11 +347,13 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     ).as_workunit()
                 )
 
-            self.stale_entity_removal_handler.add_entity_to_state(
-                type="_", urn=dataset_urn
-            )
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.uri_replace_pattern:
             ref_loader = functools.partial(
                 self.stringreplaceloader,
@@ -391,9 +397,6 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     str(self.config.path), f"Failed to process due to {e}"
                 )
                 logger.error(f"Failed to process file {self.config.path}", exc_info=e)
-
-        # Clean up stale entities at the end
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def get_report(self):
         return self.report
