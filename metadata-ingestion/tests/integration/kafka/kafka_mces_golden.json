@@ -118,7 +118,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"topic\"]}",
+        "value": "{\"typeNames\": [\"Topic\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -221,7 +221,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"topic\"]}",
+        "value": "{\"typeNames\": [\"Topic\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -360,7 +360,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"topic\"]}",
+        "value": "{\"typeNames\": [\"Topic\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

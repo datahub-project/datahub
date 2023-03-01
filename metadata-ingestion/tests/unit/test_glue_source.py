@@ -3,11 +3,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, cast
 from unittest.mock import patch
 
+import pydantic
 import pytest
 from botocore.stub import Stubber
 from freezegun import freeze_time
 
-from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.run.pipeline import Pipeline
@@ -181,43 +181,23 @@ def test_glue_ingest(
     )
 
 
-def test_underlying_platform_takes_precendence():
+def test_platform_config():
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
-        config=GlueSourceConfig(aws_region="us-west-2", underlying_platform="athena"),
+        config=GlueSourceConfig(aws_region="us-west-2", platform="athena"),
     )
     assert source.platform == "athena"
-
-
-def test_platform_takes_precendence_over_underlying_platform():
-    source = GlueSource(
-        ctx=PipelineContext(run_id="glue-source-test"),
-        config=GlueSourceConfig(
-            aws_region="us-west-2", platform="athena", underlying_platform="glue"
-        ),
-    )
-    assert source.platform == "athena"
-
-
-def test_underlying_platform_must_be_valid():
-    with pytest.raises(ConfigurationError):
-        GlueSource(
-            ctx=PipelineContext(run_id="glue-source-test"),
-            config=GlueSourceConfig(
-                aws_region="us-west-2", underlying_platform="data-warehouse"
-            ),
-        )
 
 
 def test_platform_must_be_valid():
-    with pytest.raises(ConfigurationError):
+    with pytest.raises(pydantic.ValidationError):
         GlueSource(
             ctx=PipelineContext(run_id="glue-source-test"),
             config=GlueSourceConfig(aws_region="us-west-2", platform="data-warehouse"),
         )
 
 
-def test_without_underlying_platform():
+def test_config_without_platform():
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(aws_region="us-west-2"),

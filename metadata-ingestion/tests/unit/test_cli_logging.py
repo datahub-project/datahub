@@ -1,8 +1,8 @@
 import logging
 import pathlib
+import re
 
 import click
-import regex
 from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
@@ -37,7 +37,7 @@ def test_cli_logging(tmp_path):
     assert result.exit_code == 0
 
     # The output should include the stdout and stderr, formatted as expected.
-    regex.match(
+    re.match(
         r"""\
 this is a print statement
 this is a click.echo statement
