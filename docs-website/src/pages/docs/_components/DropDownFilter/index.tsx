@@ -8,61 +8,66 @@
 /* eslint-disable jsx-a11y/no-autofocus */
 
 import React, { useEffect, useState, useReducer, useRef } from "react";
+import type { SelectProps } from "antd";
+import { Row, Col, Tag } from "antd";
 
-
-import type { SelectProps } from 'antd';
-import { Select} from 'antd';
-
-
-
-type selectedFilters = {
-  Difficulty: ["easy", "medium", "hard"],
-  PlatformType: ["datalake", "bitool", "orchestrator"],
-  PushPull: ["push", "pull"]
-}
-
-function DropDownFilter({filterState, setFilterState, filterOptions}) {
- 
-  const  options: SelectProps['options'] = []
-  for(const filter in filterOptions) {
-    var tempOptions: SelectProps['options'] = []
-    for(let x = 0; x< filterOptions[filter].length; x++) {
-      if(!filterState.includes(filterOptions[filter][x])){
-        tempOptions.push({
-          label: filterOptions[filter][x],
-          value: filterOptions[filter][x],
-        })
+function DropDownFilter({ filterState, setFilterState, filterOptions }) {
+  function SingleFilter({
+    filterState,
+    setFilterState,
+    filter,
+    width,
+    filterOptions,
+  }) {
+    const toggleFilter = (item) => {
+      if (filterState.includes(item)) {
+        setFilterState(filterState.filter((val) => val !== item));
+      } else {
+        setFilterState([...filterState, item]);
       }
-      
+    };
+
+    const toArray = [...filterOptions[filter]];
+    return (
+      <Col>
+        <Row>{filter}</Row>
+
+        {toArray.length > 0 &&
+          toArray.map((item) => {
+            return (
+              <Row key={item}>
+                <Tag
+                  color={filterState.includes(item) ? "blue" : "lightgrey"}
+                  onClick={() => toggleFilter(item)}
+                >
+                  {item}
+                </Tag>
+              </Row>
+            );
+          })}
+      </Col>
+    );
   }
-  options.push({
-    label: filter,
-    options: tempOptions
-  })
-  }
-  
-  
 
-
-  const handleChange = (values: string[]) => {
-    console.log(`selected ${values}`);
-    filterState = values;
-    setFilterState(filterState);
-  } 
-
-
+  const keys = Object.keys(filterOptions);
+  var width: any = keys.length > 1 ? 100 / keys.length : 100;
+  width = width + "%";
   return (
-    
-  <Select
-    mode="multiple"
-    allowClear
-    bordered={false}
-    style={{ width: '30%' }}
-    placeholder="Please select filters"
-    onChange={handleChange}
-    options={options}
-  />
-    )
+    <Row>
+      {keys.map((filter) => {
+        return (
+          <SingleFilter
+            filterState={filterState}
+            setFilterState={setFilterState}
+            filterOptions={filterOptions}
+            filter={filter}
+            width={width}
+            key={filter}
+          />
+        );
+      })}
+    </Row>
+  );
 }
 
 export default DropDownFilter;
