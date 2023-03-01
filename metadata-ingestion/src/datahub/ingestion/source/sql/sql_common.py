@@ -506,12 +506,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             schema: str,
             database: str,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from self.gen_schema_containers(
-            schema=schema, database=database,
-            extra_properties=self.get_schema_properties(
-                inspector=inspector, schema=schema, database=database
-            ),
-        )
+        yield from self.gen_schema_containers(schema=schema, database=database)
 
         if sql_config.include_tables:
             yield from self.loop_tables(inspector, schema, sql_config)
@@ -553,9 +548,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     sql_config=sql_config,
                     inspector=inspector,
                     schema=schema,
-                    extra_properties=self.get_schema_properties(
-                        inspector=inspector, schema=schema, database=db_name
-                    ),
+                    database=db_name
                 )
 
                 if profiler:
