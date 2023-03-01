@@ -788,7 +788,6 @@ class BigQueryUsageExtractor:
             AggregatedDataset(
                 bucket_start_time=floored_ts,
                 resource=resource,
-                user_email_pattern=self.config.usage.user_email_pattern,
             ),
         )
 
@@ -796,6 +795,7 @@ class BigQueryUsageExtractor:
             event.read_event.actor_email,
             event.query_event.query if event.query_event else None,
             event.read_event.fieldsRead,
+            user_email_pattern=self.config.usage.user_email_pattern,
         )
 
     def get_workunits(
