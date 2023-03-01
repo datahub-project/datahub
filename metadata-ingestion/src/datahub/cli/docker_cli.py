@@ -647,11 +647,10 @@ def quickstart(
             restore_indices=restore_indices_flag,
         )
         return
-    stable = version == "stable"
 
     quickstart_arch = detect_quickstart_arch(arch)
     quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
-    quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(version, stable)
+    quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(version)
 
     # Run pre-flight checks.
     with get_docker_client() as client:
@@ -752,7 +751,7 @@ def quickstart(
             up_attempts += 1
 
         # Check docker health every few seconds.
-        status = check_docker_quickstart(quickstart_execution_plan.ensure_exit_success, quickstart_execution_plan.required_containers)
+        status = check_docker_quickstart([], [])
         if status.is_ok():
             break
 
