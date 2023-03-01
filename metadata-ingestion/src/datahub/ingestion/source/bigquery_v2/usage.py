@@ -237,10 +237,6 @@ class BigQueryUsageExtractor:
                     f"Number of buckets created = {len(aggregated_info)}. Per-bucket details:{bucket_level_stats}"
                 )
 
-                self.report.usage_extraction_sec[project_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
-
                 yield from self.get_workunits(aggregated_info)
             except Exception as e:
                 self.report.usage_failed_extraction.append(project_id)
@@ -248,6 +244,10 @@ class BigQueryUsageExtractor:
                 logger.error(
                     f"Error getting usage for project {project_id} due to error {e}, trace: {trace}"
                 )
+
+            self.report.usage_extraction_sec[project_id] = round(
+                timer.elapsed_seconds(), 2
+            )
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
         self, client: BigQueryClient
