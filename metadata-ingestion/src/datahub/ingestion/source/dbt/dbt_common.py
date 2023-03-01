@@ -37,8 +37,10 @@ from datahub.ingestion.source.sql.sql_types import (
     SNOWFLAKE_TYPES_MAP,
     SPARK_SQL_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
+    VERTICA_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
     resolve_trino_modified_type,
+    resolve_vertica_modified_type,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -506,6 +508,7 @@ _field_type_mapping = {
     **BIGQUERY_TYPES_MAP,
     **SPARK_SQL_TYPES_MAP,
     **TRINO_SQL_TYPES_MAP,
+    **VERTICA_SQL_TYPES_MAP,
 }
 
 
@@ -524,6 +527,8 @@ def get_column_type(
         elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
             # Redshift uses a variant of Postgres, so we can use the same logic.
             TypeClass = resolve_postgres_modified_type(column_type)
+        elif dbt_adapter == "vertica":
+            TypeClass = resolve_vertica_modified_type(column_type)
 
     # if still not found, report the warning
     if TypeClass is None:
