@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Callable, ClassVar, Counter, Generic, List, Optional, TypeVar
+from typing import Callable, Counter, Generic, List, Optional, TypeVar
 
 import pydantic
 from pydantic.fields import Field
