@@ -57,6 +57,11 @@ class BigQueryV2Config(
         description="Capture BigQuery table labels as tag",
     )
 
+    capture_dataset_label_as_tag: bool = Field(
+        default=False,
+        description="Capture BigQuery dataset labels as tag",
+    )
+
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
