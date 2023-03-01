@@ -4,7 +4,7 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 
 
 def test_file_dict():
-    cache = FileBackedDict[int](cache_max_size=10)
+    cache = FileBackedDict[int](cache_max_size=10, cache_eviction_batch_size=10)
 
     for i in range(100):
         cache[f"key-{i}"] = i
@@ -13,7 +13,10 @@ def test_file_dict():
     assert sorted(cache) == sorted([f"key-{i}" for i in range(100)])
 
     # Force eviction of everything.
-    cache._prune_cache(num_items_to_prune=len(cache._active_object_cache))
+    cache.flush()
+
+    assert len(cache) == 100
+    assert sorted(cache) == sorted([f"key-{i}" for i in range(100)])
 
     # Test getting a key.
     # This implicitly also tests that cache eviction happens.
@@ -21,7 +24,8 @@ def test_file_dict():
         assert cache[f"key-{i}"] == i
 
     # Make sure that the cache is being automatically evicted.
-    assert len(cache._active_object_cache) < 50
+    assert len(cache._active_object_cache) <= 20
+    assert len(cache) == 100
 
     # Test overwriting a key.
     cache["key-3"] = 3000

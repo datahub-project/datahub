@@ -5,8 +5,6 @@ from typing import Generic, Iterator, MutableMapping, Optional, OrderedDict, Typ
 
 _VT = TypeVar("_VT")
 
-_CACHE_EVICTION_ALLOWED_OVERAGE = 10
-
 
 class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """A dictionary that stores its data in a temporary SQLite database.
@@ -15,13 +13,20 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """
 
     _cache_max_size: int
+    _cache_eviction_batch_size: int
     _filename: str
     _conn: sqlite3.Connection
 
     _active_object_cache: OrderedDict[str, _VT]
 
-    def __init__(self, filename: Optional[str] = None, cache_max_size: int = 2000):
+    def __init__(
+        self,
+        filename: Optional[str] = None,
+        cache_max_size: int = 2000,
+        cache_eviction_batch_size: int = 200,
+    ):
         self._cache_max_size = cache_max_size
+        self._cache_eviction_batch_size = cache_eviction_batch_size
         self._filename = filename or tempfile.mktemp()
 
         self._conn = sqlite3.connect(self._filename, isolation_level=None)
@@ -50,7 +55,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
         if (
             len(self._active_object_cache)
-            > self._cache_max_size + _CACHE_EVICTION_ALLOWED_OVERAGE
+            > self._cache_max_size + self._cache_eviction_batch_size
         ):
             num_items_to_prune = len(self._active_object_cache) - self._cache_max_size
             self._prune_cache(num_items_to_prune)
@@ -64,6 +69,9 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         self._conn.executemany(
             "INSERT OR REPLACE INTO data (key, value) VALUES (?, ?)", items_to_write
         )
+
+    def flush(self) -> None:
+        self._prune_cache(len(self._active_object_cache))
 
     def __getitem__(self, key: str) -> _VT:
         if key in self._active_object_cache:
