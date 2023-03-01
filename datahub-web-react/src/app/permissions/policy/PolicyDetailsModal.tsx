@@ -65,6 +65,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
 
     const isActive = policy?.state === PolicyState.Active;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
+    const isResourceOwnersTypesDefined = (policy?.actors?.resourceOwnersTypes?.length ?? 0) > 0;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
     const resourceTypes = getFieldValues(resources?.filter, 'RESOURCE_TYPE') || [];
@@ -180,6 +181,14 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     <Typography.Title level={5}>Applies to Owners</Typography.Title>
                     <ThinDivider />
                     <PoliciesTag>{policy?.actors?.resourceOwners ? 'True' : 'False'}</PoliciesTag>
+                    {isResourceOwnersTypesDefined && (
+                        <div>
+                            <Typography.Title level={5}>Only to owners of types: </Typography.Title>
+                            {policy?.actors?.resourceOwnersTypes?.map((type) => (
+                                <PoliciesTag>{type}</PoliciesTag>
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Users</Typography.Title>

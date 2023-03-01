@@ -7823,6 +7823,8 @@ type ActorFilter {
   """
   resourceOwners: Boolean!
 
+  resourceOwnersTypes: [OwnershipType]
+
   """
   Whether the filter should apply to all users
   """
