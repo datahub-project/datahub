@@ -147,7 +147,11 @@ def cleanup(config: BigQueryV2Config) -> None:
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Not supported since BigQuery project ids are globally unique",
+    supported=False,
+)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
