@@ -1,7 +1,9 @@
 import React from 'react';
 import { Tooltip } from 'antd';
+import { ClockCircleOutlined, EyeOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
+import styled from 'styled-components';
 import { Group } from '@vx/group';
 import { curveBasis } from '@vx/curve';
 import { LinePath } from '@vx/shape';
@@ -9,6 +11,18 @@ import { VizEdge } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 
 dayjs.extend(LocalizedFormat);
+
+const EdgeTimestamp = styled.div``;
+
+const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
+    margin-right: 4px;
+    font-size: 14px;
+`;
+
+const StyledEyeOutlined = styled(EyeOutlined)`
+    margin-right: 4px;
+    font-size: 14px;
+`;
 
 type Props = {
     edge: VizEdge;
@@ -18,24 +32,31 @@ type Props = {
 
 export default function LineageEntityEdge({ edge, key, isHighlighted }: Props) {
     const createdOnTimestamp = edge?.createdOn;
-    const updatedOnTimestamp =
-        createdOnTimestamp && edge?.updatedOn && edge?.updatedOn > createdOnTimestamp
-            ? edge?.updatedOn
-            : createdOnTimestamp;
-    const createdOn: string = createdOnTimestamp ? dayjs(createdOnTimestamp).format('ll') : 'unknown';
-    const updatedOn: string = updatedOnTimestamp ? dayjs(updatedOnTimestamp).format('ll') : 'unknown';
+    const updatedOnTimestamp = edge?.updatedOn;
+    const createdOn = createdOnTimestamp ? dayjs(createdOnTimestamp).format('ll') : undefined;
+    const updatedOn = updatedOnTimestamp ? dayjs(updatedOnTimestamp).format('ll') : undefined;
+    const hasTimestamps = createdOn || updatedOn;
     const isManual = edge?.isManual;
 
     return (
         <>
             <Tooltip
-                arrowPointAtCenter
                 title={
-                    <>
-                        Created: {createdOn}
-                        <br />
-                        Last Observed: {updatedOn}
-                    </>
+                    (hasTimestamps && (
+                        <>
+                            {createdOn && (
+                                <EdgeTimestamp>
+                                    <StyledClockCircleOutlined /> Created {isManual && 'manually '}on {createdOn}
+                                </EdgeTimestamp>
+                            )}
+                            {updatedOn && !isManual && (
+                                <EdgeTimestamp>
+                                    <StyledEyeOutlined /> Last observed on {updatedOn}
+                                </EdgeTimestamp>
+                            )}
+                        </>
+                    )) ||
+                    undefined
                 }
             >
                 <Group key={key}>

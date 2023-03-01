@@ -33,6 +33,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
@@ -1357,7 +1358,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=looker_view.id.get_urn(self.source_config),
             aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["view"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         )
         events = [subTypeEvent]
         if looker_view.view_details is not None:

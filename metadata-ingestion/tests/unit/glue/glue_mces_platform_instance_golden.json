@@ -242,10 +242,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             },
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             }
                         ]
                     }
@@ -262,7 +262,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     }
@@ -480,10 +480,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             },
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             }
                         ]
                     }
@@ -500,7 +500,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     }
@@ -666,10 +666,10 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar"
                             },
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob"
                             }
                         ]
                     }
@@ -686,7 +686,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "table"
+                "Table"
             ]
         }
     }

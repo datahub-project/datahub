@@ -60,6 +60,10 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -455,7 +459,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         yield from gen_database_container(
             database=database,
             name=database,
-            sub_types=["Project"],
+            sub_types=[DatasetContainerSubTypes.BIGQUERY_PROJECT],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
@@ -475,7 +479,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         yield from gen_schema_container(
             database=project_id,
             schema=dataset,
-            sub_types=["Dataset"],
+            sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
@@ -914,11 +918,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             custom_properties["max_partition_id"] = str(table.max_partition_id)
             custom_properties["is_partitioned"] = str(True)
 
-        sub_types: List[str] = ["table"]
+        sub_types: List[str] = [DatasetSubTypes.TABLE]
         if table.max_shard_id:
             custom_properties["max_shard_id"] = str(table.max_shard_id)
             custom_properties["is_sharded"] = str(True)
-            sub_types = ["sharded table", "table"]
+            sub_types = ["sharded table"] + sub_types
 
         tags_to_add = None
         if table.labels and self.config.capture_table_label_as_tag:
@@ -949,7 +953,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
-            sub_types=["view"],
+            sub_types=[DatasetSubTypes.VIEW],
         )
 
         view = cast(BigqueryView, table)

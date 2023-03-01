@@ -741,6 +741,17 @@ class S3Source(Source):
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:
+                        logger.debug(
+                            f"Update schema on partition file updates is set to: {self.source_config.update_schema_on_partition_file_updates!s}"
+                        )
+                        if (
+                            self.source_config.update_schema_on_partition_file_updates
+                            and not path_spec.sample_files
+                        ):
+                            logger.info(
+                                "Will update table schema as file within the partitions has an updated schema."
+                            )
+                            table_dict[table_data.table_path] = table_data
                         table_dict[table_data.table_path].number_of_files = (
                             table_dict[table_data.table_path].number_of_files + 1
                         )
