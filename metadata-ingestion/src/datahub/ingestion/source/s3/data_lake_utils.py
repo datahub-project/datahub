@@ -15,6 +15,7 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_relative_path,
     is_s3_uri,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -79,7 +80,7 @@ class ContainerWUCreator:
             yield from self.create_emit_containers(
                 container_key=bucket_key,
                 name=bucket_name,
-                sub_types=["S3 bucket"],
+                sub_types=[DatasetContainerSubTypes.S3_BUCKET],
                 parent_container_key=None,
             )
             parent_key = bucket_key
@@ -111,7 +112,7 @@ class ContainerWUCreator:
             yield from self.create_emit_containers(
                 container_key=folder_key,
                 name=folder,
-                sub_types=["Folder"],
+                sub_types=[DatasetContainerSubTypes.S3_FOLDER],
                 parent_container_key=parent_key,
             )
             parent_key = folder_key

@@ -28,6 +28,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BooleanTypeClass,
@@ -448,11 +449,11 @@ class SalesforceSource(Source):
         ).as_workunit()
 
     def get_subtypes_workunit(self, sObjectName: str, datasetUrn: str) -> WorkUnit:
-        subtypes = []
+        subtypes: List[str] = []
         if sObjectName.endswith("__c"):
-            subtypes.append("Custom Object")
+            subtypes.append(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT)
         else:
-            subtypes.append("Standard Object")
+            subtypes.append(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT)
 
         return MetadataChangeProposalWrapper(
             entityUrn=datasetUrn, aspect=SubTypesClass(typeNames=subtypes)

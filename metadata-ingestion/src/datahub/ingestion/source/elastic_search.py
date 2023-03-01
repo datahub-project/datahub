@@ -29,6 +29,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -407,11 +408,11 @@ class ElasticsearchSource(Source):
             entityUrn=dataset_urn,
             aspect=SubTypesClass(
                 typeNames=[
-                    "Index Template"
+                    DatasetSubTypes.ELASTIC_INDEX_TEMPLATE
                     if not is_index
-                    else "Index"
+                    else DatasetSubTypes.ELASTIC_INDEX
                     if not data_stream
-                    else "Datastream"
+                    else DatasetSubTypes.ELASTIC_DATASTREAM
                 ]
             ),
         )
