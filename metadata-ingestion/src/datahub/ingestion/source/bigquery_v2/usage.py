@@ -5,12 +5,11 @@ import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from more_itertools import partition
 from ratelimiter import RateLimiter
 
 from datahub.configuration.time_window_config import get_time_bucket
@@ -176,36 +175,18 @@ class BigQueryUsageExtractor:
             datetime, Dict[BigQueryTableRef, AggregatedDataset]
         ] = collections.defaultdict(dict)
 
-        parsed_bigquery_log_events: Iterable[
-            Union[ReadEvent, QueryEvent, MetadataWorkUnit]
-        ]
+        parsed_events: Iterable[Union[ReadEvent, QueryEvent]]
         with PerfTimer() as timer:
             try:
                 bigquery_log_entries = self._get_parsed_bigquery_log_events(project_id)
                 if self.config.use_exported_bigquery_audit_metadata:
-                    parsed_bigquery_log_events = (
-                        self._parse_exported_bigquery_audit_metadata(
-                            bigquery_log_entries
-                        )
-                    )
-                else:
-                    parsed_bigquery_log_events = self._parse_bigquery_log_entries(
+                    parsed_events = self._parse_exported_bigquery_audit_metadata(
                         bigquery_log_entries
                     )
-
-                parsed_events_uncasted: Iterable[
-                    Union[ReadEvent, QueryEvent, MetadataWorkUnit]
-                ]
-                last_updated_work_units_uncasted: Iterable[
-                    Union[ReadEvent, QueryEvent, MetadataWorkUnit]
-                ]
-                parsed_events_uncasted, last_updated_work_units_uncasted = partition(
-                    lambda x: isinstance(x, MetadataWorkUnit),
-                    parsed_bigquery_log_events,
-                )
-                parsed_events: Iterable[Union[ReadEvent, QueryEvent]] = cast(
-                    Iterable[Union[ReadEvent, QueryEvent]], parsed_events_uncasted
-                )
+                else:
+                    parsed_events = self._parse_bigquery_log_entries(
+                        bigquery_log_entries
+                    )
 
                 hydrated_read_events = self._join_events_by_job_id(parsed_events)
                 # storing it all in one big object.
@@ -642,7 +623,7 @@ class BigQueryUsageExtractor:
 
     def _parse_exported_bigquery_audit_metadata(
         self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
-    ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
+    ) -> Iterable[Union[ReadEvent, QueryEvent]]:
         for audit_metadata in audit_metadata_rows:
             event: Optional[Union[QueryEvent, ReadEvent]] = None
             missing_query_event_exported_audit = (
