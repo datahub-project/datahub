@@ -1175,7 +1175,9 @@ class TableauSource(StatefulIngestionSourceBase):
             yield self.get_metadata_change_proposal(
                 dataset_snapshot.urn,
                 aspect_name=tableau_constant.SUB_TYPES,
-                aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, tableau_constant.CUSTOM_SQL]),
+                aspect=SubTypesClass(
+                    typeNames=[DatasetSubTypes.VIEW, tableau_constant.CUSTOM_SQL]
+                ),
             )
 
     def get_schema_metadata_for_custom_sql(
@@ -1857,7 +1859,6 @@ class TableauSource(StatefulIngestionSourceBase):
             parent_container_key=parent_key,
             description=workbook.get(tableau_constant.DESCRIPTION),
             sub_types=[BIContainerSubTypes.TABLEAU_WORKBOOK],
-            description=workbook.get("description"),
             owner_urn=owner_urn,
             external_url=workbook_external_url,
             tags=tag_list_str,
