@@ -44,6 +44,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source import tableau_constant
+from datahub.ingestion.source.common.subtypes import (
+    BIContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -1171,9 +1175,7 @@ class TableauSource(StatefulIngestionSourceBase):
             yield self.get_metadata_change_proposal(
                 dataset_snapshot.urn,
                 aspect_name=tableau_constant.SUB_TYPES,
-                aspect=SubTypesClass(
-                    typeNames=[tableau_constant.VIEW, tableau_constant.CUSTOM_SQL]
-                ),
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, tableau_constant.CUSTOM_SQL]),
             )
 
     def get_schema_metadata_for_custom_sql(
@@ -1852,9 +1854,10 @@ class TableauSource(StatefulIngestionSourceBase):
         container_workunits = gen_containers(
             container_key=workbook_container_key,
             name=workbook.get(tableau_constant.NAME, ""),
-            sub_types=["Workbook"],
             parent_container_key=parent_key,
             description=workbook.get(tableau_constant.DESCRIPTION),
+            sub_types=[BIContainerSubTypes.TABLEAU_WORKBOOK],
+            description=workbook.get("description"),
             owner_urn=owner_urn,
             external_url=workbook_external_url,
             tags=tag_list_str,

@@ -847,7 +847,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1018,7 +1018,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1143,7 +1143,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1255,7 +1255,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"table\"]}",
+        "value": "{\"typeNames\": [\"Table\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

@@ -23566,7 +23566,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\", \"Custom SQL\"]}",
+        "value": "{\"typeNames\": [\"View\", \"Custom SQL\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -23754,7 +23754,7 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"view\", \"Custom SQL\"]}",
+        "value": "{\"typeNames\": [\"View\", \"Custom SQL\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
