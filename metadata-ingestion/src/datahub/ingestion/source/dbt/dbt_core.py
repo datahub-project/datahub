@@ -162,7 +162,7 @@ def extract_dbt_entities(
             materialization = manifest_node["config"]["materialized"]
 
         upstream_nodes = []
-        if "depends_on" in manifest_node:
+        if "depends_on" in manifest_node and 'nodes' in manifest_node['depends_on']:
             upstream_nodes = manifest_node["depends_on"]["nodes"]
 
         # It's a source
