@@ -1,8 +1,8 @@
 
 import json
 from dataclasses import dataclass
-from pydantic import BaseModel
-from typing import Any, Dict, List, Optional, Tuple
+from pydantic import BaseModel, PrivateAttr
+from typing import Any, Dict, List, Optional, Tuple 
 import click
 import yaml
 import requests
@@ -12,16 +12,11 @@ import re
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
 
-class QuickstartVersionMapping(BaseModel):
+class QuickstartVersionMap(BaseModel):
     composefile_git_ref: str
     docker_tag: str
 
-class StableVersions(BaseModel):
-    force: bool
-    composefile_git_ref: Optional[str]
-    docker_tag: Optional[str]
-
-class QuickstartChecks(BaseModel):
+class QuickstartConstraints(BaseModel):
     valid_until_git_ref: str
     required_containers: List[str]
     ensure_exit_success: List[str]
@@ -29,14 +24,10 @@ class QuickstartChecks(BaseModel):
 class QuickstartExecutionPlan(BaseModel):
     docker_tag: str
     composefile_git_ref: str
-    required_containers: List[str]
-    ensure_exit_success: List[str]
 
 
 class QuickstartVersionMappingConfig(BaseModel):
-    quickstart_version_mappings: Dict[str, QuickstartVersionMapping]
-    stable_versions: StableVersions
-    quickstart_checks: List[QuickstartChecks]
+    quickstart_version_map: Dict[str, QuickstartVersionMap]
 
     @classmethod
     def _fetch_latest_version(cls) -> str:
@@ -61,28 +52,8 @@ class QuickstartVersionMappingConfig(BaseModel):
             with open(path, "r") as f:
                 config_raw = yaml.safe_load(f)
         config = cls.parse_obj(config_raw)
-        stable_version = cls._fetch_latest_version()
-        if config.stable_versions.docker_tag is None:
-            config.stable_versions.docker_tag = stable_version
-        if config.stable_versions.composefile_git_ref is None:
-            config.stable_versions.composefile_git_ref = stable_version 
         save_quickstart_config(config)
         return config
-
-    def _get_version_to_use(self, requested_version: Optional[str], stable: Optional[bool] = False) -> Tuple[str, str]: 
-        """
-        Returns the docker tag and composefile git ref to use for the quickstart.
-        :return: A tuple of the docker tag and composefile git ref to use.
-        """
-        # stable is requested or stable is forced
-        if self.stable_versions.force or stable:
-            return self.stable_versions.docker_tag, self.stable_versions.composefile_git_ref
-        if requested_version is None:
-            return self.quickstart_version_mappings["default"].docker_tag, self.quickstart_version_mappings["default"].composefile_git_ref
-        elif requested_version in self.quickstart_version_mappings:
-            return self.quickstart_version_mappings[requested_version].docker_tag, self.quickstart_version_mappings[requested_version].composefile_git_ref,
-        else:
-            return requested_version, requested_version
 
     def _parse_version(self, version: str) -> Tuple[int, int, int, int]:
         """
@@ -111,36 +82,21 @@ class QuickstartVersionMappingConfig(BaseModel):
                 return False
         return False
 
-    def _get_checks_for_version(self, compose_git_ref: str = "master") -> QuickstartChecks:
-        """
-        Returns the quickstart checks for the requested docker compose version.
-        :return: The checks for the quickstart.
-        """
-        if compose_git_ref == "master":
-            return self.quickstart_checks[0]
-        parsed_compose_version = self._parse_version(compose_git_ref)
-        # going from oldest to newest 
-        for check in reversed(self.quickstart_checks):
-            if check.valid_until_git_ref == "master":
-                return check
-            valid_until_version = self._parse_version(check.valid_until_git_ref)
-            if not self._compare_versions(parsed_compose_version, valid_until_version):
-                return check
-        raise Exception(f"Couldn't find a valid execution plan for version {compose_git_ref}.") 
-
-    def get_quickstart_execution_plan(self, requested_version: Optional[str], stable: Optional[bool] = False) -> QuickstartExecutionPlan:
+    def get_quickstart_execution_plan(self, requested_version: Optional[str]) -> QuickstartExecutionPlan:
         """
         From the requested version and stable flag, returns the execution plan for the quickstart.
         Including the docker tag, composefile git ref, required containers, and checks to run.
         :return: The execution plan for the quickstart.
         """
-        docker_tag, git_ref = self._get_version_to_use(requested_version, stable)
-        checks_to_run = self._get_checks_for_version(git_ref)
+        git_ref = None
+        docker_tag = None
+        if requested_version is None:
+            requested_version = "default"
+        version_map = self.quickstart_version_map.get(requested_version, QuickstartVersionMap(composefile_git_ref=requested_version, docker_tag=requested_version))
+        #checks_to_run = self._get_checks_for_version(version_map.composefile_git_ref)
         return QuickstartExecutionPlan(
-            docker_tag=docker_tag,
-            composefile_git_ref=git_ref,
-            required_containers=checks_to_run.required_containers,
-            ensure_exit_success=checks_to_run.ensure_exit_success
+            docker_tag=version_map.docker_tag,
+            composefile_git_ref=version_map.composefile_git_ref,
         )
 
 def save_quickstart_config(config: QuickstartVersionMappingConfig, path: str = DEFAULT_LOCAL_CONFIG_PATH):

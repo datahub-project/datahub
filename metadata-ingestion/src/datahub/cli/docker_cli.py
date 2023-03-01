@@ -442,7 +442,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     "--version",
     type=str,
     default=None,
-    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose",
+    help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose. Use 'stable' to start the latest stable version.",
 )
 @click.option(
     "--build-locally",
@@ -584,13 +584,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     required=False,
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
 )
-@click.option(
-    "--stable",
-    required=False,
-    is_flag=True,
-    default=False,
-    help="Use this flag to use the latest stable version. Takes precedent over--version.",
-)
 @upgrade.check_upgrade
 @telemetry.with_telemetry(
     capture_kwargs=[
@@ -604,7 +597,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "standalone_consumers",
         "kafka_setup",
         "arch",
-        "stable",
     ]
 )
 def quickstart(
@@ -629,7 +621,6 @@ def quickstart(
     standalone_consumers: bool,
     kafka_setup: bool,
     arch: Optional[str],
-    stable: bool,
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -656,6 +647,7 @@ def quickstart(
             restore_indices=restore_indices_flag,
         )
         return
+    stable = version == "stable"
 
     quickstart_arch = detect_quickstart_arch(arch)
     quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
