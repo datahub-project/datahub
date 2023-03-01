@@ -1,6 +1,7 @@
 import collections
 import sqlite3
 import tempfile
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Callable,
@@ -8,7 +9,6 @@ from typing import (
     Iterator,
     List,
     MutableMapping,
-    Optional,
     OrderedDict,
     Sequence,
     Tuple,
@@ -22,6 +22,7 @@ SqliteValue = Union[int, float, str, bytes, None]
 _VT = TypeVar("_VT")
 
 
+@dataclass
 class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """A dictionary that stores its data in a temporary SQLite database.
 
@@ -34,28 +35,15 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     serializer: Callable[[_VT], SqliteValue]
     deserializer: Callable[[Any], _VT]
 
-    _cache_max_size: int
-    _cache_eviction_batch_size: int
-    _filename: str
+    filename: str = field(default_factory=tempfile.mktemp)
+    cache_max_size: int = field(default=2000)
+    cache_eviction_batch_size: int = field(default=200)
 
-    _conn: sqlite3.Connection
-    _active_object_cache: OrderedDict[str, _VT]
+    _conn: sqlite3.Connection = field(init=False, repr=False)
+    _active_object_cache: OrderedDict[str, _VT] = field(init=False, repr=False)
 
-    def __init__(
-        self,
-        serializer: Callable[[_VT], SqliteValue],
-        deserializer: Callable[[Any], _VT],
-        filename: Optional[str] = None,
-        cache_max_size: int = 2000,
-        cache_eviction_batch_size: int = 200,
-    ):
-        self._serializer = serializer
-        self._deserializer = deserializer
-        self._cache_max_size = cache_max_size
-        self._cache_eviction_batch_size = cache_eviction_batch_size
-        self._filename = filename or tempfile.mktemp()
-
-        self._conn = sqlite3.connect(self._filename, isolation_level=None)
+    def __post_init__(self) -> None:
+        self._conn = sqlite3.connect(self.filename, isolation_level=None)
 
         # We keep a small cache in memory to avoid having to serialize/deserialize
         # data from the database too often. We use an OrderedDict to build
@@ -81,16 +69,16 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
         if (
             len(self._active_object_cache)
-            > self._cache_max_size + self._cache_eviction_batch_size
+            > self.cache_max_size + self.cache_eviction_batch_size
         ):
-            num_items_to_prune = len(self._active_object_cache) - self._cache_max_size
+            num_items_to_prune = len(self._active_object_cache) - self.cache_max_size
             self._prune_cache(num_items_to_prune)
 
     def _prune_cache(self, num_items_to_prune: int) -> None:
         items_to_write: List[Tuple[str, SqliteValue]] = []
         for _ in range(num_items_to_prune):
             key, value = self._active_object_cache.popitem(last=False)
-            items_to_write.append((key, self._serializer(value)))
+            items_to_write.append((key, self.serializer(value)))
 
         self._conn.executemany(
             "INSERT OR REPLACE INTO data (key, value) VALUES (?, ?)", items_to_write
@@ -109,7 +97,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         if result is None:
             raise KeyError(key)
 
-        deserialized_result = self._deserializer(result[0])
+        deserialized_result = self.deserializer(result[0])
         self._add_to_cache(key, deserialized_result)
         return deserialized_result
 
@@ -151,7 +139,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         return row[0] + len(self._active_object_cache)
 
     def __repr__(self) -> str:
-        return f"FileBackedDict({self._filename})"
+        return f"FileBackedDict({self.filename})"
 
     def close(self) -> None:
         self._conn.close()
