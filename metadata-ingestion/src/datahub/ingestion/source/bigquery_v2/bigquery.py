@@ -467,7 +467,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
-        tags_joined: Optional[Dict[str, str]] = None
+        tags_joined: Optional[List[str]] = None
         if tags and self.config.capture_dataset_label_as_tag:
             tags_joined = [f"""{k}:{v}""" for k, v in tags.items()]
         database_container_key = self.gen_project_id_key(database=project_id)
