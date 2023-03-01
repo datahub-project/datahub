@@ -5,12 +5,11 @@ import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from more_itertools import partition
 from ratelimiter import RateLimiter
 
 from datahub.configuration.time_window_config import get_time_bucket
