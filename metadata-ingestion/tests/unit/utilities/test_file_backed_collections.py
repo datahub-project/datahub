@@ -1,7 +1,7 @@
 import json
 from collections import Counter
-from dataclasses import dataclass, asdict
-from typing import Dict, List
+from dataclasses import asdict, dataclass
+from typing import Dict
 
 import pytest
 
@@ -85,7 +85,7 @@ def test_file_dict_serialization():
         y: Dict[Label, float]
 
         def to_dict(self) -> Dict:
-            d = {"x": self.x}
+            d: Dict = {"x": self.x}
             str_y = {json.dumps(asdict(k)): v for k, v in self.y.items()}
             d["y"] = json.dumps(str_y)
             return d
@@ -119,10 +119,10 @@ def test_file_dict_serialization():
         serializer=serialize,
         deserializer=deserialize,
         cache_max_size=0,
-        cache_eviction_batch_size=0
+        cache_eviction_batch_size=0,
     )
-    first = Main(3, {Label("one", 1): .1, Label("two", 2): .2})
-    second = Main(-100, {Label("z", 26): .26})
+    first = Main(3, {Label("one", 1): 0.1, Label("two", 2): 0.2})
+    second = Main(-100, {Label("z", 26): 0.26})
 
     cache["first"] = first
     cache["second"] = second

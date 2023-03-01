@@ -2,6 +2,7 @@ import collections
 import sqlite3
 import tempfile
 from typing import (
+    Any,
     Callable,
     Generic,
     Iterator,
@@ -31,7 +32,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """
 
     serializer: Callable[[_VT], SqliteValue]
-    deserializer: Callable[[SqliteValue], _VT]
+    deserializer: Callable[[Any], _VT]
 
     _cache_max_size: int
     _cache_eviction_batch_size: int
@@ -43,7 +44,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     def __init__(
         self,
         serializer: Callable[[_VT], SqliteValue],
-        deserializer: Callable[[SqliteValue], _VT],
+        deserializer: Callable[[Any], _VT],
         filename: Optional[str] = None,
         cache_max_size: int = 2000,
         cache_eviction_batch_size: int = 200,
