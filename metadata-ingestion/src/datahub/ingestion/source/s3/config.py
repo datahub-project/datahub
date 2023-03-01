@@ -44,6 +44,12 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         description="# Whether or not to create tags in datahub from the s3 object",
     )
 
+    # Whether to update the table schema when schema in files within the partitions are updated
+    update_schema_on_partition_file_updates: Optional[bool] = Field(
+        default=False,
+        description="Whether to update the table schema when schema in files within the partitions are updated.",
+    )
+
     profile_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to profile ",

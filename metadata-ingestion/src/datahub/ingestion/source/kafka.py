@@ -37,6 +37,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -281,7 +282,7 @@ class KafkaSource(StatefulIngestionSourceBase):
             id=f"{topic}-subtype",
             mcp=MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspect=SubTypesClass(typeNames=["topic"]),
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.TOPIC]),
             ),
         )
         self.report.report_workunit(subtype_wu)

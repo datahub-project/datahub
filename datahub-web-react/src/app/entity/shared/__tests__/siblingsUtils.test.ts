@@ -124,6 +124,20 @@ const datasetUnprimary = {
                 label: 'hi',
             },
             ...(dataset4WithLineage.schemaMetadata?.fields || []),
+            {
+                __typename: 'SchemaField',
+                nullable: false,
+                recursive: false,
+                fieldPath: 'duplicate_field',
+                description: 'Test to make sure fields merge works case insensitive',
+                type: SchemaFieldDataType.String,
+                nativeDataType: 'varchar(100)',
+                isPartOfKey: false,
+                jsonPath: null,
+                globalTags: null,
+                glossaryTerms: null,
+                label: 'hi',
+            },
         ],
     },
     siblings: {
@@ -133,6 +147,27 @@ const datasetUnprimary = {
 
 const datasetPrimaryWithSiblings = {
     ...datasetPrimary,
+    schemaMetadata: {
+        ...datasetPrimary.schemaMetadata,
+        fields: [
+            ...(datasetPrimary.schemaMetadata?.fields || []),
+            {
+                __typename: 'SchemaField',
+                nullable: false,
+                recursive: false,
+                fieldPath: 'DUPLICATE_FIELD',
+                description: 'Test to make sure fields merge works case insensitive',
+                type: SchemaFieldDataType.String,
+                nativeDataType: 'varchar(100)',
+                isPartOfKey: false,
+                jsonPath: null,
+                globalTags: null,
+                glossaryTerms: null,
+                label: 'hi',
+            },
+        ],
+    },
+
     siblings: {
         isPrimary: true,
         siblings: [datasetUnprimary],
@@ -492,10 +527,11 @@ describe('siblingUtils', () => {
             expect(combinedData.dataset.globalTags.tags[1].tag.urn).toEqual('urn:li:tag:primary-tag');
 
             // merges schema metadata properly  by fieldPath
-            expect(combinedData.dataset.schemaMetadata?.fields).toHaveLength(3);
+            expect(combinedData.dataset.schemaMetadata?.fields).toHaveLength(4);
             expect(combinedData.dataset.schemaMetadata?.fields[0].fieldPath).toEqual('new_one');
             expect(combinedData.dataset.schemaMetadata?.fields[1].fieldPath).toEqual('user_id');
             expect(combinedData.dataset.schemaMetadata?.fields[2].fieldPath).toEqual('user_name');
+            expect(combinedData.dataset.schemaMetadata?.fields[3].fieldPath).toEqual('DUPLICATE_FIELD');
 
             // will overwrite string properties w/ primary
             expect(combinedData.dataset.editableProperties.description).toEqual('secondary description');

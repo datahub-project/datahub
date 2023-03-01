@@ -32419,7 +32419,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
+                "View",
                 "Custom SQL"
             ]
         }
@@ -32624,7 +32624,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view",
+                "View",
                 "Custom SQL"
             ]
         }

@@ -188,7 +188,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -382,7 +382,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -465,7 +465,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -548,7 +548,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -676,7 +676,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -759,7 +759,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -842,7 +842,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -1000,7 +1000,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -1083,7 +1083,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -1245,7 +1245,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
@@ -1420,7 +1420,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "view"
+                "View"
             ]
         }
     },
