@@ -199,7 +199,6 @@ def get_running_gms_version() -> Optional[str]:
 
 def check_docker_quickstart(containers_ensure_exits: List[str], containers_required: List[str]) -> QuickstartStatus:
     container_statuses: List[DockerContainerStatus] = []
-    get_running_gms_version()
     with get_docker_client() as client:
         containers = client.containers.list(
             all=True,
