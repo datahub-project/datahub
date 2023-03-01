@@ -171,7 +171,7 @@ class BigQueryUsageExtractor:
     def generate_usage_for_project(
         self, project_id: str, tables: Dict[str, List[str]]
     ) -> Iterable[MetadataWorkUnit]:
-        aggregated_info: Dict[  # MARK
+        aggregated_info: Dict[
             datetime, Dict[BigQueryTableRef, AggregatedDataset]
         ] = collections.defaultdict(dict)
 
