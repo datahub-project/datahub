@@ -9,7 +9,7 @@ from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.emitter.rest_emitter import DataHubRestEmitter
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.client import MAX_THREADS, DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ class PipelineConfig(ConfigModel):
                 default_sink_config, sink, "extra_headers", None
             )
             PipelineConfig._add_default_if_present(
-                default_sink_config, sink, "max_threads", 1
+                default_sink_config, sink, "max_threads", MAX_THREADS
             )
             PipelineConfig._add_default_if_present(
                 default_sink_config, sink, "disable_ssl_verification", False

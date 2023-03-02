@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 telemetry_enabled = get_boolean_env_variable("DATAHUB_TELEMETRY_ENABLED", True)
 
+MAX_THREADS = 1
+
 
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
@@ -43,7 +45,7 @@ class DatahubClientConfig(ConfigModel):
     retry_max_times: Optional[int]
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
-    max_threads: int = 1
+    max_threads: int = MAX_THREADS
     disable_ssl_verification: bool = False
 
 
