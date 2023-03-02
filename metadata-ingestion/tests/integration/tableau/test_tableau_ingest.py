@@ -220,6 +220,7 @@ def get_current_checkpoint_from_pipeline(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     tableau_ingest_common(

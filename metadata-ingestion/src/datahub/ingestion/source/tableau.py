@@ -1084,7 +1084,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 custom_sql_filter,
             )
         )
-
         unique_custom_sql = get_unique_custom_sql(custom_sql_connection)
 
         for csql in unique_custom_sql:
@@ -1099,6 +1098,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 urn=csql_urn,
                 aspects=[self.get_data_platform_instance()],
             )
+            logger.debug(f"Processing custom sql = {csql}")
 
             datasource_name = None
             project = None
@@ -1112,7 +1112,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 datasource_name = datasource.get(tableau_constant.NAME)
                 if datasource.get(
                     tableau_constant.TYPE_NAME
-                ) == tableau_constant.EMBEDDED_DATA_SOURCES and datasource.get(
+                ) == tableau_constant.EMBEDDED_DATA_SOURCE and datasource.get(
                     tableau_constant.WORKBOOK
                 ):
                     datasource_name = (
@@ -1123,6 +1123,7 @@ class TableauSource(StatefulIngestionSourceBase):
                         )
                         else None
                     )
+                    logger.debug(f"Adding datasource {datasource_name}({datasource.get('id')}) to container")
                     workunits = add_entity_to_container(
                         self.gen_workbook_key(datasource[tableau_constant.WORKBOOK]),
                         tableau_constant.DATASET,
