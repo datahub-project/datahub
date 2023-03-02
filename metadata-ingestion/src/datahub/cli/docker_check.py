@@ -8,8 +8,9 @@ import docker
 import docker.errors
 import docker.models.containers
 import requests
-from datahub.configuration.common import ExceptionWithProps
 import yaml
+
+from datahub.configuration.common import ExceptionWithProps
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB

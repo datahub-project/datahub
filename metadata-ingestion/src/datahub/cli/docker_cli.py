@@ -28,14 +28,14 @@ from datahub.cli.docker_check import (
     get_docker_client,
     run_quickstart_preflight_checks,
 )
+from datahub.cli.quickstart_versioning import (
+    QuickstartExecutionPlan,
+    QuickstartVersionMappingConfig,
+)
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
-from datahub.cli.quickstart_versioning import (
-    QuickstartVersionMappingConfig,
-    QuickstartExecutionPlan,
-)
 
 logger = logging.getLogger(__name__)
 

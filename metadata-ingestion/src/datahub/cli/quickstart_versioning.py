@@ -1,12 +1,13 @@
 import json
-from dataclasses import dataclass
-from pydantic import BaseModel, PrivateAttr
-from typing import Any, Dict, List, Optional, Tuple
-import click
-import yaml
-import requests
 import os
 import re
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+import click
+import requests
+import yaml
+from pydantic import BaseModel, PrivateAttr
 
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
