@@ -27,8 +27,6 @@ from datahub.cli.docker_check import (
     check_docker_quickstart,
     get_docker_client,
     run_quickstart_preflight_checks,
-    get_running_gms_version,
-    check_gms_health,
 )
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
@@ -106,12 +104,7 @@ def _print_issue_list_and_exit(
 @telemetry.with_telemetry()
 def check() -> None:
     """Check that the Docker containers are healthy"""
-    quickstart_version_mapping = QuickstartVersionMappingConfig.fetch_quickstart_config()
-    version = get_running_gms_version()
-    if version is None:
-        raise Exception("No running GMS version found")
-    quickstart_execution_plan = quickstart_version_mapping.get_quickstart_execution_plan(version)
-    status = check_docker_quickstart(quickstart_execution_plan.ensure_exit_success, quickstart_execution_plan.required_containers)
+    status = check_docker_quickstart()
     if status.is_ok():
         click.secho("✔ No issues detected", fg="green")
     else:
@@ -751,7 +744,7 @@ def quickstart(
             up_attempts += 1
 
         # Check docker health every few seconds.
-        status = check_docker_quickstart([], [])
+        status = check_docker_quickstart()
         if status.is_ok():
             break
 
@@ -802,6 +795,14 @@ def get_docker_compose_base_url(version_tag: Optional[str]) -> str:
         return os.environ["DOCKER_COMPOSE_BASE"]
     if version_tag is None:
         version_tag = "master"
+
+    # new CLI version is downloading the composefile corresponding to the requested version
+    # if the version is older than v0.10.1, it doesn't contain the setup job labels and the
+    # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
+    # the setup job labels
+    if version_tag < "v0.10.1":
+        version_tag = "quickstart-stability" #"v0.10.1" 
+    
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
 
 

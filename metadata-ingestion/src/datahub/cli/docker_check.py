@@ -9,23 +9,7 @@ import docker.errors
 import docker.models.containers
 import requests
 from datahub.configuration.common import ExceptionWithProps
-
-# If present, we check that the container is ok. If it exists
-# in ENSURE_EXIT_SUCCESS, we check that it exited 0. Otherwise,
-# we check that it is running and healthy.
-CONTAINERS_TO_CHECK_IF_PRESENT = [
-    "mysql",
-    "mysql-setup",
-    "cassandra",
-    "cassandra-setup",
-    "neo4j",
-    "elasticsearch-setup",
-    "schema-registry",
-    "zookeeper",
-    "datahub-upgrade",
-    # "datahub-mce-consumer",
-    # "datahub-mae-consumer",
-]
+import yaml
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB
@@ -169,57 +153,34 @@ class QuickstartStatus:
             },
         )
 
-def check_gms_health():
-    """
-    Checks if GMS is healthy by making a request to the health endpoint
-    """
-    try:
-        response = requests.get("http://localhost:8080/health")
-        return response.status_code == 200
-    except:
-        return False
 
-def get_running_gms_version() -> Optional[str]:
-    """
-    Returns the docker tag of GMS that is currently running.
-    """
-    with get_docker_client() as client:
-        containers = client.containers.list(
-            all=True,
-            filters=DATAHUB_COMPOSE_PROJECT_FILTER,
-        )
-        gms = [container for container in containers if container.name == "datahub-gms"]
-        # get gms container tag 
-        if len(gms) > 0:
-            container = gms[0]
-            image = container.attrs['Config']['Image']
-            return image.split(":")[1]
-        else:
-            return None
 
-def check_docker_quickstart(containers_ensure_exits: List[str], containers_required: List[str]) -> QuickstartStatus:
+def check_docker_quickstart() -> QuickstartStatus:
     container_statuses: List[DockerContainerStatus] = []
     with get_docker_client() as client:
         containers = client.containers.list(
             all=True,
             filters=DATAHUB_COMPOSE_PROJECT_FILTER,
         )
+        if len(containers) == 0:
+            return QuickstartStatus([])
 
+        config_file = containers[0].labels.get("com.docker.compose.project.config_files")
+        all_container = []
+        with open(config_file, "r") as config_file:
+            all_container = yaml.safe_load(config_file).get("services", {}).keys()
         # Check that the containers are running and healthy.
         container: docker.models.containers.Container
         for container in containers:
             name = container.name
             status = ContainerStatus.OK
-
-            if container.name not in (
-                containers_required + CONTAINERS_TO_CHECK_IF_PRESENT
-            ):
-                # Ignores things like "datahub-frontend" which are no longer used.
-                # This way, we only check required containers like "datahub-frontend-react"
-                # even if there are some old containers lying around.
+            print(container.name)
+            if container.name not in all_container:
+                print(">>", container.name)
                 continue
-
-            if container.name in containers_ensure_exits:
+            print("..", container.name, container.labels.get("datahub_setup_job"))
+            if container.labels.get("datahub_setup_job", False):
+                print("##", container.name)
                 if container.status != "exited":
                     status = ContainerStatus.STILL_RUNNING
                 elif container.attrs["State"]["ExitCode"] != 0:
@@ -237,7 +198,7 @@ def check_docker_quickstart(containers_ensure_exits: List[str], containers_requi
 
         # Check for missing containers.
         existing_containers = {container.name for container in containers}
-        missing_containers = set(containers_required) - existing_containers
+        missing_containers = set(all_container) - existing_containers
         for missing in missing_containers:
             container_statuses.append(
                 DockerContainerStatus(missing, ContainerStatus.MISSING)
