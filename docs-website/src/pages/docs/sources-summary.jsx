@@ -87,7 +87,7 @@ const metadata = [
   },
   {
     Path: "docs/generated/ingestion/sources/databricks",
-    logoPath: "img/logos/platforms/clickhouse.svg",
+    logoPath: "img/logos/platforms/databricks.png",
     Title: "Databricks",
     Description:
       "Databricks is a cloud-based data processing and analytics platform that enables data scientists and engineers to collaborate and build data-driven applications.",
