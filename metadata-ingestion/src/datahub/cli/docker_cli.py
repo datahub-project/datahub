@@ -795,7 +795,7 @@ def quickstart(
     )
 
 
-def get_docker_compose_base_url(version_tag: Optional[str]) -> str:
+def get_docker_compose_base_url(version_tag: str) -> str:
     if os.environ.get("DOCKER_COMPOSE_BASE"):
         return os.environ["DOCKER_COMPOSE_BASE"]
     if version_tag is None:
@@ -813,7 +813,7 @@ def get_docker_compose_base_url(version_tag: Optional[str]) -> str:
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
 
 
-def get_github_file_url(neo4j, is_m1, release_version_tag: Optional[str] = "master"):
+def get_github_file_url(neo4j, is_m1, release_version_tag: str):
     base_url = get_docker_compose_base_url(release_version_tag)
     if neo4j:
         github_file = (
@@ -932,7 +932,8 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
         path = str(download_sample_data())
 
     # Verify that docker is up.
-    if not check_gms_health():
+    status = check_docker_quickstart()
+    if not status.is_ok():
         raise status.to_exception(
             header="GMS is not healthy:",
             footer="Try running `datahub docker quickstart` first.",
