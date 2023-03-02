@@ -81,7 +81,7 @@ public interface EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nullable String field,
+      @Nonnull Filter requestFilters, @Nonnull int limit, @Nullable String field,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   /**
@@ -94,7 +94,7 @@ public interface EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nonnull Authentication authentication)
+      @Nonnull Filter requestFilters, @Nonnull int limit, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**

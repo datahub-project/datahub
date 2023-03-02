@@ -237,13 +237,13 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nullable String field,
+      @Nonnull Filter requestFilters, @Nonnull int limit, @Nullable String field,
       @Nonnull final Authentication authentication) throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionAutocomplete()
         .entityParam(entityType)
         .queryParam(query)
         .fieldParam(field)
-        .filterParam(newFilter(requestFilters))
+        .filterParam(requestFilters)
         .limitParam(limit);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
@@ -259,12 +259,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
    */
   @Nonnull
   public AutoCompleteResult autoComplete(@Nonnull String entityType, @Nonnull String query,
-      @Nonnull Map<String, String> requestFilters, @Nonnull int limit, @Nonnull final Authentication authentication)
+      @Nonnull Filter requestFilters, @Nonnull int limit, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionAutocomplete()
         .entityParam(entityType)
         .queryParam(query)
-        .filterParam(newFilter(requestFilters))
+        .filterParam(requestFilters)
         .limitParam(limit);
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }

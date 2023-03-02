@@ -142,11 +142,11 @@ public class JavaEntityClient implements EntityClient {
     public AutoCompleteResult autoComplete(
         @Nonnull String entityType,
         @Nonnull String query,
-        @Nonnull Map<String, String> requestFilters,
+        @Nonnull Filter requestFilters,
         @Nonnull int limit,
         @Nullable String field,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-      return _cachingEntitySearchService.autoComplete(entityType, query, field, newFilter(requestFilters), limit, null);
+      return _cachingEntitySearchService.autoComplete(entityType, query, field, requestFilters, limit, null);
     }
 
     /**
@@ -162,10 +162,10 @@ public class JavaEntityClient implements EntityClient {
     public AutoCompleteResult autoComplete(
         @Nonnull String entityType,
         @Nonnull String query,
-        @Nonnull Map<String, String> requestFilters,
+        @Nonnull Filter requestFilters,
         @Nonnull int limit,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _cachingEntitySearchService.autoComplete(entityType, query, "", newFilter(requestFilters), limit, null);
+        return _cachingEntitySearchService.autoComplete(entityType, query, "", requestFilters, limit, null);
     }
 
     /**
