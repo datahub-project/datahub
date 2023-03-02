@@ -373,7 +373,6 @@ class RedshiftUsageSource(Source):
                 AggregatedDataset(
                     bucket_start_time=floored_ts,
                     resource=resource,
-                    user_email_pattern=self.config.user_email_pattern,
                 ),
             )
             # current limitation in user stats UI, we need to provide email to show users
@@ -385,6 +384,7 @@ class RedshiftUsageSource(Source):
                 user_email,
                 event.text,
                 [],  # TODO: not currently supported by redshift; find column level changes
+                user_email_pattern=self.config.user_email_pattern,
             )
         return datasets
 

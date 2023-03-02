@@ -34,6 +34,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
@@ -894,7 +895,7 @@ class LookerExplore:
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_snapshot.urn,
             aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["explore"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.LOOKER_EXPLORE]),
         )
 
         proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
