@@ -165,22 +165,22 @@ def check_docker_quickstart() -> QuickstartStatus:
         if len(containers) == 0:
             return QuickstartStatus([])
 
+        # load the expected containers from the docker-compose file
         config_file = containers[0].labels.get("com.docker.compose.project.config_files")
-        all_container = []
+        all_containers = []
         with open(config_file, "r") as config_file:
-            all_container = yaml.safe_load(config_file).get("services", {}).keys()
+            all_containers = yaml.safe_load(config_file).get("services", {}).keys()
+
+        existing_containers = set()
         # Check that the containers are running and healthy.
         container: docker.models.containers.Container
         for container in containers:
-            name = container.name
+            name = container.labels.get("com.docker.compose.service", container.name)
+            existing_containers.add(name)
             status = ContainerStatus.OK
-            print(container.name)
-            if container.name not in all_container:
-                print(">>", container.name)
+            if name not in all_containers:
                 continue
-            print("..", container.name, container.labels.get("datahub_setup_job"))
             if container.labels.get("datahub_setup_job", False):
-                print("##", container.name)
                 if container.status != "exited":
                     status = ContainerStatus.STILL_RUNNING
                 elif container.attrs["State"]["ExitCode"] != 0:
@@ -197,8 +197,7 @@ def check_docker_quickstart() -> QuickstartStatus:
             container_statuses.append(DockerContainerStatus(name, status))
 
         # Check for missing containers.
-        existing_containers = {container.name for container in containers}
-        missing_containers = set(all_container) - existing_containers
+        missing_containers = set(all_containers) - existing_containers
         for missing in missing_containers:
             container_statuses.append(
                 DockerContainerStatus(missing, ContainerStatus.MISSING)

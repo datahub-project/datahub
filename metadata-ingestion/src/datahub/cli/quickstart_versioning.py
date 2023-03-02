@@ -52,6 +52,16 @@ class QuickstartVersionMappingConfig(BaseModel):
             with open(path, "r") as f:
                 config_raw = yaml.safe_load(f)
         config = cls.parse_obj(config_raw)
+
+        # if stable is not defined in the config, we need to fetch the latest version from github
+        if config.quickstart_version_map.get("stable") is None:
+            try:
+                release = cls._fetch_latest_version()
+                config.quickstart_version_map["stable"] = QuickstartVersionMap(
+                    composefile_git_ref=release, docker_tag=release
+                )
+            except:
+                click.echo("Couldn't connect to github. --version stable will not work.")
         save_quickstart_config(config)
         return config
 
@@ -88,12 +98,9 @@ class QuickstartVersionMappingConfig(BaseModel):
         Including the docker tag, composefile git ref, required containers, and checks to run.
         :return: The execution plan for the quickstart.
         """
-        git_ref = None
-        docker_tag = None
         if requested_version is None:
             requested_version = "default"
         version_map = self.quickstart_version_map.get(requested_version, QuickstartVersionMap(composefile_git_ref=requested_version, docker_tag=requested_version))
-        #checks_to_run = self._get_checks_for_version(version_map.composefile_git_ref)
         return QuickstartExecutionPlan(
             docker_tag=version_map.docker_tag,
             composefile_git_ref=version_map.composefile_git_ref,

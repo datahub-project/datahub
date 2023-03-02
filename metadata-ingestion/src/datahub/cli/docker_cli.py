@@ -800,7 +800,7 @@ def get_docker_compose_base_url(version_tag: Optional[str]) -> str:
     # if the version is older than v0.10.1, it doesn't contain the setup job labels and the
     # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
     # the setup job labels
-    if version_tag < "v0.10.1":
+    elif version_tag < "v0.10.1":
         version_tag = "quickstart-stability" #"v0.10.1" 
     
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
