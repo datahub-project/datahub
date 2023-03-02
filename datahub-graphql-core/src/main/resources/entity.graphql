@@ -1583,7 +1583,7 @@ type DatasetProperties {
     created: Long
 
     """
-    Actor associated with the Dataset's created date
+    Actor associated with the Dataset's created timestamp
     """
     createdActor: String
 
@@ -1593,7 +1593,7 @@ type DatasetProperties {
     lastModified: Long
 
     """
-    Actor associated with the Dataset's lastModified date
+    Actor associated with the Dataset's lastModified timestamp
     """
     lastModifiedActor: String
 }

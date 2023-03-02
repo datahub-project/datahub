@@ -17,8 +17,8 @@ import java.util.Map;
 public class DatasetMapperTest {
 
     private static final Urn TEST_DATASET_URN = Urn.createFromTuple(Constants.DATASET_ENTITY_NAME, "test");
-    private static final Urn TEST_CREATED_ACTOR_URN = Urn.createFromTuple(Constants.DATASET_ENTITY_NAME, "created");
-    private static final Urn TEST_LAST_MODIFIED_ACTOR_URN = Urn.createFromTuple(Constants.DATASET_ENTITY_NAME, "lastmodified");
+    private static final Urn TEST_CREATED_ACTOR_URN = Urn.createFromTuple(Constants.CORP_USER_ENTITY_NAME, "created");
+    private static final Urn TEST_LAST_MODIFIED_ACTOR_URN = Urn.createFromTuple(Constants.CORP_USER_ENTITY_NAME, "lastmodified");
 
     @Test
     public void testDatasetPropertiesMapperWithCreatedAndLastModified() {
