@@ -1231,6 +1231,10 @@ class TableauSource(StatefulIngestionSourceBase):
         ):
             return self.datasource_project_map[ds[tableau_constant.LUID]]
 
+        logger.debug(
+            f"published datasource {ds.get(tableau_constant.NAME)} project_luid not found"
+        )
+
         return None
 
     def _get_embedded_datasource_project_luid(self, ds):
@@ -1241,6 +1245,10 @@ class TableauSource(StatefulIngestionSourceBase):
             in self.tableau_project_registry
         ):
             return ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
+
+        logger.debug(
+            f"embedded datasource {ds.get(tableau_constant.NAME)} project_luid not found"
+        )
 
         return None
 
@@ -1264,35 +1272,34 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return func_selector[ds_type](ds)
 
-    def _get_project_browse_path_name(self, ds):
-        # For PublishedDatasource the GraphQL API doesn't return the projectLuid and hence we need to fetch
-        # the projectLuid from datasource_project_map
-        # For EmbeddedDatasource the GraphQL API returns the projectLuid in resposne and
-        # hence it is available at ds["workbook"][tableau_constant.PROJECT_LUID]
-        if self.config.extract_project_hierarchy:
-            project_luid = self._get_datasource_project_luid(ds)
-            if project_luid is None:
-                datasource_name: str = ds.get(tableau_constant.NAME)
-                logger.warning(
-                    f"Could not load project hierarchy for datasource {datasource_name}. Please check permissions."
-                )
-                logger.debug(f"datasource = {ds}")
-                return None
-
-            return self._project_luid_to_browse_path_name(project_luid=project_luid)
-
-        # default behavior in absence of extract_project_hierarchy
-        elif ds.get(
+    @staticmethod
+    def _get_datasource_project_name(ds: dict) -> Optional[str]:
+        if ds.get(
             tableau_constant.TYPE_NAME
         ) == tableau_constant.EMBEDDED_DATA_SOURCE and ds.get(
             tableau_constant.WORKBOOK
         ):
             return ds[tableau_constant.WORKBOOK].get(tableau_constant.PROJECT_NAME)
-        elif (
-            ds.get(tableau_constant.TYPE_NAME) == tableau_constant.PUBLISHED_DATA_SOURCE
-        ):
+        if ds.get(tableau_constant.TYPE_NAME) == tableau_constant.PUBLISHED_DATA_SOURCE:
             return ds.get(tableau_constant.PROJECT_NAME)
         return None
+
+    def _get_project_browse_path_name(self, ds):
+        if self.config.extract_project_hierarchy is False:
+            # backward compatibility. Just return the name of datasource project
+            return self._get_datasource_project_name(ds)
+
+        # form path as per nested project structure
+        project_luid = self._get_datasource_project_luid(ds)
+        if project_luid is None:
+            datasource_name: str = ds.get(tableau_constant.NAME)
+            logger.warning(
+                f"Could not load project hierarchy for datasource {datasource_name}. Please check permissions."
+            )
+            logger.debug(f"datasource = {ds}")
+            return None
+
+        return self._project_luid_to_browse_path_name(project_luid=project_luid)
 
     def _create_lineage_to_upstream_tables(
         self, csql_urn: str, tables: List[dict], datasource: dict
