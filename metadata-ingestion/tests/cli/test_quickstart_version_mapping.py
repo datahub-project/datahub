@@ -32,29 +32,29 @@ def test_quickstart_version_config():
 
 def test_quickstart_version_config_default():
     execution_plan = example_version_mapper.get_quickstart_execution_plan("v2.0.0")
-    excepted = QuickstartExecutionPlan(
+    expected = QuickstartExecutionPlan(
         docker_tag="v2.0.0",
         composefile_git_ref="v2.0.1",
     )
-    assert execution_plan == excepted
+    assert execution_plan == expected
 
 def test_quickstart_version_config_stable():
     execution_plan = example_version_mapper.get_quickstart_execution_plan("stable")
-    excepted = QuickstartExecutionPlan(
+    expected = QuickstartExecutionPlan(
         docker_tag="latest",
         composefile_git_ref="v1.0.1",
     )
-    assert execution_plan == excepted
+    assert execution_plan == expected
 
 
 def test_quickstart_forced_stable():
     example_version_mapper.quickstart_version_map["default"] = QuickstartVersionMap(composefile_git_ref="v1.0.1", docker_tag="latest")
     execution_plan = example_version_mapper.get_quickstart_execution_plan(None)
-    excepted = QuickstartExecutionPlan(
+    expected = QuickstartExecutionPlan(
         docker_tag="latest",
         composefile_git_ref="v1.0.1",
     )
-    assert execution_plan == excepted
+    assert execution_plan == expected
 
 def test_quickstart_forced_not_a_version_tag():
     """
