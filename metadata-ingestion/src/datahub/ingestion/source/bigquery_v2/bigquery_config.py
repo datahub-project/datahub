@@ -3,14 +3,15 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
+from pydantic import Field, PositiveInt, PrivateAttr, root_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    LineageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
+    StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
@@ -34,9 +35,9 @@ class BigQueryUsageConfig(BaseUsageConfig):
 class BigQueryV2Config(
     BigQueryBaseConfig,
     SQLAlchemyConfig,
-    LineageStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
+    StatefulUsageConfigMixin,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
 ):
     project_id_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -266,13 +267,6 @@ class BigQueryV2Config(
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return "bigquery://"
 
-    @validator("platform")
-    def platform_is_always_bigquery(cls, v):
-        return "bigquery"
-
-    @validator("platform_instance")
-    def bigquery_doesnt_need_platform_instance(cls, v):
-        if v is not None:
-            raise ConfigurationError(
-                "BigQuery project ids are globally unique. You do not need to specify a platform instance."
-            )
+    platform_instance_not_supported_for_bigquery = pydantic_removed_field(
+        "platform_instance"
+    )

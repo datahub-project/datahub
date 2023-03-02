@@ -20,7 +20,10 @@ from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel, ConfigurationError
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+    DatasetSourceConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     PlatformKey,
@@ -223,6 +226,7 @@ class TableauConnectionConfig(ConfigModel):
 class TableauConfig(
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
     TableauConnectionConfig,
 ):
     projects: Optional[List[str]] = Field(
@@ -1583,7 +1587,7 @@ class TableauSource(StatefulIngestionSourceBase):
     def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
         return MetadataWorkUnit(
             id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
-                PLATFORM=self.config.platform,
+                PLATFORM=self.platform,
                 ENTITY_URN=mcp.entityUrn,
                 ASPECT_NAME=mcp.aspectName,
             ),
