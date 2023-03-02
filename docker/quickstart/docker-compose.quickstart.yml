@@ -125,6 +125,8 @@ services:
       - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     hostname: datahub-upgrade
     image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
+    labels:
+      datahub_setup_job: true
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -154,6 +156,8 @@ services:
       - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    labels:
+      datahub_setup_job: true
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -165,6 +169,8 @@ services:
       - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    labels:
+      datahub_setup_job: true
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     container_name: mysql
@@ -192,6 +198,8 @@ services:
       - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-acryldata/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
+    labels:
+      datahub_setup_job: true
   neo4j:
     container_name: neo4j
     environment:
