@@ -15,7 +15,6 @@ export const LOOKML_GITHUB_INFO_REPO: RecipeField = {
     required: true,
 };
 
-const deployKeyFieldPath = 'source.config.github_info.deploy_key';
 export const DEPLOY_KEY: RecipeField = {
     name: 'github_info.deploy_key',
     label: 'GitHub Deploy Key',
@@ -36,14 +35,10 @@ export const DEPLOY_KEY: RecipeField = {
             </div>
         </>
     ),
-    type: FieldType.TEXTAREA,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.github_info.deploy_key',
     placeholder: '-----BEGIN OPENSSH PRIVATE KEY-----\n...',
     rules: [{ required: true, message: 'Github Deploy Key is required' }],
-    setValueOnRecipeOverride: (recipe: any, value: string) => {
-        const valueWithNewLine = `${value}\n`;
-        return setFieldValueOnRecipe(recipe, valueWithNewLine, deployKeyFieldPath);
-    },
     required: true,
 };
 
