@@ -72,14 +72,14 @@ class PipelineConfig(ConfigModel):
             return v
 
     @staticmethod
-    def _resolve_vars_oveerride_sink(sink_config: Dict, values: Dict[str, Any]):
+    def _resolve_vars_oveerride_sink(sink_config: Dict, values: Dict[str, Any]) -> None:
         sink_config = config_loader.resolve_env_variables(sink_config)
         values["sink"] = sink_config
 
     @staticmethod
     def _add_default_if_present(
         new_sink: Dict, old_sink: Dict, key: str, default_val: Any
-    ):
+    ) -> None:
         new_val = old_sink.get("config", {}).get(key, default_val)
         if new_val is not None:
             new_sink["config"][key] = new_val
