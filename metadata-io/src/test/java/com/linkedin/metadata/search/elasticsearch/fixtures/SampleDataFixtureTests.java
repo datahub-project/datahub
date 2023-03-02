@@ -282,7 +282,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "my_table"
         );
         List<String> tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
-        assertEquals(tokens, List.of("my_tabl"),
+        assertEquals(tokens, List.of("my_tabl", "tabl"),
                 String.format("Unexpected tokens. Found %s", tokens));
 
         request = AnalyzeRequest.withIndexAnalyzer(
@@ -291,7 +291,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "my_table"
         );
         tokens = getTokens(request).map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList());
-        assertEquals(tokens, List.of("my_tabl"),
+        assertEquals(tokens, List.of("my_tabl", "tabl"),
                 String.format("Unexpected tokens. Found %s", tokens));
     }
 
