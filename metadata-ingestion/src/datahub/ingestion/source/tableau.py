@@ -746,7 +746,7 @@ class TableauSource(StatefulIngestionSourceBase):
             table_id = (
                 column.get(tableau_constant.TABLE, {}).get(tableau_constant.ID)
                 if column.get(tableau_constant.TABLE)
-                and column[tableau_constant.TABLE][tableau_constant.__TYPE_NAME]
+                and column[tableau_constant.TABLE][tableau_constant.TYPE_NAME]
                 == tableau_constant.CUSTOM_SQL_TABLE
                 else None
             )
@@ -861,7 +861,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     upstream_col
                     and upstream_col.get(tableau_constant.TABLE)
                     and upstream_col.get(tableau_constant.TABLE)[
-                        tableau_constant.__TYPE_NAME
+                        tableau_constant.TYPE_NAME
                     ]
                     == tableau_constant.CUSTOM_SQL_TABLE
                 ):
@@ -981,7 +981,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     continue
                 name = upstream_col.get(tableau_constant.NAME)
                 upstream_table_id = (
-                    upstream_col.get(tableau_constant.NAME)[tableau_constant.ID]
+                    upstream_col.get(tableau_constant.TABLE)[tableau_constant.ID]
                     if upstream_col.get(tableau_constant.TABLE)
                     else None
                 )
@@ -1059,7 +1059,7 @@ class TableauSource(StatefulIngestionSourceBase):
         return fine_grained_lineages
 
     def get_transform_operation(self, field):
-        field_type = field[tableau_constant.__TYPE_NAME]
+        field_type = field[tableau_constant.TYPE_NAME]
         if field_type in (
             tableau_constant.DATA_SOURCE_FIELD,
             tableau_constant.COLUMN_FIELD,
@@ -1111,7 +1111,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 datasource = csql[tableau_constant.DATA_SOURCES][0]
                 datasource_name = datasource.get(tableau_constant.NAME)
                 if datasource.get(
-                    tableau_constant.__TYPE_NAME
+                    tableau_constant.TYPE_NAME
                 ) == tableau_constant.EMBEDDED_DATA_SOURCES and datasource.get(
                     tableau_constant.WORKBOOK
                 ):
@@ -1222,7 +1222,7 @@ class TableauSource(StatefulIngestionSourceBase):
         # hence it is available at ds["workbook"][tableau_constant.PROJECT_LUID]
         if self.config.extract_project_hierarchy:
             if (
-                ds.get(tableau_constant.__TYPE_NAME)
+                ds.get(tableau_constant.TYPE_NAME)
                 == tableau_constant.PUBLISHED_DATA_SOURCE
                 and ds.get(tableau_constant.LUID)
                 and ds[tableau_constant.LUID] in self.datasource_project_map.keys()
@@ -1233,7 +1233,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     self.datasource_project_map[ds[tableau_constant.LUID]]
                 )
             elif (
-                ds.get(tableau_constant.__TYPE_NAME)
+                ds.get(tableau_constant.TYPE_NAME)
                 == tableau_constant.EMBEDDED_DATA_SOURCE
                 and ds.get(tableau_constant.WORKBOOK)
                 and ds.get(tableau_constant.WORKBOOK).get(tableau_constant.PROJECT_LUID)
@@ -1254,13 +1254,13 @@ class TableauSource(StatefulIngestionSourceBase):
 
         # default behavior in absence of extract_project_hierarchy
         elif ds.get(
-            tableau_constant.__TYPE_NAME
+            tableau_constant.TYPE_NAME
         ) == tableau_constant.EMBEDDED_DATA_SOURCE and ds.get(
             tableau_constant.WORKBOOK
         ):
             return ds[tableau_constant.WORKBOOK].get(tableau_constant.PROJECT_NAME)
         elif (
-            ds.get(tableau_constant.__TYPE_NAME)
+            ds.get(tableau_constant.TYPE_NAME)
             == tableau_constant.PUBLISHED_DATA_SOURCE
         ):
             return ds.get(tableau_constant.PROJECT_NAME)
@@ -1419,7 +1419,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     tableau_constant.EXTRACT_LAST_UPDATE_TIME, ""
                 )
                 or "",
-                tableau_constant.TYPE: datasource.get(tableau_constant.__TYPE_NAME, ""),
+                tableau_constant.TYPE: datasource.get(tableau_constant.TYPE_NAME, ""),
             },
         )
         dataset_snapshot.aspects.append(dataset_props)
@@ -1571,7 +1571,7 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_sheetwise_upstream_datasources(self, sheet: dict) -> set:
         sheet_upstream_datasources = set()
 
-        for field in sheet.get(tableau_constant.DATA_SOURCE_FIELD, ""):
+        for field in sheet.get(tableau_constant.DATA_SOURCE_FIELDS, ""):
             if field and field.get(tableau_constant.DATA_SOURCE):
                 sheet_upstream_datasources.add(
                     field[tableau_constant.DATA_SOURCE][tableau_constant.ID]
