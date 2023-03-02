@@ -98,7 +98,7 @@ public class MLFeatureTableType implements SearchableEntityType<MLFeatureTable, 
                                 @Nonnull final QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search("mlFeatureTable", query, facetFilters, start, count,
-                context.getAuthentication(), true);
+                context.getAuthentication(), true, null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

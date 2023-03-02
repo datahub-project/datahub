@@ -7,8 +7,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
@@ -103,7 +103,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, M
                                 @Nonnull final QueryContext context) throws Exception {
         final SearchResult
             searchResult = _entityClient.search("corpGroup", query, Collections.emptyMap(), start, count,
-            context.getAuthentication(), true);
+            context.getAuthentication(), true, null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

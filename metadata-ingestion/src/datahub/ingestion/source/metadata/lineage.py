@@ -13,7 +13,7 @@ from datahub.configuration.common import (
     VersionedConfig,
 )
 from datahub.configuration.config_loader import load_config_file
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mce_builder import (
     get_sys_time,
     make_dataset_urn_with_platform_instance,
@@ -36,7 +36,7 @@ auditStamp = models.AuditStampClass(
 )
 
 
-class EntityConfig(EnvBasedSourceConfigBase):
+class EntityConfig(EnvConfigMixin):
     name: str
     type: str
     platform: str

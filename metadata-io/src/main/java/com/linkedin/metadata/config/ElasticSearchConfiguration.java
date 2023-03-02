@@ -7,4 +7,5 @@ import lombok.Data;
 public class ElasticSearchConfiguration {
 
   private BuildIndicesConfiguration buildIndices;
+  public String implementation;
 }

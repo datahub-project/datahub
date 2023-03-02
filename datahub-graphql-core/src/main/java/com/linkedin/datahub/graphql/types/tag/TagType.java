@@ -6,8 +6,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -110,7 +110,7 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
                                 @Nonnull QueryContext context) throws Exception {
         final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
         final SearchResult searchResult = _entityClient.search("tag", query, facetFilters, start, count,
-                context.getAuthentication(), true);
+                context.getAuthentication(), true, null);
         return UrnSearchResultsMapper.map(searchResult);
     }
 

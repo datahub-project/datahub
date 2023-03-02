@@ -30,9 +30,7 @@ def get_default_recipe(
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_glossary_ingest(
-    mock_datahub_graph, docker_compose_runner, pytestconfig, tmp_path, mock_time
-):
+def test_glossary_ingest(mock_datahub_graph, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
 
     # These paths change from one instance run of the clickhouse docker to the other,

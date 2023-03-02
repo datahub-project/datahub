@@ -1,15 +1,22 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.view.DataHubViewInfo;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -272,5 +279,39 @@ public class SearchUtils {
     }
     throw new IllegalArgumentException(
         String.format("Illegal filter provided! Neither 'or' nor 'criteria' fields were populated for filter %s", filter));
+  }
+
+  /**
+   * Attempts to resolve a View by urn. Throws {@link IllegalArgumentException} if a View with the specified
+   * urn cannot be found.
+   */
+  public static DataHubViewInfo resolveView(@Nonnull ViewService viewService, @Nonnull final Urn viewUrn,
+      @Nonnull final Authentication authentication) {
+    try {
+      DataHubViewInfo maybeViewInfo = viewService.getViewInfo(viewUrn, authentication);
+      if (maybeViewInfo == null) {
+        log.warn(String.format("Failed to resolve View with urn %s. View does not exist!", viewUrn));
+      }
+      return maybeViewInfo;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Caught exception while attempting to resolve View with URN %s", viewUrn), e);
+    }
+  }
+
+  //  Assumption is that filter values for degree are either null, 3+, 2, or 1.
+  public static Integer getMaxHops(List<FacetFilterInput> filters) {
+    Set<String> degreeFilterValues = filters.stream()
+        .filter(filter -> filter.getField().equals("degree"))
+        .flatMap(filter -> filter.getValues().stream())
+        .collect(Collectors.toSet());
+    Integer maxHops = null;
+    if (!degreeFilterValues.contains("3+")) {
+      if (degreeFilterValues.contains("2")) {
+        maxHops = 2;
+      } else if (degreeFilterValues.contains("1")) {
+        maxHops = 1;
+      }
+    }
+    return maxHops;
   }
 }

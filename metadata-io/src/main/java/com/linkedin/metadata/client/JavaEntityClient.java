@@ -33,8 +33,10 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
@@ -235,23 +237,20 @@ public class JavaEntityClient implements EntityClient {
      * @param requestFilters search filters
      * @param start start offset for search results
      * @param count max number of search results requested
+     * @param searchFlags
      * @return a set of search results
      * @throws RemoteInvocationException
      */
     @Nonnull
     @WithSpan
     @Override
-    public SearchResult search(
-        @Nonnull String entity,
-        @Nonnull String input,
-        @Nullable Map<String, String> requestFilters,
-        int start,
-        int count,
-        @Nonnull Authentication authentication,
-        @Nullable Boolean fulltext)
+    public SearchResult search(@Nonnull String entity, @Nonnull String input,
+        @Nullable Map<String, String> requestFilters, int start, int count, @Nonnull Authentication authentication,
+        @Nullable Boolean fulltext, @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
 
-        if (Optional.ofNullable(fulltext).orElse(false)) {
+        if (Optional.ofNullable(fulltext).orElse(false)
+            || (searchFlags != null && Boolean.TRUE.equals(searchFlags.isFulltext()))) {
             return ValidationUtils.validateSearchResult(
                     _entitySearchService.fullTextSearch(entity, input, newFilter(requestFilters), null, start, count), _entityService);
         } else {
@@ -305,9 +304,11 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nonnull Authentication authentication,
-        @Nullable Boolean fulltext)
+        @Nullable Boolean fulltext,
+        @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
-        if (Optional.ofNullable(fulltext).orElse(false)) {
+        if (Optional.ofNullable(fulltext).orElse(false)
+            || (searchFlags != null && Boolean.TRUE.equals(searchFlags.isFulltext()))) {
             return ValidationUtils.validateSearchResult(
                     _entitySearchService.fullTextSearch(entity, input, filter, sortCriterion, start, count),
                     _entityService);
@@ -336,21 +337,37 @@ public class JavaEntityClient implements EntityClient {
         @Nullable Filter filter,
         int start,
         int count,
+        @Nullable SearchFlags searchFlags,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
+        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count,
-                    new SearchFlags().setFulltext(true)), _entityService);
+            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags),
+            _entityService);
+    }
+
+    @Nonnull
+    @Override
+    public ScrollResult scrollAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+        @Nullable Filter filter, @Nullable String scrollId, @Nonnull String keepAlive, int count,
+        @Nullable SearchFlags searchFlags, @Nonnull Authentication authentication)
+        throws RemoteInvocationException {
+        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
+        return ValidationUtils.validateScrollResult(
+            _searchService.scrollAcrossEntities(entities, input, filter, null, scrollId, keepAlive, count,
+                finalFlags), _entityService);
     }
 
     @Nonnull
     @Override
     public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
         @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
-        @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
+        @Nullable SortCriterion sortCriterion, int start, int count, @Nullable SearchFlags searchFlags,
+        @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
+        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
         return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-                sortCriterion, start, count, null, null), _entityService);
+                sortCriterion, start, count, null, null, finalFlags), _entityService);
     }
 
     @Nonnull
@@ -358,13 +375,28 @@ public class JavaEntityClient implements EntityClient {
     public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
         @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
             @Nullable SortCriterion sortCriterion, int start, int count, @Nullable Long startTimeMillis,
-            @Nullable Long endTimeMillis,
+            @Nullable Long endTimeMillis, @Nullable SearchFlags searchFlags,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
+        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
         return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-                        sortCriterion, start, count, startTimeMillis, endTimeMillis),
+                        sortCriterion, start, count, startTimeMillis, endTimeMillis, finalFlags),
                 _entityService);
+    }
+
+    @Nonnull
+    @Override
+    public LineageScrollResult scrollAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
+        @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
+        @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int count,
+        @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable SearchFlags searchFlags,
+        @Nonnull final Authentication authentication)
+        throws RemoteInvocationException {
+        final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
+        return ValidationUtils.validateLineageScrollResult(
+            _lineageSearchService.scrollAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
+                sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags), _entityService);
     }
 
     /**

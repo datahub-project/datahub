@@ -16,20 +16,20 @@ import { Preview } from './preview/Preview';
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined style={{ fontSize }} />;
+            return <FolderOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderFilled style={{ fontSize, color: '#B37FEB' }} />;
+            return <FolderFilled style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         return (
             <FolderOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );

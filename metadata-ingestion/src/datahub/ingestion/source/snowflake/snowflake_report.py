@@ -1,4 +1,5 @@
-from typing import MutableSet, Optional
+from dataclasses import dataclass, field
+from typing import Dict, MutableSet, Optional
 
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
@@ -6,6 +7,7 @@ from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
 
 
+@dataclass
 class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport):
     account_locator: Optional[str] = None
     region: Optional[str] = None
@@ -25,6 +27,12 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
     view_downstream_lineage_query_secs: float = -1
     external_lineage_queries_secs: float = -1
 
+    # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
+    # which occurs when we occur a different database / schema.
+    # Should not be more than the number of databases / schemas scanned.
+    # Maps (function name) -> (stat_name) -> (stat_value)
+    lru_cache_info: Dict[str, Dict[str, int]] = field(default_factory=dict)
+
     # These will be non-zero if snowflake information_schema queries fail with error -
     # "Information schema query returned too much data. Please repeat query with more selective predicates.""
     # This will result in overall increase in time complexity
@@ -39,8 +47,8 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
 
     rows_zero_objects_modified: int = 0
 
-    _processed_tags: MutableSet[str] = set()
-    _scanned_tags: MutableSet[str] = set()
+    _processed_tags: MutableSet[str] = field(default_factory=set)
+    _scanned_tags: MutableSet[str] = field(default_factory=set)
 
     edition: Optional[SnowflakeEdition] = None
 

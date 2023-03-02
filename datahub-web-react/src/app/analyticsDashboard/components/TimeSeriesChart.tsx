@@ -4,7 +4,7 @@ import { scaleOrdinal } from '@vx/scale';
 import { TimeSeriesChart as TimeSeriesChartType, NumericDataPoint, NamedLine } from '../../../types.generated';
 import { lineColors } from './lineColors';
 import Legend from './Legend';
-import { INTERVAL_TO_SECONDS } from '../../shared/time/timeUtils';
+import { addInterval } from '../../shared/time/timeUtils';
 import { formatNumber } from '../../shared/formatNumber';
 
 type Props = {
@@ -25,7 +25,7 @@ type Props = {
 const MARGIN_SIZE = 40;
 
 function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
-    const dateString = new Date(ts).toString();
+    const dateString = new Date(ts).toISOString();
     for (let i = 0; i < newLine.length; i++) {
         if (new Date(newLine[i].x).getTime() > ts) {
             newLine.splice(i, 0, { x: dateString, y: 0 });
@@ -35,46 +35,24 @@ function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
     newLine.push({ x: dateString, y: 0 });
 }
 
-function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: boolean) {
+export function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: boolean) {
     if (!insertBlankPoints) {
         return chartData.lines;
     }
 
     const startDate = new Date(Number(chartData.dateRange.start));
     const endDate = new Date(Number(chartData.dateRange.end));
-    const intervalMs = INTERVAL_TO_SECONDS[chartData.interval] * 1000;
     const returnLines: NamedLine[] = [];
     chartData.lines.forEach((line) => {
         const newLine = [...line.data];
-        for (let i = endDate.getTime(); i > startDate.getTime(); i -= intervalMs) {
+        for (let i = startDate; i <= endDate; i = addInterval(1, i, chartData.interval)) {
             const pointOverlap = line.data.filter((point) => {
-                return Math.abs(new Date(point.x).getTime() - i) > intervalMs;
-            });
-            if (pointOverlap) {
-                break;
-            }
-
-            const pointGreater = line.data.find((point) => new Date(point.x).getTime() > i);
-            if (pointGreater) {
-                break;
-            }
-            insertBlankAt(i, newLine);
-        }
-
-        for (let i = startDate.getTime(); i <= endDate.getTime(); i += intervalMs) {
-            const pointOverlap = line.data.find((point) => {
-                return Math.abs(new Date(point.x).getTime() - i) <= intervalMs;
+                return Math.abs(new Date(point.x).getTime() - i.getTime()) === 0;
             });
 
-            if (pointOverlap) {
-                break;
+            if (pointOverlap.length === 0) {
+                insertBlankAt(i.getTime(), newLine);
             }
-
-            const pointSmaller = line.data.find((point) => new Date(point.x).getTime() < i);
-            if (pointSmaller) {
-                break;
-            }
-            insertBlankAt(i, newLine);
         }
 
         returnLines.push({ name: line.name, data: newLine });
