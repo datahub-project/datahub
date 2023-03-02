@@ -434,7 +434,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 @click.option(
     "--version",
     type=str,
-    default=None,
+    default="default",
     help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose. Use 'stable' to start the latest stable version.",
 )
 @click.option(
