@@ -473,7 +473,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         tags_joined: Optional[List[str]] = None
         if tags and self.config.capture_dataset_label_as_tag:
-            tags_joined = [f"""{k}:{v}""" for k, v in tags.items()]
+            tags_joined = [f"{k}:{v}" for k, v in tags.items()]
         database_container_key = self.gen_project_id_key(database=project_id)
 
         yield from gen_schema_container(
