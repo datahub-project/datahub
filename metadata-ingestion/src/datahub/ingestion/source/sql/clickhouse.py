@@ -123,7 +123,7 @@ class ClickHouseConfig(
 ):
     # defaults
     host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme = Field(default="clickhouse", description="", hidden_from_schema=True)
+    scheme = Field(default="clickhouse", description="", hidden_from_docs=True)
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )

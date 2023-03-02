@@ -335,3 +335,73 @@ def test_table_processing_logic(client_mock, data_dictionary_mock):
     ]  # alternatively
     for table in tables.keys():
         assert table in ["test-table", "test-sharded-table_20220102"]
+
+
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_schema.BigQueryDataDictionary.get_tables_for_dataset"
+)
+@patch("google.cloud.bigquery.client.Client")
+def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_mock):
+    # test that tables with date names are processed correctly
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": "test-project",
+        }
+    )
+
+    tableListItems = [
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "test-table",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "20220102",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "20210101",
+                }
+            }
+        ),
+        TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": "20220103",
+                }
+            }
+        ),
+    ]
+
+    client_mock.list_tables.return_value = tableListItems
+    data_dictionary_mock.get_tables_for_dataset.return_value = None
+
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    _ = source.get_tables_for_dataset(
+        conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+    )
+
+    assert data_dictionary_mock.call_count == 1
+
+    # args only available from python 3.8 and that's why call_args_list is sooo ugly
+    tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
+        3
+    ]  # alternatively
+    for table in tables.keys():
+        assert tables[table].table_id in ["test-table", "20220103"]

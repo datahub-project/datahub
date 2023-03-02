@@ -201,6 +201,8 @@ services:
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-acryldata/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
+    labels:
+      datahub_setup_job: true
   neo4j:
     container_name: neo4j
     environment:
