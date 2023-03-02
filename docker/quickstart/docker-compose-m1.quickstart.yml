@@ -128,7 +128,7 @@ services:
     hostname: datahub-upgrade
     image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
     labels:
-      setup_job: true
+      datahub_setup_job: true  
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -160,7 +160,7 @@ services:
     hostname: elasticsearch-setup
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     labels:
-      setup_job: true
+      datahub_setup_job: true  
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -173,7 +173,7 @@ services:
     hostname: kafka-setup
     image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     labels:
-      setup_job: true
+      datahub_setup_job: true  
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     container_name: mysql
