@@ -2,7 +2,7 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { useAppStateContext } from '../../../../providers/AppStateContext';
-import { QuickFilter } from '../../../../types.generated';
+import { QuickFilter as QuickFilterType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getQuickFilterDetails } from './utils';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
@@ -27,11 +27,10 @@ const QuickFilterWrapper = styled(Button)<{ isSelected: boolean }>`
     ${(props) =>
         props.isSelected &&
         `
-        // TODO - make this light color work with acryl and oss
-        // background-color: ${props.theme.styles['primary-color']};
-        background-color: rgba(24, 144, 255, 0.15)};
+        border: 1px solid ${props.theme.styles['primary-color-dark']};
+        background-color: ${props.theme.styles['primary-color-light']};
         &:hover {
-            background-color: rgba(24, 144, 255, 0.15)};
+            background-color: ${props.theme.styles['primary-color-light']};
         }
     `}
 `;
@@ -41,7 +40,7 @@ const LabelWrapper = styled.span`
 `;
 
 interface Props {
-    quickFilter: QuickFilter;
+    quickFilter: QuickFilterType;
 }
 
 export default function QuickFilter({ quickFilter }: Props) {
