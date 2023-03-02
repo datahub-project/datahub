@@ -116,7 +116,7 @@ emitter.flush()
 If you're interested in looking at the Kafka emitter code, it is available [here](./src/datahub/emitter/kafka_emitter.py)
 
 ## Bulk Ingestion
-The most direct way to perform ingestion via the sdk is to generate a .mcp file in the sdk and then ingest it via the File ingestion source. (docs/generated/ingestion/sources/file.md).
+The most direct way to perform ingestion via the sdk is to generate a .mcp file in the sdk and then ingest it via the [File ingestion source.](docs/generated/ingestion/sources/file.md).
 
 ## Other Languages
 
