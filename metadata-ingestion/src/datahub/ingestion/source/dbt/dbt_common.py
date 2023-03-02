@@ -260,13 +260,6 @@ class DBTCommonConfig(StatefulIngestionConfigBase, LineageConfig):
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
     )
-    backcompat_skip_source_on_lineage_edge: bool = Field(
-        False,
-        description="[deprecated] Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
-    )
-    _deprecate_skip_source_on_lineage_edge = pydantic_field_deprecated(
-        "backcompat_skip_source_on_lineage_edge"
-    )
 
     incremental_lineage: bool = Field(
         # Copied from LineageConfig, and changed the default.
@@ -438,7 +431,6 @@ def get_upstreams(
     target_platform_instance: Optional[str],
     environment: str,
     platform_instance: Optional[str],
-    legacy_skip_source_lineage: Optional[bool],
 ) -> List[str]:
     upstream_urns = []
 
@@ -457,10 +449,7 @@ def get_upstreams(
 
         materialized = upstream_manifest_node.materialization
 
-        resource_type = upstream_manifest_node.node_type
-        if materialized in {"view", "table", "incremental", "snapshot"} or (
-            resource_type == "source" and legacy_skip_source_lineage
-        ):
+        if materialized in {"view", "table", "incremental", "snapshot"}:
             # upstream urns point to the target platform
             platform_value = target_platform
             platform_instance_value = target_platform_instance
@@ -732,7 +721,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_platform_instance=self.config.target_platform_instance,
                 environment=self.config.env,
                 platform_instance=None,
-                legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
             for upstream_urn in sorted(upstream_urns):
@@ -1367,7 +1355,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.target_platform_instance,
             self.config.env,
             self.config.platform_instance,
-            self.config.backcompat_skip_source_on_lineage_edge,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
