@@ -520,58 +520,60 @@ class TableauSource(StatefulIngestionSourceBase):
         logger.info(f"project({project.name}) is not denied as per project_pattern")
         return False
 
+    def _init_tableau_project_registry(self, all_project_map: dict) -> None:
+        list_of_skip_projects: List[TableauProject] = []
+
+        for project in all_project_map.values():
+            # Skip project if it is not allowed
+            logger.debug(f"Evaluating project pattern for {project.name}")
+            if self._is_allowed_project(project) is False:
+                list_of_skip_projects.append(project)
+                logger.debug(f"Project {project.name} is skipped")
+                continue
+            logger.debug(f"Project {project.name} is added in project registry")
+            self.tableau_project_registry[project.id] = project
+
+        if self.config.extract_project_hierarchy is False:
+            logger.debug(
+                "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
+                "disabled"
+            )
+            return
+
+        logger.debug("Reevaluating projects as extract_project_hierarchy is enabled")
+
+        for project in list_of_skip_projects:
+            if (
+                project.parent_id in self.tableau_project_registry
+                and self._is_denied_project(project) is False
+            ):
+                logger.debug(f"Project {project.name} is added in project registry")
+                self.tableau_project_registry[project.id] = project
+
+    def _init_datasource_registry(self) -> None:
+        if self.server is None:
+            return
+
+        for ds in TSC.Pager(self.server.datasources):
+            if ds.project_id not in self.tableau_project_registry:
+                logger.debug(
+                    f"project id ({ds.project_id}) of datasource {ds.name} is not present in project "
+                    f"registry"
+                )
+                continue
+            self.datasource_project_map[ds.id] = ds.project_id
+
     def _populate_projects_registry(self):
         if self.server is None:
             return
 
-        logger.info("Populating site project registry")
+        logger.info("Initializing site project registry")
 
         all_project_map: Dict[str, TableauProject] = self._get_all_project()
 
-        def init_tableau_project_registry():
-            list_of_skip_projects: List[TableauProject] = []
+        self._init_tableau_project_registry(all_project_map)
+        self._init_datasource_registry()
 
-            for project in all_project_map.values():
-                # Skip project if it is not allowed
-                logger.debug(f"Evaluating project pattern for {project.name}")
-                if self._is_allowed_project(project) is False:
-                    list_of_skip_projects.append(project)
-                    logger.debug(f"Project {project.name} is skipped")
-                    continue
-                logger.debug(f"Project {project.name} is added in project registry")
-                self.tableau_project_registry[project.id] = project
-
-            if self.config.extract_project_hierarchy is False:
-                logger.debug(
-                    "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
-                    "disabled"
-                )
-                return
-
-            logger.info("Reevaluating projects as extract_project_hierarchy is enabled")
-
-            for project in list_of_skip_projects:
-                if (
-                    project.parent_id in self.tableau_project_registry
-                    and self._is_denied_project(project) is False
-                ):
-                    self.tableau_project_registry[project.id] = project
-
-        def init_datasource_registry():
-            if self.server is None:
-                return
-
-            for ds in TSC.Pager(self.server.datasources):
-                if ds.project_id not in self.tableau_project_registry:
-                    logger.debug(
-                        f"project id ({ds.project_id}) of datasource {ds.name} is not present in project "
-                        f"registry"
-                    )
-                    continue
-                self.datasource_project_map[ds.id] = ds.project_id
-
-        init_tableau_project_registry()
-        init_datasource_registry()
         logger.debug(f"All site projects {all_project_map}")
         logger.debug(f"Projects selected for ingestion {self.tableau_project_registry}")
         logger.debug(
