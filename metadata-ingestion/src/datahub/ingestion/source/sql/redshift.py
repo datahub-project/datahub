@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 
 # These imports verify that the dependencies are available.
 import psycopg2  # noqa: F401
-import pydantic
 import sqlalchemy
 import sqlalchemy_redshift  # noqa: F401
 from pydantic.fields import Field
@@ -169,10 +168,6 @@ class RedshiftConfig(
         default=LineageMode.STL_SCAN_BASED,
         description="Which table lineage collector mode to use. Available modes are: [stl_scan_based, sql_based, mixed]",
     )
-
-    @pydantic.validator("platform")
-    def platform_is_always_redshift(cls, v):
-        return "redshift"
 
 
 # reflection.cache uses eval and other magic to partially rewrite the function.

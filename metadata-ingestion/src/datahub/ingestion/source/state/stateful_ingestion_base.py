@@ -13,7 +13,6 @@ from datahub.configuration.common import (
     DynamicTypedConfig,
     LineageConfig,
 )
-from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
@@ -91,9 +90,7 @@ class StatefulIngestionConfig(ConfigModel):
 CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
 
 
-class StatefulIngestionConfigBase(
-    DatasetSourceConfigBase, GenericModel, Generic[CustomConfig]
-):
+class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """
@@ -103,7 +100,7 @@ class StatefulIngestionConfigBase(
     )
 
 
-class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig):
+class StatefulLineageConfigMixin(LineageConfig):
     store_last_lineage_extraction_timestamp: bool = Field(
         default=False,
         description="Enable checking last lineage extraction date in store.",
@@ -122,7 +119,7 @@ class LineageStatefulIngestionConfig(StatefulIngestionConfigBase, LineageConfig)
         return values
 
 
-class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
+class StatefulProfilingConfigMixin(ConfigModel):
     store_last_profiling_timestamps: bool = Field(
         default=False,
         description="Enable storing last profile timestamp in store.",
@@ -140,7 +137,7 @@ class ProfilingStatefulIngestionConfig(StatefulIngestionConfigBase):
         return values
 
 
-class UsageStatefulIngestionConfig(BaseTimeWindowConfig, StatefulIngestionConfigBase):
+class StatefulUsageConfigMixin(BaseTimeWindowConfig):
     store_last_usage_extraction_timestamp: bool = Field(
         default=True,
         description="Enable checking last usage timestamp in store.",
