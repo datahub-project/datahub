@@ -342,8 +342,15 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
-        if self.config.profile_table_row_estimate and self.dataset.engine.dialect.name.lower() == "postgres":
-            dataset_profile.rowCount = self.dataset.engine.execute(sa.text(f"SELECT reltuples AS estimate FROM pg_class WHERE relname='{self.dataset_name}'"))
+        if (
+            self.config.profile_table_row_estimate
+            and self.dataset.engine.dialect.name.lower() == "postgres"
+        ):
+            dataset_profile.rowCount = self.dataset.engine.execute(
+                sa.text(
+                    f"SELECT reltuples AS estimate FROM pg_class WHERE relname='{self.dataset_name}'"
+                )
+            )
         else:
             dataset_profile.rowCount = self.dataset.get_row_count()
 

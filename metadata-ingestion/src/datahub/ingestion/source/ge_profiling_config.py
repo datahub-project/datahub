@@ -116,8 +116,7 @@ class GEProfilingConfig(ConfigModel):
     )
 
     profile_table_row_estimate: bool = Field(
-        default=False,
-        description="Whether to get only row count estimates"
+        default=False, description="Whether to get only row count estimates"
     )
 
     # The default of (5 * cpu_count) is adopted from the default max_workers
