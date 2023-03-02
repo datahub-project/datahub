@@ -25,6 +25,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -236,6 +237,7 @@ class TableauConfig(
         description="[deprecated] Use project_pattern instead. List of tableau "
         "projects ",
     )
+    _deprecate_projects = pydantic_field_deprecated("projects")
     # Tableau project pattern
     project_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -319,7 +321,7 @@ class TableauConfig(
         description="Whether to extract entire project hierarchy for nested projects.",
     )
 
-    # pre = True because we want to take some decision before pydyantic initialize the configuration to default values
+    # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         projects = values.get("projects")
