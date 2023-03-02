@@ -13,6 +13,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -50,7 +51,7 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
-class IcebergSourceConfig(StatefulIngestionConfigBase):
+class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Override the stateful_ingestion config param with the Iceberg custom stateful ingestion config in the IcebergSourceConfig
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Iceberg Stateful Ingestion Config."
