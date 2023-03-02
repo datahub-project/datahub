@@ -72,35 +72,6 @@ class QuickstartVersionMappingConfig(BaseModel):
         save_quickstart_config(config)
         return config
 
-    def _parse_version(self, version: str) -> Tuple[int, int, int, int]:
-        """
-        Parses a version string into a tuple of integers.
-        :param version: The version string to parse.
-        :return: A tuple of integers representing the version.
-        """
-        version = re.sub(r"v", "", version)
-        parsed_version = tuple(map(int, version.split(".")))
-        # pad with zeros if necessary
-        if len(parsed_version) == 2:
-            parsed_version = parsed_version + (0, 0)
-        elif len(parsed_version) == 3:
-            parsed_version = parsed_version + (0,)
-        return parsed_version
-
-    def _compare_versions(
-        self, version1: Tuple[int, int, int, int], version2: Tuple[int, int, int, int]
-    ) -> bool:
-        """
-        Compares two versions.
-        :return: True if version1 is greater than version2, False otherwise.
-        """
-        for i in range(4):
-            if version1[i] > version2[i]:
-                return True
-            elif version1[i] < version2[i]:
-                return False
-        return False
-
     def get_quickstart_execution_plan(
         self, requested_version: Optional[str]
     ) -> QuickstartExecutionPlan:
