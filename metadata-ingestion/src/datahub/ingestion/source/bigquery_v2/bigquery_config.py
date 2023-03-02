@@ -55,7 +55,12 @@ class BigQueryV2Config(
 
     capture_table_label_as_tag: bool = Field(
         default=False,
-        description="Capture BigQuery table labels as tag",
+        description="Capture BigQuery table labels as DataHub tag",
+    )
+
+    capture_dataset_label_as_tag: bool = Field(
+        default=False,
+        description="Capture BigQuery dataset labels as DataHub tag",
     )
 
     dataset_pattern: AllowDenyPattern = Field(
