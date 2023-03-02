@@ -13,7 +13,7 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../graphql/search.generated';
-import { EntityType } from '../../types.generated';
+import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -151,7 +151,7 @@ export const HomePageHeader = () => {
         }
     }, [suggestionsData]);
 
-    const onSearch = (query: string, type?: EntityType) => {
+    const onSearch = (query: string, type?: EntityType, filters?: FacetFilterInput[]) => {
         if (!query || query.trim().length === 0) {
             return;
         }
@@ -164,6 +164,7 @@ export const HomePageHeader = () => {
             type,
             query,
             history,
+            filters,
         });
     };
 
@@ -258,6 +259,7 @@ export const HomePageHeader = () => {
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
+                        showQuickFilters
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>

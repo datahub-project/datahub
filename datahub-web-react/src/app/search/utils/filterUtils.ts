@@ -1,4 +1,4 @@
-import { FacetFilterInput, AndFilterInput } from '../../../types.generated';
+import { FacetFilterInput, AndFilterInput, QuickFilter } from '../../../types.generated';
 import { FilterSet } from '../../entity/shared/components/styled/search/types';
 import { UnionType } from './constants';
 
@@ -162,3 +162,15 @@ export const mergeFilterSets = (filterSet1: FilterSet, filterSet2: FilterSet): A
     }
     return [];
 };
+
+/**
+ * Generates a list of a singular facet filter with the selected quick filter.
+ * If no selected quick filter, return an empty list
+ */
+export function getFiltersWithQuickFilter(selectedQuickFilter: QuickFilter | null) {
+    const filters: FacetFilterInput[] = [];
+    if (selectedQuickFilter) {
+        filters.push({ field: selectedQuickFilter.field, values: [selectedQuickFilter.value] });
+    }
+    return filters;
+}
