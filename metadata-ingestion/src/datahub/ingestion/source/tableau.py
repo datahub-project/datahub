@@ -319,11 +319,12 @@ class TableauConfig(
         description="Whether to extract entire project hierarchy for nested projects.",
     )
 
-    @root_validator(pre=False)
+    # pre = True because we want to take some decision before pydyantic initialize the configuration to default values
+    @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         projects = values.get("projects")
         project_pattern = values.get("project_pattern")
-        if project_pattern == AllowDenyPattern.allow_all() and projects:
+        if project_pattern is None and projects:
             logger.warning(
                 "project_pattern is not set but projects is set. projects is deprecated, please use "
                 "project_pattern instead."
@@ -333,12 +334,7 @@ class TableauConfig(
                 allow=[f"^{prj}$" for prj in projects]
             )
         elif project_pattern != AllowDenyPattern.allow_all() and projects:
-            logger.warning(
-                "projects will be ignored in favour of project_pattern. projects is deprecated, please use "
-                "project_pattern only."
-            )
-
-        values.pop("projects")
+            raise ValueError("projects is deprecated. Please use project_pattern only.")
 
         return values
 
@@ -1495,7 +1491,9 @@ class TableauSource(StatefulIngestionSourceBase):
             ),
         )
 
-        if is_embedded_ds and workbook is not None:
+        if (
+            is_embedded_ds and workbook is not None
+        ):  # It is embedded then parent is container is workbook
             workunits = add_entity_to_container(
                 self.gen_workbook_key(workbook),
                 tableau_constant.DATASET,
@@ -1507,7 +1505,7 @@ class TableauSource(StatefulIngestionSourceBase):
         elif (
             datasource.get(tableau_constant.LUID)
             and datasource[tableau_constant.LUID] in self.datasource_project_map.keys()
-        ):
+        ):  # It is published datasource and hence parent container is project
             workunits = add_entity_to_container(
                 self.gen_project_key(
                     self.datasource_project_map[datasource[tableau_constant.LUID]]

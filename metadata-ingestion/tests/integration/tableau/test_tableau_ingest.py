@@ -312,6 +312,7 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
     golden_file_name: str = "tableau_nested_project_mces_golden.json"
 
     new_config = config_source_default.copy()
+    del new_config["projects"]
     new_config["project_pattern"] = {"allow": ["^default$", "^Project 2$", "^Samples$"]}
     new_config["extract_project_hierarchy"] = True
 
@@ -332,6 +333,68 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
         pipeline_config=new_config,
         pipeline_name="test_project_hierarchy",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_extract_all_project_mces.json"
+    golden_file_name: str = "tableau_extract_all_project_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config[
+        "projects"
+    ]  # in absence of projects the ingestion should extract all projects
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+    )
+
+
+def test_value_error_projects_and_project_pattern(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
+    # Ingestion should raise ValueError
+    output_file_name: str = "tableau_project_pattern_precedence_mces.json"
+    golden_file_name: str = "tableau_project_pattern_precedence_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["projects"] = ["default"]
+    new_config["project_pattern"] = {"allow": ["^Samples$"]}
+
+    try:
+        tableau_ingest_common(
+            pytestconfig,
+            tmp_path,
+            [
+                read_response(pytestconfig, "workbooksConnection_all.json"),
+                read_response(pytestconfig, "sheetsConnection_all.json"),
+                read_response(pytestconfig, "dashboardsConnection_all.json"),
+                read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+                read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+                read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            ],
+            golden_file_name,
+            output_file_name,
+            mock_datahub_graph,
+            pipeline_config=new_config,
+        )
+    except Exception as e:
+        assert "projects is deprecated. Please use project_pattern only" in str(e)
 
 
 @freeze_time(FROZEN_TIME)
