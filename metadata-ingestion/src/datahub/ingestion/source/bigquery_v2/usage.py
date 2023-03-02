@@ -203,7 +203,7 @@ class BigQueryUsageExtractor:
                             yield operational_wu
                             self.report.num_operational_stats_workunits_emitted += 1
                     if event.read_event:
-                        aggregated_info = self._aggregate_enriched_read_events(
+                        self._aggregate_enriched_read_events(
                             aggregated_info, event, tables
                         )
                         num_aggregated += 1
@@ -218,10 +218,6 @@ class BigQueryUsageExtractor:
                     f"Number of buckets created = {len(aggregated_info)}. Per-bucket details:{bucket_level_stats}"
                 )
 
-                self.report.usage_extraction_sec[project_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
-
                 yield from self.get_workunits(aggregated_info)
             except Exception as e:
                 self.report.usage_failed_extraction.append(project_id)
@@ -229,6 +225,10 @@ class BigQueryUsageExtractor:
                 logger.error(
                     f"Error getting usage for project {project_id} due to error {e}, trace: {trace}"
                 )
+
+            self.report.usage_extraction_sec[project_id] = round(
+                timer.elapsed_seconds(), 2
+            )
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
         self, client: BigQueryClient
@@ -733,9 +733,9 @@ class BigQueryUsageExtractor:
         datasets: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]],
         event: AuditEvent,
         tables: Dict[str, List[str]],
-    ) -> Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]:
+    ) -> None:
         if not event.read_event:
-            return datasets
+            return
 
         floored_ts = get_time_bucket(
             event.read_event.timestamp, self.config.bucket_duration
@@ -749,7 +749,7 @@ class BigQueryUsageExtractor:
                 not in tables[resource.table_identifier.dataset]
             ):
                 logger.debug(f"Skipping non existing {resource} from usage")
-                return datasets
+                return
         except Exception as e:
             self.report.report_warning(
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
@@ -757,19 +757,18 @@ class BigQueryUsageExtractor:
             logger.warning(
                 f"Failed to process event {str(event.read_event.resource)} - {e}"
             )
-            return datasets
+            return
 
         if resource.is_temporary_table([self.config.temp_table_dataset_prefix]):
             logger.debug(f"Dropping temporary table {resource}")
             self.report.report_dropped(str(resource))
-            return datasets
+            return
 
         agg_bucket = datasets[floored_ts].setdefault(
             resource,
             AggregatedDataset(
                 bucket_start_time=floored_ts,
                 resource=resource,
-                user_email_pattern=self.config.usage.user_email_pattern,
             ),
         )
 
@@ -777,9 +776,8 @@ class BigQueryUsageExtractor:
             event.read_event.actor_email,
             event.query_event.query if event.query_event else None,
             event.read_event.fieldsRead,
+            user_email_pattern=self.config.usage.user_email_pattern,
         )
-
-        return datasets
 
     def get_workunits(
         self, aggregated_info: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]
