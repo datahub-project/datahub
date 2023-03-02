@@ -1123,7 +1123,9 @@ class TableauSource(StatefulIngestionSourceBase):
                         )
                         else None
                     )
-                    logger.debug(f"Adding datasource {datasource_name}({datasource.get('id')}) to container")
+                    logger.debug(
+                        f"Adding datasource {datasource_name}({datasource.get('id')}) to container"
+                    )
                     workunits = add_entity_to_container(
                         self.gen_workbook_key(datasource[tableau_constant.WORKBOOK]),
                         tableau_constant.DATASET,
@@ -1132,7 +1134,7 @@ class TableauSource(StatefulIngestionSourceBase):
                     for wu in workunits:
                         self.report.report_workunit(wu)
                         yield wu
-                project = self._get_project(datasource)
+                project = self._get_project_browse_path_name(datasource)
 
                 # lineage from custom sql -> datasets/tables #
                 tables = csql.get(tableau_constant.TABLES, [])
@@ -1216,42 +1218,64 @@ class TableauSource(StatefulIngestionSourceBase):
         )
         return schema_metadata
 
-    def _get_project(self, ds):
+    def _get_published_datasource_project_luid(self, ds):
+        if (
+            ds.get(tableau_constant.LUID)
+            and ds[tableau_constant.LUID] in self.datasource_project_map.keys()
+            and self.datasource_project_map[ds[tableau_constant.LUID]]
+            in self.tableau_project_registry
+        ):
+            return self.datasource_project_map[ds[tableau_constant.LUID]]
+
+        return None
+
+    def _get_embedded_datasource_project_luid(self, ds):
+        if (
+            ds.get(tableau_constant.WORKBOOK)
+            and ds.get(tableau_constant.WORKBOOK).get(tableau_constant.PROJECT_LUID)
+            and ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
+            in self.tableau_project_registry
+        ):
+            return ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
+
+        return None
+
+    def _get_datasource_project_luid(self, ds):
+        # Only published and embedded data-sources are supported
+        ds_type: Optional[str] = ds.get(tableau_constant.TYPE_NAME)
+        if ds_type not in (
+            tableau_constant.PUBLISHED_DATA_SOURCE,
+            tableau_constant.EMBEDDED_DATA_SOURCE,
+        ):
+            logger.debug(
+                f"datasource {ds.get(tableau_constant.NAME)} type {ds.get(tableau_constant.TYPE_NAME)} is "
+                f"unsupported"
+            )
+            return None
+
+        func_selector: Any = {
+            tableau_constant.PUBLISHED_DATA_SOURCE: self._get_published_datasource_project_luid,
+            tableau_constant.EMBEDDED_DATA_SOURCE: self._get_embedded_datasource_project_luid,
+        }
+
+        return func_selector[ds_type](ds)
+
+    def _get_project_browse_path_name(self, ds):
         # For PublishedDatasource the GraphQL API doesn't return the projectLuid and hence we need to fetch
         # the projectLuid from datasource_project_map
         # For EmbeddedDatasource the GraphQL API returns the projectLuid in resposne and
         # hence it is available at ds["workbook"][tableau_constant.PROJECT_LUID]
         if self.config.extract_project_hierarchy:
-            if (
-                ds.get(tableau_constant.TYPE_NAME)
-                == tableau_constant.PUBLISHED_DATA_SOURCE
-                and ds.get(tableau_constant.LUID)
-                and ds[tableau_constant.LUID] in self.datasource_project_map.keys()
-                and self.datasource_project_map[ds[tableau_constant.LUID]]
-                in self.tableau_project_registry.keys()
-            ):
-                return self._get_project_browse_path(
-                    self.datasource_project_map[ds[tableau_constant.LUID]]
+            project_luid = self._get_datasource_project_luid(ds)
+            if project_luid is None:
+                datasource_name: str = ds.get(tableau_constant.NAME)
+                logger.warning(
+                    f"Could not load project hierarchy for datasource {datasource_name}. Please check permissions."
                 )
-            elif (
-                ds.get(tableau_constant.TYPE_NAME)
-                == tableau_constant.EMBEDDED_DATA_SOURCE
-                and ds.get(tableau_constant.WORKBOOK)
-                and ds.get(tableau_constant.WORKBOOK).get(tableau_constant.PROJECT_LUID)
-                and ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
-                in self.tableau_project_registry.keys()
-            ):
-                return self._get_project_browse_path(
-                    ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
-                )
+                logger.debug(f"datasource = {ds}")
+                return None
 
-            datasource_name: str = ds.get(tableau_constant.NAME)
-            logger.warning(
-                f"Could not load project hierarchy for datasource {datasource_name}. Please check permissions."
-            )
-            logger.debug(f"datasource = {ds}")
-
-            return None
+            return self._project_luid_to_browse_path_name(project_luid=project_luid)
 
         # default behavior in absence of extract_project_hierarchy
         elif ds.get(
@@ -1261,8 +1285,7 @@ class TableauSource(StatefulIngestionSourceBase):
         ):
             return ds[tableau_constant.WORKBOOK].get(tableau_constant.PROJECT_NAME)
         elif (
-            ds.get(tableau_constant.TYPE_NAME)
-            == tableau_constant.PUBLISHED_DATA_SOURCE
+            ds.get(tableau_constant.TYPE_NAME) == tableau_constant.PUBLISHED_DATA_SOURCE
         ):
             return ds.get(tableau_constant.PROJECT_NAME)
         return None
@@ -1274,7 +1297,7 @@ class TableauSource(StatefulIngestionSourceBase):
         upstream_tables, _ = self.get_upstream_tables(
             tables,
             datasource.get(tableau_constant.NAME),
-            self._get_project(datasource),
+            self._get_project_browse_path_name(datasource),
             is_custom_sql=True,
         )
 
@@ -1355,7 +1378,7 @@ class TableauSource(StatefulIngestionSourceBase):
         if not is_embedded_ds:
             datasource_info = datasource
 
-        browse_path = self._get_project(datasource)
+        browse_path = self._get_project_browse_path_name(datasource)
         logger.debug(
             f"datasource {datasource.get(tableau_constant.NAME)} browse-path {browse_path}"
         )
@@ -1715,7 +1738,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._get_project_browse_path(workbook[tableau_constant.PROJECT_LUID])}"
+                    f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
                     f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
@@ -1768,7 +1791,7 @@ class TableauSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-    def _get_project_browse_path(self, project_luid: str) -> str:
+    def _project_luid_to_browse_path_name(self, project_luid: str) -> str:
         assert project_luid
         project: TableauProject = self.tableau_project_registry[project_luid]
         normalised_path: List[str] = [
@@ -2050,7 +2073,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._get_project_browse_path(workbook[tableau_constant.PROJECT_LUID])}"
+                    f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
                     f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
