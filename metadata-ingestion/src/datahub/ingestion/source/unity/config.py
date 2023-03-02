@@ -4,6 +4,7 @@ import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -12,7 +13,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 
-class UnityCatalogSourceConfig(StatefulIngestionConfigBase):
+class UnityCatalogSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     token: str = pydantic.Field(description="Databricks personal access token")
     workspace_url: str = pydantic.Field(description="Databricks workspace url")
     workspace_name: Optional[str] = pydantic.Field(
