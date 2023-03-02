@@ -154,7 +154,6 @@ class QuickstartStatus:
         )
 
 
-
 def check_docker_quickstart() -> QuickstartStatus:
     container_statuses: List[DockerContainerStatus] = []
     with get_docker_client() as client:
@@ -166,7 +165,9 @@ def check_docker_quickstart() -> QuickstartStatus:
             return QuickstartStatus([])
 
         # load the expected containers from the docker-compose file
-        config_file = containers[0].labels.get("com.docker.compose.project.config_files")
+        config_file = containers[0].labels.get(
+            "com.docker.compose.project.config_files"
+        )
         all_containers = []
         with open(config_file, "r") as config_file:
             all_containers = yaml.safe_load(config_file).get("services", {}).keys()

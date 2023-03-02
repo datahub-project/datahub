@@ -1,8 +1,7 @@
-
 import json
 from dataclasses import dataclass
 from pydantic import BaseModel, PrivateAttr
-from typing import Any, Dict, List, Optional, Tuple 
+from typing import Any, Dict, List, Optional, Tuple
 import click
 import yaml
 import requests
@@ -12,14 +11,17 @@ import re
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
 
+
 class QuickstartVersionMap(BaseModel):
     composefile_git_ref: str
     docker_tag: str
+
 
 class QuickstartConstraints(BaseModel):
     valid_until_git_ref: str
     required_containers: List[str]
     ensure_exit_success: List[str]
+
 
 class QuickstartExecutionPlan(BaseModel):
     docker_tag: str
@@ -35,7 +37,9 @@ class QuickstartVersionMappingConfig(BaseModel):
         Fetches the latest version from github.
         :return: The latest version.
         """
-        response = requests.get("https://api.github.com/repos/datahub-project/datahub/releases/latest")
+        response = requests.get(
+            "https://api.github.com/repos/datahub-project/datahub/releases/latest"
+        )
         response.raise_for_status()
         return json.loads(response.text)["tag_name"]
 
@@ -61,7 +65,9 @@ class QuickstartVersionMappingConfig(BaseModel):
                     composefile_git_ref=release, docker_tag=release
                 )
             except:
-                click.echo("Couldn't connect to github. --version stable will not work.")
+                click.echo(
+                    "Couldn't connect to github. --version stable will not work."
+                )
         save_quickstart_config(config)
         return config
 
@@ -80,7 +86,9 @@ class QuickstartVersionMappingConfig(BaseModel):
             parsed_version = parsed_version + (0,)
         return parsed_version
 
-    def _compare_versions(self, version1: Tuple[int, int, int, int], version2: Tuple[int, int, int, int]) -> bool:
+    def _compare_versions(
+        self, version1: Tuple[int, int, int, int], version2: Tuple[int, int, int, int]
+    ) -> bool:
         """
         Compares two versions.
         :return: True if version1 is greater than version2, False otherwise.
@@ -92,7 +100,9 @@ class QuickstartVersionMappingConfig(BaseModel):
                 return False
         return False
 
-    def get_quickstart_execution_plan(self, requested_version: Optional[str]) -> QuickstartExecutionPlan:
+    def get_quickstart_execution_plan(
+        self, requested_version: Optional[str]
+    ) -> QuickstartExecutionPlan:
         """
         From the requested version and stable flag, returns the execution plan for the quickstart.
         Including the docker tag, composefile git ref, required containers, and checks to run.
@@ -100,13 +110,21 @@ class QuickstartVersionMappingConfig(BaseModel):
         """
         if requested_version is None:
             requested_version = "default"
-        version_map = self.quickstart_version_map.get(requested_version, QuickstartVersionMap(composefile_git_ref=requested_version, docker_tag=requested_version))
+        version_map = self.quickstart_version_map.get(
+            requested_version,
+            QuickstartVersionMap(
+                composefile_git_ref=requested_version, docker_tag=requested_version
+            ),
+        )
         return QuickstartExecutionPlan(
             docker_tag=version_map.docker_tag,
             composefile_git_ref=version_map.composefile_git_ref,
         )
 
-def save_quickstart_config(config: QuickstartVersionMappingConfig, path: str = DEFAULT_LOCAL_CONFIG_PATH):
+
+def save_quickstart_config(
+    config: QuickstartVersionMappingConfig, path: str = DEFAULT_LOCAL_CONFIG_PATH
+):
     # create directory if it doesn't exist
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)

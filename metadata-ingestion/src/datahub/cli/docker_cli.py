@@ -32,7 +32,10 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
-from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig, QuickstartExecutionPlan
+from datahub.cli.quickstart_versioning import (
+    QuickstartVersionMappingConfig,
+    QuickstartExecutionPlan,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -643,7 +646,9 @@ def quickstart(
 
     quickstart_arch = detect_quickstart_arch(arch)
     quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
-    quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(version)
+    quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(
+        version
+    )
 
     # Run pre-flight checks.
     with get_docker_client() as client:
@@ -801,8 +806,10 @@ def get_docker_compose_base_url(version_tag: Optional[str]) -> str:
     # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
     # the setup job labels
     elif version_tag < "v0.10.1":
-        version_tag = "quickstart-stability" #"v0.10.1" 
-    
+        # The merge commit where the labels were added
+        # https://github.com/datahub-project/datahub/pull/7473
+        version_tag = "e9f060dae399ffc98dfbb121d77b3cbefef88417"
+
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
 
 
@@ -821,6 +828,7 @@ def get_github_file_url(neo4j, is_m1, release_version_tag: Optional[str] = "mast
             else f"{base_url}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
         )
     return github_file
+
 
 def download_compose_files(
     quickstart_compose_file_name,
