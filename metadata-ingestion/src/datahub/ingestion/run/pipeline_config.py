@@ -8,6 +8,7 @@ from pydantic import Field, root_validator, validator
 from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
@@ -101,13 +102,31 @@ class PipelineConfig(ConfigModel):
             PipelineConfig._resolve_vars_oveerride_sink(default_sink_config, values)
         elif sink.get("type") == "datahub-rest" and DATAHUB_CLI_SINK_OVERRIDE:
             PipelineConfig._add_default_if_present(
+                default_sink_config,
+                sink,
+                "timeout_sec",
+                DataHubRestEmitter.DEFAULT_CONNECT_TIMEOUT_SEC,
+            )
+            PipelineConfig._add_default_if_present(
+                default_sink_config,
+                sink,
+                "retry_max_times",
+                DataHubRestEmitter.DEFAULT_RETRY_MAX_TIMES,
+            )
+            PipelineConfig._add_default_if_present(
+                default_sink_config,
+                sink,
+                "retry_status_codes",
+                DataHubRestEmitter.DEFAULT_RETRY_STATUS_CODES,
+            )
+            PipelineConfig._add_default_if_present(
+                default_sink_config, sink, "extra_headers", None
+            )
+            PipelineConfig._add_default_if_present(
                 default_sink_config, sink, "max_threads", 1
             )
             PipelineConfig._add_default_if_present(
-                default_sink_config, sink, "timeout_sec", 30
-            )
-            PipelineConfig._add_default_if_present(
-                default_sink_config, sink, "retry_max_times", 1
+                default_sink_config, sink, "disable_ssl_verification", False
             )
             PipelineConfig._resolve_vars_oveerride_sink(default_sink_config, values)
 

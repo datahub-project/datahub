@@ -99,6 +99,8 @@ class TestPipeline(object):
             "max_threads": 3,
             "timeout_sec": 30,
             "retry_max_times": 1,
+            "disable_ssl_verification": False,
+            "retry_status_codes": [429, 502, 503, 504],
         }
 
     @freeze_time(FROZEN_TIME)
