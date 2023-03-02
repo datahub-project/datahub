@@ -30,7 +30,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -99,9 +98,10 @@ public class Neo4jGraphService implements GraphService {
     String startUrn = sourceUrn;
     String endType = destinationType;
     String startType = sourceType;
-    String realType = "r_" + edge.getRelationshipType();
+    // Extra relationship typename start with r_ for direct-outgoing-downstream/indirect-incoming-upstream relationships
+    String reverseRelationshipType = "r_" + edge.getRelationshipType();
 
-    if (!getRealDirection(sourceType, edge.getRelationshipType())) {
+    if (reverseSourceDest(sourceType, edge.getRelationshipType())) {
       endUrn = sourceUrn;
       endType = sourceType;
       startUrn = destinationUrn;
@@ -120,7 +120,7 @@ public class Neo4jGraphService implements GraphService {
     String statement = String.format(mergeRelationshipTemplate, sourceType, sourceUrn, destinationType, destinationUrn,
         edge.getRelationshipType());
 
-    String statementR = String.format(mergeRelationshipTemplate, startType, startUrn, endType, endUrn, realType);
+    String statementR = String.format(mergeRelationshipTemplate, startType, startUrn, endType, endUrn, reverseRelationshipType);
 
     // Add/Update relationship properties
     String setCreatedOnTemplate;
@@ -196,9 +196,9 @@ public class Neo4jGraphService implements GraphService {
     String startUrn = sourceUrn;
     String endType = destinationType;
     String startType = sourceType;
-    String realType = "r_" + edge.getRelationshipType();
+    String reverseRelationshipType = "r_" + edge.getRelationshipType();
 
-    if (!getRealDirection(sourceType, edge.getRelationshipType())) {
+    if (reverseSourceDest(sourceType, edge.getRelationshipType())) {
       endUrn = sourceUrn;
       endType = sourceType;
       startUrn = destinationUrn;
@@ -212,7 +212,7 @@ public class Neo4jGraphService implements GraphService {
     final String statement =
         String.format(mergeRelationshipTemplate, sourceType, sourceUrn, edge.getRelationshipType(), destinationType,
             destinationUrn);
-    final String statementR = String.format(mergeRelationshipTemplate, startType, startUrn, realType, endType, endUrn);
+    final String statementR = String.format(mergeRelationshipTemplate, startType, startUrn, reverseRelationshipType, endType, endUrn);
 
     statements.add(buildStatement(statement, new HashMap<>()));
     statements.add(buildStatement(statementR, new HashMap<>()));
@@ -258,17 +258,10 @@ public class Neo4jGraphService implements GraphService {
       try {
         // Generate path from r in neo4jResult
         List<Urn> pathFromRelationships =
-            item.values().get(1).asList(Collections.singletonList(new ArrayList<Node>())).stream().map(t -> {
-              try {
-                return Urn.createFromString(
-                    // Get real upstream node/downstream node by direction
-                    ((InternalRelationship) t).get(direction == LineageDirection.UPSTREAM ? "startUrn" : "endUrn")
-                        .asString());
-              } catch (URISyntaxException ignored) {
-                log.warn(String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
-                return null;
-              }
-            }).collect(Collectors.toList());
+            item.values().get(1).asList(Collections.singletonList(new ArrayList<Node>())).stream().map(t -> createFromString(
+                  // Get real upstream node/downstream node by direction
+                  ((InternalRelationship) t).get(direction == LineageDirection.UPSTREAM ? "startUrn" : "endUrn")
+                      .asString())).collect(Collectors.toList());
         if (direction == LineageDirection.UPSTREAM) {
           // For ui to show path correctly, reverse path for UPSTREAM direction
           Collections.reverse(pathFromRelationships);
@@ -299,67 +292,25 @@ public class Neo4jGraphService implements GraphService {
 
   private String generateLineageStatement(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
       GraphFilters graphFilters, int maxHops, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
-
+    String statement;
     final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
 
     final String multiHopMatchTemplateIndirect = "MATCH p = shortestPath((a {urn: '%s'})<-[r*1..%d]-(b)) ";
     final String multiHopMatchTemplateDirect = "MATCH p = shortestPath((a {urn: '%s'})-[r*1..%d]->(b)) ";
-    final String whereTemplate = "WHERE (b:%s) AND b.urn <> '%s' ";
-    final String sourceUiCheck = String.format("(EXISTS(rt.%s) AND rt.%s = '%s') ", SOURCE, SOURCE, UI);
-    final String timePropCheck = "(NOT EXISTS(rt.createdOn) AND NOT EXISTS(rt.updatedOn))";
     // directionFilterTemplate should apply to all condition.
     final String multiHopMatchTemplate =
         direction == LineageDirection.UPSTREAM ? multiHopMatchTemplateIndirect : multiHopMatchTemplateDirect;
-    final String returnTemplate = "RETURN a,r,b";
-
-    String statement = "";
-    String withTimeTemplate;
-    String timeFilterConditionTemplate;
+    final String fullQueryTemplate = generateFullQueryTemplate(multiHopMatchTemplate, startTimeMillis, endTimeMillis);
 
     if (startTimeMillis != null && endTimeMillis != null) {
-      withTimeTemplate = "WITH %d as startTimeMillis, %d as endTimeMillis ";
-      timeFilterConditionTemplate =
-          "AND ALL(rt IN relationships(p) WHERE " + sourceUiCheck + "OR " + timePropCheck + " OR "
-              + "((rt.createdOn >= startTimeMillis AND rt.createdOn <= endTimeMillis) OR "
-              + "(rt.updatedOn >= startTimeMillis AND rt.updatedOn <= endTimeMillis))) "
-              + "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
-
-      final String fullQueryTemplate =
-          withTimeTemplate + multiHopMatchTemplate + whereTemplate + timeFilterConditionTemplate + returnTemplate;
       statement =
           String.format(fullQueryTemplate, startTimeMillis, endTimeMillis, entityUrn, maxHops, allowedEntityTypes,
               entityUrn);
-    }
-
-    if (startTimeMillis != null && endTimeMillis == null) {
-      withTimeTemplate = "WITH %d as startTimeMillis ";
-      timeFilterConditionTemplate =
-          "AND ALL(rt IN relationships(p) WHERE " + sourceUiCheck + "OR " + timePropCheck + " OR "
-              + "(rt.createdOn >= startTimeMillis OR rt.updatedOn >= startTimeMillis)) "
-              + "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
-
-      final String fullQueryTemplate =
-          withTimeTemplate + multiHopMatchTemplate + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+    } else if (startTimeMillis != null) {
       statement = String.format(fullQueryTemplate, startTimeMillis, entityUrn, maxHops, allowedEntityTypes, entityUrn);
-    }
-
-    if (startTimeMillis == null && endTimeMillis != null) {
-      withTimeTemplate = "WITH %d as endTimeMillis ";
-      timeFilterConditionTemplate =
-          "AND ALL(rt IN relationships(p) WHERE " + sourceUiCheck + "OR " + timePropCheck + " OR "
-              + "(rt.createdOn <= endTimeMillis OR rt.updatedOn <= endTimeMillis)) "
-              + "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
-
-      final String fullQueryTemplate =
-          withTimeTemplate + multiHopMatchTemplate + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+    } else if (endTimeMillis != null) {
       statement = String.format(fullQueryTemplate, endTimeMillis, entityUrn, maxHops, allowedEntityTypes, entityUrn);
-    }
-
-    if (startTimeMillis == null && endTimeMillis == null) {
-      withTimeTemplate = "";
-      timeFilterConditionTemplate = "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
-      final String fullQueryTemplate =
-          withTimeTemplate + multiHopMatchTemplate + whereTemplate + timeFilterConditionTemplate + returnTemplate;
+    } else {
       statement = String.format(fullQueryTemplate, entityUrn, maxHops, allowedEntityTypes, entityUrn);
     }
 
@@ -398,7 +349,7 @@ public class Neo4jGraphService implements GraphService {
     final String returnCount = "RETURN count(*)"; // For getting the total results.
 
     String relationshipTypeFilter = "";
-    if (relationshipTypes.size() > 0) {
+    if (!relationshipTypes.isEmpty()) {
       relationshipTypeFilter = ":" + StringUtils.join(relationshipTypes, "|");
     }
 
@@ -428,7 +379,7 @@ public class Neo4jGraphService implements GraphService {
 
   private String computeEntityTypeWhereClause(@Nonnull final List<String> sourceTypes,
       @Nonnull final List<String> destinationTypes) {
-    String whereClause = "";
+    String whereClause = " WHERE left(type(r), 2)<>'r_' ";
 
     Boolean hasSourceTypes = sourceTypes != null && !sourceTypes.isEmpty();
     Boolean hasDestTypes = destinationTypes != null && !destinationTypes.isEmpty();
@@ -460,6 +411,20 @@ public class Neo4jGraphService implements GraphService {
     runQuery(buildStatement(statement, params)).consume();
   }
 
+  /**
+   * Remove relationships and reverse relationships by check incoming/outgoing relationships.
+   * for example:
+   * a-[consumes]->b, a<-[r_consumes]-b
+   * a-[produces]->b, a-[r_produces]->b
+   * should not remove a<-[r_downstreamOf]-b when relationshipDirection equal incoming.
+   * should remove a-[consumes]->b, a<-[r_consumes]-b, a-[produces]->b, a-[r_produces]->b
+   * when relationshipDirection equal outgoing.
+   *
+   * @param urn Entity relationship type
+   * @param relationshipTypes Entity relationship type
+   * @param relationshipFilter Query relationship filter
+   *
+   */
   public void removeEdgesFromNode(
       @Nonnull final Urn urn,
       @Nonnull final List<String> relationshipTypes,
@@ -473,87 +438,47 @@ public class Neo4jGraphService implements GraphService {
     // also delete any relationship going to or from it
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
 
-    String deleteTemplateIndirect = "MATCH (src {urn: $urn})<-[r%s]-(dest) DELETE r";
-    String deleteTemplateDirect = "MATCH (src {urn: $urn})-[r%s]->(dest) DELETE r";
-
-    if (relationshipDirection != RelationshipDirection.INCOMING
-        && relationshipDirection != RelationshipDirection.OUTGOING) {
-      String matchTemplate = "MATCH (src {urn: $urn})-[r%s]-(dest) DELETE r";
-      String relationshipTypeFilter = "";
-      if (relationshipTypes.size() > 0) {
-        relationshipTypeFilter =
-            ":" + StringUtils.join(relationshipTypes, "|") + "|r_" + StringUtils.join(relationshipTypes, "|r_");
-      }
-      runRemoveEdgesFromNodeQuery(matchTemplate, relationshipTypeFilter, urn);
-    } else if (relationshipTypes.size() > 0) {
-      if (relationshipDirection == RelationshipDirection.INCOMING) {
-        String matchTemplate = "MATCH (src {urn: '%s'})<-[r]-(dest) RETURN DISTINCT type(r)";
-        runMatchRelationshipTypesRemove(matchTemplate, deleteTemplateIndirect, deleteTemplateDirect, urn,
-            relationshipTypes);
-      } else {
-        String matchTemplate = "MATCH (src {urn: '%s'})-[r]->(dest) RETURN DISTINCT type(r)";
-        runMatchRelationshipTypesRemove(matchTemplate, deleteTemplateDirect, deleteTemplateIndirect, urn,
-            relationshipTypes);
-      }
-    } else {
-      if (relationshipDirection == RelationshipDirection.INCOMING) {
-        String matchTemplate = "MATCH (src {urn: '%s'})<-[r]-(dest) RETURN DISTINCT type(r)";
-        runMatchRelationshipTypesRemove(matchTemplate, deleteTemplateIndirect, deleteTemplateDirect, urn, null);
-      } else {
-        String matchTemplate = "MATCH (src {urn: '%s'})-[r]->(dest) RETURN DISTINCT type(r)";
-        runMatchRelationshipTypesRemove(matchTemplate, deleteTemplateDirect, deleteTemplateIndirect, urn, null);
-      }
-    }
-  }
-
-  private void runMatchRelationshipTypesRemove(@Nonnull String matchTemplate, @Nonnull String finalDeleteTemplate,
-      @Nonnull String tmpDeleteTemplate, @Nonnull Urn urn, @Nullable List<String> relationshipTypes) {
-    final String statement = String.format(matchTemplate, urn);
-    List<Record> neo4jResult =
-        statement != null ? runQuery(buildStatement(statement, new HashMap<>())).list() : new ArrayList<>();
-    Set<String> distinctRelationTypes = new HashSet<>();
-    Set<String> relationshipTypesRemove = new HashSet<>();
-    for (Record relationship : neo4jResult) {
-      distinctRelationTypes.add(relationship.values().get(0).asString());
+    String matchTemplate = "MATCH (src {urn: $urn})-[r%s]-(dest) RETURN type(r), dest, 2";
+    if (relationshipDirection == RelationshipDirection.INCOMING) {
+      matchTemplate = "MATCH (src {urn: $urn})<-[r%s]-(dest) RETURN type(r), dest, 0";
+    } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+      matchTemplate = "MATCH (src {urn: $urn})-[r%s]->(dest) RETURN type(r), dest, 1";
     }
 
-    if (relationshipTypes != null) {
-      for (String relationshipType : relationshipTypes) {
-        if (distinctRelationTypes.contains(relationshipType) && distinctRelationTypes.contains(
-            "r_" + relationshipType)) {
-          relationshipTypesRemove.add(relationshipType);
-        } else if (distinctRelationTypes.contains(relationshipType) && !distinctRelationTypes.contains(
-            "r_" + relationshipType)) {
-          runRemoveEdgesFromNodeQuery(tmpDeleteTemplate, ":r_" + relationshipType, urn);
-          runRemoveEdgesFromNodeQuery(finalDeleteTemplate, ":" + relationshipType, urn);
-        }
-      }
-    } else {
-      for (String relationship : distinctRelationTypes) {
-        if (!relationship.startsWith("r_") && distinctRelationTypes.contains("r_" + relationship)) {
-          relationshipTypesRemove.add(relationship);
-        } else if (!relationship.startsWith("r_") && !distinctRelationTypes.contains("r_" + relationship)) {
-          runRemoveEdgesFromNodeQuery(tmpDeleteTemplate, ":r_" + relationship, urn);
-          runRemoveEdgesFromNodeQuery(finalDeleteTemplate, ":" + relationship, urn);
-        }
-      }
-    }
     String relationshipTypeFilter = "";
-    if (relationshipTypesRemove.size() > 0) {
-      relationshipTypeFilter =
-          ":" + StringUtils.join(relationshipTypesRemove, "|") + "|r_" + StringUtils.join(relationshipTypesRemove,
-              "|r_");
+    if (!relationshipTypes.isEmpty()) {
+      relationshipTypeFilter = ":" + StringUtils.join(relationshipTypes, "|");
     }
-    runRemoveEdgesFromNodeQuery(finalDeleteTemplate, relationshipTypeFilter, urn);
-  }
-
-  private void runRemoveEdgesFromNodeQuery(@Nonnull String matchTemplate, @Nonnull String relationshipTypeFilter,
-      @Nonnull Urn urn) {
     final String statement = String.format(matchTemplate, relationshipTypeFilter);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
-    runQuery(buildStatement(statement, params)).consume();
+    List<Record> neo4jResult =
+        statement != null ? runQuery(buildStatement(statement, params)).list() : new ArrayList<>();
+    if (!neo4jResult.isEmpty()) {
+      String removeMode = neo4jResult.get(0).values().get(2).toString();
+      if (removeMode.equals("2")) {
+        final String matchDeleteTemplate = "MATCH (src {urn: $urn})-[r%s]-(dest) DELETE r";
+        relationshipTypeFilter = "";
+        if (!relationshipTypes.isEmpty()) {
+          relationshipTypeFilter =
+              ":" + StringUtils.join(relationshipTypes, "|") + "|r_" + StringUtils.join(relationshipTypes, "|r_");
+        }
+        final String statementNoDirection = String.format(matchDeleteTemplate, relationshipTypeFilter);
+        runQuery(buildStatement(statementNoDirection, params)).consume();
+      } else {
+        for (Record typeDest : neo4jResult) {
+          String relationshipType = typeDest.values().get(0).asString();
+          String destUrnString = typeDest.values().get(1).asNode().get("urn").asString();
+          Urn destUrn = createFromString(destUrnString);
+          if (removeMode.equals("0")) {
+            removeEdge(new Edge(destUrn, urn, relationshipType, null, null, null, null, null));
+          } else {
+            removeEdge(new Edge(urn, destUrn, relationshipType, null, null, null, null, null));
+          }
+        }
+      }
+    }
   }
 
   public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
@@ -748,7 +673,26 @@ public class Neo4jGraphService implements GraphService {
     return true;
   }
 
-  private boolean getRealDirection(@Nonnull String sourceType, @Nonnull String relationshipType) {
+  /**
+   * Reverse incoming/outgoing direction check by compare sourceType and relationshipType to LineageSpec.
+   * for example:
+   * sourceType: dataset, relationshipType: downstreamOf.
+   * downstreamOf relationship type and outgoing relationship direction for dataset from LineageSpec,
+   * is inside upstreamEdges.
+   * source(dataset) -[downstreamOf]-> dest means upstreamEdge for source(dataset)
+   * dest -[r_downstreamOf]-> source(dataset), need reverse source and dest
+   * *
+   * sourceType: datajob, relationshipType: produces.
+   * produces relationship type and outgoing relationship direction for datajob from LineageSpec,
+   * is inside downstreamEdges.
+   * source(datajob) -[produces]-> dest means downstreamEdge for source(datajob)
+   * source(dataset) -[r_produces]-> dest, do not need to reverse source and dest
+   *
+   * @param sourceType Entity type
+   * @param relationshipType Entity relationship type
+   *
+   */
+  private boolean reverseSourceDest(@Nonnull String sourceType, @Nonnull String relationshipType) {
     // Get real direction by check INCOMING/OUTGOING direction and RelationshipType
     LineageRegistry.LineageSpec sourceLineageSpec = getLineageRegistry().getLineageSpec(sourceType);
     if (sourceLineageSpec != null) {
@@ -756,10 +700,59 @@ public class Neo4jGraphService implements GraphService {
           .stream()
           .filter(t -> t.getDirection() == RelationshipDirection.OUTGOING && t.getType().equals(relationshipType))
           .collect(Collectors.toList());
-      if (upstreamCheck.size() > 0 || sourceType.equals("schemaField")) {
-        return false;
+      if (!upstreamCheck.isEmpty() || sourceType.equals("schemaField")) {
+        return true;
       }
     }
-    return true;
+    return false;
+  }
+
+  protected static @Nullable
+  Urn createFromString(@Nonnull String rawUrn) {
+    try {
+      return Urn.createFromString(rawUrn);
+    } catch (URISyntaxException e) {
+      return null;
+    }
+  }
+
+  private String generateFullQueryTemplate(@Nonnull String multiHopMatchTemplate, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
+    final String sourceUiCheck = String.format("(EXISTS(rt.%s) AND rt.%s = '%s') ", SOURCE, SOURCE, UI);
+    final String whereTemplate = "WHERE (b:%s) AND b.urn <> '%s' ";
+    final String returnTemplate = "RETURN a,r,b";
+    String withTimeTemplate = "";
+    String timeFilterConditionTemplate = "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
+
+    if (startTimeMillis != null && endTimeMillis != null) {
+      withTimeTemplate = "WITH %d as startTimeMillis, %d as endTimeMillis ";
+      timeFilterConditionTemplate =
+          "AND ALL(rt IN relationships(p) WHERE " + sourceUiCheck + "OR "
+              + "(NOT EXISTS(rt.createdOn) AND NOT EXISTS(rt.updatedOn)) OR "
+              + "((rt.createdOn >= startTimeMillis AND rt.createdOn <= endTimeMillis) OR "
+              + "(rt.updatedOn >= startTimeMillis AND rt.updatedOn <= endTimeMillis))) "
+              + "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
+    } else if (startTimeMillis != null) {
+      withTimeTemplate = "WITH %d as startTimeMillis ";
+      timeFilterConditionTemplate =
+          "AND ALL(rt IN relationships(p) WHERE " + sourceUiCheck + "OR "
+              + "(NOT EXISTS(rt.createdOn) AND NOT EXISTS(rt.updatedOn)) OR "
+              + "(rt.createdOn >= startTimeMillis OR rt.updatedOn >= startTimeMillis)) "
+              + "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
+    } else if (endTimeMillis != null) {
+      withTimeTemplate = "WITH %d as endTimeMillis ";
+      timeFilterConditionTemplate =
+          "AND ALL(rt IN relationships(p) WHERE " + sourceUiCheck + "OR "
+              + "(NOT EXISTS(rt.createdOn) AND NOT EXISTS(rt.updatedOn)) OR "
+              + "(rt.createdOn <= endTimeMillis OR rt.updatedOn <= endTimeMillis)) "
+              + "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
+    }
+    final StringJoiner fullQueryTemplateJoiner = new StringJoiner(" ");
+    fullQueryTemplateJoiner.add(withTimeTemplate);
+    fullQueryTemplateJoiner.add(multiHopMatchTemplate);
+    fullQueryTemplateJoiner.add(whereTemplate);
+    fullQueryTemplateJoiner.add(timeFilterConditionTemplate);
+    fullQueryTemplateJoiner.add(returnTemplate);
+
+    return fullQueryTemplateJoiner.toString();
   }
 }
