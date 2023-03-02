@@ -134,6 +134,13 @@ class UnityCatalogApiProxy:
         self._unity_catalog_api.list_metastores()
         return True
 
+    def assigned_metastore(self) -> Optional[Metastore]:
+        response: dict = self._unity_catalog_api.get_metastore_summary()
+        if response.get("metastore_id") is None:
+            logger.info("Not found assigned metastore")
+            return None
+        return self._create_metastore(response)
+
     def metastores(self) -> Iterable[Metastore]:
         response: dict = self._unity_catalog_api.list_metastores()
         if response.get("metastores") is None:

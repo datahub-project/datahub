@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -32,6 +32,10 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -172,7 +176,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from self.process_metastores()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
+        metastores: Dict[str, Metastore] = {}
+        assigned_metastore = self.unity_catalog_api_proxy.assigned_metastore()
+        if assigned_metastore:
+            metastores[assigned_metastore.metastore_id] = assigned_metastore
         for metastore in self.unity_catalog_api_proxy.metastores():
+            metastores[metastore.metastore_id] = metastore
+
+        for metastore in metastores.values():
             if not self.config.metastore_id_pattern.allowed(metastore.metastore_id):
                 self.report.metastores.dropped(metastore.metastore_id)
                 continue
@@ -340,7 +351,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from gen_containers(
             container_key=schema_container_key,
             name=schema.name,
-            sub_types=["Schema"],
+            sub_types=[DatasetContainerSubTypes.SCHEMA],
             parent_container_key=self.gen_catalog_key(catalog=schema.catalog),
             domain_urn=domain_urn,
             description=schema.comment,
@@ -356,7 +367,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from gen_containers(
             container_key=metastore_container_key,
             name=metastore.name,
-            sub_types=["Metastore"],
+            sub_types=[DatasetContainerSubTypes.DATABRICKS_METASTORE],
             domain_urn=domain_urn,
             description=metastore.comment,
         )
@@ -371,7 +382,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from gen_containers(
             container_key=catalog_container_key,
             name=catalog.name,
-            sub_types=["Catalog"],
+            sub_types=[DatasetContainerSubTypes.PRESTO_CATALOG],
             domain_urn=domain_urn,
             parent_container_key=metastore_container_key,
             description=catalog.comment,
@@ -450,7 +461,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def _create_table_sub_type_aspect(self, table: proxy.Table) -> SubTypesClass:
         return SubTypesClass(
-            typeNames=["View" if table.table_type.lower() == "view" else "Table"]
+            typeNames=[
+                DatasetSubTypes.VIEW
+                if table.table_type.lower() == "view"
+                else DatasetSubTypes.TABLE
+            ]
         )
 
     def _create_view_property_aspect(self, table: proxy.Table) -> ViewProperties:

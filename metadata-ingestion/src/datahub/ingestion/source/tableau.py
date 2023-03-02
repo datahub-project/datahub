@@ -20,7 +20,10 @@ from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel, ConfigurationError
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+    DatasetSourceConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     PlatformKey,
@@ -38,6 +41,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import (
+    BIContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -219,6 +226,7 @@ class TableauConnectionConfig(ConfigModel):
 class TableauConfig(
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
     TableauConnectionConfig,
 ):
     projects: Optional[List[str]] = Field(
@@ -937,7 +945,7 @@ class TableauSource(StatefulIngestionSourceBase):
             yield self.get_metadata_change_proposal(
                 dataset_snapshot.urn,
                 aspect_name="subTypes",
-                aspect=SubTypesClass(typeNames=["view", "Custom SQL"]),
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, "Custom SQL"]),
             )
 
     def get_schema_metadata_for_custom_sql(
@@ -1485,7 +1493,7 @@ class TableauSource(StatefulIngestionSourceBase):
         container_workunits = gen_containers(
             container_key=workbook_container_key,
             name=workbook.get("name", ""),
-            sub_types=["Workbook"],
+            sub_types=[BIContainerSubTypes.TABLEAU_WORKBOOK],
             description=workbook.get("description"),
             owner_urn=owner_urn,
             external_url=workbook_external_url,
@@ -1579,7 +1587,7 @@ class TableauSource(StatefulIngestionSourceBase):
     def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:
         return MetadataWorkUnit(
             id="{PLATFORM}-{ENTITY_URN}-{ASPECT_NAME}".format(
-                PLATFORM=self.config.platform,
+                PLATFORM=self.platform,
                 ENTITY_URN=mcp.entityUrn,
                 ASPECT_NAME=mcp.aspectName,
             ),
