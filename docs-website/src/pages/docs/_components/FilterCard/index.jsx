@@ -15,15 +15,12 @@ import {
   HeartTwoTone,
 } from "@ant-design/icons";
 
-
-
-
 const FilterCard = ({ icon, platformIcon, title, description, to }) => {
   return (
     <div className="col col--3">
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
         {icon}
-        {platformIcon && <img src={useBaseUrl(`/img/logos/platforms/${platformIcon}.svg`)} />}
+        {platformIcon && <img src={useBaseUrl(platformIcon)} />}
         <div>
           <strong>{title}</strong>
           <span>{description}</span>

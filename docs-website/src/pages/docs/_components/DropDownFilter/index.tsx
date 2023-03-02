@@ -8,8 +8,8 @@
 /* eslint-disable jsx-a11y/no-autofocus */
 
 import React, { useEffect, useState, useReducer, useRef } from "react";
-import type { SelectProps } from "antd";
-import { Row, Col, Tag } from "antd";
+import { Row, Col, Checkbox } from "antd";
+import type { CheckboxChangeEvent } from "antd/es/checkbox";
 
 function DropDownFilter({ filterState, setFilterState, filterOptions }) {
   function SingleFilter({
@@ -28,20 +28,23 @@ function DropDownFilter({ filterState, setFilterState, filterOptions }) {
     };
 
     const toArray = [...filterOptions[filter]];
+
     return (
-      <Col>
+      <Col style={{ marginLeft: 10 }}>
         <Row>{filter}</Row>
 
         {toArray.length > 0 &&
           toArray.map((item) => {
             return (
               <Row key={item}>
-                <Tag
-                  color={filterState.includes(item) ? "blue" : "lightgrey"}
-                  onClick={() => toggleFilter(item)}
+                <Checkbox
+                  onChange={(e) => {
+                    toggleFilter(item);
+                  }}
+                  checked={filterState.includes(item)}
                 >
                   {item}
-                </Tag>
+                </Checkbox>
               </Row>
             );
           })}
@@ -54,18 +57,22 @@ function DropDownFilter({ filterState, setFilterState, filterOptions }) {
   width = width + "%";
   return (
     <Row>
-      {keys.map((filter) => {
-        return (
-          <SingleFilter
-            filterState={filterState}
-            setFilterState={setFilterState}
-            filterOptions={filterOptions}
-            filter={filter}
-            width={width}
-            key={filter}
-          />
-        );
-      })}
+      {keys
+        .sort((a, b) => {
+          return filterOptions[a].size - filterOptions[b].size;
+        })
+        .map((filter) => {
+          return (
+            <SingleFilter
+              filterState={filterState}
+              setFilterState={setFilterState}
+              filterOptions={filterOptions}
+              filter={filter}
+              width={width}
+              key={filter}
+            />
+          );
+        })}
     </Row>
   );
 }
