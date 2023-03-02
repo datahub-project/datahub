@@ -22,7 +22,7 @@ SqliteValue = Union[int, float, str, bytes, None]
 _VT = TypeVar("_VT")
 
 
-@dataclass
+@dataclass(eq=False)
 class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """A dictionary that stores its data in a temporary SQLite database.
 
