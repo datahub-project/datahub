@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field, root_validator, validator
 
-from datahub.cli.cli_utils import get_url_and_token
+from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.ingestion.graph.client import DatahubClientConfig
@@ -70,22 +70,46 @@ class PipelineConfig(ConfigModel):
             assert v is not None
             return v
 
+    @staticmethod
+    def _resolve_vars_oveerride_sink(sink_config: Dict, values: Dict[str, Any]):
+        sink_config = config_loader.resolve_env_variables(sink_config)
+        values["sink"] = sink_config
+
+    @staticmethod
+    def _add_default_if_present(
+        new_sink: Dict, old_sink: Dict, key: str, default_val: Any
+    ):
+        new_val = old_sink.get("config", {}).get(key, default_val)
+        if new_val is not None:
+            new_sink["config"][key] = new_val
+
     @root_validator(pre=True)
     def default_sink_is_datahub_rest(cls, values: Dict[str, Any]) -> Any:
-        if "sink" not in values:
-            gms_host, gms_token = get_url_and_token()
-            default_sink_config = {
-                "type": "datahub-rest",
-                "config": {
-                    "server": gms_host,
-                    "token": gms_token,
-                },
-            }
-            # resolve env variables if present
-            default_sink_config = config_loader.resolve_env_variables(
-                default_sink_config
+        DATAHUB_CLI_SINK_OVERRIDE = get_boolean_env_variable(
+            "DATAHUB_CLI_SINK_OVERRIDE", False
+        )
+        sink = values.get("sink")
+        gms_host, gms_token = get_url_and_token()
+        default_sink_config = {
+            "type": "datahub-rest",
+            "config": {
+                "server": gms_host,
+                "token": gms_token,
+            },
+        }
+        if sink is None:
+            PipelineConfig._resolve_vars_oveerride_sink(default_sink_config, values)
+        elif sink.get("type") == "datahub-rest" and DATAHUB_CLI_SINK_OVERRIDE:
+            PipelineConfig._add_default_if_present(
+                default_sink_config, sink, "max_threads", 1
             )
-            values["sink"] = default_sink_config
+            PipelineConfig._add_default_if_present(
+                default_sink_config, sink, "timeout_sec", 30
+            )
+            PipelineConfig._add_default_if_present(
+                default_sink_config, sink, "retry_max_times", 1
+            )
+            PipelineConfig._resolve_vars_oveerride_sink(default_sink_config, values)
 
         return values
 

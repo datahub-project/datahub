@@ -101,6 +101,7 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI.
 - `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
 - `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
+- `DATAHUB_CLI_SINK_OVERRIDE` (default `false`) - Set to `true` to allow CLI to override sink settings to avoid common mistakes
 
 ```shell
 DATAHUB_SKIP_CONFIG=false

@@ -1,3 +1,4 @@
+import os
 from typing import Iterable, List, cast
 from unittest.mock import patch
 
@@ -67,6 +68,37 @@ class TestPipeline(object):
         assert pipeline.config.sink.config == {
             "server": "http://localhost:8080",
             "token": None,
+        }
+
+    @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
+    @patch.dict(os.environ, {"DATAHUB_CLI_SINK_OVERRIDE": "true"})
+    def test_configure_with_sink_override(self, mock_emitter, mock_graph):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"filename": "test_file.json"},
+                },
+                "sink": {"type": "datahub-rest", "config": {"max_threads": 3}},
+            }
+        )
+        # assert that the default sink config is for a DatahubRestSink
+        assert isinstance(pipeline.config.sink, DynamicTypedConfig)
+        assert pipeline.config.sink.type == "datahub-rest"
+        assert pipeline.config.sink.config == {
+            "server": "http://localhost:8080",
+            "token": None,
+            "max_threads": 3,
+            "timeout_sec": 30,
+            "retry_max_times": 1,
         }
 
     @freeze_time(FROZEN_TIME)
