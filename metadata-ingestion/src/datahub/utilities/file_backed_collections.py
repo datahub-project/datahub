@@ -138,9 +138,6 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
         return row[0] + len(self._active_object_cache)
 
-    def __repr__(self) -> str:
-        return f"FileBackedDict({self.filename})"
-
     def close(self) -> None:
         self._conn.close()
 
