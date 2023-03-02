@@ -16,6 +16,7 @@ from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -30,7 +31,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     support_status,
 )
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.json_ref_patch import title_swapping_callback
 from datahub.ingestion.extractor.json_schema_util import (
     JsonSchemaTranslator,
@@ -47,6 +48,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
+from datahub.utilities.source_helpers import (
+    auto_stale_entity_removal,
+    auto_status_aspect,
+)
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
 
 logger = logging.getLogger(__name__)
@@ -61,7 +66,7 @@ class URIReplacePattern(ConfigModel):
     )
 
 
-class JsonSchemaSourceConfig(StatefulIngestionConfigBase):
+class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     path: Union[FilePath, DirectoryPath, AnyHttpUrl] = Field(
         description="Set this to a single file-path or a directory-path (for recursive traversal) or a remote url. e.g. https://json.schemastore.org/petstore-v1.0.json"
     )
@@ -343,11 +348,13 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     ).as_workunit()
                 )
 
-            self.stale_entity_removal_handler.add_entity_to_state(
-                type="_", urn=dataset_urn
-            )
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_stale_entity_removal(
+            self.stale_entity_removal_handler,
+            auto_status_aspect(self.get_workunits_internal()),
+        )
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.uri_replace_pattern:
             ref_loader = functools.partial(
                 self.stringreplaceloader,
@@ -391,9 +398,6 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     str(self.config.path), f"Failed to process due to {e}"
                 )
                 logger.error(f"Failed to process file {self.config.path}", exc_info=e)
-
-        # Clean up stale entities at the end
-        yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
 
     def get_report(self):
         return self.report

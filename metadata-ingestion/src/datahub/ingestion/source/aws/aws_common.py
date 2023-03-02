@@ -11,7 +11,7 @@ from datahub.configuration.common import (
     ConfigModel,
     PermissiveConfigModel,
 )
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 
 if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
@@ -201,7 +201,7 @@ class AwsConnectionConfig(ConfigModel):
         return self.get_session().client("sagemaker")
 
 
-class AwsSourceConfig(EnvBasedSourceConfigBase, AwsConnectionConfig):
+class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
     """
     Common AWS credentials config.
 
