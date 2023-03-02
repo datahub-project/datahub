@@ -1578,7 +1578,7 @@ type DatasetProperties {
     externalUrl: String
 
     """
-    Created date associated with the Dataset
+    Created timestamp millis associated with the Dataset
     """
     created: Long
 
@@ -1588,7 +1588,7 @@ type DatasetProperties {
     createdActor: String
 
     """
-    Last Modified date associated with the Dataset
+    Last Modified timestamp millis associated with the Dataset
     """
     lastModified: Long
 
