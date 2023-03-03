@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import dataclasses
 import datetime
+import itertools
 import logging
 import re
 from dataclasses import dataclass, field as dataclasses_field
@@ -28,11 +29,12 @@ from pydantic.class_validators import validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
@@ -160,7 +162,7 @@ class LookerNamingPattern(NamingPattern):
     ALLOWED_VARS = [field.name for field in dataclasses.fields(NamingPatternMapping)]
 
 
-class LookerCommonConfig(DatasetSourceConfigBase):
+class LookerCommonConfig(DatasetSourceConfigMixin):
     explore_naming_pattern: LookerNamingPattern = pydantic.Field(
         description=f"Pattern for providing dataset names to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="{model}.explore.{name}"),
@@ -536,11 +538,17 @@ class LookerExplore:
         resolved_includes: List[ProjectInclude],
         looker_viewfile_loader: "LookerViewFileLoader",
         reporter: "LookMLSourceReport",
+        model_explores_map: Dict[str, dict],
     ) -> "LookerExplore":
-        view_names = set()
+
+        view_names: Set[str] = set()
         joins = None
-        # always add the explore's name or the name from the from clause as the view on which this explore is built
-        view_names.add(dict.get("from", dict.get("name")))
+        assert "name" in dict, "Explore doesn't have a name field, this isn't allowed"
+        # The view name that the explore refers to is resolved in the following order of priority:
+        # 1. view_name: https://cloud.google.com/looker/docs/reference/param-explore-view-name
+        # 2. from: https://cloud.google.com/looker/docs/reference/param-explore-from
+        # 3. default to the name of the explore
+        view_names.add(dict.get("view_name") or dict.get("from") or dict["name"])
 
         if dict.get("joins", {}) != {}:
             # additionally for join-based explores, pull in the linked views
@@ -559,23 +567,47 @@ class LookerExplore:
             _find_view_from_resolved_includes,
         )
 
-        upstream_views = []
-        for view_name in view_names:
-            info = _find_view_from_resolved_includes(
-                None,
-                resolved_includes,
-                looker_viewfile_loader,
-                view_name,
-                reporter,
+        upstream_views: List[ProjectInclude] = []
+        # create the list of extended explores
+        extends = list(
+            itertools.chain.from_iterable(
+                dict.get("extends", dict.get("extends__all", []))
             )
-            if not info:
-                logger.warning(
-                    f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+        )
+        if extends:
+            for extended_explore in extends:
+                if extended_explore in model_explores_map:
+                    parsed_explore = LookerExplore.from_dict(
+                        model_name,
+                        model_explores_map[extended_explore],
+                        resolved_includes,
+                        looker_viewfile_loader,
+                        reporter,
+                        model_explores_map,
+                    )
+                    upstream_views.extend(parsed_explore.upstream_views or [])
+                else:
+                    logger.warning(
+                        f'Could not find extended explore {extended_explore} for explore {dict["name"]} in model {model_name}'
+                    )
+        else:
+            # we only fallback to the view_names list if this is not an extended explore
+            for view_name in view_names:
+                info = _find_view_from_resolved_includes(
+                    None,
+                    resolved_includes,
+                    looker_viewfile_loader,
+                    view_name,
+                    reporter,
                 )
-            else:
-                upstream_views.append(
-                    ProjectInclude(project=info[0].project, include=view_name)
-                )
+                if not info:
+                    logger.warning(
+                        f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+                    )
+                else:
+                    upstream_views.append(
+                        ProjectInclude(project=info[0].project, include=view_name)
+                    )
 
         return LookerExplore(
             model_name=model_name,
@@ -863,7 +895,7 @@ class LookerExplore:
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_snapshot.urn,
             aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["explore"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.LOOKER_EXPLORE]),
         )
 
         proposals: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = [
