@@ -9,13 +9,19 @@ from datahub.cli.cli_utils import get_boolean_env_variable, get_url_and_token
 from datahub.configuration import config_loader
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
 from datahub.emitter.rest_emitter import DataHubRestEmitter
-from datahub.ingestion.graph.client import MAX_THREADS, DatahubClientConfig
+from datahub.ingestion.graph.client import DEFAULT_MAX_THREADS, DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)
 
 # Sentinel value used to check if the run ID is the default value.
 DEFAULT_RUN_ID = "__DEFAULT_RUN_ID"
+
+
+def is_sink_type(sink: Any, type_str: str) -> bool:
+    if type(sink) == DynamicTypedConfig:
+        return sink.type == type_str
+    return sink.get("type") == type_str
 
 
 class SourceConfig(DynamicTypedConfig):
@@ -100,7 +106,7 @@ class PipelineConfig(ConfigModel):
         }
         if sink is None:
             PipelineConfig._resolve_vars_oveerride_sink(default_sink_config, values)
-        elif sink.get("type") == "datahub-rest" and DATAHUB_CLI_SINK_OVERRIDE:
+        elif is_sink_type(sink, "datahub-rest") and DATAHUB_CLI_SINK_OVERRIDE:
             PipelineConfig._add_default_if_present(
                 default_sink_config,
                 sink,
@@ -123,7 +129,7 @@ class PipelineConfig(ConfigModel):
                 default_sink_config, sink, "extra_headers", None
             )
             PipelineConfig._add_default_if_present(
-                default_sink_config, sink, "max_threads", MAX_THREADS
+                default_sink_config, sink, "max_threads", DEFAULT_MAX_THREADS
             )
             PipelineConfig._add_default_if_present(
                 default_sink_config, sink, "disable_ssl_verification", False
