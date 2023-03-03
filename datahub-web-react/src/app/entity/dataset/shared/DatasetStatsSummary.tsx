@@ -1,5 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import { Popover } from 'antd';
 import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined, HddOutlined } from '@ant-design/icons';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
@@ -67,7 +67,7 @@ export const DatasetStatsSummary = ({
             <Popover
                 content={
                     <PopoverContent>
-                        The time at which the data was last changed in the source platform:{' '}
+                        Data was last changed in the source platform on{' '}
                         <strong>{toLocalDateTimeString(lastUpdatedMs)}</strong>
                     </PopoverContent>
                 }
