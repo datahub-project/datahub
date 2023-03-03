@@ -208,12 +208,6 @@ export const SearchBar = ({
         return showQuickFilters && quickFilters && quickFilters.length > 0 ? [QUICK_FILTER_AUTO_COMPLETE_OPTION] : [];
     }, [quickFilters, showQuickFilters]);
 
-    useEffect(() => {
-        return () => {
-            setSelectedQuickFilter(null);
-        };
-    }, [setSelectedQuickFilter]);
-
     const options = useMemo(() => {
         // Display recommendations when there is no search query, autocomplete suggestions otherwise.
         if (autoCompleteEntityOptions.length > 0) {
@@ -244,6 +238,13 @@ export const SearchBar = ({
         handleSearchBarClick(false);
     }
 
+    function handleSearch(query: string, type?: EntityType, appliedQuickFilters?: FacetFilterInput[]) {
+        onSearch(query, type, appliedQuickFilters);
+        if (selectedQuickFilter) {
+            setSelectedQuickFilter(null);
+        }
+    }
+
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
             <StyledAutoComplete
@@ -257,7 +258,7 @@ export const SearchBar = ({
                         option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
                         option.type === RECOMMENDED_QUERY_OPTION_TYPE
                     ) {
-                        onSearch(
+                        handleSearch(
                             `${filterSearchQuery(value as string)}`,
                             searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
                             getFiltersWithQuickFilter(selectedQuickFilter),
@@ -283,7 +284,7 @@ export const SearchBar = ({
                     placeholder={placeholderText}
                     onPressEnter={() => {
                         // e.stopPropagation();
-                        onSearch(
+                        handleSearch(
                             filterSearchQuery(searchQuery || ''),
                             undefined,
                             getFiltersWithQuickFilter(selectedQuickFilter),
@@ -299,7 +300,7 @@ export const SearchBar = ({
                     prefix={
                         <SearchOutlined
                             onClick={() => {
-                                onSearch(
+                                handleSearch(
                                     filterSearchQuery(searchQuery || ''),
                                     undefined,
                                     getFiltersWithQuickFilter(selectedQuickFilter),

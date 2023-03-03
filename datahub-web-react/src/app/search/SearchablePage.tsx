@@ -68,7 +68,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         }
     }, [suggestionsData]);
 
-    const search = (query: string, type?: EntityType, newFilters?: FacetFilterInput[]) => {
+    const search = (query: string, type?: EntityType, quickFilters?: FacetFilterInput[]) => {
         if (!query || query.trim().length === 0) {
             return;
         }
@@ -82,7 +82,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         navigateToSearchUrl({
             type,
             query,
-            filters: [...filters, ...(newFilters || [])],
+            filters: [...(quickFilters || filters)],
             history,
         });
     };
