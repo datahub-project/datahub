@@ -32,7 +32,7 @@ public class Config extends HttpServlet {
     put("retention", "true");
     put("statefulIngestionCapable", true);
     put("patchCapable", true);
-    put("timeZone", ZoneId.systemDefault())
+    put("timeZone", ZoneId.systemDefault());
   }};
   ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
