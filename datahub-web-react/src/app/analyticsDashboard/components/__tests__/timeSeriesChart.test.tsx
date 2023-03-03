@@ -1,6 +1,6 @@
 import { computeLines } from '../TimeSeriesChart';
 
-describe('timeUtils', () => {
+describe('timeSeriesChart', () => {
     describe('computeLines', () => {
         it('compute lines works works correctly for weekly case', () => {
             const chartData = {
