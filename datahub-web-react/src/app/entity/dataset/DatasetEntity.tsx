@@ -100,7 +100,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: ViewDefinitionTab,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.subTypes?.typeNames?.includes(SUBTYPES.VIEW) && true) || false,
+                            dataset?.dataset?.subTypes?.typeNames
+                                ?.map((t) => t.toLocaleLowerCase())
+                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()) || false,
                         enabled: (_, dataset: GetDatasetQuery) =>
                             (dataset?.dataset?.viewProperties?.logic && true) || false,
                     },
