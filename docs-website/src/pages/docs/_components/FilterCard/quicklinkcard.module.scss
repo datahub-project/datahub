@@ -6,23 +6,31 @@
   min-height: calc(100% - 1rem);
   text-decoration: none !important;
   img {
-    width: 1.5rem;
-    height: 1.5rem;
-    margin-right: 0.75rem;
+    width: 3rem;
+    height: 3rem;
+    margin-right: 1rem;
+    margin-top: 2rem;
   }
   svg {
-    width: 1.5rem;
-    height: 1.5rem;
-    margin-right: 0.75rem;
+    width: 3rem;
+    height: 3rem;
+    margin-right: 1rem;
+    margin-top: 2rem;
   }
   strong,
   span {
     display: block;
-    margin-bottom: 0.25rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    margin-right: 0.75rem;
+  }
+  strong {
+    font-size: 2rem;
+    line-height: 2em;
   }
   span {
-    font-size: 0.875rem;
-    line-height: 1.25em;
+    font-size: 1.25rem;
+    line-height: 1.5em;
   }
   &:hover {
     border-color: var(--ifm-color-primary);

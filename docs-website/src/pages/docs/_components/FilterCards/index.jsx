@@ -5,10 +5,7 @@ import Link from "@docusaurus/Link";
 import styles from "./quicklinkcards.module.scss";
 import FilterCard from "../FilterCard";
 
-
-
-
-const FilterCards = ({content, filterBar}) =>
+const FilterCards = ({ content, filterBar }) =>
   content?.length > 0 ? (
     <div style={{ padding: "2vh 0" }}>
       <div className="container">
