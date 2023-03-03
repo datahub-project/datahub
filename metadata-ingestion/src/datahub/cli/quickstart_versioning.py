@@ -13,24 +13,53 @@ DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.ya
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
 
 
-class QuickstartVersionMap(BaseModel):
-    composefile_git_ref: str
-    docker_tag: str
-
-
-class QuickstartConstraints(BaseModel):
-    valid_until_git_ref: str
-    required_containers: List[str]
-    ensure_exit_success: List[str]
-
-
 class QuickstartExecutionPlan(BaseModel):
-    docker_tag: str
     composefile_git_ref: str
+    docker_tag: str
+
+
+def is_it_a_version(version: str) -> bool:
+    """
+    Checks if a string is a valid version.
+    :param version: The string to check.
+    :return: True if the string is a valid version, False otherwise.
+    """
+    return re.match(r"v?\d+\.\d+(\.\d+)?", version) is not None
+
+
+def parse_version(version: str) -> Tuple[int, int, int, int]:
+    """
+    Parses a version string into a tuple of integers.
+    :param version: The version string to parse.
+    :return: A tuple of integers representing the version.
+    """
+    version = re.sub(r"v", "", version)
+    parsed_version = tuple(map(int, version.split(".")))
+    # pad with zeros if necessary
+    if len(parsed_version) == 2:
+        parsed_version = parsed_version + (0, 0)
+    elif len(parsed_version) == 3:
+        parsed_version = parsed_version + (0,)
+    return parsed_version
+
+
+def compare_versions(
+    version1: Tuple[int, int, int, int], version2: Tuple[int, int, int, int]
+) -> bool:
+    """
+    Compares two versions.
+    :return: True if version1 is greater than version2, False otherwise.
+    """
+    for i in range(4):
+        if version1[i] > version2[i]:
+            return True
+        elif version1[i] < version2[i]:
+            return False
+    return False
 
 
 class QuickstartVersionMappingConfig(BaseModel):
-    quickstart_version_map: Dict[str, QuickstartVersionMap]
+    quickstart_version_map: Dict[str, QuickstartExecutionPlan]
 
     @classmethod
     def _fetch_latest_version(cls) -> str:
@@ -62,7 +91,7 @@ class QuickstartVersionMappingConfig(BaseModel):
         if config.quickstart_version_map.get("stable") is None:
             try:
                 release = cls._fetch_latest_version()
-                config.quickstart_version_map["stable"] = QuickstartVersionMap(
+                config.quickstart_version_map["stable"] = QuickstartExecutionPlan(
                     composefile_git_ref=release, docker_tag=release
                 )
             except:
@@ -82,16 +111,27 @@ class QuickstartVersionMappingConfig(BaseModel):
         """
         if requested_version is None:
             requested_version = "default"
-        version_map = self.quickstart_version_map.get(
+        composefile_git_ref = requested_version
+        docker_tag = requested_version
+        result = self.quickstart_version_map.get(
             requested_version,
-            QuickstartVersionMap(
-                composefile_git_ref=requested_version, docker_tag=requested_version
+            QuickstartExecutionPlan(
+                composefile_git_ref=composefile_git_ref, docker_tag=docker_tag
             ),
         )
-        return QuickstartExecutionPlan(
-            docker_tag=version_map.docker_tag,
-            composefile_git_ref=version_map.composefile_git_ref,
-        )
+        # new CLI version is downloading the composefile corresponding to the requested version
+        # if the version is older than v0.10.1, it doesn't contain the setup job labels and the
+        # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
+        # the setup job labels
+        if is_it_a_version(result.composefile_git_ref):
+            if compare_versions(
+                parse_version("v0.10.1"), parse_version(result.composefile_git_ref)
+            ):
+                # The merge commit where the labels were added
+                # https://github.com/datahub-project/datahub/pull/7473
+                result.composefile_git_ref = "quickstart-stability"
+
+        return result
 
 
 def save_quickstart_config(

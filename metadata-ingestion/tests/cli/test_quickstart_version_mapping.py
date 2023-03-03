@@ -1,11 +1,15 @@
 
-from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig, QuickstartExecutionPlan, QuickstartVersionMap
+from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig, QuickstartExecutionPlan
 
 example_version_mapper = QuickstartVersionMappingConfig.parse_obj({
     "quickstart_version_map": {
         "default": {
             "composefile_git_ref": "master",
             "docker_tag": "latest"
+        },
+        "v0.9.6": {
+            "composefile_git_ref": "v0.9.6.1", # this will be ovewritten by the cli
+            "docker_tag": "v0.9.6.1"
         },
         "v2.0.0": {
             "composefile_git_ref": "v2.0.1",
@@ -48,7 +52,7 @@ def test_quickstart_version_config_stable():
 
 
 def test_quickstart_forced_stable():
-    example_version_mapper.quickstart_version_map["default"] = QuickstartVersionMap(composefile_git_ref="v1.0.1", docker_tag="latest")
+    example_version_mapper.quickstart_version_map["default"] = QuickstartExecutionPlan(composefile_git_ref="v1.0.1", docker_tag="latest")
     execution_plan = example_version_mapper.get_quickstart_execution_plan(None)
     expected = QuickstartExecutionPlan(
         docker_tag="latest",
@@ -67,5 +71,14 @@ def test_quickstart_forced_not_a_version_tag():
     excepted = QuickstartExecutionPlan(
         docker_tag="NOT A VERSION",
         composefile_git_ref="NOT A VERSION",
+    )
+    assert execution_plan == excepted
+
+def test_quickstart_get_older_version():
+
+    execution_plan = example_version_mapper.get_quickstart_execution_plan("v0.9.6")
+    excepted = QuickstartExecutionPlan(
+        docker_tag="v0.9.6.1",
+        composefile_git_ref="quickstart-stability",
     )
     assert execution_plan == excepted
