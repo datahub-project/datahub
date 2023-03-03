@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersInput;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersResult;
@@ -28,12 +28,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
-import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -48,28 +46,6 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
   private static final int SOURCE_ENTITY_COUNT = 3;
   private static final int DATAHUB_ENTITY_COUNT = 2;
 
-  private static final List<String> PRIORITIZED_SOURCE_ENTITY_TYPES = Stream.of(
-      DATASET_ENTITY_NAME,
-      DASHBOARD_ENTITY_NAME,
-      DATA_FLOW_ENTITY_NAME,
-      DATA_JOB_ENTITY_NAME,
-      CHART_ENTITY_NAME,
-      CONTAINER_ENTITY_NAME,
-      ML_MODEL_ENTITY_NAME,
-      ML_MODEL_GROUP_ENTITY_NAME,
-      ML_FEATURE_ENTITY_NAME,
-      ML_FEATURE_TABLE_ENTITY_NAME,
-      ML_PRIMARY_KEY_ENTITY_NAME
-  ).map(String::toLowerCase).collect(Collectors.toList());
-
-  private static final List<String> PRIORITIZED_DATAHUB_ENTITY_TYPES = Stream.of(
-      DOMAIN_ENTITY_NAME,
-      GLOSSARY_TERM_ENTITY_NAME,
-      CORP_GROUP_ENTITY_NAME,
-      CORP_USER_ENTITY_NAME
-  ).map(String::toLowerCase).collect(Collectors.toList());
-
-
   public CompletableFuture<GetQuickFiltersResult> get(final DataFetchingEnvironment environment) throws Exception {
     final GetQuickFiltersInput input =  bindArgument(environment.getArgument("input"), GetQuickFiltersInput.class);
 
@@ -78,7 +54,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
       final List<QuickFilter> quickFilters = new ArrayList<>();
 
       try {
-        final SearchResult searchResult = getSearchResults(environment, input);
+        final SearchResult searchResult = getSearchResults(ResolverUtils.getAuthentication(environment), input);
         final AggregationMetadataArray aggregations = searchResult.getMetadata().getAggregations();
 
         quickFilters.addAll(getPlatformQuickFilters(aggregations));
@@ -96,10 +72,9 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
   /**
    * Do a star search with view filter applied to get info about all data in this instance.
    */
-  private SearchResult getSearchResults(@Nonnull final DataFetchingEnvironment environment, @Nonnull final GetQuickFiltersInput input) throws Exception {
-    final QueryContext context = environment.getContext();
+  private SearchResult getSearchResults(@Nonnull final Authentication authentication, @Nonnull final GetQuickFiltersInput input) throws Exception {
     final DataHubViewInfo maybeResolvedView = (input.getViewUrn() != null)
-        ? resolveView(_viewService, UrnUtils.getUrn(input.getViewUrn()), context.getAuthentication())
+        ? resolveView(_viewService, UrnUtils.getUrn(input.getViewUrn()), authentication)
         : null;
     final List<String> entityNames = SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
@@ -114,7 +89,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
         0,
         0,
         null,
-        ResolverUtils.getAuthentication(environment));
+        authentication);
   }
 
   /**
@@ -145,10 +120,12 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
     final Optional<AggregationMetadata> entityAggregations = aggregations.stream().filter(agg -> agg.getName().equals(ENTITY)).findFirst();
 
     if (entityAggregations.isPresent()) {
-      final List<QuickFilter> sourceEntityTypeFilters = getQuickFiltersFromList(PRIORITIZED_SOURCE_ENTITY_TYPES, SOURCE_ENTITY_COUNT, entityAggregations.get());
+      final List<QuickFilter> sourceEntityTypeFilters =
+          getQuickFiltersFromList(SearchUtils.PRIORITIZED_SOURCE_ENTITY_TYPES, SOURCE_ENTITY_COUNT, entityAggregations.get());
       entityTypes.addAll(sourceEntityTypeFilters);
 
-      final List<QuickFilter> dataHubEntityTypeFilters = getQuickFiltersFromList(PRIORITIZED_DATAHUB_ENTITY_TYPES, DATAHUB_ENTITY_COUNT, entityAggregations.get());
+      final List<QuickFilter> dataHubEntityTypeFilters =
+          getQuickFiltersFromList(SearchUtils.PRIORITIZED_DATAHUB_ENTITY_TYPES, DATAHUB_ENTITY_COUNT, entityAggregations.get());
       entityTypes.addAll(dataHubEntityTypeFilters);
     }
     return entityTypes;
