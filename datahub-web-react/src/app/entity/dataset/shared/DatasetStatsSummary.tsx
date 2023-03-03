@@ -67,14 +67,14 @@ export const DatasetStatsSummary = ({
             <Popover
                 content={
                     <PopoverContent>
-                        Data was last changed in the source platform on{' '}
+                        Data was last updated in the source platform on{' '}
                         <strong>{toLocalDateTimeString(lastUpdatedMs)}</strong>
                     </PopoverContent>
                 }
             >
                 <StatText>
                     <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                    Changed {toRelativeTimeString(lastUpdatedMs)}
+                    Updated {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>
         ),
