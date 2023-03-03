@@ -205,6 +205,11 @@ type Query {
     listQueries(
       "Input required for listing queries"
       input: ListQueriesInput!): ListQueriesResult
+
+    """
+    Get quick filters to display in auto-complete
+    """
+    getQuickFilters(input: GetQuickFiltersInput!): GetQuickFiltersResult
 }
 
 """
