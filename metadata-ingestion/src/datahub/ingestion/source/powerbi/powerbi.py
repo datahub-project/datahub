@@ -236,7 +236,7 @@ class Mapper:
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(
                 name=table.name,
-                description=dataset.description or str(),
+                description=dataset.description,
             )
 
             info_mcp = self.new_mcp(
@@ -409,7 +409,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=dashboard.description or str(),
+            description=dashboard.description,
             title=dashboard.displayName or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
@@ -742,7 +742,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=report.description or str(),
+            description=report.description,
             title=report.name or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
