@@ -14,6 +14,8 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
 import useFilters from './utils/useFilters';
 import { PageRoutes } from '../../conf/Global';
+import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
+import { useAppStateContext } from '../../providers/AppStateContext';
 
 const styles = {
     children: {
@@ -54,6 +56,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+    const { selectedQuickFilter } = useAppStateContext();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
@@ -90,6 +93,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 variables: {
                     input: {
                         query,
+                        ...getAutoCompleteInputFromQuickFilter(selectedQuickFilter),
                     },
                 },
             });

@@ -20,6 +20,8 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
+import { useAppStateContext } from '../../providers/AppStateContext';
+import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
 
 const Background = styled.div`
     width: 100%;
@@ -144,6 +146,7 @@ export const HomePageHeader = () => {
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
+    const { selectedQuickFilter } = useAppStateContext();
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -175,6 +178,7 @@ export const HomePageHeader = () => {
                     input: {
                         query,
                         limit: 10,
+                        ...getAutoCompleteInputFromQuickFilter(selectedQuickFilter),
                     },
                 },
             });

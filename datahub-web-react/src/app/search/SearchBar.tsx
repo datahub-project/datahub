@@ -15,6 +15,7 @@ import AutoCompleteItem, { SuggestionContainer } from './autoComplete/AutoComple
 import { useAppStateContext } from '../../providers/AppStateContext';
 import QuickFilters from './autoComplete/quickFilters/QuickFilters';
 import { getFiltersWithQuickFilter } from './utils/filterUtils';
+import usePrevious from '../shared/usePrevious';
 
 const ExploreForEntity = styled.span`
     font-weight: light;
@@ -194,6 +195,14 @@ export const SearchBar = ({
     );
 
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useAppStateContext();
+
+    const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
+    useEffect(() => {
+        // if we change the selected quick filter, re-issue auto-complete
+        if (searchQuery && selectedQuickFilter?.value !== previousSelectedQuickFilterValue) {
+            onQueryChange(searchQuery);
+        }
+    });
 
     const quickFilterOption = useMemo(() => {
         return showQuickFilters && quickFilters && quickFilters.length > 0 ? [QUICK_FILTER_AUTO_COMPLETE_OPTION] : [];

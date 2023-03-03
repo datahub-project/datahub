@@ -9,7 +9,7 @@ const StyledIcon = styled.img`
     height: 12px;
 `;
 
-enum QuickFilterType {
+export enum QuickFilterField {
     Platform = 'platform',
     Entity = 'entity',
 }
@@ -17,12 +17,12 @@ enum QuickFilterType {
 export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: EntityRegistry) {
     let label = '';
     let icon: JSX.Element | null = null;
-    if (quickFilter.field === QuickFilterType.Platform) {
+    if (quickFilter.field === QuickFilterField.Platform) {
         label = entityRegistry.getDisplayName(EntityType.DataPlatform, quickFilter.entity);
         const genericProps = entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, quickFilter.entity);
         const logoUrl = genericProps?.platform?.properties?.logoUrl || '';
         icon = <StyledIcon alt="icon" src={logoUrl} />;
-    } else if (quickFilter.field === QuickFilterType.Entity) {
+    } else if (quickFilter.field === QuickFilterField.Entity) {
         label = entityRegistry.getCollectionName(quickFilter.value as EntityType);
         icon = entityRegistry.getIcon(quickFilter.value as EntityType, 12, IconStyleType.ACCENT, 'black');
     }
