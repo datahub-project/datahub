@@ -126,7 +126,7 @@ services:
     hostname: datahub-upgrade
     image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
     labels:
-      datahub_setup_job: true  
+      datahub_setup_job: true
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -157,7 +157,7 @@ services:
     hostname: elasticsearch-setup
     image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     labels:
-      datahub_setup_job: true  
+      datahub_setup_job: true
   kafka-setup:
     container_name: kafka-setup
     depends_on:

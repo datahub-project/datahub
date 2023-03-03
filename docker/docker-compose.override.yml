@@ -16,7 +16,7 @@ services:
 
   mysql-setup:
     labels:
-      datahub_setup_job: true  
+      datahub_setup_job: true
     build:
       context: ../
       dockerfile: docker/mysql-setup/Dockerfile
