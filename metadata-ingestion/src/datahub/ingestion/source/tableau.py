@@ -2088,12 +2088,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 ]
             )
             dashboard_snapshot.aspects.append(browse_paths)
-        else:
-            logger.warning(
-                f"Could not set browse path for dashboard {dashboard[tableau_constant.ID]}. Please check permissions."
-            )
-
-        if (
+        elif (
             workbook is not None
             and workbook.get(tableau_constant.PROJECT_NAME)
             and workbook.get(tableau_constant.NAME)
@@ -2107,8 +2102,8 @@ class TableauSource(StatefulIngestionSourceBase):
             )
             dashboard_snapshot.aspects.append(browse_paths)
         else:
-            logger.debug(
-                f"Browse path not set for dashboard {dashboard[tableau_constant.ID]}"
+            logger.warning(
+                f"Could not set browse path for dashboard {dashboard[tableau_constant.ID]}. Please check permissions."
             )
 
         # Ownership
