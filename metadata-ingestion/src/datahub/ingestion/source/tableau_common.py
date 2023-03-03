@@ -85,6 +85,7 @@ sheet_graphql_query = """
         id
         name
         projectName
+        projectLuid
         owner {
           username
         }
@@ -162,6 +163,7 @@ dashboard_graphql_query = """
         id
         name
         projectName
+        projectLuid
         owner {
           username
         }
