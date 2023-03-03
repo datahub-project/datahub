@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
@@ -18,7 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.client.RequestOptions;
 
-import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.*;
+import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.INDEX_BLOCKS_WRITE_SETTING;
+import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 
 
 @RequiredArgsConstructor
@@ -50,12 +52,18 @@ public class BuildIndicesPostStep implements UpgradeStep {
         // Reset write blocking
         for (ReindexConfig indexConfig : indexConfigs) {
           UpdateSettingsRequest request = new UpdateSettingsRequest(indexConfig.name());
-          Map<String, Object> indexSettings = ImmutableMap.of("index.blocks.write", "false");
+          Map<String, Object> indexSettings = ImmutableMap.of(INDEX_BLOCKS_WRITE_SETTING, "false");
 
           request.settings(indexSettings);
           boolean ack =
               _esComponents.getSearchClient().indices().putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
           log.info("Updated index {} with new settings. Settings: {}, Acknowledged: {}", indexConfig.name(), indexSettings, ack);
+
+          if (ack) {
+            ack = IndexUtils.validateWriteBlock(_esComponents.getSearchClient(), indexConfig.name(), false);
+            log.info("Validated index {} with new settings. Settings: {}, Acknowledged: {}", indexConfig.name(), indexSettings, ack);
+          }
+
           if (!ack) {
             log.error(
                 "Partial index settings update, some indices may still be blocking writes."

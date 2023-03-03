@@ -307,6 +307,15 @@ class S3Source(Source):
                     "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider",
                 )
 
+            if self.source_config.aws_config.aws_endpoint_url is not None:
+                conf.set(
+                    "fs.s3a.endpoint", self.source_config.aws_config.aws_endpoint_url
+                )
+            if self.source_config.aws_config.aws_region is not None:
+                conf.set(
+                    "fs.s3a.endpoint.region", self.source_config.aws_config.aws_region
+                )
+
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
         conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
 

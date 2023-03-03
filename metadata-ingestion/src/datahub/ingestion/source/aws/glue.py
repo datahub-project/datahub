@@ -22,6 +22,7 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -113,7 +114,14 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueSourceConfig(AwsSourceConfig, StatefulIngestionConfigBase):
+class GlueSourceConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
+):
+    platform: str = Field(
+        default=DEFAULT_PLATFORM,
+        description=f"The platform to use for the dataset URNs. Must be one of {VALID_PLATFORMS}.",
+    )
+
     extract_owners: Optional[bool] = Field(
         default=True,
         description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",
@@ -286,10 +294,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     @property
     def platform(self) -> str:
-        """
-        Returns the config platform, or defaults to "glue".
-        """
-        return self.source_config.platform or DEFAULT_PLATFORM
+        return self.source_config.platform
 
     def get_all_jobs(self):
         """

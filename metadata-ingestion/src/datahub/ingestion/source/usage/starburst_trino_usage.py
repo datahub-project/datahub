@@ -254,7 +254,6 @@ class TrinoUsageSource(Source):
                     AggregatedDataset(
                         bucket_start_time=floored_ts,
                         resource=resource,
-                        user_email_pattern=self.config.user_email_pattern,
                     ),
                 )
 
@@ -269,6 +268,7 @@ class TrinoUsageSource(Source):
                     username,
                     event.query,
                     metadata.columns,
+                    user_email_pattern=self.config.user_email_pattern,
                 )
         return datasets
 

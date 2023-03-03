@@ -110,7 +110,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy>=1.3.24, <2",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12, <=0.15.41",
+    "great-expectations>=0.15.12, <=0.15.50",
     # scipy version restricted to reduce backtracking, used by great-expectations,
     "scipy>=1.7.2",
     # GE added handling for higher version of jinja2

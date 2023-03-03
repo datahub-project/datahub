@@ -16,7 +16,7 @@ from requests.adapters import HTTPAdapter
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -62,7 +62,7 @@ class NifiAuthType(Enum):
     CLIENT_CERT = "CLIENT_CERT"
 
 
-class NifiSourceConfig(EnvBasedSourceConfigBase):
+class NifiSourceConfig(EnvConfigMixin):
     site_url: str = Field(description="URI to connect")
 
     auth: NifiAuthType = Field(
