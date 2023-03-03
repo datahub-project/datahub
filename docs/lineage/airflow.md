@@ -26,6 +26,12 @@ If you're using Airflow 1.x, use the Airflow lineage plugin with acryl-datahub-a
 pip install acryl-datahub-airflow-plugin
 ```
 
+:::note
+
+The [DataHub Rest](../../metadata-ingestion/sink_docs/datahub.md#datahub-rest) emitter is included in the plugin package by default.  To use [DataHub Kafka](../../metadata-ingestion/sink_docs/datahub.md#datahub-kafka) install `pip install acryl-datahub-airflow-plugin[datahub-kafka]`.
+
+:::
+
 2. Disable lazy plugin loading in your airflow.cfg.
    On MWAA you should add this config to your [Apache Airflow configuration options](https://docs.aws.amazon.com/mwaa/latest/userguide/configuring-env-variables.html#configuring-2.0-airflow-override).
 
