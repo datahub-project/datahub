@@ -21,6 +21,7 @@ def read_delta_table(
                 opts = {
                     "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id", ""),
                     "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key", ""),
+                    "AWS_SESSION_TOKEN": creds.get("aws_session_token", ""),
                     # Allow http connections, this is required for minio
                     "AWS_STORAGE_ALLOW_HTTP": "true",
                 }
