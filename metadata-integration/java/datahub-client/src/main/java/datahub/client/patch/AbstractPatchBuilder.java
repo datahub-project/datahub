@@ -36,7 +36,7 @@ public abstract class AbstractPatchBuilder<T extends AbstractPatchBuilder<T>> {
   public MetadataChangeProposal build() {
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setChangeType(ChangeType.PATCH);
-    proposal.setEntityType(DATASET_ENTITY_NAME);
+    proposal.setEntityType(getEntityType());
     proposal.setEntityUrn(this.targetEntityUrn);
     proposal.setAspectName(getAspectName());
     proposal.setAspect(buildPatch());
@@ -44,7 +44,7 @@ public abstract class AbstractPatchBuilder<T extends AbstractPatchBuilder<T>> {
   }
 
   /**
-   * Generates Json patch for this builder to be set on the returned proposal from the buidler method
+   * Generates Json patch for this builder to be set on the returned proposal from the builder method
    * @return a JsonPatch wrapped by GenericAspect
    */
   protected GenericAspect buildPatch() {
@@ -56,7 +56,7 @@ public abstract class AbstractPatchBuilder<T extends AbstractPatchBuilder<T>> {
     ObjectNode patch = instance.objectNode();
     patch.put(OP_KEY, this.op)
         .put(PATH_KEY, getPath())
-        .put(VALUE_KEY, getValue());
+        .set(VALUE_KEY, getValue());
 
     ArrayNode patches = instance.arrayNode();
     patches.add(patch);
@@ -92,6 +92,12 @@ public abstract class AbstractPatchBuilder<T extends AbstractPatchBuilder<T>> {
    * @return aspect name
    */
   protected abstract String getAspectName();
+
+  /**
+   * Returns the String representation of the Entity type associated with this aspect
+   * @return entity type name
+   */
+  protected abstract String getEntityType();
 
   /**
    * Sets the operation of the patch

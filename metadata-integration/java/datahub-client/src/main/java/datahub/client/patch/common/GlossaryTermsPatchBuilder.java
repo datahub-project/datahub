@@ -58,4 +58,12 @@ public class GlossaryTermsPatchBuilder extends AbstractPatchBuilder<GlossaryTerm
   protected String getAspectName() {
     return GLOSSARY_TERMS_ASPECT_NAME;
   }
+
+  @Override
+  protected String getEntityType() {
+    if (this.targetEntityUrn == null) {
+      throw new IllegalStateException("Target Entity Urn must be set to determine entity type before building Patch.");
+    }
+    return this.targetEntityUrn.getEntityType();
+  }
 }

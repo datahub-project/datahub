@@ -65,4 +65,9 @@ public class UpstreamLineagePatchBuilder extends AbstractPatchBuilder<UpstreamLi
   protected String getAspectName() {
     return UPSTREAM_LINEAGE_ASPECT_NAME;
   }
+
+  @Override
+  protected String getEntityType() {
+    return DATASET_ENTITY_NAME;
+  }
 }

@@ -59,4 +59,12 @@ public class OwnershipPatchBuilder extends AbstractPatchBuilder<OwnershipPatchBu
   protected String getAspectName() {
     return OWNERSHIP_ASPECT_NAME;
   }
+
+  @Override
+  protected String getEntityType() {
+    if (this.targetEntityUrn == null) {
+      throw new IllegalStateException("Target Entity Urn must be set to determine entity type before building Patch.");
+    }
+    return this.targetEntityUrn.getEntityType();
+  }
 }

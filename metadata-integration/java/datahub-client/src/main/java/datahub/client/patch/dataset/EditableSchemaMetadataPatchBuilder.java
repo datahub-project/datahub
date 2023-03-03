@@ -82,4 +82,9 @@ public class EditableSchemaMetadataPatchBuilder extends AbstractPatchBuilder<Edi
   protected String getAspectName() {
     return EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
   }
+
+  @Override
+  protected String getEntityType() {
+    return DATASET_ENTITY_NAME;
+  }
 }
