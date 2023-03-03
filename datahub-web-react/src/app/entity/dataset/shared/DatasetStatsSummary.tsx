@@ -1,14 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover, Tooltip } from 'antd';
-import {
-    ClockCircleOutlined,
-    ConsoleSqlOutlined,
-    TableOutlined,
-    TeamOutlined,
-    QuestionCircleOutlined,
-    HddOutlined,
-} from '@ant-design/icons';
+import { Popover } from 'antd';
+import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined, HddOutlined } from '@ant-design/icons';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
@@ -19,9 +12,8 @@ const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
 `;
 
-const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
-    padding-left: 4px;
+const PopoverContent = styled.div`
+    max-width: 300px;
 `;
 
 type Props = {
@@ -48,7 +40,7 @@ export const DatasetStatsSummary = ({
                 <b>{formatNumberWithoutAbbreviation(rowCount)}</b> rows
                 {!!columnCount && (
                     <>
-                        , `<b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
+                        , <b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
                     </>
                 )}
             </StatText>
@@ -74,12 +66,10 @@ export const DatasetStatsSummary = ({
         !!lastUpdatedMs && (
             <Popover
                 content={
-                    <div>
-                        Changed on {toLocalDateTimeString(lastUpdatedMs)}.{' '}
-                        <Tooltip title="The time at which the data was last changed in the source platform">
-                            <HelpIcon />
-                        </Tooltip>
-                    </div>
+                    <PopoverContent>
+                        The time at which the data was last changed in the source platform:{' '}
+                        <strong>{toLocalDateTimeString(lastUpdatedMs)}</strong>
+                    </PopoverContent>
                 }
             >
                 <StatText>
