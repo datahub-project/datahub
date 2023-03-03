@@ -116,8 +116,9 @@ class GEProfilingConfig(ConfigModel):
     )
 
     profile_table_row_count_estimate: bool = Field(
-        default=False, description="Use an approximate query for row count. This will be much faster but slightly "
-                                   "less accurate. Only supported for Postgres. "
+        default=False,
+        description="Use an approximate query for row count. This will be much faster but slightly "
+        "less accurate. Only supported for Postgres. ",
     )
 
     # The default of (5 * cpu_count) is adopted from the default max_workers
