@@ -18,6 +18,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -467,6 +468,69 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             new HashSet<>(List.of(aspectName1))
         );
         assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
+
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.eq(initialChangeLog));
+        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+        // Mockito detects the previous invocation and throws an error in verifying the second call unless invocations are cleared
+        clearInvocations(_mockProducer);
+
+        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.eq(restateChangeLog));
+        verify(_mockProducer, times(1)).produceMetadataAuditEvent(Mockito.eq(entityUrn),
+            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+
+        verifyNoMoreInteractions(_mockProducer);
+    }
+
+    @Test
+    public void testReingestLineageAspect() throws Exception {
+
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:looker,sample_dataset,PROD)");
+
+        List<Pair<String, RecordTemplate>> pairToIngest = new ArrayList<>();
+
+        final UpstreamLineage upstreamLineage = AspectGenerationUtils.createUpstreamLineage();
+        String aspectName1 = AspectGenerationUtils.getAspectName(upstreamLineage);
+        pairToIngest.add(getAspectRecordPair(upstreamLineage, UpstreamLineage.class));
+
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
+
+        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+
+        final MetadataChangeLog initialChangeLog = new MetadataChangeLog();
+        initialChangeLog.setEntityType(entityUrn.getEntityType());
+        initialChangeLog.setEntityUrn(entityUrn);
+        initialChangeLog.setChangeType(ChangeType.UPSERT);
+        initialChangeLog.setAspectName(aspectName1);
+        initialChangeLog.setCreated(TEST_AUDIT_STAMP);
+
+        GenericAspect aspect = GenericRecordUtils.serializeAspect(pairToIngest.get(0).getSecond());
+
+        initialChangeLog.setAspect(aspect);
+        initialChangeLog.setSystemMetadata(metadata1);
+
+        final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
+        restateChangeLog.setEntityType(entityUrn.getEntityType());
+        restateChangeLog.setEntityUrn(entityUrn);
+        restateChangeLog.setChangeType(ChangeType.RESTATE);
+        restateChangeLog.setAspectName(aspectName1);
+        restateChangeLog.setCreated(TEST_AUDIT_STAMP);
+        restateChangeLog.setAspect(aspect);
+        restateChangeLog.setSystemMetadata(metadata1);
+        restateChangeLog.setPreviousAspectValue(aspect);
+        restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
+
+        Map<String, RecordTemplate> latestAspects = _entityService.getLatestAspectsForUrn(
+            entityUrn,
+            new HashSet<>(List.of(aspectName1))
+        );
+        assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.eq(initialChangeLog));
