@@ -837,6 +837,9 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_upstream_datasources(self, datasource, upstream_tables):
         upstream_tables = []
         for ds in datasource.get(tableau_constant.UPSTREAM_DATA_SOURCES, []):
+            if ds[tableau_constant.ID] not in self.datasource_ids_being_used:
+                self.datasource_ids_being_used.append(ds[tableau_constant.ID])
+
             upstream_ds_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=ds[tableau_constant.ID],
