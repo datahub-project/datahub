@@ -17,13 +17,18 @@ import {
 
 const FilterCard = ({ icon, platformIcon, title, description, to }) => {
   return (
-    <div className="col col--3">
+    <div className="col col--4">
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
-        {icon}
-        {platformIcon && <img src={useBaseUrl(platformIcon)} />}
         <div>
-          <strong>{title}</strong>
-          <span>{description}</span>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {platformIcon && (
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <img src={useBaseUrl(platformIcon)} />
+              </div>
+            )}
+            <strong>{title}</strong>
+          </div>
+          <span style={{ marginLeft: "1rem" }}>{description}</span>
         </div>
       </Link>
     </div>
