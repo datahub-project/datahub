@@ -115,7 +115,7 @@ class GEProfilingConfig(ConfigModel):
         description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`",
     )
 
-    profile_table_row_count_estimate: bool = Field(
+    profile_table_row_count_estimate_only: bool = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
         "less accurate. Only supported for Postgres. ",
