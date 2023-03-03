@@ -192,15 +192,3 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
         tables=[],
         tags=[],
     )
-
-
-def formulate_description(
-    display_name: Optional[str], description: Optional[str]
-) -> str:
-    if display_name and description:
-        return f"{display_name}\n-----\n{description}"
-
-    if display_name:
-        return display_name
-
-    return str()
