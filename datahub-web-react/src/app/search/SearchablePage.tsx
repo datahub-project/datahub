@@ -79,10 +79,12 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
             originPath: window.location.pathname,
         });
 
+        const appliedFilters = quickFilters && quickFilters?.length > 0 ? quickFilters : filters;
+
         navigateToSearchUrl({
             type,
             query,
-            filters: [...(quickFilters || filters)],
+            filters: appliedFilters,
             history,
         });
     };
