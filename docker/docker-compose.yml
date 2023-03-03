@@ -69,7 +69,7 @@ services:
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
     labels:
-      datahub_setup_job: true  
+      datahub_setup_job: true
     build:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
@@ -121,7 +121,7 @@ services:
   # explicitly wait for this container
   kafka-setup:
     labels:
-      datahub_setup_job: true  
+      datahub_setup_job: true
     build:
       dockerfile: ./docker/kafka-setup/Dockerfile
       context: ../
@@ -135,7 +135,7 @@ services:
 
   datahub-upgrade:
     labels:
-      datahub_setup_job: true  
+      datahub_setup_job: true
     build:
       context: ../
       dockerfile: docker/datahub-upgrade/Dockerfile
