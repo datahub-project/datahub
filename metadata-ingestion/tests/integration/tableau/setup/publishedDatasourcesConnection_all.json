@@ -5,6 +5,7 @@
                 {
                     "__typename": "PublishedDatasource",
                     "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                    "luid":"ffd72f16-004a-4a7d-8f5b-a8fd18d4317d",
                     "name": "test publish datasource",
                     "hasExtracts": false,
                     "extractLastRefreshTime": null,
@@ -256,6 +257,7 @@
                     "__typename": "PublishedDatasource",
                     "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae",
                     "name": "Superstore Datasource",
+                    "luid": "db86f6cc-9c0e-400f-9fe0-0777f31c6ae2",
                     "hasExtracts": false,
                     "extractLastRefreshTime": null,
                     "extractLastIncrementalUpdateTime": null,

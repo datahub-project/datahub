@@ -42,6 +42,7 @@ workbook_graphql_query = """
       luid
       uri
       projectName
+      projectLuid
       owner {
         username
       }
@@ -244,6 +245,7 @@ embedded_datasource_graphql_query = """
         id
         name
         projectName
+        projectLuid
         owner {
           username
         }
@@ -279,12 +281,14 @@ custom_sql_graphql_query = """
             }
             ... on PublishedDatasource {
               projectName
+              luid
             }
             ... on EmbeddedDatasource {
               workbook {
                 id
                 name
                 projectName
+                projectLuid
               }
             }
           }
@@ -314,6 +318,7 @@ published_datasource_graphql_query = """
     __typename
     id
     name
+    luid
     hasExtracts
     extractLastRefreshTime
     extractLastIncrementalUpdateTime
