@@ -4,12 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
-import com.linkedin.common.Owner;
-import com.linkedin.common.OwnerArray;
-import com.linkedin.common.Ownership;
-import com.linkedin.common.OwnershipType;
-import com.linkedin.common.UrnArray;
+import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -21,6 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
+import com.linkedin.metadata.Constants;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -507,6 +503,13 @@ public class PolicyEngineTest {
     resourceFilter.setType("dataset");
     dataHubPolicyInfo.setResources(resourceFilter);
 
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    entityResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(eq(resourceUrn.getEntityType()), eq(resourceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
+            any())).thenReturn(entityResponse);
+
     ResolvedResourceSpec resourceSpec =
         buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_PRINCIPAL), Collections.emptySet());
     // Assert authorized user can edit entity tags, because he is a user owner.
@@ -541,6 +544,13 @@ public class PolicyEngineTest {
     resourceFilter.setAllResources(true);
     resourceFilter.setType("dataset");
     dataHubPolicyInfo.setResources(resourceFilter);
+
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(false, true).data())));
+    entityResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(eq(resourceUrn.getEntityType()), eq(resourceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
+            any())).thenReturn(entityResponse);
 
     ResolvedResourceSpec resourceSpec =
         buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_GROUP), Collections.emptySet());
@@ -905,6 +915,12 @@ public class PolicyEngineTest {
         _policyEngine.getGrantedPrivileges(policies, UrnUtils.getUrn(AUTHORIZED_PRINCIPAL), Optional.of(resourceSpec)),
         ImmutableList.of("PRIVILEGE_1"));
 
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    entityResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(eq(resourceUrn.getEntityType()), eq(resourceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
+            any())).thenReturn(entityResponse);
     resourceSpec = buildResourceResolvers("dataset", RESOURCE_URN, Collections.singleton(AUTHORIZED_PRINCIPAL),
         Collections.singleton(DOMAIN_URN)); // Is owner
     assertEquals(
