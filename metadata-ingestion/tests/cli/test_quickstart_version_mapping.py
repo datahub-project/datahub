@@ -8,7 +8,7 @@ example_version_mapper = QuickstartVersionMappingConfig.parse_obj({
             "docker_tag": "latest"
         },
         "v0.9.6": {
-            "composefile_git_ref": "v0.9.6.1", # this will be ovewritten by the cli
+            "composefile_git_ref": "v0.9.6.1", # this will be overwritten by the cli
             "docker_tag": "v0.9.6.1"
         },
         "v2.0.0": {
