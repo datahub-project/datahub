@@ -51,9 +51,16 @@ const combineMerge = (target, source, options) => {
     return destination;
 };
 
-// use when you want to merge and array of objects by key in the object as opposed to by index of array
+function convertObjectKeysToLowercase(object: Record<string, unknown>) {
+    return Object.fromEntries(Object.entries(object).map(([key, value]) => [key.toLowerCase(), value]));
+}
+
+// use when you want to merge an array of objects by key in the object as opposed to by index of array
 const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], key: string) => {
-    return values(merge(keyBy(destinationArray, key), keyBy(sourceArray, key)));
+    const destination = convertObjectKeysToLowercase(keyBy(destinationArray, key));
+    const source = convertObjectKeysToLowercase(keyBy(sourceArray, key));
+
+    return values(merge(destination, source));
 };
 
 const mergeTags = (destinationArray, sourceArray, _options) => {
