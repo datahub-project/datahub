@@ -68,7 +68,7 @@ def test_quickstart_forced_not_a_version_tag():
     a recent change, otherwise it should be on an older version of datahub.
     """
     execution_plan = example_version_mapper.get_quickstart_execution_plan("NOT A VERSION")
-    excepted = QuickstartExecutionPlan(
+    expected = QuickstartExecutionPlan(
         docker_tag="NOT A VERSION",
         composefile_git_ref="NOT A VERSION",
     )
