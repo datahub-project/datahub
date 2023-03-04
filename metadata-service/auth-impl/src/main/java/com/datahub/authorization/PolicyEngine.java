@@ -318,7 +318,7 @@ public class PolicyEngine {
       }
       ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
     } catch (Exception e) {
-      log.error("Error while retrieving domains aspect for urn {}", entityUrn, e);
+      log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
       return Collections.emptySet();
     }
     Ownership ownership = new Ownership(ownershipAspect.getValue().data());
