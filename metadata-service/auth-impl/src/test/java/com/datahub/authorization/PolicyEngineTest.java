@@ -524,6 +524,84 @@ public class PolicyEngineTest {
   }
 
   @Test
+  public void testEvaluatePolicyActorFilterUserResourceOwnersTypeMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    actorFilter.setResourceOwnersType(new OwnershipTypeArray(Collections.singletonList(OwnershipType.DATAOWNER)));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    entityResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(eq(resourceUrn.getEntityType()), eq(resourceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
+            any())).thenReturn(entityResponse);
+
+    ResolvedResourceSpec resourceSpec =
+            buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_PRINCIPAL), Collections.emptySet());
+    
+    PolicyEngine.PolicyEvaluationResult result1 =
+            _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
+                    Optional.of(resourceSpec));
+    assertTrue(result1.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyActorFilterUserResourceOwnersTypeNoMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    actorFilter.setResourceOwnersType(new OwnershipTypeArray(Collections.singletonList(OwnershipType.TECHNICAL_OWNER)));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    entityResponse.setAspects(aspectMap);
+    when(_entityClient.getV2(eq(resourceUrn.getEntityType()), eq(resourceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
+            any())).thenReturn(entityResponse);
+
+    ResolvedResourceSpec resourceSpec =
+            buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_PRINCIPAL), Collections.emptySet());
+
+    PolicyEngine.PolicyEvaluationResult result1 =
+            _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
+                    Optional.of(resourceSpec));
+    assertFalse(result1.isGranted());
+  }
+
+  @Test
   public void testEvaluatePolicyActorFilterGroupResourceOwnersMatch() throws Exception {
 
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
