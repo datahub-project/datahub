@@ -18,13 +18,13 @@ const ContentWrapper = styled.div`
 export default function GlossaryRoutes() {
     const entityRegistry = useEntityRegistry();
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
-    const [updatedUrns, setUpdatedUrns] = useState<string[]>([]);
+    const [urnsToUpdate, setUrnsToUpdate] = useState<string[]>([]);
 
     const isAtRootGlossary = window.location.pathname === PageRoutes.GLOSSARY;
 
     return (
         <GlossaryEntityContext.Provider
-            value={{ isInGlossaryContext: true, entityData, setEntityData, updatedUrns, setUpdatedUrns }}
+            value={{ isInGlossaryContext: true, entityData, setEntityData, urnsToUpdate, setUrnsToUpdate }}
         >
             {!isAtRootGlossary && <GlossaryEntitiesPath />}
             <ContentWrapper>

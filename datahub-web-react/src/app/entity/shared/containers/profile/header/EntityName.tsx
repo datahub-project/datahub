@@ -29,7 +29,7 @@ function EntityName(props: Props) {
     const { isNameEditable } = props;
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
-    const { isInGlossaryContext, updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const { urn, entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
     const [updatedName, setUpdatedName] = useState(entityName);
@@ -48,7 +48,7 @@ function EntityName(props: Props) {
                 refetch();
                 if (isInGlossaryContext) {
                     const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
-                    updateGlossarySidebar([parentNodeToUpdate], updatedUrns, setUpdatedUrns);
+                    updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                 }
             })
             .catch((e: unknown) => {

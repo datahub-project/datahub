@@ -23,7 +23,7 @@ interface Props {
 function MoveGlossaryEntityModal(props: Props) {
     const { onClose } = props;
     const { urn: entityDataUrn, entityData, entityType } = useEntityData();
-    const { isInGlossaryContext, updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
@@ -51,7 +51,7 @@ function MoveGlossaryEntityModal(props: Props) {
                     if (isInGlossaryContext) {
                         const oldParentToUpdate = getParentNodeToUpdate(entityData, entityType);
                         const newParentToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
-                        updateGlossarySidebar([oldParentToUpdate, newParentToUpdate], updatedUrns, setUpdatedUrns);
+                        updateGlossarySidebar([oldParentToUpdate, newParentToUpdate], urnsToUpdate, setUrnsToUpdate);
                     }
                 }, 2000);
             })

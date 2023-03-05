@@ -15,7 +15,7 @@ import analytics, { EventType } from '../../../analytics';
 import DescriptionModal from '../components/legacy/DescriptionModal';
 import { validateCustomUrnId } from '../../../shared/textUtil';
 import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
+import { getGlossaryRootToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -38,7 +38,7 @@ interface Props {
 function CreateGlossaryEntityModal(props: Props) {
     const { entityType, onClose, refetchData } = props;
     const entityData = useEntityData();
-    const { isInGlossaryContext, updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
@@ -81,8 +81,9 @@ function CreateGlossaryEntityModal(props: Props) {
                     });
                     refetch();
                     if (isInGlossaryContext) {
-                        const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
-                        updateGlossarySidebar([parentNodeToUpdate], updatedUrns, setUpdatedUrns);
+                        // either refresh this current glossary node or the root nodes or root terms
+                        const nodeToUpdate = entityData?.urn || getGlossaryRootToUpdate(entityType);
+                        updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                     }
                     if (refetchData) {
                         refetchData();

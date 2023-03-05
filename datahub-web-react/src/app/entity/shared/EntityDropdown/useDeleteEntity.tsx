@@ -24,7 +24,7 @@ function useDeleteEntity(
 ) {
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const { isInGlossaryContext, updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
 
     const maybeDeleteEntity = getDeleteEntityMutation(type)();
     const deleteEntity = (maybeDeleteEntity && maybeDeleteEntity[0]) || undefined;
@@ -53,7 +53,7 @@ function useDeleteEntity(
                         onDelete?.();
                         if (isInGlossaryContext) {
                             const parentNodeToUpdate = getParentNodeToUpdate(entityData, type);
-                            updateGlossarySidebar([parentNodeToUpdate], updatedUrns, setUpdatedUrns);
+                            updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                         }
                         if (!hideMessage) {
                             message.success({

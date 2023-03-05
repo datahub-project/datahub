@@ -73,7 +73,7 @@ function NodeItem(props: Props) {
 
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const { entityData, updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
+    const { entityData, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
     const { data, loading, refetch } = useGetGlossaryNodeQuery({
         variables: { urn: node.urn },
         skip: !areChildrenVisible || shouldHideNode,
@@ -92,9 +92,9 @@ function NodeItem(props: Props) {
     }, [refreshBrowser]);
 
     useEffect(() => {
-        if (updatedUrns.includes(node.urn)) {
+        if (urnsToUpdate.includes(node.urn)) {
             refetch();
-            setUpdatedUrns(updatedUrns.filter((urn) => urn !== node.urn));
+            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== node.urn));
         }
     });
 

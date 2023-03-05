@@ -44,7 +44,7 @@ function GlossaryBrowser(props: Props) {
         selectNode,
     } = props;
 
-    const { updatedUrns, setUpdatedUrns } = useGlossaryEntityData();
+    const { urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
 
     const { data: nodesData, refetch: refetchNodes } = useGetRootGlossaryNodesQuery({ skip: !!rootNodes });
     const { data: termsData, refetch: refetchTerms } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
@@ -63,14 +63,15 @@ function GlossaryBrowser(props: Props) {
         }
     }, [refreshBrowser, refetchNodes, refetchTerms]);
 
+    // if node(s) or term(s) need to be refreshed at the root level, check if these special cases are in `urnsToUpdate`
     useEffect(() => {
-        if (updatedUrns.includes(ROOT_NODES)) {
+        if (urnsToUpdate.includes(ROOT_NODES)) {
             refetchNodes();
-            setUpdatedUrns(updatedUrns.filter((urn) => urn !== ROOT_NODES));
+            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== ROOT_NODES));
         }
-        if (updatedUrns.includes(ROOT_TERMS)) {
+        if (urnsToUpdate.includes(ROOT_TERMS)) {
             refetchTerms();
-            setUpdatedUrns(updatedUrns.filter((urn) => urn !== ROOT_TERMS));
+            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== ROOT_TERMS));
         }
     });
 
