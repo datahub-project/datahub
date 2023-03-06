@@ -147,7 +147,11 @@ def cleanup(config: BigQueryV2Config) -> None:
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Not supported since BigQuery project ids are globally unique",
+    supported=False,
+)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
@@ -467,10 +471,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
     def gen_dataset_containers(
-        self, dataset: str, project_id: str
+        self, dataset: str, project_id: str, tags: Optional[Dict[str, str]] = None
     ) -> Iterable[MetadataWorkUnit]:
         schema_container_key = self.gen_dataset_key(project_id, dataset)
 
+        tags_joined: Optional[List[str]] = None
+        if tags and self.config.capture_dataset_label_as_tag:
+            tags_joined = [f"{k}:{v}" for k, v in tags.items()]
         database_container_key = self.gen_project_id_key(database=project_id)
 
         yield from gen_schema_container(
@@ -487,6 +494,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             if self.config.include_external_url
             else None,
+            tags=tags_joined,
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
@@ -743,8 +751,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         dataset_name = bigquery_dataset.name
 
         yield from self.gen_dataset_containers(
-            dataset_name,
-            project_id,
+            dataset_name, project_id, bigquery_dataset.labels
         )
 
         columns = BigQueryDataDictionary.get_columns_for_dataset(
