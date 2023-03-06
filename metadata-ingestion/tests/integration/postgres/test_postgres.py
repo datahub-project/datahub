@@ -48,7 +48,9 @@ def test_postgres_ingest_with_db(
     postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
 ):
     # Run the metadata ingestion pipeline.
-    config_file = (test_resources_dir / "postgres_to_file_with_db_estimate_row_count.yml").resolve()
+    config_file = (
+        test_resources_dir / "postgres_to_file_with_db_estimate_row_count.yml"
+    ).resolve()
     print("Config file: {config_file}")
 
     run_datahub_cmd(
