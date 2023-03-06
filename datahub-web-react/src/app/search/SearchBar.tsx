@@ -16,6 +16,7 @@ import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import QuickFilters from './autoComplete/quickFilters/QuickFilters';
 import { getFiltersWithQuickFilter } from './utils/filterUtils';
 import usePrevious from '../shared/usePrevious';
+import analytics, { Event, EventType } from '../analytics';
 
 const ExploreForEntity = styled.span`
     font-weight: light;
@@ -263,10 +264,20 @@ export const SearchBar = ({
                             searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
                             getFiltersWithQuickFilter(selectedQuickFilter),
                         );
+                        analytics.event({
+                            type: EventType.SelectAutoCompleteOption,
+                            optionType: option.type,
+                        } as Event);
                     } else {
                         // Navigate directly to the entity profile.
                         history.push(getEntityPath(option.type, value as string, entityRegistry, false, false));
                         setSelected('');
+                        analytics.event({
+                            type: EventType.SelectAutoCompleteOption,
+                            optionType: option.type,
+                            entityType: option.type,
+                            entityUrn: value,
+                        } as Event);
                     }
                 }}
                 onSearch={(value: string) => onQueryChange(value)}

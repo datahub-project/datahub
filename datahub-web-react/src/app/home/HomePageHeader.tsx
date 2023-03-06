@@ -162,6 +162,8 @@ export const HomePageHeader = () => {
             type: EventType.HomePageSearchEvent,
             query,
             pageNumber: 1,
+            selectedQuickFilterTypes: selectedQuickFilter ? [selectedQuickFilter.field] : undefined,
+            selectedQuickFilterValues: selectedQuickFilter ? [selectedQuickFilter.value] : undefined,
         });
         navigateToSearchUrl({
             type,

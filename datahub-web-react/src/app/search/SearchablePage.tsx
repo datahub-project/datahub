@@ -77,6 +77,8 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
             query,
             pageNumber: 1,
             originPath: window.location.pathname,
+            selectedQuickFilterTypes: selectedQuickFilter ? [selectedQuickFilter.field] : undefined,
+            selectedQuickFilterValues: selectedQuickFilter ? [selectedQuickFilter.value] : undefined,
         });
 
         const appliedFilters = quickFilters && quickFilters?.length > 0 ? quickFilters : filters;
