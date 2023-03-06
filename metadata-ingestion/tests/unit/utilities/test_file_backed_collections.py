@@ -1,4 +1,5 @@
 import json
+import pathlib
 from dataclasses import asdict, dataclass
 from typing import Counter, Dict
 
@@ -7,8 +8,10 @@ import pytest
 from datahub.utilities.file_backed_collections import FileBackedDict
 
 
-def test_file_dict():
+def test_file_dict(tmp_path: pathlib.Path) -> None:
     cache = FileBackedDict[int](
+        filename=tmp_path / "test.db",
+        tablename="cache",
         serializer=lambda x: x,
         deserializer=lambda x: x,
         cache_max_size=10,
@@ -72,7 +75,7 @@ def test_file_dict():
     assert cache["a"] == 1
 
 
-def test_file_dict_serialization():
+def test_file_dict_serialization(tmp_path: pathlib.Path) -> None:
     @dataclass(frozen=True)
     class Label:
         a: str
@@ -115,6 +118,7 @@ def test_file_dict_serialization():
         return Main.from_dict(json.loads(s))
 
     cache = FileBackedDict[Main](
+        filename=tmp_path / "test.db",
         serializer=serialize,
         deserializer=deserialize,
         cache_max_size=0,
@@ -134,8 +138,9 @@ def test_file_dict_serialization():
     assert deserializer_calls == 2
 
 
-def test_file_dict_stores_counter():
+def test_file_dict_stores_counter(tmp_path: pathlib.Path) -> None:
     cache = FileBackedDict[Counter[str]](
+        filename=tmp_path / "test.db",
         serializer=json.dumps,
         deserializer=lambda s: Counter(json.loads(s)),
         cache_max_size=1,
@@ -157,3 +162,31 @@ def test_file_dict_stores_counter():
     for i in range(n):
         assert in_memory_counters[i] == cache[str(i)]
         assert in_memory_counters[i].most_common(2) == cache[str(i)].most_common(2)
+
+
+def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
+    filename = tmp_path / "test.db"
+
+    cache1 = FileBackedDict[int](
+        filename=filename,
+        tablename="cache1",
+        serializer=lambda x: x,
+        deserializer=lambda x: x,
+    )
+    cache2 = FileBackedDict[int](
+        filename=filename,
+        tablename="cache2",
+        serializer=lambda x: x,
+        deserializer=lambda x: x,
+    )
+
+    cache1["a"] = 1
+    cache2["b"] = 2
+
+    cache1.flush()
+    cache2.flush()
+
+    assert cache1["a"] == 1
+    assert cache2["b"] == 2
+
+    # TODO: Test joining between the two tables.

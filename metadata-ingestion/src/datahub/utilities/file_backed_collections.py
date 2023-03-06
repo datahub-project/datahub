@@ -1,10 +1,11 @@
 import collections
+import pathlib
 import sqlite3
-import tempfile
 from dataclasses import dataclass, field
 from typing import (
     Any,
     Callable,
+    Dict,
     Generic,
     Iterator,
     List,
@@ -22,6 +23,51 @@ SqliteValue = Union[int, float, str, bytes, None]
 _VT = TypeVar("_VT")
 
 
+@dataclass
+class _SqliteConnectionCache:
+    """
+    If you pass the same filename to multiple FileBacked* objects, they will
+    share the same underlying database connection. This also does ref counting
+    to drop the connection when appropriate.
+    """
+
+    _ref_count: Dict[pathlib.Path, int] = field(default_factory=dict)
+    _sqlite_connection_cache: Dict[pathlib.Path, sqlite3.Connection] = field(
+        default_factory=dict
+    )
+
+    def get_connection(self, filename: pathlib.Path) -> sqlite3.Connection:
+        if filename not in self._ref_count:
+            conn = sqlite3.connect(filename, isolation_level=None)
+
+            # These settings are optimized for performance.
+            # See https://www.sqlite.org/pragma.html for more information.
+            # Because we're only using these dbs to offload data from memory, we don't need
+            # to worry about data integrity too much.
+            conn.execute('PRAGMA locking_mode = "EXCLUSIVE"')
+            conn.execute('PRAGMA synchronous = "OFF"')
+            conn.execute('PRAGMA journal_mode = "MEMORY"')
+            conn.execute(f"PRAGMA journal_size_limit = {100 * 1024 * 1024}")  # 100MB
+
+            self._ref_count[filename] = 0
+            self._sqlite_connection_cache[filename] = conn
+
+        self._ref_count[filename] += 1
+        return self._sqlite_connection_cache[filename]
+
+    def drop_connection(self, filename: pathlib.Path) -> None:
+        self._ref_count[filename] -= 1
+
+        if self._ref_count[filename] == 0:
+            # Cleanup the connection object.
+            self._sqlite_connection_cache[filename].close()
+            del self._sqlite_connection_cache[filename]
+            del self._ref_count[filename]
+
+
+_sqlite_connection_cache = _SqliteConnectionCache()
+
+
 @dataclass(eq=False)
 class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """A dictionary that stores its data in a temporary SQLite database.
@@ -32,10 +78,12 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     and sets a generous journal size limit.
     """
 
+    filename: pathlib.Path
+
     serializer: Callable[[_VT], SqliteValue]
     deserializer: Callable[[Any], _VT]
 
-    filename: str = field(default_factory=tempfile.mktemp)
+    tablename: str = field(default="data")
     cache_max_size: int = field(default=2000)
     cache_eviction_batch_size: int = field(default=200)
 
@@ -43,25 +91,16 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     _active_object_cache: OrderedDict[str, _VT] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self._conn = sqlite3.connect(self.filename, isolation_level=None)
+        self._conn = _sqlite_connection_cache.get_connection(self.filename)
 
         # We keep a small cache in memory to avoid having to serialize/deserialize
         # data from the database too often. We use an OrderedDict to build
         # a poor-man's LRU cache.
         self._active_object_cache = collections.OrderedDict()
 
-        # These settings are optimized for performance.
-        # See https://www.sqlite.org/pragma.html for more information.
-        # Because we're only using this file to offload data from memory, we don't need
-        # to worry about data integrity too much.
-        self._conn.execute('PRAGMA locking_mode = "EXCLUSIVE"')
-        self._conn.execute('PRAGMA synchronous = "OFF"')
-        self._conn.execute('PRAGMA journal_mode = "MEMORY"')
-        self._conn.execute(f"PRAGMA journal_size_limit = {100 * 1024 * 1024}")  # 100MB
-
-        # The key will automatically be indexed.
+        # The key column will automatically be indexed.
         self._conn.execute(
-            "CREATE TABLE IF NOT EXISTS data (key TEXT PRIMARY KEY, value BLOB)"
+            f"CREATE TABLE {self.tablename} (key TEXT PRIMARY KEY, value BLOB)"
         )
 
     def _add_to_cache(self, key: str, value: _VT) -> None:
@@ -81,7 +120,8 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             items_to_write.append((key, self.serializer(value)))
 
         self._conn.executemany(
-            "INSERT OR REPLACE INTO data (key, value) VALUES (?, ?)", items_to_write
+            f"INSERT OR REPLACE INTO {self.tablename} (key, value) VALUES (?, ?)",
+            items_to_write,
         )
 
     def flush(self) -> None:
@@ -92,7 +132,9 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             self._active_object_cache.move_to_end(key)
             return self._active_object_cache[key]
 
-        cursor = self._conn.execute("SELECT value FROM data WHERE key = ?", (key,))
+        cursor = self._conn.execute(
+            f"SELECT value FROM {self.tablename} WHERE key = ?", (key,)
+        )
         result: Sequence[SqliteValue] = cursor.fetchone()
         if result is None:
             raise KeyError(key)
@@ -111,13 +153,13 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             in_cache = True
 
         n_deleted = self._conn.execute(
-            "DELETE FROM data WHERE key = ?", (key,)
+            f"DELETE FROM {self.tablename} WHERE key = ?", (key,)
         ).rowcount
         if not in_cache and not n_deleted:
             raise KeyError(key)
 
     def __iter__(self) -> Iterator[str]:
-        cursor = self._conn.execute("SELECT key FROM data")
+        cursor = self._conn.execute(f"SELECT key FROM {self.tablename}")
         for row in cursor:
             if row[0] in self._active_object_cache:
                 # If the key is in the active object cache, then SQL isn't the source of truth.
@@ -131,7 +173,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     def __len__(self) -> int:
         cursor = self._conn.execute(
             # Binding a list of values in SQLite: https://stackoverflow.com/a/1310001/5004662.
-            f"SELECT COUNT(*) FROM data WHERE key NOT IN ({','.join('?' * len(self._active_object_cache))})",
+            f"SELECT COUNT(*) FROM {self.tablename} WHERE key NOT IN ({','.join('?' * len(self._active_object_cache))})",
             (*self._active_object_cache.keys(),),
         )
         row = cursor.fetchone()
@@ -139,7 +181,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         return row[0] + len(self._active_object_cache)
 
     def close(self) -> None:
-        self._conn.close()
+        _sqlite_connection_cache.drop_connection(self.filename)
 
     def __del__(self) -> None:
         self.close()
