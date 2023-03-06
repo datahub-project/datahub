@@ -51,11 +51,19 @@ export const EMPTY_MESSAGES = {
     },
     contains: {
         title: 'Contains no Terms',
-        description: 'Terms can contain other terms to represent an "Has A" style relationship.',
+        description: 'Terms can contain other terms to represent a "Has A" style relationship.',
     },
     inherits: {
         title: 'Does not inherit from any terms',
         description: 'Terms can inherit from other terms to represent an "Is A" style relationship.',
+    },
+    'contained by': {
+        title: 'Is not contained by any terms',
+        description: 'Terms can be contained by other terms to represent a "Has A" style relationship.',
+    },
+    'inherited by': {
+        title: 'Is not inherited by any terms',
+        description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
     },
 };
 

@@ -17,7 +17,7 @@ from confluent_kafka.admin import (
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -37,6 +37,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -75,7 +76,7 @@ class KafkaTopicConfigKeys(str, Enum):
     UNCLEAN_LEADER_ELECTION_CONFIG = "unclean.leader.election.enable"
 
 
-class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
+class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
 
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
@@ -243,14 +244,10 @@ class KafkaSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(schema_metadata)
 
         # 3. Attach browsePaths aspect
-        browse_path_suffix = (
-            f"{self.source_config.platform_instance}/{topic}"
-            if self.source_config.platform_instance
-            else topic
-        )
-        browse_path = BrowsePathsClass(
-            [f"/{self.source_config.env.lower()}/{self.platform}/{browse_path_suffix}"]
-        )
+        browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
+        if self.source_config.platform_instance:
+            browse_path_str += f"/{self.source_config.platform_instance}"
+        browse_path = BrowsePathsClass([browse_path_str])
         dataset_snapshot.aspects.append(browse_path)
 
         custom_props = self.build_custom_properties(
@@ -285,7 +282,7 @@ class KafkaSource(StatefulIngestionSourceBase):
             id=f"{topic}-subtype",
             mcp=MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspect=SubTypesClass(typeNames=["topic"]),
+                aspect=SubTypesClass(typeNames=[DatasetSubTypes.TOPIC]),
             ),
         )
         self.report.report_workunit(subtype_wu)

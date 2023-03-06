@@ -2,9 +2,9 @@
 
 ## Integration Options
 
-DataHub supports both **push-based** and **pull-based** metadata integration. 
+DataHub supports both **push-based** and **pull-based** metadata integration.
 
-Push-based integrations allow you to emit metadata directly from your data systems when metadata changes, while pull-based integrations allow you to "crawl" or "ingest" metadata from the data systems by connecting to them and extracting metadata in a batch or incremental-batch manner. Supporting both mechanisms means that you can integrate with all your systems in the most flexible way possible. 
+Push-based integrations allow you to emit metadata directly from your data systems when metadata changes, while pull-based integrations allow you to "crawl" or "ingest" metadata from the data systems by connecting to them and extracting metadata in a batch or incremental-batch manner. Supporting both mechanisms means that you can integrate with all your systems in the most flexible way possible.
 
 Examples of push-based integrations include [Airflow](../docs/lineage/airflow.md), [Spark](../metadata-integration/java/spark-lineage/README.md), [Great Expectations](./integration_docs/great-expectations.md) and [Protobuf Schemas](../metadata-integration/java/datahub-protobuf/README.md). This allows you to get low-latency metadata integration from the "active" agents in your data ecosystem. Examples of pull-based integrations include BigQuery, Snowflake, Looker, Tableau and many others.
 
@@ -30,7 +30,7 @@ We apply a Support Status to each Metadata Source to help you understand the int
 
 ![Incubating](https://img.shields.io/badge/support%20status-incubating-blue): Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
 
-![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice. 
+![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice.
 
 ### Sinks
 
@@ -43,19 +43,20 @@ The default sink that most of the ingestion systems and guides assume is the `da
 A recipe is the main configuration file that puts it all together. It tells our ingestion scripts where to pull data from (source) and where to put it (sink).
 
 :::tip
-Name your recipe with **.dhub.yaml** extension like *myrecipe.dhub.yaml* to use vscode or intellij as a recipe editor with autocomplete
+Name your recipe with **.dhub.yaml** extension like _myrecipe.dhub.yaml_ to use vscode or intellij as a recipe editor with autocomplete
 and syntax validation.
 
 Make sure yaml plugin is installed for your editor:
+
 - For vscode install [Redhat's yaml plugin](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
-- For intellij install [official yaml plugin](https://plugins.jetbrains.com/plugin/13126-yaml
-)
+- For intellij install [official yaml plugin](https://plugins.jetbrains.com/plugin/13126-yaml)
 
 :::
 
 Since `acryl-datahub` version `>=0.8.33.2`, the default sink is assumed to be a DataHub REST endpoint:
+
 - Hosted at "http://localhost:8080" or the environment variable `${DATAHUB_GMS_URL}` if present
-- With an empty auth token or the environment variable `${DATAHUB_GMS_TOKEN}` if present. 
+- With an empty auth token or the environment variable `${DATAHUB_GMS_TOKEN}` if present.
 
 Here's a simple recipe that pulls metadata from MSSQL (source) and puts it into the default sink (datahub rest).
 
@@ -68,16 +69,17 @@ source:
     username: sa
     password: ${MSSQL_PASSWORD}
     database: DemoData
-
 # sink section omitted as we want to use the default datahub-rest sink
 ```
 
 Running this recipe is as simple as:
+
 ```shell
 datahub ingest -c recipe.dhub.yaml
 ```
 
 or if you want to override the default endpoints, you can provide the environment variables as part of the command like below:
+
 ```shell
 DATAHUB_GMS_URL="https://my-datahub-server:8080" DATAHUB_GMS_TOKEN="my-datahub-token" datahub ingest -c recipe.dhub.yaml
 ```
@@ -138,12 +140,11 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --no-defa
 The reports include the recipe that was used for ingestion. This can be turned off by adding an additional section to the ingestion recipe.
 
 ```yaml
-
 source:
-   # source configs
+  # source configs
 
 sink:
-   # sink configs
+  # sink configs
 
 # Add configuration for the datahub reporter
 reporting:
@@ -152,12 +153,12 @@ reporting:
       report_recipe: false
 ```
 
-
 ## Transformations
 
 If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub. Transformers require extending the recipe with a new section to describe the transformers that you want to run.
 
 For example, a pipeline that ingests metadata from MSSQL and applies a default "important" tag to all datasets is described below:
+
 ```yaml
 # A recipe to ingest metadata from MSSQL and apply default tags to all tables
 source:
@@ -172,7 +173,6 @@ transformers: # an array of transformers applied sequentially
     config:
       tag_urns:
         - "urn:li:tag:Important"
-
 # default sink, no config needed
 ```
 
@@ -180,13 +180,21 @@ Check out the [transformers guide](./docs/transformer/intro.md) to learn more ab
 
 ## Using as a library (SDK)
 
-In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. In this case, take a look at the [Python emitter](./as-a-library.md) and the [Java emitter](../metadata-integration/java/as-a-library.md) libraries which can be called from your own code. 
+In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. In this case, take a look at the [Python emitter](./as-a-library.md) and the [Java emitter](../metadata-integration/java/as-a-library.md) libraries which can be called from your own code.
 
 ### Programmatic Pipeline
+
 In some cases, you might want to configure and run a pipeline entirely from within your custom Python script. Here is an example of how to do it.
- - [programmatic_pipeline.py](./examples/library/programatic_pipeline.py) - a basic mysql to REST programmatic pipeline.
+
+- [programmatic_pipeline.py](./examples/library/programatic_pipeline.py) - a basic mysql to REST programmatic pipeline.
 
 ## Developing
 
 See the guides on [developing](./developing.md), [adding a source](./adding-source.md) and [using transformers](./docs/transformer/intro.md).
 
+## Compatibility
+
+DataHub server uses a 3 digit versioning scheme, while the CLI uses a 4 digit scheme. For example, if you're using DataHub server version 0.10.0, you should use CLI version 0.10.0.x, where x is a patch version.
+We do this because we do CLI releases at a much higher frequency than server releases, usually every few days vs twice a month.
+
+For ingestion sources, any breaking changes will be highlighted in the [release notes](../docs/how/updating-datahub.md). When fields are deprecated or otherwise changed, we will try to maintain backwards compatibility for two server releases, which is about 4-6 weeks. The CLI will also print warnings whenever deprecated options are used.

@@ -14,14 +14,18 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.RequestOptions;
+import org.apache.commons.lang.StringUtils;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.builder.PointInTimeBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 
@@ -260,7 +264,7 @@ public class ESUtils {
   @Nonnull
   public static String toKeywordField(@Nonnull final String filterField, @Nonnull final boolean skipKeywordSuffix) {
     return skipKeywordSuffix
-            || "urn".equals(filterField)
+            || KEYWORD_FIELDS.contains(filterField)
             || filterField.contains(".") ? filterField : filterField + ESUtils.KEYWORD_SUFFIX;
   }
 
@@ -281,5 +285,17 @@ public class ESUtils {
 
   public static String extractTargetIndex(String id) {
     return id.split("[" + HEADER_VALUE_DELIMITER + "]", 3)[2];
+  }
+
+  public static void setSearchAfter(SearchSourceBuilder searchSourceBuilder, @Nullable Object[] sort,
+      @Nullable String pitId, String keepAlive) {
+    if (sort != null && sort.length > 0) {
+      searchSourceBuilder.searchAfter(sort);
+    }
+    if (StringUtils.isNotBlank(pitId)) {
+      PointInTimeBuilder pointInTimeBuilder = new PointInTimeBuilder(pitId);
+      pointInTimeBuilder.setKeepAlive(TimeValue.parseTimeValue(keepAlive, "keepAlive"));
+      searchSourceBuilder.pointInTimeBuilder(pointInTimeBuilder);
+    }
   }
 }
