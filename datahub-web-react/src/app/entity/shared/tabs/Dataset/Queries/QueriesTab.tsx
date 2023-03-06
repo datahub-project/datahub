@@ -106,6 +106,7 @@ export default function QueriesTab() {
                 {highlightedQueries.length > 0 && (
                     <QueriesListSection
                         title="Highlighted Queries"
+                        tooltip="Shared queries relevant to this dataset"
                         queries={highlightedQueries}
                         showEdit
                         showDelete
@@ -116,6 +117,7 @@ export default function QueriesTab() {
                 {recentQueries.length > 0 && (
                     <QueriesListSection
                         title="Recent Queries"
+                        tooltip="Queries that have been recently run against this dataset"
                         queries={recentQueries}
                         showDetails={false}
                         showDelete={false}

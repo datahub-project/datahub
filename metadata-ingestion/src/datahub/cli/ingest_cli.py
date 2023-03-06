@@ -98,7 +98,16 @@ def ingest() -> None:
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
 @click.pass_context
-@telemetry.with_telemetry()
+@telemetry.with_telemetry(
+    capture_kwargs=[
+        "dry_run",
+        "preview",
+        "strict_warnings",
+        "test_source_connection",
+        "no_default_report",
+        "no_spinner",
+    ]
+)
 @memory_leak_detector.with_leak_detection
 def run(
     ctx: click.Context,

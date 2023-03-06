@@ -10,7 +10,10 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.configuration.validate_host_port import validate_host_port
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -29,6 +32,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -186,7 +190,7 @@ class ElasticsearchSourceReport(SourceReport):
         self.filtered.append(index)
 
 
-class ElasticsearchSourceConfig(DatasetSourceConfigBase):
+class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     host: str = Field(
         default="localhost:9200", description="The elastic search host URI."
     )
@@ -407,11 +411,11 @@ class ElasticsearchSource(Source):
             entityUrn=dataset_urn,
             aspect=SubTypesClass(
                 typeNames=[
-                    "Index Template"
+                    DatasetSubTypes.ELASTIC_INDEX_TEMPLATE
                     if not is_index
-                    else "Index"
+                    else DatasetSubTypes.ELASTIC_INDEX
                     if not data_stream
-                    else "Datastream"
+                    else DatasetSubTypes.ELASTIC_DATASTREAM
                 ]
             ),
         )

@@ -61,6 +61,7 @@ services:
       - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     environment:
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5002
+      - DATAHUB_ANALYTICS_ENABLED=${DATAHUB_ANALYTICS_ENABLED:-true}
     volumes:
       - ../datahub-frontend/build/stage/playBinary:/datahub-frontend
 

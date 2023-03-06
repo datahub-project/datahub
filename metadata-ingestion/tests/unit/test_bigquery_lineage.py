@@ -27,6 +27,7 @@ FROM
         view_definition=ddl,
     )
     tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
+    assert tables is not None
     assert 1 == len(tables)
     assert "my-project2.my-dataset2.test_physical_table" == tables[0].get_table_name()
 
@@ -45,6 +46,7 @@ def test_parse_view_lineage_with_two_part_table_name():
         view_definition=ddl,
     )
     tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
+    assert tables is not None
     assert 1 == len(tables)
     assert "my_project.some_dataset.sometable" == tables[0].get_table_name()
 
@@ -63,6 +65,7 @@ def test_one_part_table():
         view_definition=ddl,
     )
     tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
+    assert tables is not None
     assert 1 == len(tables)
     assert "my_project.my_dataset.sometable" == tables[0].get_table_name()
 
@@ -81,6 +84,8 @@ def test_create_statement_with_multiple_table():
         view_definition=ddl,
     )
     tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
+    assert tables is not None
+
     tables.sort(key=lambda e: e.get_table_name())
     assert 2 == len(tables)
     assert "my_project_2.my_dataset_2.sometable" == tables[0].get_table_name()

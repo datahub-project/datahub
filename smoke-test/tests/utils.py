@@ -8,6 +8,7 @@ from joblib import Parallel, delayed
 import requests_wrapper as requests
 
 from datahub.cli import cli_utils
+from datahub.cli.cli_utils import get_system_auth
 from datahub.ingestion.run.pipeline import Pipeline
 
 TIME: int = 1581407189000
@@ -19,10 +20,16 @@ def get_frontend_session():
     headers = {
         "Content-Type": "application/json",
     }
-    username, password = get_admin_credentials()
-    data = '{"username":"' + username + '", "password":"' + password + '"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
+    system_auth = get_system_auth()
+    if system_auth is not None:
+        session.headers.update({"Authorization": system_auth})
+    else:
+        username, password = get_admin_credentials()
+        data = '{"username":"' + username + '", "password":"' + password + '"}'
+        response = session.post(
+            f"{get_frontend_url()}/logIn", headers=headers, data=data
+        )
+        response.raise_for_status()
 
     return session
 
@@ -36,6 +43,10 @@ def get_admin_credentials():
         os.getenv("ADMIN_USERNAME", "datahub"),
         os.getenv("ADMIN_PASSWORD", "datahub"),
     )
+
+
+def get_root_urn():
+    return "urn:li:corpuser:datahub"
 
 
 def get_gms_url():
@@ -113,6 +124,21 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
     return pipeline
 
 
+def delete_urn(urn: str) -> None:
+    payload_obj = {"urn": urn}
+
+    cli_utils.post_delete_endpoint_with_session_and_url(
+        requests.Session(),
+        get_gms_url() + "/entities?action=delete",
+        payload_obj,
+    )
+
+
+def delete_urns(urns: List[str]) -> None:
+    for urn in urns:
+        delete_urn(urn)
+
+
 def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
     if not cli_utils.get_boolean_env_variable("CLEANUP_DATA", True):
         print("Not cleaning data to save time")
@@ -135,13 +161,7 @@ def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
             snapshot_union = entry["proposedSnapshot"]
             snapshot = list(snapshot_union.values())[0]
             urn = snapshot["urn"]
-        payload_obj = {"urn": urn}
-
-        cli_utils.post_delete_endpoint_with_session_and_url(
-            session,
-            get_gms_url() + "/entities?action=delete",
-            payload_obj,
-        )
+        delete_urn(urn)
 
     with open(filename) as f:
         d = json.load(f)
@@ -156,7 +176,6 @@ def delete_urns_from_file(filename: str, shared_data: bool = False) -> None:
 
 # Fixed now value
 NOW: datetime = datetime.now()
-
 
 def get_timestampmillis_at_start_of_day(relative_day_num: int) -> int:
     """

@@ -36,6 +36,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SNOWFLAKE_DATABASE,
@@ -73,7 +77,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
-from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -1013,7 +1016,9 @@ class SnowflakeV2Source(
             yield dpi_aspect
 
         subTypes = SubTypes(
-            typeNames=["view"] if isinstance(table, SnowflakeView) else ["table"]
+            typeNames=[DatasetSubTypes.VIEW]
+            if isinstance(table, SnowflakeView)
+            else [DatasetSubTypes.TABLE]
         )
 
         yield MetadataChangeProposalWrapper(
@@ -1222,7 +1227,7 @@ class SnowflakeV2Source(
             name=database.name,
             database=self.snowflake_identifier(database.name),
             database_container_key=database_container_key,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+            sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
@@ -1269,7 +1274,7 @@ class SnowflakeV2Source(
             database_container_key=database_container_key,
             domain_config=self.config.domain,
             schema_container_key=schema_container_key,
-            sub_types=[SqlContainerSubTypes.SCHEMA],
+            sub_types=[DatasetContainerSubTypes.SCHEMA],
             report=self.report,
             domain_registry=self.domain_registry,
             description=schema.comment,
@@ -1539,7 +1544,7 @@ class SnowflakeV2Source(
 
     def close(self) -> None:
         super().close()
-        super(StatefulIngestionSourceBase, self).close()
+        StatefulIngestionSourceBase.close(self)
         if hasattr(self, "lineage_extractor"):
             self.lineage_extractor.close()
         if hasattr(self, "usage_extractor"):

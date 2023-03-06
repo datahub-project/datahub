@@ -15,7 +15,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
 )
-from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
@@ -28,6 +28,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BooleanTypeClass,
@@ -71,7 +72,7 @@ class SalesforceProfilingConfig(ConfigModel):
     # TODO - support field level profiling
 
 
-class SalesforceConfig(DatasetSourceConfigBase):
+class SalesforceConfig(DatasetSourceConfigMixin):
     platform = "salesforce"
 
     auth: SalesforceAuthType = SalesforceAuthType.USERNAME_PASSWORD
@@ -448,11 +449,11 @@ class SalesforceSource(Source):
         ).as_workunit()
 
     def get_subtypes_workunit(self, sObjectName: str, datasetUrn: str) -> WorkUnit:
-        subtypes = []
+        subtypes: List[str] = []
         if sObjectName.endswith("__c"):
-            subtypes.append("Custom Object")
+            subtypes.append(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT)
         else:
-            subtypes.append("Standard Object")
+            subtypes.append(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT)
 
         return MetadataChangeProposalWrapper(
             entityUrn=datasetUrn, aspect=SubTypesClass(typeNames=subtypes)

@@ -25,6 +25,7 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.utils.SearchUtils.isUrn;
 
 
@@ -263,7 +264,7 @@ public class ESUtils {
   @Nonnull
   public static String toKeywordField(@Nonnull final String filterField, @Nonnull final boolean skipKeywordSuffix) {
     return skipKeywordSuffix
-            || "urn".equals(filterField)
+            || KEYWORD_FIELDS.contains(filterField)
             || filterField.contains(".") ? filterField : filterField + ESUtils.KEYWORD_SUFFIX;
   }
 

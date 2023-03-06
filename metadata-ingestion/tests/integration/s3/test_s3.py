@@ -146,10 +146,15 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
 def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
     ctx = PipelineContext(run_id="test-s3")
 
-    # Case 1 : named variable in table name is not present in include
+    # Baseline: valid config
     source: dict = {
-        "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table1}"}
+        "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table}"}
     }
+    s3 = S3Source.create(source, ctx)
+    assert s3.source_config.platform == "file"
+
+    # Case 1 : named variable in table name is not present in include
+    source = {"path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table1}"}}
     with pytest.raises(ValidationError, match="table_name"):
         S3Source.create(source, ctx)
 
