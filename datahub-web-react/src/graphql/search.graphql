@@ -16,6 +16,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
         ...datasetStatsFields
     }
     ... on CorpUser {

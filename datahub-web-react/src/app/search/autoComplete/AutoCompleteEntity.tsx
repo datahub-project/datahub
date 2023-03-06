@@ -8,6 +8,14 @@ import { IconStyleType } from '../../entity/Entity';
 import { getAutoCompleteEntityText } from './utils';
 import { SuggestionText } from './AutoCompleteUser';
 import ParentContainers from './ParentContainers';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+
+const AutoCompleteEntityWrapper = styled.div`
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    align-items: center;
+`;
 
 const PreviewImage = styled(Image)`
     height: 22px;
@@ -15,6 +23,20 @@ const PreviewImage = styled(Image)`
     width: auto;
     object-fit: contain;
     background-color: transparent;
+`;
+
+const ContentWrapper = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const Subtype = styled.span`
+    color: ${ANTD_GRAY[9]};
+    border: 1px solid ${ANTD_GRAY[9]};
+    border-radius: 16px;
+    padding: 2px 6px;
+    line-height: 12px;
+    font-size: 12px;
 `;
 
 interface Props {
@@ -33,16 +55,20 @@ export default function AutoCompleteEntity({ query, entity }: Props) {
         entityRegistry.getIcon(entity.type, 12, IconStyleType.ACCENT);
     const { matchedText, unmatchedText } = getAutoCompleteEntityText(displayName, query);
     const parentContainers = genericEntityProps?.parentContainers?.containers || [];
+    const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
 
     return (
-        <>
-            {icon}
-            <SuggestionText>
-                {/* Need to reverse parentContainers since it returns direct parent first. */}
-                <ParentContainers parentContainers={[...parentContainers].reverse()} />
-                <Typography.Text strong>{matchedText}</Typography.Text>
-                {unmatchedText}
-            </SuggestionText>
-        </>
+        <AutoCompleteEntityWrapper>
+            <ContentWrapper>
+                {icon}
+                <SuggestionText>
+                    {/* Need to reverse parentContainers since it returns direct parent first. */}
+                    <ParentContainers parentContainers={[...parentContainers].reverse()} />
+                    <Typography.Text strong>{matchedText}</Typography.Text>
+                    {unmatchedText}
+                </SuggestionText>
+            </ContentWrapper>
+            {subtype && <Subtype>{subtype}</Subtype>}
+        </AutoCompleteEntityWrapper>
     );
 }

@@ -166,11 +166,12 @@ public class GetQuickFiltersResolverTest {
   private static GetQuickFiltersResult getHappyPathResultData() {
     GetQuickFiltersResult result = new GetQuickFiltersResult();
     List<QuickFilter> quickFilters = new ArrayList<>();
-    quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"));
-    quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:looker", "urn:li:dataPlatform:looker"));
-    quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:dbt", "urn:li:dataPlatform:dbt"));
+    // platforms should be in alphabetical order
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:bigquery", "urn:li:dataPlatform:bigquery"));
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:custom", "urn:li:dataPlatform:custom"));
+    quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:dbt", "urn:li:dataPlatform:dbt"));
+    quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:looker", "urn:li:dataPlatform:looker"));
+    quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"));
     quickFilters.add(createQuickFilter("entity", "DATASET", null));
     quickFilters.add(createQuickFilter("entity", "DASHBOARD", null));
     quickFilters.add(createQuickFilter("entity", "DATA_FLOW", null));
@@ -208,9 +209,9 @@ public class GetQuickFiltersResolverTest {
   private static GetQuickFiltersResult getUnHappyPathResultData() {
     GetQuickFiltersResult result = new GetQuickFiltersResult();
     List<QuickFilter> quickFilters = new ArrayList<>();
-    // in correct order by count for platforms. In correct order by priority for entity types
-    quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:looker", "urn:li:dataPlatform:looker"));
+    // in correct order by count for platforms (alphabetical). In correct order by priority for entity types
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:dbt", "urn:li:dataPlatform:dbt"));
+    quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:looker", "urn:li:dataPlatform:looker"));
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"));
     quickFilters.add(createQuickFilter("entity", "DATASET", null));
     quickFilters.add(createQuickFilter("entity", "DATA_JOB", null));
