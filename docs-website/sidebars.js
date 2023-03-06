@@ -424,6 +424,20 @@ module.exports = {
           },
         ],
       },
+      {
+        "How to Do It Programmatically": [
+          "docs/dev-guides/tutorials/why-we-are-doing-it",
+          "docs/dev-guides/tutorials/adding-tags",
+          "docs/dev-guides/tutorials/adding-terms",
+          "docs/dev-guides/tutorials/adding-ownerships",
+          {
+            References : [
+              "docs/dev-guides/tutorials/references/generate-access-token",
+              "docs/dev-guides/tutorials/references/prepare-datahub",
+            ],
+          },
+        ],
+      },
       "docs/debugging",
       "docs/plugins",
 
