@@ -84,6 +84,8 @@ export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
     EntityType.DataJob,
 ]);
 
+export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode];
+
 export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
 
 export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';
