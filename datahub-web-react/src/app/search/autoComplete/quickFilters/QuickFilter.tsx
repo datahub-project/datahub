@@ -59,7 +59,11 @@ export default function QuickFilter({ quickFilter }: Props) {
     }
 
     return (
-        <QuickFilterWrapper onClick={handleClick} isSelected={isSelected}>
+        <QuickFilterWrapper
+            onClick={handleClick}
+            isSelected={isSelected}
+            data-testid={`quick-filter-${quickFilter.value}`}
+        >
             {icon}
             <LabelWrapper>{label}</LabelWrapper>
         </QuickFilterWrapper>
