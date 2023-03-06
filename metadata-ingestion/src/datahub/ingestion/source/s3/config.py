@@ -93,14 +93,14 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         guessed_platform = guessed_platforms.pop()
 
         # If platform is s3, check that they're all the same bucket.
-        if guessed_platform == "s3":
-            bucket_names = set(
-                get_bucket_name(path_spec.include) for path_spec in path_specs
-            )
-            if len(bucket_names) > 1:
-                raise ValueError(
-                    f"All path_specs should reference the same s3 bucket. Got {bucket_names}"
-                )
+        # if guessed_platform == "s3":
+        #     bucket_names = set(
+        #         get_bucket_name(path_spec.include) for path_spec in path_specs
+        #     )
+        #     if len(bucket_names) > 1:
+        #         raise ValueError(
+        #             f"All path_specs should reference the same s3 bucket. Got {bucket_names}"
+        #         )
 
         # Ensure s3 configs aren't used for file sources.
         if guessed_platform != "s3" and (
