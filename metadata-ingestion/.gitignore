@@ -4,6 +4,7 @@ output
 pvenv36/
 /venv*/
 bq_credentials.json
+junit.*.xml
 /tmp
 
 # Byte-compiled / optimized / DLL files
