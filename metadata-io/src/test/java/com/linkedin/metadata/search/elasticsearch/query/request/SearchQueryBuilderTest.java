@@ -16,7 +16,11 @@ import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class SearchQueryBuilderTest {
 
@@ -29,16 +33,28 @@ public class SearchQueryBuilderTest {
     List<QueryBuilder> shouldQueries = mainQuery.should();
     assertEquals(shouldQueries.size(), 2);
 
-    SimpleQueryStringBuilder simpleQuery = (SimpleQueryStringBuilder) shouldQueries.get(0);
-    assertEquals(simpleQuery.value(), "testQuery");
-    assertNull(simpleQuery.analyzer());
-    Map<String, Float> keywordFields = simpleQuery.fields();
-    assertEquals(keywordFields.size(), 20);
-    assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
-    assertFalse(keywordFields.containsKey("keyPart3"));
-    assertEquals(keywordFields.get("textFieldOverride").floatValue(), 1.0f);
-    assertEquals(keywordFields.get("customProperties").floatValue(), 1.0f);
-    assertEquals(keywordFields.get("esObjectField").floatValue(), 1.0f);
+    BoolQueryBuilder analyzerGroupQuery = (BoolQueryBuilder) shouldQueries.get(0);
+
+    SimpleQueryStringBuilder keywordQuery = (SimpleQueryStringBuilder) analyzerGroupQuery.should().get(0);
+    assertEquals(keywordQuery.value(), "testQuery");
+    assertEquals(keywordQuery.analyzer(), "keyword");
+    Map<String, Float> keywordFields = keywordQuery.fields();
+    assertEquals(keywordFields.size(), 1);
+    assertEquals(keywordFields.get("urn").floatValue(), 10.0f);
+
+    SimpleQueryStringBuilder fulltextQuery = (SimpleQueryStringBuilder) analyzerGroupQuery.should().get(1);
+    assertEquals(fulltextQuery.value(), "testQuery");
+    assertEquals(fulltextQuery.analyzer(), TEXT_SEARCH_ANALYZER);
+    Map<String, Float> fulltextFields = fulltextQuery.fields();
+    assertEquals(fulltextFields.size(), 19);
+    assertEquals(fulltextFields.get("keyPart1").floatValue(), 10.0f);
+    assertFalse(fulltextFields.containsKey("keyPart3"));
+    assertEquals(fulltextFields.get("textFieldOverride").floatValue(), 1.0f);
+    assertEquals(fulltextFields.get("customProperties").floatValue(), 1.0f);
+    assertEquals(fulltextFields.get("esObjectField").floatValue(), 1.0f);
+    assertEquals(fulltextFields.get("keyPart1.delimited").floatValue(), 4.0f);
+    assertFalse(fulltextFields.containsKey("keyPart3"));
+    assertEquals(fulltextFields.get("textFieldOverride.delimited").floatValue(), 0.4f);
 
     BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(1);
     assertTrue(boolPrefixQuery.should().size() > 0);

@@ -6,8 +6,8 @@ from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
-    EnvBasedSourceConfigBase,
-    PlatformSourceConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
@@ -20,12 +20,11 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
+class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     path_specs: List[PathSpec] = Field(
         description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
     )
     platform: str = Field(
-        # The platform field already exists, but we want to override the type/default/docs.
         default="",
         description="The platform that this source connects to (either 's3' or 'file'). "
         "If not specified, the platform will be inferred from the path_specs.",
@@ -42,6 +41,12 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     use_s3_object_tags: Optional[bool] = Field(
         None,
         description="# Whether or not to create tags in datahub from the s3 object",
+    )
+
+    # Whether to update the table schema when schema in files within the partitions are updated
+    update_schema_on_partition_file_updates: Optional[bool] = Field(
+        default=False,
+        description="Whether to update the table schema when schema in files within the partitions are updated.",
     )
 
     profile_patterns: AllowDenyPattern = Field(
@@ -115,6 +120,16 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
             values["platform"] = guessed_platform
 
         return path_specs
+
+    @pydantic.validator("platform", always=True)
+    def platform_not_empty(cls, platform: str, values: dict) -> str:
+        inferred_platform = values.get(
+            "platform", None
+        )  # we may have inferred it above
+        platform = platform or inferred_platform
+        if not platform:
+            raise ValueError("platform must not be empty")
+        return platform
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(

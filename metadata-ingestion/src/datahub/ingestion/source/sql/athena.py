@@ -20,10 +20,8 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
-from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemySource,
-    SqlContainerSubTypes,
-)
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import (
     SQLAlchemyConfig,
     make_sqlalchemy_uri,
@@ -207,7 +205,7 @@ class AthenaSource(SQLAlchemySource):
         yield from gen_database_container(
             database=database,
             database_container_key=database_container_key,
-            sub_types=[SqlContainerSubTypes.DATABASE],
+            sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
             report=self.report,
@@ -217,7 +215,12 @@ class AthenaSource(SQLAlchemySource):
     def get_database_container_key(self, db_name: str, schema: str) -> PlatformKey:
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,
         # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
-        assert db_name == schema
+        # Based on community feedback, db_name only available if it is explicitly specified in the connection string.
+        # If it is not available then we should use schema as db_name
+
+        if not db_name:
+            db_name = schema
+
         return gen_database_key(
             db_name,
             platform=self.platform,

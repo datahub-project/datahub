@@ -1,12 +1,9 @@
 # Developing on Metadata Ingestion
 
 If you just want to use metadata ingestion, check the [user-centric](./README.md) guide.
+This document is for developers who want to develop and possibly contribute to the metadata ingestion framework.
 
-## Architecture
-
-![metadata ingestion framework layout](../docs/imgs/datahub-metadata-ingestion-framework.png)
-
-The architecture of this metadata ingestion framework is heavily inspired by [Apache Gobblin](https://gobblin.apache.org/) (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
+Also take a look at the guide to [adding a source](./adding-source.md).
 
 ## Getting Started
 
@@ -75,21 +72,74 @@ The syntax for installing plugins is slightly different in development. For exam
 + pip install -e '.[bigquery,datahub-rest]'
 ```
 
+## Architecture
+
+![metadata ingestion framework layout](../docs/imgs/datahub-metadata-ingestion-framework.png)
+
+The architecture of this metadata ingestion framework is heavily inspired by [Apache Gobblin](https://gobblin.apache.org/) (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
+
 ## Code layout
 
-- The CLI interface is defined in [entrypoints.py](./src/datahub/entrypoints.py).
+- The CLI interface is defined in [entrypoints.py](./src/datahub/entrypoints.py) and in the [cli](./src/datahub/cli) directory.
 - The high level interfaces are defined in the [API directory](./src/datahub/ingestion/api).
 - The actual [sources](./src/datahub/ingestion/source) and [sinks](./src/datahub/ingestion/sink) have their own directories. The registry files in those directories import the implementations.
 - The metadata models are created using code generation, and eventually live in the `./src/datahub/metadata` directory. However, these files are not checked in and instead are generated at build time. See the [codegen](./scripts/codegen.sh) script for details.
 - Tests live in the [`tests`](./tests) directory. They're split between smaller unit tests and larger integration tests.
 
-## Contributing
+## Code style
 
-Contributions welcome!
+We use black, isort, flake8, and mypy to ensure consistent code style and quality.
 
-Also take a look at the guide to [adding a source](./adding-source.md).
+```shell
+# Assumes: pip install -e '.[dev]' and venv is activated
+black src/ tests/
+isort src/ tests/
+flake8 src/ tests/
+mypy src/ tests/
+```
 
-### Testing
+Some other notes:
+
+- Prefer mixin classes over tall inheritance hierarchies.
+- Write type annotations wherever possible.
+- Use `typing.Protocol` to make implicit interfaces explicit.
+- If you ever find yourself copying and pasting large chunks of code, there's probably a better way to do it.
+- Prefer a standalone helper method over a `@staticmethod`.
+- You probably should not be defining a `__hash__` method yourself. Using `@dataclass(frozen=True)` is a good way to get a hashable class.
+- Avoid global state. In sources, this includes instance variables that effectively function as "global" state for the source.
+- Avoid pinning version dependencies. The `acryl-datahub` package is frequently used as a library and hence installed alongside other tools. If we keep our dependencies pinned or too restrictive, we break such workflows.
+- Avoid defining functions within other functions. This makes it harder to read and test the code.
+- When interacting with external APIs, parse the responses into a dataclass rather than operating directly on the response object.
+
+## Guidelines for Ingestion Configs
+
+We use [pydantic](https://pydantic-docs.helpmanual.io/) to define the ingestion configs.
+In order to ensure that the configs are consistent and easy to use, we have a few guidelines:
+
+#### Naming
+
+- Most important point: we should **match the terminology of the source system**. For example, snowflake shouldn’t have a `host_port`, it should have an `account_id`.
+- We should prefer slightly more verbose names when the alternative isn’t descriptive enough. For example `client_id` or `tenant_id` over a bare `id` and `access_secret` over a bare `secret`.
+- AllowDenyPatterns should be used whenever we need to filter a list. The pattern should always apply to the fully qualified name of the entity. These configs should be named `*_pattern`, for example `table_pattern`.
+- Avoid `*_only` configs like `profile_table_level_only` in favor of `profile_table_level` and `profile_column_level`. `include_tables` and `include_views` are a good example.
+
+#### Content
+
+- All configs should have a description.
+- When using inheritance or mixin classes, make sure that the fields and documentation is applicable in the base class. The `bigquery_temp_table_schema` field definitely shouldn’t be showing up in every single source’s profiling config!
+- Set reasonable defaults!
+  - The configs should not contain a default that you’d reasonably expect to be built in. As a **bad** example, the Postgres source’s `schema_pattern` has a default deny pattern containing `information_schema`. This means that if the user overrides the schema_pattern, they’ll need to manually add the information_schema to their deny patterns. This is a bad, and the filtering should’ve been handled automatically by the source’s implementation, not added at runtime by its config.
+
+#### Coding
+
+- Use a single pydantic validator per thing to validate - we shouldn’t have validation methods that are 50 lines long.
+- Use `SecretStr` for passwords, auth tokens, etc.
+- When doing simple field renames, use the `pydantic_renamed_field` helper.
+- When doing field deprecations, use the `pydantic_removed_field` helper.
+- Validator methods must only throw ValueError, TypeError, or AssertionError. Do not throw ConfigurationError from validators.
+- Set `hidden_from_docs` for internal-only config flags. However, needing this often indicates a larger problem with the code structure. The hidden field should probably be a class attribute or an instance variable on the corresponding source.
+
+## Testing
 
 ```shell
 # Follow standard install from source procedure - see above.
@@ -100,6 +150,9 @@ pip install -e '.[dev]'
 # For running integration tests, you can use
 pip install -e '.[integration-tests]'
 
+# Run the full testing suite
+pytest -vv
+
 # Run unit tests.
 pytest -m 'not integration and not slow_integration'
 
@@ -108,27 +161,6 @@ pytest -m 'integration'
 
 # Run Docker-based slow integration tests.
 pytest -m 'slow_integration'
-```
-
-### Sanity check code before committing
-
-```shell
-./scripts/codegen.sh
-```
-
-This will generate some schema related files. These are auto-generated in docker containers. Do not commit these files in source code.
-
-```shell
-# Assumes: pip install -e '.[dev]' and venv is activated
-black src/ tests/
-isort src/ tests/
-flake8 src/ tests/
-mypy src/ tests/
-
-# If you want to run only the quicker subtests
-pytest -m 'not integration and not slow_integration' -vv
-# Run the full testing suite
-pytest -vv
 
 # You can also run these steps via the gradle build:
 ../gradlew :metadata-ingestion:lint

@@ -7,8 +7,8 @@ from pydantic import Field, SecretStr, root_validator, validator
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.glossary.classifier import ClassificationConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    ProfilingStatefulIngestionConfig,
-    UsageStatefulIngestionConfig,
+    StatefulProfilingConfigMixin,
+    StatefulUsageConfigMixin,
 )
 from datahub.ingestion.source_config.sql.snowflake import (
     BaseSnowflakeConfig,
@@ -29,8 +29,8 @@ class TagOption(str, Enum):
 class SnowflakeV2Config(
     SnowflakeConfig,
     SnowflakeUsageConfig,
-    UsageStatefulIngestionConfig,
-    ProfilingStatefulIngestionConfig,
+    StatefulUsageConfigMixin,
+    StatefulProfilingConfigMixin,
 ):
     convert_urns_to_lowercase: bool = Field(
         default=True,

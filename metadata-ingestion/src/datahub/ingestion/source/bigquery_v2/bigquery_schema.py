@@ -99,6 +99,7 @@ class BigqueryView(BaseView):
 @dataclass
 class BigqueryDataset:
     name: str
+    labels: Optional[Dict[str, str]] = None
     created: Optional[datetime] = None
     last_altered: Optional[datetime] = None
     location: Optional[str] = None
@@ -353,8 +354,7 @@ class BigQueryDataDictionary:
         # FIXME: Due to a bug in BigQuery's type annotations, we need to cast here.
         maxResults = cast(int, maxResults)
         datasets = conn.list_datasets(project_id, max_results=maxResults)
-
-        return [BigqueryDataset(name=d.dataset_id) for d in datasets]
+        return [BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets]
 
     @staticmethod
     def get_datasets_for_project_id_with_information_schema(

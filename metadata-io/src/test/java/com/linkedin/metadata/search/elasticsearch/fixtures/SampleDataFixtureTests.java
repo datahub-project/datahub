@@ -494,7 +494,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         Map<String, Integer> expectedFulltextMinimums = Map.of(
                 "sample", 3,
                 "covid", 2,
-                "\"raw_orders\"", 1,
+                "\"raw_orders\"", 6,
                 STRUCTURED_QUERY_PREFIX + "sample", 1,
                 STRUCTURED_QUERY_PREFIX + "covid", 0,
                 STRUCTURED_QUERY_PREFIX + "\"raw_orders\"", 1
@@ -960,10 +960,10 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
                 String.format("%s - Expected search results to include matched fields", query));
 
-        assertEquals(result.getEntities().size(), 2);
+        assertEquals(result.getEntities().size(), 10);
         assertEquals(result.getEntities().get(0).getEntity().toString(),
                 "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
-                "Expected exact match");
+                "Expected exact match and 1st position");
     }
 
     private Stream<AnalyzeResponse.AnalyzeToken> getTokens(AnalyzeRequest request) throws IOException {

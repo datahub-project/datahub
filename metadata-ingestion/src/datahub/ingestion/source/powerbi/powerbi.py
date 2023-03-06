@@ -23,6 +23,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PlatformDetail,
@@ -525,7 +526,7 @@ class Mapper:
         container_work_units = gen_containers(
             container_key=workspace_key,
             name=workspace.name,
-            sub_types=["Workspace"],
+            sub_types=[BIContainerSubTypes.POWERBI_WORKSPACE],
         )
         return container_work_units
 
