@@ -166,12 +166,13 @@ def check_docker_quickstart() -> QuickstartStatus:
             return QuickstartStatus([])
 
         # load the expected containers from the docker-compose file
-        config_file = containers[0].labels.get(
+        config_files = containers[0].labels.get(
             "com.docker.compose.project.config_files"
-        )
-        all_containers = []
-        with open(config_file, "r") as config_file:
-            all_containers = yaml.safe_load(config_file).get("services", {}).keys()
+        ).split(",")
+        all_containers = set()
+        for config_file in config_files:
+            with open(config_file, "r") as config_file:
+                all_containers.update(yaml.safe_load(config_file).get("services", {}).keys())
 
         existing_containers = set()
         # Check that the containers are running and healthy.
