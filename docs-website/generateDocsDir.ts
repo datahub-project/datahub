@@ -9,7 +9,7 @@ import { retry } from "@octokit/plugin-retry";
 // Note: this must be executed within the docs-website directory.
 
 // Constants.
-const HOSTED_SITE_URL = "https://yoonhyejin.github.io/datahub-forked";
+const HOSTED_SITE_URL = "https://datahubproject.io";
 const GITHUB_EDIT_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 const GITHUB_BROWSE_URL =
