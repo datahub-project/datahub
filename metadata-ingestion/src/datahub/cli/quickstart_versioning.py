@@ -3,6 +3,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+from packaging.version import parse
 
 import click
 import requests
@@ -25,22 +26,6 @@ def is_it_a_version(version: str) -> bool:
     :return: True if the string is a valid version, False otherwise.
     """
     return re.match(r"v?\d+\.\d+(\.\d+)?", version) is not None
-
-
-def parse_version(version: str) -> Tuple[int, int, int, int]:
-    """
-    Parses a version string into a tuple of integers.
-    :param version: The version string to parse.
-    :return: A tuple of integers representing the version.
-    """
-    version = re.sub(r"v", "", version)
-    parsed_version = tuple(map(int, version.split(".")))
-    # pad with zeros if necessary
-    if len(parsed_version) == 2:
-        parsed_version = parsed_version + (0, 0)
-    elif len(parsed_version) == 3:
-        parsed_version = parsed_version + (0,)
-    return parsed_version
 
 
 def compare_versions(
@@ -124,9 +109,7 @@ class QuickstartVersionMappingConfig(BaseModel):
         # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
         # the setup job labels
         if is_it_a_version(result.composefile_git_ref):
-            if compare_versions(
-                parse_version("v0.10.1"), parse_version(result.composefile_git_ref)
-            ):
+            if parse("v0.10.1") > parse(result.composefile_git_ref):
                 # The merge commit where the labels were added
                 # https://github.com/datahub-project/datahub/pull/7473
                 result.composefile_git_ref = "quickstart-stability"

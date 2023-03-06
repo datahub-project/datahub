@@ -926,7 +926,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     status = check_docker_quickstart()
     if not status.is_ok():
         raise status.to_exception(
-            header="GMS is not healthy:",
+            header="Docker is not ready:",
             footer="Try running `datahub docker quickstart` first.",
         )
 

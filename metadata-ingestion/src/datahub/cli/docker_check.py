@@ -181,6 +181,7 @@ def check_docker_quickstart() -> QuickstartStatus:
             existing_containers.add(name)
             status = ContainerStatus.OK
             if name not in all_containers:
+                # Ignores containers that are not part of the datahub docker-compose
                 continue
             if container.labels.get("datahub_setup_job", False):
                 if container.status != "exited":

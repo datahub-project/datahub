@@ -72,7 +72,7 @@ def test_quickstart_forced_not_a_version_tag():
         docker_tag="NOT A VERSION",
         composefile_git_ref="NOT A VERSION",
     )
-    assert execution_plan == excepted
+    assert execution_plan == expected
 
 def test_quickstart_get_older_version():
 
@@ -81,4 +81,4 @@ def test_quickstart_get_older_version():
         docker_tag="v0.9.6.1",
         composefile_git_ref="quickstart-stability",
     )
-    assert execution_plan == excepted
+    assert execution_plan == expected
