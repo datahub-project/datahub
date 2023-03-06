@@ -66,6 +66,9 @@ def load_schemas(schemas_path: str) -> Dict[str, dict]:
 
 
 def patch_schemas(schemas: Dict[str, dict], pdl_path: Path) -> Dict[str, dict]:
+    # We can easily find normal urn types using the generated avro schema,
+    # but for arrays of urns there's nothing in the avro schema and hence
+    # we have to look in the PDL files instead.
     urn_arrays: Dict[
         str, List[Tuple[str, str]]
     ] = {}  # schema name -> list of (field name, type)
@@ -73,6 +76,8 @@ def patch_schemas(schemas: Dict[str, dict], pdl_path: Path) -> Dict[str, dict]:
     # First, we need to load the PDL files and find all urn arrays.
     for pdl_file in Path(pdl_path).glob("**/*.pdl"):
         pdl_text = pdl_file.read_text()
+
+        # TRICKY: We assume that all urn types end with "Urn".
         arrays = re.findall(
             r"^\s*(\w+)\s*:\s*(?:optional\s+)?array\[(\w*Urn)\]",
             pdl_text,
@@ -91,6 +96,12 @@ def patch_schemas(schemas: Dict[str, dict], pdl_path: Path) -> Dict[str, dict]:
 
 
 def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> dict:
+    """
+    This method patches the schema to add an "Urn" property to all urn fields.
+    Because the inner type in an array is not a named Avro schema, for urn arrays
+    we annotate the array field and add an "urn_is_array" property.
+    """
+
     # We're using Names() to generate a full list of embedded schemas.
     all_schemas = avro.schema.Names()
     patched = avro.schema.make_avsc_object(schema, names=all_schemas)
@@ -103,10 +114,11 @@ def patch_schema(schema: dict, urn_arrays: Dict[str, List[Tuple[str, str]]]) -> 
         # Patch normal urn types.
         field: avro.schema.Field
         for field in nested.fields:
-            java_class = field.props.get("java", {}).get("class")
-            if java_class:
-                if java_class.startswith("com.linkedin.pegasus2avro.common.urn."):
-                    field.set_prop("Urn", java_class.split(".")[-1])
+            java_class: Optional[str] = field.props.get("java", {}).get("class")
+            if java_class and java_class.startswith(
+                "com.linkedin.pegasus2avro.common.urn."
+            ):
+                field.set_prop("Urn", java_class.split(".")[-1])
 
         # Patch array urn types.
         if nested.name in urn_arrays:
