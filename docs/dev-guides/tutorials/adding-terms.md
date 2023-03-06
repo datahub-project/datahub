@@ -1,7 +1,14 @@
 # Adding Terms
 
 ## Why Would You Add Terms? 
-The Business Glossary(Term) feature in DataHub helps you use a shared vocabulary within the orgarnization, by providing a framework for defining a standardized set of data concepts and then associating them with the physical assets that exist within your data ecosystem.
+The Business Glossary(Term) feature in DataHub helps you use a shared vocabulary within the orgarnization.
+
+Let's say you are working in a company called Longtail Companion, a pet adaoption organization with two teams: Adoption and Platform. 
+Both teams use the term "Return rate", but the meaning is different.
+For the Adoption team, return rates refer to the number of pets returned to the organization by their adoptive families, while for the Platform team, return rate is the percentage of users who returned to the platform after their initial visit. 
+
+To address this, the Business Glossary feature in DataHub can be helpful. 
+By creating distinct glossary terms and associating them with specific datasets, each team can access the information they need without the risk of confusion or misinterpretation.
 
 Fore more information about terms, refer to [About DataHub Business Glossary](https://datahubproject.io/docs/glossary/business-glossary).
 
