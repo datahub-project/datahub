@@ -82,3 +82,42 @@ For Hive, as it doesn't appear as an option, you would have to select the "other
          </p>
 
 **Checkpoint File**:
+
+   1. This file is the primary mean for validating data in a production deployment of Great Expectations. In case you need 
+      to look at some documentation in order to create this file, check the following pages:
+      1. [Checkpoint](https://docs.greatexpectations.io/docs/terms/checkpoint/)
+      2. [How to create a Checkpoint](https://docs.greatexpectations.io/docs/guides/validation/checkpoints/how_to_create_a_new_checkpoint/)
+      3. [How to configure a Checkpoint](https://docs.greatexpectations.io/docs/guides/validation/checkpoints/how_to_configure_a_new_checkpoint_using_test_yaml_config/)
+
+
+   2. In order to create this file, you will only have to execute the following command: 
+      `great_expectations checkpoint new <name> --no-jupyter`. Then, as happened with the other files, in order to modify
+      it, you will have to execute the `jupyter notebook /great_expectations/uncommitted/edit_checkpoint_<name>.ipynb
+      --allow-root --ip 0.0.0.0`
+
+
+   3. Once inside the notebook, you will have to modify your checkpoint, so it looks something similar to this:
+
+      <p align="center">
+        <img width="75%" alt="Checkpoint to connect to Datahub" src="checkpoint.png"/>
+      </p>
+
+:::note
+
+The dots `....` should be replaced by the corresponding information (checkpoint name, datasource name, ...)
+
+:::
+
+:::note
+
+If you forget the names of the files that you have created you can always execute the commands:
+
+   1. `great_expectations datasource list`: In order to list all the datasource files.
+
+
+   2. `great_expectations suite list`: In order to list all the suite of expectations files. 
+
+
+   3. `great_expectations checkpoint list`: In order to list all the checkpoint files.
+
+:::
