@@ -431,7 +431,7 @@ module.exports = {
           "docs/dev-guides/tutorials/adding-terms",
           "docs/dev-guides/tutorials/adding-ownerships",
           {
-            References : [
+            References: [
               "docs/dev-guides/tutorials/references/generate-access-token",
               "docs/dev-guides/tutorials/references/prepare-datahub",
             ],
