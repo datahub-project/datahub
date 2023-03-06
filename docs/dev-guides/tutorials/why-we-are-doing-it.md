@@ -8,9 +8,9 @@ APIs offer a wide range of use cases when it comes to emitting metadata.
 Below are some of the example usages, but the possibilties are not limited to the following examples. 
 
 ### Basic Usage
-* [Adding Tags](http://localhost:3000/docs/dev-guides/tutorials/adding-tags)
-* [Adding Terms](http://localhost:3000/docs/dev-guides/tutorials/adding-terms)
-* [Adding Ownership](http://localhost:3000/docs/dev-guides/tutorials/adding-onwerships)
+* [Adding Tags](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/adding-tags)
+* [Adding Terms](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/adding-terms)
+* [Adding Ownership](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/adding-onwerships)
 
 ### Advanced Usage 
 * Adding Tags on Entities Based on Entity Type

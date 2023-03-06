@@ -6,7 +6,7 @@ If there are any issues or questions about the data, the designated owner can se
 
 ## Pre-requisites
 For this tutorial, you need to deploy Datahub Quickstart and ingest sample data. 
-For detailed information, please refer to [Prepare Local Datahub Environment](http://localhost:3000/docs/dev-guides/tutorials/references/prepare-datahub).
+For detailed information, please refer to [Prepare Local Datahub Environment](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/prepare-datahub).
 
 :::note
 Adding ownerships assumes that you already have a dataset and ownerships on your datahub.
@@ -117,7 +117,7 @@ Expected Response:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate token, please refer [Generate Access Token](http://localhost:3000/docs/dev-guides/tutorials/references/generate-access-token). 
+With CURL, you need to provide tokens. To generate token, please refer [Generate Access Token](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/generate-access-token). 
 With `accessToken`, you can run the following command.
 
 ```shell
