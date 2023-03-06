@@ -5,8 +5,8 @@ services:
     hostname: postgres
     image: postgres:15.2
     environment:
-      POSTGRES_PASSWORD: example
-      POSTGRES_USER: postgres
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "example"
     ports:
       - '5432:5432'
     volumes:

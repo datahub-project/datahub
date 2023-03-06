@@ -19,7 +19,7 @@ def test_resources_dir(pytestconfig):
 def is_postgres_up(container_name: str, port: int) -> bool:
     """A cheap way to figure out if postgres is responsive on a container"""
 
-    cmd = f"docker logs {container_name} 2>&1 | grep '/usr/sbin/postgresd: ready for connections.' | grep {port}"
+    cmd = f"docker logs {container_name} 2>&1 | grep 'PostgreSQL init process complete; ready for start up.'"
     ret = subprocess.run(
         cmd,
         shell=True,
