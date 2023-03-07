@@ -1,14 +1,13 @@
 import json
 import os
 import re
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import click
 import requests
 import yaml
 from packaging.version import parse
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel
 
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
@@ -65,7 +64,7 @@ class QuickstartVersionMappingConfig(BaseModel):
         try:
             response = requests.get(DEFAULT_REMOTE_CONFIG_PATH, timeout=5)
             config_raw = yaml.safe_load(response.text)
-        except:
+        except Exception:
             click.echo("Couldn't connect to github")
             path = os.path.expanduser(DEFAULT_LOCAL_CONFIG_PATH)
             with open(path, "r") as f:
@@ -79,7 +78,7 @@ class QuickstartVersionMappingConfig(BaseModel):
                 config.quickstart_version_map["stable"] = QuickstartExecutionPlan(
                     composefile_git_ref=release, docker_tag=release
                 )
-            except:
+            except Exception:
                 click.echo(
                     "Couldn't connect to github. --version stable will not work."
                 )

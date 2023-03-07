@@ -5,14 +5,13 @@ import logging
 import os
 import pathlib
 import platform
-import re
 import subprocess
 import sys
 import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, NoReturn, Optional, Tuple
+from typing import Dict, List, NoReturn, Optional
 
 import click
 import click_spinner
@@ -29,10 +28,7 @@ from datahub.cli.docker_check import (
     get_docker_client,
     run_quickstart_preflight_checks,
 )
-from datahub.cli.quickstart_versioning import (
-    QuickstartExecutionPlan,
-    QuickstartVersionMappingConfig,
-)
+from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
