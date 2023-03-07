@@ -95,6 +95,8 @@ If you are looking to run Airflow and DataHub using docker locally, follow the g
 
 ```shell
 pip install acryl-datahub[airflow]
+# If you need the Kafka-based emitter/hook:
+pip install acryl-datahub[airflow,datahub-kafka]
 ```
 
 2. You must configure an Airflow hook for Datahub. We support both a Datahub REST hook and a Kafka-based hook, but you only need one.
