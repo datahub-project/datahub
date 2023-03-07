@@ -1,7 +1,8 @@
 import json
+import logging
 import os
 import re
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import click
 import requests
@@ -9,8 +10,10 @@ import yaml
 from packaging.version import parse
 from pydantic import BaseModel
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
-DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
+DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
 
 
 class QuickstartExecutionPlan(BaseModel):
@@ -18,28 +21,13 @@ class QuickstartExecutionPlan(BaseModel):
     docker_tag: str
 
 
-def is_it_a_version(version: str) -> bool:
+def _is_it_a_version(version: str) -> bool:
     """
     Checks if a string is a valid version.
     :param version: The string to check.
     :return: True if the string is a valid version, False otherwise.
     """
     return re.match(r"v?\d+\.\d+(\.\d+)?", version) is not None
-
-
-def compare_versions(
-    version1: Tuple[int, int, int, int], version2: Tuple[int, int, int, int]
-) -> bool:
-    """
-    Compares two versions.
-    :return: True if version1 is greater than version2, False otherwise.
-    """
-    for i in range(4):
-        if version1[i] > version2[i]:
-            return True
-        elif version1[i] < version2[i]:
-            return False
-    return False
 
 
 class QuickstartVersionMappingConfig(BaseModel):
@@ -58,20 +46,38 @@ class QuickstartVersionMappingConfig(BaseModel):
         return json.loads(response.text)["tag_name"]
 
     @classmethod
-    def fetch_quickstart_config(cls):
-        response = None
+    def fetch_quickstart_config(cls) -> "QuickstartVersionMappingConfig":
         config_raw = None
         try:
             response = requests.get(DEFAULT_REMOTE_CONFIG_PATH, timeout=5)
+            response.raise_for_status()
             config_raw = yaml.safe_load(response.text)
-        except Exception:
-            click.echo("Couldn't connect to github")
-            path = os.path.expanduser(DEFAULT_LOCAL_CONFIG_PATH)
-            with open(path, "r") as f:
-                config_raw = yaml.safe_load(f)
+        except Exception as e:
+            logger.debug(
+                f"Couldn't connect to github: {e}, will try to read from local file."
+            )
+            try:
+                path = os.path.expanduser(DEFAULT_LOCAL_CONFIG_PATH)
+                with open(path, "r") as f:
+                    config_raw = yaml.safe_load(f)
+            except Exception:
+                logger.debug("Couldn't read from local file either.")
+
+        if config_raw is None:
+            logger.info(
+                "Unable to connect to GitHub, using default quickstart version mapping config."
+            )
+            return QuickstartVersionMappingConfig(
+                quickstart_version_map={
+                    "default": QuickstartExecutionPlan(
+                        composefile_git_ref="master", docker_tag="head"
+                    ),
+                }
+            )
+
         config = cls.parse_obj(config_raw)
 
-        # if stable is not defined in the config, we need to fetch the latest version from github
+        # If stable is not defined in the config, we need to fetch the latest version from github.
         if config.quickstart_version_map.get("stable") is None:
             try:
                 release = cls._fetch_latest_version()
@@ -107,11 +113,11 @@ class QuickstartVersionMappingConfig(BaseModel):
         # if the version is older than v0.10.1, it doesn't contain the setup job labels and the
         # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
         # the setup job labels
-        if is_it_a_version(result.composefile_git_ref):
+        if _is_it_a_version(result.composefile_git_ref):
             if parse("v0.10.1") > parse(result.composefile_git_ref):
                 # The merge commit where the labels were added
                 # https://github.com/datahub-project/datahub/pull/7473
-                result.composefile_git_ref = "quickstart-stability"
+                result.composefile_git_ref = "1d3339276129a7cb8385c07a958fcc93acda3b4e"
 
         return result
 

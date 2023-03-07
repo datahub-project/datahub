@@ -250,7 +250,6 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 2.0.2",
         *rest_common,
-        *kafka_common,
     },
     "circuit-breaker": {
         "gql>=3.3.0",
