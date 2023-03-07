@@ -55,6 +55,8 @@ export default function AutoCompleteEntity({ query, entity }: Props) {
         entityRegistry.getIcon(entity.type, 12, IconStyleType.ACCENT);
     const { matchedText, unmatchedText } = getAutoCompleteEntityText(displayName, query);
     const parentContainers = genericEntityProps?.parentContainers?.containers || [];
+    // Need to reverse parentContainers since it returns direct parent first.
+    const orderedParentContainers = [...parentContainers].reverse();
     const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
 
     return (
@@ -62,8 +64,7 @@ export default function AutoCompleteEntity({ query, entity }: Props) {
             <ContentWrapper>
                 {icon}
                 <SuggestionText>
-                    {/* Need to reverse parentContainers since it returns direct parent first. */}
-                    <ParentContainers parentContainers={[...parentContainers].reverse()} />
+                    <ParentContainers parentContainers={orderedParentContainers} />
                     <Typography.Text strong>{matchedText}</Typography.Text>
                     {unmatchedText}
                 </SuggestionText>

@@ -108,6 +108,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
       });
     }
 
+    // return platforms sorted alphabetically by their name
     return platforms.stream().sorted(Comparator.comparing(QuickFilter::getValue)).collect(Collectors.toList());
   }
 
