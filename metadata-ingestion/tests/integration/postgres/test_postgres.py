@@ -16,7 +16,7 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/postgres"
 
 
-def is_postgres_up(container_name: str, port: int) -> bool:
+def is_postgres_up(container_name: str) -> bool:
     """A cheap way to figure out if postgres is responsive on a container"""
 
     cmd = f"docker logs {container_name} 2>&1 | grep 'PostgreSQL init process complete; ready for start up.'"
@@ -37,7 +37,7 @@ def postgres_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             "testpostgres",
             POSTGRES_PORT,
             timeout=120,
-            checker=lambda: is_postgres_up("testpostgres", POSTGRES_PORT),
+            checker=lambda: is_postgres_up("testpostgres"),
         )
         yield docker_services
 
@@ -61,5 +61,5 @@ def test_postgres_ingest_with_db(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "postgres_mces.json",
-        golden_path=test_resources_dir / "postgres_mces_with_db.json",
+        golden_path=test_resources_dir / "postgres_mces_with_db_golden.json",
     )
