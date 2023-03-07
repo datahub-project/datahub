@@ -14,6 +14,8 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
 import useFilters from './utils/useFilters';
 import { PageRoutes } from '../../conf/Global';
+import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 
 const styles = {
     children: {
@@ -54,6 +56,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+    const { selectedQuickFilter } = useQuickFiltersContext();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
@@ -65,7 +68,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         }
     }, [suggestionsData]);
 
-    const search = (query: string, type?: EntityType) => {
+    const search = (query: string, type?: EntityType, quickFilters?: FacetFilterInput[]) => {
         if (!query || query.trim().length === 0) {
             return;
         }
@@ -76,10 +79,12 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
             originPath: window.location.pathname,
         });
 
+        const appliedFilters = quickFilters && quickFilters?.length > 0 ? quickFilters : filters;
+
         navigateToSearchUrl({
             type,
             query,
-            filters,
+            filters: appliedFilters,
             history,
         });
     };
@@ -90,6 +95,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 variables: {
                     input: {
                         query,
+                        ...getAutoCompleteInputFromQuickFilter(selectedQuickFilter),
                     },
                 },
             });

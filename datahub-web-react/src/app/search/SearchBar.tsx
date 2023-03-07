@@ -3,7 +3,7 @@ import { Input, AutoComplete, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { AutoCompleteResultForEntity, Entity, EntityType, ScenarioType } from '../../types.generated';
+import { AutoCompleteResultForEntity, Entity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import filterSearchQuery from './utils/filterSearchQuery';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -12,6 +12,10 @@ import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
 import AutoCompleteItem, { SuggestionContainer } from './autoComplete/AutoCompleteItem';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
+import QuickFilters from './autoComplete/quickFilters/QuickFilters';
+import { getFiltersWithQuickFilter } from './utils/filterUtils';
+import usePrevious from '../shared/usePrevious';
 
 const ExploreForEntity = styled.span`
     font-weight: light;
@@ -22,10 +26,10 @@ const ExploreForEntityText = styled.span`
     margin-left: 10px;
 `;
 
-const EntityTypeLabel = styled.div`
+const EntityTypeLabel = styled.div<{ showBorder?: boolean }>`
     font-size: 12px;
     color: ${ANTD_GRAY[8]};
-    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    ${(props) => props.showBorder && `border-bottom: 1px solid ${ANTD_GRAY[4]};`}
 `;
 
 const StyledAutoComplete = styled(AutoComplete)`
@@ -53,6 +57,19 @@ const StyledSearchBar = styled(Input)`
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
 const RECOMMENDED_QUERY_OPTION_TYPE = 'recommendation';
 
+const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
+    label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
+    options: [
+        {
+            value: '',
+            type: '',
+            label: <QuickFilters />,
+            style: { padding: '12px 12px 12px 16px', cursor: 'auto' },
+            disabled: true,
+        },
+    ],
+};
+
 const renderItem = (query: string, entity: Entity) => {
     return {
         value: entity.urn,
@@ -74,7 +91,7 @@ interface Props {
     initialQuery?: string;
     placeholderText: string;
     suggestions: Array<AutoCompleteResultForEntity>;
-    onSearch: (query: string, type?: EntityType) => void;
+    onSearch: (query: string, type?: EntityType, filters?: FacetFilterInput[]) => void;
     onQueryChange: (query: string) => void;
     style?: React.CSSProperties;
     inputStyle?: React.CSSProperties;
@@ -82,6 +99,7 @@ interface Props {
     entityRegistry: EntityRegistry;
     fixAutoComplete?: boolean;
     hideRecommendations?: boolean;
+    showQuickFilters?: boolean;
     setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
     onFocus?: () => void;
     onBlur?: () => void;
@@ -106,12 +124,13 @@ export const SearchBar = ({
     autoCompleteStyle,
     fixAutoComplete,
     hideRecommendations,
+    showQuickFilters,
     setIsSearchBarFocused,
     onFocus,
     onBlur,
 }: Props) => {
     const history = useHistory();
-    const [searchQuery, setSearchQuery] = useState<string>();
+    const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
@@ -169,19 +188,33 @@ export const SearchBar = ({
     const autoCompleteEntityOptions = useMemo(
         () =>
             suggestions.map((entity: AutoCompleteResultForEntity) => ({
-                label: <EntityTypeLabel>{entityRegistry.getCollectionName(entity.type)}</EntityTypeLabel>,
+                label: <EntityTypeLabel showBorder>{entityRegistry.getCollectionName(entity.type)}</EntityTypeLabel>,
                 options: [...entity.entities.map((e: Entity) => renderItem(effectiveQuery, e))],
             })),
         [effectiveQuery, suggestions, entityRegistry],
     );
 
+    const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
+
+    const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
+    useEffect(() => {
+        // if we change the selected quick filter, re-issue auto-complete
+        if (searchQuery && selectedQuickFilter?.value !== previousSelectedQuickFilterValue) {
+            onQueryChange(searchQuery);
+        }
+    });
+
+    const quickFilterOption = useMemo(() => {
+        return showQuickFilters && quickFilters && quickFilters.length > 0 ? [QUICK_FILTER_AUTO_COMPLETE_OPTION] : [];
+    }, [quickFilters, showQuickFilters]);
+
     const options = useMemo(() => {
         // Display recommendations when there is no search query, autocomplete suggestions otherwise.
         if (autoCompleteEntityOptions.length > 0) {
-            return [...autoCompleteQueryOptions, ...autoCompleteEntityOptions];
+            return [...quickFilterOption, ...autoCompleteQueryOptions, ...autoCompleteEntityOptions];
         }
-        return emptyQueryOptions;
-    }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions]);
+        return [...quickFilterOption, ...emptyQueryOptions];
+    }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions, quickFilterOption]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -205,6 +238,13 @@ export const SearchBar = ({
         handleSearchBarClick(false);
     }
 
+    function handleSearch(query: string, type?: EntityType, appliedQuickFilters?: FacetFilterInput[]) {
+        onSearch(query, type, appliedQuickFilters);
+        if (selectedQuickFilter) {
+            setSelectedQuickFilter(null);
+        }
+    }
+
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
             <StyledAutoComplete
@@ -218,9 +258,10 @@ export const SearchBar = ({
                         option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
                         option.type === RECOMMENDED_QUERY_OPTION_TYPE
                     ) {
-                        onSearch(
+                        handleSearch(
                             `${filterSearchQuery(value as string)}`,
                             searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
+                            getFiltersWithQuickFilter(selectedQuickFilter),
                         );
                     } else {
                         // Navigate directly to the entity profile.
@@ -242,8 +283,11 @@ export const SearchBar = ({
                 <StyledSearchBar
                     placeholder={placeholderText}
                     onPressEnter={() => {
-                        // e.stopPropagation();
-                        onSearch(filterSearchQuery(searchQuery || ''));
+                        handleSearch(
+                            filterSearchQuery(searchQuery || ''),
+                            undefined,
+                            getFiltersWithQuickFilter(selectedQuickFilter),
+                        );
                     }}
                     style={inputStyle}
                     value={searchQuery}
@@ -252,7 +296,17 @@ export const SearchBar = ({
                     onFocus={handleFocus}
                     onBlur={handleBlur}
                     allowClear
-                    prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
+                    prefix={
+                        <SearchOutlined
+                            onClick={() => {
+                                handleSearch(
+                                    filterSearchQuery(searchQuery || ''),
+                                    undefined,
+                                    getFiltersWithQuickFilter(selectedQuickFilter),
+                                );
+                            }}
+                        />
+                    }
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>
