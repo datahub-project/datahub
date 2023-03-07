@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import pathlib
+import tempfile
 from dataclasses import dataclass
 from typing import Counter, Dict
 
@@ -124,7 +125,6 @@ def test_custom_serde(tmp_path: pathlib.Path) -> None:
         deserializer=deserialize,
         # Disable the in-memory cache to force all reads/writes to the DB.
         cache_max_size=0,
-        cache_eviction_batch_size=0,
     )
     first = Main(3, {Label("one", 1): 0.1, Label("two", 2): 0.2})
     second = Main(-100, {Label("z", 26): 0.26})
@@ -146,7 +146,6 @@ def test_file_dict_stores_counter(tmp_path: pathlib.Path) -> None:
         serializer=json.dumps,
         deserializer=lambda s: Counter(json.loads(s)),
         cache_max_size=1,
-        cache_eviction_batch_size=0,
     )
 
     n = 5
@@ -255,3 +254,21 @@ def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
         )
         == [("a", 45), ("b", 55)]
     )
+
+
+def test_file_cleanup():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filename = pathlib.Path(tmpdir) / "test.db"
+        cache = FileBackedDict[int](
+            filename=filename,
+            serializer=lambda x: x,
+            deserializer=lambda x: x,
+        )
+
+        cache["a"] = 3
+        cache.flush()
+        assert len(cache) == 1
+
+        del cache
+
+    assert not filename.exists()

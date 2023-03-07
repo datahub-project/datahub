@@ -94,6 +94,9 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     _active_object_cache: OrderedDict[str, _VT] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if self.cache_eviction_batch_size <= 0:
+            raise ValueError("cache_eviction_batch_size must be positive")
+
         self._conn = _sqlite_connection_cache.get_connection(self.filename)
 
         # We keep a small cache in memory to avoid having to serialize/deserialize
@@ -121,11 +124,11 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     def _add_to_cache(self, key: str, value: _VT) -> None:
         self._active_object_cache[key] = value
 
-        if (
-            len(self._active_object_cache)
-            > self.cache_max_size + self.cache_eviction_batch_size
-        ):
-            num_items_to_prune = len(self._active_object_cache) - self.cache_max_size
+        if len(self._active_object_cache) > self.cache_max_size:
+            # Try to prune in batches rather than one at a time.
+            num_items_to_prune = min(
+                len(self._active_object_cache), self.cache_eviction_batch_size
+            )
             self._prune_cache(num_items_to_prune)
 
     def _prune_cache(self, num_items_to_prune: int) -> None:
