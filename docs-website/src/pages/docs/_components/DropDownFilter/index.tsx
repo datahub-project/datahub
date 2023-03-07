@@ -40,7 +40,6 @@ function DropDownFilter({ filterState, setFilterState, filterOptions }) {
       }
     };
     const handleChange = (values: string[]) => {
-      console.log(values);
       values.forEach((value) => {
         toggleFilter(value);
       });

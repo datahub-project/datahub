@@ -40,9 +40,6 @@ function FilterBar({
     setFilterState([]);
   }
   function removeFilter(filter) {
-    console.log(filter);
-    console.log(selectedFilters.filter((f) => f !== filter));
-    console.log(filterState.filter((f) => f !== filter));
     setSelectedFilters(selectedFilters.filter((f) => f !== filter));
     setFilterState(filterState.filter((f) => f !== filter));
   }
@@ -135,6 +132,7 @@ function FilterBar({
                 <Button
                   onClick={removeFilters}
                   className={clsx("DocSearch-Reset-Button", styles.resetButton)}
+                  style={{ marginRight: "1rem" }}
                 >
                   Reset
                 </Button>
