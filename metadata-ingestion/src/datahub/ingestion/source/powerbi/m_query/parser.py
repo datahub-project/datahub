@@ -1,7 +1,7 @@
+import functools
 import importlib.resources as pkg_resource
 import logging
-import sys
-from typing import List, Optional, cast
+from typing import List, cast
 
 import lark
 from lark import Lark, Tree
@@ -12,14 +12,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
 
-lark_parser: Optional[Lark] = None
 
-
-def get_lark_parser():
-    global lark_parser
-    if lark_parser is not None:
-        return lark_parser
-
+@functools.lru_cache(maxsize=1)
+def get_lark_parser() -> Lark:
     # Read lexical grammar as text
     grammar: str = pkg_resource.read_text(
         "datahub.ingestion.source.powerbi", "powerbi-lexical-grammar.rule"
@@ -69,15 +64,18 @@ def get_upstream_tables(
             reporter=reporter,
         ).resolve_to_data_platform_table_list()  # type: ignore
 
-    except:  # noqa: E722
-        # It will catch all type of exceptions, so that ingestion can continue without lineage information
-        _, e, _ = sys.exc_info()
-        logger.warning(str(e))
+    except BaseException as e:
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
+            logger.info(f"Unsupported m-query expression for table {table.full_name}")
             reporter.report_warning(
-                table.full_name, f"UnSupported expression = {table.expression}"
+                table.full_name, "Failed to parse m-query expression"
             )
+        else:
+            logger.info(f"Failed to parse expression: {str(e)}")
 
-        logger.debug(f"Fail to parse expression {table.expression}", exc_info=e)
+        logger.debug(
+            f"Fail to parse expression for table {table.full_name}: {table.expression}",
+            exc_info=e,
+        )
 
     return []

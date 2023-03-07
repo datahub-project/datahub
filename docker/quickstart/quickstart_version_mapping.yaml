@@ -1,0 +1,18 @@
+# if --version is specified during CLI run 
+# the CLI will try to use the same quickstart and docker tags
+# quickstart_mapping maps broken releases to fixed ones
+quickstart_version_map:
+  # default key is mandatory and is used if no version is specified
+  # in case of a broken release or broken master branch 
+  # specify a working version here
+  default:
+    composefile_git_ref: master
+    docker_tag: head
+  # v0.9.6 images contain security vulnerabilities 
+  v0.9.6: 
+    composefile_git_ref: v0.9.6.1
+    docker_tag: v0.9.6.1
+  # if stable is not defined the latest released version will be used
+  # stable: 
+  #   composefile_git_ref: master
+  #   docker_tag: head
