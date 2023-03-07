@@ -39,6 +39,7 @@ export default function AutoCompleteItem({ query, entity }: Props) {
             style={{ width: '100%' }}
             title={<AutoCompleteTooltipContent entity={entity} />}
             placement="bottomLeft"
+            color="rgba(0, 0, 0, 0.9)"
         >
             <SuggestionContainer>{componentToRender}</SuggestionContainer>
         </Tooltip>

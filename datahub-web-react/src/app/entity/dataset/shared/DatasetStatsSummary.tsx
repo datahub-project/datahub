@@ -15,12 +15,12 @@ import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/tim
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import { FormattedBytesStat } from './FormattedBytesStat';
 
-const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
+const StatText = styled.span<{ color: string }>`
+    color: ${(props) => props.color};
 `;
 
-const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
+const HelpIcon = styled(QuestionCircleOutlined)<{ color: string }>`
+    color: ${(props) => props.color};
     padding-left: 4px;
 `;
 
@@ -31,6 +31,7 @@ type Props = {
     queryCountLast30Days?: number | null;
     uniqueUserCountLast30Days?: number | null;
     lastUpdatedMs?: number | null;
+    color?: string;
 };
 
 export const DatasetStatsSummary = ({
@@ -40,34 +41,37 @@ export const DatasetStatsSummary = ({
     queryCountLast30Days,
     uniqueUserCountLast30Days,
     lastUpdatedMs,
+    color,
 }: Props) => {
+    const displayedColor = color !== undefined ? color : ANTD_GRAY[7];
+
     const statsViews = [
         !!rowCount && (
-            <StatText>
-                <TableOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+            <StatText color={displayedColor}>
+                <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
                 <b>{formatNumberWithoutAbbreviation(rowCount)}</b> rows
                 {!!columnCount && (
                     <>
-                        , `<b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
+                        , <b>{formatNumberWithoutAbbreviation(columnCount)}</b> columns
                     </>
                 )}
             </StatText>
         ),
         !!sizeInBytes && (
-            <StatText>
-                <HddOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+            <StatText color={displayedColor}>
+                <HddOutlined style={{ marginRight: 8, color: displayedColor }} />
                 <FormattedBytesStat bytes={sizeInBytes} />
             </StatText>
         ),
         !!queryCountLast30Days && (
-            <StatText>
-                <ConsoleSqlOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+            <StatText color={displayedColor}>
+                <ConsoleSqlOutlined style={{ marginRight: 8, color: displayedColor }} />
                 <b>{formatNumberWithoutAbbreviation(queryCountLast30Days)}</b> queries last month
             </StatText>
         ),
         !!uniqueUserCountLast30Days && (
-            <StatText>
-                <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+            <StatText color={displayedColor}>
+                <TeamOutlined style={{ marginRight: 8, color: displayedColor }} />
                 <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
             </StatText>
         ),
@@ -77,13 +81,13 @@ export const DatasetStatsSummary = ({
                     <div>
                         Changed on {toLocalDateTimeString(lastUpdatedMs)}.{' '}
                         <Tooltip title="The time at which the data was last changed in the source platform">
-                            <HelpIcon />
+                            <HelpIcon color={displayedColor} />
                         </Tooltip>
                     </div>
                 }
             >
-                <StatText>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
+                <StatText color={displayedColor}>
+                    <ClockCircleOutlined style={{ marginRight: 8, color: displayedColor }} />
                     Changed {toRelativeTimeString(lastUpdatedMs)}
                 </StatText>
             </Popover>
