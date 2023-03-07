@@ -661,6 +661,12 @@ input AutoCompleteInput {
   Faceted filters applied to autocomplete results
   """
   filters: [FacetFilterInput!]
+
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -692,6 +698,11 @@ input AutoCompleteMultipleInput {
   Faceted filters applied to autocomplete results
   """
   filters: [FacetFilterInput!]
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
