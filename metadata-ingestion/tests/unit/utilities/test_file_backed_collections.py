@@ -7,7 +7,7 @@ from typing import Counter, Dict
 
 import pytest
 
-from datahub.utilities.file_backed_collections import FileBackedDict
+from datahub.utilities.file_backed_collections import FileBackedDict, FileBackedList
 
 
 def test_file_dict(tmp_path: pathlib.Path) -> None:
@@ -254,6 +254,46 @@ def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
         )
         == [("a", 45), ("b", 55)]
     )
+
+
+def test_file_list(tmp_path: pathlib.Path) -> None:
+    my_list = FileBackedList[int](
+        filename=tmp_path / "test.db",
+        serializer=lambda x: x,
+        deserializer=lambda x: x,
+        cache_max_size=5,
+        cache_eviction_batch_size=5,
+    )
+
+    # Test append + len + getitem
+    for i in range(10):
+        my_list.append(i)
+
+    assert len(my_list) == 10
+    assert my_list[0] == 0
+    assert my_list[9] == 9
+
+    # Test set item.
+    my_list[0] = 100
+
+    # Test iteration.
+    assert list(my_list) == [100, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    # Test flush.
+    my_list.flush()
+    assert len(my_list) == 10
+    assert list(my_list) == [100, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    # Run a SQL query.
+    assert my_list.sql_query(f"SELECT sum(value) FROM {my_list.tablename}")[0][0] == 145
+
+    # Verify error handling.
+    with pytest.raises(IndexError):
+        my_list[100]
+    with pytest.raises(IndexError):
+        my_list[-100]
+    with pytest.raises(IndexError):
+        my_list[100] = 100
 
 
 def test_file_cleanup():

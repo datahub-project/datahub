@@ -18,6 +18,10 @@ from typing import (
     Union,
 )
 
+_DEFAULT_TABLE_NAME = "data"
+_DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
+_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 200
+
 # https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types
 SqliteValue = Union[int, float, str, bytes, None]
 
@@ -71,12 +75,11 @@ _sqlite_connection_cache = _SqliteConnectionCache()
 
 @dataclass(eq=False)
 class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
-    """A dictionary that stores its data in a temporary SQLite database.
-
+    """
+    A dict-like object that stores its data in a temporary SQLite database.
     This is useful for storing large amounts of data that don't fit in memory.
 
-    For performance, implements an in-memory LRU cache using an OrderedDict,
-    and sets a generous journal size limit.
+    This class is not thread-safe.
     """
 
     filename: pathlib.Path
@@ -84,18 +87,23 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     serializer: Callable[[_VT], SqliteValue]
     deserializer: Callable[[Any], _VT]
 
-    tablename: str = field(default="data")
+    tablename: str = field(default=_DEFAULT_TABLE_NAME)
     extra_columns: Dict[str, Callable[[_VT], SqliteValue]] = field(default_factory=dict)
 
-    cache_max_size: int = field(default=2000)
-    cache_eviction_batch_size: int = field(default=200)
+    cache_max_size: int = field(default=_DEFAULT_MEMORY_CACHE_MAX_SIZE)
+    cache_eviction_batch_size: int = field(
+        default=_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE
+    )
 
     _conn: sqlite3.Connection = field(init=False, repr=False)
+
+    # To improve performance, we maintain an in-memory LRU cache using an OrderedDict.
     _active_object_cache: OrderedDict[str, _VT] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        if self.cache_eviction_batch_size <= 0:
-            raise ValueError("cache_eviction_batch_size must be positive")
+        assert (
+            self.cache_eviction_batch_size > 0
+        ), "cache_eviction_batch_size must be positive"
 
         self._conn = _sqlite_connection_cache.get_connection(self.filename)
 
@@ -211,7 +219,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         self,
         query: str,
         params: Tuple[Any, ...] = (),
-        refs: Optional[List["FileBackedDict"]] = None,
+        refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
     ) -> List[Tuple[Any, ...]]:
         # We need to flush object and any objects the query references to ensure
         # that we don't miss objects that have been modified but not yet flushed.
@@ -228,3 +236,74 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
     def __del__(self) -> None:
         self.close()
+
+
+class FileBackedList(Generic[_VT]):
+    """
+    An append-only, list-like object that stores its contents in a SQLite database.
+
+    This class is not thread-safe.
+    """
+
+    _len: int = field(default=0)
+    _dict: FileBackedDict[_VT] = field(init=False)
+
+    def __init__(
+        self,
+        filename: pathlib.Path,
+        serializer: Callable[[_VT], SqliteValue],
+        deserializer: Callable[[Any], _VT],
+        tablename: str = _DEFAULT_TABLE_NAME,
+        extra_columns: Optional[Dict[str, Callable[[_VT], SqliteValue]]] = None,
+        cache_max_size: Optional[int] = None,
+        cache_eviction_batch_size: Optional[int] = None,
+    ) -> None:
+        self._len = 0
+        self._dict = FileBackedDict(
+            filename=filename,
+            serializer=serializer,
+            deserializer=deserializer,
+            tablename=tablename,
+            extra_columns=extra_columns or {},
+            cache_max_size=cache_max_size or _DEFAULT_MEMORY_CACHE_MAX_SIZE,
+            cache_eviction_batch_size=cache_eviction_batch_size
+            or _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE,
+        )
+
+    @property
+    def tablename(self) -> str:
+        return self._dict.tablename
+
+    def __getitem__(self, index: int) -> _VT:
+        if index < 0 or index >= self._len:
+            raise IndexError(f"list index {index} out of range")
+
+        return self._dict[str(index)]
+
+    def __setitem__(self, index: int, value: _VT) -> None:
+        if index < 0 or index >= self._len:
+            raise IndexError(f"list index {index} out of range")
+
+        self._dict[str(index)] = value
+
+    def append(self, value: _VT) -> None:
+        self._dict[str(self._len)] = value
+        self._len += 1
+
+    def __len__(self) -> int:
+        return self._len
+
+    def __iter__(self) -> Iterator[_VT]:
+        for index in range(self._len):
+            yield self[index]
+
+    def flush(self) -> None:
+        self._dict.flush()
+
+    def sql_query(
+        self,
+        query: str,
+        params: Tuple[Any, ...] = (),
+        refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
+    ) -> List[Tuple[Any, ...]]:
+        return self._dict.sql_query(query, params, refs=refs)
