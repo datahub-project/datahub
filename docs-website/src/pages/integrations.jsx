@@ -591,7 +591,7 @@ const metadata = [
   },
   {
     Path: "docs/generated/ingestion/sources/vertica",
-    logoPath: "img/logos/platforms/vertica.png",
+    logoPath: "img/logos/platforms/vertica.svg",
     Title: "Vertica",
     Description:
       "Vertica is a high-performance, column-oriented, relational database management system designed for large-scale data warehousing and analytics.",
