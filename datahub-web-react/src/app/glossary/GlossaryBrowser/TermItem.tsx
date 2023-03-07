@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
-import { useEntityData } from '../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
+import { useGlossaryEntityData } from '../../entity/shared/GlossaryEntityContext';
 
 const TermWrapper = styled.div`
     font-weight: normal;
@@ -52,7 +52,7 @@ interface Props {
 function TermItem(props: Props) {
     const { term, isSelecting, selectTerm } = props;
 
-    const { entityData } = useEntityData();
+    const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
 
     function handleSelectTerm() {
