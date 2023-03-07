@@ -149,7 +149,6 @@ looker_common = {
 }
 
 bigquery_common = {
-    "google-api-python-client",
     # Google cloud logging library
     "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
