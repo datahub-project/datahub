@@ -52,7 +52,7 @@ function FilterBar({
             className={styles.searchForm}
           >
             <input
-              type="search"
+              type="text"
               name="q"
               className={styles.searchQueryInput}
               placeholder={translate({
