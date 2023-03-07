@@ -78,12 +78,12 @@ describe('siblings', () => {
 
   it('will combine results in search', () => {
     cy.login();
-    cy.visit('/search?page=1&query=%2522raw_orders%2522');
+    cy.visit('/search?page=1&query=raw_orders');
 
-    cy.contains('Showing 1 - 2 of 2 results');
+    cy.contains('Showing 1 - 10 of 14 results');
 
-    cy.get('.test-search-result').should('have.length', 1);
-    cy.get('.test-search-result-sibling-section').should('have.length', 1);
+    cy.get('.test-search-result').should('have.length', 5);
+    cy.get('.test-search-result-sibling-section').should('have.length', 5);
 
     cy.get('.test-search-result-sibling-section').get('.test-mini-preview-class:contains(raw_orders)').should('have.length', 2);
   });
