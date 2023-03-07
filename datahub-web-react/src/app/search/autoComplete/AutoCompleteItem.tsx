@@ -41,7 +41,7 @@ export default function AutoCompleteItem({ query, entity }: Props) {
             placement="bottomLeft"
             color="rgba(0, 0, 0, 0.9)"
         >
-            <SuggestionContainer>{componentToRender}</SuggestionContainer>
+            <SuggestionContainer data-testid="auto-complete-option">{componentToRender}</SuggestionContainer>
         </Tooltip>
     );
 }
