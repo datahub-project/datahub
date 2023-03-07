@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Input, AutoComplete, Typography } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
 import { AutoCompleteResultForEntity, Entity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
@@ -17,20 +17,17 @@ import QuickFilters from './autoComplete/quickFilters/QuickFilters';
 import { getFiltersWithQuickFilter } from './utils/filterUtils';
 import usePrevious from '../shared/usePrevious';
 import analytics, { Event, EventType } from '../analytics';
+import RecommendedOption from './autoComplete/RecommendedOption';
+import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
 
 const ExploreForEntity = styled.span`
     font-weight: light;
-    font-size: 14px;
+    font-size: 16px;
+    padding: 5px 0;
 `;
 
 const ExploreForEntityText = styled.span`
     margin-left: 10px;
-`;
-
-const EntityTypeLabel = styled.div<{ showBorder?: boolean }>`
-    font-size: 12px;
-    color: ${ANTD_GRAY[8]};
-    ${(props) => props.showBorder && `border-bottom: 1px solid ${ANTD_GRAY[4]};`}
 `;
 
 const StyledAutoComplete = styled(AutoComplete)`
@@ -53,6 +50,17 @@ const StyledSearchBar = styled(Input)`
     > .ant-input {
         font-size: 14px;
     }
+    .ant-input-clear-icon {
+        height: 15px;
+        width: 15px;
+    }
+`;
+
+const ClearIcon = styled(CloseCircleFilled)`
+    svg {
+        height: 15px;
+        width: 15px;
+    }
 `;
 
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
@@ -65,7 +73,7 @@ const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
             value: '',
             type: '',
             label: <QuickFilters />,
-            style: { padding: '12px 12px 12px 16px', cursor: 'auto' },
+            style: { padding: '10px 12px 12px 16px', cursor: 'auto' },
             disabled: true,
         },
     ],
@@ -83,7 +91,7 @@ const renderItem = (query: string, entity: Entity) => {
 const renderRecommendedQuery = (query: string) => {
     return {
         value: query,
-        label: query,
+        label: <RecommendedOption text={query} />,
         type: RECOMMENDED_QUERY_OPTION_TYPE,
     };
 };
@@ -133,6 +141,7 @@ export const SearchBar = ({
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
+    const [isDropdownVisible, setIsDropdownVisible] = useState(false);
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
     const searchEntityTypes = entityRegistry.getSearchEntityTypes();
@@ -157,7 +166,7 @@ export const SearchBar = ({
         // Map each module to a set of
         return (
             data?.listRecommendations?.modules.map((module) => ({
-                label: module.title,
+                label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || []
         );
@@ -189,10 +198,10 @@ export const SearchBar = ({
     const autoCompleteEntityOptions = useMemo(
         () =>
             suggestions.map((entity: AutoCompleteResultForEntity) => ({
-                label: <EntityTypeLabel showBorder>{entityRegistry.getCollectionName(entity.type)}</EntityTypeLabel>,
+                label: <SectionHeader entityType={entity.type} />,
                 options: [...entity.entities.map((e: Entity) => renderItem(effectiveQuery, e))],
             })),
-        [effectiveQuery, suggestions, entityRegistry],
+        [effectiveQuery, suggestions],
     );
 
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
@@ -289,7 +298,18 @@ export const SearchBar = ({
                     overflowY: 'visible',
                     position: (fixAutoComplete && 'fixed') || 'relative',
                 }}
-                listHeight={400}
+                onDropdownVisibleChange={(isOpen) => {
+                    if (!isOpen) {
+                        setIsDropdownVisible(isOpen);
+                    } else {
+                        // set timeout so that we allow search bar to grow in width and therefore allow autocomplete to grow
+                        setTimeout(() => {
+                            setIsDropdownVisible(isOpen);
+                        }, 0);
+                    }
+                }}
+                open={isDropdownVisible}
+                listHeight={480}
             >
                 <StyledSearchBar
                     placeholder={placeholderText}
@@ -306,7 +326,7 @@ export const SearchBar = ({
                     data-testid="search-input"
                     onFocus={handleFocus}
                     onBlur={handleBlur}
-                    allowClear
+                    allowClear={{ clearIcon: <ClearIcon /> }}
                     prefix={
                         <SearchOutlined
                             onClick={() => {
