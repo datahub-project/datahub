@@ -104,19 +104,50 @@ const ingestionGuideContent = [
 
 const featureGuideContent = [
   { title: "Domains", icon: <FolderTwoTone />, to: "docs/domains" },
-  { title: "Glossary Terms", icon: <BookTwoTone />, to: "docs/glossary/business-glossary" },
+  {
+    title: "Glossary Terms",
+    icon: <BookTwoTone />,
+    to: "docs/glossary/business-glossary",
+  },
   { title: "Tags", icon: <TagsTwoTone />, to: "docs/tags" },
-  { title: "UI-Based Ingestion", icon: <ApiTwoTone />, to: "docs/ui-ingestion" },
+  {
+    title: "UI-Based Ingestion",
+    icon: <ApiTwoTone />,
+    to: "docs/ui-ingestion",
+  },
   { title: "Search", icon: <SearchOutlined />, to: "docs/how/search" },
   // { title: "Browse", icon: <CompassTwoTone />, to: "/docs/quickstart" },
-  { title: "Lineage Impact Analysis", icon: <NodeExpandOutlined />, to: "docs/act-on-metadata/impact-analysis" },
-  { title: "Metadata Tests", icon: <CheckCircleTwoTone />, to: "docs/tests/metadata-tests" },
-  { title: "Approval Flows", icon: <SafetyCertificateTwoTone />, to: "docs/managed-datahub/approval-workflows" },
-  { title: "Personal Access Tokens", icon: <LockTwoTone />, to: "docs/authentication/personal-access-tokens" },
-  { title: "Slack Notifications", icon: <SlackOutlined />, to: "docs/managed-datahub/saas-slack-setup" },
-  { title: "Schema History", icon: <HistoryOutlined />, to: "docs/schema-history" },
+  {
+    title: "Lineage Impact Analysis",
+    icon: <NodeExpandOutlined />,
+    to: "docs/act-on-metadata/impact-analysis",
+  },
+  {
+    title: "Metadata Tests",
+    icon: <CheckCircleTwoTone />,
+    to: "docs/tests/metadata-tests",
+  },
+  {
+    title: "Approval Flows",
+    icon: <SafetyCertificateTwoTone />,
+    to: "docs/managed-datahub/approval-workflows",
+  },
+  {
+    title: "Personal Access Tokens",
+    icon: <LockTwoTone />,
+    to: "docs/authentication/personal-access-tokens",
+  },
+  {
+    title: "Slack Notifications",
+    icon: <SlackOutlined />,
+    to: "docs/managed-datahub/saas-slack-setup",
+  },
+  {
+    title: "Schema History",
+    icon: <HistoryOutlined />,
+    to: "docs/schema-history",
+  },
 ];
-
 
 const quickLinkContent = [
   {
@@ -183,14 +214,27 @@ function Docs() {
           <div className="hero__content">
             <div>
               <h1 className="hero__title">Documentation</h1>
-              <p className="hero__subtitle">Guides and tutorials for everything DataHub.</p>
+              <p className="hero__subtitle">
+                Guides and tutorials for everything DataHub.
+              </p>
               <SearchBar />
             </div>
           </div>
-          <QuickLinkCards quickLinkContent={quickLinkContent}/>
-          <GuideList title="Deployment Guides" content={deploymentGuideContent} />
-          <GuideList title="Ingestion Guides" content={ingestionGuideContent} seeMoreLink={{ label: "See all 50+ sources", to: "/docs/sources-summary" }} />
-          <GuideList title="Feature Guides" content={featureGuideContent} seeMoreLink={{ label: "See all guides", to: "/docs/how/search" }} />
+          <QuickLinkCards quickLinkContent={quickLinkContent} />
+          <GuideList
+            title="Deployment Guides"
+            content={deploymentGuideContent}
+          />
+          <GuideList
+            title="Ingestion Guides"
+            content={ingestionGuideContent}
+            seeMoreLink={{ label: "See all 50+ sources", to: "/integrations" }}
+          />
+          <GuideList
+            title="Feature Guides"
+            content={featureGuideContent}
+            seeMoreLink={{ label: "See all guides", to: "/docs/how/search" }}
+          />
         </div>
       </header>
     </Layout>

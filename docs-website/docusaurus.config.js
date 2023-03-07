@@ -48,6 +48,11 @@ module.exports = {
           position: "right",
         },
         {
+          href: "/integrations",
+          label: "Integrations",
+          position: "right",
+        },
+        {
           to: "docs/demo",
           label: "Demo",
           position: "right",
@@ -55,11 +60,6 @@ module.exports = {
         {
           href: "https://blog.datahubproject.io/",
           label: "Blog",
-          position: "right",
-        },
-        {
-          href: "https://feature-requests.datahubproject.io/",
-          label: "Feature Requests",
           position: "right",
         },
         {
