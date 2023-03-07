@@ -7,7 +7,6 @@ from typing import Any, Dict, Iterator, List, Optional
 import docker
 import docker.errors
 import docker.models.containers
-import requests
 import yaml
 
 from datahub.configuration.common import ExceptionWithProps
@@ -166,13 +165,17 @@ def check_docker_quickstart() -> QuickstartStatus:
             return QuickstartStatus([])
 
         # load the expected containers from the docker-compose file
-        config_files = containers[0].labels.get(
-            "com.docker.compose.project.config_files"
-        ).split(",")
+        config_files = (
+            containers[0]
+            .labels.get("com.docker.compose.project.config_files")
+            .split(",")
+        )
         all_containers = set()
         for config_file in config_files:
             with open(config_file, "r") as config_file:
-                all_containers.update(yaml.safe_load(config_file).get("services", {}).keys())
+                all_containers.update(
+                    yaml.safe_load(config_file).get("services", {}).keys()
+                )
 
         existing_containers = set()
         # Check that the containers are running and healthy.
