@@ -52,8 +52,10 @@ class QuickstartVersionMappingConfig(BaseModel):
             response = requests.get(DEFAULT_REMOTE_CONFIG_PATH, timeout=5)
             response.raise_for_status()
             config_raw = yaml.safe_load(response.text)
-        except Exception:
-            logger.debug("Couldn't connect to github, trying to read from local file.")
+        except Exception as e:
+            logger.debug(
+                f"Couldn't connect to github: {e}, will try to read from local file."
+            )
             try:
                 path = os.path.expanduser(DEFAULT_LOCAL_CONFIG_PATH)
                 with open(path, "r") as f:
