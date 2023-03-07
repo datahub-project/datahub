@@ -197,6 +197,9 @@ class Mapper:
 
             if len(upstreams) > 0:
                 upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+                logger.debug(
+                    f"DataSet Lineage = {ds_urn} and its lineage = {upstream_lineage}"
+                )
                 mcp = MetadataChangeProposalWrapper(
                     entityType=Constant.DATASET,
                     changeType=ChangeTypeClass.UPSERT,
