@@ -121,6 +121,7 @@ function DropDownFilter({ filterState, setFilterState, filterOptions }) {
           justifyContent: "center",
           width: "auto",
           flex: "1 1 auto",
+          marginTop: "16px",
         }}
       >
         {returnElement}

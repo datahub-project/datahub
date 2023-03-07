@@ -103,6 +103,7 @@ function FilterBar({
                 display: "flex",
                 width: "auto",
                 boxSizing: "border-box",
+                boxShadow: "5px 8px 24px 5px rgba(208, 216, 243, 0.6)",
               }}
               bodyStyle={{
                 display: "flex",
