@@ -1,6 +1,6 @@
 from datahub.cli.quickstart_versioning import (
-    QuickstartVersionMappingConfig,
     QuickstartExecutionPlan,
+    QuickstartVersionMappingConfig,
 )
 
 example_version_mapper = QuickstartVersionMappingConfig.parse_obj(

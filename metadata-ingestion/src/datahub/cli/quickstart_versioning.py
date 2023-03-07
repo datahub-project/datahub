@@ -3,11 +3,11 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-from packaging.version import parse
 
 import click
 import requests
 import yaml
+from packaging.version import parse
 from pydantic import BaseModel, PrivateAttr
 
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
