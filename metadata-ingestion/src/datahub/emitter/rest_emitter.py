@@ -13,7 +13,7 @@ from requests.exceptions import HTTPError, RequestException
 from datahub.cli.cli_utils import get_system_auth
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.request_helper import _make_curl_command
+from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -246,7 +246,7 @@ class DataHubRestEmitter(Closeable):
         self._emit_generic(url, payload)
 
     def _emit_generic(self, url: str, payload: str) -> None:
-        curl_command = _make_curl_command(self._session, "POST", url, payload)
+        curl_command = make_curl_command(self._session, "POST", url, payload)
         logger.debug(
             "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
             curl_command,

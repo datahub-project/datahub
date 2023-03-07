@@ -52,7 +52,7 @@ class GitClone:
             git_ssh_cmd += (
                 " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
             )
-        logger.debug("ssh_command=%s", git_ssh_cmd)
+        logger.debug(f"ssh_command={git_ssh_cmd}")
         logger.info(f"⏳ Cloning repo '{repo_url}', this can take some time...")
         self.last_repo_cloned = git.Repo.clone_from(
             repo_url,
