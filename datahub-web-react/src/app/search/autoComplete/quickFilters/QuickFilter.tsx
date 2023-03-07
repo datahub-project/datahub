@@ -6,6 +6,7 @@ import { QuickFilter as QuickFilterType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getQuickFilterDetails } from './utils';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
+import analytics, { Event, EventType } from '../../../analytics';
 
 const QuickFilterWrapper = styled(Button)<{ isSelected: boolean }>`
     border: 1px solid ${ANTD_GRAY[4]};
@@ -50,11 +51,21 @@ export default function QuickFilter({ quickFilter }: Props) {
     const isSelected = selectedQuickFilter?.value === quickFilter.value;
     const { label, icon } = getQuickFilterDetails(quickFilter, entityRegistry);
 
+    function emitTrackingEvent(isSelecting: boolean) {
+        analytics.event({
+            type: isSelecting ? EventType.SelectQuickFilterEvent : EventType.DeselectQuickFilterEvent,
+            quickFilterType: quickFilter.field,
+            quickFilterValue: quickFilter.value,
+        } as Event);
+    }
+
     function handleClick() {
         if (isSelected) {
             setSelectedQuickFilter(null);
+            emitTrackingEvent(false);
         } else {
             setSelectedQuickFilter(quickFilter);
+            emitTrackingEvent(true);
         }
     }
 
