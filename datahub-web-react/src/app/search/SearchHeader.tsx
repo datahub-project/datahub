@@ -107,6 +107,7 @@ export const SearchHeader = ({
                     entityRegistry={entityRegistry}
                     setIsSearchBarFocused={setIsSearchBarFocused}
                     fixAutoComplete
+                    showQuickFilters
                 />
             </LogoSearchContainer>
             <NavGroup>

@@ -205,6 +205,11 @@ type Query {
     listQueries(
       "Input required for listing queries"
       input: ListQueriesInput!): ListQueriesResult
+
+    """
+    Get quick filters to display in auto-complete
+    """
+    getQuickFilters(input: GetQuickFiltersInput!): GetQuickFiltersResult
 }
 
 """
@@ -1332,7 +1337,7 @@ type SiblingProperties {
 }
 
 """
-All of the parent containers for a given entity
+All of the parent containers for a given entity. Returns parents with direct parent first followed by the parent's parent etc.
 """
 type ParentContainersResult {
     """

@@ -13,13 +13,15 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../graphql/search.generated';
-import { EntityType } from '../../types.generated';
+import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
+import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
 
 const Background = styled.div`
     width: 100%;
@@ -144,6 +146,7 @@ export const HomePageHeader = () => {
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
+    const { selectedQuickFilter } = useQuickFiltersContext();
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -151,7 +154,7 @@ export const HomePageHeader = () => {
         }
     }, [suggestionsData]);
 
-    const onSearch = (query: string, type?: EntityType) => {
+    const onSearch = (query: string, type?: EntityType, filters?: FacetFilterInput[]) => {
         if (!query || query.trim().length === 0) {
             return;
         }
@@ -159,11 +162,14 @@ export const HomePageHeader = () => {
             type: EventType.HomePageSearchEvent,
             query,
             pageNumber: 1,
+            selectedQuickFilterTypes: selectedQuickFilter ? [selectedQuickFilter.field] : undefined,
+            selectedQuickFilterValues: selectedQuickFilter ? [selectedQuickFilter.value] : undefined,
         });
         navigateToSearchUrl({
             type,
             query,
             history,
+            filters,
         });
     };
 
@@ -174,6 +180,7 @@ export const HomePageHeader = () => {
                     input: {
                         query,
                         limit: 10,
+                        ...getAutoCompleteInputFromQuickFilter(selectedQuickFilter),
                     },
                 },
             });
@@ -258,6 +265,7 @@ export const HomePageHeader = () => {
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
+                        showQuickFilters
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>

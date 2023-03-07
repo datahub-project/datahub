@@ -661,6 +661,12 @@ input AutoCompleteInput {
   Faceted filters applied to autocomplete results
   """
   filters: [FacetFilterInput!]
+
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -692,6 +698,11 @@ input AutoCompleteMultipleInput {
   Faceted filters applied to autocomplete results
   """
   filters: [FacetFilterInput!]
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -908,4 +919,44 @@ type FacetFilter {
   If the filter should or should not be matched
   """
   negated: Boolean
+}
+
+"""
+Input for getting Quick Filters
+"""
+input GetQuickFiltersInput {
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+}
+
+"""
+The result object when fetching quick filters
+"""
+type GetQuickFiltersResult {
+  """
+  The list of quick filters to render in the UI
+  """
+  quickFilters: [QuickFilter]!
+}
+
+"""
+A quick filter in search and auto-complete
+"""
+type QuickFilter {
+  """
+  Name of field to filter by
+  """
+  field: String!
+
+  """
+  Value to filter on
+  """
+  value: String!
+
+  """
+  Entity that the value maps to if any
+  """
+  entity: Entity
 }
