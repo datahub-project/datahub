@@ -83,6 +83,6 @@ def test_quickstart_get_older_version():
     execution_plan = example_version_mapper.get_quickstart_execution_plan("v0.9.6")
     expected = QuickstartExecutionPlan(
         docker_tag="v0.9.6.1",
-        composefile_git_ref="quickstart-stability",
+        composefile_git_ref="1d3339276129a7cb8385c07a958fcc93acda3b4e",
     )
     assert execution_plan == expected

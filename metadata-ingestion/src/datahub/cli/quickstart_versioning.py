@@ -10,7 +10,7 @@ from packaging.version import parse
 from pydantic import BaseModel
 
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
-DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/quickstart-stability/docker/quickstart/quickstart_version_mapping.yaml"
+DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
 
 
 class QuickstartExecutionPlan(BaseModel):
@@ -111,7 +111,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             if parse("v0.10.1") > parse(result.composefile_git_ref):
                 # The merge commit where the labels were added
                 # https://github.com/datahub-project/datahub/pull/7473
-                result.composefile_git_ref = "quickstart-stability"
+                result.composefile_git_ref = "1d3339276129a7cb8385c07a958fcc93acda3b4e"
 
         return result
 
