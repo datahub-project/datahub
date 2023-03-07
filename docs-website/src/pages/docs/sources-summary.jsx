@@ -4,7 +4,7 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import FilterBar from "./_components/FilterBar";
 import FilterCards from "./_components/FilterCards";
 import useGlobalData from "@docusaurus/useGlobalData";
-import DropDownFilter from "./_components/DropDownFilter";
+import { Row, Col } from "antd";
 
 const metadata = [
   {
@@ -663,22 +663,23 @@ function Docs(ingestionSourceContent, siteConfig) {
               <p className="hero__subtitle">
                 Services that integrate with DataHub
               </p>
-              <FilterBar textState={textState} setTextState={setTextState} />
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <DropDownFilter
-                  filterState={filterState}
-                  setFilterState={setFilterState}
-                  filterOptions={filterOptions}
-                />
-              </div>
+
+              <FilterBar
+                textState={textState}
+                setTextState={setTextState}
+                filterState={filterState}
+                setFilterState={setFilterState}
+                filterOptions={filterOptions}
+              />
             </div>
           </div>
-          <FilterCards
-            content={filteredIngestionSourceContent}
-            filterBar={<FilterBar />}
-          />
         </div>
       </header>
+
+      <FilterCards
+        content={filteredIngestionSourceContent}
+        filterBar={<FilterBar />}
+      />
     </Layout>
   );
 }

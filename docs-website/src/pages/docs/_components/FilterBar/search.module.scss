@@ -21,6 +21,36 @@
   height: 1.5rem;
 }
 
+.filterIcon {
+  position: absolute;
+  top: calc(50% - 0.75rem);
+  right: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.filterIconDark {
+  position: absolute;
+  top: calc(50% - 0.75rem);
+  right: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  svg {
+    color: var(--docsearch-muted-color);
+  }
+}
+
+.closeIcon {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+
+  svg {
+    color: var(--docsearch-muted-color);
+  }
+}
+
 .searchQueryInput,
 .searchVersionInput {
   border-radius: 1000em;
