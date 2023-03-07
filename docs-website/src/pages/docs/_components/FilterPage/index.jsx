@@ -110,6 +110,8 @@ export function FilterPage(siteConfig, metadata, title, subtitle) {
         content={filteredIngestionSourceContent}
         filterBar={<FilterBar />}
       />
+      <br />
+      <br />
     </Layout>
   );
 }

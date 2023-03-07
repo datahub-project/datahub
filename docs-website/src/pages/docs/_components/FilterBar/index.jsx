@@ -12,7 +12,6 @@ import React, { useEffect, useState, useReducer, useRef } from "react";
 import clsx from "clsx";
 import { translate } from "@docusaurus/Translate";
 import styles from "./search.module.scss";
-import { useSearchPage } from "@docusaurus/theme-common/internal";
 import DropDownFilter from "../../_components/DropDownFilter";
 import { FilterFilled, CloseCircleFilled } from "@ant-design/icons";
 import { Card, Button, Tag } from "antd";
