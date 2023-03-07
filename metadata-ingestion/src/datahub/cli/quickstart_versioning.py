@@ -118,7 +118,7 @@ class QuickstartVersionMappingConfig(BaseModel):
 
 def save_quickstart_config(
     config: QuickstartVersionMappingConfig, path: str = DEFAULT_LOCAL_CONFIG_PATH
-):
+) -> None:
     # create directory if it doesn't exist
     path = os.path.expanduser(path)
     os.makedirs(os.path.dirname(path), exist_ok=True)

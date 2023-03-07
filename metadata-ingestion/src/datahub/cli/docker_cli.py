@@ -800,7 +800,7 @@ def get_docker_compose_base_url(version_tag: str) -> str:
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
 
 
-def get_github_file_url(neo4j, is_m1, release_version_tag: str):
+def get_github_file_url(neo4j: bool, is_m1: bool, release_version_tag: str) -> str:
     base_url = get_docker_compose_base_url(release_version_tag)
     if neo4j:
         github_file = (
