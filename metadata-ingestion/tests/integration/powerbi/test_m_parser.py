@@ -35,12 +35,6 @@ M_QUERIES = [
 ]
 
 
-def enable_logging():
-    # set logging to console
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.DEBUG)
-
-
 @pytest.mark.integration
 def test_parse_m_query1():
     expression: str = M_QUERIES[0]
@@ -304,7 +298,6 @@ def test_snowflake_native_query():
 
 
 def test_google_big_query():
-    enable_logging()
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[17],
         name="first",
