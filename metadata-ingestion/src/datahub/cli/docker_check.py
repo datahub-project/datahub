@@ -7,42 +7,9 @@ from typing import Any, Dict, Iterator, List, Optional
 import docker
 import docker.errors
 import docker.models.containers
+import yaml
 
 from datahub.configuration.common import ExceptionWithProps
-
-REQUIRED_CONTAINERS = [
-    "elasticsearch",
-    "datahub-gms",
-    "datahub-frontend-react",
-    "broker",
-]
-
-# We expect these containers to exit 0, while all other containers
-# are expected to be running and healthy.
-ENSURE_EXIT_SUCCESS = [
-    "kafka-setup",
-    "elasticsearch-setup",
-    "mysql-setup",
-    "datahub-upgrade",
-]
-
-# If present, we check that the container is ok. If it exists
-# in ENSURE_EXIT_SUCCESS, we check that it exited 0. Otherwise,
-# we check that it is running and healthy.
-CONTAINERS_TO_CHECK_IF_PRESENT = [
-    "mysql",
-    "mysql-setup",
-    "cassandra",
-    "cassandra-setup",
-    "neo4j",
-    "elasticsearch-setup",
-    "schema-registry",
-    "zookeeper",
-    "datahub-upgrade",
-    "kafka-setup",
-    # "datahub-mce-consumer",
-    # "datahub-mae-consumer",
-]
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB
@@ -189,28 +156,38 @@ class QuickstartStatus:
 
 def check_docker_quickstart() -> QuickstartStatus:
     container_statuses: List[DockerContainerStatus] = []
-
     with get_docker_client() as client:
         containers = client.containers.list(
             all=True,
             filters=DATAHUB_COMPOSE_PROJECT_FILTER,
         )
+        if len(containers) == 0:
+            return QuickstartStatus([])
 
+        # load the expected containers from the docker-compose file
+        config_files = (
+            containers[0]
+            .labels.get("com.docker.compose.project.config_files")
+            .split(",")
+        )
+        all_containers = set()
+        for config_file in config_files:
+            with open(config_file, "r") as config_file:
+                all_containers.update(
+                    yaml.safe_load(config_file).get("services", {}).keys()
+                )
+
+        existing_containers = set()
         # Check that the containers are running and healthy.
         container: docker.models.containers.Container
         for container in containers:
-            name = container.name
+            name = container.labels.get("com.docker.compose.service", container.name)
+            existing_containers.add(name)
             status = ContainerStatus.OK
-
-            if container.name not in (
-                REQUIRED_CONTAINERS + CONTAINERS_TO_CHECK_IF_PRESENT
-            ):
-                # Ignores things like "datahub-frontend" which are no longer used.
-                # This way, we only check required containers like "datahub-frontend-react"
-                # even if there are some old containers lying around.
+            if name not in all_containers:
+                # Ignores containers that are not part of the datahub docker-compose
                 continue
-
-            if container.name in ENSURE_EXIT_SUCCESS:
+            if container.labels.get("datahub_setup_job", False):
                 if container.status != "exited":
                     status = ContainerStatus.STILL_RUNNING
                 elif container.attrs["State"]["ExitCode"] != 0:
@@ -227,8 +204,7 @@ def check_docker_quickstart() -> QuickstartStatus:
             container_statuses.append(DockerContainerStatus(name, status))
 
         # Check for missing containers.
-        existing_containers = {container.name for container in containers}
-        missing_containers = set(REQUIRED_CONTAINERS) - existing_containers
+        missing_containers = set(all_containers) - existing_containers
         for missing in missing_containers:
             container_statuses.append(
                 DockerContainerStatus(missing, ContainerStatus.MISSING)
