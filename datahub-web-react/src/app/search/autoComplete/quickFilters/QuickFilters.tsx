@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useAppStateContext } from '../../../../providers/AppStateContext';
+import { useQuickFiltersContext } from '../../../../providers/QuickFiltersContext';
 import QuickFilter from './QuickFilter';
 
 const QuickFiltersWrapper = styled.div`
@@ -11,7 +11,7 @@ const QuickFiltersWrapper = styled.div`
 `;
 
 export default function QuickFilters() {
-    const { quickFilters } = useAppStateContext();
+    const { quickFilters } = useQuickFiltersContext();
 
     return (
         <QuickFiltersWrapper>

@@ -8,15 +8,15 @@ interface AppStateType {
     setSelectedQuickFilter: React.Dispatch<React.SetStateAction<QuickFilter | null>>;
 }
 
-export const AppStateContext = React.createContext<AppStateType>({
+export const QuickFiltersContext = React.createContext<AppStateType>({
     quickFilters: [],
     setQuickFilters: () => {},
     selectedQuickFilter: null,
     setSelectedQuickFilter: () => {},
 });
 
-export function useAppStateContext() {
-    return useContext(AppStateContext);
+export function useQuickFiltersContext() {
+    return useContext(QuickFiltersContext);
 }
 
-export default AppStateContext;
+export default QuickFiltersContext;

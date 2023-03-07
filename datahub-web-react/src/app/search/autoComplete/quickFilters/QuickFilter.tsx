@@ -1,7 +1,7 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { useAppStateContext } from '../../../../providers/AppStateContext';
+import { useQuickFiltersContext } from '../../../../providers/QuickFiltersContext';
 import { QuickFilter as QuickFilterType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { getQuickFilterDetails } from './utils';
@@ -45,7 +45,7 @@ interface Props {
 
 export default function QuickFilter({ quickFilter }: Props) {
     const entityRegistry = useEntityRegistry();
-    const { selectedQuickFilter, setSelectedQuickFilter } = useAppStateContext();
+    const { selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const isSelected = selectedQuickFilter?.value === quickFilter.value;
     const { label, icon } = getQuickFilterDetails(quickFilter, entityRegistry);

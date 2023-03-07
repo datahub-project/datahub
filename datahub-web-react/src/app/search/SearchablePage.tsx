@@ -15,7 +15,7 @@ import analytics, { EventType } from '../analytics';
 import useFilters from './utils/useFilters';
 import { PageRoutes } from '../../conf/Global';
 import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
-import { useAppStateContext } from '../../providers/AppStateContext';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 
 const styles = {
     children: {
@@ -56,7 +56,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
-    const { selectedQuickFilter } = useAppStateContext();
+    const { selectedQuickFilter } = useQuickFiltersContext();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;

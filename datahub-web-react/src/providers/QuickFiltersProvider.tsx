@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { AppStateContext } from './AppStateContext';
+import { QuickFiltersContext } from './QuickFiltersContext';
 import { QuickFilter } from '../types.generated';
 import { useGetQuickFiltersQuery } from '../graphql/quickFilters.generated';
 
-export default function AppStateProvider({ children }: { children: React.ReactNode }) {
+export default function QuickFiltersProvider({ children }: { children: React.ReactNode }) {
     const { data } = useGetQuickFiltersQuery({ variables: { input: {} } });
     const [quickFilters, setQuickFilters] = useState<QuickFilter[] | null>(null);
     const [selectedQuickFilter, setSelectedQuickFilter] = useState<QuickFilter | null>(null);
@@ -15,10 +15,10 @@ export default function AppStateProvider({ children }: { children: React.ReactNo
     }, [data, quickFilters]);
 
     return (
-        <AppStateContext.Provider
+        <QuickFiltersContext.Provider
             value={{ quickFilters, setQuickFilters, selectedQuickFilter, setSelectedQuickFilter }}
         >
             {children}
-        </AppStateContext.Provider>
+        </QuickFiltersContext.Provider>
     );
 }

@@ -12,7 +12,7 @@ import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
 import AutoCompleteItem, { SuggestionContainer } from './autoComplete/AutoCompleteItem';
-import { useAppStateContext } from '../../providers/AppStateContext';
+import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import QuickFilters from './autoComplete/quickFilters/QuickFilters';
 import { getFiltersWithQuickFilter } from './utils/filterUtils';
 import usePrevious from '../shared/usePrevious';
@@ -194,7 +194,7 @@ export const SearchBar = ({
         [effectiveQuery, suggestions, entityRegistry],
     );
 
-    const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useAppStateContext();
+    const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
 
     const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
     useEffect(() => {
@@ -283,7 +283,6 @@ export const SearchBar = ({
                 <StyledSearchBar
                     placeholder={placeholderText}
                     onPressEnter={() => {
-                        // e.stopPropagation();
                         handleSearch(
                             filterSearchQuery(searchQuery || ''),
                             undefined,
