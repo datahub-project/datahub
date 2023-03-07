@@ -1,6 +1,7 @@
+import dataclasses
 import json
 import pathlib
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Counter, Dict
 
 import pytest
@@ -75,7 +76,7 @@ def test_file_dict(tmp_path: pathlib.Path) -> None:
     assert cache["a"] == 1
 
 
-def test_file_dict_serialization(tmp_path: pathlib.Path) -> None:
+def test_custom_serde(tmp_path: pathlib.Path) -> None:
     @dataclass(frozen=True)
     class Label:
         a: str
@@ -88,7 +89,7 @@ def test_file_dict_serialization(tmp_path: pathlib.Path) -> None:
 
         def to_dict(self) -> Dict:
             d: Dict = {"x": self.x}
-            str_y = {json.dumps(asdict(k)): v for k, v in self.y.items()}
+            str_y = {json.dumps(dataclasses.asdict(k)): v for k, v in self.y.items()}
             d["y"] = json.dumps(str_y)
             return d
 
@@ -121,6 +122,7 @@ def test_file_dict_serialization(tmp_path: pathlib.Path) -> None:
         filename=tmp_path / "test.db",
         serializer=serialize,
         deserializer=deserialize,
+        # Disable the in-memory cache to force all reads/writes to the DB.
         cache_max_size=0,
         cache_eviction_batch_size=0,
     )
@@ -164,6 +166,48 @@ def test_file_dict_stores_counter(tmp_path: pathlib.Path) -> None:
         assert in_memory_counters[i].most_common(2) == cache[str(i)].most_common(2)
 
 
+@dataclass
+class Pair:
+    x: int
+    y: str
+
+    def serialize(self) -> str:
+        return json.dumps(dataclasses.asdict(self))
+
+    @classmethod
+    def deserialize(cls, d: str) -> "Pair":
+        return cls(**json.loads(d))
+
+
+def test_custom_column(tmp_path: pathlib.Path) -> None:
+    cache = FileBackedDict[Pair](
+        filename=tmp_path / "test.db",
+        serializer=lambda m: m.serialize(),
+        deserializer=lambda s: Pair.deserialize(s),
+        extra_columns={
+            "x": lambda m: m.x,
+        },
+    )
+
+    cache["first"] = Pair(3, "a")
+    cache["second"] = Pair(100, "b")
+
+    # Verify that the extra column is present and has the correct values.
+    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 103
+
+    # Verify that the extra column is updated when the value is updated.
+    cache["first"] = Pair(4, "c")
+    assert cache.sql_query(f"SELECT sum(x) FROM {cache.tablename}")[0][0] == 104
+
+    # Test param binding.
+    assert (
+        cache.sql_query(
+            f"SELECT sum(x) FROM {cache.tablename} WHERE x < ?", params=(50,)
+        )[0][0]
+        == 4
+    )
+
+
 def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
     filename = tmp_path / "test.db"
 
@@ -173,20 +217,41 @@ def test_shared_underlying_file(tmp_path: pathlib.Path) -> None:
         serializer=lambda x: x,
         deserializer=lambda x: x,
     )
-    cache2 = FileBackedDict[int](
+    cache2 = FileBackedDict[Pair](
         filename=filename,
         tablename="cache2",
-        serializer=lambda x: x,
-        deserializer=lambda x: x,
+        serializer=lambda m: m.serialize(),
+        deserializer=lambda s: Pair.deserialize(s),
+        extra_columns={
+            "x": lambda m: m.x,
+            "y": lambda m: m.y,
+        },
     )
 
-    cache1["a"] = 1
-    cache2["b"] = 2
+    cache1["a"] = 3
+    cache1["b"] = 5
+    cache2["ref-a-1"] = Pair(7, "a")
+    cache2["ref-a-2"] = Pair(8, "a")
+    cache2["ref-b-1"] = Pair(11, "b")
 
-    cache1.flush()
-    cache2.flush()
+    assert len(cache1) == 2
+    assert len(cache2) == 3
 
-    assert cache1["a"] == 1
-    assert cache2["b"] == 2
+    # Test advanced SQL queries.
+    assert cache2.sql_query(
+        f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
+    ) == [("a", 15), ("b", 11)]
 
-    # TODO: Test joining between the two tables.
+    # Test joining between the two tables.
+    assert (
+        cache2.sql_query(
+            f"""
+            SELECT cache2.y, sum(cache2.x * cache1.value) FROM {cache2.tablename} cache2
+            LEFT JOIN {cache1.tablename} cache1 ON cache1.key = cache2.y
+            GROUP BY cache2.y
+            ORDER BY cache2.y
+            """,
+            refs=[cache1],
+        )
+        == [("a", 45), ("b", 55)]
+    )

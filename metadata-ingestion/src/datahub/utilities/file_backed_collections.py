@@ -10,6 +10,7 @@ from typing import (
     Iterator,
     List,
     MutableMapping,
+    Optional,
     OrderedDict,
     Sequence,
     Tuple,
@@ -84,6 +85,8 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     deserializer: Callable[[Any], _VT]
 
     tablename: str = field(default="data")
+    extra_columns: Dict[str, Callable[[_VT], SqliteValue]] = field(default_factory=dict)
+
     cache_max_size: int = field(default=2000)
     cache_eviction_batch_size: int = field(default=200)
 
@@ -98,10 +101,22 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         # a poor-man's LRU cache.
         self._active_object_cache = collections.OrderedDict()
 
-        # The key column will automatically be indexed.
+        # Create the table. We're not using "IF NOT EXISTS" because creating
+        # the same table twice indicates a client usage error.
         self._conn.execute(
-            f"CREATE TABLE {self.tablename} (key TEXT PRIMARY KEY, value BLOB)"
+            f"""CREATE TABLE {self.tablename} (
+                key TEXT PRIMARY KEY,
+                value BLOB
+                {''.join(f', {column_name} BLOB' for column_name in self.extra_columns.keys())}
+            )"""
         )
+
+        # The key column will automatically be indexed, but we need indexes
+        # for the extra columns.
+        for column_name in self.extra_columns.keys():
+            self._conn.execute(
+                f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
+            )
 
     def _add_to_cache(self, key: str, value: _VT) -> None:
         self._active_object_cache[key] = value
@@ -114,13 +129,22 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
             self._prune_cache(num_items_to_prune)
 
     def _prune_cache(self, num_items_to_prune: int) -> None:
-        items_to_write: List[Tuple[str, SqliteValue]] = []
+        items_to_write: List[Tuple[SqliteValue, ...]] = []
         for _ in range(num_items_to_prune):
             key, value = self._active_object_cache.popitem(last=False)
-            items_to_write.append((key, self.serializer(value)))
+
+            values = [key, self.serializer(value)]
+            for column_serializer in self.extra_columns.values():
+                values.append(column_serializer(value))
+            items_to_write.append(tuple(values))
 
         self._conn.executemany(
-            f"INSERT OR REPLACE INTO {self.tablename} (key, value) VALUES (?, ?)",
+            f"""INSERT OR REPLACE INTO {self.tablename} (
+                key,
+                value
+                {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+            )
+            VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
             items_to_write,
         )
 
@@ -179,6 +203,22 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         row = cursor.fetchone()
 
         return row[0] + len(self._active_object_cache)
+
+    def sql_query(
+        self,
+        query: str,
+        params: Tuple[Any, ...] = (),
+        refs: Optional[List["FileBackedDict"]] = None,
+    ) -> List[Tuple[Any, ...]]:
+        # We need to flush object and any objects the query references to ensure
+        # that we don't miss objects that have been modified but not yet flushed.
+        self.flush()
+        if refs is not None:
+            for referenced_table in refs:
+                referenced_table.flush()
+
+        cursor = self._conn.execute(query, params)
+        return cursor.fetchall()
 
     def close(self) -> None:
         _sqlite_connection_cache.drop_connection(self.filename)
