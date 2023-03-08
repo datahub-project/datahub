@@ -233,7 +233,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('VIEW MATERIALIZED', 'VIEW')
+  table_type in ('MATERIALIZED VIEW', 'VIEW')
 order by
   table_schema ASC,
   table_name ASC
@@ -255,7 +255,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('VIEW MATERIALIZED', 'VIEW')
+  table_type in ('MATERIALIZED VIEW', 'VIEW')
 order by
   table_schema ASC,
   table_name ASC
