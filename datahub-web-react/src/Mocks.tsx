@@ -1851,6 +1851,9 @@ export const mocks = [
             variables: {
                 input: {
                     query: 't',
+                    limit: 10,
+                    filters: [],
+                    types: [],
                 },
             },
         },
