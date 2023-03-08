@@ -3,22 +3,25 @@ import Layout from "@theme/Layout";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
 
-export function FilterPage(
-  siteConfig,
-  metadata,
-  title,
-  subtitle,
-  exclusiveFilter = true
-) {
+export function FilterPage(siteConfig, metadata, title, subtitle) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
+  const [isExclusive, setIsExclusive] = React.useState(false);
 
-  const filterOptions = {
-    Difficulty: new Set(),
-    "Platform Type": new Set(),
-    "Connection Type": new Set(),
-    Features: new Set(),
-  };
+  let filterOptions = {};
+  metadata.forEach((data) => {
+    const filters = data["tags"];
+    Object.keys(filters).map((key) => {
+      if (filterOptions[key] === undefined) {
+        filterOptions[key] = new Set();
+      }
+      filters[key].split(",").forEach((tag) => {
+        if (tag === " " || tag === "") return;
+        filterOptions[key].add(tag.trim());
+      });
+    });
+  });
+  const filterKeys = Object.keys(filterOptions);
   function getTags(path) {
     if (path === undefined || path === null) return;
     const data = metadata.find((data) => {
@@ -26,41 +29,18 @@ export function FilterPage(
         return data;
       }
     });
+    const recordTags = data["tags"];
     let tags = [];
-    if (data === undefined) return tags;
-    Object.keys(data).map((key) => {
-      if (key === "Features") {
-        data[key].split(",").forEach((feature) => {
-          if (feature === " " || feature === "") return;
-          tags.push(feature.trim());
-        });
-      } else if (
-        key !== "Path" &&
-        key !== "Title" &&
-        key !== "Description" &&
-        key !== "logoPath"
-      )
-        tags.push(data[key]);
+    if (recordTags === undefined) return tags;
+    filterKeys.map((key) => {
+      if (recordTags[key] === undefined || recordTags[key] === null) return;
+      recordTags[key].split(",").forEach((feature) => {
+        if (feature === " " || feature === "") return;
+        tags.push(feature.trim());
+      });
     });
     return tags;
   }
-
-  metadata.forEach((data) => {
-    Object.keys(data).map((key) => {
-      if (key === "Features") {
-        data[key].split(",").forEach((feature) => {
-          if (feature === " " || feature === "") return;
-          filterOptions[key].add(feature.trim());
-        });
-      } else if (
-        key !== "Path" &&
-        key !== "Title" &&
-        key !== "Description" &&
-        key !== "logoPath"
-      )
-        filterOptions[key].add(data[key]);
-    });
-  });
 
   const ingestionSourceContent = metadata.map((source) => {
     return {
@@ -75,11 +55,11 @@ export function FilterPage(
     (item) => {
       if (textState === "" && filterState.length === 0) return true;
       else if (filterState.length > 0) {
-        let flag = exclusiveFilter;
+        let flag = isExclusive;
         filterState.forEach((filter) => {
           flag =
-            (!exclusiveFilter && (flag || item.tags.includes(filter))) ||
-            (exclusiveFilter && flag && item.tags.includes(filter));
+            (!isExclusive && (flag || item.tags.includes(filter))) ||
+            (isExclusive && flag && item.tags.includes(filter));
         });
         return flag;
       }
@@ -108,6 +88,7 @@ export function FilterPage(
                 filterState={filterState}
                 setFilterState={setFilterState}
                 filterOptions={filterOptions}
+                setIsExclusive={setIsExclusive}
               />
             </div>
           </div>

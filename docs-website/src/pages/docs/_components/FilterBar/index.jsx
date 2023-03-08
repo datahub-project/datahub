@@ -14,7 +14,7 @@ import { translate } from "@docusaurus/Translate";
 import styles from "./search.module.scss";
 import DropDownFilter from "../../_components/DropDownFilter";
 import { FilterFilled, CloseCircleFilled } from "@ant-design/icons";
-import { Card, Button, Tag } from "antd";
+import { Card, Button, Tag, Switch } from "antd";
 
 function FilterBar({
   textState,
@@ -22,21 +22,28 @@ function FilterBar({
   filterState,
   setFilterState,
   filterOptions,
+  setIsExclusive,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedFilters, setSelectedFilters] = useState([]);
-
+  const [isSelectedExclusive, setIsSelectedExclusive] = useState(false);
   function toggleFilters() {
     setFiltersOpen(!filtersOpen);
+  }
+  function toggleSelectedExclusive() {
+    setIsSelectedExclusive(!isSelectedExclusive);
   }
 
   function applyFilters() {
     setFilterState(selectedFilters);
     setFiltersOpen(false);
+    setIsExclusive(isSelectedExclusive);
   }
   function removeFilters() {
     setSelectedFilters([]);
     setFilterState([]);
+    setIsExclusive(false);
+    setIsSelectedExclusive(false);
   }
   function removeFilter(filter) {
     setSelectedFilters(selectedFilters.filter((f) => f !== filter));
@@ -125,27 +132,41 @@ function FilterBar({
                 style={{
                   display: "flex",
                   width: "100%",
-                  justifyContent: "end",
+                  justifyContent: "space-between",
                   paddingTop: "1rem",
                 }}
               >
-                <Button
-                  onClick={removeFilters}
-                  className={clsx("DocSearch-Reset-Button", styles.resetButton)}
-                  style={{ marginRight: "1rem" }}
-                >
-                  Reset
-                </Button>
-                <Button
-                  onClick={applyFilters}
-                  type="primary"
-                  className={clsx(
-                    "DocSearch-Filter-Button",
-                    styles.filterButton
-                  )}
-                >
-                  Search
-                </Button>
+                <div>
+                  <Switch
+                    onChange={toggleSelectedExclusive}
+                    checked={isSelectedExclusive}
+                  />{" "}
+                  {isSelectedExclusive
+                    ? "Matches all tags "
+                    : "Matches any tags "}
+                </div>
+                <div>
+                  <Button
+                    onClick={removeFilters}
+                    className={clsx(
+                      "DocSearch-Reset-Button",
+                      styles.resetButton
+                    )}
+                    style={{ marginRight: "1rem" }}
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    onClick={applyFilters}
+                    type="primary"
+                    className={clsx(
+                      "DocSearch-Filter-Button",
+                      styles.filterButton
+                    )}
+                  >
+                    Search
+                  </Button>
+                </div>
               </div>
             </Card>
           )}
