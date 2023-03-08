@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from datahub.emitter.mcp_builder import PlatformKey, SchemaKey
+from datahub.emitter.mcp_builder import PlatformKey
 
 
 class WorkspaceKey(PlatformKey):
@@ -64,6 +64,7 @@ class Column:
     isHidden: bool
     columnType: Optional[str] = None
     expression: Optional[str] = None
+    description: Optional[str] = None
 
 
 @dataclass
@@ -71,13 +72,14 @@ class Measure:
     name: str
     expression: str
     isHidden: bool
+    description: Optional[str] = None
 
 
 @dataclass
 class Table:
     name: str
     full_name: str
-    expression: Optional[str]
+    expression: Optional[str] = None
     columns: Optional[List[Column]] = None
     measures: Optional[List[Measure]] = None
 
@@ -204,13 +206,13 @@ class Dashboard:
     displayName: str
     description: str
     embedUrl: str
-    webUrl: Optional[str]
     isReadOnly: Any
     workspace_id: str
     workspace_name: str
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]
+    webUrl: Optional[str] = None
 
     def get_urn_part(self):
         return f"dashboards.{self.id}"

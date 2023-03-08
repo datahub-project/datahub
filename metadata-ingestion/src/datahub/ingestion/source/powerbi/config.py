@@ -12,8 +12,8 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import (
     DEFAULT_ENV,
-    DatasetSourceConfigMixin,
     ConfigModel,
+    DatasetSourceConfigMixin,
 )
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -211,8 +211,8 @@ class OwnershipMapping(ConfigModel):
         default=False,
         description="Remove PowerBI User email suffix for example, @acryl.io",
     )
-    owner_criteria: List[str] = pydantic.Field(
-        default=[],
+    owner_criteria: Optional[List[str]] = pydantic.Field(
+        default=None,
         description="Need to have certain authority to qualify as owner for example ['ReadWriteReshareExplore','Owner','Admin']",
     )
 
@@ -294,9 +294,9 @@ class PowerBiDashboardSourceConfig(
     modified_since: Optional[str] = pydantic.Field(
         description="Get only recently modified workspaces based on modified_since datetime, excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
     )
-    # Enable/Disable extracting dataset schema
-    extract_tiles: bool = pydantic.Field(
-        default=True, description="Whether to ingest PBI Tiles as Datahub Chart"
+    extract_dashboards: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest PBI Dashboard and Tiles as Datahub Dashboard and Chart",
     )
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(

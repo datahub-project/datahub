@@ -4,7 +4,7 @@
 #
 #########################################################
 import logging
-from typing import Iterable, List, Optional, Tuple, Set
+from typing import Iterable, List, Optional, Set, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -48,6 +48,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
@@ -58,28 +59,8 @@ from datahub.metadata.schema_classes import (
     DashboardKeyClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
-    GlobalTagsClass,
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-    StatusClass,
-    SubTypesClass,
-    TagAssociationClass,
-    UpstreamClass,
-    UpstreamLineageClass,
-)
-from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
-    BrowsePathsClass,
-    ChangeTypeClass,
-    ChartInfoClass,
-    ChartKeyClass,
-    ContainerClass,
-    CorpUserKeyClass,
-    DashboardInfoClass,
-    DashboardKeyClass,
-    DatasetPropertiesClass,
     DateTypeClass,
+    GlobalTagsClass,
     NullTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
@@ -92,6 +73,9 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     StringTypeClass,
     SubTypesClass,
+    TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.source_helpers import (
@@ -263,7 +247,7 @@ class Mapper:
         if isinstance(field, powerbi_data_classes.Column):
             data_type = field.dataType
             type_class = FIELD_TYPE_MAPPING.get(data_type)
-            description = None
+            description = field.description
             if type_class is None:
                 logger.warning(
                     field,
@@ -275,10 +259,13 @@ class Mapper:
             # hardcoded measure to nulltype class, unsure what is the best
             data_type = "measure"
             type_class = NullTypeClass()
+            description = field.description if field.description else None
             if getattr(field, "expression", None):
-                description = field.expression
-            else:
-                description = None
+                description = (
+                    (field.expression + " " + field.description)
+                    if description
+                    else field.expression
+                )
 
         schema_field = SchemaFieldClass(
             fieldPath=f"{field.name}",
@@ -761,13 +748,14 @@ class Mapper:
                 ]
                 if (
                     user.principalType == "User"
+                    and self.__config.ownership.owner_criteria
                     and len(
                         set(user_rights) & set(self.__config.ownership.owner_criteria)
                     )
                     > 0
                 ):
                     user_mcps.extend(self.to_datahub_user(user))
-                elif not self.__config.ownership.owner_criteria:
+                elif self.__config.ownership.owner_criteria is None:
                     user_mcps.extend(self.to_datahub_user(user))
                 else:
                     continue
@@ -1223,12 +1211,15 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                 # Because job_id is used as dictionary key, we have to set a new job_id
                 # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
                 self.stale_entity_removal_handler.set_job_id(workspace.id)
-                self.register_stateful_ingestion_usecase_handler(self.stale_entity_removal_handler)
+                self.register_stateful_ingestion_usecase_handler(
+                    self.stale_entity_removal_handler
+                )
 
                 yield from auto_stale_entity_removal(
                     self.stale_entity_removal_handler,
                     auto_workunit_reporter(
-                        self.reporter, auto_status_aspect(self.get_workspace_workunit(workspace))
+                        self.reporter,
+                        auto_status_aspect(self.get_workspace_workunit(workspace)),
                     ),
                 )
 

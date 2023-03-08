@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Optional, cast, Iterable
+from typing import Any, Dict, Iterable, List, Optional, cast
 
 import requests
 
@@ -12,14 +12,14 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Column,
     Dashboard,
+    Measure,
     PowerBIDataset,
     Report,
     Table,
     User,
     Workspace,
-    Measure,
-    Column,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -212,21 +212,21 @@ class PowerBiAPI:
             modified_workspace_ids = self._get_resolver().get_mod_workspaces(
                 self.__config.modified_since
             )
+            workspaces = [
+                Workspace(
+                    id=workspace_id,
+                    name="",
+                    datasets={},
+                    dashboards=[],
+                    reports=[],
+                    report_endorsements={},
+                    dashboard_endorsements={},
+                    scan_result={},
+                )
+                for workspace_id in modified_workspace_ids
+            ]
         except:
             self.log_http_error(message="Unable to fetch list of modified workspaces")
-        workspaces = [
-            Workspace(
-                id=workspace_id,
-                name="",
-                datasets={},
-                dashboards=[],
-                reports=[],
-                report_endorsements={},
-                dashboard_endorsements={},
-                scan_result={},
-            )
-            for workspace_id in modified_workspace_ids
-        ]
         return workspaces
 
     def _get_scan_result(self, workspace_ids: List[str]) -> Any:
@@ -421,7 +421,7 @@ class PowerBiAPI:
             for dashboard in workspace.dashboards:
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
-        if self.__config.extract_tiles:
+        if self.__config.extract_dashboards:
             fill_dashboards()
 
         fill_reports()

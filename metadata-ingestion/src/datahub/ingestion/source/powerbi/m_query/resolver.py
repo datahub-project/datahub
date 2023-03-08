@@ -461,7 +461,7 @@ class DatabrickTableFullNameCreator(AbstractTableFullNameCreator):
         temp_accessor = data_access_func_detail.identifier_accessor
         while True:
             value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
-            if temp_accessor.next != None:
+            if temp_accessor.next is not None:
                 temp_accessor = temp_accessor.next
             else:
                 break
