@@ -3,7 +3,13 @@ import Layout from "@theme/Layout";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
 
-export function FilterPage(siteConfig, metadata, title, subtitle) {
+export function FilterPage(
+  siteConfig,
+  metadata,
+  title,
+  subtitle,
+  exclusiveFilter = false
+) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
 
@@ -69,9 +75,12 @@ export function FilterPage(siteConfig, metadata, title, subtitle) {
     (item) => {
       if (textState === "" && filterState.length === 0) return true;
       else if (filterState.length > 0) {
-        let flag = false;
+        let flag;
+        if (exclusiveFilter) flag = true;
+        else flag = false;
         filterState.forEach((filter) => {
-          if (item.tags.includes(filter)) flag = true;
+          if (exclusiveFilter && !item.tags.includes(filter)) flag = false;
+          else if (!exclusiveFilter && item.tags.includes(filter)) flag = true;
         });
         return flag;
       }
