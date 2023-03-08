@@ -8,7 +8,7 @@ export function FilterPage(
   metadata,
   title,
   subtitle,
-  exclusiveFilter = false
+  exclusiveFilter = true
 ) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
@@ -75,12 +75,11 @@ export function FilterPage(
     (item) => {
       if (textState === "" && filterState.length === 0) return true;
       else if (filterState.length > 0) {
-        let flag;
-        if (exclusiveFilter) flag = true;
-        else flag = false;
+        let flag = exclusiveFilter;
         filterState.forEach((filter) => {
-          if (exclusiveFilter && !item.tags.includes(filter)) flag = false;
-          else if (!exclusiveFilter && item.tags.includes(filter)) flag = true;
+          flag =
+            (!exclusiveFilter && (flag || item.tags.includes(filter))) ||
+            (exclusiveFilter && flag && item.tags.includes(filter));
         });
         return flag;
       }
