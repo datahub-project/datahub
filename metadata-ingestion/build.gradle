@@ -18,7 +18,7 @@ task checkPythonVersion(type: Exec) {
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools>=63.0.0"
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0'"
 }
 
 task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
@@ -143,6 +143,10 @@ task testSlowIntegration(type: Exec, dependsOn: [installDevTest]) {
 
 task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
+}
+task buildWheel(type: Exec, dependsOn: [install, codegen]) {
+  // When running this, you need to set the RELEASE_VERSION environment variable.
+  commandLine 'bash', '-c', 'RELEASE_VERSION="\${RELEASE_VERSION?release version must be set}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 
