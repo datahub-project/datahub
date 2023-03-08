@@ -1122,24 +1122,24 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         config = PowerBiDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_allowed_workspaces(self) -> List[str]:
+    def get_allowed_workspaces(self) -> List[powerbi_data_classes.Workspace]:
         if self.source_config.admin_apis_only and self.source_config.modified_since:
-            workspace_ids = self.powerbi_client.get_modified_workspaces()
+            all_workspaces = self.powerbi_client.get_modified_workspaces()
         else:
-            workspace_ids = self.powerbi_client.get_workspaces()
+            all_workspaces = self.powerbi_client.get_workspaces()
 
-        allowed_ids = [
-            id
-            for id in workspace_ids
-            if self.source_config.workspace_id_pattern.allowed(id)
+        allowed_wrk = [
+            workspace
+            for workspace in all_workspaces
+            if self.source_config.workspace_id_pattern.allowed(workspace.id)
         ]
 
-        logger.info(f"Number of workspaces = {len(workspace_ids)}")
-        self.reporter.report_number_of_workspaces(len(workspace_ids))
-        logger.info(f"Number of allowed workspaces = {len(allowed_ids)}")
-        logger.debug(f"Workspaces = {workspace_ids}")
+        logger.info(f"Number of workspaces = {len(all_workspaces)}")
+        self.reporter.report_number_of_workspaces(len(all_workspaces))
+        logger.info(f"Number of allowed workspaces = {len(allowed_wrk)}")
+        logger.debug(f"Workspaces = {all_workspaces}")
 
-        return allowed_ids
+        return allowed_wrk
 
     def validate_dataset_type_mapping(self):
         powerbi_data_platforms: List[str] = [
@@ -1205,29 +1205,30 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
         self.validate_dataset_type_mapping()
         # Fetch PowerBi workspace for given workspace identifier
 
-        allowed_workspace_ids = self.get_allowed_workspaces()
-        workspaces_len = len(allowed_workspace_ids)
+        allowed_workspaces = self.get_allowed_workspaces()
+        workspaces_len = len(allowed_workspaces)
 
         batch_size = 100  # maximum allowed for powerbi scan
         num_batches = (workspaces_len + batch_size - 1) // batch_size
         batches = [
-            allowed_workspace_ids[i * batch_size : (i + 1) * batch_size]
+            allowed_workspaces[i * batch_size : (i + 1) * batch_size]
             for i in range(num_batches)
         ]
-        for batch_workspace_ids in batches:
+        for batch_workspaces in batches:
             for workspace in self.powerbi_client.fill_workspaces(
-                batch_workspace_ids, self.reporter
+                batch_workspaces, self.reporter
             ):
                 logger.info(f"Processing workspace id: {workspace.id}")
                 # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
                 # Because job_id is used as dictionary key, we have to set a new job_id
                 # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
                 self.stale_entity_removal_handler.set_job_id(workspace.id)
-                work_units = yield from self.get_workspace_workunit(workspace)
-                auto_stale_entity_removal(
+                self.register_stateful_ingestion_usecase_handler(self.stale_entity_removal_handler)
+
+                yield from auto_stale_entity_removal(
                     self.stale_entity_removal_handler,
                     auto_workunit_reporter(
-                        self.reporter, auto_status_aspect(work_units)
+                        self.reporter, auto_status_aspect(self.get_workspace_workunit(workspace))
                     ),
                 )
 

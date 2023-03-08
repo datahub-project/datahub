@@ -288,7 +288,7 @@ class PowerBiDashboardSourceConfig(
     )
     # Configure ingestion of ownership
     ownership: OwnershipMapping = pydantic.Field(
-        default=None,
+        default=OwnershipMapping(),
         description="Configure how is ownership ingested",
     )
     modified_since: Optional[str] = pydantic.Field(

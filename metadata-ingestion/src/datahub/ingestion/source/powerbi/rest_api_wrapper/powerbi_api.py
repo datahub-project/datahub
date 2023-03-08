@@ -184,25 +184,49 @@ class PowerBiAPI:
 
         return reports
 
-    def get_workspaces(self) -> List[str]:
+    def get_workspaces(self) -> List[Workspace]:
         groups: List[dict] = []
         try:
             groups = self._get_resolver().get_groups()
         except:
             self.log_http_error(message="Unable to fetch list of workspaces")
 
-        workspace_ids = [workspace[Constant.ID] for workspace in groups]
-        return workspace_ids
+        workspaces = [
+            Workspace(
+                id=workspace[Constant.ID],
+                name=workspace[Constant.NAME],
+                datasets={},
+                dashboards=[],
+                reports=[],
+                report_endorsements={},
+                dashboard_endorsements={},
+                scan_result={},
+            )
+            for workspace in groups
+        ]
+        return workspaces
 
-    def get_modified_workspaces(self) -> List[str]:
+    def get_modified_workspaces(self) -> List[Workspace]:
         workspaces = []
         try:
-            workspaces = self._get_resolver().get_mod_workspaces(
+            modified_workspace_ids = self._get_resolver().get_mod_workspaces(
                 self.__config.modified_since
             )
         except:
             self.log_http_error(message="Unable to fetch list of modified workspaces")
-
+        workspaces = [
+            Workspace(
+                id=workspace_id,
+                name="",
+                datasets={},
+                dashboards=[],
+                reports=[],
+                report_endorsements={},
+                dashboard_endorsements={},
+                scan_result={},
+            )
+            for workspace_id in modified_workspace_ids
+        ]
         return workspaces
 
     def _get_scan_result(self, workspace_ids: List[str]) -> Any:
@@ -329,9 +353,13 @@ class PowerBiAPI:
         return dataset_map
 
     def _fill_metadata_from_scan_result(
-        self, workspace_ids: List[str]
+        self, workspaces: List[Workspace]
     ) -> Iterable[Workspace]:
+        workspace_ids = [workspace.id for workspace in workspaces]
         scan_result = self._get_scan_result(workspace_ids)
+        if not scan_result:
+            return workspaces
+
         workspaces = []
         for workspace_metadata in scan_result["workspaces"]:
             cur_workspace = Workspace(
@@ -350,19 +378,18 @@ class PowerBiAPI:
             )
 
             # Fetch endorsements tag if it is enabled from configuration
-            if self.__config.extract_endorsements_to_tags is False:
+            if self.__config.extract_endorsements_to_tags:
+                cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
+                    cur_workspace.scan_result
+                )
+                cur_workspace.report_endorsements = self._get_report_endorsements(
+                    cur_workspace.scan_result
+                )
+            else:
                 logger.info(
                     "Skipping endorsements tag as extract_endorsements_to_tags is set to "
                     "false "
                 )
-                return
-
-            cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
-                cur_workspace.scan_result
-            )
-            cur_workspace.report_endorsements = self._get_report_endorsements(
-                cur_workspace.scan_result
-            )
 
             workspaces.append(cur_workspace)
 
@@ -402,9 +429,9 @@ class PowerBiAPI:
 
     # flake8: noqa: C901
     def fill_workspaces(
-        self, workspace_ids: List[str], reporter: PowerBiDashboardSourceReport
+        self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:
-        workspaces = self._fill_metadata_from_scan_result(workspace_ids=workspace_ids)
+        workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
         # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
         for workspace in workspaces:
             self._fill_regular_metadata_detail(workspace=workspace)
