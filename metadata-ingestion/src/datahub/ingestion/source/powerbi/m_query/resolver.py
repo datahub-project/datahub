@@ -13,6 +13,7 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    AbstractIdentifierAccessor,
     TRACE_POWERBI_MQUERY_PARSER,
     DataAccessFunctionDetail,
     IdentifierAccessor,
@@ -458,11 +459,14 @@ class DatabrickTableFullNameCreator(AbstractTableFullNameCreator):
             f"Processing Databrick data-access function detail {data_access_func_detail}"
         )
         value_dict = {}
-        temp_accessor = data_access_func_detail.identifier_accessor
+        temp_accessor: Optional[
+            Union[IdentifierAccessor, AbstractIdentifierAccessor]
+        ] = data_access_func_detail.identifier_accessor
         while True:
-            value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
-            if temp_accessor.next is not None:
-                temp_accessor = temp_accessor.next
+            if isinstance(temp_accessor, IdentifierAccessor):
+                value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+                if temp_accessor.next is not None:
+                    temp_accessor = temp_accessor.next
             else:
                 break
 

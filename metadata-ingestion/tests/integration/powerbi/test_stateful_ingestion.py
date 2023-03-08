@@ -1,12 +1,12 @@
-from typing import Dict, cast
+from typing import Any, Dict, cast
 from unittest import mock
 
 from freezegun import freeze_time
 
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
@@ -213,13 +213,15 @@ def mock_msal_cca(*args, **kwargs):
 
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
-) -> Dict[str, Checkpoint[GenericCheckpointState]]:
+) -> Dict[JobId, Checkpoint[Any]]:
     powerbi_source = cast(PowerBiDashboardSource, pipeline.source)
     checkpoints = {}
     for job_id in powerbi_source._usecase_handlers.keys():
         if job_id != "powerbi_stale_entity_removal":
             # for multi-workspace checkpoint, every good checkpoint will have an unique workspaceid suffix
-            checkpoints[job_id] = powerbi_source.get_current_checkpoint(job_id)
+            checkpoint = powerbi_source.get_current_checkpoint(job_id)
+            if checkpoint:
+                checkpoints[job_id] = checkpoint
 
     return checkpoints
 

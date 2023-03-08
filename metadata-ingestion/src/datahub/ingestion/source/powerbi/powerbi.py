@@ -263,7 +263,7 @@ class Mapper:
             if getattr(field, "expression", None):
                 description = (
                     (field.expression + " " + field.description)
-                    if description
+                    if field.description
                     else field.expression
                 )
 
@@ -314,13 +314,16 @@ class Mapper:
 
             logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
+            custom_properties = {}
+            if table.expression:
+                custom_properties["expression"] = table.expression
             ds_properties = DatasetPropertiesClass(
                 name=table.name,
                 description=dataset.description,
                 externalUrl=dataset.webUrl,
                 customProperties={
+                    **custom_properties,
                     "datasetId": dataset.id,
-                    "expression": table.expression,
                 },
             )
 
@@ -340,17 +343,24 @@ class Mapper:
             )
             if self.__config.extract_dataset_schema:
                 fields = []
-                table_fields = [
-                    self.get_dataset_table_schema(column) for column in table.columns
-                ]
-                measure_fields = [
-                    self.get_dataset_table_schema(measure) for measure in table.measures
-                ]
+                table_fields = (
+                    [self.get_dataset_table_schema(column) for column in table.columns]
+                    if table.columns
+                    else []
+                )
+                measure_fields = (
+                    [
+                        self.get_dataset_table_schema(measure)
+                        for measure in table.measures
+                    ]
+                    if table.measures
+                    else []
+                )
                 fields.extend(table_fields)
                 fields.extend(measure_fields)
 
                 schema_metadata = SchemaMetadataClass(
-                    schemaName=dataset.name,
+                    schemaName=table.name,
                     platform=self.__config.platform_urn,
                     version=0,
                     hash="",
@@ -671,9 +681,9 @@ class Mapper:
     def generate_container_for_workspace(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
-        self.workspace_key = workspace.get_workspace_key(self.__config.platform_name)
+        workspace_key = workspace.get_workspace_key(self.__config.platform_name)
         container_work_units = gen_containers(
-            container_key=self.workspace_key,
+            container_key=workspace_key,
             name=workspace.name,
             sub_types=[BIContainerSubTypes.POWERBI_WORKSPACE],
         )
@@ -685,7 +695,7 @@ class Mapper:
         dataset_key = dataset.get_dataset_key(self.__config.platform_name)
         container_work_units = gen_containers(
             container_key=dataset_key,
-            name=dataset.name,
+            name=dataset.name if dataset.name else dataset.id,
             parent_container_key=self.workspace_key,
             sub_types=[BIContainerSubTypes.POWERBI_DATASET],
         )

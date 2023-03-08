@@ -354,7 +354,7 @@ class PowerBiAPI:
 
     def _fill_metadata_from_scan_result(
         self, workspaces: List[Workspace]
-    ) -> Iterable[Workspace]:
+    ) -> List[Workspace]:
         workspace_ids = [workspace.id for workspace in workspaces]
         scan_result = self._get_scan_result(workspace_ids)
         if not scan_result:
