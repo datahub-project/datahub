@@ -14,6 +14,7 @@ const SubtypesDescription = styled.span`
     font-size: 12px;
     font-weight: 400;
     margin-left: 8px;
+    color: ${ANTD_GRAY[7]};
 `;
 
 interface Props {

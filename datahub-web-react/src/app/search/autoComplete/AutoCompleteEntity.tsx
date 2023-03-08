@@ -28,6 +28,7 @@ const PreviewImage = styled(Image)`
 const ContentWrapper = styled.div`
     display: flex;
     align-items: center;
+    overflow: hidden;
 `;
 
 const Subtype = styled.span`
@@ -65,11 +66,13 @@ export default function AutoCompleteEntity({ query, entity }: Props) {
                 {icon}
                 <SuggestionText>
                     <ParentContainers parentContainers={orderedParentContainers} />
-                    <Typography.Text strong>{matchedText}</Typography.Text>
-                    {unmatchedText}
+                    <Typography.Text ellipsis>
+                        <Typography.Text strong>{matchedText}</Typography.Text>
+                        {unmatchedText}
+                    </Typography.Text>
                 </SuggestionText>
             </ContentWrapper>
-            {subtype && <Subtype>{subtype}</Subtype>}
+            {subtype && <Subtype>{subtype.toLocaleLowerCase()}</Subtype>}
         </AutoCompleteEntityWrapper>
     );
 }

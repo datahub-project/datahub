@@ -53,6 +53,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on Chart {
         chartId
@@ -128,6 +131,9 @@ fragment autoCompleteFields on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on Tag {

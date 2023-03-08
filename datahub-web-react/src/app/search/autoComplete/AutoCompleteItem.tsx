@@ -2,10 +2,12 @@ import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { CorpUser, Entity, EntityType, Tag } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
 import AutoCompleteEntity from './AutoCompleteEntity';
 import AutoCompleteTag from './AutoCompleteTag';
 import AutoCompleteTooltipContent from './AutoCompleteTooltipContent';
 import AutoCompleteUser from './AutoCompleteUser';
+import { getShouldDisplayTooltip } from './utils';
 
 export const SuggestionContainer = styled.div`
     display: flex;
@@ -19,6 +21,7 @@ interface Props {
 }
 
 export default function AutoCompleteItem({ query, entity }: Props) {
+    const entityRegistry = useEntityRegistry();
     let componentToRender: React.ReactNode = null;
 
     switch (entity.type) {
@@ -33,12 +36,14 @@ export default function AutoCompleteItem({ query, entity }: Props) {
             break;
     }
 
+    const displayTooltip = getShouldDisplayTooltip(entity, entityRegistry);
+
     return (
         <Tooltip
-            overlayStyle={{ maxWidth: 500 }}
+            overlayStyle={{ maxWidth: 500, visibility: displayTooltip ? 'visible' : 'hidden' }}
             style={{ width: '100%' }}
             title={<AutoCompleteTooltipContent entity={entity} />}
-            placement="bottomLeft"
+            placement="top"
             color="rgba(0, 0, 0, 0.9)"
         >
             <SuggestionContainer data-testid="auto-complete-option">{componentToRender}</SuggestionContainer>
