@@ -30,7 +30,38 @@ class DataPlatformTable:
     data_platform_pair: DataPlatformPair
 
 
-class AbstractDataPlatformTableCreator(ABC):
+class SupportedDataPlatform(Enum):
+    POSTGRES_SQL = DataPlatformPair(
+        powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
+    )
+
+    ORACLE = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    SNOWFLAKE = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake", datahub_data_platform_name="snowflake"
+    )
+
+    MS_SQL = DataPlatformPair(
+        powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
+    )
+    DATABRICK_SQL = DataPlatformPair(
+        powerbi_data_platform_name="Databrick", datahub_data_platform_name="databrick"
+    )
+
+    GOOGLE_BIGQUERY = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
+
+    AMAZON_REDSHIFT = DataPlatformPair(
+        powerbi_data_platform_name="AmazonRedshift",
+        datahub_data_platform_name="redshift",
+    )
+
+
+class AbstractTableFullNameCreator(ABC):
     @abstractmethod
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -418,14 +449,45 @@ class PostgresDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
         return SupportedDataPlatform.POSTGRES_SQL.value
 
 
-class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
+class DatabrickTableFullNameCreator(AbstractTableFullNameCreator):
+    def get_full_table_names(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[str]:
+        full_table_names: List[str] = []
+        logger.debug(
+            f"Processing Databrick data-access function detail {data_access_func_detail}"
+        )
+        value_dict = {}
+        temp_accessor = data_access_func_detail.identifier_accessor
+        while True:
+            value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+            if temp_accessor.next != None:
+                temp_accessor = temp_accessor.next
+            else:
+                break
+
+        db_name: str = value_dict["Database"]
+        schema_name: str = value_dict["Schema"]
+        table_name: str = value_dict["Table"]
+        full_table_names.append(f"{db_name}.{schema_name}.{table_name}")
+        logger.debug(
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) full-table-names = {full_table_names}"
+        )
+
+        return full_table_names
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.DATABRICK_SQL.value
+
+
+class MSSqlTableFullNameCreator(DefaultTwoStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.MS_SQL.value
 
-    def create_dataplatform_tables(
+    def get_full_table_names(
         self, data_access_func_detail: DataAccessFunctionDetail
-    ) -> List[DataPlatformTable]:
-        dataplatform_tables: List[DataPlatformTable] = []
+    ) -> List[str]:
+        full_table_names: List[str] = []
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(data_access_func_detail.arg_list)
@@ -711,11 +773,17 @@ class FunctionName(Enum):
     ORACLE_DATA_ACCESS = "Oracle.Database"
     SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
     MSSQL_DATA_ACCESS = "Sql.Database"
+    DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
 
 
 class SupportedResolver(Enum):
+    DATABRICK_QUERY = (
+        DatabrickTableFullNameCreator,
+        FunctionName.DATABRICK_DATA_ACCESS,
+    )
+
     POSTGRES_SQL = (
         PostgresDataPlatformTableCreator,
         FunctionName.POSTGRESQL_DATA_ACCESS,

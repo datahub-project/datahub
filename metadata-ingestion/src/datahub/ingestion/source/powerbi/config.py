@@ -10,7 +10,11 @@ from pydantic.class_validators import root_validator
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
-from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DEFAULT_ENV,
+    DatasetSourceConfigMixin,
+    ConfigModel,
+)
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -35,6 +39,7 @@ class Constant:
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
     DATASET_GET = "DATASET_GET"
     DATASET_LIST = "DATASET_LIST"
+    WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
     REPORT_GET = "REPORT_GET"
     DATASOURCE_GET = "DATASOURCE_GET"
     TILE_GET = "TILE_GET"
@@ -70,6 +75,8 @@ class Constant:
     DATASETS = "datasets"
     DATASET_KEY = "datasetKey"
     DATASET_PROPERTIES = "datasetProperties"
+    SCHEMA_METADATA = "schemaMetadata"
+    SUBTYPES = "subTypes"
     VALUE = "value"
     ENTITY = "ENTITY"
     ID = "id"
@@ -82,6 +89,10 @@ class Constant:
     IDENTIFIER = "identifier"
     EMAIL_ADDRESS = "emailAddress"
     PRINCIPAL_TYPE = "principalType"
+    DATASET_USER_ACCESS_RIGHT = "datasetUserAccessRight"
+    REPORT_USER_ACCESS_RIGHT = "reportUserAccessRight"
+    DASHBOARD_USER_ACCESS_RIGHT = "dashboardUserAccessRight"
+    GROUP_USER_ACCESS_RIGHT = "groupUserAccessRight"
     GRAPH_ID = "graphId"
     WORKSPACES = "workspaces"
     TITLE = "title"
@@ -184,7 +195,25 @@ class PlatformDetail(ConfigModel):
     )
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
-        description="The environment that the platform is located in. It is default to PROD",
+        description="The environment that all assets produced by DataHub platform ingestion source belong to",
+    )
+
+
+class OwnershipMapping(ConfigModel):
+    create_corp_user: bool = pydantic.Field(
+        default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
+    )
+    use_powerbi_email: bool = pydantic.Field(
+        default=False,
+        description="Use PowerBI User email to ingest as corpuser, default is powerbi user identifier",
+    )
+    remove_email_suffix: bool = pydantic.Field(
+        default=False,
+        description="Remove PowerBI User email suffix for example, @acryl.io",
+    )
+    owner_criteria: List[str] = pydantic.Field(
+        default=[],
+        description="Need to have certain authority to qualify as owner for example ['ReadWriteReshareExplore','Owner','Admin']",
     )
 
 
@@ -257,6 +286,23 @@ class PowerBiDashboardSourceConfig(
     extract_reports: bool = pydantic.Field(
         default=True, description="Whether reports should be ingested"
     )
+    # Configure ingestion of ownership
+    ownership: OwnershipMapping = pydantic.Field(
+        default=None,
+        description="Configure how is ownership ingested",
+    )
+    modified_since: Optional[str] = pydantic.Field(
+        description="Get only recently modified workspaces based on modified_since datetime, excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
+    )
+    # Enable/Disable extracting dataset schema
+    extract_tiles: bool = pydantic.Field(
+        default=True, description="Whether to ingest PBI Tiles as Datahub Chart"
+    )
+    # Enable/Disable extracting dataset schema
+    extract_dataset_schema: bool = pydantic.Field(
+        default=False,
+        description="Whether to ingest PBI Dataset Table columns and measures",
+    )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
         default=True,
@@ -269,9 +315,18 @@ class PowerBiDashboardSourceConfig(
         description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
         "access is required is this setting is enabled",
     )
+    extract_only_matched_endorsed_dataset: Optional[List[str]] = pydantic.Field(
+        default=None,
+        description="Only ingest dataset when endorsement is matched, for example ['Certified']",
+    )
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(
         default=True, description="Extract workspaces to DataHub containers"
+    )
+    # Enable/Disable grouping PBI dataset tables into Datahub container (PBI Dataset)
+    extract_datasets_to_containers: bool = pydantic.Field(
+        default=False,
+        description="Extract PBI dataset tables into Datahub container (PBI Dataset)",
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(

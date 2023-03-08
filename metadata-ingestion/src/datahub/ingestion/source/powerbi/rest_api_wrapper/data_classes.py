@@ -2,11 +2,15 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from datahub.emitter.mcp_builder import PlatformKey
+from datahub.emitter.mcp_builder import PlatformKey, SchemaKey
 
 
 class WorkspaceKey(PlatformKey):
     workspace: str
+
+
+class DatasetKey(PlatformKey):
+    dataset: str
 
 
 @dataclass
@@ -21,7 +25,8 @@ class Workspace:
     scan_result: dict
 
     def get_urn_part(self):
-        return self.name
+        # shouldn't use workspace name, as they can be the same?
+        return self.id
 
     def get_workspace_key(
         self, platform_name: str, platform_instance: Optional[str] = None
@@ -53,10 +58,28 @@ class DataSource:
 
 
 @dataclass
+class Column:
+    name: str
+    dataType: str
+    isHidden: bool
+    columnType: Optional[str] = None
+    expression: Optional[str] = None
+
+
+@dataclass
+class Measure:
+    name: str
+    expression: str
+    isHidden: bool
+
+
+@dataclass
 class Table:
     name: str
     full_name: str
     expression: Optional[str]
+    columns: Optional[List[Column]] = None
+    measures: Optional[List[Measure]] = None
 
     # Pointer to the parent dataset.
     dataset: Optional["PowerBIDataset"] = None
@@ -74,6 +97,7 @@ class PowerBIDataset:
     # Table in datasets
     tables: List["Table"]
     tags: List[str]
+    configuredBy: Optional[str] = None
 
     def get_urn_part(self):
         return f"datasets.{self.id}"
@@ -89,6 +113,12 @@ class PowerBIDataset:
 
     def __hash__(self):
         return hash(self.__members())
+
+    def get_dataset_key(self, platform_name: str) -> PlatformKey:
+        return DatasetKey(
+            dataset=self.id,
+            platform=platform_name,
+        )
 
 
 @dataclass
@@ -109,8 +139,17 @@ class User:
     emailAddress: str
     graphId: str
     principalType: str
+    datasetUserAccessRight: Optional[str] = None
+    reportUserAccessRight: Optional[str] = None
+    dashboardUserAccessRight: Optional[str] = None
+    groupUserAccessRight: Optional[str] = None
 
-    def get_urn_part(self):
+    def get_urn_part(self, use_email: bool, remove_email_suffix: bool) -> str:
+        if use_email:
+            if remove_email_suffix:
+                return self.emailAddress.split("@")[0]
+            else:
+                return self.emailAddress
         return f"users.{self.id}"
 
     def __members(self):
@@ -200,4 +239,5 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
         parameters={},
         tables=[],
         tags=[],
+        configuredBy=raw_instance.get("configuredBy"),
     )
