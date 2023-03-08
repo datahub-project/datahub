@@ -610,7 +610,7 @@ function DataProviderComponent() {
     siteConfig,
     metadata,
     "DataHub Integrations",
-    "Services that integrate with Datahub"
+    "Services that integrate with Dataub"
   );
 }
 
