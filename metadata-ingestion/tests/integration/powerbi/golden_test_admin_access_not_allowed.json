@@ -6,7 +6,7 @@
     "aspectName": "corpUserKey",
     "aspect": {
         "json": {
-            "username": "User1@foo.com"
+            "username": "urn:li:corpuser:users.User1@foo.com"
         }
     },
     "systemMetadata": {
@@ -21,7 +21,7 @@
     "aspectName": "corpUserKey",
     "aspect": {
         "json": {
-            "username": "User2@foo.com"
+            "username": "urn:li:corpuser:users.User2@foo.com"
         }
     },
     "systemMetadata": {
