@@ -19,7 +19,7 @@ from typing import (
 )
 
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.models import Dashboard, DashboardElement, FolderBase, Query
+from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, FolderBase, Query
 from pydantic import Field, validator
 
 import datahub.emitter.mce_builder as builder
@@ -966,7 +966,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         return looker_dashboard
 
-    def _get_looker_user(self, user_id: Optional[int]) -> Optional[LookerUser]:
+    def _get_looker_user(self, user_id: Optional[str]) -> Optional[LookerUser]:
         user = (
             self.user_registry.get_by_id(
                 user_id,
