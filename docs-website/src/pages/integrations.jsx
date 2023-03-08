@@ -609,7 +609,7 @@ function DataProviderComponent() {
   return FilterPage(
     siteConfig,
     metadata,
-    "Datahub Integrations",
+    "DataHub Integrations",
     "Services that integrate with Datahub"
   );
 }
