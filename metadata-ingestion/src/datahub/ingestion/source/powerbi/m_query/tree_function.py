@@ -4,6 +4,10 @@ from typing import Any, List, Optional, Union, cast
 
 from lark import Token, Tree
 
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    TRACE_POWERBI_MQUERY_PARSER,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,13 +32,14 @@ def get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
     for tree in _filter:
         values: List[str] = token_values(tree.children[0])
         actual_value: str = "".join(strip_char_from_list(values, " "))
-        logger.debug(f"Actual Value = {actual_value}")
-        logger.debug(f"Expected Value = {variable}")
+        if TRACE_POWERBI_MQUERY_PARSER:
+            logger.debug(f"Actual Value = {actual_value}")
+            logger.debug(f"Expected Value = {variable}")
 
         if actual_value.lower() == variable.lower():
             return tree
 
-    logger.info(f"Provided variable({variable}) not found in variable rule")
+    logger.debug(f"Provided variable({variable}) not found in variable rule")
 
     return None
 
@@ -120,7 +125,8 @@ def get_all_function_name(tree: Tree) -> List[str]:
     _filter: Any = tree.find_data("invoke_expression")
 
     for node in _filter:
-        logger.debug(f"Tree = {node.pretty}")
+        if TRACE_POWERBI_MQUERY_PARSER:
+            logger.debug(f"Tree = {node.pretty}")
         primary_expression_node: Optional[Tree] = first_primary_expression_func(node)
         if primary_expression_node is None:
             continue

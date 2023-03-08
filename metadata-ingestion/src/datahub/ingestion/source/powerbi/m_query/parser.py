@@ -8,6 +8,9 @@ from lark import Lark, Tree
 
 from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
 from datahub.ingestion.source.powerbi.m_query import resolver, validator
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    TRACE_POWERBI_MQUERY_PARSER,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
@@ -26,13 +29,14 @@ def get_lark_parser() -> Lark:
 def _parse_expression(expression: str) -> Tree:
     lark_parser: Lark = get_lark_parser()
 
-    parse_tree: Tree = lark_parser.parse(expression)
+    # Replace U+00a0 NO-BREAK SPACE with a normal space.
+    # Sometimes PowerBI returns expressions with this character and it breaks the parser.
+    expression = expression.replace("\u00a0", " ")
 
     logger.debug(f"Parsing expression = {expression}")
+    parse_tree: Tree = lark_parser.parse(expression)
 
-    if (
-        logger.level == logging.DEBUG
-    ):  # Guard condition to avoid heavy pretty() function call
+    if TRACE_POWERBI_MQUERY_PARSER:
         logger.debug(parse_tree.pretty())
 
     return parse_tree

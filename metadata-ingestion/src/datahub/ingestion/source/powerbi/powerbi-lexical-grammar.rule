@@ -1,3 +1,7 @@
+// MODIFICATIONS:
+// - The let_expression definition has a WS_INLINE? added before the first NEWLINE.
+
+
 lexical_unit:   lexical_elements?
 
 lexical_elements:   lexical_element 
@@ -426,7 +430,7 @@ each_expression:    "each" WS_INLINE each_expression_body
 
 each_expression_body:   function_body
 
-let_expression: "let" NEWLINE WS_INLINE? variable_list WS_INLINE? NEWLINE? in_expression
+let_expression: "let" WS_INLINE? NEWLINE WS_INLINE? variable_list WS_INLINE? NEWLINE? in_expression
 
 in_expression: "in" NEWLINE? WS_INLINE? NEWLINE? expression
 

@@ -111,7 +111,6 @@ class DataResolverBase(ABC):
 
     def get_access_token(self):
         if self.__access_token is not None:
-            logger.debug("Returning the cached access token")
             return self.__access_token
 
         logger.info("Generating PowerBi access token")
@@ -525,7 +524,7 @@ class AdminAPIResolver(DataResolverBase):
         logger.debug(f"Hitting URL={scan_get_endpoint}")
         retry = 1
         while True:
-            logger.info(f"retry = {retry}")
+            logger.debug(f"retry = {retry}")
             res = self._request_session.get(
                 scan_get_endpoint,
                 headers=self.get_authorization_header(),
@@ -546,7 +545,7 @@ class AdminAPIResolver(DataResolverBase):
                 )
                 break
 
-            logger.info(
+            logger.debug(
                 f"Waiting to check for scan job completion for {minimum_sleep_seconds} seconds."
             )
             sleep(minimum_sleep_seconds)
@@ -562,7 +561,7 @@ class AdminAPIResolver(DataResolverBase):
         max_retry: int = AdminAPIResolver._calculate_max_retry(
             minimum_sleep_seconds, timeout
         )
-        logger.info(f"Max trial {max_retry}")
+        # logger.info(f"Max trial {max_retry}")
 
         scan_get_endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.SCAN_GET]
         scan_get_endpoint = scan_get_endpoint.format(
