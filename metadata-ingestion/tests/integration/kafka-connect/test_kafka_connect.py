@@ -353,6 +353,7 @@ def test_kafka_connect_mongosourceconnect_ingest(
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.integration_batch_1
 def test_kafka_connect_ingest_stateful(
     loaded_kafka_connect, pytestconfig, tmp_path, mock_datahub_graph, test_resources_dir
 ):
