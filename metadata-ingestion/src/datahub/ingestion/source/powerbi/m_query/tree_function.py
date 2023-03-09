@@ -93,9 +93,15 @@ def token_values(tree: Tree, parameters: Optional[Dict[str, str]] = None) -> Lis
             identifier = node.children[0].children[0]
             assert isinstance(identifier, Token)
 
-            ref = identifier.value  # ref will have quotes around it.
-            resolved = parameters.get(ref[1:-1])
-            if resolved:
+            # For quoted_identifier, ref will have quotes around it.
+            # However, we'll probably need to expand this to all identifier types,
+            # which are not required to have quotes (using make_function_name).
+            ref = identifier.value
+            if ref.startswith('"') and ref[1:-1] in parameters:
+                resolved = parameters[ref[1:-1]]
+                values.append(resolved)
+            elif ref in parameters:
+                resolved = parameters[ref]
                 values.append(resolved)
             else:
                 # If we can't resolve, fall back to the name of the variable.
