@@ -1,8 +1,12 @@
 import logging
 from functools import partial
-from typing import Any, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 from lark import Token, Tree
+
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    TRACE_POWERBI_MQUERY_PARSER,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +32,14 @@ def get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
     for tree in _filter:
         values: List[str] = token_values(tree.children[0])
         actual_value: str = "".join(strip_char_from_list(values, " "))
-        logger.debug(f"Actual Value = {actual_value}")
-        logger.debug(f"Expected Value = {variable}")
+        if TRACE_POWERBI_MQUERY_PARSER:
+            logger.debug(f"Actual Value = {actual_value}")
+            logger.debug(f"Expected Value = {variable}")
 
         if actual_value.lower() == variable.lower():
             return tree
 
-    logger.info(f"Provided variable({variable}) not found in variable rule")
+    logger.debug(f"Provided variable({variable}) not found in variable rule")
 
     return None
 
@@ -65,21 +70,50 @@ def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     return expression_tree
 
 
-def token_values(tree: Tree) -> List[str]:
+def token_values(tree: Tree, parameters: Optional[Dict[str, str]] = None) -> List[str]:
     """
 
     :param tree: Tree to traverse
+    :param parameters: If parameters is not None, it will try to resolve identifier variable references
+                       using the values in 'parameters'.
     :return: List of leaf token data
     """
     values: List[str] = []
 
     def internal(node: Union[Tree, Token]) -> None:
-        if isinstance(node, Token):
+        if (
+            parameters is not None
+            and isinstance(node, Tree)
+            and node.data == "identifier"
+            and node.children[0].data == "quoted_identifier"
+        ):
+            # This is the case where they reference a variable using
+            # the `#"Name of variable"` syntax.
+
+            identifier = node.children[0].children[0]
+            assert isinstance(identifier, Token)
+
+            # For quoted_identifier, ref will have quotes around it.
+            # However, we'll probably need to expand this to all identifier types,
+            # which are not required to have quotes (using make_function_name).
+            ref = identifier.value
+            if ref.startswith('"') and ref[1:-1] in parameters:
+                resolved = parameters[ref[1:-1]]
+                values.append(resolved)
+            elif ref in parameters:
+                resolved = parameters[ref]
+                values.append(resolved)
+            else:
+                # If we can't resolve, fall back to the name of the variable.
+                logger.debug(f"Unable to resolve parameter reference to {ref}")
+                values.append(ref)
+        elif isinstance(node, Token):
+            # This means we're probably looking at a literal.
             values.append(cast(Token, node).value)
             return
-
-        for child in node.children:
-            internal(child)
+        else:
+            for child in node.children:
+                internal(child)
 
     internal(tree)
 
@@ -120,7 +154,8 @@ def get_all_function_name(tree: Tree) -> List[str]:
     _filter: Any = tree.find_data("invoke_expression")
 
     for node in _filter:
-        logger.debug(f"Tree = {node.pretty}")
+        if TRACE_POWERBI_MQUERY_PARSER:
+            logger.debug(f"Tree = {node.pretty}")
         primary_expression_node: Optional[Tree] = first_primary_expression_func(node)
         if primary_expression_node is None:
             continue
@@ -153,7 +188,6 @@ first_item_selector_func = partial(get_first_rule, rule="item_selector")
 first_arg_list_func = partial(get_first_rule, rule="argument_list")
 first_identifier_func = partial(get_first_rule, rule="identifier")
 first_primary_expression_func = partial(get_first_rule, rule="primary_expression")
-first_identifier_func = partial(get_first_rule, rule="identifier")
 first_invoke_expression_func = partial(get_first_rule, rule="invoke_expression")
 first_type_expression_func = partial(get_first_rule, rule="type_expression")
 first_list_expression_func = partial(get_first_rule, rule="list_expression")
