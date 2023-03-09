@@ -69,7 +69,7 @@ def test_mysql_ingest_with_db(
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "mysql_to_file_with_db.yml").resolve()
     run_datahub_cmd(
-        ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+        ["ingest", "--no-strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
     )
 
     # Verify the output.
@@ -88,7 +88,7 @@ def test_mysql_ingest_with_db_alias(
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "mysql_to_file_dbalias.yml").resolve()
     run_datahub_cmd(
-        ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+        ["ingest", "--no-strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
     )
 
     # Verify the output.

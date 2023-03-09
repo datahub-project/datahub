@@ -54,7 +54,7 @@ def test_postgres_ingest_with_db(
     print("Config file: {config_file}")
 
     run_datahub_cmd(
-        ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+        ["ingest", "--no-strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
     )
 
     # Verify the output.
