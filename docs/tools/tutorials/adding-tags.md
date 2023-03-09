@@ -136,6 +136,11 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 
 ## Add Tags With GraphQL
 
+:::note
+Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
+For more information about the differences between these endpoints, please refer to [Datahub Metadata Service](/docs/metadata-service/#graphql-api)
+:::
+
 ### GraphQL Explorer
 GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
