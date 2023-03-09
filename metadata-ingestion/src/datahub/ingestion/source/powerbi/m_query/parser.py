@@ -1,7 +1,7 @@
 import functools
 import importlib.resources as pkg_resource
 import logging
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional
 
 import lark
 from lark import Lark, Tree
@@ -61,29 +61,34 @@ def get_upstream_tables(
             parse_tree, native_query_enabled=native_query_enabled
         )
         if valid is False:
-            logger.debug(f"Validation failed: {cast(str, message)}")
-            reporter.report_warning(table.full_name, cast(str, message))
+            assert message is not None
+            logger.debug(f"Validation failed: {message}")
+            reporter.report_warning(table.full_name, message)
             return []
+    except BaseException as e:  # TODO: Debug why BaseException is needed here and below.
+        if isinstance(e, lark.exceptions.UnexpectedCharacters):
+            message = "Unsupported m-query expression"
+        else:
+            message = "Failed to parse m-query expression"
 
+        reporter.report_warning(table.full_name, message)
+        logger.info(f"{message} for table {table.full_name}: {str(e)}")
+        logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
+        return []
+
+    try:
         return resolver.MQueryResolver(
             table=table,
             parse_tree=parse_tree,
             reporter=reporter,
             parameters=parameters,
-        ).resolve_to_data_platform_table_list()  # type: ignore
+        ).resolve_to_data_platform_table_list()
 
     except BaseException as e:
-        if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            logger.info(f"Unsupported m-query expression for table {table.full_name}")
-            reporter.report_warning(
-                table.full_name, "Failed to parse m-query expression"
-            )
-        else:
-            logger.info(f"Failed to parse expression: {str(e)}")
-
-        logger.debug(
-            f"Fail to parse expression for table {table.full_name}: {table.expression}",
-            exc_info=e,
+        reporter.report_warning(table.full_name, "Failed to process m-query expression")
+        logger.info(
+            f"Failed to process m-query expression for table {table.full_name}: {str(e)}"
         )
+        logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
 
     return []
