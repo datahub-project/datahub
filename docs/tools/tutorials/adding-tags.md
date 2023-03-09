@@ -14,8 +14,9 @@ For this tutorial, you need to deploy Datahub Quickstart and ingest sample data.
 For detailed steps, please refer to [Prepare Local Datahub Environment](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/prepare-datahub).
 
 :::note
-Adding tags assumes that you already have a dataset and tags on your datahub.
-If you try to manipulate entities that do not exist, your operation will fail.
+Before adding tags, you need to ensure the targeted dataset and the tag are already present in your datahub. 
+If you attempt to manipulate entities that do not exist, your operation will fail. 
+In this guide, we will be using data from a sample ingestion.
 :::
 
 

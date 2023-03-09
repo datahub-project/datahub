@@ -1,9 +1,9 @@
-# Prepare Local Datahub Environment
+# Preparing Your Local Datahub Environment
 
 ## Deploy Datahub Quickstart 
 
 You'll need a local instance of DataHub running for this tutorial:
-- Follow the quickstart guide [here](/docs/quickstart) to get one up and running.
+- Follow the quickstart guide [here](https://datahubproject.io/docs/quickstart) to get one up and running.
 ```shell
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub

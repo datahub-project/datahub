@@ -5,7 +5,7 @@ module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
   tagline: "A Metadata Platform for the Modern Data Stack",
   url: process.env.DOCUSAURUS_CONFIG_URL || "https://yoonhyejin.github.io",
-  baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
+  baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/datahub-forked/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "throw",
   favicon: "img/favicon.ico",

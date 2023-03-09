@@ -387,6 +387,20 @@ module.exports = {
         ],
       },
       "docs/datahub_lite",
+            {
+        "Getting Started: APIs & SDKs": [
+          "docs/tools/tutorials/advantages",
+          "docs/tools/tutorials/adding-tags",
+          "docs/tools/tutorials/adding-terms",
+          "docs/tools/tutorials/adding-ownerships",
+          {
+            References: [
+              "docs/tools/tutorials/references/generate-access-token",
+              "docs/tools/tutorials/references/prepare-datahub",
+            ],
+          },
+        ],
+      },
     ],
 
     "Developer Guides": [
@@ -420,20 +434,6 @@ module.exports = {
               "metadata-service/README",
               "metadata-jobs/mae-consumer-job/README",
               "metadata-jobs/mce-consumer-job/README",
-            ],
-          },
-        ],
-      },
-      {
-        "How to Do It Programmatically": [
-          "docs/dev-guides/tutorials/why-we-are-doing-it",
-          "docs/dev-guides/tutorials/adding-tags",
-          "docs/dev-guides/tutorials/adding-terms",
-          "docs/dev-guides/tutorials/adding-ownerships",
-          {
-            References: [
-              "docs/dev-guides/tutorials/references/generate-access-token",
-              "docs/dev-guides/tutorials/references/prepare-datahub",
             ],
           },
         ],
