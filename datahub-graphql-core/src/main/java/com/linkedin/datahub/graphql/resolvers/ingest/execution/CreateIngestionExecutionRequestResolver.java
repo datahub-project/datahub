@@ -108,7 +108,7 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           Map<String, String> arguments = new HashMap<>();
           String recipe = ingestionSourceInfo.getConfig().getRecipe();
           recipe = injectRunId(recipe, executionRequestUrn.toString());
-          recipe = IngestionUtils.injectPipelineName(recipe, executionRequestUrn.toString());
+          recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
           arguments.put(RECIPE_ARG_NAME, recipe);
           arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().hasVersion()
               ? ingestionSourceInfo.getConfig().getVersion()
