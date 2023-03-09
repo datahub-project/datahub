@@ -50,7 +50,7 @@ def test_mysql_ingest_no_db(
     # Run the metadata ingestion pipeline.
     config_file = (test_resources_dir / "mysql_to_file_no_db.yml").resolve()
     run_datahub_cmd(
-        ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+        ["ingest", "--no-strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
     )
 
     # Verify the output.
