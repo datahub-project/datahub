@@ -2,6 +2,7 @@ import React from "react";
 
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { FilterPage } from "./docs/_components/FilterPage";
+import { FastBackwardFilled } from "@ant-design/icons";
 const filterTagIndexes = require("../../filterTagIndexes.json");
 const metadata = filterTagIndexes.ingestionSources;
 
@@ -13,9 +14,7 @@ function DataProviderComponent() {
     siteConfig,
     metadata,
     "DataHub Integrations",
-    "Services that integrate with DataHub",
-    true,
-    true
+    "Services that integrate with DataHub"
   );
 }
 
