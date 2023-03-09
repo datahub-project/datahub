@@ -27,7 +27,6 @@ describe('auto-complete', () => {
         cy.login();
         cy.visit("/");
         cy.get("input[data-testid=search-input]").type("SampleCypressHiveDataset");
-        cy.wait(30000);
         cy.get('[data-testid="auto-complete-option"]').first().click();
         cy.url().should('include', 'dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)');
         cy.wait(2000);
