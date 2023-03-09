@@ -11,7 +11,7 @@ Fore more information about tags, refer to [About Datahub Tags](https://datahubp
 
 ## Prerequisites
 For this tutorial, you need to deploy Datahub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local Datahub Environment](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/prepare-datahub).
+For detailed steps, please refer to [Prepare Local Datahub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding tags, you need to ensure the targeted dataset and the tag are already present in your datahub. 
@@ -158,7 +158,7 @@ If you see the following response, the operation was successful:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/generate-access-token). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
 With `accessToken`, you can run the following command.
 
 ```shell
