@@ -147,9 +147,11 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
     for p_k, p_o in sw_dict["paths"].items():
         # will track only the "get" methods, which are the ones that give us data
         if "get" in p_o.keys():
-            if "responses" in p_o["get"].keys() \
-                    and p_o["get"]["responses"] is not None \
-                    and len(p_o["get"]["responses"]) > 0:
+            if (
+                "responses" in p_o["get"].keys()
+                and p_o["get"]["responses"] is not None
+                and len(p_o["get"]["responses"]) > 0
+            ):
                 base_response = slicedict(p_o["get"]["responses"], "2")
                 if len(base_response) > 0:
                     base_res = base_response[list(base_response.keys())[0]]
@@ -224,9 +226,11 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             if get_operations_only:
                 continue
 
-            if "responses" in p_o["post"].keys() \
-                    and p_o["post"]["responses"] is not None \
-                    and len(p_o["post"]["responses"]) > 0:
+            if (
+                "responses" in p_o["post"].keys()
+                and p_o["post"]["responses"] is not None
+                and len(p_o["post"]["responses"]) > 0
+            ):
                 base_response = slicedict(p_o["post"]["responses"], "2")
                 if len(base_response) > 0:
                     base_res = base_response[list(base_response.keys())[0]]
@@ -350,9 +354,11 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             if get_operations_only:
                 continue
 
-            if "responses" in p_o["put"].keys() \
-                    and p_o["put"]["responses"] is not None \
-                    and len(p_o["put"]["responses"]) > 0:
+            if (
+                "responses" in p_o["put"].keys()
+                and p_o["put"]["responses"] is not None
+                and len(p_o["put"]["responses"]) > 0
+            ):
                 base_response = slicedict(p_o["put"]["responses"], "2")
                 if len(base_response) > 0:
                     base_res = base_response[list(base_response.keys())[0]]
@@ -486,9 +492,11 @@ def get_endpoints(sw_dict: dict, get_operations_only: bool) -> dict:  # noqa: C9
             if get_operations_only:
                 continue
 
-            if "responses" in p_o["patch"].keys() \
-                    and p_o["patch"]["responses"] is not None \
-                    and len(p_o["patch"]["responses"]) > 0:
+            if (
+                "responses" in p_o["patch"].keys()
+                and p_o["patch"]["responses"] is not None
+                and len(p_o["patch"]["responses"]) > 0
+            ):
                 base_response = slicedict(p_o["patch"]["responses"], "2")
                 if len(base_response) > 0:
                     base_res = base_response[list(base_response.keys())[0]]
@@ -1003,7 +1011,12 @@ def set_metadata(
                         column_prop_type = c_o["$ref"]
                         prop_schema = column_prop_type.rsplit("/", 1)[1]
                         canonical_schema = add_subschema(
-                            prop_schema, schemas_details, canonical_schema, False, None, column_prop_name
+                            prop_schema,
+                            schemas_details,
+                            canonical_schema,
+                            False,
+                            None,
+                            column_prop_name,
                         )
                         continue
                     except KeyError:
