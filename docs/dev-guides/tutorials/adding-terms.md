@@ -11,7 +11,7 @@ For detailed information, please refer to [Prepare Local Datahub Environment](ht
 
 :::note
 Adding terms assumes that you already have a dataset and terms on your datahub.
-If you try to manipulate with entities that does not exist, it might return errors or failed to reference them.
+If you try to manipulate entities that do not exist, your operation will fail.
 :::
 
 
@@ -95,7 +95,7 @@ if current_editable_schema_metadata:
             field_match = True
             if fieldInfo.glossaryTerms:
                 if term_to_add not in [x.urn for x in fieldInfo.glossaryTerms.terms]:
-                    # this tag is not present
+                    # this term is not present
                     fieldInfo.glossaryTerms.terms.append(term_association_to_add)
                     need_write = True
             else:
@@ -145,7 +145,7 @@ mutation addTerms {
         subResource:"user_name"})
 }
 ```
-You are succeeded if you see the following response.
+If you see the following response, the operation was successful:
 ```python
 {
   "data": {
@@ -157,7 +157,7 @@ You are succeeded if you see the following response.
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate token, please refer [Generate Access Token](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/generate-access-token). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/generate-access-token). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -174,7 +174,7 @@ Expected Response:
 ```
 
 ## Expected Outcomes
-You can now see `CustomerAccount` tag has been added to `user_name` column. 
+You can now see the term `CustomerAccount` has been added to `user_name` column. 
 ![term-added](../../imgs/tutorials/term-added.png)
 
 

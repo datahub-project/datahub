@@ -2,7 +2,8 @@
 
 ## Deploy Datahub Quickstart 
 
-You need a datahub running in local environment. First, install acryl-datahub if you did't yet. 
+You'll need a local instance of DataHub running for this tutorial:
+- Follow the quickstart guide [here](/docs/quickstart) to get one up and running.
 ```shell
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
@@ -35,4 +36,4 @@ datahub docker ingest-sample-data
 This will ingest various entities like datasets, terms and tags to your local Datahub.
 ![datahub-main-ui](../../../imgs/tutorials/sample-ingestion.png)
 
-Now you're ready to start tutorials! 
+Now you're ready to start!

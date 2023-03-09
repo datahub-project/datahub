@@ -1,16 +1,16 @@
-# Adding Ownerships
+# Adding Owners
 
-## Why Would You Add Ownerships? 
+## Why Would You Add Owners? 
 Assigning an owner to an entity helps to establish accountability for the metadata and collaborating as a team. 
 If there are any issues or questions about the data, the designated owner can serve as a reliable point of contact.
 
 ## Pre-requisites
 For this tutorial, you need to deploy Datahub Quickstart and ingest sample data. 
-For detailed information, please refer to [Prepare Local Datahub Environment](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/prepare-datahub).
+For detailed information, please refer to [Preparing Your Local Datahub Environment](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/prepare-datahub).
 
 :::note
-Adding ownerships assumes that you already have a dataset and ownerships on your datahub.
-If you try to manipulate with entities that does not exist, it might return errors or failed to reference them.
+Adding owners assumes that you already have a dataset and ownerships on your datahub.
+If you try to manipulate entities that do not exist, your operation will fail.
 :::
 
 
@@ -117,7 +117,7 @@ Expected Response:
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate token, please refer [Generate Access Token](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/generate-access-token). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/generate-access-token). 
 With `accessToken`, you can run the following command.
 
 ```shell
@@ -134,7 +134,7 @@ Expected Response:
 
 
 ## Expected Outcomes
-You can now see `bffo` has been added as an owner to `fct_users_created` dataset.
+You can now see `bfoo` has been added as an owner to the `fct_users_created` dataset.
 
 ![ownership-added](../../imgs/tutorials/owner-added.png)
 

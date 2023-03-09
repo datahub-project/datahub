@@ -4,25 +4,25 @@
 Tags are informal, loosely controlled labels that help in search & discovery. They can be added to datasets, dataset schemas, or containers, for an easy way to label or categorize entities – without having to associate them to a broader business glossary or vocabulary.
 
 Tags can help you in:
-- Querying: Tagging a dataset with a phrase that a co-worker can use to query the same dataset
+- Querying: Tagging a dataset with a phrase that users can use to query the same dataset
 - Mapping assets to a category or group of your choice
 
 Fore more information about tags, refer to [About Datahub Tags](https://datahubproject.io/docs/tags/).
 
-## Pre-requisites
+## Prerequisites
 For this tutorial, you need to deploy Datahub Quickstart and ingest sample data. 
 For detailed steps, please refer to [Prepare Local Datahub Environment](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/prepare-datahub).
 
 :::note
 Adding tags assumes that you already have a dataset and tags on your datahub.
-If you try to manipulate with entities that does not exist, it might return errors or failed to reference them.
+If you try to manipulate entities that do not exist, your operation will fail.
 :::
 
 
 ## Add Tags With Python SDK
 
-Following codes add a tag named `CustomerAccount` to a column `user_name` of a hive dataset named `fct_users_created`.
-You can refer to a full code in [dataset_add_column_tag.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_column_tag.py).
+The following code adds a tag named `Legacy` to the column `user_name` of the hive dataset `fct_users_created`.
+You can refer to the full code in [dataset_add_column_tag.py](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/library/dataset_add_column_tag.py).
 ```python
 # inlined from metadata-ingestion/examples/library/dataset_add_column_tag.py
 import logging
@@ -145,7 +145,7 @@ mutation addTags {
         subResource:"user_name"})
 }
 ```
-You are succeeded if you see the following response.
+If you see the following response, the operation was successful:
 ```python
 {
   "data": {
@@ -157,7 +157,7 @@ You are succeeded if you see the following response.
 
 ### CURL
 
-With CURL, you need to provide tokens. To generate token, please refer [Generate Access Token](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/generate-access-token). 
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](http://yoonhyejin.github.io/datahub-forked/docs/dev-guides/tutorials/references/generate-access-token). 
 With `accessToken`, you can run the following command.
 
 ```shell
