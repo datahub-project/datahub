@@ -52,7 +52,7 @@
       "Path": "docs/generated/ingestion/sources/business-glossary",
       "imgPath": "img/datahub-logo-color-mark.svg",
       "Title": "Business Glossary",
-      "Description": "Business Glossary is a source provided by DataHub for ingesting glossary metadata that provides a comprehensive list of business terms and definitions used within an organization.",
+      "Description": "A source provided by DataHub for ingesting glossary metadata that provides a comprehensive list of business terms and definitions used within an organization.",
       "tags": {
         "Difficulty": "Medium",
         "Platform Type": "Metadata",
