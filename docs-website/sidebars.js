@@ -387,7 +387,7 @@ module.exports = {
         ],
       },
       "docs/datahub_lite",
-            {
+      {
         "Getting Started: APIs & SDKs": [
           "docs/tools/tutorials/advantages",
           "docs/tools/tutorials/adding-tags",
