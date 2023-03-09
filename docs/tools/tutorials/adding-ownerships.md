@@ -88,6 +88,10 @@ else:
     log.info(f"Owner {owner_to_add} already exists, omitting write")
 ```
 
+We're using the `MetdataChangeProposalWrapper` to change entities in this example.
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl/)
+
+
 ## Add Ownerships With GraphQL
 
 ### GraphQL Explorer

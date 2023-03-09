@@ -130,6 +130,10 @@ else:
     log.info(f"Tag {tag_to_add} already attached to column {column}, omitting write")
 ```
 
+We're using the `MetdataChangeProposalWrapper` to change entities in this example.
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl/)
+
+
 ## Add Tags With GraphQL
 
 ### GraphQL Explorer

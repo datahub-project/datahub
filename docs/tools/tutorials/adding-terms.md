@@ -130,6 +130,11 @@ else:
 
 ```
 
+We're using the `MetdataChangeProposalWrapper` to change entities in this example.
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl/)
+
+
+
 ## Add Terms With GraphQL
 
 ### GraphQL Explorer
