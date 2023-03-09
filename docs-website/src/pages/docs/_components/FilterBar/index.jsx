@@ -22,6 +22,7 @@ function FilterBar({
   filterState,
   setFilterState,
   filterOptions,
+  allowExclusivity,
   setIsExclusive,
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -132,19 +133,23 @@ function FilterBar({
                 style={{
                   display: "flex",
                   width: "100%",
-                  justifyContent: "space-between",
+                  justifyContent: allowExclusivity
+                    ? "space-between"
+                    : "flex-end",
                   paddingTop: "1rem",
                 }}
               >
-                <div>
-                  <Switch
-                    onChange={toggleSelectedExclusive}
-                    checked={isSelectedExclusive}
-                  />{" "}
-                  {isSelectedExclusive
-                    ? "Matches all tags "
-                    : "Matches any tags "}
-                </div>
+                {allowExclusivity && (
+                  <div>
+                    <Switch
+                      onChange={toggleSelectedExclusive}
+                      checked={isSelectedExclusive}
+                    />{" "}
+                    {isSelectedExclusive
+                      ? "Matches all tags "
+                      : "Matches any tags "}
+                  </div>
+                )}
                 <div>
                   <Button
                     onClick={removeFilters}

@@ -3,7 +3,15 @@ import Layout from "@theme/Layout";
 import FilterBar from "../FilterBar";
 import FilterCards from "../FilterCards";
 
-export function FilterPage(siteConfig, metadata, title, subtitle) {
+export function FilterPage(
+  siteConfig,
+  metadata,
+  title,
+  subtitle,
+  allowExclusivity = false,
+  useTags = false,
+  useFilters = false
+) {
   const [textState, setTextState] = React.useState("");
   const [filterState, setFilterState] = React.useState([]);
   const [isExclusive, setIsExclusive] = React.useState(false);
@@ -45,10 +53,13 @@ export function FilterPage(siteConfig, metadata, title, subtitle) {
   const ingestionSourceContent = metadata.map((source) => {
     return {
       title: source.Title,
-      platformIcon: source.logoPath,
+      image: source.imgPath,
       description: source.Description,
       tags: getTags(source.Path),
+      filters: source.tags,
       to: source.Path,
+      useFilters: useFilters,
+      useTags: useTags,
     };
   });
   const filteredIngestionSourceContent = ingestionSourceContent.filter(
@@ -88,6 +99,7 @@ export function FilterPage(siteConfig, metadata, title, subtitle) {
                 filterState={filterState}
                 setFilterState={setFilterState}
                 filterOptions={filterOptions}
+                allowExclusivity={allowExclusivity}
                 setIsExclusive={setIsExclusive}
               />
             </div>
