@@ -470,12 +470,23 @@ def test_kafka_connect_ingest_stateful(
     difference_pipeline_urns = list(
         state1.get_urns_not_in(type="dataFlow", other_checkpoint_state=state2)
     )
-    # the difference in dataset urns are all the views that are not reachable from the model file
+
     assert len(difference_pipeline_urns) == 1
     deleted_pipeline_urns: List[str] = [
         "urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD)"
     ]
     assert sorted(deleted_pipeline_urns) == sorted(difference_pipeline_urns)
+
+    difference_job_urns = list(
+        state1.get_urns_not_in(type="dataJob", other_checkpoint_state=state2)
+    )
+    assert len(difference_job_urns) == 3
+    deleted_job_urns = [
+        "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.MixedCaseTable)",
+        "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.book)",
+        "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.mysql_source2,PROD),librarydb.member)",
+    ]
+    assert sorted(deleted_job_urns) == sorted(difference_job_urns)
 
 
 def get_current_checkpoint_from_pipeline(
