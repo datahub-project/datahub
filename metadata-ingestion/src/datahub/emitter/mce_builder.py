@@ -183,9 +183,17 @@ def make_term_urn(term: str) -> str:
 
 
 def make_data_flow_urn(
-    orchestrator: str, flow_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
+    orchestrator: str,
+    flow_id: str,
+    cluster: str = DEFAULT_FLOW_CLUSTER,
+    platform_instance: Optional[str] = None,
 ) -> str:
-    return f"urn:li:dataFlow:({orchestrator},{flow_id},{cluster})"
+    if platform_instance:
+        return (
+            f"urn:li:dataFlow:({orchestrator},{platform_instance}.{flow_id},{cluster})"
+        )
+    else:
+        return f"urn:li:dataFlow:({orchestrator},{flow_id},{cluster})"
 
 
 def make_data_job_urn_with_flow(flow_urn: str, job_id: str) -> str:
@@ -197,10 +205,14 @@ def make_data_process_instance_urn(dataProcessInstanceId: str) -> str:
 
 
 def make_data_job_urn(
-    orchestrator: str, flow_id: str, job_id: str, cluster: str = DEFAULT_FLOW_CLUSTER
+    orchestrator: str,
+    flow_id: str,
+    job_id: str,
+    cluster: str = DEFAULT_FLOW_CLUSTER,
+    platform_instance: Optional[str] = None,
 ) -> str:
     return make_data_job_urn_with_flow(
-        make_data_flow_urn(orchestrator, flow_id, cluster), job_id
+        make_data_flow_urn(orchestrator, flow_id, cluster, platform_instance), job_id
     )
 
 
