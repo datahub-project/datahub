@@ -181,6 +181,3 @@ You can now see `CustomerAccount` tag has been added to `user_name` column.
 
 ![tag-added](../../imgs/tutorials/tag-added.png)
 
-
-## What’s Next
-

@@ -142,7 +142,3 @@ Expected Response:
 You can now see `bfoo` has been added as an owner to the `fct_users_created` dataset.
 
 ![ownership-added](../../imgs/tutorials/owner-added.png)
-
-
-## What’s Next
-

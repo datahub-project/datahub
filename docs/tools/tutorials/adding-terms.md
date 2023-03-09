@@ -183,6 +183,3 @@ Expected Response:
 You can now see the term `CustomerAccount` has been added to `user_name` column. 
 ![term-added](../../imgs/tutorials/term-added.png)
 
-
-## What’s Next
-
