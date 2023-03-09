@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from typing import Any, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 from lark import Token, Tree
 
@@ -70,21 +70,41 @@ def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     return expression_tree
 
 
-def token_values(tree: Tree) -> List[str]:
+def token_values(tree: Tree, parameters: Optional[Dict[str, str]] = None) -> List[str]:
     """
 
     :param tree: Tree to traverse
+    :param parameters: If parameters is not None, it will try to resolve identifier variable references
+                       using the values in 'parameters'.
     :return: List of leaf token data
     """
     values: List[str] = []
 
     def internal(node: Union[Tree, Token]) -> None:
-        if isinstance(node, Token):
+        if (
+            parameters is not None
+            and isinstance(node, Tree)
+            and node.data == "identifier"
+            and node.children[0].data == "quoted_identifier"
+        ):
+            # This is the case where they reference a variable using
+            # the `#"Name of variable"` syntax.
+
+            identifier = node.children[0].children[0]
+            assert isinstance(identifier, Token)
+
+            ref = identifier.value
+            # ref will have quotes around it. If we can't resolve, fall back to the
+            # name of the variable.
+            value = parameters.get(f"{ref[1:-1]}", ref)
+            values.append(value)
+        elif isinstance(node, Token):
+            # This means we're probably looking at a literal.
             values.append(cast(Token, node).value)
             return
-
-        for child in node.children:
-            internal(child)
+        else:
+            for child in node.children:
+                internal(child)
 
     internal(tree)
 
@@ -159,7 +179,6 @@ first_item_selector_func = partial(get_first_rule, rule="item_selector")
 first_arg_list_func = partial(get_first_rule, rule="argument_list")
 first_identifier_func = partial(get_first_rule, rule="identifier")
 first_primary_expression_func = partial(get_first_rule, rule="primary_expression")
-first_identifier_func = partial(get_first_rule, rule="identifier")
 first_invoke_expression_func = partial(get_first_rule, rule="invoke_expression")
 first_type_expression_func = partial(get_first_rule, rule="type_expression")
 first_list_expression_func = partial(get_first_rule, rule="list_expression")

@@ -1,7 +1,7 @@
 import functools
 import importlib.resources as pkg_resource
 import logging
-from typing import List, cast
+from typing import Dict, List, Optional, cast
 
 import lark
 from lark import Lark, Tree
@@ -46,10 +46,13 @@ def get_upstream_tables(
     table: Table,
     reporter: PowerBiDashboardSourceReport,
     native_query_enabled: bool = True,
+    parameters: Optional[Dict[str, str]] = None,
 ) -> List[resolver.DataPlatformTable]:
     if table.expression is None:
         logger.debug(f"Expression is none for table {table.full_name}")
         return []
+
+    parameters = parameters or {}
 
     try:
         parse_tree: Tree = _parse_expression(table.expression)
@@ -66,6 +69,7 @@ def get_upstream_tables(
             table=table,
             parse_tree=parse_tree,
             reporter=reporter,
+            parameters=parameters,
         ).resolve_to_data_platform_table_list()  # type: ignore
 
     except BaseException as e:

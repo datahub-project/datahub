@@ -55,6 +55,9 @@ class Table:
     full_name: str
     expression: Optional[str]
 
+    # Pointer to the parent dataset.
+    dataset: Optional["PowerBIDataset"] = None
+
 
 @dataclass
 class PowerBIDataset:
@@ -62,6 +65,8 @@ class PowerBIDataset:
     name: Optional[str]
     webUrl: Optional[str]
     workspace_id: str
+    parameters: Optional[Dict[str, str]]
+
     # Table in datasets
     tables: List["Table"]
     tags: List[str]
@@ -186,6 +191,7 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
         if raw_instance.get("webUrl") is not None
         else None,
         workspace_id=workspace_id,
+        parameters=None,
         tables=[],
         tags=[],
     )

@@ -2,7 +2,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import msal
 import requests
@@ -98,6 +98,11 @@ class DataResolverBase(ABC):
         self, workspace_id: str, dataset_id: str
     ) -> Optional[PowerBIDataset]:
         pass
+
+    def get_dataset_parameters(
+        self, workspace_id: str, dataset_id: str
+    ) -> Optional[Dict[str, str]]:
+        return None
 
     @abstractmethod
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
@@ -392,6 +397,38 @@ class RegularAPIResolver(DataResolverBase):
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of
         # None/details
         return new_powerbi_dataset(workspace_id, response_dict)
+
+    def get_dataset_parameters(
+        self, workspace_id: str, dataset_id: str
+    ) -> Optional[Dict[str, str]]:
+        dataset_get_endpoint: str = RegularAPIResolver.API_ENDPOINTS[
+            Constant.DATASET_GET
+        ]
+        dataset_get_endpoint = dataset_get_endpoint.format(
+            POWERBI_BASE_URL=DataResolverBase.BASE_URL,
+            WORKSPACE_ID=workspace_id,
+            DATASET_ID=dataset_id,
+        )
+        logger.debug(f"Request to dataset URL={dataset_get_endpoint}")
+        params_get_endpoint = dataset_get_endpoint + "/parameters"
+
+        params_response = self._request_session.get(
+            params_get_endpoint,
+            headers=self.get_authorization_header(),
+        )
+        params_response.raise_for_status()
+        params_dict = params_response.json()
+
+        params_values: Optional[List] = params_dict.get(Constant.VALUE)
+        if params_values:
+            logger.debug(f"dataset {dataset_id} parameters = {params_values}")
+            return {
+                value[Constant.NAME]: value[Constant.CURRENT_VALUE]
+                for value in params_values
+            }
+        else:
+            logger.debug(f"dataset {dataset_id} has no parameters")
+            return {}
 
     def get_groups_endpoint(self) -> str:
         return DataResolverBase.BASE_URL
