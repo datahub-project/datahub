@@ -93,11 +93,14 @@ def token_values(tree: Tree, parameters: Optional[Dict[str, str]] = None) -> Lis
             identifier = node.children[0].children[0]
             assert isinstance(identifier, Token)
 
-            ref = identifier.value
-            # ref will have quotes around it. If we can't resolve, fall back to the
-            # name of the variable.
-            value = parameters.get(f"{ref[1:-1]}", ref)
-            values.append(value)
+            ref = identifier.value  # ref will have quotes around it.
+            resolved = parameters.get(ref[1:-1])
+            if resolved:
+                values.append(resolved)
+            else:
+                # If we can't resolve, fall back to the name of the variable.
+                logger.debug(f"Unable to resolve parameter reference to {ref}")
+                values.append(ref)
         elif isinstance(node, Token):
             # This means we're probably looking at a literal.
             values.append(cast(Token, node).value)
