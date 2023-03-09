@@ -19,7 +19,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #7103 This should only impact users who have configured explicit non-default names for DataHub's Kafka topics. The environment variables used to configure Kafka topics for DataHub used in the `kafka-setup` docker image have been updated to be in-line with other DataHub components, for more info see our docs on [Configuring Kafka in DataHub
 ](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
-- #6906 Redshift source is reworked and with the new connector there is no need for a separate usage source. The old redshift source was renamed as `redshift-legacy`. `redshift-usage` source is still exist but deprecated and will be removed in the future.
+- #6906 Redshift source is reworked and with the new connector there is no need for a separate usage source. The old redshift source was renamed as `redshift-legacy`. `redshift-usage` source is still exists but deprecated and will be removed in the future.
 
 ### Potential Downtime
 

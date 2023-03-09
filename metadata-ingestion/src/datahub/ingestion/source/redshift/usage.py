@@ -283,7 +283,7 @@ class RedshiftUsageExtractor:
                         else None,
                     )
                 except pydantic.error_wrappers.ValidationError as e:
-                    logging.debug(
+                    logging.warning(
                         f"Validation error on access event creation from row {row}. The error was: {e} Skipping ...."
                     )
                     self.report.num_usage_stat_skipped += 1

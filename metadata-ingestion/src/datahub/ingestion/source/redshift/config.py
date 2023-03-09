@@ -1,11 +1,11 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import pydantic
 from pydantic import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.sql.postgres import PostgresConfig
@@ -83,6 +83,12 @@ class RedshiftConfig(
         hidden_from_schema=True,
     )
 
+    _database_alias_deprecation = pydantic_field_deprecated(
+        "database_alias",
+        new_field="platform_instance",
+        message="database_alias is deprecated. Use platform_instance instead.",
+    )
+
     default_schema: str = Field(
         default="public",
         description="The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector",
@@ -118,14 +124,10 @@ class RedshiftConfig(
     )
     extra_client_options: Dict[str, Any] = {}
 
-    @pydantic.validator("platform")
-    def platform_is_always_redshift(cls, v):
-        return "redshift"
-
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
         if values.get("include_usage_statistics"):
             assert (
-                "email_domain" in values
+                "email_domain" in values and values["email_domain"]
             ), "email_domain needs to be set if usage is enabled"
         return values

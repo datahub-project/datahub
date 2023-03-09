@@ -81,7 +81,6 @@ class RedshiftLineageExtractor:
     ):
         self.config = config
         self.report = report
-        self.lineage_metadata: Dict[str, Set[str]] = defaultdict(set)
         self._lineage_map: Dict[str, LineageItem] = defaultdict()
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
@@ -185,6 +184,7 @@ class RedshiftLineageExtractor:
     def _populate_lineage_map(
         self,
         query: str,
+        database: str,
         lineage_type: LineageCollectorType,
         connection: redshift_connector.Connection,
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
@@ -203,7 +203,7 @@ class RedshiftLineageExtractor:
         :rtype: None
         """
         try:
-            raw_db_name = self.config.database
+            raw_db_name = database
             alias_db_name = get_db_name(self.config)
 
             for lineage_row in RedshiftDataDictionary.get_lineage_rows(
@@ -298,6 +298,7 @@ class RedshiftLineageExtractor:
 
     def populate_lineage(
         self,
+        database: str,
         connection: redshift_connector.Connection,
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> None:
@@ -312,7 +313,7 @@ class RedshiftLineageExtractor:
         elif self.config.table_lineage_mode == LineageMode.SQL_BASED:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
-                db_name=self.config.database,
+                db_name=database,
                 start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
@@ -320,7 +321,7 @@ class RedshiftLineageExtractor:
         elif self.config.table_lineage_mode == LineageMode.MIXED:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
-                db_name=self.config.database,
+                db_name=database,
                 start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
@@ -328,7 +329,7 @@ class RedshiftLineageExtractor:
 
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             query = RedshiftQuery.stl_scan_based_lineage_query(
-                db_name=self.config.database,
+                db_name=database,
                 start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
@@ -345,7 +346,7 @@ class RedshiftLineageExtractor:
 
         if self.config.include_copy_lineage:
             query = RedshiftQuery.list_copy_commands_sql(
-                db_name=self.config.database,
+                db_name=database,
                 start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
@@ -353,7 +354,7 @@ class RedshiftLineageExtractor:
 
         if self.config.include_unload_lineage:
             query = RedshiftQuery.list_unload_commands_sql(
-                db_name=self.config.database,
+                db_name=database,
                 start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
@@ -363,6 +364,7 @@ class RedshiftLineageExtractor:
         for query, lineage_type in populate_calls:
             self._populate_lineage_map(
                 query=query,
+                database=database,
                 lineage_type=lineage_type,
                 connection=connection,
                 all_tables=all_tables,
