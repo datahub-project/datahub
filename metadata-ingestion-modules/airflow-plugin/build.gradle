@@ -88,6 +88,10 @@ task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
+task buildWheel(type: Exec, dependsOn: [install]) {
+  // When running this, you need to set the RELEASE_VERSION environment variable.
+  commandLine 'bash', '-c', 'RELEASE_VERSION="\${RELEASE_VERSION?release version must be set}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+}
 
 task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
