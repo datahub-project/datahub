@@ -34,7 +34,7 @@ M_QUERIES = [
     'let\n    Source = GoogleBigQuery.Database(),\n    #"seraphic-music-344307" = Source{[Name="seraphic-music-344307"]}[Data],\n    school_dataset_Schema = #"seraphic-music-344307"{[Name="school_dataset",Kind="Schema"]}[Data],\n    first_Table = school_dataset_Schema{[Name="first",Kind="Table"]}[Data]\nin\n    first_Table',
     'let    \nSource = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\ngcp_billing_Schema = #"gcp-project"{[Name=#"My bq project",Kind="Schema"]}[Data],\nF_GCP_COST_Table = gcp_billing_Schema{[Name="GCP_TABLE",Kind="Table"]}[Data]\nin\nF_GCP_COST_Table',
     'let\n Source = GoogleBigQuery.Database([BillingProject = #"Parameter - Source"]),\n#"gcp-project" = Source{[Name=#"Parameter - Source"]}[Data],\nuniversal_Schema = #"gcp-project"{[Name="universal",Kind="Schema"]}[Data],\nD_WH_DATE_Table = universal_Schema{[Name="D_WH_DATE",Kind="Table"]}[Data],\n#"Filtered Rows" = Table.SelectRows(D_WH_DATE_Table, each [D_DATE] > #datetime(2019, 9, 10, 0, 0, 0)),\n#"Filtered Rows1" = Table.SelectRows(#"Filtered Rows", each DateTime.IsInPreviousNHours([D_DATE], 87600))\n in \n#"Filtered Rows1"',
-    'let\n Source = GoogleBigQuery.Database([BillingProject="pgs-eit-dwh-prod"]),\ngcp_project = Source{[Name="pgs-eit-dwh-prod"]}[Data],\ngcp_billing_Schema = gcp_project {[Name="gcp_billing",Kind="Schema"]}[Data],\nD_GCP_PGS_CUSTOM_LABEL_Table = gcp_billing_Schema{[Name="D_GCP_PGS_CUSTOM_LABEL",Kind="Table"]}[Data] \n in \n D_GCP_PGS_CUSTOM_LABEL_Table',
+    'let\n Source = GoogleBigQuery.Database([BillingProject="dwh-prod"]),\ngcp_project = Source{[Name="dwh-prod"]}[Data],\ngcp_billing_Schema = gcp_project {[Name="gcp_billing",Kind="Schema"]}[Data],\nD_GCP_CUSTOM_LABEL_Table = gcp_billing_Schema{[Name="D_GCP_CUSTOM_LABEL",Kind="Table"]}[Data] \n in \n D_GCP_CUSTOM_LABEL_Table',
 ]
 
 
@@ -381,8 +381,8 @@ def test_for_each_expression_1():
 def test_for_each_expression_2():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[20],
-        name="D_GCP_PGS_CUSTOM_LABEL",
-        full_name="my-test-project.gcp_billing.D_GCP_PGS_CUSTOM_LABEL",
+        name="D_GCP_CUSTOM_LABEL",
+        full_name="my-test-project.gcp_billing.D_GCP_CUSTOM_LABEL",
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -392,7 +392,7 @@ def test_for_each_expression_2():
         reporter,
         native_query_enabled=False,
         parameters={
-            "pgs-eit-dwh-prod": "my-test-project",
+            "dwh-prod": "my-test-project",
         },
     )
 
