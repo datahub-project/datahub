@@ -60,10 +60,7 @@ export function FilterPage(
       to: source.Path,
       useFilters: useFilters,
       useTags: useTags,
-<<<<<<< HEAD
       filterState: filterState,
-=======
->>>>>>> origin/master
     };
   });
   const filteredIngestionSourceContent = ingestionSourceContent.filter(
