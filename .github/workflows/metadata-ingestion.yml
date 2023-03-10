@@ -75,10 +75,10 @@ jobs:
           path: ./metadata-ingestion/venv/
           key: ${{ runner.os }}-venv-${{ steps.packages_checksum.outputs.packages_checksum }}-${{ matrix.python-version }}
       - name: Run metadata-ingestion tests (extras ${{ matrix.extraPythonRequirement }})
-        if: ${{ always() && matrix.command != 'buildWheel' }}
+        if: ${{ matrix.command != 'buildWheel' }}
         run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion:${{ matrix.command }}
       - name: Build python wheels
-        if: ${{ always() && matrix.command != 'buildWheel' }}
+        if: ${{ matrix.command == 'buildWheel' }}
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
@@ -87,7 +87,7 @@ jobs:
           RELEASE_VERSION="0.0.0.dev0+${LOCAL_VERSION_TAG}" ./gradlew ${{ matrix.command }}
       - name: Upload python wheels
         uses: actions/upload-artifact@v3
-        if: ${{ always() && matrix.command != 'buildWheel' }}
+        if: ${{ matrix.command == 'buildWheel' }}
         with:
           name: Python wheels
           path: |
