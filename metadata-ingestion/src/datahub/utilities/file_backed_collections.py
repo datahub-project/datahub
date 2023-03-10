@@ -270,8 +270,17 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         return cursor.fetchall()
 
     def close(self) -> None:
-        _sqlite_connection_cache.drop_connection(self.filename)
-        self._conn = None  # type: ignore
+        if self._conn:
+            # Ensure everything is written out.
+            self.flush()
+
+            # Make sure that we don't try to use the connection anymore
+            # and that we don't drop the connection twice.
+            _sqlite_connection_cache.drop_connection(self.filename)
+            self._conn = None  # type: ignore
+
+            # This forces all writes to go directly to the DB so they fail immediately.
+            self.cache_max_size = 0
 
     def __del__(self) -> None:
         self.close()

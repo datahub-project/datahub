@@ -74,6 +74,11 @@ def test_file_dict(tmp_path: pathlib.Path) -> None:
     assert len(cache) == 1
     assert cache["a"] == 1
 
+    # Test close.
+    cache.close()
+    with pytest.raises(Exception):
+        cache["a"] = 1
+
 
 def test_custom_serde(tmp_path: pathlib.Path) -> None:
     @dataclass(frozen=True)
@@ -293,6 +298,6 @@ def test_file_cleanup():
         cache.flush()
         assert len(cache) == 1
 
-        del cache
+        cache.close()
 
     assert not filename.exists()
