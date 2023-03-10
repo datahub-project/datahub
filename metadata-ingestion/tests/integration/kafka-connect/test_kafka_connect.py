@@ -8,7 +8,6 @@ import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.kafka_connect import KafkaConnectSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
@@ -493,6 +492,8 @@ def test_kafka_connect_ingest_stateful(
 def get_current_checkpoint_from_pipeline(
     pipeline: Pipeline,
 ) -> Optional[Checkpoint]:
+    from datahub.ingestion.source.kafka_connect import KafkaConnectSource
+
     kafka_connect_source = cast(KafkaConnectSource, pipeline.source)
     return kafka_connect_source.get_current_checkpoint(
         kafka_connect_source.stale_entity_removal_handler.job_id
