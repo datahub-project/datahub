@@ -394,7 +394,7 @@ module.exports = {
           "docs/tools/tutorials/adding-terms",
           "docs/tools/tutorials/adding-ownerships",
           {
-            References: [
+            Reference: [
               "docs/tools/tutorials/references/generate-access-token",
               "docs/tools/tutorials/references/prepare-datahub",
             ],
