@@ -1,5 +1,6 @@
 import collections
 import pathlib
+import pickle
 import sqlite3
 from dataclasses import dataclass, field
 from typing import (
@@ -73,6 +74,14 @@ class _SqliteConnectionCache:
 _sqlite_connection_cache = _SqliteConnectionCache()
 
 
+def _default_serializer(value: Any) -> SqliteValue:
+    return pickle.dumps(value)
+
+
+def _default_deserializer(value: Any) -> Any:
+    return pickle.loads(value)
+
+
 @dataclass(eq=False)
 class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """
@@ -83,11 +92,10 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
     """
 
     filename: pathlib.Path
-
-    serializer: Callable[[_VT], SqliteValue]
-    deserializer: Callable[[Any], _VT]
-
     tablename: str = field(default=_DEFAULT_TABLE_NAME)
+
+    serializer: Callable[[_VT], SqliteValue] = field(default=_default_serializer)
+    deserializer: Callable[[Any], _VT] = field(default=_default_deserializer)
     extra_columns: Dict[str, Callable[[_VT], SqliteValue]] = field(default_factory=dict)
 
     cache_max_size: int = field(default=_DEFAULT_MEMORY_CACHE_MAX_SIZE)
@@ -251,9 +259,9 @@ class FileBackedList(Generic[_VT]):
     def __init__(
         self,
         filename: pathlib.Path,
-        serializer: Callable[[_VT], SqliteValue],
-        deserializer: Callable[[Any], _VT],
         tablename: str = _DEFAULT_TABLE_NAME,
+        serializer: Callable[[_VT], SqliteValue] = _default_serializer,
+        deserializer: Callable[[Any], _VT] = _default_deserializer,
         extra_columns: Optional[Dict[str, Callable[[_VT], SqliteValue]]] = None,
         cache_max_size: Optional[int] = None,
         cache_eviction_batch_size: Optional[int] = None,
