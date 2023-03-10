@@ -490,21 +490,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
 
     def get_database_level_workunits(
-            self,
-            sql_config: SQLAlchemyConfig,
-            inspector: Inspector,
-            database: str,
+        self,
+        sql_config: SQLAlchemyConfig,
+        inspector: Inspector,
+        database: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield from self.gen_database_containers(
-            database=database
-        )
+        yield from self.gen_database_containers(database=database)
 
     def get_schema_level_workunits(
-            self,
-            sql_config: SQLAlchemyConfig,
-            inspector: Inspector,
-            schema: str,
-            database: str,
+        self,
+        sql_config: SQLAlchemyConfig,
+        inspector: Inspector,
+        schema: str,
+        database: str,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from self.gen_schema_containers(schema=schema, database=database)
 
@@ -513,7 +511,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         if sql_config.include_views:
             yield from self.loop_views(inspector, schema, sql_config)
-
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
@@ -548,7 +545,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     sql_config=sql_config,
                     inspector=inspector,
                     schema=schema,
-                    database=db_name
+                    database=db_name,
                 )
 
                 if profiler:

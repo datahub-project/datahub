@@ -5,12 +5,14 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 import sqlalchemy.dialects.mssql
+
 # This import verifies that the dependencies are available.
 import sqlalchemy_pytds  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -24,24 +26,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemySource,
-    SqlWorkUnit,
-    register_custom_type,
-)
-from datahub.ingestion.source.sql.sql_config import (
-    BasicSQLAlchemyConfig,
-    make_sqlalchemy_uri,
-    SQLAlchemyConfig,
-)
-from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
-    ChangeTypeClass,
-    UnionTypeClass,
-)
-from sqlalchemy.exc import ProgrammingError, ResourceClosedError
-
-from .job_models import (
+from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
     MSSQLDataJob,
@@ -51,6 +36,20 @@ from .job_models import (
     ProcedureLineageStream,
     ProcedureParameter,
     StoredProcedure,
+)
+from datahub.ingestion.source.sql.sql_common import (
+    SQLAlchemySource,
+    SqlWorkUnit,
+    register_custom_type,
+)
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    make_sqlalchemy_uri,
+)
+from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
+    ChangeTypeClass,
+    UnionTypeClass,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -64,13 +63,15 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: str = Field(default="mssql+pytds", description="", hidden_from_schema=True)
     include_stored_procedures: bool = Field(
-        default=True, description="Include ingest of stored procedures. Requires access to the 'sys' schema."
+        default=True,
+        description="Include ingest of stored procedures. Requires access to the 'sys' schema.",
     )
     include_stored_procedures_code: bool = Field(
         default=True, description="Include information about object code."
     )
     include_jobs: bool = Field(
-        default=True, description="Include ingest of MSSQL Jobs. Requires access to the 'msdb' and 'sys' schema."
+        default=True,
+        description="Include ingest of MSSQL Jobs. Requires access to the 'msdb' and 'sys' schema.",
     )
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
@@ -265,11 +266,11 @@ class SQLServerSource(SQLAlchemySource):
                 column["comment"] = description
         return columns
 
-    def get_database_level_workunits(
-            self,
-            sql_config: SQLAlchemyConfig,
-            inspector: Inspector,
-            database: str,
+    def get_database_level_workunits(  # type: ignore[override]
+        self,
+        sql_config: SQLServerConfig,
+        inspector: Inspector,
+        database: str,
     ) -> Iterable[MetadataWorkUnit]:
         yield from super().get_database_level_workunits(
             sql_config=sql_config,
@@ -285,12 +286,12 @@ class SQLServerSource(SQLAlchemySource):
                     f"Failed to list jobs due to error {e}",
                 )
 
-    def get_schema_level_workunits(
-            self,
-            sql_config: SQLAlchemyConfig,
-            inspector: Inspector,
-            schema: str,
-            database: str,
+    def get_schema_level_workunits(  # type: ignore[override]
+        self,
+        sql_config: SQLServerConfig,
+        inspector: Inspector,
+        schema: str,
+        database: str,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_schema_level_workunits(
             sql_config=sql_config,
@@ -300,9 +301,7 @@ class SQLServerSource(SQLAlchemySource):
         )
         if sql_config.include_stored_procedures:
             try:
-                yield from self.loop_stored_procedures(
-                    inspector, schema, sql_config
-                )
+                yield from self.loop_stored_procedures(inspector, schema, sql_config)
             except Exception as e:
                 self.report.report_failure(
                     "jobs",
@@ -374,7 +373,9 @@ class SQLServerSource(SQLAlchemySource):
                 yield from self.construct_flow_workunits(data_flow=data_flow)
                 yield from self.loop_job_steps(job, job_steps)
 
-    def loop_job_steps(self, job: MSSQLJob, job_steps: Dict[str, Any]):
+    def loop_job_steps(
+        self, job: MSSQLJob, job_steps: Dict[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
         for step_id, step_data in job_steps.items():
             step = JobStep(
                 job_name=job.formatted_name,

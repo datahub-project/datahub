@@ -1,11 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
-from datahub.emitter.mce_builder import (
-    make_data_flow_urn,
-    make_data_job_urn,
-    make_dataset_urn,
-)
+from datahub.emitter.mce_builder import make_data_flow_urn, make_data_job_urn
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
@@ -58,7 +54,7 @@ class MSSQLJob:
 
     @property
     def formatted_platform_instance(self) -> str:
-        return self.platform_instance.replace('.', '/')
+        return self.platform_instance.replace(".", "/")
 
     @property
     def cluster(self):
@@ -84,7 +80,7 @@ class MSSQLProceduresContainer:
 
     @property
     def formatted_platform_instance(self) -> str:
-        return self.platform_instance.replace('.', '/')
+        return self.platform_instance.replace(".", "/")
 
     @property
     def cluster(self) -> str:
