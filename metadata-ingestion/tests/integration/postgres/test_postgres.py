@@ -53,9 +53,7 @@ def test_postgres_ingest_with_db(
     ).resolve()
     print("Config file: {config_file}")
 
-    run_datahub_cmd(
-        ["ingest", "-c", f"{config_file}"], tmp_path=tmp_path
-    )
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
     # Verify the output.
     mce_helpers.check_golden_file(
