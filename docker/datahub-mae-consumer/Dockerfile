@@ -18,6 +18,7 @@ FROM alpine:3 AS base
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl bash coreutils \
     && apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
+    && apk --no-cache add jattach --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ \
     && wget --no-verbose https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.18.0/opentelemetry-javaagent.jar \
     && wget --no-verbose https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.17.2/jmx_prometheus_javaagent-0.17.2.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
