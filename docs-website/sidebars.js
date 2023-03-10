@@ -423,7 +423,7 @@ module.exports = {
           ],
         },
       ],
-    }
+    },
     {
       "Developer Guides": [
         // The purpose of this section is to provide developers & technical users with
