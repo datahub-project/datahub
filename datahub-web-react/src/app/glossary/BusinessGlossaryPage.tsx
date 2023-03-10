@@ -1,13 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
-import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
-import GlossarySearch from './GlossarySearch';
-import { ProfileSidebarResizer } from '../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import EmptyGlossarySection from './EmptyGlossarySection';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { EntityType } from '../../types.generated';
@@ -22,6 +19,7 @@ import {
     BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
 } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
+import { useGlossaryEntityData } from '../entity/shared/GlossaryEntityContext';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -50,7 +48,6 @@ export const MAX_BROWSER_WIDTH = 500;
 export const MIN_BROWSWER_WIDTH = 200;
 
 function BusinessGlossaryPage() {
-    const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
     const {
         data: termsData,
         refetch: refetchForTerms,
@@ -64,6 +61,11 @@ function BusinessGlossaryPage() {
         error: nodesError,
     } = useGetRootGlossaryNodesQuery();
     const entityRegistry = useEntityRegistry();
+    const { setEntityData } = useGlossaryEntityData();
+
+    useEffect(() => {
+        setEntityData(null);
+    }, [setEntityData]);
 
     const terms = termsData?.getRootGlossaryTerms?.terms.sort((termA, termB) =>
         sortGlossaryTerms(entityRegistry, termA, termB),
@@ -96,17 +98,6 @@ function BusinessGlossaryPage() {
                 {(termsError || nodesError) && (
                     <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
                 )}
-                <BrowserWrapper width={browserWidth}>
-                    <GlossarySearch />
-                    <GlossaryBrowser rootNodes={nodes} rootTerms={terms} />
-                </BrowserWrapper>
-                <ProfileSidebarResizer
-                    setSidePanelWidth={(width) =>
-                        setBrowserWidth(Math.min(Math.max(width, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH))
-                    }
-                    initialSize={browserWidth}
-                    isSidebarOnLeft
-                />
                 <MainContentWrapper>
                     <HeaderWrapper>
                         <Typography.Title level={3}>Business Glossary</Typography.Title>

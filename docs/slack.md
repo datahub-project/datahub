@@ -8,6 +8,10 @@ _[Sign up here](https://slack.datahubproject.io) to join us on Slack and to subs
 
 In addition to our [Code of Conduct](CODE_OF_CONDUCT.md), we expect all Slack Community Members to respect the following guidelines:
 
+### Avoid using DMs and @mentions
+
+Whenever possible, post your questions and responses in public channels so other Community Members can benefit from the conversation and outcomes. Limit the use of @mentions of other Community Members to be considerate of notification noise.
+
 ### Make use of threads
 
 Threads help us keep conversations contained and help us ensure we help you find a resolution and get you the support you need.
