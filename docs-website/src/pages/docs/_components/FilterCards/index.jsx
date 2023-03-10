@@ -9,7 +9,7 @@ const FilterCards = ({ content, filterBar }) =>
   content?.length > 0 ? (
     <div style={{ padding: "2vh 0" }}>
       <div className="container">
-        <div className="row row--no-gutters">
+        <div className="row">
           {content.map((props, idx) => (
             <FilterCard key={idx} {...props} />
           ))}

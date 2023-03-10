@@ -5,16 +5,7 @@ import Link from "@docusaurus/Link";
 import styles from "./quicklinkcard.module.scss";
 import { Tag } from "antd";
 
-const FilterCard = ({
-  image,
-  title,
-  description,
-  to,
-  filters,
-  tags,
-  useTags,
-  useFilters,
-}) => {
+const FilterCard = ({ image, title, description, to, filters, tags, useTags, useFilters }) => {
   function renderFilters() {
     const keys = Object.keys(filters);
 
@@ -77,7 +68,6 @@ const FilterCard = ({
           width: "auto",
           flexDirection: "row",
           flexWrap: "wrap",
-          justifyContent: "end",
           alignItems: "start",
           fontSize: "0.65rem",
         }}
@@ -102,36 +92,26 @@ const FilterCard = ({
   }
 
   return (
-    <div className="col col--4">
+    <div className={clsx("col col--4", styles.featureCol)}>
       <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: useTags || useFilters ? "space-between" : "center",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
-            {image && (
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <img src={useBaseUrl(image)} />
-              </div>
-            )}
-            <strong>{title}</strong>
-          </div>
-
-          <div>
-            <span style={{ marginLeft: "1rem" }}>{description}</span>
-          </div>
-          {useTags && renderTags()}
-          {useFilters && renderFilters()}
+        <div className={clsx("card__header", styles.featureHeader)}>
+          {image && (
+            <div className={styles.featureImage}>
+              <img src={useBaseUrl(image)} />
+            </div>
+          )}
+          <h2>{title}</h2>
         </div>
+        <hr />
+        <div class="card__body">
+          <div>{description}</div>
+        </div>
+        {(useTags || useFilters) && (
+          <div class="card__footer">
+            {useTags && renderTags()}
+            {useFilters && renderFilters()}
+          </div>
+        )}
       </Link>
     </div>
   );
