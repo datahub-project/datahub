@@ -84,7 +84,7 @@ jobs:
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
           LOCAL_VERSION_TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,commit${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "LOCAL_VERSION_TAG: $LOCAL_VERSION_TAG"
-          RELEASE_VERSION=0.0.0.dev0+${LOCAL_VERSION_TAG} ./gradlew ${{ matrix.command }}
+          RELEASE_VERSION="0.0.0.dev0+${LOCAL_VERSION_TAG}" ./gradlew ${{ matrix.command }}
       - name: Upload python wheels
         uses: actions/upload-artifact@v3
         if: ${{ always() && matrix.command != 'buildWheel' }}
