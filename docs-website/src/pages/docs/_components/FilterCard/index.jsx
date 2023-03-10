@@ -5,7 +5,17 @@ import Link from "@docusaurus/Link";
 import styles from "./quicklinkcard.module.scss";
 import { Tag } from "antd";
 
-const FilterCard = ({ image, title, description, to, filters, tags, useTags, useFilters }) => {
+const FilterCard = ({
+  image,
+  title,
+  description,
+  to,
+  filters,
+  tags,
+  useTags,
+  useFilters,
+  filterState,
+}) => {
   function renderFilters() {
     const keys = Object.keys(filters);
 
@@ -72,21 +82,25 @@ const FilterCard = ({ image, title, description, to, filters, tags, useTags, use
           fontSize: "0.65rem",
         }}
       >
-        {tags.map((tag, i) => (
-          <Tag
-            key={tag + i}
-            value={tag}
-            style={{
-              marginTop: 0,
-              marginBottom: ".15rem",
-              marginLeft: ".15rem",
-              marginRight: 0,
-              fontSize: "0.65rem",
-            }}
-          >
-            {tag.trim()}
-          </Tag>
-        ))}
+        {tags
+          .filter((tag) => {
+            return filterState.includes(tag);
+          })
+          .map((tag, i) => (
+            <Tag
+              key={tag + i}
+              value={tag}
+              style={{
+                marginTop: 0,
+                marginBottom: ".15rem",
+                marginLeft: ".15rem",
+                marginRight: 0,
+                fontSize: "0.65rem",
+              }}
+            >
+              {tag.trim()}
+            </Tag>
+          ))}
       </div>
     );
   }
@@ -103,11 +117,11 @@ const FilterCard = ({ image, title, description, to, filters, tags, useTags, use
           <h2>{title}</h2>
         </div>
         <hr />
-        <div class="card__body">
+        <div className="card__body">
           <div>{description}</div>
         </div>
         {(useTags || useFilters) && (
-          <div class="card__footer">
+          <div className="card__footer">
             {useTags && renderTags()}
             {useFilters && renderFilters()}
           </div>

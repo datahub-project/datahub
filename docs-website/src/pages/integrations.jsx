@@ -14,7 +14,9 @@ function DataProviderComponent() {
     siteConfig,
     metadata,
     "DataHub Integrations",
-    "Services that integrate with DataHub"
+    "Services that integrate with DataHub",
+    false,
+    true
   );
 }
 

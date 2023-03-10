@@ -60,6 +60,7 @@ export function FilterPage(
       to: source.Path,
       useFilters: useFilters,
       useTags: useTags,
+      filterState: filterState,
     };
   });
   const filteredIngestionSourceContent = ingestionSourceContent.filter(
