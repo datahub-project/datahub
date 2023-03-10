@@ -46,7 +46,7 @@ def get_upstream_tables(
     table: Table,
     reporter: PowerBiDashboardSourceReport,
     native_query_enabled: bool = True,
-    parameters: Optional[Dict[str, str]] = None,
+    parameters: Dict[str, str] = {},
 ) -> List[resolver.DataPlatformTable]:
     if table.expression is None:
         logger.debug(f"Expression is none for table {table.full_name}")

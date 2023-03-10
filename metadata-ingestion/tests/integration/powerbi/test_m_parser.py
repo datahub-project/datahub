@@ -382,7 +382,7 @@ def test_for_each_expression_2():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[20],
         name="D_GCP_PGS_CUSTOM_LABEL",
-        full_name="pgs-eit-dwh-prod.gcp_billing.D_GCP_PGS_CUSTOM_LABEL",
+        full_name="my-test-project.gcp_billing.D_GCP_PGS_CUSTOM_LABEL",
     )
 
     reporter = PowerBiDashboardSourceReport()
@@ -391,6 +391,9 @@ def test_for_each_expression_2():
         table,
         reporter,
         native_query_enabled=False,
+        parameters={
+            "pgs-eit-dwh-prod": "my-test-project",
+        },
     )
 
     assert len(data_platform_tables) == 1

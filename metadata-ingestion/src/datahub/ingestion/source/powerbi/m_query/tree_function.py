@@ -70,50 +70,30 @@ def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     return expression_tree
 
 
-def token_values(tree: Tree, parameters: Optional[Dict[str, str]] = None) -> List[str]:
+def token_values(tree: Tree, parameters: Dict[str, str] = {}) -> List[str]:
     """
 
     :param tree: Tree to traverse
-    :param parameters: If parameters is not None, it will try to resolve identifier variable references
+    :param parameters: If parameter is not None, it will try to resolve identifier variable references
                        using the values in 'parameters'.
+                       Read more about parameters feature of PowerBI M-Query at https://learn.microsoft.com/en-us/power-query/power-query-query-parameters
     :return: List of leaf token data
     """
     values: List[str] = []
 
     def internal(node: Union[Tree, Token]) -> None:
-        if (
-            parameters is not None
-            and isinstance(node, Tree)
-            and node.data == "identifier"
-            and node.children[0].data == "quoted_identifier"
-        ):
-            # This is the case where they reference a variable using
-            # the `#"Name of variable"` syntax.
-
-            identifier = node.children[0].children[0]
-            assert isinstance(identifier, Token)
-
-            # For quoted_identifier, ref will have quotes around it.
-            # However, we'll probably need to expand this to all identifier types,
-            # which are not required to have quotes (using make_function_name).
-            ref = identifier.value
-            if ref.startswith('"') and ref[1:-1] in parameters:
-                resolved = parameters[ref[1:-1]]
-                values.append(resolved)
-            elif ref in parameters:
-                resolved = parameters[ref]
-                values.append(resolved)
-            else:
-                # If we can't resolve, fall back to the name of the variable.
-                logger.debug(f"Unable to resolve parameter reference to {ref}")
-                values.append(ref)
-        elif isinstance(node, Token):
-            # This means we're probably looking at a literal.
-            values.append(cast(Token, node).value)
+        if isinstance(node, Token):
+            node_value: Any = cast(Token, node).value
+            # Check if the node_value is actually a parameter in parameters dict
+            # if present then resolve it to parameter value
+            parameter_key: str = node_value.strip('"')
+            if parameter_key in parameters:
+                node_value = parameters[parameter_key]
+            values.append(node_value)
             return
-        else:
-            for child in node.children:
-                internal(child)
+
+        for child in node.children:
+            internal(child)
 
     internal(tree)
 
