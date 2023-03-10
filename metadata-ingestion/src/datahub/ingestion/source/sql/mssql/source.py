@@ -565,8 +565,8 @@ class SQLServerSource(SQLAlchemySource):
         properties_data = conn.execute(
             f"""
             SELECT
-                create_date,
-                modify_date
+                create_date as date_created,
+                modify_date as date_modified
             FROM sys.procedures
             WHERE object_id = object_id('{procedure.full_name}')
             """
@@ -574,7 +574,7 @@ class SQLServerSource(SQLAlchemySource):
         properties = {}
         for row in properties_data:
             properties = dict(
-                create_date=row["create_date"], modify_date=row["modify_date"]
+                date_created=row["date_created"], date_modified=row["date_modified"]
             )
         return properties
 
