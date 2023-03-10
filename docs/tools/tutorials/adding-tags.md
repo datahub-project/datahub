@@ -7,11 +7,11 @@ Tags can help you in:
 - Querying: Tagging a dataset with a phrase that users can use to query the same dataset
 - Mapping assets to a category or group of your choice
 
-Fore more information about tags, refer to [About Datahub Tags](https://datahubproject.io/docs/tags/).
+Fore more information about tags, refer to [About DataHub Tags](https://datahubproject.io/docs/tags/).
 
 ## Prerequisites
-For this tutorial, you need to deploy Datahub Quickstart and ingest sample data. 
-For detailed steps, please refer to [Prepare Local Datahub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
+For detailed steps, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding tags, you need to ensure the targeted dataset and the tag are already present in your datahub. 
@@ -138,7 +138,7 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 
 :::note
 Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
-For more information about the differences between these endpoints, please refer to [Datahub Metadata Service](/docs/metadata-service/#graphql-api)
+For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](/docs/metadata-service/#graphql-api)
 :::
 
 ### GraphQL Explorer

@@ -18,4 +18,18 @@ Here our some examples of slightly more complex usage:
 * Ingesting Entities from CSV Files
 * Adding Column-level Lineage
 
+## Our APIs (TBD)
+DataHub supports three APIs : GraphQL, SDKs and OpenAPI. Each method has different usage and format. 
+Here's an overview of what each API can do. 
+
+> Last Updated : Mar 10 2023
+
+|                                       | GraphQL | SDK | OpenAPI |
+|---------------------------------------|---|---|---|
+| Add Tags/Terms/Ownership to a column of a dataset | ✅ |✅|✅|
+| Add Tags/Terms/Ownership to a dataset | ✅ |✅|✅|
+| Create Dataset                        |   |✅| ✅        |
+| Delete Dataset                        |   | ✅       | ✅  |
+| Search Dataset                        | ✅ |✅| ✅  |
+
 

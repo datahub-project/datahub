@@ -1,6 +1,6 @@
-# Preparing Your Local Datahub Environment
+# Preparing Your Local DataHub Environment
 
-## Deploy Datahub Quickstart 
+## Deploy DataHub Quickstart 
 
 You'll need a local instance of DataHub running for this tutorial:
 - Follow the quickstart guide [here](https://datahubproject.io/docs/quickstart) to get one up and running.
@@ -20,7 +20,7 @@ Run datahub quickstart. This will deploy local datahub server to http://localhos
 ```shell
 datahub docker quickstart
 ```
-After logging in with the default credential(`username: datahub / password: datahub`), you can see Datahub ready for you. 
+After logging in with the default credential(`username: datahub / password: datahub`), you can see DataHub ready for you. 
 
 ![datahub-main-ui](../../../imgs/tutorials/datahub-main-ui.png)
 
@@ -33,7 +33,7 @@ If you already have data on your datahub, you might skip this part.
 ```shell
 datahub docker ingest-sample-data 
 ```
-This will ingest various entities like datasets, terms and tags to your local Datahub.
+This will ingest various entities like datasets, terms and tags to your local DataHub.
 ![datahub-main-ui](../../../imgs/tutorials/sample-ingestion.png)
 
 Now you're ready to start!

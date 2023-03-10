@@ -6,8 +6,8 @@ The Business Glossary(Term) feature in DataHub helps you use a shared vocabulary
 Fore more information about terms, refer to [About DataHub Business Glossary](https://datahubproject.io/docs/glossary/business-glossary).
 
 ## Pre-requisites
-For this tutorial, you need to deploy Datahub Quickstart and ingest sample data. 
-For detailed information, please refer to [Prepare Local Datahub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
+For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
+For detailed information, please refer to [Prepare Local DataHub Environment](/docs/tools/tutorials/references/prepare-datahub.md).
 
 :::note
 Before adding terms, you need to ensure the targeted dataset and the term are already present in your datahub. 
@@ -139,7 +139,7 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 
 :::note
 Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
-For more information about the differences between these endpoints, please refer to [Datahub Metadata Service](/docs/metadata-service/#graphql-api)
+For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](/docs/metadata-service/#graphql-api)
 :::
 
 ### GraphQL Explorer
