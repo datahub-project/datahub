@@ -3,7 +3,7 @@
 ## Why Would You Add Terms? 
 The Business Glossary(Term) feature in DataHub helps you use a shared vocabulary within the orgarnization, by providing a framework for defining a standardized set of data concepts and then associating them with the physical assets that exist within your data ecosystem.
 
-Fore more information about terms, refer to [About DataHub Business Glossary](https://datahubproject.io/docs/glossary/business-glossary).
+Fore more information about terms, refer to [About DataHub Business Glossary](/docs/glossary/business-glossary.md).
 
 ## Pre-requisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
@@ -14,6 +14,56 @@ Before adding terms, you need to ensure the targeted dataset and the term are al
 If you attempt to manipulate entities that do not exist, your operation will fail. 
 In this guide, we will be using data from a sample ingestion.
 :::
+
+
+## Add Terms With GraphQL
+
+:::note
+Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
+For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
+:::
+
+### GraphQL Explorer
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
+
+```python
+mutation addTerms {
+    addTerms(
+      input: { 
+        termUrns: ["urn:li:glossaryTerm:CustomerAccount"], 
+        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+        subResourceType:DATASET_FIELD,
+        subResource:"user_name"})
+}
+```
+If you see the following response, the operation was successful:
+```python
+{
+  "data": {
+    "addTerms": true
+  },
+  "extensions": {}
+}
+```
+
+### CURL
+
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With `accessToken`, you can run the following command.
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "mutation addTerm { addTerms(input: { termUrns: [\"urn:li:glossaryTerm:CustomerAccount\"], resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\" }) }", "variables":{}}'
+```
+
+Expected Response:
+
+```json
+{"data":{"addTerms":true},"extensions":{}}
+```
 
 
 ## Add Terms With Python SDK
@@ -131,58 +181,8 @@ else:
 ```
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
-For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](https://datahubproject.io/docs/advanced/mcp-mcl/)
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
-
-
-## Add Terms With GraphQL
-
-:::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](https://datahubproject.io/docs/metadata-service/#graphql-api)
-:::
-
-### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
-Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
-
-```python
-mutation addTerms {
-    addTerms(
-      input: { 
-        termUrns: ["urn:li:glossaryTerm:CustomerAccount"], 
-        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-        subResourceType:DATASET_FIELD,
-        subResource:"user_name"})
-}
-```
-If you see the following response, the operation was successful:
-```python
-{
-  "data": {
-    "addTerms": true
-  },
-  "extensions": {}
-}
-```
-
-### CURL
-
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
-With `accessToken`, you can run the following command.
-
-```shell
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{ "query": "mutation addTerm { addTerms(input: { termUrns: [\"urn:li:glossaryTerm:CustomerAccount\"], resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\" }) }", "variables":{}}'
-```
-
-Expected Response:
-
-```json
-{"data":{"addTerms":true},"extensions":{}}
-```
 
 ## Expected Outcomes
 You can now see the term `CustomerAccount` has been added to `user_name` column. 

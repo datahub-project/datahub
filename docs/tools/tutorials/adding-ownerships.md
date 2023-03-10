@@ -15,6 +15,51 @@ In this guide, we will be using data from a sample ingestion.
 :::
 
 
+## Add Owners With GraphQL
+
+:::note
+Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
+For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
+:::
+### GraphQL Explorer
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
+
+```python
+mutation addOwners {
+    addOwner(
+      input: { 
+        ownerUrn: "urn:li:corpGroup:bfoo", 
+        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+        ownerEntityType: CORP_GROUP,
+        type: TECHNICAL_OWNER
+			}
+    )
+}
+```
+Expected Response: 
+```python
+{
+  "data": {
+    "addOwner": true
+  },
+  "extensions": {}
+}
+```
+
+### CURL
+
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With `accessToken`, you can run the following command.
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "mutation addOwners { addOwner(input: { ownerUrn: \"urn:li:corpGroup:bfoo\", resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\", ownerEntityType: CORP_GROUP, type: TECHNICAL_OWNER }) }", "variables":{}}'
+```
+
+
 ## Add Ownerships With Python SDK
 
 Following codes add an owner named `bfoo` to a hive dataset named `fct_users_created`.
@@ -89,51 +134,7 @@ else:
 ```
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
-For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](https://datahubproject.io/docs/advanced/mcp-mcl/)
-
-## Add Owners With GraphQL
-
-:::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](https://datahubproject.io/docs/metadata-service/#graphql-api)
-:::
-### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
-Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
-
-```python
-mutation addOwners {
-    addOwner(
-      input: { 
-        ownerUrn: "urn:li:corpGroup:bfoo", 
-        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-        ownerEntityType: CORP_GROUP,
-        type: TECHNICAL_OWNER
-			}
-    )
-}
-```
-Expected Response: 
-```python
-{
-  "data": {
-    "addOwner": true
-  },
-  "extensions": {}
-}
-```
-
-### CURL
-
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
-With `accessToken`, you can run the following command.
-
-```shell
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{ "query": "mutation addOwners { addOwner(input: { ownerUrn: \"urn:li:corpGroup:bfoo\", resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\", ownerEntityType: CORP_GROUP, type: TECHNICAL_OWNER }) }", "variables":{}}'
-```
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
 Expected Response:
 ```json

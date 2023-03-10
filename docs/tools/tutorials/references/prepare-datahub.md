@@ -3,7 +3,7 @@
 ## Deploy DataHub Quickstart 
 
 You'll need a local instance of DataHub running for this tutorial:
-- Follow the quickstart guide [here](https://datahubproject.io/docs/quickstart) to get one up and running.
+- Follow the [DataHub Quickstart Guide](/docs/quickstart.md) to get one up and running.
 ```shell
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
@@ -24,7 +24,7 @@ After logging in with the default credential(`username: datahub / password: data
 
 ![datahub-main-ui](../../../imgs/tutorials/datahub-main-ui.png)
 
-Please refer to [DataHub Quickstart Guide](https://datahubproject.io/docs/quickstart) for more information. 
+Please refer to [DataHub Quickstart Guide](/docs/quickstart.md) for more information. 
 
 ## Ingest Sample Data
 We will use sample data provided with datahub quickstart. 

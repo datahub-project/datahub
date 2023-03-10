@@ -7,7 +7,7 @@ Tags can help you in:
 - Querying: Tagging a dataset with a phrase that users can use to query the same dataset
 - Mapping assets to a category or group of your choice
 
-Fore more information about tags, refer to [About DataHub Tags](https://datahubproject.io/docs/tags/).
+Fore more information about tags, refer to [About DataHub Tags](/docs/tags.md).
 
 ## Prerequisites
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data. 
@@ -18,6 +18,53 @@ Before adding tags, you need to ensure the targeted dataset and the tag are alre
 If you attempt to manipulate entities that do not exist, your operation will fail. 
 In this guide, we will be using data from a sample ingestion.
 :::
+
+
+## Add Tags With GraphQL
+
+:::note
+Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
+For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](../../../metadata-service/README.md#graphql-api)
+:::
+### GraphQL Explorer
+GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
+Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
+
+```python
+mutation addTags {
+    addTags(
+      input: { 
+        tagUrns: ["urn:li:tag:Legacy"], 
+        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+        subResourceType:DATASET_FIELD,
+        subResource:"user_name"})
+}
+```
+If you see the following response, the operation was successful:
+```python
+{
+  "data": {
+    "addTags": true
+  },
+  "extensions": {}
+}
+```
+
+### CURL
+
+With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
+With `accessToken`, you can run the following command.
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{ "query": "mutation addTags { addTags(input: { tagUrns: [\"urn:li:tag:Legacy\"], resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\" }) }", "variables":{}}'
+```
+Expected Response:
+```json
+{"data":{"addTags":true},"extensions":{}}
+```
 
 
 ## Add Tags With Python SDK
@@ -131,54 +178,8 @@ else:
 ```
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
-For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](https://datahubproject.io/docs/advanced/mcp-mcl/)
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl.md)
 
-
-## Add Tags With GraphQL
-
-:::note
-Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](https://datahubproject.io/docs/metadata-service/#graphql-api)
-:::
-### GraphQL Explorer
-GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
-Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.
-
-```python
-mutation addTags {
-    addTags(
-      input: { 
-        tagUrns: ["urn:li:tag:Legacy"], 
-        resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
-        subResourceType:DATASET_FIELD,
-        subResource:"user_name"})
-}
-```
-If you see the following response, the operation was successful:
-```python
-{
-  "data": {
-    "addTags": true
-  },
-  "extensions": {}
-}
-```
-
-### CURL
-
-With CURL, you need to provide tokens. To generate a token, please refer to [Generate Access Token](/docs/tools/tutorials/references/generate-access-token.md). 
-With `accessToken`, you can run the following command.
-
-```shell
-curl --location --request POST 'http://localhost:8080/api/graphql' \
---header 'Authorization: Bearer <my-access-token>' \
---header 'Content-Type: application/json' \
---data-raw '{ "query": "mutation addTags { addTags(input: { tagUrns: [\"urn:li:tag:Legacy\"], resourceUrn: \"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\" }) }", "variables":{}}'
-```
-Expected Response:
-```json
-{"data":{"addTags":true},"extensions":{}}
-```
 
 ## Expected Outcomes
 You can now see `CustomerAccount` tag has been added to `user_name` column. 
