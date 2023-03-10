@@ -518,6 +518,7 @@
       }
     },
     {
+<<<<<<< HEAD
       "Path": "docs/actions/actions/slack",
       "imgPath": "img/logos/companies/slack.svg",
       "Title": "Slack",
@@ -529,6 +530,8 @@
       }
     },
     {
+=======
+>>>>>>> c4d1d82a0 (docs(): add sources summary page (#7480))
       "Path": "docs/generated/ingestion/sources/snowflake",
       "imgPath": "img/logos/platforms/snowflake.svg",
       "Title": "Snowflake",
@@ -584,6 +587,7 @@
       }
     },
     {
+<<<<<<< HEAD
       "Path": "docs/actions/actions/teams",
       "imgPath": "img/logos/companies/microsoft-teams.svg",
       "Title": "Microsoft Teams",
@@ -595,6 +599,8 @@
       }
     },
     {
+=======
+>>>>>>> c4d1d82a0 (docs(): add sources summary page (#7480))
       "Path": "docs/generated/ingestion/sources/trino",
       "imgPath": "img/logos/platforms/trino.png",
       "Title": "Trino",

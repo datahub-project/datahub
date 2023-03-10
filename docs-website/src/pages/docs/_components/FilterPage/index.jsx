@@ -60,7 +60,10 @@ export function FilterPage(
       to: source.Path,
       useFilters: useFilters,
       useTags: useTags,
+<<<<<<< HEAD
       filterState: filterState,
+=======
+>>>>>>> c4d1d82a0 (docs(): add sources summary page (#7480))
     };
   });
   const filteredIngestionSourceContent = ingestionSourceContent.filter(
