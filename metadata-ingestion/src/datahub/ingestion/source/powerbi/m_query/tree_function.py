@@ -74,7 +74,7 @@ def token_values(tree: Tree, parameters: Dict[str, str] = {}) -> List[str]:
     """
 
     :param tree: Tree to traverse
-    :param parameters: If parameter is not None, it will try to resolve identifier variable references
+    :param parameters: If parameters is not None, it will try to resolve identifier variable references
                        using the values in 'parameters'.
                        Read more about parameters feature of PowerBI M-Query at https://learn.microsoft.com/en-us/power-query/power-query-query-parameters
     :return: List of leaf token data
