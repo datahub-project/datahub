@@ -419,16 +419,14 @@ class RegularAPIResolver(DataResolverBase):
         params_response.raise_for_status()
         params_dict = params_response.json()
 
-        params_values: Optional[List] = params_dict.get(Constant.VALUE)
-        if params_values:
-            logger.debug(f"dataset {dataset_id} parameters = {params_values}")
-            return {
-                value[Constant.NAME]: value[Constant.CURRENT_VALUE]
-                for value in params_values
-            }
-        else:
-            logger.debug(f"dataset {dataset_id} has no parameters")
-            return {}
+        params_values: Optional[List] = params_dict.get(Constant.VALUE, {})
+
+        logger.debug(f"dataset {dataset_id} parameters = {params_values}")
+
+        return {
+            value[Constant.NAME]: value[Constant.CURRENT_VALUE]
+            for value in params_values
+        }
 
     def get_groups_endpoint(self) -> str:
         return DataResolverBase.BASE_URL
