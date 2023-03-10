@@ -1,7 +1,7 @@
 import functools
 import importlib.resources as pkg_resource
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import lark
 from lark import Lark, Tree

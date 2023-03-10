@@ -65,7 +65,7 @@ class PowerBIDataset:
     name: Optional[str]
     webUrl: Optional[str]
     workspace_id: str
-    parameters: Optional[Dict[str, str]]
+    parameters: Dict[str, str]
 
     # Table in datasets
     tables: List["Table"]
@@ -191,7 +191,7 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
         if raw_instance.get("webUrl") is not None
         else None,
         workspace_id=workspace_id,
-        parameters=None,
+        parameters={},
         tables=[],
         tags=[],
     )

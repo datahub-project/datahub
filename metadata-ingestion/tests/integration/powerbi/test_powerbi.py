@@ -340,7 +340,6 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                                             }
                                         ],
                                     },
-
                                     {
                                         "name": "snowflake native-query-with-join",
                                         "source": [
@@ -535,14 +534,14 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "name": "Parameter - Source",
                         "type": "Text",
                         "isRequired": True,
-                        "currentValue": "my-test-project"
+                        "currentValue": "my-test-project",
                     },
                     {
                         "name": "My bq project",
                         "type": "Text",
                         "isRequired": True,
-                        "currentValue": "gcp_billing"
-                    }
+                        "currentValue": "gcp_billing",
+                    },
                 ]
             },
         },
