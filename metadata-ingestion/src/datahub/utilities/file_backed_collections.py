@@ -35,6 +35,13 @@ class _SqliteConnectionCache:
     If you pass the same filename to multiple FileBacked* objects, they will
     share the same underlying database connection. This also does ref counting
     to drop the connection when appropriate.
+
+    It's necessary to use the same underlying connection because we're using
+    exclusive locking mode. It's useful to keep data from multiple FileBacked*
+    objects in the same SQLite database because it allows us to perform queries
+    across multiple tables.
+
+    This is used as a singleton class.
     """
 
     _ref_count: Dict[pathlib.Path, int] = field(default_factory=dict)
@@ -72,6 +79,26 @@ class _SqliteConnectionCache:
 
 
 _sqlite_connection_cache = _SqliteConnectionCache()
+
+
+# DESIGN: Why is pickle the default serializer/deserializer?
+#
+# Benefits:
+# (1) In my comparisons of pickle vs manually generating a Python object
+#     and then calling json.dumps on it, pickle was consistently slightly faster
+#     for both reads and writes.
+# (2) The interface is simpler - you don't have to write a custom serializer.
+#     This is especially useful when dealing with non-standard types like
+#     collections.Counter or datetime.
+# (3) Pickle is built-in to Python and requires no additional dependencies.
+#     It's true that we might be able to eek out a bit more performance by
+#     using a faster serializer like msgpack or cbor.
+#
+# Downsides:
+# (1) The serialized data is not human-readable.
+# (2) For simple types like ints, it has slightly worse performance.
+#
+# Overall, pickle seems like the right default choice.
 
 
 def _default_serializer(value: Any) -> SqliteValue:
@@ -112,6 +139,9 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
         assert (
             self.cache_eviction_batch_size > 0
         ), "cache_eviction_batch_size must be positive"
+
+        assert "key" not in self.extra_columns, '"key" is a reserved column name'
+        assert "value" not in self.extra_columns, '"value" is a reserved column name'
 
         self._conn = _sqlite_connection_cache.get_connection(self.filename)
 
@@ -241,6 +271,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT]):
 
     def close(self) -> None:
         _sqlite_connection_cache.drop_connection(self.filename)
+        self._conn = None  # type: ignore
 
     def __del__(self) -> None:
         self.close()
@@ -315,3 +346,9 @@ class FileBackedList(Generic[_VT]):
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
     ) -> List[Tuple[Any, ...]]:
         return self._dict.sql_query(query, params, refs=refs)
+
+    def close(self) -> None:
+        self._dict.close()
+
+    def __del__(self) -> None:
+        self.close()
