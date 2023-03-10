@@ -123,9 +123,10 @@ export default function QueryCardDetails({
                 )) || <EmptyText>No description</EmptyText>}
             </Description>
             <Date>
-                {createdAtMs && (
+                {(createdAtMs && (
                     <Typography.Text type="secondary">Created on {toLocalDateString(createdAtMs)}</Typography.Text>
-                )}
+                )) ||
+                    undefined}
             </Date>
         </Details>
     );

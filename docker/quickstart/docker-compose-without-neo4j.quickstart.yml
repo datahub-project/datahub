@@ -178,6 +178,8 @@ services:
       - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysqldata:/var/lib/mysql
   mysql-setup:
+    labels:
+      datahub_setup_job: true
     container_name: mysql-setup
     depends_on:
       - mysql

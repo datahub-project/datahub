@@ -75,6 +75,7 @@ class Constant:
     HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
     NAME = "name"
     DISPLAY_NAME = "displayName"
+    CURRENT_VALUE = "currentValue"
     ORDER = "order"
     IDENTIFIER = "identifier"
     EMAIL_ADDRESS = "emailAddress"

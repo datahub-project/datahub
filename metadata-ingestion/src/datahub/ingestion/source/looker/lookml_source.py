@@ -12,7 +12,7 @@ import lkml
 import lkml.simple
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.models import DBConnection
+from looker_sdk.sdk.api40.models import DBConnection
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
@@ -1501,8 +1501,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                         p_ref = p_checkout_dir.resolve()
                     except Exception as e:
                         logger.warning(
-                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on",
-                            e,
+                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on: {e}",
                         )
                         visited_projects.add(project)
                         continue

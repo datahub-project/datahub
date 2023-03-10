@@ -7,7 +7,7 @@ import { PageRoutes } from '../../conf/Global';
 import { GlossaryNode, GlossaryTerm, ParentNodesResult } from '../../types.generated';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { BreadcrumbItem } from '../entity/shared/containers/profile/nav/ProfileNavBrowsePath';
-import { useEntityData } from '../entity/shared/EntityContext';
+import { useGlossaryEntityData } from '../entity/shared/GlossaryEntityContext';
 import { useEntityRegistry } from '../useEntityRegistry';
 
 const PathWrapper = styled.div`
@@ -29,7 +29,7 @@ function getGlossaryBreadcrumbs(parentNodes: Maybe<ParentNodesResult>, entity: M
 
 function GlossaryEntitiesPath() {
     const entityRegistry = useEntityRegistry();
-    const { entityData } = useEntityData();
+    const { entityData } = useGlossaryEntityData();
 
     const breadcrumbs = getGlossaryBreadcrumbs(entityData?.parentNodes, entityData as GlossaryNode | GlossaryTerm);
 
