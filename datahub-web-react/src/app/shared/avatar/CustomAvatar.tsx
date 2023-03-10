@@ -7,10 +7,10 @@ import styled from 'styled-components';
 import defaultAvatar from '../../../images/default_avatar.png';
 import getAvatarColor from './getAvatarColor';
 
-const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor: string }>`
-    color: #fff;
-    background-color: ${(props) => props.$backgroundColor};
-    font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 12)}px` : '14px')} !important;
+const AvatarStyled = styled(Avatar) <{ size?: number; $backgroundColor?: string }>`
+  color: #fff;
+  background-color: ${(props) => (props.$backgroundColor ? `${props.$backgroundColor}`: 'transparent')};
+  font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 12)}px` : '14px')} !important;
     margin-right: 4px;
     height: 24px;
     width: 24px;

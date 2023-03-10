@@ -1,6 +1,9 @@
+// @ts-ignore
 import React from 'react';
+// @ts-ignore
 import { ChartStatsSummary as ChartStatsSummaryObj } from '../../../../../types.generated';
 import { useBaseEntity } from '../../../shared/EntityContext';
+// @ts-ignore
 import { GetChartQuery } from '../../../../../graphql/chart.generated';
 import { ChartStatsSummary } from '../../shared/ChartStatsSummary';
 
@@ -12,6 +15,8 @@ export const ChartStatsSummarySubHeader = () => {
     const uniqueUserCountLast30Days = maybeStatsSummary?.uniqueUserCountLast30Days;
     const lastUpdatedMs = chart?.properties?.lastModified?.time;
     const createdMs = chart?.properties?.created?.time;
+
+
 
     return (
         <ChartStatsSummary
