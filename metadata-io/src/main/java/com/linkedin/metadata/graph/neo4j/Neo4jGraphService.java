@@ -101,7 +101,7 @@ public class Neo4jGraphService implements GraphService {
     // Extra relationship typename start with r_ for direct-outgoing-downstream/indirect-incoming-upstream relationships
     String reverseRelationshipType = "r_" + edge.getRelationshipType();
 
-    if (reverseSourceDest(sourceType, edge.getRelationshipType())) {
+    if (isSourceDestReversed(sourceType, edge.getRelationshipType())) {
       endUrn = sourceUrn;
       endType = sourceType;
       startUrn = destinationUrn;
@@ -198,7 +198,7 @@ public class Neo4jGraphService implements GraphService {
     String startType = sourceType;
     String reverseRelationshipType = "r_" + edge.getRelationshipType();
 
-    if (reverseSourceDest(sourceType, edge.getRelationshipType())) {
+    if (isSourceDestReversed(sourceType, edge.getRelationshipType())) {
       endUrn = sourceUrn;
       endType = sourceType;
       startUrn = destinationUrn;
@@ -692,7 +692,7 @@ public class Neo4jGraphService implements GraphService {
    * @param relationshipType Entity relationship type
    *
    */
-  private boolean reverseSourceDest(@Nonnull String sourceType, @Nonnull String relationshipType) {
+  private boolean isSourceDestReversed(@Nonnull String sourceType, @Nonnull String relationshipType) {
     // Get real direction by check INCOMING/OUTGOING direction and RelationshipType
     LineageRegistry.LineageSpec sourceLineageSpec = getLineageRegistry().getLineageSpec(sourceType);
     if (sourceLineageSpec != null) {
