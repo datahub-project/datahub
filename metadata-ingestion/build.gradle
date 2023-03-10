@@ -146,7 +146,7 @@ task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {
 }
 task buildWheel(type: Exec, dependsOn: [install, codegen]) {
   // When running this, you need to set the RELEASE_VERSION environment variable.
-  commandLine 'bash', '-c', 'RELEASE_VERSION="\${RELEASE_VERSION?release version must be set}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+  commandLine 'bash', '-c', 'source ${venv_name}/bin/activate && pip install build && RELEASE_VERSION="\${RELEASE_VERSION?release version must be set}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 

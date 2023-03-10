@@ -64,11 +64,10 @@ jobs:
 
           # only the last line of the output is the packages that will be installed
           pip install --dry-run -e .[dev]  ${{ matrix.extraPythonRequirement }} | tail -n 1 > /tmp/would_be_installed.txt
+          cat /tmp/would_be_installed.txt
+
           CHECKSUM=$(shasum /tmp/would_be_installed.txt | awk '{print $1}')
           echo "packages_checksum=$CHECKSUM" >> $GITHUB_OUTPUT
-      - name: print dependencies
-        id: print-dependency
-        run: cat /tmp/would_be_installed.txt
       - uses: actions/cache@v3
         id: cache-venv
         with:
