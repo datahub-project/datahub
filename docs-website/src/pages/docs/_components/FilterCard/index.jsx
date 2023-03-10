@@ -106,13 +106,12 @@ const FilterCard = ({ image, title, description, to, filters, tags, useTags, use
         <div class="card__body">
           <div>{description}</div>
         </div>
-        {useTags ||
-          (useFilters && (
-            <div class="card__footer">
-              {useTags && renderTags()}
-              {useFilters && renderFilters()}
-            </div>
-          ))}
+        {(useTags || useFilters) && (
+          <div class="card__footer">
+            {useTags && renderTags()}
+            {useFilters && renderFilters()}
+          </div>
+        )}
       </Link>
     </div>
   );
