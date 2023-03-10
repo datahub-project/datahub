@@ -1213,12 +1213,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             platform, name, platform_instance, self.config.env
         )
 
-    def get_platform_instance_id(self) -> str:
-        return self.config.platform_instance or self.platform
-
-    def close(self):
-        StatefulIngestionSourceBase.close(self)
-
 
 # TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.
 def has_three_level_hierarchy(platform: str) -> bool:
