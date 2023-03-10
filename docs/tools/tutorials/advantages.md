@@ -18,7 +18,7 @@ Here our some examples of slightly more complex usage:
 * Ingesting Entities from CSV Files
 * Adding Column-level Lineage
 
-## Our APIs (TBD)
+## Our APIs
 DataHub supports three APIs : GraphQL, SDKs and OpenAPI. Each method has different usage and format. 
 Here's an overview of what each API can do. 
 
