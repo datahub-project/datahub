@@ -6,7 +6,6 @@
       "Title": "Airflow",
       "Description": "Airflow is an open-source data orchestration tool used for scheduling, monitoring, and managing complex data pipelines.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Orchestrator",
         "Connection Type": "Push",
         "Features": "Stateful Ingestion"
@@ -18,7 +17,6 @@
       "Title": "Athena",
       "Description": "Athena is a serverless interactive query service that enables users to analyze data in Amazon S3 using standard SQL.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Column Level Lineage, Status Aspect"
@@ -30,7 +28,6 @@
       "Title": "Azure AD",
       "Description": "Azure AD is a cloud-based identity and access management tool that provides secure authentication and authorization for users and applications.",
       "tags": {
-        "Difficulty": "Hard",
         "Platform Type": "Identity Provider",
         "Connection Type": "Pull",
         "Features": ""
@@ -42,7 +39,6 @@
       "Title": "BigQuery",
       "Description": "BigQuery is a cloud-based data warehousing and analytics tool that allows users to store, query, and analyze large datasets quickly and efficiently.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Patch Lineage, UI Ingestion, Lower Casing, Status Aspect"
@@ -54,7 +50,6 @@
       "Title": "Business Glossary",
       "Description": "A source provided by DataHub for ingesting glossary metadata that provides a comprehensive list of business terms and definitions used within an organization.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
@@ -66,7 +61,6 @@
       "Title": "ClickHouse",
       "Description": "ClickHouse is an open-source column-oriented database management system designed for high-performance data processing and analytics.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
@@ -78,7 +72,6 @@
       "Title": "CSV",
       "Description": "An ingestion source for enriching metadata provided in CSV format provided by DataHub",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
@@ -90,7 +83,6 @@
       "Title": "Databricks",
       "Description": "Databricks is a cloud-based data processing and analytics platform that enables data scientists and engineers to collaborate and build data-driven applications.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "ETL and Processing",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Column Level Lineage, UI Ingestion, Status Aspect"
@@ -102,7 +94,6 @@
       "Title": "dbt",
       "Description": "dbt is a data transformation tool that enables analysts and engineers to transform data in their warehouses through a modular, SQL-based approach.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "ETL and Processing",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Patch Lineage,  UI Ingestion, Status Aspect"
@@ -114,7 +105,6 @@
       "Title": "Delta Lake",
       "Description": "Delta Lake is an open-source data lake storage layer that provides ACID transactions, schema enforcement, and data versioning for big data workloads.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": ""
@@ -126,7 +116,6 @@
       "Title": "Demo Data",
       "Description": "Demo Data is a data tool that provides sample data sets for demonstration and testing purposes.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
@@ -138,7 +127,6 @@
       "Title": "Druid",
       "Description": "Druid is an open-source data store designed for real-time analytics on large datasets.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
@@ -150,7 +138,6 @@
       "Title": "Elasticsearch",
       "Description": "Elasticsearch is a distributed, open-source search and analytics engine designed for handling large volumes of data.",
       "tags": {
-        "Difficulty": "Hard",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": ""
@@ -162,7 +149,6 @@
       "Title": "Feast",
       "Description": "Feast is an open-source feature store that enables teams to manage, store, and discover features for machine learning applications.",
       "tags": {
-        "Difficulty": "Hard",
         "Platform Type": "AI+ML",
         "Connection Type": "Pull",
         "Features": ""
@@ -174,7 +160,6 @@
       "Title": "File",
       "Description": "An ingestion source for single files provided by DataHub",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
@@ -186,7 +171,6 @@
       "Title": "File Based Lineage",
       "Description": "File Based Lineage is a data tool that tracks the lineage of data files and their dependencies.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
@@ -198,7 +182,6 @@
       "Title": "Glue",
       "Description": "Glue is a data integration service that allows users to extract, transform, and load data from various sources into a data warehouse.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
@@ -210,7 +193,6 @@
       "Title": "Great Expectations",
       "Description": "Great Expectations is an open-source data validation and testing tool that helps data teams maintain data quality and integrity.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Observability",
         "Connection Type": "Push",
         "Features": ""
@@ -222,7 +204,6 @@
       "Title": "Hive",
       "Description": "Hive is a data warehousing tool that facilitates querying and managing large datasets stored in Hadoop Distributed File System (HDFS).",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, UI Ingestion, Status Aspect"
@@ -234,7 +215,6 @@
       "Title": "Iceberg",
       "Description": "Iceberg is a data tool that allows users to manage and query large-scale data sets using a distributed architecture.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -246,7 +226,6 @@
       "Title": "JSON Schemas",
       "Description": "JSON Schemas is a data tool used to define the structure, format, and validation rules for JSON data.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
@@ -258,7 +237,6 @@
       "Title": "Kafka",
       "Description": "Kafka is a distributed streaming platform that allows for the processing and storage of large amounts of data in real-time.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -270,7 +248,6 @@
       "Title": "Kafka Connect",
       "Description": "Kafka Connect is an open-source data integration tool that enables the transfer of data between Apache Kafka and other data systems.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Lower Casing"
@@ -282,7 +259,6 @@
       "Title": "LDAP",
       "Description": "LDAP (Lightweight Directory Access Protocol) is a data tool used for accessing and managing distributed directory information services over an IP network.",
       "tags": {
-        "Difficulty": "Hard",
         "Platform Type": "Identity Provider",
         "Connection Type": "Pull",
         "Features": ""
@@ -294,7 +270,6 @@
       "Title": "Looker",
       "Description": "Looker is a business intelligence and data analytics platform that allows users to explore, analyze, and share data insights in real-time.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Column Level Lineage,  UI Ingestion, Lower Casing, Status Aspect"
@@ -306,7 +281,6 @@
       "Title": "MariaDB",
       "Description": "MariaDB is an open-source relational database management system that is a fork of MySQL.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -318,7 +292,6 @@
       "Title": "Metabase",
       "Description": "Metabase is an open-source business intelligence and data visualization tool that allows users to easily query and visualize their data.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": ""
@@ -330,7 +303,6 @@
       "Title": "Microsoft SQL Server",
       "Description": "Microsoft SQL Server is a relational database management system designed to store, manage, and retrieve data efficiently and securely.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -342,7 +314,6 @@
       "Title": "Mode",
       "Description": "Mode is a cloud-based data analysis and visualization platform that enables businesses to explore, analyze, and share data in a collaborative environment.",
       "tags": {
-        "Difficulty": "Hard",
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": ""
@@ -354,7 +325,6 @@
       "Title": "MongoDB",
       "Description": "MongoDB is a NoSQL database that stores data in flexible, JSON-like documents, making it easy to store and retrieve data for modern applications.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": ""
@@ -366,7 +336,6 @@
       "Title": "MySQL",
       "Description": "MySQL is an open-source relational database management system that allows users to store, organize, and retrieve data efficiently.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -378,7 +347,6 @@
       "Title": "NiFi",
       "Description": "NiFi is a data integration tool that allows users to automate the flow of data between systems and applications.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Orchestrator",
         "Connection Type": "Pull",
         "Features": ""
@@ -390,7 +358,6 @@
       "Title": "Okta",
       "Description": "Okta is a cloud-based identity and access management tool that enables secure and seamless access to applications and data across multiple devices and platforms.",
       "tags": {
-        "Difficulty": "Hard",
         "Platform Type": "Identity Provider",
         "Connection Type": "Pull",
         "Features": ""
@@ -402,7 +369,6 @@
       "Title": "OpenAPI",
       "Description": "OpenAPI is a specification for building and documenting RESTful APIs.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
@@ -414,7 +380,6 @@
       "Title": "Oracle",
       "Description": "Oracle is a relational database management system that provides a comprehensive and integrated platform for managing and analyzing large amounts of data.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
@@ -426,7 +391,6 @@
       "Title": "Postgres",
       "Description": "Postgres is an open-source relational database management system that provides a powerful tool for storing, managing, and analyzing large amounts of data.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -438,7 +402,6 @@
       "Title": "PowerBI",
       "Description": "PowerBI is a business analytics service by Microsoft that provides interactive visualizations and business intelligence capabilities with an interface simple enough for end users to create their own reports and dashboards.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Lower Casing, Status Aspect"
@@ -450,7 +413,6 @@
       "Title": "Presto",
       "Description": "Presto is an open-source distributed SQL query engine designed for fast and interactive analytics on large-scale data sets.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -462,7 +424,6 @@
       "Title": "Presto on Hive",
       "Description": "Presto on Hive is a data tool that allows users to query and analyze large datasets stored in Hive using SQL-like syntax.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
@@ -474,7 +435,6 @@
       "Title": "Protobuf Schemas",
       "Description": "Protobuf Schemas is a data tool used for defining and serializing structured data in a compact and efficient manner.",
       "tags": {
-        "Difficulty": "Hard",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": ""
@@ -486,7 +446,6 @@
       "Title": "Pulsar",
       "Description": "Pulsar is a real-time data processing and messaging platform that enables high-performance data streaming and processing.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
@@ -498,7 +457,6 @@
       "Title": "Redash",
       "Description": "Redash is a data visualization and collaboration platform that allows users to connect and query multiple data sources and create interactive dashboards and visualizations.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": ""
@@ -510,7 +468,6 @@
       "Title": "Redshift",
       "Description": "Redshift is a cloud-based data warehousing tool that allows users to store and analyze large amounts of data in a scalable and cost-effective manner.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -522,7 +479,6 @@
       "Title": "S3 Data Lake",
       "Description": "S3 Data Lake is a cloud-based data storage and management tool that allows users to store, manage, and analyze large amounts of data in a scalable and cost-effective manner.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": ""
@@ -534,7 +490,6 @@
       "Title": "SageMaker",
       "Description": "SageMaker is a data tool that provides a fully-managed platform for building, training, and deploying machine learning models at scale.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "AI+ML",
         "Connection Type": "Pull",
         "Features": ""
@@ -546,7 +501,6 @@
       "Title": "Salesforce",
       "Description": "Salesforce is a cloud-based customer relationship management (CRM) platform that helps businesses manage their sales, marketing, and customer service activities.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": ""
@@ -558,7 +512,6 @@
       "Title": "SAP HANA",
       "Description": "SAP HANA is an in-memory data platform that enables businesses to process large volumes of data in real-time.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
@@ -570,7 +523,6 @@
       "Title": "Snowflake",
       "Description": "Snowflake is a cloud-based data warehousing platform that allows users to store, manage, and analyze large amounts of structured and semi-structured data.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Column Level Lineage, Patch Lineage,  UI Ingestion, Lower Casing, Status Aspect"
@@ -582,7 +534,6 @@
       "Title": "Spark",
       "Description": "Spark is a data processing tool that enables fast and efficient processing of large-scale data sets using distributed computing.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Push",
         "Features": ""
@@ -594,7 +545,6 @@
       "Title": "SQLAlchemy",
       "Description": "SQLAlchemy is a Python-based data tool that provides a set of high-level API for connecting to relational databases and performing SQL operations.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
@@ -606,7 +556,6 @@
       "Title": "Superset",
       "Description": "Superset is an open-source data exploration and visualization platform that allows users to create interactive dashboards and perform ad-hoc analysis on various data sources.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": ""
@@ -618,7 +567,6 @@
       "Title": "Tableau",
       "Description": "Tableau is a data visualization and business intelligence tool that helps users analyze and present data in a visually appealing and interactive way.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "BI Tool",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Lower Casing, Status Aspect"
@@ -630,7 +578,6 @@
       "Title": "Trino",
       "Description": "Trino is an open-source distributed SQL query engine designed to query large-scale data processing systems, including Hadoop, Cassandra, and relational databases.",
       "tags": {
-        "Difficulty": "Easy",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion,  UI Ingestion, Status Aspect"
@@ -642,7 +589,6 @@
       "Title": "Vertica",
       "Description": "Vertica is a high-performance, column-oriented, relational database management system designed for large-scale data warehousing and analytics.",
       "tags": {
-        "Difficulty": "Medium",
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
