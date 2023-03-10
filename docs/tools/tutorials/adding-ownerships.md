@@ -89,16 +89,14 @@ else:
 ```
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
-For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl/)
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](https://datahubproject.io/docs/advanced/mcp-mcl/)
 
-
-## Add Ownerships With GraphQL
+## Add Owners With GraphQL
 
 :::note
 Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](/docs/metadata-service/#graphql-api)
+For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](https://datahubproject.io/docs/metadata-service/#graphql-api)
 :::
-
 ### GraphQL Explorer
 GraphQL Explorer is the fastest way to experiment with GraphQL without any dependancies. 
 Navigate to GraphQL Explorer (`http://localhost:9002/api/graphiql`) and run the following query.

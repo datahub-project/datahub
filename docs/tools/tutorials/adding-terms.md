@@ -131,7 +131,7 @@ else:
 ```
 
 We're using the `MetdataChangeProposalWrapper` to change entities in this example.
-For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](/docs/advanced/mcp-mcl/)
+For more information about the `MetadataChangeProposal`, please refer to [MetadataChangeProposal & MetadataChangeLog Events](https://datahubproject.io/docs/advanced/mcp-mcl/)
 
 
 
@@ -139,7 +139,7 @@ For more information about the `MetadataChangeProposal`, please refer to [Metada
 
 :::note
 Please note that there are two available endpoints (`:8000`, `:9002`) to access GraphQL.
-For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](/docs/metadata-service/#graphql-api)
+For more information about the differences between these endpoints, please refer to [DataHub Metadata Service](https://datahubproject.io/docs/metadata-service/#graphql-api)
 :::
 
 ### GraphQL Explorer
