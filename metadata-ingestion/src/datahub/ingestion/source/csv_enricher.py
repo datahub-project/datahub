@@ -1,7 +1,9 @@
 import csv
+import requests
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from urllib import parse, request
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -539,74 +541,80 @@ class CSVEnricherSource(Source):
         # present in the file. Excel is known to add a BOM to CSV files.
         # As per https://stackoverflow.com/a/63508823/5004662,
         # this is also safe with normal files that don't have a BOM.
-        with open(self.config.filename, mode="r", encoding="utf-8-sig") as f:
-            rows = csv.DictReader(f, delimiter=self.config.delimiter)
-            for row in rows:
-                # We need the resource to move forward
-                if not row["resource"]:
+        parsed_location = parse.urlparse(self.config.filename)
+        if parsed_location.scheme in ('file', ''):
+            with open(self.config.filename, mode="r", encoding="utf-8-sig") as f:
+                rows = csv.DictReader(f, delimiter=self.config.delimiter)
+        else:
+            resp = requests.get(self.config.filename)
+            decoded_content = resp.content.decode('utf-8-sig')
+            rows = csv.DictReader(decoded_content.splitlines(), delimiter=self.config.delimiter)
+        for row in rows:
+            # We need the resource to move forward
+            if not row["resource"]:
+                continue
+
+            is_resource_row: bool = not row["subresource"]
+
+            entity_urn = row["resource"]
+            entity_type = Urn.create_from_string(row["resource"]).get_type()
+
+            term_associations: List[
+                GlossaryTermAssociationClass
+            ] = self.maybe_extract_glossary_terms(row)
+
+            tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(
+                row
+            )
+
+            owners: List[OwnerClass] = self.maybe_extract_owners(
+                row, is_resource_row
+            )
+
+            domain: Optional[str] = (
+                row["domain"]
+                if row["domain"] and entity_type == DATASET_ENTITY_TYPE
+                else None
+            )
+
+            description: Optional[str] = (
+                row["description"]
+                if row["description"] and entity_type == DATASET_ENTITY_TYPE
+                else None
+            )
+
+            if is_resource_row:
+                for wu in self.get_resource_workunits(
+                    entity_urn=entity_urn,
+                    term_associations=term_associations,
+                    tag_associations=tag_associations,
+                    owners=owners,
+                    domain=domain,
+                    description=description,
+                ):
+                    yield wu
+
+            # If this row is not applying changes at the resource level, modify the EditableSchemaMetadata map.
+            else:
+                # Only dataset sub-resources are currently supported.
+                if entity_type != DATASET_ENTITY_TYPE:
                     continue
 
-                is_resource_row: bool = not row["subresource"]
-
-                entity_urn = row["resource"]
-                entity_type = Urn.create_from_string(row["resource"]).get_type()
-
-                term_associations: List[
-                    GlossaryTermAssociationClass
-                ] = self.maybe_extract_glossary_terms(row)
-
-                tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(
-                    row
-                )
-
-                owners: List[OwnerClass] = self.maybe_extract_owners(
-                    row, is_resource_row
-                )
-
-                domain: Optional[str] = (
-                    row["domain"]
-                    if row["domain"] and entity_type == DATASET_ENTITY_TYPE
-                    else None
-                )
-
-                description: Optional[str] = (
-                    row["description"]
-                    if row["description"] and entity_type == DATASET_ENTITY_TYPE
-                    else None
-                )
-
-                if is_resource_row:
-                    for wu in self.get_resource_workunits(
+                field_path = row["subresource"]
+                if entity_urn not in self.editable_schema_metadata_map:
+                    self.editable_schema_metadata_map[entity_urn] = []
+                # Add the row to the map from entity (dataset) to SubResource rows. We cannot emit work units for
+                # EditableSchemaMetadata until we parse the whole CSV due to read-modify-write issues.
+                self.editable_schema_metadata_map[entity_urn].append(
+                    SubResourceRow(
                         entity_urn=entity_urn,
+                        field_path=field_path,
                         term_associations=term_associations,
                         tag_associations=tag_associations,
-                        owners=owners,
-                        domain=domain,
                         description=description,
-                    ):
-                        yield wu
-
-                # If this row is not applying changes at the resource level, modify the EditableSchemaMetadata map.
-                else:
-                    # Only dataset sub-resources are currently supported.
-                    if entity_type != DATASET_ENTITY_TYPE:
-                        continue
-
-                    field_path = row["subresource"]
-                    if entity_urn not in self.editable_schema_metadata_map:
-                        self.editable_schema_metadata_map[entity_urn] = []
-                    # Add the row to the map from entity (dataset) to SubResource rows. We cannot emit work units for
-                    # EditableSchemaMetadata until we parse the whole CSV due to read-modify-write issues.
-                    self.editable_schema_metadata_map[entity_urn].append(
-                        SubResourceRow(
-                            entity_urn=entity_urn,
-                            field_path=field_path,
-                            term_associations=term_associations,
-                            tag_associations=tag_associations,
-                            description=description,
-                            domain=domain,
-                        )
+                        domain=domain,
                     )
+                )
 
         # Yield sub resource work units once the map has been fully populated.
         for wu in self.get_sub_resource_work_units():
