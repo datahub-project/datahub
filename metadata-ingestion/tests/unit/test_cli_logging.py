@@ -62,3 +62,10 @@ ZeroDivisionError: division by zero
     # The first two lines are stdout, so we skip them.
     expected_log_output = "\n".join(result.output.splitlines()[2:])
     assert get_log_buffer().format_lines() == expected_log_output
+
+
+def test_extra_args_exception_suppressed():
+    logger = logging.getLogger("datahub.my_cli_module")
+
+    # This should not throw an exception.
+    logger.info("This is a message with extra args", "foo")
