@@ -1171,7 +1171,7 @@ class LookerUserRegistry:
         logger.debug(f"Will get user {id_}")
 
         raw_user: Optional[User] = self.looker_api_wrapper.get_user(
-            id_, user_fields=self.fields
+            str(id_), user_fields=self.fields
         )
         if raw_user is None:
             return None
