@@ -3,6 +3,8 @@ import pathlib
 import re
 import sys
 import unittest.mock
+from urllib import parse, request
+import requests
 from typing import Any, Dict, Set, Union
 
 from expandvars import UnboundVariable, expandvars
@@ -70,27 +72,31 @@ def load_config_file(
     squirrel_original_config: bool = False,
     squirrel_field: str = "__orig_config",
     allow_stdin: bool = False,
-) -> dict:
+) -> dict: 
     config_mech: ConfigurationMechanism
     if allow_stdin and config_file == "-":
         # If we're reading from stdin, we assume that the input is a YAML file.
         config_mech = YamlConfigurationMechanism()
         raw_config_file = sys.stdin.read()
     else:
-        config_file = pathlib.Path(config_file)
-        if not config_file.is_file():
-            raise ConfigurationError(f"Cannot open config file {config_file}")
-
-        if config_file.suffix in {".yaml", ".yml"}:
+        config_file_path = pathlib.Path(config_file)
+        if config_file_path.suffix in {".yaml", ".yml"}:
             config_mech = YamlConfigurationMechanism()
-        elif config_file.suffix == ".toml":
+        elif config_file_path.suffix == ".toml":
             config_mech = TomlConfigurationMechanism()
         else:
             raise ConfigurationError(
-                f"Only .toml and .yml are supported. Cannot process file type {config_file.suffix}"
+                f"Only .toml and .yml are supported. Cannot process file type {config_file_path.suffix}"
             )
-
-        raw_config_file = config_file.read_text()
+        print(f"config file is {config_file}")
+        url_parsed = parse.urlparse(config_file)
+        if url_parsed.scheme in ('file', ''): # Possibly a local file
+            if not config_file_path.is_file():
+                raise ConfigurationError(f"Cannot open config file {config_file_path}")            
+            raw_config_file = config_file_path.read_text()
+        else:
+            response = requests.get(config_file)
+            raw_config_file = response.text
 
     config_fp = io.StringIO(raw_config_file)
     raw_config = config_mech.load_config(config_fp)

@@ -93,8 +93,8 @@ class DefaultConfig(ConfigModel):
 
 
 class BusinessGlossarySourceConfig(ConfigModel):
-    file: pydantic.FilePath = Field(
-        description="Path to business glossary file to ingest."
+    file: pydantic.AnyUrl = Field(
+        description="Path to business glossary file to ingest. This can be a URL or local file YAML"
     )
     enable_auto_id: bool = Field(
         description="Generate id field from GlossaryNode and GlossaryTerm's name field",
