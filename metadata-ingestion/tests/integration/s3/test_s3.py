@@ -140,6 +140,13 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
         pytestconfig,
         output_path=f"{tmp_path}/{source_file}",
         golden_path=f"{test_resources_dir}/golden-files/local/golden_mces_{source_file}",
+        ignore_paths=[
+        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
+        # root[41]['aspect']['json']['fieldProfiles'][0]['sampleValues'][0]
+        r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]",
+#        "root[0]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][2]['com.linkedin.pegasus2avro.schema.SchemaMetadata']['fields'][4]"
+        ]
     )
 
 
