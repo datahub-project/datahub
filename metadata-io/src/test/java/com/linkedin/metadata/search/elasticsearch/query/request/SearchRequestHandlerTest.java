@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,6 +14,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -28,17 +34,58 @@ import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 
-public class SearchRequestHandlerTest {
+@Import(ESTestConfiguration.class)
+public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
+  @Autowired
+  private EntityRegistry entityRegistry;
+
+  public static SearchConfiguration testQueryConfig;
+  static {
+    testQueryConfig = new SearchConfiguration();
+    testQueryConfig.setMaxTermBucketSize(20);
+
+    ExactMatchConfiguration exactMatchConfiguration = new ExactMatchConfiguration();
+    exactMatchConfiguration.setExclusive(false);
+    exactMatchConfiguration.setExactFactor(10.0f);
+    exactMatchConfiguration.setWithPrefix(true);
+    exactMatchConfiguration.setPrefixFactor(6.0f);
+    exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
+    exactMatchConfiguration.setEnableStructured(true);
+
+    testQueryConfig.setExactMatch(exactMatchConfiguration);
+  }
+
+  @Test
+  public void testDatasetFieldsAndHighlights() {
+    EntitySpec entitySpec = entityRegistry.getEntitySpec("dataset");
+    SearchRequestHandler datasetHandler = SearchRequestHandler.getBuilder(entitySpec, testQueryConfig);
+
+    /*
+       Ensure efficient query performance, we do not expect upstream/downstream/fineGrained lineage
+     */
+    List<String> highlightFields = datasetHandler.getHighlights().fields().stream()
+            .map(HighlightBuilder.Field::name)
+            .collect(Collectors.toList());
+    assertTrue(highlightFields.stream().noneMatch(
+            fieldName -> fieldName.contains("upstream") || fieldName.contains("downstream")
+    ), "unexpected lineage fields in highlights: " + highlightFields);
+  }
+
   @Test
   public void testSearchRequestHandler() {
-    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
+    SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig);
     SearchRequest searchRequest = requestHandler.getSearchRequest("testQuery", null, null, 0,
-            10, false);
+            10,  new SearchFlags().setFulltext(false));
     SearchSourceBuilder sourceBuilder = searchRequest.source();
     assertEquals(sourceBuilder.from(), 0);
     assertEquals(sourceBuilder.size(), 10);
@@ -52,21 +99,20 @@ public class SearchRequestHandlerTest {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
         highlightBuilder.fields().stream().map(HighlightBuilder.Field::name).collect(Collectors.toList());
-    assertEquals(fields.size(), 26);
+    assertEquals(fields.size(), 20);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
-                "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField", "keyPart2",
-                "nestedArrayForeignKey", "foreignKeyArray");
+                "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
     highlightableFields.forEach(field -> {
-      assertTrue(fields.contains(field));
-      assertTrue(fields.contains(field + ".*"));
+      assertTrue(fields.contains(field), "Missing: " + field);
+      assertTrue(fields.contains(field + ".*"), "Missing: " + field + ".*");
     });
   }
 
   @Test
   public void testFilteredSearch() {
 
-    final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec());
+    final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(TestEntitySpecBuilder.getSpec(), testQueryConfig);
 
     final BoolQueryBuilder testQuery = constructFilterQuery(requestHandler, false);
 
@@ -102,13 +148,13 @@ public class SearchRequestHandlerTest {
     if (scroll) {
       testQuery = (BoolQueryBuilder) requestHandler
           .getSearchRequest("testQuery", filterWithoutRemovedCondition, null, null, null,
-              "5m", 10, false)
+              "5m", 10, new SearchFlags().setFulltext(false))
           .source()
           .query();
     } else {
       testQuery =
           (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithoutRemovedCondition, null,
-              0, 10, false).source().query();
+              0, 10, new SearchFlags().setFulltext(false)).source().query();
     }
     return testQuery;
   }
@@ -151,11 +197,11 @@ public class SearchRequestHandlerTest {
     final BoolQueryBuilder queryWithRemoved;
     if (scroll) {
       queryWithRemoved = (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithRemovedCondition,
-          null, null, null, "5m", 10, false).source().query();
+          null, null, null, "5m", 10, new SearchFlags().setFulltext(false)).source().query();
     } else {
       queryWithRemoved =
           (BoolQueryBuilder) requestHandler.getSearchRequest("testQuery", filterWithRemovedCondition,
-              null, 0, 10, false).source().query();
+              null, 0, 10, new SearchFlags().setFulltext(false)).source().query();
     }
     return queryWithRemoved;
   }
@@ -346,10 +392,10 @@ public class SearchRequestHandlerTest {
         ));
 
     final SearchRequestHandler requestHandler = SearchRequestHandler.getBuilder(
-        TestEntitySpecBuilder.getSpec());
+        TestEntitySpecBuilder.getSpec(), testQueryConfig);
 
     return (BoolQueryBuilder) requestHandler
-        .getSearchRequest("", filter, null, 0, 10, false)
+        .getSearchRequest("", filter, null, 0, 10,  new SearchFlags().setFulltext(false))
         .source()
         .query();
   }

@@ -20,7 +20,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-import com.linkedin.metadata.config.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.util.Pair;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -177,6 +177,10 @@ public class ESIndexBuilder {
       createIndex(indexState.name(), indexState);
       return;
     }
+    log.info("Current mappings for index {}", indexState.name());
+    log.info("{}", indexState.currentMappings());
+    log.info("Target mappings for index {}", indexState.name());
+    log.info("{}", indexState.targetMappings());
 
     // If there are no updates to mappings and settings, return
     if (!indexState.requiresApplyMappings() && !indexState.requiresApplySettings()) {
