@@ -3,68 +3,119 @@
 We've created a special `docker-compose.dev.yml` override file that should configure docker images to be easier to use
 during development.
 
-Normally, you'd rebuild your images from scratch with `docker-compose build` (or `docker-compose up --build`). However,
-this takes way too long for development. It has to copy the entire repo to each image and rebuild it there.
+Normally, you'd rebuild your images from scratch with a combination of gradle and docker compose commands. However,
+this takes way too long for development and requires reasoning about several layers of docker compose configuration
+yaml files which can depend on your hardware (Apple M1).
 
-The `docker-compose.dev.yml` file bypasses this problem by mounting binaries, startup scripts, and other data to
-special, slimmed down images (of which the Dockerfile is usually defined in `<service>/debug/Dockerfile`). 
+The `docker-compose.dev.yml` file bypasses the need to rebuild docker images by mounting binaries, startup scripts,
+and other data. These dev images, tagged with `debug` will use your _locally built code_ with gradle.
+Building locally and bypassing the need to rebuild the Docker images should be much faster.
 
-These dev images will use your _locally built code_, so you'll need to build locally with gradle first
-(and every time you want to update the instance). Building locally should be much faster than building on Docker.
+We highly recommend you just invoke `./gradlew quickstartDebug` task. 
 
-We highly recommend you just invoke the `docker/dev.sh` script we've included. It is pretty small if you want to read it
-to see what it does, but it ends up using our `docker-compose.dev.yml` file.
+```shell
+./gradlew quickstartDebug
+```
+
+This task is defined in `docker/build.gradle` and executes the following steps:
+
+1. Builds all required artifacts to run DataHub. This includes both application code such as the GMS war, the frontend
+distribution zip which contains javascript, as wel as secondary support docker containers.
+ 
+1. Locally builds Docker images with the expected `debug` tag required by the docker compose files.
+
+1. Runs the special `docker-compose.dev.yml` and supporting docker-compose files to mount local files directly in the
+containers with remote debugging ports enabled.
+
+Once the `debug` docker images are constructed you'll see images similar to the following:
+
+```shell
+linkedin/datahub-frontend-react                 debug              e52fef698025   28 minutes ago   763MB
+linkedin/datahub-kafka-setup                    debug              3375aaa2b12d   55 minutes ago   659MB
+linkedin/datahub-gms                            debug              ea2b0a8ea115   56 minutes ago   408MB
+acryldata/datahub-upgrade                       debug              322377a7a21d   56 minutes ago   463MB
+acryldata/datahub-mysql-setup                   debug              17768edcc3e5   2 hours ago      58.2MB
+linkedin/datahub-elasticsearch-setup            debug              4d935be7c62c   2 hours ago      26.1MB
+```
+
+At this point it is possible to view the DataHub UI at `http://localhost:9002` as you normally would with quickstart.
+
+## Reloading
+
+Next, perform the desired modifications and rebuild the frontend and/or GMS components.
+
+**Builds GMS**
+```shell
+./gradlew :metadata-service:war:build
+```
+
+**Builds the frontend**
+
+Including javascript components.
+
+```shell
+./gradlew :datahub-frontend:build
+```
+
+After building the artifacts only a restart of the container(s) is required to run with the updated code. 
+The restart can be performed using a docker UI, the docker cli, or the following gradle task.
+
+```shell
+./gradlew :docker:debugReload
+```
+
+## Start/Stop
+
+The following commands can pause the debugging environment to release resources when not needed.
+
+Pause containers and free resources.
+```shell
+docker compose -p datahub stop
+```
+
+Resume containers for further debugging.
+```shell
+docker compose -p datahub start
+```
 
 ## Debugging
 
-The default dev images, while set up to use your local code, do not enable debugging by default. To enable debugging,
-you need to make two small edits (don't check these changes in!).
+The default debugging process uses your local code and enables debugging by default for both GMS and the frontend. Attach
+to the instance using your IDE by using its Remote Java Debugging features.
 
-- Add the JVM debug flags to the environment file for the service.
-- Assign the port in the docker-compose file.
+Environment variables control the debugging ports for GMS and the frontend.
 
-For example, to debug `datahub-gms`:
+- `DATAHUB_MAPPED_GMS_DEBUG_PORT` - Default: 5001
+- `DATAHUB_MAPPED_FRONTEND_DEBUG_PORT` - Default: 5002
 
-```shell
-# Add this line to docker/datahub-gms/env/docker.env. You can change the port and/or change suspend=n to y.
-JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n
-```
+### IntelliJ Remote Debug Configuration
 
-```yml
-# Change the definition in docker/docker-compose.dev.yml to this
-  datahub-gms:
-    image: linkedin/datahub-gms:debug
-    build:
-      context: datahub-gms/debug
-      dockerfile: Dockerfile
-    ports:             # <--- Add this line
-      - "5005:5005"    # <--- And this line. Must match port from environment file.
-    volumes:
-      - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
-      - ../gms/war/build/libs/:/datahub/datahub-gms/bin
-```
+The screenshot shows an example configuration for IntelliJ using the default GMS debugging port of 5001.
+
+<img src="../imgs/development/intellij-remote-debug.png" />
 
 
 ## Tips for People New To Docker
 
-## Accessing Logs
+### Accessing Logs
 
 It is highly recommended you use [Docker Desktop's dashboard](https://www.docker.com/products/docker-desktop) to access service logs. If you double click an image it will pull up the logs for you.
 
-### Conflicting containers
+### Quickstart Conflicts
 
-If you ran `docker/quickstart.sh` before, your machine may already have a container for DataHub. If you want to run
-`docker/dev.sh` instead, ensure that the old container is removed by running `docker container prune`. The opposite also
-applies.
+If you run quickstart, use `./gradlew quickstartDebug` to return to using the debugging containers.
 
-> Note this only removes containers, not images. Should still be fast to switch between these once you've launched both
-> at least once.
+### Docker Prune
 
-### Unexpected character
+If you run into disk space issues and prune the images & containers you will need to execute the `./gradlew quickstartDebug`
+again.
 
-If you are using Windows WSL (with Ubuntu) and receive an error of 'unexpected character "." in variable name...' while executing `docker/dev.sh` try these steps: 
-- Open up Docker Desktop, click gear icon at top to open the settings and uncheck the "Use Docker Compose V2" option.  Close your terminal, open a new one and try to rerun the command `docker/dev.sh`. In some cases, unchecking the box may not be sufficient, if the problem persists try executing `docker-compose disable-v2` from your terminal.
-- Next, try `sudo docker/dev.sh` and finally, try moving the file `~/.docker/config.json` to `~/.docker/config.json.bak` and retry the command with `sudo`.
+### System Update
+
+The `datahub-upgrade` job will not block the startup of the other containers as it normally
+does in a quickstart or production environment. Normally this is process is required when making updates which
+require Elasticsearch reindexing. If reindexing is required, the UI will render but may temporarily return errors
+until this job finishes.
 
 ### Running a specific service
 
@@ -72,11 +123,11 @@ If you are using Windows WSL (with Ubuntu) and receive an error of 'unexpected c
 running. If you, for some reason, wish to change this behavior, check out these example commands.
 
 ```
-docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml up datahub-gms
+docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose-without-neo4j.m1.yml -f docker-compose.dev.yml up datahub-gms
 ```
 Will only start `datahub-gms` and its dependencies.
 
 ```
-docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.dev.yml up --no-deps datahub-gms
+docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml -f docker-compose-without-neo4j.m1.yml -f docker-compose.dev.yml up --no-deps datahub-gms
 ```
 Will only start `datahub-gms`, without dependencies.

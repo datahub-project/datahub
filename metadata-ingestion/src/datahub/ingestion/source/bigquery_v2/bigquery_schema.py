@@ -99,6 +99,7 @@ class BigqueryView(BaseView):
 @dataclass
 class BigqueryDataset:
     name: str
+    labels: Optional[Dict[str, str]] = None
     created: Optional[datetime] = None
     last_altered: Optional[datetime] = None
     location: Optional[str] = None
@@ -232,7 +233,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('VIEW MATERIALIZED', 'VIEW')
+  table_type in ('MATERIALIZED VIEW', 'VIEW')
 order by
   table_schema ASC,
   table_name ASC
@@ -254,7 +255,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('VIEW MATERIALIZED', 'VIEW')
+  table_type in ('MATERIALIZED VIEW', 'VIEW')
 order by
   table_schema ASC,
   table_name ASC
@@ -279,6 +280,34 @@ from
   and cfp.column_name = c.column_name
 ORDER BY
   table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
+
+    optimized_columns_for_dataset: str = """
+select * from
+(select
+  c.table_catalog as table_catalog,
+  c.table_schema as table_schema,
+  c.table_name as table_name,
+  c.column_name as column_name,
+  c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
+  c.is_nullable as is_nullable,
+  CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
+  description as comment,
+  c.is_hidden as is_hidden,
+  c.is_partitioning_column as is_partitioning_column,
+  -- We count the columns to be able limit it later
+  row_number() over (partition by c.table_catalog, c.table_schema, c.table_name order by c.ordinal_position asc, c.data_type DESC) as column_num,
+  -- Getting the maximum shard for each table
+  row_number() over (partition by c.table_catalog, c.table_schema, ifnull(REGEXP_EXTRACT(c.table_name, r'(.*)_\\d{{8}}$'), c.table_name), cfp.field_path order by c.table_catalog, c.table_schema asc, c.table_name desc) as shard_num
+from
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMNS c
+  join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  and cfp.column_name = c.column_name
+  )
+-- We filter column limit + 1 to make sure we warn about the limit being reached but not reading too much data
+where column_num <= {column_limit} and shard_num = 1
+ORDER BY
+  table_catalog, table_schema, table_name, ordinal_position, column_num ASC, table_name, data_type DESC"""
 
     columns_for_table: str = """
 select
@@ -325,8 +354,7 @@ class BigQueryDataDictionary:
         # FIXME: Due to a bug in BigQuery's type annotations, we need to cast here.
         maxResults = cast(int, maxResults)
         datasets = conn.list_datasets(project_id, max_results=maxResults)
-
-        return [BigqueryDataset(name=d.dataset_id) for d in datasets]
+        return [BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets]
 
     @staticmethod
     def get_datasets_for_project_id_with_information_schema(
@@ -456,7 +484,8 @@ class BigQueryDataDictionary:
         conn: bigquery.Client,
         project_id: str,
         dataset_name: str,
-        column_limit: Optional[int] = None,
+        column_limit: int,
+        run_optimized_column_query: bool = False,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         try:
@@ -464,6 +493,12 @@ class BigQueryDataDictionary:
                 conn,
                 BigqueryQuery.columns_for_dataset.format(
                     project_id=project_id, dataset_name=dataset_name
+                )
+                if not run_optimized_column_query
+                else BigqueryQuery.optimized_columns_for_dataset.format(
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    column_limit=column_limit,
                 ),
             )
         except Exception as e:

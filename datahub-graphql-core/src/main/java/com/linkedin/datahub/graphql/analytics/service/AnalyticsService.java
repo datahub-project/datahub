@@ -77,8 +77,8 @@ public class AnalyticsService {
       Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn) {
 
     log.debug(
-        String.format("Invoked getTimeseriesChart with indexName: %s, dateRange: %s, granularity: %s, dimension: %s,",
-            indexName, dateRange, granularity, dimension) + String.format("filters: %s, uniqueOn: %s", filters,
+        String.format("Invoked getTimeseriesChart with indexName: %s, dateRange: %s to %s, granularity: %s, dimension: %s,",
+            indexName, dateRange.getStart(), dateRange.getEnd(), granularity, dimension) + String.format("filters: %s, uniqueOn: %s", filters,
             uniqueOn));
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange));

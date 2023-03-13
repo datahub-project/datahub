@@ -11,4 +11,5 @@ public class EntityLineageResultCacheKey {
   private final LineageDirection direction;
   private final Long startTimeMillis;
   private final Long endTimeMillis;
+  private final Integer maxHops;
 }

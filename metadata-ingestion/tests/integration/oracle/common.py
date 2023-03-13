@@ -44,14 +44,16 @@ class OracleTestCaseBase:
         self,
         pytestconfig: pytest.Config,
         tmp_path: pathlib.Path,
-        golden_file_name: str = "golden_test_ingest.json",
-        output_file_name: str = "oracle_mce_output.json",
+        golden_file_name: str = "",
+        output_file_name: str = "",
+        add_database_name_to_urn: bool = False,
     ):
         self.pytestconfig = pytestconfig
         self.tmp_path = tmp_path
         self.golden_file_name = golden_file_name
         self.mces_output_file_name = output_file_name
         self.default_mock_data = OracleSourceMockDataBase()
+        self.add_database_name_to_urn = add_database_name_to_urn
 
     def get_recipe_source(self) -> dict:
         return {
@@ -75,12 +77,16 @@ class OracleTestCaseBase:
     def get_database_name(self) -> str:
         return "OraDoc"
 
+    def get_add_database_name_to_urn_flag(self) -> bool:
+        return self.add_database_name_to_urn
+
     def get_default_recipe_config(self) -> OracleConfig:
         return OracleConfig(
             host_port=self.get_oracle_host_port(),
             database=self.get_database_name(),
             username=self.get_username(),
             password=self.get_password(),
+            add_database_name_to_urn=self.add_database_name_to_urn,
         )
 
     def get_test_resource_dir(

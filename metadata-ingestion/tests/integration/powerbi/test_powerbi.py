@@ -3,6 +3,7 @@ import sys
 from typing import Any, Dict
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -81,6 +82,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                         "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
                         "isReadOnly": True,
                         "displayName": "test_dashboard",
+                        "description": "Description of test dashboard",
                         "embedUrl": "https://localhost/dashboards/embed/1",
                         "webUrl": "https://localhost/dashboards/web/1",
                     }
@@ -205,6 +207,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
             "json": {
                 "id": "05169CD2-E713-41E6-9600-1D8066D95445",
                 "name": "library-dataset",
+                "description": "Library dataset description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445",
             },
         },
@@ -214,6 +217,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
             "json": {
                 "id": "05169CD2-E713-41E6-96AA-1D8066D95445",
                 "name": "library-dataset",
+                "description": "Library dataset description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C22-4684-8180-826122881108/datasets/05169CD2-E713-41E6-96AA-1D8066D95445",
             },
         },
@@ -223,6 +227,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
             "json": {
                 "id": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
                 "name": "hr_pbi_test",
+                "description": "hr pbi test description",
                 "webUrl": "http://localhost/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/ba0130a1-5b03-40de-9535-b34e778ea6ed",
             },
         },
@@ -546,6 +551,7 @@ def default_source_config():
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     enable_logging()
 
@@ -584,6 +590,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_ingest_urn_lower_case(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -625,6 +632,7 @@ def test_powerbi_ingest_urn_lower_case(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_override_ownership(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -665,6 +673,7 @@ def test_override_ownership(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_scan_all_workspaces(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -710,6 +719,7 @@ def test_scan_all_workspaces(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     enable_logging()
 
@@ -749,6 +759,7 @@ def test_extract_reports(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     enable_logging()
 
@@ -796,6 +807,7 @@ def test_extract_lineage(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_extract_endorsements(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
@@ -836,6 +848,7 @@ def test_extract_endorsements(
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_admin_access_is_not_allowed(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):

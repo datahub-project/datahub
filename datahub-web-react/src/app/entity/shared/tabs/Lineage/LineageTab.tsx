@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Button, Select, Typography } from 'antd';
-import dayjs from 'dayjs';
+import { Button, Select, Tooltip, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
 import {
@@ -9,6 +8,7 @@ import {
     CaretDownFilled,
     CaretDownOutlined,
     PartitionOutlined,
+    ReloadOutlined,
     SubnodeOutlined,
 } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -25,7 +25,7 @@ import ColumnsLineageSelect from './ColumnLineageSelect';
 import { LineageTabContext } from './LineageTabContext';
 import ManageLineageMenu from '../../../../lineage/manage/ManageLineageMenu';
 import LineageTabTimeSelector from './LineageTabTimeSelector';
-import { useGetTimeParams } from '../../../../lineage/utils/useGetTimeParams';
+import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
 import { ANTD_GRAY } from '../../constants';
 
 const StyledTabToolbar = styled(TabToolbar)`
@@ -62,6 +62,10 @@ const StyledSelect = styled(Select)`
     }
 `;
 
+const RefreshCacheButton = styled(Button)`
+    margin-left: 8px;
+`;
+
 export const LineageTab = ({
     properties = { defaultDirection: LineageDirection.Downstream },
 }: {
@@ -69,14 +73,15 @@ export const LineageTab = ({
 }) => {
     const { urn, entityType, entityData } = useEntityData();
     const history = useHistory();
-    const entityRegistry = useEntityRegistry();
     const location = useLocation();
+    const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(properties.defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
     const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!params?.column);
     const [shouldRefetch, setShouldRefetch] = useState(false);
-    const { startTimeMillis, endTimeMillis } = useGetTimeParams();
+    const [skipCache, setSkipCache] = useState(false);
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     function resetShouldRefetch() {
         setShouldRefetch(false);
@@ -84,9 +89,9 @@ export const LineageTab = ({
 
     const routeToLineage = useCallback(() => {
         history.push(
-            getEntityPath(entityType, urn, entityRegistry, true, false, undefined, {
-                start_time_millis: startTimeMillis || dayjs().subtract(14, 'day').valueOf(),
-                end_time_millis: endTimeMillis || dayjs().valueOf(),
+            getEntityPath(entityType, urn, entityRegistry, true, false, 'Lineage', {
+                start_time_millis: startTimeMillis,
+                end_time_millis: endTimeMillis,
             }),
         );
     }, [history, entityType, urn, entityRegistry, startTimeMillis, endTimeMillis]);
@@ -99,19 +104,19 @@ export const LineageTab = ({
     const directionOptions = [
         {
             label: (
-                <>
+                <span data-testid="lineage-tab-direction-select-option-downstream">
                     <ArrowDownOutlined style={{ marginRight: 4 }} />
                     <b>Downstream</b>
-                </>
+                </span>
             ),
             value: LineageDirection.Downstream,
         },
         {
             label: (
-                <>
+                <span data-testid="lineage-tab-direction-select-option-upstream">
                     <ArrowUpOutlined style={{ marginRight: 4 }} />
                     <b>Upstream</b>
-                </>
+                </span>
             ),
             value: LineageDirection.Upstream,
         },
@@ -154,6 +159,7 @@ export const LineageTab = ({
                         options={directionOptions}
                         onChange={(value) => setLineageDirection(value as LineageDirection)}
                         suffixIcon={<CaretDownOutlined style={{ color: 'black' }} />}
+                        data-testid="lineage-tab-direction-select"
                     />
                     <ColumnsLineageSelect
                         selectedColumn={selectedColumn}
@@ -162,12 +168,24 @@ export const LineageTab = ({
                         setIsColumnLevelLineage={setIsColumnLevelLineage}
                     />
                     <LineageTabTimeSelector />
+                    <Tooltip title="Click to refresh data">
+                        <RefreshCacheButton type="text" onClick={() => setSkipCache(true)}>
+                            <ReloadOutlined />
+                            <Typography.Text>
+                                <b>Refresh</b>
+                            </Typography.Text>
+                        </RefreshCacheButton>
+                    </Tooltip>
                 </RightButtonsWrapper>
             </StyledTabToolbar>
             <LineageTabContext.Provider value={{ isColumnLevelLineage, selectedColumn, lineageDirection }}>
                 <ImpactAnalysis
                     urn={impactAnalysisUrn}
                     direction={lineageDirection as LineageDirection}
+                    startTimeMillis={startTimeMillis}
+                    endTimeMillis={endTimeMillis}
+                    skipCache={skipCache}
+                    setSkipCache={setSkipCache}
                     shouldRefetch={shouldRefetch}
                     resetShouldRefetch={resetShouldRefetch}
                 />

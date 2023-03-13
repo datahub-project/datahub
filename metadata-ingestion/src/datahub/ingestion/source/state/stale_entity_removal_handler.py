@@ -48,7 +48,7 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
         description="Prevents large amount of soft deletes & the state from committing from accidental changes to the source configuration if the relative change percent in entities compared to the previous state is above the 'fail_safe_threshold'.",
         le=100.0,
         ge=0.0,
-        hidden_from_schema=True,
+        hidden_from_docs=True,
     )
 
 
@@ -194,7 +194,7 @@ class StaleEntityRemovalHandler(
         return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
 
     def _init_job_id(self) -> JobId:
-        platform: Optional[str] = getattr(self.source, "platform")
+        platform: Optional[str] = getattr(self.source, "platform", "default")
         return self.compute_job_id(platform)
 
     def _ignore_old_state(self) -> bool:

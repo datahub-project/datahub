@@ -2,8 +2,11 @@ package com.linkedin.metadata;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
-import com.linkedin.metadata.config.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
@@ -44,6 +47,8 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.Map;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 @TestConfiguration
 @Import(ESTestConfiguration.class)
@@ -54,6 +59,9 @@ public class ESSearchLineageFixture {
 
     @Autowired
     private RestHighLevelClient _searchClient;
+
+    @Autowired
+    private SearchConfiguration _searchConfiguration;
 
     @Bean(name = "searchLineagePrefix")
     protected String indexPrefix() {
@@ -68,6 +76,14 @@ public class ESSearchLineageFixture {
     @Bean(name = "searchLineageFixtureName")
     protected String fixtureName() {
         return "search_lineage";
+    }
+
+    @Bean(name = "lineageCacheConfiguration")
+    protected SearchLineageCacheConfiguration searchLineageCacheConfiguration() {
+        SearchLineageCacheConfiguration conf = new SearchLineageCacheConfiguration();
+        conf.setLightningThreshold(300);
+        conf.setTtlSeconds(30);
+        return conf;
     }
 
     @Bean(name = "searchLineageEntityIndexBuilders")
@@ -89,7 +105,8 @@ public class ESSearchLineageFixture {
             @Qualifier("searchLineageEntityIndexBuilders") EntityIndexBuilders indexBuilders,
             @Qualifier("searchLineageIndexConvention") IndexConvention indexConvention
     ) {
-        ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention);
+        ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration);
         ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
@@ -114,7 +131,7 @@ public class ESSearchLineageFixture {
         LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
         ElasticSearchGraphService graphService = new ElasticSearchGraphService(lineageRegistry, _bulkProcessor, indexConvention,
                 new ESGraphWriteDAO(indexConvention, _bulkProcessor, 1),
-                new ESGraphQueryDAO(_searchClient, lineageRegistry, indexConvention), indexBuilder);
+                new ESGraphQueryDAO(_searchClient, lineageRegistry, indexConvention, GraphQueryConfiguration.testDefaults), indexBuilder);
         graphService.configure();
         return graphService;
     }
@@ -125,7 +142,8 @@ public class ESSearchLineageFixture {
             @Qualifier("searchLineageSearchService") SearchService searchService,
             @Qualifier("searchLineageGraphService") ElasticSearchGraphService graphService,
             @Qualifier("searchLineagePrefix") String prefix,
-            @Qualifier("searchLineageFixtureName") String fixtureName
+            @Qualifier("searchLineageFixtureName") String fixtureName,
+            @Qualifier("lineageCacheConfiguration") SearchLineageCacheConfiguration cacheConfiguration
     ) throws IOException {
 
         // Load fixture data (after graphService mappings applied)
@@ -136,7 +154,7 @@ public class ESSearchLineageFixture {
                 .build()
                 .read();
 
-        return new LineageSearchService(searchService, graphService, null, false);
+        return new LineageSearchService(searchService, graphService, null, false, cacheConfiguration);
     }
 
     @Bean(name = "searchLineageSearchService")
@@ -201,7 +219,7 @@ public class ESSearchLineageFixture {
                 false);
 
         return new JavaEntityClient(
-                new EntityService(null, null, entityRegistry),
+                new EntityService(null, null, entityRegistry, true),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,

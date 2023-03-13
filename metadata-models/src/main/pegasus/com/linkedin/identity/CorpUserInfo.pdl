@@ -28,6 +28,7 @@ record CorpUserInfo includes CustomProperties {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
+    "enableAutocomplete": true,
     "boostScore": 10.0
   }
   displayName: optional string
@@ -90,6 +91,7 @@ record CorpUserInfo includes CustomProperties {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "queryByDefault": true,
+    "enableAutocomplete": true,
     "boostScore": 10.0
   }
   fullName: optional string

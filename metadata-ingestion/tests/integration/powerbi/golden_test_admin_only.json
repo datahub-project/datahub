@@ -8,7 +8,7 @@
         "json": {
             "customProperties": {},
             "name": "public issue_history",
-            "description": "public issue_history",
+            "description": "",
             "tags": []
         }
     },
@@ -41,7 +41,7 @@
         "json": {
             "customProperties": {},
             "name": "SNOWFLAKE_TESTTABLE",
-            "description": "SNOWFLAKE_TESTTABLE",
+            "description": "",
             "tags": []
         }
     },
@@ -98,7 +98,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query",
-            "description": "snowflake native-query",
+            "description": "",
             "tags": []
         }
     },
@@ -155,7 +155,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query-with-join",
-            "description": "snowflake native-query-with-join",
+            "description": "",
             "tags": []
         }
     },
@@ -252,7 +252,7 @@
         "json": {
             "customProperties": {},
             "name": "job-history",
-            "description": "job-history",
+            "description": "",
             "tags": []
         }
     },
@@ -309,7 +309,7 @@
         "json": {
             "customProperties": {},
             "name": "postgres_test_table",
-            "description": "postgres_test_table",
+            "description": "",
             "tags": []
         }
     },
@@ -366,7 +366,7 @@
         "json": {
             "customProperties": {},
             "name": "dbo_book_issue",
-            "description": "dbo_book_issue",
+            "description": "",
             "tags": []
         }
     },
@@ -423,7 +423,7 @@
         "json": {
             "customProperties": {},
             "name": "ms_sql_native_table",
-            "description": "ms_sql_native_table",
+            "description": "",
             "tags": []
         }
     },
@@ -585,6 +585,23 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/powerbi/demo-workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
@@ -654,6 +671,23 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/powerbi/demo-workspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test"
+    }
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "UPSERT",
@@ -683,7 +717,7 @@
                 "workspaceId": "64ED5CAD-7C10-4684-8180-826122881108"
             },
             "title": "test_dashboard",
-            "description": "test_dashboard",
+            "description": "",
             "charts": [
                 "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
                 "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
@@ -775,7 +809,7 @@
         "json": {
             "customProperties": {},
             "name": "public issue_history",
-            "description": "public issue_history",
+            "description": "",
             "tags": []
         }
     },
@@ -808,7 +842,7 @@
         "json": {
             "customProperties": {},
             "name": "SNOWFLAKE_TESTTABLE",
-            "description": "SNOWFLAKE_TESTTABLE",
+            "description": "",
             "tags": []
         }
     },
@@ -865,7 +899,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query",
-            "description": "snowflake native-query",
+            "description": "",
             "tags": []
         }
     },
@@ -922,7 +956,7 @@
         "json": {
             "customProperties": {},
             "name": "snowflake native-query-with-join",
-            "description": "snowflake native-query-with-join",
+            "description": "",
             "tags": []
         }
     },
@@ -1019,7 +1053,7 @@
         "json": {
             "customProperties": {},
             "name": "job-history",
-            "description": "job-history",
+            "description": "",
             "tags": []
         }
     },
@@ -1076,7 +1110,7 @@
         "json": {
             "customProperties": {},
             "name": "postgres_test_table",
-            "description": "postgres_test_table",
+            "description": "",
             "tags": []
         }
     },

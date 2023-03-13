@@ -162,7 +162,7 @@ def extract_dbt_entities(
             materialization = manifest_node["config"]["materialized"]
 
         upstream_nodes = []
-        if "depends_on" in manifest_node:
+        if "depends_on" in manifest_node and "nodes" in manifest_node["depends_on"]:
             upstream_nodes = manifest_node["depends_on"]["nodes"]
 
         # It's a source
@@ -483,7 +483,7 @@ class DBTCoreSource(DBTSourceBase):
             return self.config.git_info.get_url_for_file_path(node.dbt_file_path)
         return None
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         """The DBT project identifier is used as platform instance."""
 
         project_id = (

@@ -12,7 +12,7 @@ import lkml
 import lkml.simple
 import pydantic
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api31.models import DBConnection
+from looker_sdk.sdk.api40.models import DBConnection
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
@@ -20,7 +20,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.git import GitInfo
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -33,6 +33,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
@@ -93,6 +94,10 @@ lkml.simple.PLURAL_KEYS = (
     "remote_dependency",
 )
 
+_EXPLORE_FILE_EXTENSION = ".explore.lkml"
+_VIEW_FILE_EXTENSION = ".view.lkml"
+_MODEL_FILE_EXTENSION = ".model.lkml"
+
 
 def _get_bigquery_definition(
     looker_connection: DBConnection,
@@ -137,7 +142,7 @@ class LookerConnectionDefinition(ConfigModel):
     @validator("platform_env")
     def platform_env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
-            return EnvBasedSourceConfigBase.env_must_be_one_of(v)
+            return EnvConfigMixin.env_must_be_one_of(v)
         return v
 
     @validator("platform", "default_db", "default_schema")
@@ -169,7 +174,9 @@ class LookerConnectionDefinition(ConfigModel):
         )
 
 
-class LookMLSourceConfig(LookerCommonConfig, StatefulIngestionConfigBase):
+class LookMLSourceConfig(
+    LookerCommonConfig, StatefulIngestionConfigBase, DatasetSourceConfigMixin
+):
     git_info: Optional[GitInfo] = Field(
         None,
         description="Reference to your git location. If present, supplies handy links to your lookml on the dataset entity page.",
@@ -362,6 +369,24 @@ class LookerModel:
         )
         logger.debug(f"{path} has resolved_includes: {resolved_includes}")
         explores = looker_model_dict.get("explores", [])
+
+        explore_files = [
+            x.include
+            for x in resolved_includes
+            if x.include.endswith(_EXPLORE_FILE_EXTENSION)
+        ]
+        for included_file in explore_files:
+            try:
+                with open(included_file, "r") as file:
+                    parsed = lkml.load(file)
+                    included_explores = parsed.get("explores", [])
+                    explores.extend(included_explores)
+            except Exception as e:
+                reporter.report_warning(
+                    path, f"Failed to load {included_file} due to {e}"
+                )
+                # continue in this case, as it might be better to load and resolve whatever we can
+                pass
 
         return LookerModel(
             connection=connection,
@@ -573,10 +598,14 @@ class LookerViewFileLoader:
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
-        if not path.endswith(".view.lkml"):
+        allowed_extensions = [_VIEW_FILE_EXTENSION, _EXPLORE_FILE_EXTENSION]
+        matched_any_extension = [
+            match for match in [path.endswith(x) for x in allowed_extensions] if match
+        ]
+        if not matched_any_extension:
             # not a view file
             logger.debug(
-                f"Skipping file {path} because it doesn't appear to be a view file"
+                f"Skipping file {path} because it doesn't appear to be a view file. Matched extensions {allowed_extensions}"
             )
             return None
 
@@ -1331,7 +1360,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=looker_view.id.get_urn(self.source_config),
             aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["view"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         )
         events = [subTypeEvent]
         if looker_view.view_details is not None:
@@ -1472,8 +1501,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                         p_ref = p_checkout_dir.resolve()
                     except Exception as e:
                         logger.warning(
-                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on",
-                            e,
+                            f"Failed to clone remote project {project}. This can lead to failures in parsing lookml files later on: {e}",
                         )
                         visited_projects.add(project)
                         continue
@@ -1566,7 +1594,9 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
-        model_files = sorted(self.source_config.base_folder.glob("**/*.model.lkml"))
+        model_files = sorted(
+            self.source_config.base_folder.glob(f"**/*{_MODEL_FILE_EXTENSION}")
+        )
         model_suffix_len = len(".model")
 
         for file_path in model_files:
@@ -1600,6 +1630,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             explore_reachable_views: Set[ProjectInclude] = set()
             if self.source_config.emit_reachable_views_only:
+                model_explores_map = {d["name"]: d for d in model.explores}
                 for explore_dict in model.explores:
                     try:
                         explore: LookerExplore = LookerExplore.from_dict(
@@ -1608,6 +1639,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                             model.resolved_includes,
                             viewfile_loader,
                             self.reporter,
+                            model_explores_map,
                         )
                         if explore.upstream_views:
                             for view_name in explore.upstream_views:
@@ -1746,7 +1778,7 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_report(self):
         return self.reporter
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.source_config.platform_instance or self.platform
 
     def close(self):

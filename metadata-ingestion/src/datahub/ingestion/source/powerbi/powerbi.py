@@ -23,6 +23,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PlatformDetail,
@@ -149,9 +150,12 @@ class Mapper:
     ) -> List[MetadataChangeProposalWrapper]:
         mcps: List[MetadataChangeProposalWrapper] = []
 
+        # table.dataset should always be set, but we check it just in case.
+        parameters = table.dataset.parameters if table.dataset else None
+
         upstreams: List[UpstreamClass] = []
         upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
-            table, self.__reporter
+            table, self.__reporter, parameters=parameters
         )
 
         for upstream_table in upstream_tables:
@@ -194,15 +198,18 @@ class Mapper:
             )
             upstreams.append(upstream_table_class)
 
-            if len(upstreams) > 0:
-                upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
-                mcp = MetadataChangeProposalWrapper(
-                    entityType=Constant.DATASET,
-                    changeType=ChangeTypeClass.UPSERT,
-                    entityUrn=ds_urn,
-                    aspect=upstream_lineage,
-                )
-                mcps.append(mcp)
+        if len(upstreams) > 0:
+            upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+            logger.debug(
+                f"DataSet Lineage = {ds_urn} and its lineage = {upstream_lineage}"
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityType=Constant.DATASET,
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=ds_urn,
+                aspect=upstream_lineage,
+            )
+            mcps.append(mcp)
 
         return mcps
 
@@ -235,7 +242,8 @@ class Mapper:
             logger.debug(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(
-                name=table.name, description=table.name
+                name=table.name,
+                description=dataset.description,
             )
 
             info_mcp = self.new_mcp(
@@ -354,8 +362,14 @@ class Mapper:
             aspect_name=Constant.CHART_KEY,
             aspect=chart_key_instance,
         )
-
-        result_mcps = [info_mcp, status_mcp, chart_key_mcp]
+        browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+        browse_path_mcp = self.new_mcp(
+            entity_type=Constant.CHART,
+            entity_urn=chart_urn,
+            aspect_name=Constant.BROWSERPATH,
+            aspect=browse_path,
+        )
+        result_mcps = [info_mcp, status_mcp, chart_key_mcp, browse_path_mcp]
 
         self.append_container_mcp(
             result_mcps,
@@ -402,7 +416,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=dashboard.displayName or "",
+            description=dashboard.description,
             title=dashboard.displayName or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
@@ -519,7 +533,7 @@ class Mapper:
         container_work_units = gen_containers(
             container_key=workspace_key,
             name=workspace.name,
-            sub_types=["Workspace"],
+            sub_types=[BIContainerSubTypes.POWERBI_WORKSPACE],
         )
         return container_work_units
 
@@ -689,8 +703,14 @@ class Mapper:
                 aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
-
-            list_of_mcps = [info_mcp, status_mcp]
+            browse_path = BrowsePathsClass(paths=["/powerbi/{}".format(workspace.name)])
+            browse_path_mcp = self.new_mcp(
+                entity_type=Constant.CHART,
+                entity_urn=chart_urn,
+                aspect_name=Constant.BROWSERPATH,
+                aspect=browse_path,
+            )
+            list_of_mcps = [info_mcp, status_mcp, browse_path_mcp]
 
             self.append_container_mcp(
                 list_of_mcps,
@@ -729,7 +749,7 @@ class Mapper:
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=report.description or "",
+            description=report.description,
             title=report.name or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
@@ -897,7 +917,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             run_id=ctx.run_id,
         )
 
-    def get_platform_instance_id(self) -> str:
+    def get_platform_instance_id(self) -> Optional[str]:
         return self.source_config.platform_name
 
     @classmethod

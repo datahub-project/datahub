@@ -46,6 +46,10 @@ class SupportedDataPlatform(Enum):
     MS_SQL = DataPlatformPair(
         powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
     )
+    GOOGLE_BIGQUERY = DataPlatformPair(
+        powerbi_data_platform_name="GoogleBigQuery",
+        datahub_data_platform_name="bigquery",
+    )
 
 
 class AbstractTableFullNameCreator(ABC):
@@ -63,6 +67,7 @@ class AbstractTableFullNameCreator(ABC):
 class AbstractDataAccessMQueryResolver(ABC):
     table: Table
     parse_tree: Tree
+    parameters: Dict[str, str]
     reporter: PowerBiDashboardSourceReport
     data_access_functions: List[str]
 
@@ -71,10 +76,12 @@ class AbstractDataAccessMQueryResolver(ABC):
         table: Table,
         parse_tree: Tree,
         reporter: PowerBiDashboardSourceReport,
+        parameters: Dict[str, str],
     ):
         self.table = table
         self.parse_tree = parse_tree
         self.reporter = reporter
+        self.parameters = parameters
         self.data_access_functions = SupportedResolver.get_function_names()
 
     @abstractmethod
@@ -83,8 +90,8 @@ class AbstractDataAccessMQueryResolver(ABC):
 
 
 class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
-    @staticmethod
     def get_item_selector_tokens(
+        self,
         expression_tree: Tree,
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
 
@@ -107,7 +114,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # remove whitespaces and quotes from token
         tokens: List[str] = tree_function.strip_char_from_list(
             tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(cast(Tree, item_selector))
+                tree_function.token_values(
+                    cast(Tree, item_selector), parameters=self.parameters
+                )
             ),
             '"',
         )
@@ -171,9 +180,12 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             return None
 
-        first_argument: Tree = tree_function.flat_argument_list(first_arg_tree)[
-            0
-        ]  # take first argument only
+        flat_arg_list: List[Tree] = tree_function.flat_argument_list(first_arg_tree)
+        if len(flat_arg_list) == 0:
+            logger.debug("flat_arg_list is zero")
+            return None
+
+        first_argument: Tree = flat_arg_list[0]  # take first argument only
         expression: Optional[Tree] = tree_function.first_list_expression_func(
             first_argument
         )
@@ -280,9 +292,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 if result is None:
                     return None  # No need to process some un-expected grammar found while processing invoke_expression
                 if isinstance(result, DataAccessFunctionDetail):
-                    cast(
-                        DataAccessFunctionDetail, result
-                    ).identifier_accessor = identifier_accessor
+                    result.identifier_accessor = identifier_accessor
                     table_links.append(result)  # Link of a table is completed
                     identifier_accessor = (
                         None  # reset the identifier_accessor for other table
@@ -511,15 +521,14 @@ class OracleTableFullNameCreator(AbstractTableFullNameCreator):
         return full_table_names
 
 
-class SnowflakeTableFullNameCreator(AbstractTableFullNameCreator):
-    def get_platform_pair(self) -> DataPlatformPair:
-        return SupportedDataPlatform.SNOWFLAKE.value
-
+class DefaultThreeStepDataAccessSources(AbstractTableFullNameCreator, ABC):
     def get_full_table_names(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[str]:
 
-        logger.debug(f"Processing Snowflake function detail {data_access_func_detail}")
+        logger.debug(
+            f"Processing {self.get_platform_pair().datahub_data_platform_name} function detail {data_access_func_detail}"
+        )
         # First is database name
         db_name: str = data_access_func_detail.identifier_accessor.items["Name"]  # type: ignore
         # Second is schema name
@@ -533,9 +542,21 @@ class SnowflakeTableFullNameCreator(AbstractTableFullNameCreator):
 
         full_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
-        logger.debug(f"Snowflake full-table-name {full_table_name}")
+        logger.debug(
+            f"{self.get_platform_pair().datahub_data_platform_name} full-table-name {full_table_name}"
+        )
 
         return [full_table_name]
+
+
+class SnowflakeTableFullNameCreator(DefaultThreeStepDataAccessSources):
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.SNOWFLAKE.value
+
+
+class GoogleBigQueryTableFullNameCreator(DefaultThreeStepDataAccessSources):
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.GOOGLE_BIGQUERY.value
 
 
 class NativeQueryTableFullNameCreator(AbstractTableFullNameCreator):
@@ -599,6 +620,7 @@ class FunctionName(Enum):
     ORACLE_DATA_ACCESS = "Oracle.Database"
     SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
     MSSQL_DATA_ACCESS = "Sql.Database"
+    GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
 
 
 class SupportedResolver(Enum):
@@ -622,6 +644,10 @@ class SupportedResolver(Enum):
         FunctionName.MSSQL_DATA_ACCESS,
     )
 
+    GOOGLE_BIG_QUERY = (
+        GoogleBigQueryTableFullNameCreator,
+        FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS,
+    )
     NATIVE_QUERY = (
         NativeQueryTableFullNameCreator,
         FunctionName.NATIVE_QUERY,

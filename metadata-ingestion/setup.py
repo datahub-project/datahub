@@ -54,6 +54,8 @@ framework_common = {
     "ijson",
     "click-spinner",
     "requests_file",
+    "jsonref",
+    "jsonschema",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -108,7 +110,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy>=1.3.24, <2",
     # Required for SQL profiling.
-    "great-expectations>=0.15.12, <=0.15.41",
+    "great-expectations>=0.15.12, <=0.15.50",
     # scipy version restricted to reduce backtracking, used by great-expectations,
     "scipy>=1.7.2",
     # GE added handling for higher version of jinja2
@@ -136,7 +138,7 @@ path_spec_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==22.2.1",
+    "looker-sdk==23.0.0",
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
@@ -147,9 +149,8 @@ looker_common = {
 }
 
 bigquery_common = {
-    "google-api-python-client",
     # Google cloud logging library
-    "google-cloud-logging<3.1.2",
+    "google-cloud-logging<=3.5.0",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
 }
@@ -179,11 +180,12 @@ snowflake_common = {
     # because it may break Airflow users that need SQLAlchemy 1.3.x.
     "SQLAlchemy<1.4.42",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    "snowflake-connector-python!=2.8.2",
+    # Cannot upgrade to 3.0.0 because of dependency on pyarrow>=10.0.1, conflicts with feast
+    "snowflake-connector-python!=2.8.2, <3.0.0",
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify>=0.0.4",
+    "acryl-datahub-classify==0.0.6",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -248,7 +250,6 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 2.0.2",
         *rest_common,
-        *kafka_common,
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -309,6 +310,7 @@ plugins: Dict[str, Set[str]] = {
         "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     },
     "iceberg": iceberg_common,
+    "json-schema": set(),
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
@@ -428,6 +430,7 @@ base_dev_requirements = {
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
             "iceberg",
+            "json-schema",
             "ldap",
             "looker",
             "lookml",
@@ -515,6 +518,7 @@ entry_points = {
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
+        "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",

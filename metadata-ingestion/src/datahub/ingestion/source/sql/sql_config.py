@@ -8,6 +8,7 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -19,7 +20,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class SQLAlchemyConfig(StatefulIngestionConfigBase):
+class SQLAlchemyConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     options: dict = pydantic.Field(
         default_factory=dict,
         description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
@@ -108,6 +109,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
 
     _database_alias_deprecation = pydantic_field_deprecated(
         "database_alias",
+        new_field="platform_instance",
         message="database_alias is deprecated. Use platform_instance instead.",
     )
 
