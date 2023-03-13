@@ -2,6 +2,8 @@
 // - The let_expression definition has added the whitespace rule instead of the required newline.
 //   This allows the parser to be less strict about whitespace.
 // - Add inline whitespace to item_selection and optional_item_selection.
+// - Add support for  each in invoke_expression
+// - Add support for relational operator in each_expression_body
 
 
 lexical_unit:   lexical_elements?
