@@ -295,143 +295,6 @@ public class ESGraphQueryDAO {
     return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
   }
 
-  private UrnArrayArray getAndUpdatePaths(Map<Urn, UrnArrayArray> existingPaths, Urn parentUrn, Urn childUrn) {
-    try {
-      UrnArrayArray pathsToParent = existingPaths.get(parentUrn);
-      // Collect all full-paths to this child node. This is what will be returned.
-      UrnArrayArray pathsToChild = new UrnArrayArray();
-      if (pathsToParent != null && pathsToParent.size() > 0) {
-        // If there are existing paths for this parent, then we attempt
-        // to append the child to each of the existing paths (lengthen it).
-        // We then store this as a separate, unique path for the child.
-        for (UrnArray pathToParent : pathsToParent) {
-          UrnArray pathToChild = pathToParent.clone();
-          pathToChild.add(childUrn);
-          pathsToChild.add(pathToChild);
-          existingPaths.putIfAbsent(childUrn, new UrnArrayArray());
-          existingPaths.get(childUrn).add(pathToChild);
-        }
-      } else {
-        // No existing paths to this parent urn. Let's create one!
-        UrnArray pathToChild = new UrnArray();
-        pathToChild.addAll(ImmutableList.of(parentUrn, childUrn));
-        pathsToChild.add(pathToChild);
-        existingPaths.putIfAbsent(childUrn, new UrnArrayArray());
-        existingPaths.get(childUrn).add(pathToChild);
-      }
-      return pathsToChild;
-    } catch (CloneNotSupportedException e) {
-      throw new RuntimeException(String.format("Failed to create paths for parentUrn %s and childUrn %s", parentUrn, childUrn), e);
-    }
-  }
-
-  // Given set of edges and the search response, extract all valid edges that originate from the input entityUrns
-  @WithSpan
-  private List<LineageRelationship> extractRelationships(@Nonnull Set<Urn> entityUrns,
-      @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges, Set<Urn> visitedEntities,
-      int numHops, Map<Urn, UrnArrayArray> existingPaths) {
-    final List<LineageRelationship> result = new LinkedList<>();
-    final SearchHit[] hits = searchResponse.getHits().getHits();
-    for (SearchHit hit : hits) {
-      final Map<String, Object> document = hit.getSourceAsMap();
-      final Urn sourceUrn = UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
-      final Urn destinationUrn =
-          UrnUtils.getUrn(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
-      final String type = document.get(RELATIONSHIP_TYPE).toString();
-      final Number createdOnNumber = (Number) document.getOrDefault(CREATED_ON, null);
-      final Long createdOn = createdOnNumber != null ? createdOnNumber.longValue() : null;
-      final Number updatedOnNumber = (Number) document.getOrDefault(UPDATED_ON, null);
-      final Long updatedOn = updatedOnNumber != null ? updatedOnNumber.longValue() : null;
-      final String createdActorString = (String) document.getOrDefault(CREATED_ACTOR, null);
-      final Urn createdActor = createdActorString == null ? null : UrnUtils.getUrn(createdActorString);
-      final String updatedActorString = (String) document.getOrDefault(UPDATED_ACTOR, null);
-      final Urn updatedActor = updatedActorString == null ? null : UrnUtils.getUrn(updatedActorString);
-      final Map<String, Object> properties;
-      if (document.containsKey(PROPERTIES) && document.get(PROPERTIES) instanceof Map) {
-        properties = (Map<String, Object>) document.get(PROPERTIES);
-      } else {
-        properties = Collections.emptyMap();
-      }
-      boolean isManual = properties.containsKey(SOURCE) && properties.get(SOURCE).equals("UI");
-
-      // Potential outgoing edge
-      if (entityUrns.contains(sourceUrn)) {
-        // Skip if already visited
-        // Skip if edge is not a valid outgoing edge
-        if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
-            Pair.of(sourceUrn.getEntityType(),
-                new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType().toLowerCase())))) {
-          visitedEntities.add(destinationUrn);
-          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, sourceUrn, destinationUrn);
-          final LineageRelationship relationship =
-              createLineageRelationship(
-                  type,
-                  destinationUrn,
-                  numHops,
-                  paths,
-                  createdOn,
-                  createdActor,
-                  updatedOn,
-                  updatedActor,
-                  isManual);
-          result.add(relationship);
-        }
-      }
-
-      // Potential incoming edge
-      if (entityUrns.contains(destinationUrn)) {
-        // Skip if already visited
-        // Skip if edge is not a valid outgoing edge
-        if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
-            Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING, sourceUrn.getEntityType().toLowerCase())))) {
-          visitedEntities.add(sourceUrn);
-          final UrnArrayArray paths = getAndUpdatePaths(existingPaths, destinationUrn, sourceUrn);
-          final LineageRelationship relationship = createLineageRelationship(
-              type,
-              sourceUrn,
-              numHops,
-              paths,
-              createdOn,
-              createdActor,
-              updatedOn,
-              updatedActor,
-              isManual);
-          result.add(relationship);
-        }
-      }
-    }
-    return result;
-  }
-
-  private LineageRelationship createLineageRelationship(
-      @Nonnull final String type,
-      @Nonnull final Urn entityUrn,
-      final int numHops,
-      @Nonnull final UrnArrayArray paths,
-      @Nullable final Long createdOn,
-      @Nullable final Urn createdActor,
-      @Nullable final Long updatedOn,
-      @Nullable final Urn updatedActor,
-      final boolean isManual
-  ) {
-    final LineageRelationship relationship =
-        new LineageRelationship().setType(type).setEntity(entityUrn).setDegree(numHops).setPaths(paths);
-    if (createdOn != null) {
-      relationship.setCreatedOn(createdOn);
-    }
-    if (createdActor != null) {
-      relationship.setCreatedActor(createdActor);
-    }
-    if (updatedOn != null) {
-      relationship.setUpdatedOn(updatedOn);
-    }
-    if (updatedActor != null) {
-      relationship.setUpdatedActor(updatedActor);
-    }
-    relationship.setIsManual(isManual);
-    return relationship;
-  }
-
   // Get search query for given list of edges and source urns
   @VisibleForTesting
   static QueryBuilder getQueryForLineage(
@@ -474,6 +337,168 @@ public class ESGraphQueryDAO {
     return query;
   }
 
+  /**
+   * Adds an individual relationship edge to a running set of unique paths to each node in the graph.
+   *
+   * Specifically, this method updates 'existingPaths', which is a map of an entity urn representing a node in the
+   * lineage graph to the full paths that can be traversed to reach it from a the origin node for which lineage
+   * was requested.
+   *
+   * This method strictly assumes that edges are being added IN ORDER, level-by-level working outwards from the originally
+   * requested source node. If edges are added to the path set in an out of order manner, then the paths to a given node
+   * may be partial / incomplete.
+   *
+   * Note that calling this method twice with the same edge is not safe. It will result in duplicate paths being appended
+   * into the list of paths to the provided child urn.
+   *
+   * @param existingPaths a running set of unique, uni-directional paths to each node in the graph starting from the original root node
+   *                      for which lineage was requested.
+   * @param parentUrn the "parent" node (or source node) in the edge to add. This is a logical source node in a uni-directional path from the source
+   *                  to the destination node. Note that this is NOT always the URN corresponding to the "source" field that is physically stored
+   *                  inside the Graph Store.
+   * @param childUrn the "child" node (or dest node) in the edge to add. This is a logical dest node in a uni-directional path from the
+   *                 source to the destination node. Note that this is NOT always the URN corresponding to the "destination" field that is
+   *                 physically stored inside the Graph Store.
+   */
+  @VisibleForTesting
+  static void addEdgeToPaths(
+      @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
+      @Nonnull final Urn parentUrn,
+      @Nonnull final Urn childUrn) {
+    // Collect all full-paths to this child node. This is what will be returned.
+    UrnArrayArray pathsToParent = existingPaths.get(parentUrn);
+    if (pathsToParent != null && pathsToParent.size() > 0) {
+      // If there are existing paths to this parent node, then we attempt
+      // to append the child to each of the existing paths (lengthen it).
+      // We then store this as a separate, unique path associated with the child.
+      for (final UrnArray pathToParent : pathsToParent) {
+        UrnArray pathToChild = clonePath(pathToParent);
+        pathToChild.add(childUrn);
+        // Save these paths to the global structure for easy access on future iterations.
+        existingPaths.putIfAbsent(childUrn, new UrnArrayArray());
+        existingPaths.get(childUrn).add(pathToChild);
+      }
+    } else {
+      // No existing paths to this parent urn. Let's create a new path to the child!
+      UrnArray pathToChild = new UrnArray();
+      pathToChild.addAll(ImmutableList.of(parentUrn, childUrn));
+      // Save these paths to the global structure for easy access on future iterations.
+      existingPaths.putIfAbsent(childUrn, new UrnArrayArray());
+      existingPaths.get(childUrn).add(pathToChild);
+    }
+  }
+
+  // Given set of edges and the search response, extract all valid edges that originate from the input entityUrns
+  @WithSpan
+  private static List<LineageRelationship> extractRelationships(@Nonnull Set<Urn> entityUrns,
+      @Nonnull SearchResponse searchResponse, Set<Pair<String, EdgeInfo>> validEdges, Set<Urn> visitedEntities,
+      int numHops, Map<Urn, UrnArrayArray> existingPaths) {
+    final List<LineageRelationship> result = new LinkedList<>();
+    final SearchHit[] hits = searchResponse.getHits().getHits();
+    for (SearchHit hit : hits) {
+      final Map<String, Object> document = hit.getSourceAsMap();
+      final Urn sourceUrn = UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
+      final Urn destinationUrn =
+          UrnUtils.getUrn(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
+      final String type = document.get(RELATIONSHIP_TYPE).toString();
+      final Number createdOnNumber = (Number) document.getOrDefault(CREATED_ON, null);
+      final Long createdOn = createdOnNumber != null ? createdOnNumber.longValue() : null;
+      final Number updatedOnNumber = (Number) document.getOrDefault(UPDATED_ON, null);
+      final Long updatedOn = updatedOnNumber != null ? updatedOnNumber.longValue() : null;
+      final String createdActorString = (String) document.getOrDefault(CREATED_ACTOR, null);
+      final Urn createdActor = createdActorString == null ? null : UrnUtils.getUrn(createdActorString);
+      final String updatedActorString = (String) document.getOrDefault(UPDATED_ACTOR, null);
+      final Urn updatedActor = updatedActorString == null ? null : UrnUtils.getUrn(updatedActorString);
+      final Map<String, Object> properties;
+      if (document.containsKey(PROPERTIES) && document.get(PROPERTIES) instanceof Map) {
+        properties = (Map<String, Object>) document.get(PROPERTIES);
+      } else {
+        properties = Collections.emptyMap();
+      }
+      boolean isManual = properties.containsKey(SOURCE) && properties.get(SOURCE).equals("UI");
+
+      // Potential outgoing edge
+      if (entityUrns.contains(sourceUrn)) {
+        // Skip if already visited
+        // Skip if edge is not a valid outgoing edge
+        // TODO: Verify if this honors multiple paths to the same node.
+        if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
+            Pair.of(sourceUrn.getEntityType(),
+                new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType().toLowerCase())))) {
+          visitedEntities.add(destinationUrn);
+          // Append the edge to a set of unique graph paths.
+          addEdgeToPaths(existingPaths, sourceUrn, destinationUrn);
+          final LineageRelationship relationship =
+              createLineageRelationship(
+                  type,
+                  destinationUrn,
+                  numHops,
+                  existingPaths.getOrDefault(destinationUrn, new UrnArrayArray()), // Fetch the paths to the next level entity.
+                  createdOn,
+                  createdActor,
+                  updatedOn,
+                  updatedActor,
+                  isManual);
+          result.add(relationship);
+        }
+      }
+
+      // Potential incoming edge
+      if (entityUrns.contains(destinationUrn)) {
+        // Skip if already visited
+        // Skip if edge is not a valid outgoing edge
+        // TODO: Verify if this honors multiple paths to the same node.
+        if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
+            Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING, sourceUrn.getEntityType().toLowerCase())))) {
+          visitedEntities.add(sourceUrn);
+          // Append the edge to a set of unique graph paths.
+          addEdgeToPaths(existingPaths, destinationUrn, sourceUrn);
+          final LineageRelationship relationship = createLineageRelationship(
+              type,
+              sourceUrn,
+              numHops,
+              existingPaths.getOrDefault(sourceUrn, new UrnArrayArray()), // Fetch the paths to the next level entity.
+              createdOn,
+              createdActor,
+              updatedOn,
+              updatedActor,
+              isManual);
+          result.add(relationship);
+        }
+      }
+    }
+    return result;
+  }
+
+  private static LineageRelationship createLineageRelationship(
+      @Nonnull final String type,
+      @Nonnull final Urn entityUrn,
+      final int numHops,
+      @Nonnull final UrnArrayArray paths,
+      @Nullable final Long createdOn,
+      @Nullable final Urn createdActor,
+      @Nullable final Long updatedOn,
+      @Nullable final Urn updatedActor,
+      final boolean isManual
+  ) {
+    final LineageRelationship relationship =
+        new LineageRelationship().setType(type).setEntity(entityUrn).setDegree(numHops).setPaths(paths);
+    if (createdOn != null) {
+      relationship.setCreatedOn(createdOn);
+    }
+    if (createdActor != null) {
+      relationship.setCreatedActor(createdActor);
+    }
+    if (updatedOn != null) {
+      relationship.setUpdatedOn(updatedOn);
+    }
+    if (updatedActor != null) {
+      relationship.setUpdatedActor(updatedActor);
+    }
+    relationship.setIsManual(isManual);
+    return relationship;
+  }
+
   private static BoolQueryBuilder getOutGoingEdgeQuery(
       @Nonnull List<Urn> urns,
       @Nonnull List<EdgeInfo> outgoingEdges,
@@ -495,6 +520,14 @@ public class ESGraphQueryDAO {
     incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
     incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
     return incomingEdgeQuery;
+  }
+
+  private static UrnArray clonePath(final UrnArray basePath) {
+    try {
+      return basePath.clone();
+    } catch (CloneNotSupportedException e) {
+      throw new RuntimeException(String.format("Failed to clone path %s", basePath), e);
+    }
   }
 
   private static QueryBuilder buildEntityTypesFilter(@Nonnull List<String> entityTypes, @Nonnull String prefix) {
